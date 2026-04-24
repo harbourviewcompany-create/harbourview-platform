@@ -9,7 +9,7 @@
 //
 // Required env (all set in .env.local):
 //   NEXT_PUBLIC_SUPABASE_URL
-//   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+//   NEXT_PUBLIC_SUPABASE_ANON_KEY
 //   SUPABASE_SERVICE_ROLE_KEY
 //   TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD
 //   TEST_ANALYST_EMAIL / TEST_ANALYST_PASSWORD
@@ -31,7 +31,7 @@ const service: TestSupabaseClient = createClient<any, "public", any>(SUPABASE_UR
 async function signIn(email: string, password: string): Promise<TestSupabaseClient> {
   const client: TestSupabaseClient = createClient<any, "public", any>(
     SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw new Error(`signIn failed for ${email}: ${error.message}`);

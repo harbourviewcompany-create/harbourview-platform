@@ -61,7 +61,7 @@ export function getPublicSupabaseEnv(): PublicSupabaseEnv {
 
   return {
     supabaseUrl: requireHttpUrl("NEXT_PUBLIC_SUPABASE_URL"),
-    supabasePublishableKey: requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+    supabasePublishableKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     appUrl,
     isProduction,
   };
