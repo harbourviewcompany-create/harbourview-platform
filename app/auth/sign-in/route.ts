@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { attachSecurityHeaders, isSafeRelativePath } from "@/lib/security/http";
-import { getClientIp, isRateLimited } from "@/lib/security/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
 
@@ -17,8 +17,14 @@ function redirectToLogin(request: NextRequest, error: string, next?: string | nu
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  if (isRateLimited(`signin:${ip}`, { limit: 10, windowMs: 60_000 })) {
-    return redirectToLogin(request, "Too many sign-in attempts. Try again shortly.");
+
+  try {
+    const rateLimit = await checkRateLimit(ip, { namespace: "signin", limit: 10, windowSeconds: 60 });
+    if (!rateLimit.allowed) {
+      return redirectToLogin(request, "Too many sign-in attempts. Try again shortly.");
+    }
+  } catch {
+    return redirectToLogin(request, "Sign-in is temporarily unavailable. Try again shortly.");
   }
 
   const formData = await request.formData();
