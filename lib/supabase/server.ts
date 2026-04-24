@@ -1,30 +1,29 @@
 // lib/supabase/server.ts
-// Server-side Supabase client — uses cookies for session (Next.js App Router)
+// Server-side Supabase client. Uses validated public Supabase env vars and cookie-backed sessions.
 
 import { createServerClient as _createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getPublicSupabaseEnv, assertNoPublicSecretExposure } from "@/lib/security/env";
 
 export async function createServerClient() {
+  assertNoPublicSecretExposure();
+  const env = getPublicSupabaseEnv();
   const cookieStore = await cookies();
 
-  return _createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // Server components cannot set cookies — safe to ignore in RSC context
-          }
-        },
+  return _createServerClient(env.supabaseUrl, env.supabasePublishableKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Server components cannot set cookies. Middleware refreshes sessions for request paths.
+        }
+      },
+    },
+  });
 }
