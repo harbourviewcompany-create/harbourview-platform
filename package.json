@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "vitest run",
+    "lint": "eslint .",
+    "test": "vitest run --exclude tests/golden-path.test.ts",
+    "test:acceptance": "vitest run tests/golden-path.test.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
