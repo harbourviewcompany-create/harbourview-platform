@@ -2,26 +2,19 @@
 /**
  * Harbourview Production Spine — setup.mjs
  *
- * Does everything in one shot:
- *   1. Applies all migrations via Supabase management API
- *   2. Sets passwords for admin + analyst auth users
- *   3. Writes passwords into .env.local
- *   4. Runs npm install
- *   5. Starts the dev server
- *   6. Waits for it to be ready
- *   7. Runs npm test
- *   8. Kills the dev server and reports pass/fail
+ * Local setup helper only. This script intentionally does NOT contain secrets.
+ * Required secrets must be supplied through environment variables or .env.local.
  *
  * Usage:
  *   node setup.mjs --pat=<your-supabase-personal-access-token> \
  *                  --admin-password=<choose-any-password> \
  *                  --analyst-password=<choose-any-password>
  *
- * Get a PAT at: https://supabase.com/dashboard/account/tokens
- * Passwords: choose anything — they're only written to .env.local and
- *            set in the Supabase auth system for the test users.
+ * Required env:
+ *   SUPABASE_SERVICE_ROLE_KEY=<rotated service role key>
  *
- * Run from the project root (same folder as package.json).
+ * Get a Supabase PAT at: https://supabase.com/dashboard/account/tokens
+ * Run from the project root, same folder as package.json.
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -34,21 +27,40 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const PROJECT_REF   = "tpfvhhrwzsofhdcfdenc";
-const SUPABASE_URL  = `https://${PROJECT_REF}.supabase.co`;
-const MGMT_API      = "https://api.supabase.com";
+const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "tpfvhhrwzsofhdcfdenc";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || `https://${PROJECT_REF}.supabase.co`;
+const MGMT_API = "https://api.supabase.com";
 
-const SERVICE_ROLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-  "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZnZoaHJ3enNvZmhkY2ZkZW5jIiwic" +
-  "m9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjcwNDY1MiwiZXhwIjoyMDkyMjg" +
-  "wNjUyfQ.U7HBrpD4f94S1rm6qJ7vSLJOfvY4eE6JsaTW5xHv1c0";
+const ADMIN_UUID = process.env.TEST_ADMIN_USER_ID || "9866753f-1a8d-495c-8ab8-d0d1eebfce04";
+const ANALYST_UUID = process.env.TEST_ANALYST_USER_ID || "31e6281c-aec9-4c6d-a9c3-4852b1c057d5";
 
-const ADMIN_UUID    = "9866753f-1a8d-495c-8ab8-d0d1eebfce04";
-const ANALYST_UUID  = "31e6281c-aec9-4c6d-a9c3-4852b1c057d5";
+const APP_PORT = Number(process.env.PORT || 3000);
+const APP_URL = process.env.APP_URL || `http://localhost:${APP_PORT}`;
 
-const APP_PORT      = 3000;
-const APP_URL       = `http://localhost:${APP_PORT}`;
+// ─── Env loading ──────────────────────────────────────────────────────────────
+
+function loadDotEnvLocal() {
+  const envPath = resolve(__dirname, ".env.local");
+  if (!existsSync(envPath)) return;
+
+  const lines = readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const idx = trimmed.indexOf("=");
+    if (idx === -1) continue;
+
+    const key = trimmed.slice(0, idx).trim();
+    const value = trimmed.slice(idx + 1).trim().replace(/^['"]|['"]$/g, "");
+
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadDotEnvLocal();
 
 // ─── Arg parsing ─────────────────────────────────────────────────────────────
 
@@ -71,24 +83,32 @@ async function prompt(question) {
   });
 }
 
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value || value.includes("replace-with")) {
+    throw new Error(`${name} is required. Put it in .env.local or export it before running setup.mjs.`);
+  }
+  return value;
+}
+
 // ─── Logging ─────────────────────────────────────────────────────────────────
 
 const C = {
   reset: "\x1b[0m",
-  bold:  "\x1b[1m",
+  bold: "\x1b[1m",
   green: "\x1b[32m",
-  red:   "\x1b[31m",
-  yellow:"\x1b[33m",
-  cyan:  "\x1b[36m",
-  grey:  "\x1b[90m",
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
+  cyan: "\x1b[36m",
+  grey: "\x1b[90m",
 };
 
-function log(msg)    { console.log(`${C.cyan}▸${C.reset} ${msg}`); }
-function ok(msg)     { console.log(`${C.green}✓${C.reset} ${msg}`); }
-function fail(msg)   { console.log(`${C.red}✗${C.reset} ${msg}`); }
-function warn(msg)   { console.log(`${C.yellow}⚠${C.reset} ${msg}`); }
+function log(msg) { console.log(`${C.cyan}▸${C.reset} ${msg}`); }
+function ok(msg) { console.log(`${C.green}✓${C.reset} ${msg}`); }
+function fail(msg) { console.log(`${C.red}✗${C.reset} ${msg}`); }
+function warn(msg) { console.log(`${C.yellow}⚠${C.reset} ${msg}`); }
 function header(msg) { console.log(`\n${C.bold}${msg}${C.reset}`); }
-function grey(msg)   { console.log(`${C.grey}  ${msg}${C.reset}`); }
+function grey(msg) { console.log(`${C.grey}  ${msg}${C.reset}`); }
 
 // ─── Step 1: Apply migrations ─────────────────────────────────────────────────
 
@@ -104,23 +124,19 @@ async function applyMigrations(pat) {
   log(`Loaded APPLY_ALL.sql (${(sql.length / 1024).toFixed(0)} KB)`);
   log("Posting to Supabase management API...");
 
-  const res = await fetch(
-    `${MGMT_API}/v1/projects/${PROJECT_REF}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${pat}`,
-      },
-      body: JSON.stringify({ query: sql }),
-    }
-  );
+  const res = await fetch(`${MGMT_API}/v1/projects/${PROJECT_REF}/database/query`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${pat}`,
+    },
+    body: JSON.stringify({ query: sql }),
+  });
 
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
     const msg = body?.message || body?.error || JSON.stringify(body);
-    // Check for "already exists" — means migrations were already applied
     if (msg.includes("already exists") || res.status === 409) {
       warn("Some objects already exist — migrations may have been partially applied.");
       warn("If this is a fresh project, drop and re-create it, then re-run.");
@@ -132,35 +148,31 @@ async function applyMigrations(pat) {
     ok("All migrations applied successfully");
   }
 
-  // Run verification query
   log("Running seed verification query...");
-  const verifyRes = await fetch(
-    `${MGMT_API}/v1/projects/${PROJECT_REF}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${pat}`,
-      },
-      body: JSON.stringify({
-        query: `
-          select s.review_status, count(se.id) as evidence_count,
-                 d.status as dossier_status, pe.api_token
-          from signals s
-          left join signal_evidence se on se.signal_id = s.id
-          left join dossier_items di on di.signal_id = s.id
-          left join dossiers d on d.id = di.dossier_id
-          left join publish_events pe
-            on pe.dossier_id = d.id and pe.status = 'completed'
-          where s.id = '00000000-0000-0000-0000-000000000040'
-          group by s.review_status, d.status, pe.api_token;
-        `,
-      }),
-    }
-  );
+  const verifyRes = await fetch(`${MGMT_API}/v1/projects/${PROJECT_REF}/database/query`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${pat}`,
+    },
+    body: JSON.stringify({
+      query: `
+        select s.review_status, count(se.id) as evidence_count,
+               d.status as dossier_status, pe.api_token
+        from signals s
+        left join signal_evidence se on se.signal_id = s.id
+        left join dossier_items di on di.signal_id = s.id
+        left join dossiers d on d.id = di.dossier_id
+        left join publish_events pe
+          on pe.dossier_id = d.id and pe.status = 'completed'
+        where s.id = '00000000-0000-0000-0000-000000000040'
+        group by s.review_status, d.status, pe.api_token;
+      `,
+    }),
+  });
 
   const verifyBody = await verifyRes.json().catch(() => ({}));
-  if (verifyRes.ok && verifyBody?.length > 0) {
+  if (verifyRes.ok && Array.isArray(verifyBody) && verifyBody.length > 0) {
     const row = verifyBody[0];
     if (row.review_status === "approved" && row.dossier_status === "published") {
       ok(`Seed verified: review_status=${row.review_status}, dossier_status=${row.dossier_status}, evidence_count=${row.evidence_count}`);
@@ -168,35 +180,32 @@ async function applyMigrations(pat) {
       warn(`Seed check returned unexpected values: ${JSON.stringify(row)}`);
     }
   } else {
-    warn("Seed verification returned no rows — check that 0009 applied cleanly");
+    warn("Seed verification returned no rows — check that seed migrations applied cleanly");
   }
 }
 
 // ─── Step 2: Set auth user passwords ─────────────────────────────────────────
 
-async function setUserPasswords(adminPassword, analystPassword) {
+async function setUserPasswords(serviceRoleKey, adminPassword, analystPassword) {
   header("Step 2 — Setting auth user passwords");
 
   const users = [
-    { id: ADMIN_UUID,   email: "admin@harbourview.io",   password: adminPassword,   label: "admin" },
-    { id: ANALYST_UUID, email: "analyst@harbourview.io", password: analystPassword, label: "analyst" },
+    { id: ADMIN_UUID, email: process.env.TEST_ADMIN_EMAIL || "admin@harbourview.io", password: adminPassword, label: "admin" },
+    { id: ANALYST_UUID, email: process.env.TEST_ANALYST_EMAIL || "analyst@harbourview.io", password: analystPassword, label: "analyst" },
   ];
 
   for (const user of users) {
     log(`Setting password for ${user.email}...`);
 
-    const res = await fetch(
-      `${SUPABASE_URL}/auth/v1/admin/users/${user.id}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({ password: user.password }),
-      }
-    );
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ password: user.password }),
+    });
 
     const body = await res.json().catch(() => ({}));
 
@@ -212,18 +221,31 @@ async function setUserPasswords(adminPassword, analystPassword) {
 
 // ─── Step 3: Write .env.local ─────────────────────────────────────────────────
 
+function upsertEnvValue(content, key, value) {
+  const line = `${key}=${value}`;
+  const pattern = new RegExp(`^${key}=.*$`, "m");
+  if (pattern.test(content)) return content.replace(pattern, line);
+  return `${content.replace(/\s*$/, "")}\n${line}\n`;
+}
+
 function writeEnvLocal(adminPassword, analystPassword) {
   header("Step 3 — Writing .env.local");
 
   const envPath = resolve(__dirname, ".env.local");
-  let content = readFileSync(envPath, "utf8");
+  const examplePath = resolve(__dirname, ".env.example");
 
-  content = content
-    .replace(/TEST_ADMIN_PASSWORD=.*/, `TEST_ADMIN_PASSWORD=${adminPassword}`)
-    .replace(/TEST_ANALYST_PASSWORD=.*/, `TEST_ANALYST_PASSWORD=${analystPassword}`);
+  let content = "";
+  if (existsSync(envPath)) {
+    content = readFileSync(envPath, "utf8");
+  } else if (existsSync(examplePath)) {
+    content = readFileSync(examplePath, "utf8");
+  }
+
+  content = upsertEnvValue(content, "TEST_ADMIN_PASSWORD", adminPassword);
+  content = upsertEnvValue(content, "TEST_ANALYST_PASSWORD", analystPassword);
 
   writeFileSync(envPath, content, "utf8");
-  ok(".env.local updated with passwords");
+  ok(".env.local updated with test passwords");
 }
 
 // ─── Step 4: npm install ──────────────────────────────────────────────────────
@@ -308,8 +330,7 @@ async function main() {
 
   const args = parseArgs();
 
-  // Get PAT
-  let pat = args["pat"];
+  let pat = args.pat;
   if (!pat) {
     console.log("A Supabase Personal Access Token is needed to apply migrations.");
     console.log("Get one at: https://supabase.com/dashboard/account/tokens\n");
@@ -317,21 +338,21 @@ async function main() {
   }
   if (!pat) throw new Error("PAT is required");
 
-  // Get passwords
-  let adminPassword = args["admin-password"];
-  let analystPassword = args["analyst-password"];
+  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  let adminPassword = args["admin-password"] || process.env.TEST_ADMIN_PASSWORD;
+  let analystPassword = args["analyst-password"] || process.env.TEST_ANALYST_PASSWORD;
 
   if (!adminPassword) {
-    adminPassword = await prompt("Choose a password for admin@harbourview.io: ");
+    adminPassword = await prompt("Choose a password for admin user: ");
   }
   if (!analystPassword) {
-    analystPassword = await prompt("Choose a password for analyst@harbourview.io: ");
+    analystPassword = await prompt("Choose a password for analyst user: ");
   }
   if (!adminPassword || !analystPassword) {
     throw new Error("Both passwords are required");
   }
 
-  // Validate password strength minimally
   for (const [label, pw] of [["admin", adminPassword], ["analyst", analystPassword]]) {
     if (pw.length < 8) throw new Error(`${label} password must be at least 8 characters`);
   }
@@ -340,7 +361,7 @@ async function main() {
 
   try {
     await applyMigrations(pat);
-    await setUserPasswords(adminPassword, analystPassword);
+    await setUserPasswords(serviceRoleKey, adminPassword, analystPassword);
     writeEnvLocal(adminPassword, analystPassword);
     npmInstall();
 
