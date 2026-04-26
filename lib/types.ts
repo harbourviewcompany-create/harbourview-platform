@@ -1,4 +1,4 @@
-export type PlatformRole = "admin" | "analyst";
+export type PlatformRole = "admin" | "analyst" | "client";
 export type ReviewStatus = "draft" | "in_review" | "approved" | "rejected";
 export type DataClass = "observed" | "derived" | "inferred" | "unverified";
 export type ConfidenceLevel = "low" | "medium" | "high" | "confirmed";
