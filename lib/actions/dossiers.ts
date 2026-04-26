@@ -43,6 +43,8 @@ export type CreateDossierInput = {
   summary?: string;
   jurisdiction?: string;
   internal_notes?: string;
+  // Test-only: pre-authenticated client for vitest Node env.
+  _supabase?: Awaited<ReturnType<typeof createServerClient>>;
 };
 
 export type AddDossierItemInput = {
@@ -50,6 +52,8 @@ export type AddDossierItemInput = {
   signal_id: string;
   display_order?: number;
   item_notes?: string;
+  // Test-only: pre-authenticated client for vitest Node env.
+  _supabase?: Awaited<ReturnType<typeof createServerClient>>;
 };
 
 export type PublishDossierInput = {
@@ -71,7 +75,7 @@ export type RevokePublishInput = {
 // Create dossier
 // ----------------------------------------------------------------
 export async function createDossier(input: CreateDossierInput) {
-  const supabase = await createServerClient();
+  const supabase = input._supabase ?? await createServerClient();
   const profile = await requireRole(supabase, ["admin", "analyst"]);
 
   // Analysts must be workspace members to create a dossier in that workspace.
@@ -125,7 +129,7 @@ export async function createDossier(input: CreateDossierInput) {
 // Add item to dossier
 // ----------------------------------------------------------------
 export async function addDossierItem(input: AddDossierItemInput) {
-  const supabase = await createServerClient();
+  const supabase = input._supabase ?? await createServerClient();
   const profile = await requireRole(supabase, ["admin", "analyst"]);
 
   const { data: dossier } = await supabase

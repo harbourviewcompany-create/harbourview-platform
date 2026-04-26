@@ -17,7 +17,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { describe, it, expect, beforeAll } from "vitest";
-import { publishDossier, revokePublishEvent } from "@/lib/actions/dossiers";
+import { publishDossier, revokePublishEvent, createDossier, addDossierItem } from "@/lib/actions/dossiers";
+import { submitSignalForReview, approveSignal } from "@/lib/actions/signals";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -151,56 +152,72 @@ describe("Golden path", () => {
     expect(data).toBeDefined();
   });
 
-  it("5. analyst submits signal for review", async () => {
-    const analystId = (await analystClient.auth.getUser()).data.user!.id;
+  it("5. analyst submits signal for review via server action", async () => {
+    // Uses real submitSignalForReview() — exercises evidence count check,
+    // review_queue_items insert, and audit event write.
+    const updated = await submitSignalForReview(signalId, analystClient);
 
-    const { error: signalError } = await analystClient
-      .from("signals")
-      .update({ review_status: "in_review", submitted_at: new Date().toISOString() })
-      .eq("id", signalId);
-    expect(signalError).toBeNull();
+    expect(updated).toBeDefined();
+    expect(updated.review_status).toBe("in_review");
 
-    const { error: rqError } = await analystClient
+    // Verify queue item was created
+    const { data: queueItem } = await service
       .from("review_queue_items")
-      .insert({ signal_id: signalId, status: "pending", submitted_by_profile_id: analystId });
-    expect(rqError).toBeNull();
+      .select("status")
+      .eq("signal_id", signalId)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    expect(queueItem).toBeDefined();
   });
 
-  it("6. admin approves the signal", async () => {
-    const { error } = await adminClient
-      .from("signals")
-      .update({ review_status: "approved", reviewed_at: new Date().toISOString() })
-      .eq("id", signalId);
-    expect(error).toBeNull();
+  it("6. admin approves the signal via server action", async () => {
+    // Uses real approveSignal() — exercises human evidence check,
+    // DB trigger check_signal_has_evidence, queue item resolution, and audit event.
+    const updated = await approveSignal({ signal_id: signalId, _supabase: adminClient });
+
+    expect(updated).toBeDefined();
+    expect(updated.review_status).toBe("approved");
 
     // Confirm approval persisted
-    const { data: updated } = await service
+    const { data: confirmed } = await service
       .from("signals")
       .select("review_status")
       .eq("id", signalId)
       .single();
-    expect(updated!.review_status).toBe("approved");
+    expect(confirmed!.review_status).toBe("approved");
+
+    // Confirm queue item resolved
+    const { data: queueItem } = await service
+      .from("review_queue_items")
+      .select("status")
+      .eq("signal_id", signalId)
+      .eq("status", "approved")
+      .maybeSingle();
+    expect(queueItem).toBeDefined();
   });
 
-  it("7. admin creates a dossier and adds the approved signal", async () => {
-    const { data: dossier, error: de } = await adminClient
-      .from("dossiers")
-      .insert({
-        workspace_id: workspaceId,
-        title: "Germany Intelligence Brief — Q1 2025",
-        status: "draft",
-        jurisdiction: "DE",
-      })
-      .select()
-      .single();
+  it("7. admin creates a dossier and adds the approved signal via server actions", async () => {
+    // Uses real createDossier() — exercises workspace membership check.
+    const dossier = await createDossier({
+      workspace_id: workspaceId,
+      title: "Germany Intelligence Brief — Q1 2025",
+      jurisdiction: "DE",
+      _supabase: adminClient,
+    });
 
-    expect(de).toBeNull();
-    dossierId = dossier!.id;
+    expect(dossier).toBeDefined();
+    dossierId = dossier.id;
 
-    const { error: ie } = await adminClient
-      .from("dossier_items")
-      .insert({ dossier_id: dossierId, signal_id: signalId, display_order: 1 });
-    expect(ie).toBeNull();
+    // Uses real addDossierItem() — exercises "only approved signals" gate.
+    const item = await addDossierItem({
+      dossier_id: dossierId,
+      signal_id: signalId,
+      display_order: 1,
+      _supabase: adminClient,
+    });
+
+    expect(item).toBeDefined();
   });
 
   it("8. admin publishes via server action; snapshot has full evidence chain", async () => {

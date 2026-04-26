@@ -14,8 +14,8 @@ const BLOCKED_KEYS = new Set([
   "reviewer_notes",
   "rejection_reason",
   "return_reason",
-  "workspace_id",
-  "workspace",
+  // workspace and workspace_id are intentionally included in the published snapshot
+  // (workspace.name provides client context). Do NOT add them here.
   "profile_id",
   "owner_id",
   "created_by",

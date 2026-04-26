@@ -61,11 +61,15 @@ export type AttachSignalEvidenceInput = {
 export type ApproveSignalInput = {
   signal_id: string;
   reviewer_notes?: string;
+  // Test-only: pre-authenticated client for vitest Node env where next/headers is unavailable.
+  _supabase?: Awaited<ReturnType<typeof createServerClient>>;
 };
 
 export type RejectSignalInput = {
   signal_id: string;
   rejection_reason: string;
+  // Test-only: same escape hatch as ApproveSignalInput._supabase.
+  _supabase?: Awaited<ReturnType<typeof createServerClient>>;
 };
 
 // ----------------------------------------------------------------
@@ -148,8 +152,11 @@ export async function attachSignalEvidence(input: AttachSignalEvidenceInput) {
 // ----------------------------------------------------------------
 // Submit for review
 // ----------------------------------------------------------------
-export async function submitSignalForReview(signalId: string) {
-  const supabase = await createServerClient();
+export async function submitSignalForReview(
+  signalId: string,
+  _supabase?: Awaited<ReturnType<typeof createServerClient>>
+) {
+  const supabase = _supabase ?? await createServerClient();
   const profile = await requireRole(supabase, ["admin", "analyst"]);
 
   const { data: signal } = await supabase
@@ -219,7 +226,7 @@ export async function submitSignalForReview(signalId: string) {
 // Approve signal — ADMIN ONLY (ADR-001 D1)
 // ----------------------------------------------------------------
 export async function approveSignal(input: ApproveSignalInput) {
-  const supabase = await createServerClient();
+  const supabase = input._supabase ?? await createServerClient();
   const profile = await requireRole(supabase, ["admin"]);
 
   const { data: signal } = await supabase
@@ -315,7 +322,7 @@ export async function approveSignal(input: ApproveSignalInput) {
 // Reject signal — ADMIN ONLY (ADR-001 D1)
 // ----------------------------------------------------------------
 export async function rejectSignal(input: RejectSignalInput) {
-  const supabase = await createServerClient();
+  const supabase = input._supabase ?? await createServerClient();
   const profile = await requireRole(supabase, ["admin"]);
 
   const { data: signal } = await supabase
