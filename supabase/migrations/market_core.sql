@@ -1,0 +1,3 @@
+create table counterparties (id uuid primary key default gen_random_uuid(), name text not null, type text not null, jurisdiction text, created_at timestamptz default now());
+create table deals (id uuid primary key default gen_random_uuid(), title text not null, status text not null, counterparty_id uuid references counterparties(id), created_at timestamptz default now());
+alter table signals add column if not exists score numeric default 0;
