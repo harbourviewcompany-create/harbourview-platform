@@ -1,6 +1,26 @@
 -- Harbourview production security hardening migration
 -- Apply only after reviewing against the current production schema.
 -- This migration intentionally fails loudly if expected tables are missing.
+--
+-- FIXES applied vs original (2026-04-26):
+--
+-- [F1] workspace_memberships → workspace_members
+--   Original referenced a table named workspace_memberships which does not exist.
+--   The base schema (0002) defines this table as workspace_members.
+--   All occurrences corrected: helper functions, RLS enforcement array, policies.
+--
+-- [F2] workspace_members column names corrected
+--   Original used wm.role and wm.status which do not exist on workspace_members.
+--   Corrected to wm.workspace_role (the actual enum column). No status column exists.
+--
+-- [F3] RLS policies on signals, sources, source_documents, review_queue_items fixed
+--   Original policies referenced workspace_id on these tables, which does not exist
+--   in the base schema (0001-0012). These tables have no workspace_id column.
+--   Replaced with platform_role-based access consistent with 0008.
+--
+-- [F4] signal_evidence policies fixed
+--   Original joined through signals.workspace_id which does not exist.
+--   Replaced with platform_role-based access consistent with 0008.
 
 begin;
 
@@ -41,9 +61,7 @@ create index if not exists public_feed_token_access_events_token_idx on public.p
 
 -- Generic updated_at trigger.
 create or replace function public.set_updated_at()
-returns trigger
-language plpgsql
-as $$
+returns trigger language plpgsql as $$
 begin
   new.updated_at = now();
   return new;
@@ -55,80 +73,57 @@ create trigger set_public_feed_tokens_updated_at
 before update on public.public_feed_tokens
 for each row execute function public.set_updated_at();
 
--- Workspace membership and role helpers.
--- Assumes workspace_memberships has workspace_id, profile_id and role/status columns.
--- If your current schema differs, update this helper before applying.
+-- Role and membership helpers.
+-- FIX [F1][F2]: table is workspace_members. Column is workspace_role. No status column.
 create or replace function public.current_profile_id()
-returns uuid
-language sql
-stable
-as $$
+returns uuid language sql stable as $$
   select auth.uid();
 $$;
 
 create or replace function public.current_platform_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select p.platform_role
+returns text language sql stable security definer set search_path = public as $$
+  select p.platform_role::text
   from public.profiles p
   where p.id = auth.uid();
 $$;
 
 create or replace function public.is_platform_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select coalesce(public.current_platform_role() = 'admin', false);
 $$;
 
+-- FIX [F1][F2]: workspace_members, workspace_role, no status filter.
 create or replace function public.is_workspace_member(target_workspace_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1
-    from public.workspace_memberships wm
+    from public.workspace_members wm
     where wm.workspace_id = target_workspace_id
       and wm.profile_id = auth.uid()
-      and coalesce(wm.status, 'active') = 'active'
   ) or public.is_platform_admin();
 $$;
 
+-- FIX [F1][F2]: workspace_members, workspace_role column.
+-- owner = full control, editor = can write, viewer = read-only.
 create or replace function public.is_workspace_operator(target_workspace_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1
-    from public.workspace_memberships wm
+    from public.workspace_members wm
     where wm.workspace_id = target_workspace_id
       and wm.profile_id = auth.uid()
-      and coalesce(wm.status, 'active') = 'active'
-      and coalesce(wm.role, '') in ('owner', 'admin', 'analyst')
+      and wm.workspace_role::text in ('owner', 'editor')
   ) or public.is_platform_admin();
 $$;
 
--- Enable and force RLS on sensitive known tables.
+-- Enable and force RLS. FIX [F1]: workspace_members not workspace_memberships.
 do $$
 declare
-  table_name text;
+  tbl text;
   tables text[] := array[
     'profiles',
     'workspaces',
-    'workspace_memberships',
+    'workspace_members',
     'signals',
     'signal_evidence',
     'sources',
@@ -139,16 +134,16 @@ declare
     'public_feed_token_access_events'
   ];
 begin
-  foreach table_name in array tables loop
-    if to_regclass('public.' || table_name) is null then
-      raise exception 'Expected table public.% is missing. Review schema before applying hardening migration.', table_name;
+  foreach tbl in array tables loop
+    if to_regclass('public.' || tbl) is null then
+      raise exception 'Expected table public.% is missing. Review schema before applying hardening migration.', tbl;
     end if;
-    execute format('alter table public.%I enable row level security', table_name);
-    execute format('alter table public.%I force row level security', table_name);
+    execute format('alter table public.%I enable row level security', tbl);
+    execute format('alter table public.%I force row level security', tbl);
   end loop;
 end $$;
 
--- Profiles: users can read self; admins can read all. Users cannot self-promote.
+-- Profiles.
 drop policy if exists profiles_select_self_or_admin on public.profiles;
 create policy profiles_select_self_or_admin on public.profiles
 for select to authenticated
@@ -166,7 +161,7 @@ with check (
   )
 );
 
--- Workspaces and memberships.
+-- Workspaces.
 drop policy if exists workspaces_select_member on public.workspaces;
 create policy workspaces_select_member on public.workspaces
 for select to authenticated
@@ -178,62 +173,78 @@ for all to authenticated
 using (public.is_workspace_operator(id))
 with check (public.is_workspace_operator(id));
 
-drop policy if exists workspace_memberships_select_member_or_admin on public.workspace_memberships;
-create policy workspace_memberships_select_member_or_admin on public.workspace_memberships
+-- Workspace members. FIX [F1]: policy targets workspace_members not workspace_memberships.
+drop policy if exists workspace_memberships_select_member_or_admin on public.workspace_members;
+create policy workspace_memberships_select_member_or_admin on public.workspace_members
 for select to authenticated
 using (profile_id = auth.uid() or public.is_workspace_operator(workspace_id));
 
-drop policy if exists workspace_memberships_operator_write on public.workspace_memberships;
-create policy workspace_memberships_operator_write on public.workspace_memberships
+drop policy if exists workspace_memberships_operator_write on public.workspace_members;
+create policy workspace_memberships_operator_write on public.workspace_members
 for all to authenticated
 using (public.is_workspace_operator(workspace_id))
 with check (public.is_workspace_operator(workspace_id));
 
--- Workspace-scoped content. Assumes each table has workspace_id except evidence/documents may join through parent records.
+-- Signals.
+-- FIX [F3]: no workspace_id column on signals. Platform_role gate replaces workspace gate.
+-- Clients have no direct DB access to signals per ADR-001 D4.
 drop policy if exists signals_workspace_select on public.signals;
 create policy signals_workspace_select on public.signals
 for select to authenticated
-using (public.is_workspace_member(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'));
 
 drop policy if exists signals_workspace_operator_write on public.signals;
 create policy signals_workspace_operator_write on public.signals
 for all to authenticated
-using (public.is_workspace_operator(workspace_id))
-with check (public.is_workspace_operator(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'))
+with check (public.current_platform_role() in ('admin', 'analyst'));
 
+-- Sources.
+-- FIX [F3]: no workspace_id column on sources.
 drop policy if exists sources_workspace_select on public.sources;
 create policy sources_workspace_select on public.sources
 for select to authenticated
-using (public.is_workspace_member(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'));
 
 drop policy if exists sources_workspace_operator_write on public.sources;
 create policy sources_workspace_operator_write on public.sources
 for all to authenticated
-using (public.is_workspace_operator(workspace_id))
-with check (public.is_workspace_operator(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'))
+with check (public.current_platform_role() in ('admin', 'analyst'));
 
+-- Source documents.
+-- FIX [F3]: no workspace_id column on source_documents.
 drop policy if exists source_documents_workspace_select on public.source_documents;
 create policy source_documents_workspace_select on public.source_documents
 for select to authenticated
-using (public.is_workspace_member(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'));
 
 drop policy if exists source_documents_workspace_operator_write on public.source_documents;
 create policy source_documents_workspace_operator_write on public.source_documents
 for all to authenticated
-using (public.is_workspace_operator(workspace_id))
-with check (public.is_workspace_operator(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'))
+with check (public.current_platform_role() in ('admin', 'analyst'));
 
+-- Review queue items.
+-- FIX [F3]: no workspace_id column. Platform_role gate.
+-- Analysts can read and insert. Only admins can update (resolve).
 drop policy if exists review_queue_items_workspace_select on public.review_queue_items;
 create policy review_queue_items_workspace_select on public.review_queue_items
 for select to authenticated
-using (public.is_workspace_member(workspace_id));
+using (public.current_platform_role() in ('admin', 'analyst'));
 
 drop policy if exists review_queue_items_workspace_operator_write on public.review_queue_items;
 create policy review_queue_items_workspace_operator_write on public.review_queue_items
-for all to authenticated
-using (public.is_workspace_operator(workspace_id))
-with check (public.is_workspace_operator(workspace_id));
+for insert to authenticated
+with check (public.current_platform_role() in ('admin', 'analyst'));
 
+drop policy if exists review_queue_items_admin_update on public.review_queue_items;
+create policy review_queue_items_admin_update on public.review_queue_items
+for update to authenticated
+using (public.current_platform_role() = 'admin')
+with check (public.current_platform_role() = 'admin');
+
+-- Publish events.
 drop policy if exists publish_events_workspace_select on public.publish_events;
 create policy publish_events_workspace_select on public.publish_events
 for select to authenticated
@@ -244,49 +255,29 @@ create policy publish_events_workspace_operator_insert on public.publish_events
 for insert to authenticated
 with check (public.is_workspace_operator(workspace_id));
 
--- Publish events are append-only after insert.
 drop policy if exists publish_events_no_update on public.publish_events;
 create policy publish_events_no_update on public.publish_events
-for update to authenticated
-using (false)
-with check (false);
+for update to authenticated using (false) with check (false);
 
 drop policy if exists publish_events_no_delete on public.publish_events;
 create policy publish_events_no_delete on public.publish_events
-for delete to authenticated
-using (false);
+for delete to authenticated using (false);
 
--- Evidence inherits signal workspace access.
+-- Signal evidence.
+-- FIX [F4]: original joined through signals.workspace_id which does not exist.
+-- Platform_role gate consistent with 0008.
 drop policy if exists signal_evidence_workspace_select on public.signal_evidence;
 create policy signal_evidence_workspace_select on public.signal_evidence
 for select to authenticated
-using (
-  exists (
-    select 1 from public.signals s
-    where s.id = signal_evidence.signal_id
-      and public.is_workspace_member(s.workspace_id)
-  )
-);
+using (public.current_platform_role() in ('admin', 'analyst'));
 
 drop policy if exists signal_evidence_workspace_operator_write on public.signal_evidence;
 create policy signal_evidence_workspace_operator_write on public.signal_evidence
 for all to authenticated
-using (
-  exists (
-    select 1 from public.signals s
-    where s.id = signal_evidence.signal_id
-      and public.is_workspace_operator(s.workspace_id)
-  )
-)
-with check (
-  exists (
-    select 1 from public.signals s
-    where s.id = signal_evidence.signal_id
-      and public.is_workspace_operator(s.workspace_id)
-  )
-);
+using (public.current_platform_role() in ('admin', 'analyst'))
+with check (public.current_platform_role() in ('admin', 'analyst'));
 
--- Public feed token tables are service-role only. No anonymous or authenticated direct access.
+-- Public feed token tables: service-role only. No direct authenticated access.
 drop policy if exists public_feed_tokens_no_direct_access on public.public_feed_tokens;
 create policy public_feed_tokens_no_direct_access on public.public_feed_tokens
 for all to anon, authenticated
@@ -299,7 +290,7 @@ for all to anon, authenticated
 using (false)
 with check (false);
 
--- Guard against accidental raw token columns on publish_events.
+-- Warn if raw api_token column still exists on publish_events.
 do $$
 begin
   if exists (
@@ -309,7 +300,7 @@ begin
       and table_name = 'publish_events'
       and column_name = 'api_token'
   ) then
-    raise notice 'SECURITY WARNING: public.publish_events.api_token exists. Backfill to public_feed_tokens and drop this column in a dedicated migration after clients move to v2 feed tokens.';
+    raise notice 'SECURITY WARNING: public.publish_events.api_token exists. Backfill to public_feed_tokens and drop this column after clients move to v2 feed tokens.';
   end if;
 end $$;
 

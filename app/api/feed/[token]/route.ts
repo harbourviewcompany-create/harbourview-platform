@@ -58,6 +58,36 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (error || !feedToken) {
+    // Distinguish revoked/expired tokens from genuinely unknown ones.
+    // Return 410 Gone (with revoked:true) so callers know the feed existed
+    // and was explicitly revoked, rather than treating it as never-existing.
+    const { data: anyToken } = await supabase
+      .from("public_feed_tokens")
+      .select("id, status, revoked_at, expires_at")
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+
+    if (anyToken) {
+      const isRevoked = anyToken.status === "revoked" || anyToken.revoked_at !== null;
+      const isExpired = anyToken.expires_at && anyToken.expires_at <= now;
+      if (isRevoked) {
+        return attachSecurityHeaders(
+          NextResponse.json(
+            { revoked: true, error: "This feed has been revoked." },
+            { status: 410, headers: { "Cache-Control": "no-store", "Content-Type": "application/json" } }
+          )
+        );
+      }
+      if (isExpired) {
+        return attachSecurityHeaders(
+          NextResponse.json(
+            { expired: true, error: "This feed has expired." },
+            { status: 410, headers: { "Cache-Control": "no-store", "Content-Type": "application/json" } }
+          )
+        );
+      }
+    }
+
     return jsonError("Feed not found", 404);
   }
 

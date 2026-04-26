@@ -35,6 +35,7 @@ import { revalidatePath } from "next/cache";
 import { writeAuditEvent } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { randomBytes } from "crypto";
+import { sha256Hex } from "@/lib/security/tokens";
 
 export type CreateDossierInput = {
   workspace_id: string;
@@ -368,6 +369,27 @@ export async function publishDossier(input: PublishDossierInput) {
 
   if (updateError) throw new Error(`markDossierPublished: ${updateError.message}`);
 
+  // Write hashed token to public_feed_tokens for v2 feed route.
+  // Raw token is never stored — only the sha256 hex digest.
+  // Service client required: public_feed_tokens RLS blocks all authenticated access.
+  const feedServiceClient = createServiceClient();
+  const tokenHash = sha256Hex(apiToken);
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: ftError } = await feedServiceClient
+    .from("public_feed_tokens")
+    .insert({
+      workspace_id: dossier.workspace_id,
+      publish_event_id: publishEvent.id,
+      token_hash: tokenHash,
+      status: "active",
+      snapshot: snapshotJson,
+      expires_at: expiresAt,
+      created_by_profile_id: profile.id,
+    });
+
+  if (ftError) throw new Error(`createFeedToken: ${ftError.message}`);
+
   await writeAuditEvent({
     entity_type: "dossier",
     entity_id: input.dossier_id,
@@ -444,6 +466,28 @@ export async function revokePublishEvent(input: RevokePublishInput) {
     });
 
   if (revokeError) throw new Error(`revokePublishEvent: ${revokeError.message}`);
+
+  // Revoke the corresponding public_feed_tokens row so the v2 feed route
+  // returns 410 immediately without a second DB lookup.
+  // Service client required: public_feed_tokens RLS blocks all authenticated writes.
+  // Non-fatal: if the feed token row is missing (e.g. published before v2 was deployed),
+  // log and continue — the revocation row in publish_events still exists.
+  const revokeServiceClient = createServiceClient();
+  const { error: ftRevokeError } = await revokeServiceClient
+    .from("public_feed_tokens")
+    .update({
+      status: "revoked",
+      revoked_at: new Date().toISOString(),
+      revoked_by_profile_id: profile.id,
+    })
+    .eq("publish_event_id", input.publish_event_id)
+    .eq("status", "active");
+
+  if (ftRevokeError) {
+    console.error(
+      `[revokePublishEvent] Failed to revoke public_feed_tokens row for publish_event ${input.publish_event_id}: ${ftRevokeError.message}`
+    );
+  }
 
   await writeAuditEvent({
     entity_type: "publish_event",
