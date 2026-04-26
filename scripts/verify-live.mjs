@@ -68,7 +68,7 @@ const ANALYST_ID  = '31e6281c-aec9-4c6d-a9c3-4852b1c057d5'
 const WS_ID       = '00000000-0000-0000-0000-000000000010'  // Germany Intelligence
 
 // Track created rows for cleanup (FK-safe ordering built into cleanup fn)
-const rows = { sources: [], docs: [], signals: [], dossiers: [], pe: [], ft: [] }
+const rows = { sources: [], docs: [], signals: [], dossiers: [], pe: [], ft: [], workspaces: [] }
 
 // ─── Phase 1: Schema ─────────────────────────────────────────────────────────
 
@@ -124,7 +124,7 @@ async function phase2_policies () {
   // it would throw "relation does not exist" at runtime, not at function creation.
   // If workspace_members is correct it returns a boolean cleanly.
   const { data, error } = await svc.rpc('is_workspace_member', {
-    target_workspace_id: WS_ID
+    ws_id: WS_ID
   })
   if (error) FAIL('is_workspace_member_runs', error.message)
   else        PASS('is_workspace_member_runs')
@@ -142,7 +142,19 @@ let activeToken, dossierId, publishEventId, feedTokenId
 async function phase3_publish () {
   console.log('\n── Phase 3: Publish flow ───────────────────────────────────────')
 
-  // 3a. Source
+  // 3a. Workspace — sources.workspace_id is NOT NULL in live schema
+  const slug = `hv-verify-${Date.now()}`
+  const { data: ws, error: wsErr } = await svc.from('workspaces').insert({
+    name: 'HV_VERIFY_Workspace',
+    slug,
+    is_internal: true,
+    created_by_profile_id: ADMIN_ID
+  }).select('id').single()
+  if (wsErr) { FAIL('publish_workspace', wsErr.message); return }
+  const verifyWsId = ws.id
+  rows.workspaces.push(ws.id)
+
+  // 3b. Source — workspace_id required (NOT NULL on live schema)
   const { data: src, error: srcErr } = await svc.from('sources').insert({
     name: 'HV_VERIFY_Source',
     canonical_url: `https://hv-verify.test/s-${Date.now()}`,
@@ -151,6 +163,7 @@ async function phase3_publish () {
     status: 'active',
     jurisdiction: 'DE',
     entity_type: 'company',
+    workspace_id: verifyWsId,
     created_by_profile_id: ADMIN_ID
   }).select('id').single()
   if (srcErr) { FAIL('publish_source', srcErr.message); return }
@@ -473,6 +486,8 @@ async function cleanup () {
   await del('signals',        'id', rows.signals,  'signals')
   await del('source_documents','id', rows.docs,    'source_documents')
   await del('sources',        'id', rows.sources,  'sources')
+  // workspace must be last — sources FK it (restrict)
+  await del('workspaces',     'id', rows.workspaces, 'workspaces')
 
   if (!errs.length) {
     console.log('  ✅  All HV_VERIFY_ rows deleted')
@@ -491,6 +506,7 @@ delete from review_queue_items where signal_id in (${q(rows.signals)});
 delete from signals where id in (${q(rows.signals)});
 delete from source_documents where id in (${q(rows.docs)});
 delete from sources where id in (${q(rows.sources)});
+delete from workspaces where id in (${q(rows.workspaces)});
     `.trim())
     errs.forEach(e => console.log(`  [${e.label}] ${e.error}`))
   }
