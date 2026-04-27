@@ -1,103 +1,71 @@
-// POST /api/marketplace/submit — listing or wanted request submission
-// Rate-limited. Zod-validated. review_status and public_visibility locked server-side.
+// app/api/marketplace/submit/route.ts
+// POST /api/marketplace/submit — listing submission
+// Rate-limited (5/min per IP). Zod-validated.
+// review_status and public_visibility locked server-side. Success only returned.
 
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { ListingSubmissionSchema, WantedRequestSubmissionSchema } from '@/lib/marketplace/schemas';
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
+import { ListingSubmissionSchema } from '@/lib/marketplace/schemas';
+import { checkRateLimit, getClientIp, rateLimitHeaders } from '@/lib/marketplace/rate-limit';
+import { generateSlug } from '@/lib/marketplace/slugify';
 
-// Simple in-memory rate limiter (replace with Upstash Redis in production)
-const submissionCounts = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+export const runtime = 'nodejs';
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = submissionCounts.get(ip);
-  if (!record || record.resetAt < now) {
-    submissionCounts.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  if (record.count >= RATE_LIMIT) return false;
-  record.count++;
-  return true;
-}
+export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`submit:${ip}`, { maxRequests: 5, windowSeconds: 60 });
 
-export async function POST(request: Request) {
-  // Rate limit by IP
-  const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: 'Too many submissions. Try again later.' }, { status: 429 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: rateLimitHeaders(rl.retryAfterSeconds) }
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const raw = body as Record<string, unknown>;
+  const parsed = ListingSubmissionSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+      { status: 422 }
+    );
+  }
 
-  // Determine type: 'listing' (default) or 'wanted'
-  const submissionType = raw.type === 'wanted' ? 'wanted' : 'listing';
+  const input = parsed.data;
 
-  if (submissionType === 'wanted') {
-    const parsed = WantedRequestSubmissionSchema.safeParse(raw);
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
-    }
+  try {
+    const supabase = await createServerClient();
+    const slug = generateSlug(input.title);
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { data, error } = await supabase
-      .from('marketplace_wanted_requests')
-      .insert({
-        ...parsed.data,
-        status: 'pending',         // locked
-        public_visibility: false,  // locked
-        created_by: user?.id ?? null,
-      })
-      .select('id, status, public_visibility, created_at')
-      .single();
+    const { error } = await supabase.from('marketplace_listings').insert({
+      slug,
+      section: input.section,
+      title: input.title,
+      description: input.description,
+      price_amount: input.price_amount ?? null,
+      price_currency: input.price_currency ?? 'USD',
+      location_country: input.location_country ?? null,
+      review_status: 'pending',
+      public_visibility: false,
+    });
 
     if (error) {
-      console.error('[submit/wanted] error:', error.message);
-      return NextResponse.json({ error: 'Submission failed' }, { status: 500 });
+      console.error('[marketplace/submit] Insert error:', error.message);
+      return NextResponse.json({ error: 'Submission failed. Please try again.' }, { status: 500 });
     }
 
-    return NextResponse.json({ submission: data }, { status: 201 });
+    return NextResponse.json(
+      { success: true, message: 'Your listing has been submitted for review.' },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error('[marketplace/submit] Unexpected error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  // Listing submission
-  const parsed = ListingSubmissionSchema.safeParse(raw);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
-  }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Generate slug from title
-  const slugBase = parsed.data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const slug = `${slugBase}-${Date.now()}`;
-
-  const { data, error } = await supabase
-    .from('marketplace_listings')
-    .insert({
-      ...parsed.data,
-      slug,
-      review_status: 'pending',   // locked — cannot be overridden
-      public_visibility: false,   // locked — cannot be overridden
-      created_by: user?.id ?? null,
-    })
-    .select('id, review_status, public_visibility, created_at')
-    .single();
-
-  if (error) {
-    console.error('[submit/listing] error:', error.message);
-    return NextResponse.json({ error: 'Submission failed' }, { status: 500 });
-  }
-
-  return NextResponse.json({ submission: data }, { status: 201 });
 }

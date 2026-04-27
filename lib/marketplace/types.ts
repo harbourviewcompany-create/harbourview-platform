@@ -91,3 +91,44 @@ export interface InquiryResult {
   status: 'pending';
   created_at: string;
 }
+
+// ── Sanitizer functions (added by OT) ─────────────────────────────────────
+// Strip private fields before returning rows to public API responses.
+// Use these in every public route handler — never pass raw DB rows.
+
+export function toPublicListing(row: Record<string, unknown>): PublicListing {
+  return {
+    id: row.id as string,
+    section: row.section as MarketplaceSection,
+    title: row.title as string,
+    slug: row.slug as string,
+    description: row.description as string,
+    price_amount: (row.price_amount as number) ?? null,
+    price_currency: (row.price_currency as string) ?? null,
+    location_country: (row.location_country as string) ?? null,
+    is_featured: row.is_featured as boolean,
+    created_at: row.created_at as string,
+  };
+}
+
+export function toPublicSupplier(row: Record<string, unknown>): PublicSupplier {
+  return {
+    id: row.id as string,
+    company_name: row.company_name as string,
+    slug: row.slug as string,
+    description: (row.description as string) ?? null,
+    is_featured: row.is_featured as boolean,
+    created_at: row.created_at as string,
+  };
+}
+
+export function toPublicWantedRequest(row: Record<string, unknown>): PublicWantedRequest {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    description: row.description as string,
+    category: (row.category as string) ?? null,
+    budget_range: (row.budget_range as string) ?? null,
+    created_at: row.created_at as string,
+  };
+}

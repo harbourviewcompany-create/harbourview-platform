@@ -2,7 +2,7 @@
 // Returns only approved, public-visible listings via safe view.
 // NO private fields. NO service-role. anon-safe.
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import type { PublicListing } from '@/lib/marketplace/types';
 
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const section = searchParams.get('section');
 
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   let query = supabase
     .from('marketplace_listings_public_view')

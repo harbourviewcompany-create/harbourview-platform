@@ -54,3 +54,46 @@ export const AdminSupplierUpdateSchema = z.object({
   is_featured: z.boolean().optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'archived']).optional(),
 }).strict();
+
+// ── Extended admin schemas (added by OT) ──────────────────────────────────
+
+export const AdminWantedUpdateSchema = z.object({
+  review_status: z.enum(['pending', 'approved', 'rejected', 'archived']).optional(),
+  public_visibility: z.boolean().optional(),
+}).strict();
+
+export const AdminInquiryUpdateSchema = z.object({
+  status: z.enum(['pending', 'read', 'responded', 'closed']).optional(),
+  internal_note: z.string().max(2000).optional().nullable(),
+}).strict();
+
+export const AdminReviewQueueQuerySchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected', 'archived']).optional(),
+  entity_type: z.enum(['listing', 'wanted', 'supplier']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export const ListingsQuerySchema = z.object({
+  section: z.enum([
+    'new_products', 'used_surplus', 'cannabis_inventory', 'wanted_requests',
+    'services', 'business_opportunities', 'supplier_directory',
+  ] as const).optional(),
+  featured: z.enum(['true', 'false']).optional(),
+  location: z.string().max(100).trim().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export const SuppliersQuerySchema = z.object({
+  verified: z.enum(['true', 'false']).optional(),
+  featured: z.enum(['true', 'false']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export type AdminWantedUpdateInput = z.infer<typeof AdminWantedUpdateSchema>;
+export type AdminInquiryUpdateInput = z.infer<typeof AdminInquiryUpdateSchema>;
+export type AdminReviewQueueQueryInput = z.infer<typeof AdminReviewQueueQuerySchema>;
+export type ListingsQueryInput = z.infer<typeof ListingsQuerySchema>;
+export type SuppliersQueryInput = z.infer<typeof SuppliersQuerySchema>;

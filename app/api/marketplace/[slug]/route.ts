@@ -1,7 +1,7 @@
 // GET /api/marketplace/[slug] — single listing detail
 // Returns only approved public listing. No private fields.
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import type { PublicListing } from '@/lib/marketplace/types';
 
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from('marketplace_listings_public_view')

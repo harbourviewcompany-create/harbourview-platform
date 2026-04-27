@@ -1,38 +1,32 @@
-// POST /api/marketplace/inquire — buyer inquiry submission
-// Rate-limited. Validated. Requires authentication (THC-004 fix).
-// Response never echoes buyer PII fields.
+// app/api/marketplace/inquire/route.ts
+// POST /api/marketplace/inquire — inquiry submission
+// Rate-limited (5/min per IP). Zod-validated.
+// Verifies listing exists and is public before accepting.
+// Returns success only — no inquiry data echoed to submitter.
 
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { InquirySubmissionSchema } from '@/lib/marketplace/schemas';
+import { checkRateLimit, getClientIp, rateLimitHeaders } from '@/lib/marketplace/rate-limit';
 
-const inquiryCounts = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10;
-const RATE_WINDOW_MS = 60 * 60 * 1000;
+export const runtime = 'nodejs';
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = inquiryCounts.get(ip);
-  if (!record || record.resetAt < now) {
-    inquiryCounts.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  if (record.count >= RATE_LIMIT) return false;
-  record.count++;
-  return true;
-}
+export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`inquire:${ip}`, { maxRequests: 5, windowSeconds: 60 });
 
-export async function POST(request: Request) {
-  const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: 'Too many inquiries. Try again later.' }, { status: 429 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: rateLimitHeaders(rl.retryAfterSeconds) }
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
   const parsed = InquirySubmissionSchema.safeParse(body);
@@ -43,44 +37,45 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createClient();
+  const input = parsed.data;
 
-  // THC-004 FIX: Require authentication before touching DB.
-  // Without this, anon users hit a DB RLS rejection and get a 500.
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Authentication required to submit an inquiry' },
-      { status: 401 }
-    );
-  }
+  try {
+    const supabase = await createServerClient();
 
-  // Verify listing exists and is approved+public (queries safe view — no private fields)
-  const { data: listing } = await supabase
-    .from('marketplace_listings_public_view')
-    .select('id')
-    .eq('id', parsed.data.listing_id)
-    .single();
+    // Verify listing is publicly visible before accepting inquiry
+    const { data: listing, error: listingError } = await supabase
+      .from('marketplace_listings')
+      .select('id')
+      .eq('id', input.listing_id)
+      .eq('review_status', 'approved')
+      .eq('public_visibility', true)
+      .single();
 
-  if (!listing) {
-    return NextResponse.json({ error: 'Listing not found or not available' }, { status: 404 });
-  }
+    if (listingError || !listing) {
+      return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+    }
 
-  const { data, error } = await supabase
-    .from('marketplace_inquiries')
-    .insert({
-      ...parsed.data,
+    const { error } = await supabase.from('marketplace_inquiries').insert({
+      listing_id: input.listing_id,
+      buyer_name: input.buyer_name,
+      buyer_email: input.buyer_email,
+      buyer_company: input.buyer_company ?? null,
+      buyer_phone: input.buyer_phone ?? null,
+      message: input.message,
       status: 'pending',
-      created_by: user.id,
-    })
-    .select('id, status, created_at')
-    .single();
+    });
 
-  if (error) {
-    console.error('[inquire] error:', error.message);
-    return NextResponse.json({ error: 'Inquiry submission failed' }, { status: 500 });
+    if (error) {
+      console.error('[marketplace/inquire] Insert error:', error.message);
+      return NextResponse.json({ error: 'Inquiry submission failed. Please try again.' }, { status: 500 });
+    }
+
+    return NextResponse.json(
+      { success: true, message: 'Your inquiry has been submitted.' },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error('[marketplace/inquire] Unexpected error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  // Return ONLY id, status, created_at — never echo buyer PII
-  return NextResponse.json({ inquiry: data }, { status: 201 });
 }
