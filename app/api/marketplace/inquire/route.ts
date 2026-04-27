@@ -1,5 +1,6 @@
 // POST /api/marketplace/inquire — buyer inquiry submission
-// Rate-limited. Validated. Does not echo private fields in response.
+// Rate-limited. Validated. Requires authentication (THC-004 fix).
+// Response never echoes buyer PII fields.
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -36,11 +37,25 @@ export async function POST(request: Request) {
 
   const parsed = InquirySubmissionSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+      { status: 422 }
+    );
   }
 
-  // Verify listing exists and is approved+public
   const supabase = await createClient();
+
+  // THC-004 FIX: Require authentication before touching DB.
+  // Without this, anon users hit a DB RLS rejection and get a 500.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Authentication required to submit an inquiry' },
+      { status: 401 }
+    );
+  }
+
+  // Verify listing exists and is approved+public (queries safe view — no private fields)
   const { data: listing } = await supabase
     .from('marketplace_listings_public_view')
     .select('id')
@@ -51,14 +66,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Listing not found or not available' }, { status: 404 });
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-
   const { data, error } = await supabase
     .from('marketplace_inquiries')
     .insert({
       ...parsed.data,
       status: 'pending',
-      created_by: user?.id ?? null,
+      created_by: user.id,
     })
     .select('id, status, created_at')
     .single();
@@ -68,6 +81,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Inquiry submission failed' }, { status: 500 });
   }
 
-  // Return ONLY id, status, created_at — never echo buyer fields
+  // Return ONLY id, status, created_at — never echo buyer PII
   return NextResponse.json({ inquiry: data }, { status: 201 });
 }

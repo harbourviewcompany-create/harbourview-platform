@@ -497,3 +497,46 @@ DROP TYPE IF EXISTS marketplace_contact_visibility;
 DROP TYPE IF EXISTS marketplace_verification_status;
 DROP TYPE IF EXISTS marketplace_inquiry_status;
 */
+
+-- ── THC-001 FIX: Explicit GRANTs on safe views, REVOKEs on base tables ──────
+-- anon may read ONLY through the safe public views, never base tables.
+
+REVOKE ALL ON marketplace_listings FROM anon;
+REVOKE ALL ON marketplace_listing_metadata_private FROM anon;
+REVOKE ALL ON marketplace_inquiries FROM anon;
+REVOKE ALL ON marketplace_wanted_requests FROM anon;
+REVOKE ALL ON marketplace_suppliers FROM anon;
+REVOKE ALL ON marketplace_review_queue FROM anon;
+REVOKE ALL ON audit_events FROM anon;
+
+GRANT SELECT ON marketplace_listings_public_view TO anon;
+GRANT SELECT ON marketplace_wanted_requests_public_view TO anon;
+GRANT SELECT ON marketplace_suppliers_public_view TO anon;
+
+-- ── THC-002 FIX: Admin UPDATE WITH CHECK enforces state consistency ───────────
+-- Drop and replace the admin update policy to add WITH CHECK.
+
+DROP POLICY IF EXISTS "listings_update_admin" ON marketplace_listings;
+
+CREATE POLICY "listings_update_admin"
+  ON marketplace_listings FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+        AND profiles.platform_role = 'admin'
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+        AND profiles.platform_role = 'admin'
+    )
+    -- Enforce: public_visibility = true is only valid when review_status = 'approved'
+    AND (
+      public_visibility = false
+      OR review_status = 'approved'
+    )
+  );
