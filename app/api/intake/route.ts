@@ -3,7 +3,11 @@ import { Resend } from 'resend'
 import { intakeSchema } from '@/lib/validation'
 import { buildIntakeEmailHtml } from '@/lib/email'
 
-const TO_EMAIL = process.env.HARBOURVIEW_TO_EMAIL || 'harborviewcompany@gmail.com'
+const DEFAULT_TO_EMAILS = 'harborviewcompany@gmail.com,tylercampbell5@outlook.com'
+const TO_EMAILS = (process.env.HARBOURVIEW_TO_EMAIL || DEFAULT_TO_EMAILS)
+  .split(',')
+  .map((email) => email.trim())
+  .filter(Boolean)
 const FROM_EMAIL = process.env.HARBOURVIEW_FROM_EMAIL || 'intake@harbourview.io'
 const MIN_SUBMIT_SECONDS = 3
 
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: TO_EMAIL,
+      to: TO_EMAILS,
       subject,
       html,
       text,
