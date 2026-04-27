@@ -1,9 +1,9 @@
 # Supabase project configuration
-# Project ref: tpfvhhrwzsofhdcfdenc
+# Project ref: zvxdgdkukjrrwamdpqrg
 # Do not commit secrets here. All secrets live in .env.local or Supabase dashboard.
 
 [project]
-id = "tpfvhhrwzsofhdcfdenc"
+id = "zvxdgdkukjrrwamdpqrg"
 
 [api]
 enabled = true
