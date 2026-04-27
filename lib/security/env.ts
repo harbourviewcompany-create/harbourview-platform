@@ -49,20 +49,32 @@ function requireHttpUrl(name: string, options: { allowHttpInProduction?: boolean
   return parsed.origin;
 }
 
+function resolveAppUrl(isProduction: boolean): string {
+  const explicitAppUrl = cleanEnv("APP_URL");
+  if (explicitAppUrl) {
+    return requireHttpUrl("APP_URL");
+  }
+
+  const vercelProductionUrl = cleanEnv("VERCEL_PROJECT_PRODUCTION_URL");
+  if (vercelProductionUrl) {
+    return `https://${vercelProductionUrl}`;
+  }
+
+  const vercelPreviewUrl = cleanEnv("VERCEL_URL");
+  if (vercelPreviewUrl) {
+    return `https://${vercelPreviewUrl}`;
+  }
+
+  return isProduction ? "https://localhost" : "http://localhost:3000";
+}
+
 export function getPublicSupabaseEnv(): PublicSupabaseEnv {
   const isProduction = process.env.NODE_ENV === "production";
-  const appUrl = cleanEnv("APP_URL")
-    ? requireHttpUrl("APP_URL")
-    : isProduction
-      ? (() => {
-          throw new Error("APP_URL is required in production");
-        })()
-      : "http://localhost:3000";
 
   return {
     supabaseUrl: requireHttpUrl("NEXT_PUBLIC_SUPABASE_URL"),
     supabasePublishableKey: requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
-    appUrl,
+    appUrl: resolveAppUrl(isProduction),
     isProduction,
   };
 }
