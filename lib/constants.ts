@@ -54,6 +54,7 @@ export const NAV_LINKS = [
   { label: 'Market Access', href: '/market-access' },
   { label: 'Intelligence', href: '/commercial-intelligence' },
   { label: 'Introductions', href: '/strategic-introductions' },
+  { label: 'Marketplace', href: '/marketplace' },
   { label: 'Intake', href: '/intake' },
   { label: 'Contact', href: '/contact' },
 ]
@@ -64,6 +65,15 @@ export const FOOTER_LINKS = [
   { label: 'Market Access', href: '/market-access' },
   { label: 'Commercial Intelligence', href: '/commercial-intelligence' },
   { label: 'Strategic Introductions', href: '/strategic-introductions' },
+  { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Submit a Listing', href: '/marketplace/submit-listing' },
+  { label: 'Post a Wanted Request', href: '/marketplace/submit-wanted' },
+  { label: 'Supplier Directory', href: '/marketplace/supplier-directory' },
   { label: 'Intake', href: '/intake' },
   { label: 'Contact', href: '/contact' },
+]
+
+export const LEGAL_LINKS = [
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Terms of Service', href: '/terms' },
 ]

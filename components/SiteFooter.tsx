@@ -5,6 +5,7 @@ import {
   HARBOURVIEW_LINKEDIN_URL,
   HARBOURVIEW_LINKEDIN,
   FOOTER_LINKS,
+  LEGAL_LINKS,
 } from '@/lib/constants'
 
 export function SiteFooter() {
@@ -156,6 +157,17 @@ export function SiteFooter() {
           >
             © {new Date().getFullYear()} Harbourview. All rights reserved.
           </p>
+          <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '11px', color: '#C9C2B3', opacity: 0.4, textDecoration: 'none' }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
