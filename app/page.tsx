@@ -1,170 +1,232 @@
 import type { Metadata } from 'next'
-import { CTAButton, Section, SectionHeadline, BodyText, GoldLabel } from '@/components/ui'
+import { CTAButton, GoldLabel } from '@/components/ui'
 import { BOOKING_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Harbourview | Cannabis Market Access, Intelligence and Strategic Introductions',
+  title: 'Harbourview | Market Access, Commercial Intelligence and Strategic Introductions',
   description:
-    'Harbourview provides market access, commercial intelligence and strategic introductions for cannabis operators, investors, importers, exporters and industry partners worldwide.',
+    'Harbourview provides market access backed by intelligence and relationships for serious participants in regulated cannabis markets.',
 }
 
-const whatWeHelpWith = [
-  'Domestic commercial opportunities',
-  'International expansion',
-  'Market-entry intelligence',
-  'Buyer and seller introductions',
-  'Investor and partner discovery',
-  'Import/export pathway understanding',
-  'Regulatory and government navigation through qualified partners',
-  'Document and compliance-readiness review',
-  'Brand and distribution partnership introductions',
-  'Country and market expansion dossiers',
-  'Operator, clinician, pharmacist and physician network mapping',
-  'Strategic market landscape reviews',
-  'Commercial opportunity assessment',
+const proofStrip = [
+  'Market access',
+  'Commercial intelligence',
+  'Strategic introductions',
+  'Counterparty screening',
 ]
 
-const engagementTypes = [
-  'Market intelligence dossiers',
-  'Country expansion reviews',
-  'Commercial opportunity screens',
-  'Buyer and seller pathway reviews',
-  'Partner introduction mandates',
-  'Import/export readiness reviews',
-  'Document and compliance-readiness checks',
-  'Investor and strategic partner mapping',
-  'Brand, distribution and licensing partnership support',
-  'Ongoing advisory and market-access support',
+const corePillars = [
+  {
+    label: '01',
+    title: 'Find the real route',
+    body: 'Clarify whether a market, buyer pathway, import lane or partnership route is worth pursuing before time is wasted.',
+  },
+  {
+    label: '02',
+    title: 'Screen the counterparties',
+    body: 'Separate credible buyers, sellers, distributors, investors and partners from weak signals, noise and poor-fit conversations.',
+  },
+  {
+    label: '03',
+    title: 'Open better conversations',
+    body: 'Use stronger intelligence, cleaner positioning and warmer commercial context to create higher-quality introductions.',
+  },
 ]
 
-const howItWorks = [
-  { n: '01', title: 'Start with a light inquiry', body: 'Share what you are trying to do. The first step is intentionally brief.' },
-  { n: '02', title: 'Harbourview reviews the objective', body: 'The commercial objective is assessed for clarity, fit and relevance.' },
-  { n: '03', title: 'Routed by opportunity type', body: 'The inquiry is directed toward the most relevant capability area.' },
-  { n: '04', title: 'Intelligence and pathways assessed', body: 'Relevant counterparties, intelligence or routes are evaluated.' },
-  { n: '05', title: 'A next step is recommended', body: 'Clear direction is provided on how to proceed.' },
-  { n: '06', title: 'Support where appropriate', body: 'Introductions, reviews or advisory work are initiated where there is a credible basis.' },
+const screens = [
+  'Route viability',
+  'Buyer and seller fit',
+  'Import/export readiness',
+  'Pharmacy and distributor pathways',
+  'Territory and exclusivity logic',
+  'Document and compliance readiness',
+  'Investor and strategic partner fit',
+  'Market timing and commercial friction',
+]
+
+const outputs = [
+  {
+    title: 'Market-Access Intelligence Brief',
+    body: 'A decision-grade review of the market, route, friction points and recommended next move.',
+  },
+  {
+    title: 'Counterparty Screen',
+    body: 'A focused view of who is credible, who fits the mandate and who should be avoided.',
+  },
+  {
+    title: 'Mandate Recommendation Memo',
+    body: 'A clean commercial recommendation showing what was reviewed, what was ruled out and what remains viable.',
+  },
+]
+
+const fit = [
+  'Licensed operators entering or expanding in regulated markets',
+  'Importers, exporters, distributors and wholesalers seeking credible supply or demand',
+  'Investors and strategic partners assessing cannabis opportunities',
+  'Serious suppliers needing a cleaner path to qualified commercial conversations',
+]
+
+const notFit = [
+  'Generic lead generation without qualification',
+  'Undisciplined brokerage or public counterparty exposure',
+  'Legal advice, regulatory filing execution or compliance sign-off',
+  'Lifestyle cannabis promotion, media services or hype-driven market commentary',
+]
+
+const process = [
+  { n: '01', title: 'Confidential intake', body: 'Capture the objective, market, product, route and commercial constraints.' },
+  { n: '02', title: 'Fit and route review', body: 'Assess whether the opportunity is credible, timely and worth advancing.' },
+  { n: '03', title: 'Intelligence build', body: 'Map the relevant market, counterparties, proof gaps and execution path.' },
+  { n: '04', title: 'Controlled next step', body: 'Move toward a brief, screened introduction, mandate or clear no-go decision.' },
 ]
 
 export default function HomePage() {
   return (
-    <>
-      {/* Hero */}
-      <section style={{ padding: 'clamp(72px,10vw,120px) 24px clamp(64px,8vw,100px)', borderBottom: '1px solid rgba(198,165,90,0.15)', backgroundColor: '#0B1A2F' }}>
-        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
-          <GoldLabel>International Cannabis Market Access</GoldLabel>
-          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(36px,6vw,62px)', fontWeight: 600, lineHeight: 1.1, color: '#F5F1E8', margin: '0 0 28px' }}>
-            Market access, intelligence and strategic introductions for the global cannabis industry.
-          </h1>
-          <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 'clamp(16px,2vw,20px)', lineHeight: 1.7, color: '#C9C2B3', margin: '0 0 16px', maxWidth: '640px' }}>
-            Harbourview helps cannabis operators, investors and industry partners understand markets, find credible counterparties and move faster with better information.
-          </p>
-          <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '15px', lineHeight: 1.75, color: '#C9C2B3', opacity: 0.8, margin: '0 0 40px', maxWidth: '620px' }}>
-            From domestic commercial opportunities to international expansion, partner discovery, import/export pathways, market intelligence and document readiness, Harbourview helps turn fragmented industry knowledge into actionable commercial direction.
-          </p>
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <CTAButton href="/intake">Start with Harbourview</CTAButton>
-            {BOOKING_URL && (
-              <CTAButton href={BOOKING_URL} variant="outline">Book a Call</CTAButton>
-            )}
+    <main className="hv-page-shell">
+      <section className="hv-hero">
+        <div className="hv-hero-grid">
+          <div className="hv-hero-copy">
+            <GoldLabel>Market access backed by intelligence and relationships</GoldLabel>
+            <h1>Better intelligence. Better counterparties. Better outcomes.</h1>
+            <p className="hv-hero-lede">
+              Harbourview works with serious companies seeking credible buyers, sellers, investors and commercially relevant opportunities across regulated cannabis markets.
+            </p>
+            <p className="hv-hero-subcopy">
+              We help clients assess real opportunities, identify the right counterparties and open stronger commercial conversations. In an industry full of noise, Harbourview is built to improve clarity, fit and access.
+            </p>
+            <div className="hv-hero-actions">
+              <CTAButton href="/intake">Start Confidential Intake</CTAButton>
+              {BOOKING_URL && <CTAButton href={BOOKING_URL} variant="outline">Request a Discussion</CTAButton>}
+            </div>
+            <div className="hv-proof-strip" aria-label="Harbourview capabilities">
+              {proofStrip.map((item) => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="hv-hero-visual" aria-label="Harbourview commercial intelligence visual">
+            <div className="hv-visual-frame">
+              <div className="hv-map-orb">
+                <span className="hv-route hv-route-one" />
+                <span className="hv-route hv-route-two" />
+                <span className="hv-route hv-route-three" />
+                <span className="hv-node hv-node-one" />
+                <span className="hv-node hv-node-two" />
+                <span className="hv-node hv-node-three" />
+              </div>
+              <div className="hv-intel-panel hv-panel-top">
+                <span>Route screen</span>
+                <strong>Viable with conditions</strong>
+              </div>
+              <div className="hv-intel-panel hv-panel-bottom">
+                <span>Counterparty fit</span>
+                <strong>Qualified introductions only</strong>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Why Harbourview Exists */}
-      <Section dark>
-        <div style={{ maxWidth: '760px' }}>
-          <SectionHeadline>
-            The cannabis industry is fragmented, relationship-driven and expensive to misunderstand.
-          </SectionHeadline>
-          <BodyText>
-            The right intelligence network can save months of wasted outreach, reduce poor-fit introductions, prevent bad-market decisions and identify opportunities that are not visible through public research alone.
-          </BodyText>
-        </div>
-      </Section>
-
-      {/* What We Help With */}
-      <Section>
-        <SectionHeadline>What Harbourview Helps With</SectionHeadline>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginTop: '32px' }}>
-          {whatWeHelpWith.map((item) => (
-            <div
-              key={item}
-              style={{
-                padding: '16px 20px',
-                border: '1px solid rgba(198,165,90,0.18)',
-                borderRadius: '2px',
-                backgroundColor: 'rgba(198,165,90,0.03)',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: '14px',
-                lineHeight: 1.6,
-                color: '#C9C2B3',
-              }}
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Who We Work Across */}
-      <Section dark>
-        <SectionHeadline>Who Harbourview Works Across</SectionHeadline>
-        <BodyText style={{ maxWidth: '700px' }}>
-          Harbourview works across the cannabis industry, including cultivators, brands, manufacturers, processors, genetics companies, clinicians, physicians, pharmacists, investors, importers, exporters, distributors, consultants, service providers and strategic partners.
-        </BodyText>
-      </Section>
-
-      {/* Engagement Types */}
-      <Section>
-        <SectionHeadline>Engagement Types</SectionHeadline>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', marginTop: '32px' }}>
-          {engagementTypes.map((item) => (
-            <div
-              key={item}
-              style={{
-                padding: '18px 22px',
-                border: '1px solid rgba(198,165,90,0.2)',
-                borderRadius: '2px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px',
-              }}
-            >
-              <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#C6A55A', marginTop: '8px', flexShrink: 0 }} />
-              <span style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', lineHeight: 1.6, color: '#C9C2B3' }}>{item}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* How It Works */}
-      <Section dark>
-        <SectionHeadline>How It Works</SectionHeadline>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px', marginTop: '32px' }}>
-          {howItWorks.map((step) => (
-            <div key={step.n} style={{ display: 'flex', gap: '20px' }}>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '28px', color: 'rgba(198,165,90,0.3)', fontWeight: 600, flexShrink: 0, lineHeight: 1 }}>
-                {step.n}
-              </div>
-              <div>
-                <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '15px', fontWeight: 600, color: '#F5F1E8', margin: '0 0 8px' }}>{step.title}</p>
-                <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', lineHeight: 1.65, color: '#C9C2B3', margin: 0 }}>{step.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Final CTA */}
-      <section style={{ padding: '80px 24px', textAlign: 'center', backgroundColor: '#081423', borderTop: '1px solid rgba(198,165,90,0.15)' }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(22px,3vw,32px)', fontWeight: 500, fontStyle: 'italic', color: '#F5F1E8', margin: '0 0 32px', lineHeight: 1.4 }}>
-            Better information. Better relationships. Better commercial decisions.
+      <section className="hv-section hv-section-dark">
+        <div className="hv-section-intro">
+          <GoldLabel>What actually matters</GoldLabel>
+          <h2>The edge is not access. It is intelligence.</h2>
+          <p>
+            Access without screening creates wasted calls, weak introductions and credibility loss. Harbourview focuses on the work before the introduction: route logic, counterparty fit, market reality and commercial proof.
           </p>
-          <CTAButton href="/intake">Start with Harbourview</CTAButton>
+        </div>
+        <div className="hv-pillar-grid">
+          {corePillars.map((pillar) => (
+            <article className="hv-pillar-card" key={pillar.title}>
+              <span>{pillar.label}</span>
+              <h3>{pillar.title}</h3>
+              <p>{pillar.body}</p>
+            </article>
+          ))}
         </div>
       </section>
-    </>
+
+      <section className="hv-section">
+        <div className="hv-split">
+          <div>
+            <GoldLabel>Commercial screen</GoldLabel>
+            <h2>Harbourview helps decide what is worth pursuing.</h2>
+            <p>
+              The goal is not more noise. The goal is fewer better conversations, cleaner mandates and stronger commercial judgment before resources are committed.
+            </p>
+          </div>
+          <div className="hv-check-grid">
+            {screens.map((screen) => (
+              <div className="hv-check-item" key={screen}>{screen}</div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="hv-section hv-section-dark">
+        <div className="hv-section-intro">
+          <GoldLabel>Decision outputs</GoldLabel>
+          <h2>Built to be forwarded, discussed and acted on.</h2>
+          <p>
+            Harbourview materials are designed for commercial decisions, not generic market education. Each output should make the next move clearer.
+          </p>
+        </div>
+        <div className="hv-output-grid">
+          {outputs.map((output) => (
+            <article className="hv-output-card" key={output.title}>
+              <h3>{output.title}</h3>
+              <p>{output.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="hv-section">
+        <div className="hv-fit-grid">
+          <div className="hv-fit-panel">
+            <GoldLabel>Strong fit</GoldLabel>
+            <h2>Who Harbourview is built for</h2>
+            <ul>
+              {fit.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+          <div className="hv-fit-panel hv-fit-panel-muted">
+            <GoldLabel>Not the mandate</GoldLabel>
+            <h2>What Harbourview is not</h2>
+            <ul>
+              {notFit.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="hv-section hv-section-dark">
+        <div className="hv-section-intro">
+          <GoldLabel>Process</GoldLabel>
+          <h2>Controlled from first inquiry to next step.</h2>
+        </div>
+        <div className="hv-process-line">
+          {process.map((step) => (
+            <article className="hv-process-step" key={step.n}>
+              <span>{step.n}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="hv-final-cta">
+        <div>
+          <GoldLabel>Confidential inquiry</GoldLabel>
+          <h2>Bring the opportunity. Harbourview will help pressure-test the route.</h2>
+          <p>
+            Start with a clear intake so the objective, market, counterparty profile and next move can be assessed properly.
+          </p>
+          <CTAButton href="/intake">Start Confidential Intake</CTAButton>
+        </div>
+      </section>
+    </main>
   )
 }
