@@ -1,6 +1,6 @@
 // Admin review queue — server component
 // Admin authorization must be verified server-side before rendering.
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
 async function getPendingListings(serviceUrl: string) {
@@ -11,7 +11,7 @@ async function getPendingListings(serviceUrl: string) {
 }
 
 export default async function AdminReviewPage() {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect('/login');

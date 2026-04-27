@@ -2,12 +2,12 @@
 // Server-side only. Admin role verified. Audit events written via user client (RLS exercised).
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { AdminListingUpdateSchema } from '@/lib/marketplace/schemas';
 import { AUDIT_ACTIONS } from '@/lib/marketplace/types-admin';
 
-async function verifyAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
+async function verifyAdmin(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -28,7 +28,7 @@ export async function PATCH(
   const { id } = await params;
 
   // Verify admin via user-authenticated client (respects RLS, validates JWT)
-  const supabase = await createClient();
+  const supabase = await createServerClient();
   const admin = await verifyAdmin(supabase);
 
   if (!admin) {

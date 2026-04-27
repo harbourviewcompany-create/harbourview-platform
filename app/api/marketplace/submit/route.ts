@@ -2,7 +2,7 @@
 // Rate-limited. Zod-validated. review_status and public_visibility locked server-side.
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { ListingSubmissionSchema, WantedRequestSubmissionSchema } from '@/lib/marketplace/schemas';
 
 // Simple in-memory rate limiter (replace with Upstash Redis in production)
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
     }
 
-    const supabase = await createClient();
+    const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     const { data, error } = await supabase
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
   }
 
-  const supabase = await createClient();
+  const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   // Generate slug from title

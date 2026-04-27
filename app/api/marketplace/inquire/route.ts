@@ -3,7 +3,7 @@
 // Response never echoes buyer PII fields.
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { InquirySubmissionSchema } from '@/lib/marketplace/schemas';
 
 const inquiryCounts = new Map<string, { count: number; resetAt: number }>();
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   // THC-004 FIX: Require authentication before touching DB.
   // Without this, anon users hit a DB RLS rejection and get a 500.
