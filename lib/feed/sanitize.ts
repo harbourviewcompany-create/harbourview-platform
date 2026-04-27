@@ -8,12 +8,16 @@ const BLOCKED_KEYS = new Set([
   "secret",
   "api_key",
   "apikey",
+  "api_token",          // raw token stored on publish_events — must never reach feed output
   "password",
   "internal_notes",
   "analyst_notes",
+  "analyst_interpretation", // internal analyst commentary — not for client consumption
   "reviewer_notes",
   "rejection_reason",
   "return_reason",
+  "item_notes",         // internal dossier item notes — not for client consumption
+  "snapshot_json",      // raw DB snapshot column — must not be re-embedded in feed output
   // workspace and workspace_id are intentionally included in the published snapshot
   // (workspace.name provides client context). Do NOT add them here.
   "profile_id",

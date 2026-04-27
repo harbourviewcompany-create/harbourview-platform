@@ -1,0 +1,52 @@
+# Supabase project configuration
+# Project ref: tpfvhhrwzsofhdcfdenc
+# Do not commit secrets here. All secrets live in .env.local or Supabase dashboard.
+
+[project]
+id = "tpfvhhrwzsofhdcfdenc"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = false
+
+# Edge function configuration
+# verify_jwt = false is required for chatgpt-connector because incoming
+# requests originate from ChatGPT (not Supabase auth) and carry no Supabase JWT.
+# The function compensates with its own SHA-256 API key check (constant-time).
+[functions.chatgpt-connector]
+verify_jwt = false
+
+[analytics]
+enabled = false
