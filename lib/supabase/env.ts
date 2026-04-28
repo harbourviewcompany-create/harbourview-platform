@@ -1,4 +1,4 @@
-const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
+const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgkukjrrwamdpqrg'
 
 function requireEnv(name: string) {
   const value = process.env[name]
