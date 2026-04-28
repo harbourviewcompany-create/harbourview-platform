@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ListingCard } from '@/components/marketplace/ListingCard'
 import { InquiryForm } from '@/components/marketplace/InquiryForm'
 import { MarketplaceDisclaimer } from '@/components/marketplace/MarketplaceDisclaimer'
+import { MarketplaceEmptyState } from '@/components/marketplace/MarketplaceEmptyState'
 import type { PublicListing } from '@/lib/marketplace/redact'
 
 interface ListingPageClientProps {
@@ -38,7 +39,9 @@ export function ListingPageClient({
       setListings(data.listings ?? [])
       setTotal(data.total ?? 0)
     } catch {
+      setConfigured(false)
       setListings([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
@@ -72,7 +75,7 @@ export function ListingPageClient({
         </p>
         {!loading && configured && (
           <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '12px', color: MUTED, opacity: 0.5 }}>
-            {total} listing{total !== 1 ? 's' : ''} available
+            {total} public listing{total !== 1 ? 's' : ''} displayed
           </p>
         )}
       </div>
@@ -120,35 +123,24 @@ export function ListingPageClient({
           Loading listings…
         </div>
       ) : !configured ? (
-        <div
-          style={{
-            backgroundColor: 'rgba(198,165,90,0.05)',
-            border: '1px solid rgba(198,165,90,0.15)',
-            borderRadius: '3px',
-            padding: '48px 32px',
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '20px', color: '#F5F1E8', marginBottom: '12px' }}>
-            Marketplace Launching Soon
-          </p>
-          <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED, lineHeight: '1.7', maxWidth: '480px', margin: '0 auto 24px' }}>
-            This marketplace section is being activated. In the meantime, submit your listing or
-            wanted request directly through Harbourview intake.
-          </p>
-          <Link href="/intake" style={{ display: 'inline-block', padding: '10px 22px', backgroundColor: GOLD, color: '#0B1A2F', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '13px', fontWeight: 600, textDecoration: 'none', borderRadius: '2px' }}>
-            Submit via Intake
-          </Link>
-        </div>
+        <MarketplaceEmptyState
+          eyebrow="Marketplace data unavailable"
+          title="This section is not displaying public listings right now."
+          description="Harbourview can still review relevant supply, surplus assets or buyer requirements through intake. No inventory is being invented or publicly listed until it has been reviewed."
+          actions={[
+            { href: '/marketplace/submit-listing', label: 'Submit a Listing', variant: 'primary' },
+            { href: '/marketplace/submit-wanted', label: 'Post a Wanted Request' },
+          ]}
+        />
       ) : listings.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px 0' }}>
-          <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED }}>
-            {emptyMessage ?? 'No listings in this category yet. Check back soon or submit your own.'}
-          </p>
-          <Link href="/marketplace/submit-listing" style={{ display: 'inline-block', marginTop: '20px', padding: '10px 22px', border: `1px solid ${GOLD}`, color: GOLD, fontFamily: 'Inter, system-ui, sans-serif', fontSize: '13px', textDecoration: 'none', borderRadius: '2px' }}>
-            Submit a Listing
-          </Link>
-        </div>
+        <MarketplaceEmptyState
+          title={`No public ${title.toLowerCase()} listings are currently displayed.`}
+          description={emptyMessage ?? 'This category is open for reviewed submissions. Submit a relevant listing or post a wanted request so Harbourview can assess fit before any introduction is made.'}
+          actions={[
+            { href: '/marketplace/submit-listing', label: 'Submit a Listing', variant: 'primary' },
+            { href: '/marketplace/submit-wanted', label: 'Post a Wanted Request' },
+          ]}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
           {listings.map((listing) => (
