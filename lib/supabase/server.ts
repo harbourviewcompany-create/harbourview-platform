@@ -6,6 +6,7 @@ import { getSupabaseAnonKey, getSupabaseUrl } from './env'
 
 export async function createClient() {
   const cookieStore = await cookies()
+
   return createServerClient<Database>(
     getSupabaseUrl(),
     getSupabaseAnonKey(),
