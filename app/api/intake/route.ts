@@ -3,23 +3,27 @@ import { Resend } from 'resend'
 import { intakeSchema } from '@/lib/validation'
 import { buildIntakeEmailHtml } from '@/lib/email'
 
-const DEFAULT_TO_EMAILS = 'harborviewcompany@gmail.com,tylercampbell5@outlook.com'
-const TO_EMAILS = (process.env.HARBOURVIEW_TO_EMAIL || DEFAULT_TO_EMAILS)
-  .split(',')
-  .map((email) => email.trim())
-  .filter(Boolean)
 const FROM_EMAIL = process.env.HARBOURVIEW_FROM_EMAIL || 'intake@harbourview.io'
 const MIN_SUBMIT_SECONDS = 3
 
 export async function POST(req: NextRequest) {
-  // Check Resend API key
   if (!process.env.RESEND_API_KEY) {
     console.error('[Intake API] RESEND_API_KEY is not configured')
     return NextResponse.json(
-      { error: 'Email service is not configured. Please set RESEND_API_KEY.' },
+      { error: 'Email service is not configured.' },
       { status: 503 }
     )
   }
+
+  if (!process.env.HARBOURVIEW_TO_EMAIL) {
+    console.error('[Intake API] HARBOURVIEW_TO_EMAIL is not configured')
+    return NextResponse.json(
+      { error: 'Email service is not configured.' },
+      { status: 503 }
+    )
+  }
+
+  const TO_EMAILS = process.env.HARBOURVIEW_TO_EMAIL.split(',').map((e) => e.trim()).filter(Boolean)
 
   let body: unknown
   try {
