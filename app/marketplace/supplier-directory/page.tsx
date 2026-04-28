@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { MarketplaceDisclaimer } from '@/components/marketplace/MarketplaceDisclaimer'
+import { MarketplaceEmptyState } from '@/components/marketplace/MarketplaceEmptyState'
 import type { PublicSupplierProfile } from '@/lib/marketplace/redact'
 
 const GOLD = '#C6A55A'
@@ -39,13 +40,18 @@ function SupplierCard({ supplier }: { supplier: PublicSupplierProfile }) {
 export default function SupplierDirectoryPage() {
   const [suppliers, setSuppliers] = useState<PublicSupplierProfile[]>([])
   const [loading, setLoading] = useState(true)
+  const [configured, setConfigured] = useState(true)
 
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/marketplace/supplier-directory?limit=30')
       const data = await res.json()
+      if (data.configured === false) setConfigured(false)
       setSuppliers(data.suppliers ?? [])
-    } catch { setSuppliers([]) }
+    } catch {
+      setConfigured(false)
+      setSuppliers([])
+    }
     finally { setLoading(false) }
   }, [])
 
@@ -67,11 +73,25 @@ export default function SupplierDirectoryPage() {
       <MarketplaceDisclaimer />
       {loading ? (
         <div style={{ textAlign: 'center', padding: '64px 0', color: MUTED, fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px' }}>Loading directory…</div>
+      ) : !configured ? (
+        <MarketplaceEmptyState
+          eyebrow="Marketplace data unavailable"
+          title="The supplier directory is not displaying public profiles right now."
+          description="Harbourview can still review supplier, manufacturer and service-provider submissions through intake. Public profiles are only displayed after review."
+          actions={[
+            { href: '/marketplace/submit-listing', label: 'Submit a Listing', variant: 'primary' },
+            { href: '/intake', label: 'Start Confidential Intake' },
+          ]}
+        />
       ) : suppliers.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px 0' }}>
-          <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED }}>Supplier profiles coming soon. Contact Harbourview to discuss supplier sourcing.</p>
-          <Link href="/contact" style={{ display: 'inline-block', marginTop: '20px', padding: '10px 22px', border: `1px solid ${GOLD}`, color: GOLD, fontFamily: 'Inter, system-ui, sans-serif', fontSize: '13px', textDecoration: 'none', borderRadius: '2px' }}>Contact Us</Link>
-        </div>
+        <MarketplaceEmptyState
+          title="No public supplier profiles are currently displayed."
+          description="Supplier profiles are reviewed before they appear publicly. Submit a listing or start intake if your company should be assessed for a future directory profile."
+          actions={[
+            { href: '/marketplace/submit-listing', label: 'Submit a Listing', variant: 'primary' },
+            { href: '/intake', label: 'Start Confidential Intake' },
+          ]}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
           {suppliers.map((s) => <SupplierCard key={s.id} supplier={s} />)}
