@@ -1,7 +1,12 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './types'
-import { getSupabaseServerEnv } from './env'
+import { getSupabaseServerEnv, getSupabaseEnvStatus } from './env'
 
+/**
+ * Service-role client: bypasses RLS.
+ * Only for server-side admin routes protected by ADMIN_SECRET.
+ * Never expose to the browser.
+ */
 export function createAdminClient() {
   const { url, serviceRoleKey } = getSupabaseServerEnv()
 
@@ -11,4 +16,8 @@ export function createAdminClient() {
       persistSession: false,
     },
   })
+}
+
+export function isSupabaseConfigured(): boolean {
+  return getSupabaseEnvStatus().configured
 }
