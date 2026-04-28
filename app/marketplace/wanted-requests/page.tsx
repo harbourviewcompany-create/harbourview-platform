@@ -1,11 +1,11 @@
 'use client'
 
-import type { Metadata } from 'next'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { WantedCard } from '@/components/marketplace/WantedCard'
 import { InquiryForm } from '@/components/marketplace/InquiryForm'
 import { MarketplaceDisclaimer } from '@/components/marketplace/MarketplaceDisclaimer'
+import { MarketplaceEmptyState } from '@/components/marketplace/MarketplaceEmptyState'
 import type { PublicBuyerRequest } from '@/lib/marketplace/redact'
 
 const GOLD = '#C6A55A'
@@ -27,7 +27,9 @@ export default function WantedRequestsPage() {
       setRequests(data.requests ?? [])
       setTotal(data.total ?? 0)
     } catch {
+      setConfigured(false)
       setRequests([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
@@ -50,7 +52,7 @@ export default function WantedRequestsPage() {
         </p>
         {!loading && configured && (
           <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '12px', color: MUTED, opacity: 0.5 }}>
-            {total} active request{total !== 1 ? 's' : ''}
+            {total} public wanted request{total !== 1 ? 's' : ''} displayed
           </p>
         )}
       </div>
@@ -74,13 +76,20 @@ export default function WantedRequestsPage() {
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '64px 0', color: MUTED, fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px' }}>Loading…</div>
-      ) : !configured || requests.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px 0' }}>
-          <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED }}>
-            No active wanted requests at this time. Post your requirement and Harbourview will source.
-          </p>
-        </div>
+        <div style={{ textAlign: 'center', padding: '64px 0', color: MUTED, fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px' }}>Loading wanted requests…</div>
+      ) : !configured ? (
+        <MarketplaceEmptyState
+          eyebrow="Marketplace data unavailable"
+          title="Wanted requests are not displaying publicly right now."
+          description="Harbourview can still review buyer requirements through the wanted request flow. Public requests are only displayed after review."
+          actions={[{ href: '/marketplace/submit-wanted', label: 'Post a Wanted Request', variant: 'primary' }]}
+        />
+      ) : requests.length === 0 ? (
+        <MarketplaceEmptyState
+          title="No public wanted requests are currently displayed."
+          description="Post a wanted request and Harbourview will review the requirement before making it visible or using it to source credible counterparties."
+          actions={[{ href: '/marketplace/submit-wanted', label: 'Post a Wanted Request', variant: 'primary' }]}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
           {requests.map((r) => <WantedCard key={r.id} request={r} onInquire={setInquiryRequestId} />)}
