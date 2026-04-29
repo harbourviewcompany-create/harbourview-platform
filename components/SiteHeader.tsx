@@ -16,7 +16,7 @@ export function SiteHeader() {
   }
 
   const handleCTAClick = () => {
-    trackEvent('cta_start_with_harbourview_click', { location: 'header' })
+    trackEvent('cta_confidential_inquiry_click', { location: 'header' })
     setMobileOpen(false)
   }
 
@@ -102,7 +102,7 @@ export function SiteHeader() {
               transition: 'background-color 0.2s',
             }}
           >
-            Start with Harbourview
+            Start a Confidential Inquiry
           </Link>
         </nav>
 
@@ -179,7 +179,7 @@ export function SiteHeader() {
                 textAlign: 'center',
               }}
             >
-              Start with Harbourview
+              Start a Confidential Inquiry
             </Link>
           </nav>
         </div>
