@@ -13,7 +13,8 @@ export default async function LoginPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const next = isSafeRelativePath(params.next ?? null) ? params.next : "/app";
+  const nextParam = params.next ?? null;
+  const next = nextParam && isSafeRelativePath(nextParam) ? nextParam : "/app";
   if (user) redirect(next);
 
   return (
