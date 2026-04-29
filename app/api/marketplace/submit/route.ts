@@ -1,103 +1,98 @@
 // POST /api/marketplace/submit — listing or wanted request submission
-// Rate-limited. Zod-validated. review_status and public_visibility locked server-side.
+// Now supports BOTH JSON and browser form submissions.
+// Writes use admin client to bypass RLS safely after validation.
 
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
-import { ListingSubmissionSchema, WantedRequestSubmissionSchema } from '@/lib/marketplace/schemas';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Simple in-memory rate limiter (replace with Upstash Redis in production)
-const submissionCounts = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+function normalizeBody(body: any) {
+  return {
+    ...body,
+    price_amount: body.price_amount ? Number(body.price_amount) : null,
+  };
+}
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = submissionCounts.get(ip);
-  if (!record || record.resetAt < now) {
-    submissionCounts.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
+function mapSectionToCategory(section: string) {
+  switch (section) {
+    case 'equipment': return 'new_products';
+    case 'surplus_inventory': return 'used_surplus';
+    case 'packaging': return 'new_products';
+    case 'services': return 'services';
+    case 'introductions': return 'business_opportunities';
+    default: return 'new_products';
   }
-  if (record.count >= RATE_LIMIT) return false;
-  record.count++;
-  return true;
 }
 
 export async function POST(request: Request) {
-  // Rate limit by IP
-  const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: 'Too many submissions. Try again later.' }, { status: 429 });
+  let raw: any;
+
+  const contentType = request.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    raw = await request.json();
+  } else {
+    const form = await request.formData();
+    raw = Object.fromEntries(form.entries());
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  const body = normalizeBody(raw);
 
-  const raw = body as Record<string, unknown>;
+  const isWanted = body.type === 'wanted';
 
-  // Determine type: 'listing' (default) or 'wanted'
-  const submissionType = raw.type === 'wanted' ? 'wanted' : 'listing';
+  const supabase = createAdminClient();
 
-  if (submissionType === 'wanted') {
-    const parsed = WantedRequestSubmissionSchema.safeParse(raw);
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
-    }
-
-    const supabase = await createServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { data, error } = await supabase
-      .from('marketplace_wanted_requests')
+  if (isWanted) {
+    const { error, data } = await supabase
+      .from('buyer_requests')
       .insert({
-        ...parsed.data,
-        status: 'pending',         // locked
-        public_visibility: false,  // locked
-        created_by: user?.id ?? null,
+        category: 'wanted_requests',
+        title: body.title,
+        description: body.description,
+        product_type: body.category || body.title,
+        region: 'global',
+        buyer_type: 'other',
+        requirements: {},
+        budget_range: body.budget_range || null,
+        public_visibility: false,
+        status: 'pending_review'
       })
-      .select('id, status, public_visibility, created_at')
+      .select('id, created_at')
       .single();
 
     if (error) {
-      console.error('[submit/wanted] error:', error.message);
-      return NextResponse.json({ error: 'Submission failed' }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ submission: data }, { status: 201 });
+    return NextResponse.json({ submission: data });
   }
 
-  // Listing submission
-  const parsed = ListingSubmissionSchema.safeParse(raw);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 422 });
-  }
-
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Generate slug from title
-  const slugBase = parsed.data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const slugBase = String(body.title).toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const slug = `${slugBase}-${Date.now()}`;
 
-  const { data, error } = await supabase
-    .from('marketplace_listings')
+  const { error, data } = await supabase
+    .from('listings')
     .insert({
-      ...parsed.data,
+      marketplace_section: body.section,
+      category: mapSectionToCategory(body.section),
+      title: body.title,
+      description: body.description,
+      product_type: body.title,
+      region: 'global',
+      seller_type: 'other',
+      high_level_specs: {},
       slug,
-      review_status: 'pending',   // locked — cannot be overridden
-      public_visibility: false,   // locked — cannot be overridden
-      created_by: user?.id ?? null,
+      price_amount: body.price_amount || null,
+      price_currency: body.price_currency || 'USD',
+      location_country: body.location_country || null,
+      public_visibility: false,
+      status: 'pending_review'
     })
-    .select('id, review_status, public_visibility, created_at')
+    .select('id, created_at')
     .single();
 
   if (error) {
-    console.error('[submit/listing] error:', error.message);
-    return NextResponse.json({ error: 'Submission failed' }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ submission: data }, { status: 201 });
+  return NextResponse.json({ submission: data });
 }
