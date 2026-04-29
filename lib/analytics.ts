@@ -1,6 +1,7 @@
 type AnalyticsEvent =
   | 'page_view'
   | 'cta_start_with_harbourview_click'
+  | 'cta_confidential_inquiry_click'
   | 'cta_book_call_click'
   | 'nav_click'
   | 'form_start'
