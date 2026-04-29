@@ -1,6 +1,6 @@
 // middleware.ts
 // Authenticates operator UI routes and attaches baseline security headers.
-// Public paths: /login and /auth/*.
+// Public paths include the public Harbourview site and public marketplace lead-capture routes.
 // Token-gated APIs must perform their own explicit token validation in route handlers.
 
 import { createServerClient } from "@supabase/ssr";
@@ -8,7 +8,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPublicSupabaseEnv, assertNoPublicSecretExposure } from "@/lib/security/env";
 import { attachSecurityHeaders, isSafeRelativePath } from "@/lib/security/http";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/auth",
+  "/privacy",
+  "/terms",
+  "/marketplace",
+  "/api/marketplace",
+];
 const TOKEN_GATED_API_PATHS = ["/api/feed"];
 
 function isPublicPath(pathname: string): boolean {
