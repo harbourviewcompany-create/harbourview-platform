@@ -2,10 +2,26 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { WhatHappensNext } from '@/components/WhatHappensNext'
 import { LISTING_CATEGORY_SLUGS, SELLER_TYPES, REGIONS, PRICE_RANGES } from '@/lib/marketplace/categories'
 
 const GOLD = '#C6A55A'
 const MUTED = '#C9C2B3'
+
+const listingNextSteps = [
+  {
+    title: 'Harbourview reviews the listing',
+    body: 'The submission is checked for category fit, commercial relevance, public-safe details and whether more information is needed before display.',
+  },
+  {
+    title: 'Private identity stays private',
+    body: 'Your legal entity, contact details and private notes are kept for Harbourview review and are not shown in the public marketplace card.',
+  },
+  {
+    title: 'The listing is either prepared or clarified',
+    body: 'If suitable, Harbourview can prepare the listing for controlled marketplace visibility. If details are incomplete, Harbourview can follow up for clarification.',
+  },
+]
 
 const labelStyle: React.CSSProperties = { display: 'block', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: GOLD, marginBottom: '6px' }
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(198,165,90,0.2)', borderRadius: '2px', color: '#F5F1E8', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
@@ -33,8 +49,7 @@ export default function SubmitListingPage() {
       <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', padding: '64px 0' }}>
         <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '24px', color: GOLD, marginBottom: '16px' }}>Listing Submitted</p>
         <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED, lineHeight: '1.7', marginBottom: '32px' }}>
-          Your listing has been received and is pending Harbourview review. We will be in touch
-          at the email you provided. Listings typically go live within 1–2 business days.
+          Your listing has been received and is pending Harbourview review. Harbourview will use the details provided to assess fit, prepare public-safe listing information or request clarification if needed.
         </p>
         <Link href="/marketplace" style={{ display: 'inline-block', padding: '10px 22px', backgroundColor: GOLD, color: '#0B1A2F', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '13px', fontWeight: 600, textDecoration: 'none', borderRadius: '2px' }}>Back to Marketplace</Link>
       </div>
@@ -48,6 +63,12 @@ export default function SubmitListingPage() {
       <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED, lineHeight: '1.7', marginBottom: '32px' }}>
         All listings are reviewed by Harbourview before going live. Your contact details and legal entity name are never shown publicly.
       </p>
+
+      <WhatHappensNext
+        title="Listings are screened before public visibility."
+        intro="The marketplace is designed for controlled commercial discovery, not open posting without review."
+        steps={listingNextSteps}
+      />
 
       <input type="text" value={form._hp} onChange={(e) => set('_hp', e.target.value)} style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
 
