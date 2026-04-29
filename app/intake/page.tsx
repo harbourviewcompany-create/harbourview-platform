@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import { IntakeForm } from '@/components/IntakeForm'
+import { WhatHappensNext } from '@/components/WhatHappensNext'
 
 export const metadata: Metadata = {
   title: 'Start with Harbourview | Cannabis Market Access Inquiry',
   description: 'Submit a light inquiry to Harbourview. Share your commercial objective and Harbourview will assess the most relevant next step.',
 }
+
+const intakeNextSteps = [
+  {
+    title: 'Harbourview reviews the objective',
+    body: 'The inquiry is checked for market, route, counterparty type, urgency and whether the request fits Harbourview scope.',
+  },
+  {
+    title: 'Sensitive details stay controlled',
+    body: 'Submitted information is used for fit review and next-step assessment. Counterparty details are not exposed publicly through this form.',
+  },
+  {
+    title: 'A suitable next step is identified',
+    body: 'The inquiry may move toward a deeper intake, commercial intelligence brief, screened introduction path or a clear no-fit decision.',
+  },
+]
 
 export default function IntakePage() {
   return (
@@ -25,6 +41,11 @@ export default function IntakePage() {
 
       <section style={{ padding: '56px 24px 80px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <WhatHappensNext
+            title="Your inquiry is reviewed before any commercial move is made."
+            intro="This keeps the process focused, confidential and commercially useful from the first submission."
+            steps={intakeNextSteps}
+          />
           <IntakeForm />
         </div>
       </section>
