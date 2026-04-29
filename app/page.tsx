@@ -46,16 +46,25 @@ const screens = [
 
 const outputs = [
   {
+    label: '01',
     title: 'Market-Access Intelligence Brief',
-    body: 'A decision-grade review of the market, route, friction points and recommended next move.',
+    body: 'A decision-grade brief showing whether a market, route or commercial pathway is worth pursuing.',
+    answers: 'Is this opportunity real, reachable and worth the next step?',
+    includes: ['Market snapshot', 'Route viability', 'Commercial friction', 'Recommended next move'],
   },
   {
+    label: '02',
     title: 'Counterparty Screen',
-    body: 'A focused view of who is credible, who fits the mandate and who should be avoided.',
+    body: 'A focused review of buyers, sellers, distributors, suppliers or partners against a defined mandate.',
+    answers: 'Who is credible, who fits and who should be avoided?',
+    includes: ['Fit criteria', 'Counterparty shortlist', 'Red flags', 'Introduction logic'],
   },
   {
+    label: '03',
     title: 'Mandate Recommendation Memo',
-    body: 'A clean commercial recommendation showing what was reviewed, what was ruled out and what remains viable.',
+    body: 'A clean commercial recommendation that turns research, screening and outreach into a clear decision.',
+    answers: 'What should be advanced, paused, rejected or reframed?',
+    includes: ['Reviewed options', 'Ruled-out paths', 'Remaining viable route', 'Action recommendation'],
   },
 ]
 
@@ -164,19 +173,30 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="hv-section hv-section-dark">
+      <section className="hv-section hv-section-dark" id="example-outputs">
         <div className="hv-section-intro">
-          <GoldLabel>Decision outputs</GoldLabel>
-          <h2>Built to be forwarded, discussed and acted on.</h2>
+          <GoldLabel>Example outputs</GoldLabel>
+          <h2>Decision-ready materials, not generic market notes.</h2>
           <p>
-            Harbourview materials are designed for commercial decisions, not generic market education. Each output should make the next move clearer.
+            These are the core Harbourview outputs used to turn intake, research and counterparty screening into clearer commercial decisions. They are examples of format and purpose, not client case studies or claimed results.
           </p>
         </div>
-        <div className="hv-output-grid">
+        <div className="hv-output-grid hv-example-output-grid">
           {outputs.map((output) => (
-            <article className="hv-output-card" key={output.title}>
+            <article className="hv-output-card hv-example-output-card" key={output.title}>
+              <div className="hv-output-card-topline">
+                <span>{output.label}</span>
+                <small>Harbourview output</small>
+              </div>
               <h3>{output.title}</h3>
               <p>{output.body}</p>
+              <div className="hv-output-answer">
+                <strong>Answers</strong>
+                <p>{output.answers}</p>
+              </div>
+              <ul>
+                {output.includes.map((item) => <li key={item}>{item}</li>)}
+              </ul>
             </article>
           ))}
         </div>
