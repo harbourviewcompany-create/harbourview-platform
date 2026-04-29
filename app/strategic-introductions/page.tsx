@@ -1,22 +1,11 @@
 import type { Metadata } from 'next'
 import { PageHero } from '@/components/PageHero'
-import { Section, SectionHeadline, BodyText, CTAButton } from '@/components/ui'
+import { ServicePageDetails } from '@/components/ServicePageDetails'
 
 export const metadata: Metadata = {
   title: 'Cannabis Strategic Introductions | Harbourview',
-  description: 'Harbourview supports targeted introductions across buyers, sellers, investors, distributors and clinical networks where there is a credible commercial reason to connect.',
+  description: 'Harbourview supports controlled strategic introductions where there is a credible commercial reason for buyers, sellers, investors, distributors or partners to connect.',
 }
-
-const supportAreas = [
-  'Buyer and seller introductions',
-  'Investor and capital introductions',
-  'Distributor and wholesaler introductions',
-  'Import/export counterparties',
-  'Brand and licensing partners',
-  'Clinical and pharmacy networks',
-  'Technology and service partners',
-  'International operating partners',
-]
 
 export default function StrategicIntroductionsPage() {
   return (
@@ -24,44 +13,59 @@ export default function StrategicIntroductionsPage() {
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
         <PageHero
           headline="Strategic Introductions Built on Commercial Fit"
-          subheadline="Introductions only matter when the commercial logic is clear."
+          subheadline="Harbourview supports controlled introductions where the reason to connect is specific, credible and commercially relevant."
         />
       </div>
 
-      <Section>
-        <div style={{ maxWidth: '700px', marginBottom: '48px' }}>
-          <BodyText>
-            Harbourview supports targeted introductions across buyers, sellers, investors, distributors, operators, clinical networks, partners and service providers where there is a credible reason to connect.
-          </BodyText>
-        </div>
-        <SectionHeadline>Support Areas</SectionHeadline>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginTop: '32px' }}>
-          {supportAreas.map((area) => (
-            <div
-              key={area}
-              style={{
-                padding: '20px 24px',
-                border: '1px solid rgba(198,165,90,0.2)',
-                borderRadius: '2px',
-                backgroundColor: 'rgba(198,165,90,0.03)',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: '15px',
-                lineHeight: 1.6,
-                color: '#C9C2B3',
-              }}
-            >
-              {area}
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section dark style={{ textAlign: 'center' }}>
-        <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(20px,2.5vw,28px)', fontStyle: 'italic', color: '#F5F1E8', margin: '0 0 32px' }}>
-          Start an introduction inquiry with Harbourview.
-        </p>
-        <CTAButton href="/intake">Start an Introduction Inquiry</CTAButton>
-      </Section>
+      <ServicePageDetails
+        overview="Strategic introductions are not name-sharing or broad networking. Harbourview looks for a real commercial reason to connect parties, including buyer-seller fit, distribution logic, market-entry relevance, investor interest, supplier capability, service need or partnership alignment."
+        whoItIsFor={[
+          'Buyers, sellers, distributors, suppliers or operators with a defined commercial objective.',
+          'Companies seeking qualified counterparties rather than open networking lists.',
+          'Investors, strategic groups or operators assessing specific market relationships.',
+          'Participants that can explain what they need and why a counterpart would care.',
+        ]}
+        badFit={[
+          'The request is a generic introduction blast with no clear commercial logic.',
+          'The company cannot explain its offer, requirement, mandate, product or decision authority.',
+          'The introduction would rely on exaggerated claims, weak fit or unclear value to the other party.',
+          'The desired outcome requires legal, financial or regulatory advice rather than a commercial introduction path.',
+        ]}
+        whatHarbourviewDoes={[
+          {
+            title: 'Tests the reason to connect',
+            body: 'Clarifies why the introduction should exist, what each side may want and whether the commercial logic is strong enough to proceed.',
+          },
+          {
+            title: 'Screens counterparties',
+            body: 'Assesses fit based on market, product, route, capability, buyer or seller profile and relevant constraints.',
+          },
+          {
+            title: 'Controls disclosure',
+            body: 'Keeps sensitive identity and commercial details controlled until the opportunity has enough fit to justify a conversation.',
+          },
+          {
+            title: 'Prepares the approach',
+            body: 'Frames the introduction around a clear commercial reason, reducing wasted outreach and improving the quality of the first conversation.',
+          },
+        ]}
+        possibleOutputs={[
+          {
+            title: 'Counterparty Screen',
+            body: 'A focused assessment of relevant buyers, sellers, partners, distributors, suppliers or investors based on fit logic.',
+          },
+          {
+            title: 'Introduction Readiness Note',
+            body: 'A short view of whether the party is ready to be introduced, what must be clarified and what should be withheld.',
+          },
+          {
+            title: 'Controlled Introduction Path',
+            body: 'A recommended approach for moving from screened interest to a direct conversation when fit is credible.',
+          },
+        ]}
+        ctaLine="Start with fit before asking for access."
+        ctaLabel="Start an Introduction Inquiry"
+      />
     </>
   )
 }
