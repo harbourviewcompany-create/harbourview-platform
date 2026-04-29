@@ -2,10 +2,27 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { WhatHappensNext } from '@/components/WhatHappensNext'
 import { BUYER_TYPES, REGIONS } from '@/lib/marketplace/categories'
 
 const GOLD = '#C6A55A'
 const MUTED = '#C9C2B3'
+
+const wantedNextSteps = [
+  {
+    title: 'Harbourview reviews the request',
+    body: 'The request is checked for product fit, region, volume, urgency, buyer type and whether the requirement can be described safely.',
+  },
+  {
+    title: 'Buyer identity remains controlled',
+    body: 'Your company and contact details are kept private unless Harbourview identifies a relevant supplier path and disclosure is appropriate.',
+  },
+  {
+    title: 'The request guides sourcing conversations',
+    body: 'If suitable, Harbourview can use the request to screen potential suppliers, surface relevant listings or clarify the requirement before moving further.',
+  },
+]
+
 const labelStyle: React.CSSProperties = { display: 'block', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: GOLD, marginBottom: '6px' }
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(198,165,90,0.2)', borderRadius: '2px', color: '#F5F1E8', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
 
@@ -29,7 +46,7 @@ export default function SubmitWantedPage() {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', padding: '64px 0' }}>
         <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '24px', color: GOLD, marginBottom: '16px' }}>Request Submitted</p>
-        <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED, lineHeight: '1.7', marginBottom: '32px' }}>Your wanted request has been received and is pending Harbourview review. We will contact you once it is live and begin sourcing on your behalf.</p>
+        <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED, lineHeight: '1.7', marginBottom: '32px' }}>Your wanted request has been received and is pending Harbourview review. Harbourview will use the details provided to assess fit, clarify the requirement if needed and identify whether a relevant supplier path exists.</p>
         <Link href="/marketplace/wanted-requests" style={{ display: 'inline-block', padding: '10px 22px', backgroundColor: GOLD, color: '#0B1A2F', fontFamily: 'Inter, system-ui, sans-serif', fontSize: '13px', fontWeight: 600, textDecoration: 'none', borderRadius: '2px' }}>View Wanted Requests</Link>
       </div>
     )
@@ -42,6 +59,13 @@ export default function SubmitWantedPage() {
       <p style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px', color: MUTED, lineHeight: '1.7', marginBottom: '32px' }}>
         Tell Harbourview what you are looking for. Your identity will only be disclosed to potential suppliers after Harbourview screening.
       </p>
+
+      <WhatHappensNext
+        title="Wanted requests become controlled sourcing signals."
+        intro="The goal is to understand the requirement before exposing buyer identity or moving into supplier conversations."
+        steps={wantedNextSteps}
+      />
+
       <input type="text" value={form._hp} onChange={(e) => set('_hp', e.target.value)} style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
