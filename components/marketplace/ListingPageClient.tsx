@@ -17,6 +17,17 @@ interface ListingPageClientProps {
 
 const GOLD = '#C6A55A'
 const MUTED = '#C9C2B3'
+const REQUEST_TIMEOUT_MS = 4500
+
+async function fetchWithTimeout(url: string) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
 
 export function ListingPageClient({
   title,
@@ -33,7 +44,7 @@ export function ListingPageClient({
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/marketplace/listings?category=${encodeURIComponent(category)}&limit=24`)
+      const res = await fetchWithTimeout(`/api/marketplace/listings?category=${encodeURIComponent(category)}&limit=24`)
       const data = await res.json()
       if (data.configured === false) setConfigured(false)
       setListings(data.listings ?? [])
@@ -119,9 +130,15 @@ export function ListingPageClient({
 
       {/* Content */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '64px 0', color: MUTED, fontFamily: 'Inter, system-ui, sans-serif', fontSize: '14px' }}>
-          Loading listings…
-        </div>
+        <MarketplaceEmptyState
+          eyebrow="Checking current listings"
+          title="Reviewing public listings for this category."
+          description="If no reviewed inventory is available, this page will show a controlled empty state rather than implying unverified supply."
+          actions={[
+            { href: '/marketplace/submit-listing', label: 'Submit a Listing', variant: 'primary' },
+            { href: '/marketplace/submit-wanted', label: 'Post a Wanted Request' },
+          ]}
+        />
       ) : !configured ? (
         <MarketplaceEmptyState
           eyebrow="Marketplace data unavailable"
