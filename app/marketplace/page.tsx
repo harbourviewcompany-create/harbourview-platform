@@ -2,17 +2,14 @@
 import { Suspense } from 'react';
 
 const SECTIONS = [
-  { key: 'new_products', label: 'New Products' },
-  { key: 'used_surplus', label: 'Used & Surplus' },
-  { key: 'cannabis_inventory', label: 'Cannabis Inventory' },
+  { key: 'equipment', label: 'Equipment' },
+  { key: 'consumables', label: 'Consumables' },
   { key: 'wanted_requests', label: 'Wanted Requests' },
-  { key: 'services', label: 'Services' },
-  { key: 'business_opportunities', label: 'Business Opportunities' },
   { key: 'supplier_directory', label: 'Supplier Directory' },
 ];
 
 async function getListings(section?: string) {
-  const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
+  const baseUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const url = section
     ? `${baseUrl}/api/marketplace?section=${section}`
     : `${baseUrl}/api/marketplace`;
@@ -35,10 +32,9 @@ export default async function MarketplacePage({
     <main className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Harbourview Marketplace</h1>
       <p className="text-gray-500 mb-8">
-        Commercial cannabis industry listings — products, inventory, services, and business opportunities.
+        Equipment, consumables, wanted requests and supplier discovery for regulated cannabis operators.
       </p>
 
-      {/* Section filters */}
       <div className="flex flex-wrap gap-2 mb-8">
         <a
           href="/marketplace"
@@ -58,13 +54,12 @@ export default async function MarketplacePage({
         ))}
       </div>
 
-      {/* Submit CTA */}
       <div className="flex gap-4 mb-8">
         <a
           href="/marketplace/submit"
           className="px-5 py-2 bg-emerald-700 text-white rounded font-medium text-sm hover:bg-emerald-800"
         >
-          Submit a Listing
+          Submit Equipment / Consumables
         </a>
         <a
           href="/marketplace/submit?type=wanted"
@@ -74,7 +69,6 @@ export default async function MarketplacePage({
         </a>
       </div>
 
-      {/* Listings grid */}
       <Suspense fallback={<p className="text-gray-400">Loading listings...</p>}>
         {listings.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
@@ -92,6 +86,11 @@ export default async function MarketplacePage({
               price_currency?: string;
               location_country?: string;
               is_featured: boolean;
+              condition?: string;
+              brand?: string;
+              model?: string;
+              quantity?: number;
+              unit?: string;
             }) => (
               <a
                 key={listing.id}
@@ -104,6 +103,11 @@ export default async function MarketplacePage({
                 )}
                 <h2 className="font-semibold text-gray-900 mb-1 line-clamp-2">{listing.title}</h2>
                 <p className="text-sm text-gray-500 line-clamp-3 mb-3">{listing.description}</p>
+                <div className="text-xs text-gray-500 space-y-1 mb-3">
+                  {(listing.brand || listing.model) && <div>{[listing.brand, listing.model].filter(Boolean).join(' ')}</div>}
+                  {listing.condition && <div>Condition: {listing.condition}</div>}
+                  {listing.quantity && <div>Quantity: {listing.quantity} {listing.unit ?? ''}</div>}
+                </div>
                 <div className="flex items-center justify-between text-xs text-gray-400">
                   <span>{listing.location_country ?? '—'}</span>
                   {listing.price_amount && (
