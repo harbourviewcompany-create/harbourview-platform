@@ -104,8 +104,8 @@ export default function HomePage() {
               We help clients assess real opportunities, identify the right counterparties and open stronger commercial conversations. In an industry full of noise, Harbourview is built to improve clarity, fit and access.
             </p>
             <div className="hv-hero-actions">
-              <CTAButton href="/intake">Start Confidential Intake</CTAButton>
-              {BOOKING_URL && <CTAButton href={BOOKING_URL} variant="outline">Request a Discussion</CTAButton>}
+              <CTAButton href="/intake">Start a Confidential Inquiry</CTAButton>
+              {BOOKING_URL && <CTAButton href={BOOKING_URL} variant="outline">Request a Confidential Discussion</CTAButton>}
             </div>
             <div className="hv-proof-strip" aria-label="Harbourview capabilities">
               {proofStrip.map((item) => (
@@ -244,7 +244,7 @@ export default function HomePage() {
           <p>
             Start with a clear intake so the objective, market, counterparty profile and next move can be assessed properly.
           </p>
-          <CTAButton href="/intake">Start Confidential Intake</CTAButton>
+          <CTAButton href="/intake">Start a Confidential Inquiry</CTAButton>
         </div>
       </section>
     </main>
