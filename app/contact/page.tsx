@@ -54,7 +54,7 @@ export default function ContactPage() {
                 For a structured inquiry with context about your objective, organization type and target market, the intake form provides a more complete starting point.
               </p>
               <a href="/intake" style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: '13px', fontWeight: 600, color: '#C6A55A', textDecoration: 'none' }}>
-                Start with Intake →
+                Start a Confidential Inquiry →
               </a>
             </div>
           </div>
