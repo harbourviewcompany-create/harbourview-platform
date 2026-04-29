@@ -44,10 +44,10 @@ export default function ContactPage() {
               <p className="text-sm text-gray-500">
                 You can also reach us directly at{' '}
                 <a
-                  href="mailto:info@harbourview.com"
+                  href="mailto:harbourviewcompany@gmail.com"
                   className="text-navy underline hover:text-gold"
                 >
-                  info@harbourview.com
+                  harbourviewcompany@gmail.com
                 </a>
                 .
               </p>

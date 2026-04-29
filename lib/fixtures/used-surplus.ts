@@ -13,7 +13,7 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     location: 'Denver, CO',
     tags: ['rosin', 'extraction', 'processing'],
     postedDate: '2026-04-14',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'us-002',
@@ -27,7 +27,7 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     location: 'Seattle, WA',
     tags: ['dehumidification', 'climate control', 'cultivation'],
     postedDate: '2026-04-16',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'us-003',
@@ -40,7 +40,7 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     location: 'Las Vegas, NV',
     tags: ['BHO', 'extraction', 'closed-loop'],
     postedDate: '2026-04-09',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'us-004',
@@ -53,7 +53,7 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     location: 'Detroit, MI',
     tags: ['racking', 'storage', 'grow room infrastructure'],
     postedDate: '2026-04-21',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'us-005',
@@ -66,6 +66,6 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     location: 'Oakland, CA',
     tags: ['lab equipment', 'HPLC', 'testing', 'analytical'],
     postedDate: '2026-04-11',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]

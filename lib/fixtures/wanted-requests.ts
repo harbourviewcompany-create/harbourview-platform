@@ -12,7 +12,7 @@ export const wantedRequests: WantedRequest[] = [
     location: 'Nevada',
     tags: ['extraction', 'processing equipment', 'wanted'],
     postedDate: '2026-04-19',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'wr-002',
@@ -25,7 +25,7 @@ export const wantedRequests: WantedRequest[] = [
     location: 'Michigan',
     tags: ['packaging', 'mylar', 'child-resistant', 'bulk'],
     postedDate: '2026-04-20',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'wr-003',
@@ -38,7 +38,7 @@ export const wantedRequests: WantedRequest[] = [
     location: 'Illinois',
     tags: ['POS', 'technology', 'dispensary', 'Metrc'],
     postedDate: '2026-04-15',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'wr-004',
@@ -51,6 +51,6 @@ export const wantedRequests: WantedRequest[] = [
     location: 'Colorado',
     tags: ['facility', 'real estate', 'cultivation', 'lease'],
     postedDate: '2026-04-23',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]

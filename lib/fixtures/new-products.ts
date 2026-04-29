@@ -13,7 +13,7 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Denver, CO',
     tags: ['extraction', 'CO2', 'processing equipment'],
     postedDate: '2026-04-15',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-002',
@@ -27,7 +27,7 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Portland, OR',
     tags: ['lighting', 'LED', 'cultivation'],
     postedDate: '2026-04-18',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-003',
@@ -41,7 +41,7 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Los Angeles, CA',
     tags: ['packaging', 'automation', 'pre-roll'],
     postedDate: '2026-04-10',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-004',
@@ -55,7 +55,7 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Phoenix, AZ',
     tags: ['HVAC', 'climate control', 'cultivation infrastructure'],
     postedDate: '2026-04-12',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-005',
@@ -69,6 +69,6 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Sacramento, CA',
     tags: ['trimming', 'post-harvest', 'processing'],
     postedDate: '2026-04-20',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]

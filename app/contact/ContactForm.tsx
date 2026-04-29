@@ -38,7 +38,7 @@ export default function ContactForm() {
         `${data.get('message')}`,
       ].join('\n')
     )
-    window.location.href = `mailto:info@harbourview.com?subject=${subject}&body=${body}`
+    window.location.href = `mailto:harbourviewcompany@gmail.com?subject=${subject}&body=${body}`
     setState('success')
   }
 

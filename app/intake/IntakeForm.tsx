@@ -55,7 +55,7 @@ export default function IntakeForm() {
         `${data.get('description')}`,
       ].join('\n')
     )
-    window.location.href = `mailto:listings@harbourview.com?subject=${subject}&body=${body}`
+    window.location.href = `mailto:harbourviewcompany@gmail.com?subject=${subject}&body=${body}`
     setState('success')
   }
 

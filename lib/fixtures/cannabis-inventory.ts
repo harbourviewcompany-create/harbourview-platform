@@ -14,7 +14,7 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Michigan',
     tags: ['flower', 'indoor', 'wholesale', 'hybrid'],
     postedDate: '2026-04-17',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-002',
@@ -29,7 +29,7 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Colorado',
     tags: ['hemp', 'CBD', 'biomass', 'organic'],
     postedDate: '2026-04-13',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-003',
@@ -43,7 +43,7 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'California',
     tags: ['concentrate', 'live resin', 'wholesale', 'wholesale packaging'],
     postedDate: '2026-04-08',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-004',
@@ -57,6 +57,6 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Oregon',
     tags: ['seed', 'genetics', 'hemp', 'feminised'],
     postedDate: '2026-04-22',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]

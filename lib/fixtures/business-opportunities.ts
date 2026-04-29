@@ -14,7 +14,7 @@ export const businessOpportunities: BusinessOpportunity[] = [
     location: 'Greater Detroit, MI',
     tags: ['dispensary', 'retail', 'license transfer', 'Michigan'],
     postedDate: '2026-04-16',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'bo-002',
@@ -28,7 +28,7 @@ export const businessOpportunities: BusinessOpportunity[] = [
     location: 'Denver Metro, CO',
     tags: ['cultivation', 'facility', 'lease', 'Colorado'],
     postedDate: '2026-04-13',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'bo-003',
@@ -43,7 +43,7 @@ export const businessOpportunities: BusinessOpportunity[] = [
     location: 'Southern California',
     tags: ['extraction', 'license', 'partnership', 'California'],
     postedDate: '2026-04-11',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'bo-004',
@@ -58,6 +58,6 @@ export const businessOpportunities: BusinessOpportunity[] = [
     location: 'Las Vegas, NV',
     tags: ['distribution', 'acquisition', 'Nevada', 'fleet'],
     postedDate: '2026-04-08',
-    contactEmail: 'listings@harbourview.com',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]
