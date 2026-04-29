@@ -27,6 +27,11 @@ export async function updateDealAction(formData: FormData) {
   const monetizationPath = value(formData, 'monetization_path');
   const introSummary = value(formData, 'intro_summary');
 
+  const nextAction = value(formData, 'next_action');
+  const nextActionDueAt = value(formData, 'next_action_due_at');
+  const priority = value(formData, 'priority');
+  const ownerName = value(formData, 'owner_name');
+
   if (!id) throw new Error('Missing deal id');
   if (status && !VALID_STATUSES.has(status)) throw new Error('Invalid deal status');
 
@@ -42,6 +47,13 @@ export async function updateDealAction(formData: FormData) {
   update.success_fee_currency = successFeeCurrency.toUpperCase();
   update.monetization_path = monetizationPath;
   update.intro_summary = introSummary;
+
+  update.next_action = nextAction;
+  update.next_action_due_at = nextActionDueAt ? new Date(nextActionDueAt).toISOString() : null;
+  update.priority = priority || 'normal';
+  update.owner_name = ownerName;
+  update.last_touch_at = new Date().toISOString();
+
   update.updated_at = new Date().toISOString();
 
   const supabase = createAdminClient();
