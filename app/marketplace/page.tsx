@@ -4,7 +4,7 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Marketplace',
   description:
-    'Browse the Harbourview B2B cannabis marketplace. Equipment, inventory, services, and business opportunities.',
+    'Browse the Harbourview B2B cannabis marketplace for equipment, inventory, services, wanted requests, suppliers and business opportunities.',
 }
 
 const categories = [
@@ -12,43 +12,43 @@ const categories = [
     label: 'New Products',
     href: '/marketplace/new-products',
     description:
-      'New commercial equipment, packaging, and supplies from verified vendors.',
-    accent: 'border-l-4 border-gold',
+      'New equipment, packaging, automation, cultivation, processing and operating supplies.',
   },
   {
     label: 'Used & Surplus',
     href: '/marketplace/used-surplus',
     description:
-      'Pre-owned extraction systems, grow equipment, and surplus inventory.',
-    accent: 'border-l-4 border-gold',
+      'Used systems, surplus assets, discounted overstock, liquidations and facility closure packages.',
   },
   {
     label: 'Cannabis Inventory',
     href: '/marketplace/cannabis-inventory',
     description:
-      'Wholesale flower, biomass, concentrates, and genetics for licensed operators.',
-    accent: 'border-l-4 border-gold',
+      'Wholesale flower, biomass, extracts and genetics for licensed, qualified counterparties.',
   },
   {
     label: 'Wanted Requests',
     href: '/marketplace/wanted-requests',
     description:
-      'Active buy-side requests from operators seeking equipment and inventory.',
-    accent: 'border-l-4 border-gold',
+      'Buyer-side demand signals from operators looking for equipment, inputs, inventory or services.',
   },
   {
     label: 'Services',
     href: '/marketplace/services',
     description:
-      'Compliance consulting, facility design, logistics, and professional services.',
-    accent: 'border-l-4 border-gold',
+      'Commercial, compliance, logistics, QA, facility, accounting and operational service providers.',
   },
   {
     label: 'Business Opportunities',
     href: '/marketplace/business-opportunities',
     description:
-      'License transfers, facility leases, acquisitions, and partnership opportunities.',
-    accent: 'border-l-4 border-gold',
+      'Facilities, partnerships, acquisition targets, licensing routes and structured commercial opportunities.',
+  },
+  {
+    label: 'Supplier Directory',
+    href: '/supplier-directory',
+    description:
+      'Supplier profiles across equipment, packaging, services, testing, logistics and operator support.',
   },
 ]
 
@@ -57,15 +57,19 @@ export default function MarketplacePage() {
     <>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Marketplace</h1>
-          <p className="text-gray-300 max-w-2xl">
-            B2B listings for the regulated cannabis industry. Browse by category below
-            or submit a listing through our{' '}
-            <Link href="/intake" className="text-gold underline hover:text-gold-light">
-              intake form
-            </Link>
-            .
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-gold">Marketplace Index</p>
+          <h1 className="text-3xl sm:text-5xl font-bold mb-4">Find the right commercial lane.</h1>
+          <p className="text-gray-300 max-w-3xl">
+            Browse active Harbourview marketplace sections. Listings are reviewed before publication and marketplace inquiries route through Harbourview so buyer, seller and supplier introductions can be handled with control.
           </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link href="/intake" className="btn-primary">
+              Submit a Listing
+            </Link>
+            <Link href="/marketplace/wanted-requests" className="btn-outline border-gold text-gold hover:bg-gold hover:text-navy">
+              View Wanted Requests
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -76,7 +80,7 @@ export default function MarketplacePage() {
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`card p-6 group hover:border-gold transition-colors ${cat.accent}`}
+                className="card border-l-4 border-l-gold p-6 group hover:border-gold transition-colors"
               >
                 <h2 className="font-semibold text-navy text-lg mb-2 group-hover:text-gold transition-colors">
                   {cat.label}
@@ -86,18 +90,19 @@ export default function MarketplacePage() {
             ))}
           </div>
 
-          <div className="mt-12 border-t pt-8">
-            <p className="text-gray-500 text-sm">
-              Don&apos;t see what you need?{' '}
-              <Link href="/marketplace/wanted-requests" className="text-navy underline hover:text-gold">
-                Post a Wanted Request
-              </Link>{' '}
-              or{' '}
-              <Link href="/contact" className="text-navy underline hover:text-gold">
-                contact us
-              </Link>
-              .
+          <div className="mt-12 rounded-lg border border-gray-200 bg-white p-6">
+            <h2 className="text-lg font-semibold text-navy mb-2">Need something not listed?</h2>
+            <p className="text-gray-500 text-sm mb-4">
+              Post a wanted request or contact Harbourview directly. Early marketplace liquidity depends on real demand, not only supply.
             </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link href="/intake" className="btn-secondary">
+                Post a Wanted Request
+              </Link>
+              <Link href="/contact" className="btn-outline">
+                Contact Harbourview
+              </Link>
+            </div>
           </div>
         </div>
       </section>
