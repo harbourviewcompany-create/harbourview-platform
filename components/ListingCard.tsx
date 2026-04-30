@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Listing } from '@/lib/fixtures/types'
+import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
 import InquiryLink from './InquiryLink'
 
 interface ListingCardProps {
@@ -31,7 +31,7 @@ function getVisual(listing: Listing) {
   }
 }
 
-function getBadge(status?: Listing['image']['status']) {
+function getBadge(status?: ListingImageStatus) {
   if (status === 'verified') return 'Verified image'
   if (status === 'supplier-provided') return 'Supplier image'
   return 'Representative image'
