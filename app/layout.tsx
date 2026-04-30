@@ -5,11 +5,11 @@ import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Harbourview — Cannabis Industry Marketplace',
-    template: '%s | Harbourview',
+    default: 'Harbourview Marketplace',
+    template: '%s | Harbourview Marketplace',
   },
   description:
-    'Professional B2B marketplace for the regulated cannabis industry. Equipment, inventory, services, and business opportunities.',
+    'A reviewed B2B marketplace for regulated cannabis operators to source equipment, inventory, services, suppliers and business opportunities.',
 }
 
 export default function RootLayout({
