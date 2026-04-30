@@ -25,9 +25,13 @@ const visualRules = [
 
 function getVisual(listing: Listing) {
   const haystack = `${listing.title} ${listing.tags.join(' ')}`.toLowerCase()
-  return visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term))) || {
-    label: 'Marketplace listing',
-    shape: 'product category',
+  const match = visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term)))
+
+  if (match) return match
+
+  return {
+    label: listing.title,
+    shape: listing.tags[0] || 'Commercial supply category',
   }
 }
 
