@@ -10,16 +10,16 @@ const config: Config = {
     extend: {
       colors: {
         navy: {
-          DEFAULT: '#0d1f3c',
-          dark: '#07152a',
-          light: '#1a3255',
-          muted: '#2a4a6b',
+          DEFAULT: '#0B1A2F',
+          dark: '#081423',
+          light: '#142845',
+          muted: '#304761',
         },
         gold: {
-          DEFAULT: '#c9a84c',
-          dark: '#a88a35',
-          light: '#dfc06d',
-          pale: '#f5ecd4',
+          DEFAULT: '#C6A55A',
+          dark: '#A8842D',
+          light: '#D8BE76',
+          pale: '#F5F1E8',
         },
       },
       fontFamily: {
