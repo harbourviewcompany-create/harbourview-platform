@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const marketplaceLinks = [
+  { label: 'Source-Backed Listings', href: '/marketplace/listings' },
+  { label: 'Consumables', href: '/marketplace/consumables' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
   { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
@@ -29,12 +31,10 @@ export default function Nav() {
     <header className="bg-navy text-white shadow-md">
       <div className="page-container">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <span className="text-gold font-bold text-xl tracking-tight">Harbourview</span>
           </Link>
 
-          {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-6 text-sm font-medium">
             {navLinks.map((link) =>
               link.hasDropdown ? (
@@ -48,7 +48,7 @@ export default function Nav() {
                     {link.label} ▾
                   </Link>
                   {dropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-56 bg-white text-navy rounded shadow-lg border border-gray-100 py-1 z-50">
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white text-navy rounded shadow-lg border border-gray-100 py-1 z-50">
                       {marketplaceLinks.map((l) => (
                         <Link
                           key={l.href}
@@ -73,14 +73,12 @@ export default function Nav() {
             )}
           </nav>
 
-          {/* CTA */}
           <div className="hidden lg:block">
             <Link href="/intake" className="btn-primary text-sm">
               Request Intake
             </Link>
           </div>
 
-          {/* Mobile menu toggle */}
           <button
             className="lg:hidden p-2 rounded hover:bg-navy-light"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -93,7 +91,6 @@ export default function Nav() {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <div className="lg:hidden bg-navy-dark border-t border-navy-light">
           <div className="page-container py-4 flex flex-col gap-3 text-sm font-medium">
