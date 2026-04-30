@@ -5,30 +5,49 @@ import type { Listing } from '@/lib/fixtures/types'
 import InquiryLink from './InquiryLink'
 
 interface ListingCardProps {
-  listing: Listing
+  listing: Listing & {
+    category?: string
+    budget?: string
+  }
 }
 
 const visualRules = [
-  { terms: ['pre-roll tubes', 'tube'], label: 'Pre-roll tubes', shape: 'rounded tubes' },
   { terms: ['mylar', 'pouch', 'exit bags'], label: 'Mylar pouches', shape: 'pouches' },
-  { terms: ['glass jars', 'jar'], label: 'Glass jars', shape: 'jars' },
-  { terms: ['concentrate'], label: 'Concentrate jars', shape: 'small jars' },
-  { terms: ['tincture', 'bottle'], label: 'Tincture bottles', shape: 'bottles' },
-  { terms: ['cones', 'pre-rolled cones'], label: 'Pre-rolled cones', shape: 'cones' },
-  { terms: ['humidity'], label: 'Humidity packs', shape: 'packets' },
-  { terms: ['labels', 'tamper', 'shrink'], label: 'Labels & seals', shape: 'labels' },
-  { terms: ['vape', 'cartridge'], label: 'Vape packaging', shape: 'cartridge packaging' },
-  { terms: ['gloves', 'sanitation', 'parchment'], label: 'Facility supplies', shape: 'supply boxes' },
   { terms: ['cartons', 'shipping'], label: 'Shipping cartons', shape: 'cartons' },
+  { terms: ['labels', 'tamper', 'shrink'], label: 'Labels & seals', shape: 'labels' },
   { terms: ['bundle', 'bulk procurement'], label: 'Consumables bundle', shape: 'assorted supplies' },
+  { terms: ['extraction', 'co2', 'ethanol', 'processing equipment'], label: 'Extraction equipment', shape: 'processing system' },
+  { terms: ['pos', 'technology', 'retail', 'metrc', 'biotrack'], label: 'Retail POS system', shape: 'retail technology' },
+  { terms: ['facility', 'real estate', 'cultivation', 'lease', 'warehouse'], label: 'Commercial facility', shape: 'facility request' },
 ]
 
-function getVisual(listing: Listing) {
-  const haystack = `${listing.title} ${listing.tags.join(' ')}`.toLowerCase()
-  return visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term))) || {
-    label: 'Marketplace listing',
-    shape: 'product category',
+function titleCase(value: string) {
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function getSpecificFallback(listing: ListingCardProps['listing']) {
+  const firstUsefulTag = listing.tags.find((tag) => !['wanted', 'bulk'].includes(tag.toLowerCase()))
+
+  if (firstUsefulTag) {
+    return {
+      label: titleCase(firstUsefulTag),
+      shape: listing.category === 'wanted-requests' ? 'wanted request' : 'product category',
+    }
   }
+
+  const category = listing.category ? titleCase(listing.category) : 'Commercial Opportunity'
+
+  return {
+    label: category,
+    shape: listing.category === 'wanted-requests' ? 'wanted request' : 'marketplace category',
+  }
+}
+
+function getVisual(listing: ListingCardProps['listing']) {
+  const haystack = `${listing.title} ${listing.description} ${listing.tags.join(' ')}`.toLowerCase()
+  return visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term))) || getSpecificFallback(listing)
 }
 
 function getBadge(status?: Listing['image']['status']) {
@@ -37,7 +56,7 @@ function getBadge(status?: Listing['image']['status']) {
   return 'Representative image'
 }
 
-function RepresentativeFallback({ listing, badge }: { listing: Listing; badge: string }) {
+function RepresentativeFallback({ listing, badge }: { listing: ListingCardProps['listing']; badge: string }) {
   const visual = getVisual(listing)
 
   return (
@@ -61,7 +80,7 @@ function RepresentativeFallback({ listing, badge }: { listing: Listing; badge: s
   )
 }
 
-function ListingVisual({ listing }: { listing: Listing }) {
+function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
   const [hasImageError, setHasImageError] = useState(false)
   const badge = getBadge(listing.image?.status)
   const imageSrc = listing.image?.src
@@ -90,6 +109,12 @@ function ListingVisual({ listing }: { listing: Listing }) {
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
+  const isWantedRequest = listing.category === 'wanted-requests'
+  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request Quote'
+  const inquirySubject = isWantedRequest
+    ? `Harbourview Wanted Request Response: ${listing.title}`
+    : `Harbourview Marketplace Inquiry: ${listing.title}`
+
   return (
     <article className="card p-5 flex h-full flex-col gap-4">
       <ListingVisual listing={listing} />
@@ -104,6 +129,11 @@ export default function ListingCard({ listing }: ListingCardProps) {
         {listing.price && (
           <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy">
             {listing.price}
+          </p>
+        )}
+        {isWantedRequest && listing.budget && (
+          <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy">
+            {listing.budget}
           </p>
         )}
       </div>
@@ -125,9 +155,10 @@ export default function ListingCard({ listing }: ListingCardProps) {
 
       <div className="mt-auto border-t border-gray-100 pt-4">
         <InquiryLink
-          subject={`Harbourview Marketplace Inquiry: ${listing.title}`}
+          subject={inquirySubject}
           email={listing.contactEmail}
           listingTitle={listing.title}
+          label={inquiryLabel}
         />
       </div>
     </article>
