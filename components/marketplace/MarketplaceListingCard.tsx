@@ -8,6 +8,23 @@ const statusLabels: Record<MarketplaceListing['verificationStatus'], string> = {
   sold_or_expired_source: 'Sold / source lead only'
 };
 
+const authorizationLabels: Record<MarketplaceListing['sellerAuthorizationStatus'], string> = {
+  not_contacted: 'Seller not contacted',
+  contact_required: 'Seller contact required',
+  authorization_requested: 'Authorization requested',
+  authorized: 'Seller authorized',
+  declined: 'Seller declined',
+  not_applicable: 'Authorization not applicable'
+};
+
+function formatDate(date: string) {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date(`${date}T00:00:00`));
+}
+
 export function MarketplaceListingCard({ listing }: { listing: MarketplaceListing }) {
   return (
     <article className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]/80 p-5 shadow-lg shadow-black/20">
@@ -37,6 +54,25 @@ export function MarketplaceListingCard({ listing }: { listing: MarketplaceListin
       <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-[#F5F1E8]/70">
         <p className="font-medium text-[#C6A55A]">{statusLabels[listing.verificationStatus]}</p>
         <p>{listing.verificationNote}</p>
+      </div>
+
+      <div className="mt-4 grid gap-2 rounded-xl border border-[#C6A55A]/20 bg-[#081423]/70 p-3 text-xs text-[#F5F1E8]/70 sm:grid-cols-2">
+        <p>
+          <span className="block uppercase tracking-[0.16em] text-[#C6A55A]">Last reviewed</span>
+          {formatDate(listing.lastReviewedAt)}
+        </p>
+        <p>
+          <span className="block uppercase tracking-[0.16em] text-[#C6A55A]">Seller status</span>
+          {authorizationLabels[listing.sellerAuthorizationStatus]}
+        </p>
+        <p>
+          <span className="block uppercase tracking-[0.16em] text-[#C6A55A]">Confidence</span>
+          {listing.confidenceScore}/100
+        </p>
+        <p>
+          <span className="block uppercase tracking-[0.16em] text-[#C6A55A]">Commercial path</span>
+          {listing.monetizationPath.replaceAll('_', ' ')}
+        </p>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
