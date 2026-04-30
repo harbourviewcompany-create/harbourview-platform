@@ -6,6 +6,16 @@ export type ListingCategory =
   | 'services'
   | 'business-opportunities'
 
+export type ListingImageStatus = 'representative' | 'supplier-provided' | 'verified'
+
+export interface ListingImage {
+  src?: string
+  alt: string
+  status: ListingImageStatus
+  caption?: string
+  assetSource?: 'generated' | 'supplier_provided' | 'licensed_stock' | 'internal_photo'
+}
+
 export interface Listing {
   id: string
   title: string
@@ -15,6 +25,7 @@ export interface Listing {
   tags: string[]
   postedDate: string
   contactEmail: string
+  image?: ListingImage
 }
 
 export interface NewProductListing extends Listing {
