@@ -1,4 +1,156 @@
-import type { Listing } from './types'
+import type { Listing, ListingImage } from './types'
+
+const representativeCaption = 'Representative category image. Product details, supplier availability, specifications and compliance fit are verified before quote or introduction.'
+
+const consumablesImageMap: Record<string, ListingImage> = {
+  'cons-001': {
+    src: '/marketplace/consumables/01-pre-roll-tubes.webp',
+    alt: 'Unbranded child-resistant pre-roll tubes arranged in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-002': {
+    src: '/marketplace/consumables/01-pre-roll-tubes.webp',
+    alt: 'Unbranded child-resistant pre-roll tubes arranged in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-003': {
+    src: '/marketplace/consumables/02-mylar-pouches.webp',
+    alt: 'Unbranded stand-up mylar pouches in multiple sizes shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-004': {
+    src: '/marketplace/consumables/02-mylar-pouches.webp',
+    alt: 'Unbranded stand-up mylar pouches in multiple sizes shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-005': {
+    src: '/marketplace/consumables/03-glass-flower-jars.webp',
+    alt: 'Unbranded glass flower jars with child-resistant lids shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-006': {
+    src: '/marketplace/consumables/04-concentrate-jars.webp',
+    alt: 'Unbranded concentrate jars for extract packaging shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-007': {
+    src: '/marketplace/consumables/05-tincture-bottles.webp',
+    alt: 'Unbranded amber tincture bottles with droppers shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-008': {
+    src: '/marketplace/consumables/06-pre-rolled-cones.webp',
+    alt: 'Unbranded pre-rolled cones arranged in bulk supply format in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-009': {
+    src: '/marketplace/consumables/06-pre-rolled-cones.webp',
+    alt: 'Unbranded pre-rolled cones arranged in bulk supply format in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-010': {
+    src: '/marketplace/consumables/07-humidity-packs.webp',
+    alt: 'Unbranded humidity control packs arranged in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-011': {
+    src: '/marketplace/consumables/02-mylar-pouches.webp',
+    alt: 'Unbranded stand-up mylar pouches in multiple sizes shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-012': {
+    src: '/marketplace/consumables/08-labels-and-tamper-seals.webp',
+    alt: 'Unbranded labels and tamper-evident sealing supplies shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-013': {
+    src: '/marketplace/consumables/11-vape-cartridge-packaging.webp',
+    alt: 'Unbranded vape cartridge packaging supplies shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-014': {
+    src: '/marketplace/consumables/09-facility-supplies.webp',
+    alt: 'Unbranded facility consumables including nitrile gloves, wipes and parchment shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-015': {
+    src: '/marketplace/consumables/09-facility-supplies.webp',
+    alt: 'Unbranded facility consumables including nitrile gloves, wipes and parchment shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-016': {
+    src: '/marketplace/consumables/09-facility-supplies.webp',
+    alt: 'Unbranded facility consumables including nitrile gloves, wipes and parchment shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-017': {
+    src: '/marketplace/consumables/08-labels-and-tamper-seals.webp',
+    alt: 'Unbranded labels and tamper-evident sealing supplies shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-018': {
+    src: '/marketplace/consumables/10-shipping-cartons-and-bundles.webp',
+    alt: 'Unbranded corrugated cartons and bundled packaging supplies shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-019': {
+    src: '/marketplace/consumables/10-shipping-cartons-and-bundles.webp',
+    alt: 'Unbranded corrugated cartons and bundled packaging supplies shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+  'cons-020': {
+    src: '/marketplace/consumables/10-shipping-cartons-and-bundles.webp',
+    alt: 'Unbranded corrugated cartons and bundled packaging supplies shown in a studio product shot',
+    status: 'representative',
+    caption: representativeCaption,
+    assetSource: 'generated',
+  },
+}
+
+function withRepresentativeImage(listing: Listing): Listing {
+  return {
+    ...listing,
+    image: consumablesImageMap[listing.id],
+  }
+}
 
 export const consumables: Listing[] = [
   {
@@ -221,4 +373,4 @@ export const consumables: Listing[] = [
     postedDate: '2026-04-30',
     contactEmail: 'harbourviewcompany@gmail.com',
   },
-]
+].map(withRepresentativeImage)
