@@ -14,6 +14,12 @@ export const metadata: Metadata = {
 
 const categories = [
   {
+    label: 'Source-Backed Listings',
+    href: '/marketplace/listings',
+    description:
+      'Seller pages, supplier leads, used equipment opportunities and source-backed marketplace candidates requiring Harbourview verification before introduction.',
+  },
+  {
     label: 'Consumables',
     href: '/marketplace/consumables',
     description:
@@ -68,6 +74,12 @@ export default function MarketplacePage() {
     <section className="py-14">
       <div className="page-container">
         <h1 className="text-3xl font-bold mb-6">Marketplace</h1>
+        <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
+          <h2 className="text-navy font-semibold text-lg mb-2">Source-backed opportunity feed</h2>
+          <p className="text-gray-600 text-sm max-w-3xl">
+            Harbourview can publish sourced marketplace candidates as verification-stage listings without implying owned inventory, seller authorization or confirmed availability.
+          </p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((cat) => (
             <Link key={cat.href} href={cat.href} className="card p-6">
