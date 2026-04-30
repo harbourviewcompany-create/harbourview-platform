@@ -1,34 +1,29 @@
+'use client'
+
+import { useState } from 'react'
 import type { Listing } from '@/lib/fixtures/types'
 import InquiryLink from './InquiryLink'
 
-interface ListingImage {
-  src?: string
-  alt: string
-  status?: 'category-placeholder' | 'supplier-provided' | 'verified'
-}
-
-type ListingWithImage = Listing & {
-  image?: ListingImage
-}
-
 interface ListingCardProps {
-  listing: ListingWithImage
+  listing: Listing
 }
 
 const visualRules = [
   { terms: ['pre-roll tubes', 'tube'], label: 'Pre-roll tubes', shape: 'rounded tubes' },
-  { terms: ['mylar', 'pouch'], label: 'Mylar pouches', shape: 'pouches' },
-  { terms: ['glass jars', 'concentrate jars', 'jar'], label: 'Glass jars', shape: 'jars' },
+  { terms: ['mylar', 'pouch', 'exit bags'], label: 'Mylar pouches', shape: 'pouches' },
+  { terms: ['glass jars', 'jar'], label: 'Glass jars', shape: 'jars' },
+  { terms: ['concentrate'], label: 'Concentrate jars', shape: 'small jars' },
   { terms: ['tincture', 'bottle'], label: 'Tincture bottles', shape: 'bottles' },
   { terms: ['cones', 'pre-rolled cones'], label: 'Pre-rolled cones', shape: 'cones' },
   { terms: ['humidity'], label: 'Humidity packs', shape: 'packets' },
   { terms: ['labels', 'tamper', 'shrink'], label: 'Labels & seals', shape: 'labels' },
-  { terms: ['gloves', 'sanitation'], label: 'Facility supplies', shape: 'supply boxes' },
+  { terms: ['vape', 'cartridge'], label: 'Vape packaging', shape: 'cartridge packaging' },
+  { terms: ['gloves', 'sanitation', 'parchment'], label: 'Facility supplies', shape: 'supply boxes' },
   { terms: ['cartons', 'shipping'], label: 'Shipping cartons', shape: 'cartons' },
   { terms: ['bundle', 'bulk procurement'], label: 'Consumables bundle', shape: 'assorted supplies' },
 ]
 
-function getVisual(listing: ListingWithImage) {
+function getVisual(listing: Listing) {
   const haystack = `${listing.title} ${listing.tags.join(' ')}`.toLowerCase()
   return visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term))) || {
     label: 'Marketplace listing',
@@ -36,25 +31,18 @@ function getVisual(listing: ListingWithImage) {
   }
 }
 
-function ListingVisual({ listing }: { listing: ListingWithImage }) {
-  const visual = getVisual(listing)
-  const imageStatus = listing.image?.status || 'category-placeholder'
-  const badge = imageStatus === 'verified' ? 'Verified image' : imageStatus === 'supplier-provided' ? 'Supplier image' : 'Category image'
+function getBadge(status?: Listing['image']['status']) {
+  if (status === 'verified') return 'Verified image'
+  if (status === 'supplier-provided') return 'Supplier image'
+  return 'Representative image'
+}
 
-  if (listing.image?.src) {
-    return (
-      <div className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
-        <img src={listing.image.src} alt={listing.image.alt} className="h-36 w-full object-cover" />
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
-          {badge}
-        </span>
-      </div>
-    )
-  }
+function RepresentativeFallback({ listing, badge }: { listing: Listing; badge: string }) {
+  const visual = getVisual(listing)
 
   return (
     <div className="relative h-36 overflow-hidden rounded-lg border border-gray-100 bg-gradient-to-br from-gold-pale via-white to-gray-100 p-4">
-      <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
+      <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
         {badge}
       </span>
       <div className="flex h-full items-end justify-between gap-3 pt-8">
@@ -71,6 +59,34 @@ function ListingVisual({ listing }: { listing: ListingWithImage }) {
       </div>
     </div>
   )
+}
+
+function ListingVisual({ listing }: { listing: Listing }) {
+  const [hasImageError, setHasImageError] = useState(false)
+  const badge = getBadge(listing.image?.status)
+  const imageSrc = listing.image?.src
+
+  if (imageSrc && !hasImageError) {
+    return (
+      <figure className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+        <img
+          src={imageSrc}
+          alt={listing.image?.alt || listing.title}
+          className="h-36 w-full object-cover"
+          loading="lazy"
+          onError={() => setHasImageError(true)}
+        />
+        <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
+          {badge}
+        </span>
+        {listing.image?.caption && (
+          <figcaption className="sr-only">{listing.image.caption}</figcaption>
+        )}
+      </figure>
+    )
+  }
+
+  return <RepresentativeFallback listing={listing} badge={badge} />
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
