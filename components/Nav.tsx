@@ -7,7 +7,7 @@ const marketplaceLinks = [
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
   { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
-  { label: 'Wanted Requests', href: '/marketplace/wanted-requests' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Services', href: '/marketplace/services' },
   { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
 ]

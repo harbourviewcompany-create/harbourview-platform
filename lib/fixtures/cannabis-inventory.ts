@@ -59,4 +59,32 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     postedDate: '2026-04-22',
     contactEmail: 'harbourviewcompany@gmail.com',
   },
+  {
+    id: 'ci-005',
+    category: 'cannabis-inventory',
+    title: 'GMP Bulk Extract — Canadian LP, EU/UK Export Ready',
+    description:
+      'GMP-certified cannabis extract produced by a licensed Canadian LP under Health Canada oversight. Available in bulk quantities for import by licensed EU and UK operators. Full certificate of analysis, GMP documentation, and export permit support provided. Buyers must hold applicable import licence. Introductions managed through Harbourview.',
+    price: 'POA',
+    weightAvailable: '10kg minimum, up to 50kg per lot',
+    licenseRequired: true,
+    location: 'Ontario, Canada',
+    tags: ['extract', 'GMP', 'export', 'EU', 'UK', 'Canadian LP', 'bulk'],
+    postedDate: '2026-04-25',
+    contactEmail: 'harbourviewcompany@gmail.com',
+  },
+  {
+    id: 'ci-006',
+    category: 'cannabis-inventory',
+    title: 'GMP Dried Flower — European Licensed Producer',
+    description:
+      'GMP-certified dried cannabis flower produced under EU-GMP standard by a licensed producer in Germany. Available for import by operators holding valid national import licences. Multiple cultivars available; COA and GMP certificates provided per lot. Minimum order 5kg. Licensed operators only — import compliance is the responsibility of the receiving party.',
+    price: 'POA',
+    weightAvailable: '5kg minimum per cultivar',
+    licenseRequired: true,
+    location: 'Germany',
+    tags: ['flower', 'GMP', 'EU-GMP', 'import', 'licensed producer', 'Germany'],
+    postedDate: '2026-04-25',
+    contactEmail: 'harbourviewcompany@gmail.com',
+  },
 ]

@@ -9,13 +9,13 @@ const marketplaceLinks = [
   { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
   { label: 'Services', href: '/marketplace/services' },
   { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
+  { label: 'Supplier Directory', href: '/supplier-directory' },
 ]
 
 const companyLinks = [
   { label: 'Signals', href: '/signals' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Intake', href: '/intake' },
-  { label: 'Supplier Directory', href: '/supplier-directory' },
   { label: 'Contact', href: '/contact' },
 ]
 

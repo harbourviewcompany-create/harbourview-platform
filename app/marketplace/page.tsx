@@ -4,7 +4,12 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Marketplace | Harbourview',
   description:
-    'Browse reviewed listings across equipment, cannabis inventory, services, consumables and business opportunities.',
+    'Browse reviewed listings across equipment, cannabis inventory, services, consumables and business opportunities. Post wanted requests or submit your listing for qualification.',
+  openGraph: {
+    title: 'Harbourview Marketplace',
+    description:
+      'Browse reviewed listings across equipment, cannabis inventory, services, consumables and business opportunities. Post wanted requests or submit your listing for qualification.',
+  },
 }
 
 const categories = [
@@ -25,6 +30,36 @@ const categories = [
     href: '/marketplace/used-surplus',
     description:
       'Used systems, surplus assets, discounted overstock, liquidations and facility closure packages.',
+  },
+  {
+    label: 'Cannabis Inventory',
+    href: '/marketplace/cannabis-inventory',
+    description:
+      'Wholesale flower, biomass, extracts and genetics for licensed, qualified counterparties.',
+  },
+  {
+    label: 'Wanted Requests',
+    href: '/marketplace/wanted',
+    description:
+      'Buyer-side demand signals from operators looking for equipment, inputs, inventory or services.',
+  },
+  {
+    label: 'Services',
+    href: '/marketplace/services',
+    description:
+      'Commercial, compliance, logistics, QA, facility, accounting and operational service providers.',
+  },
+  {
+    label: 'Business Opportunities',
+    href: '/marketplace/business-opportunities',
+    description:
+      'Facilities, partnerships, acquisition targets, licensing routes and structured commercial opportunities.',
+  },
+  {
+    label: 'Supplier Directory',
+    href: '/supplier-directory',
+    description:
+      'Supplier profiles across equipment, packaging, services, testing, logistics and operator support.',
   },
 ]
 

@@ -8,7 +8,7 @@ export const suppliers: Supplier[] = [
       'Commercial cannabis equipment supplier specialising in extraction systems, post-harvest processing, and laboratory instrumentation. Nationwide distribution and service network.',
     categories: ['Extraction Equipment', 'Post-Harvest', 'Lab Instruments'],
     location: 'Denver, CO',
-    contactEmail: 'contact@greentech-equip.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sup-002',
@@ -17,7 +17,7 @@ export const suppliers: Supplier[] = [
       'Wholesale packaging supplier for cannabis operators. Child-resistant containers, mylar pouches, labels, and compliance printing. High-volume and small-batch orders accepted.',
     categories: ['Packaging', 'Labelling', 'Compliance Printing'],
     location: 'Los Angeles, CA',
-    contactEmail: 'sales@cannapack.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sup-003',
@@ -26,7 +26,7 @@ export const suppliers: Supplier[] = [
       'Licensed genetics provider supplying tissue culture clones and certified seed stock to commercial cultivators. Stabilised varieties with documented COAs and phenotype records.',
     categories: ['Genetics', 'Clones', 'Seed Stock'],
     location: 'Eugene, OR',
-    contactEmail: 'orders@floragenetics.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sup-004',
@@ -35,7 +35,7 @@ export const suppliers: Supplier[] = [
       'ISO 17025-accredited cannabis testing laboratory offering potency, terpene, residual solvent, heavy metals, and microbial testing. Serving licensed operators across California and Nevada.',
     categories: ['Testing', 'Lab Services', 'Compliance'],
     location: 'Oakland, CA',
-    contactEmail: 'intake@claritylabs.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sup-005',
@@ -44,7 +44,7 @@ export const suppliers: Supplier[] = [
       'Licensed cannabis transport and third-party logistics provider operating in Colorado and New Mexico. Compliant fleet, manifest management, and same-day routing in metro areas.',
     categories: ['Transport', 'Logistics', 'Distribution'],
     location: 'Denver, CO',
-    contactEmail: 'dispatch@harvestlogistics.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sup-006',
@@ -53,7 +53,7 @@ export const suppliers: Supplier[] = [
       'Commercial LED grow light manufacturer offering high-efficacy fixtures for cultivation facilities of all sizes. Direct sales, volume pricing, and facility lighting design services available.',
     categories: ['Lighting', 'Cultivation Equipment'],
     location: 'Portland, OR',
-    contactEmail: 'sales@lumencrop.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sup-007',
@@ -62,6 +62,6 @@ export const suppliers: Supplier[] = [
       'Multi-state cannabis compliance consulting firm. Regulatory audits, SOP development, staff training, and licensing application support. Clients across CA, CO, MI, NV, IL, and AZ.',
     categories: ['Compliance', 'Consulting', 'Licensing'],
     location: 'Chicago, IL',
-    contactEmail: 'info@meridiancompliance.example',
+    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]
