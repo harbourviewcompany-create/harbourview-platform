@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMarketplaceListing, marketplaceListings } from '@/lib/marketplace/listings';
 
@@ -53,9 +54,9 @@ export default async function MarketplaceListingDetailPage({
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-16 text-[#F5F1E8] md:px-10 lg:px-16">
       <article className="mx-auto max-w-5xl">
-        <a href="/marketplace/listings" className="text-sm text-[#C6A55A] underline-offset-4 hover:underline">
+        <Link href="/marketplace/listings" className="text-sm text-[#C6A55A] underline-offset-4 hover:underline">
           Back to source-backed listings
-        </a>
+        </Link>
 
         <div className="mt-8 rounded-3xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-6 md:p-10">
           <p className="text-sm uppercase tracking-[0.24em] text-[#C6A55A]">{listing.section}</p>
