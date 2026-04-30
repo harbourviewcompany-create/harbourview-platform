@@ -1,16 +1,41 @@
 import Link from 'next/link'
 
+const marketplaceLinks = [
+  { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Submit Listing', href: '/marketplace/sell' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'New Products', href: '/marketplace/new-products' },
+  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
+  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
+  { label: 'Services', href: '/marketplace/services' },
+  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
+]
+
+const companyLinks = [
+  { label: 'Signals', href: '/signals' },
+  { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Intake', href: '/intake' },
+  { label: 'Supplier Directory', href: '/supplier-directory' },
+  { label: 'Contact', href: '/contact' },
+]
+
+const legalLinks = [
+  { label: 'Privacy Policy', href: '/legal/privacy' },
+  { label: 'Terms of Use', href: '/legal/terms' },
+  { label: 'Disclaimer', href: '/legal/disclaimer' },
+]
+
 export default function Footer() {
   return (
     <footer className="bg-navy text-gray-300 mt-auto">
       <div className="page-container py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <p className="text-gold font-bold text-lg mb-2">Harbourview</p>
-            <p className="text-sm text-gray-400 max-w-xs">
-              A professional marketplace for the regulated cannabis industry.
-              Equipment, inventory, services, and business opportunities.
+            <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
+              Commercial intelligence, strategic introductions, and market-access
+              support for serious participants in regulated markets.
             </p>
           </div>
 
@@ -18,12 +43,13 @@ export default function Footer() {
           <div>
             <p className="text-white font-semibold text-sm mb-3">Marketplace</p>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/marketplace/new-products" className="hover:text-gold transition-colors">New Products</Link></li>
-              <li><Link href="/marketplace/used-surplus" className="hover:text-gold transition-colors">Used &amp; Surplus</Link></li>
-              <li><Link href="/marketplace/cannabis-inventory" className="hover:text-gold transition-colors">Cannabis Inventory</Link></li>
-              <li><Link href="/marketplace/wanted-requests" className="hover:text-gold transition-colors">Wanted Requests</Link></li>
-              <li><Link href="/marketplace/services" className="hover:text-gold transition-colors">Services</Link></li>
-              <li><Link href="/marketplace/business-opportunities" className="hover:text-gold transition-colors">Business Opportunities</Link></li>
+              {marketplaceLinks.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href} className="hover:text-gold transition-colors">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -31,16 +57,38 @@ export default function Footer() {
           <div>
             <p className="text-white font-semibold text-sm mb-3">Company</p>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/supplier-directory" className="hover:text-gold transition-colors">Supplier Directory</Link></li>
-              <li><Link href="/intake" className="hover:text-gold transition-colors">Submit a Listing</Link></li>
-              <li><Link href="/contact" className="hover:text-gold transition-colors">Contact</Link></li>
+              {companyLinks.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href} className="hover:text-gold transition-colors">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <p className="text-white font-semibold text-sm mb-3">Legal</p>
+            <ul className="space-y-2 text-sm">
+              {legalLinks.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href} className="hover:text-gold transition-colors">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
         <div className="border-t border-navy-light mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
           <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
-          <p>B2B cannabis industry marketplace. For licensed operators only.</p>
+          <div className="flex gap-4">
+            <Link href="/legal/privacy" className="hover:text-gold transition-colors">Privacy</Link>
+            <Link href="/legal/terms" className="hover:text-gold transition-colors">Terms</Link>
+            <Link href="/legal/disclaimer" className="hover:text-gold transition-colors">Disclaimer</Link>
+          </div>
         </div>
       </div>
     </footer>

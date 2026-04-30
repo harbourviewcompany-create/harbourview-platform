@@ -2,9 +2,14 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Marketplace',
+  title: 'Marketplace | Harbourview',
   description:
-    'Browse the Harbourview B2B cannabis marketplace for equipment, inventory, services, wanted requests, suppliers and business opportunities.',
+    'Browse reviewed listings across equipment, cannabis inventory, services, and business opportunities. Post wanted requests or submit your listing for qualification.',
+  openGraph: {
+    title: 'Harbourview Marketplace',
+    description:
+      'Browse reviewed listings across equipment, cannabis inventory, services, and business opportunities. Post wanted requests or submit your listing for qualification.',
+  },
 }
 
 const categories = [
@@ -63,10 +68,10 @@ export default function MarketplacePage() {
             Browse active Harbourview marketplace sections. Listings are reviewed before publication and marketplace inquiries route through Harbourview so buyer, seller and supplier introductions can be handled with control.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link href="/intake" className="btn-primary">
+            <Link href="/marketplace/sell" className="btn-primary">
               Submit a Listing
             </Link>
-            <Link href="/marketplace/wanted-requests" className="btn-outline border-gold text-gold hover:bg-gold hover:text-navy">
+            <Link href="/marketplace/wanted" className="btn-outline border-gold text-gold hover:bg-gold hover:text-navy">
               View Wanted Requests
             </Link>
           </div>
@@ -93,14 +98,14 @@ export default function MarketplacePage() {
           <div className="mt-12 rounded-lg border border-gray-200 bg-white p-6">
             <h2 className="text-lg font-semibold text-navy mb-2">Need something not listed?</h2>
             <p className="text-gray-500 text-sm mb-4">
-              Post a wanted request or contact Harbourview directly. Early marketplace liquidity depends on real demand, not only supply.
+              Post a wanted request or contact Harbourview directly.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href="/intake" className="btn-secondary">
+              <Link href="/marketplace/wanted" className="btn-secondary">
                 Post a Wanted Request
               </Link>
-              <Link href="/contact" className="btn-outline">
-                Contact Harbourview
+              <Link href="/intake" className="btn-outline">
+                Confidential Intake
               </Link>
             </div>
           </div>
