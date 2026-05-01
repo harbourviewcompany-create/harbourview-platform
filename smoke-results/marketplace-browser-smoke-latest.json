@@ -1,0 +1,17 @@
+{
+  "status": "failed",
+  "exit_code": 1,
+  "workflow_run_id": "25237968535",
+  "workflow_run_attempt": "1",
+  "branch": "smoke/marketplace-browser-20260501-2320",
+  "commit": "d3ef476c9e7029dd209bf3166b055f7de585c776",
+  "base_url": "https://harbourview-platform.vercel.app",
+  "created_at": "2026-05-01T23:44:22Z",
+  "expected_inquiry_types": [
+    "quote_routing",
+    "listing_submission",
+    "wanted_request_submission"
+  ],
+  "expected_cleanup_status": "closed",
+  "log_base64": "Cj4gaGFyYm91cnZpZXctcGxhdGZvcm1AMS4wLjAgc21va2U6bWFya2V0cGxhY2U6YnJvd3Nlcgo+IG5vZGUgc2NyaXB0cy9zbW9rZS1tYXJrZXRwbGFjZS1icm93c2VyLm1qcwoKZmlsZTovLy9ob21lL3J1bm5lci93b3JrL2hhcmJvdXJ2aWV3LXBsYXRmb3JtL2hhcmJvdXJ2aWV3LXBsYXRmb3JtL3NjcmlwdHMvbWFya2V0cGxhY2Utc21va2UtbGliLm1qczoxOQogICAgdGhyb3cgbmV3IEVycm9yKCdNaXNzaW5nIE5FWFRfUFVCTElDX1NVUEFCQVNFX1VSTCBhbmQgYW5vbi9wdWJsaXNoYWJsZSBrZXkuJyk7CiAgICAgICAgICBeCgpFcnJvcjogTWlzc2luZyBORVhUX1BVQkxJQ19TVVBBQkFTRV9VUkwgYW5kIGFub24vcHVibGlzaGFibGUga2V5LgogICAgYXQgZ2V0U3VwYWJhc2VDb25maWcgKGZpbGU6Ly8vaG9tZS9ydW5uZXIvd29yay9oYXJib3Vydmlldy1wbGF0Zm9ybS9oYXJib3Vydmlldy1wbGF0Zm9ybS9zY3JpcHRzL21hcmtldHBsYWNlLXNtb2tlLWxpYi5tanM6MTk6MTEpCiAgICBhdCBmaWxlOi8vL2hvbWUvcnVubmVyL3dvcmsvaGFyYm91cnZpZXctcGxhdGZvcm0vaGFyYm91cnZpZXctcGxhdGZvcm0vc2NyaXB0cy9zbW9rZS1tYXJrZXRwbGFjZS1icm93c2VyLm1qczoxMzY6MTYKICAgIGF0IE1vZHVsZUpvYi5ydW4gKG5vZGU6aW50ZXJuYWwvbW9kdWxlcy9lc20vbW9kdWxlX2pvYjozNDM6MjUpCiAgICBhdCBhc3luYyBvbkltcG9ydC50cmFjZVByb21pc2UuX19wcm90b19fIChub2RlOmludGVybmFsL21vZHVsZXMvZXNtL2xvYWRlcjo2NjU6MjYpCiAgICBhdCBhc3luYyBhc3luY1J1bkVudHJ5UG9pbnRXaXRoRVNNTG9hZGVyIChub2RlOmludGVybmFsL21vZHVsZXMvcnVuX21haW46MTE3OjUpCgpOb2RlLmpzIHYyMi4yMi4yCg=="
+}
