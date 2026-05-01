@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  assertServiceRoleCanRead,
   closeSmokeRows,
   getSupabaseConfig,
   makeListingInquiryPayload,
@@ -29,11 +30,26 @@ async function expectAllowed(label, request) {
   return { response, text };
 }
 
-async function expectBlocked(label, request) {
+async function expectBlockedByStatusOrEmptyRepresentation(label, request) {
   const { response, text } = await request();
-  if (response.ok) throw new Error(`${label} expected blocked, got ${response.status}: ${text}`);
-  console.log(`ok blocked:${label}:${response.status}`);
-  return { response, text };
+  if (!response.ok) {
+    console.log(`ok blocked:${label}:${response.status}`);
+    return { response, text };
+  }
+
+  let parsed;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`${label} expected blocked or empty representation, got non-JSON success body: ${text}`);
+  }
+
+  if (Array.isArray(parsed) && parsed.length === 0) {
+    console.log(`ok blocked:${label}:empty-representation`);
+    return { response, text };
+  }
+
+  throw new Error(`${label} expected blocked or empty representation, got ${response.status}: ${text}`);
 }
 
 await expectAllowed('anon valid insert', () =>
@@ -46,7 +62,14 @@ await expectAllowed('anon valid insert', () =>
   }),
 );
 
-await expectBlocked('anon select', () =>
+const serviceRead = await assertServiceRoleCanRead(config, validPayload.id);
+if (serviceRead.skipped) {
+  console.log('service role verification skipped: SUPABASE_SERVICE_ROLE_KEY is not set.');
+} else {
+  console.log(`ok service-role-read:${validPayload.id}`);
+}
+
+await expectBlockedByStatusOrEmptyRepresentation('anon select', () =>
   restRequest({
     url: config.url,
     key: config.anonKey,
@@ -54,12 +77,13 @@ await expectBlocked('anon select', () =>
   }),
 );
 
-await expectBlocked('anon update', () =>
+await expectBlockedByStatusOrEmptyRepresentation('anon update', () =>
   restRequest({
     url: config.url,
     key: config.anonKey,
-    path: `marketplace_inquiries?id=eq.${validPayload.id}`,
+    path: `marketplace_inquiries?id=eq.${validPayload.id}&select=id,status`,
     method: 'PATCH',
+    prefer: 'return=representation',
     body: { status: 'closed' },
   }),
 );
@@ -68,12 +92,13 @@ const internalNotesPayload = makeListingInquiryPayload({
   internal_notes: 'HARBOURVIEW_SMOKE_TEST: anon should not be able to insert internal notes.',
 });
 
-await expectBlocked('anon insert with internal_notes', () =>
+await expectBlockedByStatusOrEmptyRepresentation('anon insert with internal_notes', () =>
   restRequest({
     url: config.url,
     key: config.anonKey,
-    path: 'marketplace_inquiries',
+    path: 'marketplace_inquiries?select=id,internal_notes',
     method: 'POST',
+    prefer: 'return=representation',
     body: internalNotesPayload,
   }),
 );
