@@ -38,15 +38,16 @@ Using anon credentials:
 
 Using authenticated credentials:
 
-- Select should work for admin/reviewer testing.
-- Update of `status` should work.
-- Delete should not be granted.
+- Select should fail until a finalized admin/reviewer role model is introduced.
+- Update should fail until a finalized admin/reviewer role model is introduced.
+- Delete should fail.
+- Admin scaffold read/update behavior should be tested through the server-only service role key with `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` in a protected environment.
 
 ## Admin scaffold checks
 
 1. Open `/admin/inquiries`.
 2. Confirm the page is not linked from public navigation.
-3. Confirm missing service-role environment variable shows a configuration warning and does not crash the route.
+3. Confirm missing service-role environment variable or missing `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` shows a configuration warning and does not expose inquiry data.
 4. Confirm inquiries are listed with created date, listing title, inquiry type, company, country, contact, email, status and message preview.
 5. Open `/admin/inquiries/[id]`.
 6. Confirm the full inquiry detail renders.
@@ -64,6 +65,7 @@ Using authenticated credentials:
 - Production and preview environments include `NEXT_PUBLIC_SUPABASE_URL`.
 - Production and preview environments include `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - Server environment includes `SUPABASE_SERVICE_ROLE_KEY`.
+- Server environment includes `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` only where admin routes are protected and intended for review use.
 - Service role key is not exposed as a public variable.
 
 ## Merge standard

@@ -26,7 +26,6 @@ alter table public.marketplace_inquiries enable row level security;
 revoke all on public.marketplace_inquiries from anon;
 revoke all on public.marketplace_inquiries from authenticated;
 grant insert on public.marketplace_inquiries to anon;
-grant select, update on public.marketplace_inquiries to authenticated;
 
 drop policy if exists "Public can create marketplace inquiries" on public.marketplace_inquiries;
 drop policy if exists "Authenticated users can read marketplace inquiries" on public.marketplace_inquiries;
@@ -46,19 +45,6 @@ create policy "Public can create marketplace inquiries"
     and length(trim(message)) > 0
     and length(message) <= 2500
   );
-
-create policy "Authenticated users can read marketplace inquiries"
-  on public.marketplace_inquiries
-  for select
-  to authenticated
-  using (true);
-
-create policy "Authenticated users can update marketplace inquiries"
-  on public.marketplace_inquiries
-  for update
-  to authenticated
-  using (true)
-  with check (true);
 
 create index if not exists marketplace_inquiries_status_idx
   on public.marketplace_inquiries (status, created_at desc);

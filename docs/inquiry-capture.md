@@ -22,6 +22,8 @@ Production and preview Vercel environments need:
 
 The service role key must remain server-only. Do not prefix it with `NEXT_PUBLIC_`.
 
+The admin scaffold also fails closed unless `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` is set server-side. Keep that flag unset until the deployment is protected by Harbourview's final admin authentication and role model.
+
 ## Supabase migrations
 
 Apply the marketplace inquiry migrations before testing live submissions:
@@ -29,7 +31,7 @@ Apply the marketplace inquiry migrations before testing live submissions:
 - `supabase/migrations/20260430_marketplace_inquiries.sql`
 - `supabase/migrations/20260501_001_harden_marketplace_inquiries.sql`
 
-The hardening migration enables RLS, grants public insert only, grants authenticated read/update and denies public select/update/delete through missing privileges and policies.
+The hardening migration enables RLS and grants public insert only. Public and authenticated users do not receive select, update or delete table privileges until Harbourview introduces a finalized admin/reviewer role model. The temporary admin scaffold reads and updates through the server-only service role key when the explicit admin-review flag is enabled.
 
 ## Admin review scaffold
 
@@ -38,13 +40,14 @@ Admin inquiry review lives under:
 - `/admin/inquiries`
 - `/admin/inquiries/[id]`
 
-This is intentionally isolated from public navigation and marked noindex. It uses the server-only service role key because the repository does not yet contain a finalized app role and admin-auth model.
+This is intentionally isolated from public navigation, marked noindex and disabled by default. It uses the server-only service role key only when `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` is present because the repository does not yet contain a finalized app role and admin-auth model.
 
 Before production use, replace or wrap the scaffold with the final Harbourview admin authentication and role checks.
 
 ## Known risks before production use
 
 - The current admin scaffold is route-isolated but not a complete authentication system.
-- Authenticated Supabase access is broad until the final app-role model is introduced.
+- Leave `HARBOURVIEW_ADMIN_REVIEW_ENABLED` unset unless the deployment is otherwise access-controlled.
+- Authenticated Supabase users do not receive inquiry read/update table access until the final app-role model is introduced.
 - Inquiry capture depends on Supabase environment variables and applied migrations.
 - No automated test runner is currently configured, so verification is build plus manual checklist.

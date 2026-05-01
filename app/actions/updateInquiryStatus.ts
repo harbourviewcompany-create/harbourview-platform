@@ -13,34 +13,27 @@ function readField(formData: FormData, key: string) {
 function getServiceConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
 
-  if (!url || !serviceRoleKey) return null;
+  if (!url || !serviceRoleKey || !adminReviewEnabled) return null;
   return { url: url.replace(/\/$/, ''), serviceRoleKey };
 }
 
-export type UpdateInquiryStatusState = {
-  status: 'idle' | 'success' | 'error';
-  message: string;
-};
-
-export async function updateInquiryStatus(
-  _previousState: UpdateInquiryStatusState,
-  formData: FormData,
-): Promise<UpdateInquiryStatusState> {
+export async function updateInquiryStatus(formData: FormData): Promise<void> {
   const id = readField(formData, 'id');
   const status = readField(formData, 'status');
 
   if (!UUID_PATTERN.test(id)) {
-    return { status: 'error', message: 'Invalid inquiry id.' };
+    return;
   }
 
   if (!ALLOWED_STATUSES.has(status)) {
-    return { status: 'error', message: 'Invalid inquiry status.' };
+    return;
   }
 
   const supabase = getServiceConfig();
   if (!supabase) {
-    return { status: 'error', message: 'Admin status updates are not configured.' };
+    return;
   }
 
   const response = await fetch(`${supabase.url}/rest/v1/marketplace_inquiries?id=eq.${id}`, {
@@ -55,11 +48,9 @@ export async function updateInquiryStatus(
   });
 
   if (!response.ok) {
-    return { status: 'error', message: 'Unable to update inquiry status.' };
+    return;
   }
 
   revalidatePath('/admin/inquiries');
   revalidatePath(`/admin/inquiries/${id}`);
-
-  return { status: 'success', message: 'Inquiry status updated.' };
 }

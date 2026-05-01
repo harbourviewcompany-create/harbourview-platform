@@ -27,7 +27,8 @@ const statuses = ['new', 'reviewing', 'qualified', 'disqualified', 'responded', 
 function getServiceConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) return null;
+  const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
+  if (!url || !serviceRoleKey || !adminReviewEnabled) return null;
   return { url: url.replace(/\/$/, ''), serviceRoleKey };
 }
 
@@ -69,7 +70,7 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
   if (!configured) {
     return (
       <section className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-        Admin inquiry review is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the server environment.
+        Admin inquiry review is disabled. Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private scaffold.
       </section>
     );
   }
