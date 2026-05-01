@@ -8,21 +8,19 @@ type MarketplaceInquiry = {
   id: string;
   created_at: string;
   updated_at: string;
-  listing_slug: string;
-  listing_title: string;
-  source_url: string | null;
+  listing_id: string | null;
+  buyer_request_id: string | null;
   inquiry_type: string;
-  company: string;
-  country: string;
-  name: string;
-  email: string;
-  phone: string | null;
+  contact_company: string | null;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
   status: string;
   message: string;
-  consent: boolean;
+  internal_notes: string | null;
 };
 
-const statuses = ['new', 'reviewing', 'qualified', 'disqualified', 'responded', 'closed'];
+const statuses = ['received', 'reviewing', 'matched', 'closed'];
 
 function getServiceConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -86,32 +84,32 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <article className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-6">
           <p className="text-xs uppercase tracking-[0.24em] text-[#C6A55A]">{inquiry.inquiry_type.replaceAll('_', ' ')}</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight">{inquiry.listing_title}</h2>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Source-backed marketplace inquiry</h2>
 
           <div className="mt-6 grid gap-3 text-sm text-[#F5F1E8]/75 md:grid-cols-2">
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
               <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Company</span>
-              {inquiry.company}
+              {inquiry.contact_company || 'Not provided'}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Country</span>
-              {inquiry.country}
+              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Listing ID</span>
+              {inquiry.listing_id || 'No linked Supabase listing'}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
               <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Contact</span>
-              {inquiry.name}
+              {inquiry.contact_name}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
               <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Email</span>
-              {inquiry.email}
+              {inquiry.contact_email}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
               <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Phone</span>
-              {inquiry.phone || 'Not provided'}
+              {inquiry.contact_phone || 'Not provided'}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Consent</span>
-              {inquiry.consent ? 'Captured' : 'Not captured'}
+              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Buyer request ID</span>
+              {inquiry.buyer_request_id || 'Not linked'}
             </div>
           </div>
 
@@ -144,14 +142,16 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
             <dl className="mt-4 space-y-3">
               <div><dt className="text-[#C6A55A]">Created</dt><dd>{formatDate(inquiry.created_at)}</dd></div>
               <div><dt className="text-[#C6A55A]">Updated</dt><dd>{formatDate(inquiry.updated_at)}</dd></div>
-              <div><dt className="text-[#C6A55A]">Listing slug</dt><dd>{inquiry.listing_slug}</dd></div>
+              <div><dt className="text-[#C6A55A]">Inquiry ID</dt><dd>{inquiry.id}</dd></div>
             </dl>
-            {inquiry.source_url ? (
-              <a href={inquiry.source_url} target="_blank" rel="noreferrer" className="mt-5 inline-block text-[#C6A55A] underline-offset-4 hover:underline">
-                View source listing
-              </a>
-            ) : null}
           </div>
+
+          {inquiry.internal_notes ? (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-[#F5F1E8]/70">
+              <h3 className="font-semibold text-[#F5F1E8]">Internal notes</h3>
+              <p className="mt-3 whitespace-pre-wrap leading-7">{inquiry.internal_notes}</p>
+            </div>
+          ) : null}
         </aside>
       </div>
     </section>

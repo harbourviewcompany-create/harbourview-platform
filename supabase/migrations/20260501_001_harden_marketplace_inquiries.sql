@@ -1,25 +1,8 @@
 -- Gate 7: Harden Harbourview marketplace inquiry capture
--- This migration keeps public inquiry creation open while preventing public reads, updates and deletes.
-
-create table if not exists public.marketplace_inquiries (
-  id uuid primary key default gen_random_uuid(),
-  listing_slug text not null,
-  listing_title text not null,
-  source_url text,
-  name text not null,
-  email text not null,
-  company text not null,
-  country text not null,
-  phone text,
-  inquiry_type text not null default 'listing_verification',
-  message text not null,
-  consent boolean not null default false,
-  status text not null default 'new',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint marketplace_inquiries_status_check check (status in ('new', 'reviewing', 'qualified', 'disqualified', 'responded', 'closed')),
-  constraint marketplace_inquiries_type_check check (inquiry_type in ('listing_verification', 'seller_contact', 'quote_routing', 'similar_equipment', 'sourcing_mandate'))
-);
+-- This migration assumes public.marketplace_inquiries already exists in production with:
+-- contact_name, contact_email, contact_company, contact_phone, inquiry_type, message,
+-- listing_id, buyer_request_id, status inquiry_status, internal_notes, created_at and updated_at.
+-- It does not create or alter columns, avoiding a second schema shape.
 
 alter table public.marketplace_inquiries enable row level security;
 
@@ -36,21 +19,23 @@ create policy "Public can create marketplace inquiries"
   for insert
   to anon
   with check (
-    consent = true
-    and length(trim(name)) > 0
-    and length(trim(email)) > 0
-    and email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'
-    and length(trim(company)) > 0
-    and length(trim(country)) > 0
+    length(trim(contact_name)) > 0
+    and length(trim(contact_email)) > 0
+    and contact_email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'
     and length(trim(message)) > 0
     and length(message) <= 2500
+    and status = 'received'::public.inquiry_status
+    and internal_notes is null
   );
 
 create index if not exists marketplace_inquiries_status_idx
   on public.marketplace_inquiries (status, created_at desc);
 
-create index if not exists marketplace_inquiries_listing_slug_idx
-  on public.marketplace_inquiries (listing_slug, created_at desc);
+create index if not exists marketplace_inquiries_listing_id_idx
+  on public.marketplace_inquiries (listing_id, created_at desc);
+
+create index if not exists marketplace_inquiries_buyer_request_id_idx
+  on public.marketplace_inquiries (buyer_request_id, created_at desc);
 
 create or replace function public.set_marketplace_inquiries_updated_at()
 returns trigger

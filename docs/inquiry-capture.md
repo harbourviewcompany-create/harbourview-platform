@@ -12,6 +12,31 @@ Marketplace inquiry capture replaces public `mailto:` CTAs with a controlled for
 4. The action validates the listing slug against local marketplace fixtures, blocks sold or expired source leads, validates required fields, confirms consent and writes to `marketplace_inquiries` through Supabase REST.
 5. The public user receives a success or public-safe failure message.
 
+## Production schema alignment
+
+The production table already uses the following inquiry columns:
+
+- `listing_id` nullable UUID
+- `buyer_request_id` nullable UUID
+- `inquiry_type` text, default `general`
+- `message` text
+- `contact_name` text
+- `contact_email` text
+- `contact_company` nullable text
+- `contact_phone` nullable text
+- `status` `inquiry_status`, default `received`
+- `internal_notes` nullable text
+- `created_at` / `updated_at`
+
+Static marketplace fixtures do not currently carry a Supabase `listing_id`, so public listing inquiries insert `listing_id: null` and `buyer_request_id: null`. The listing title, slug, source name, source URL and market entered by the requester are appended to the inquiry `message` as review context instead of inventing extra database columns.
+
+The production `inquiry_status` lifecycle is:
+
+- `received`
+- `reviewing`
+- `matched`
+- `closed`
+
 ## Required environment variables
 
 Production and preview Vercel environments need:
@@ -31,7 +56,9 @@ Apply the marketplace inquiry migrations before testing live submissions:
 - `supabase/migrations/20260430_marketplace_inquiries.sql`
 - `supabase/migrations/20260501_001_harden_marketplace_inquiries.sql`
 
-The hardening migration enables RLS and grants public insert only. Public and authenticated users do not receive select, update or delete table privileges until Harbourview introduces a finalized admin/reviewer role model. The temporary admin scaffold reads and updates through the server-only service role key when the explicit admin-review flag is enabled.
+`20260430_marketplace_inquiries.sql` is aligned to the existing production schema. `20260501_001_harden_marketplace_inquiries.sql` does not create or reshape the table; it only enforces RLS, grants and indexes against the production columns.
+
+The hardening behavior grants public insert only. Public and authenticated users do not receive select, update or delete table privileges until Harbourview introduces a finalized admin/reviewer role model. The temporary admin scaffold reads and updates through the server-only service role key when the explicit admin-review flag is enabled.
 
 ## Admin review scaffold
 

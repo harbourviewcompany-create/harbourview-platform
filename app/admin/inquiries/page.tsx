@@ -5,14 +5,15 @@ export const dynamic = 'force-dynamic';
 type MarketplaceInquiry = {
   id: string;
   created_at: string;
-  listing_title: string;
   inquiry_type: string;
-  company: string;
-  country: string;
-  name: string;
-  email: string;
+  contact_company: string | null;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
   status: string;
   message: string;
+  listing_id: string | null;
+  buyer_request_id: string | null;
 };
 
 function getServiceConfig() {
@@ -37,12 +38,18 @@ function preview(value: string) {
   return value.length > 120 ? `${value.slice(0, 120)}...` : value;
 }
 
+function getInquiryLabel(inquiry: MarketplaceInquiry) {
+  if (inquiry.listing_id) return `Listing ${inquiry.listing_id}`;
+  if (inquiry.buyer_request_id) return `Buyer request ${inquiry.buyer_request_id}`;
+  return 'Source-backed marketplace inquiry';
+}
+
 async function getInquiries(): Promise<MarketplaceInquiry[]> {
   const supabase = getServiceConfig();
   if (!supabase) return [];
 
   const response = await fetch(
-    `${supabase.url}/rest/v1/marketplace_inquiries?select=id,created_at,listing_title,inquiry_type,company,country,name,email,status,message&order=created_at.desc&limit=50`,
+    `${supabase.url}/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id&order=created_at.desc&limit=50`,
     {
       headers: {
         apikey: supabase.serviceRoleKey,
@@ -85,10 +92,10 @@ export default async function AdminInquiriesPage() {
           <thead className="bg-black/25 text-xs uppercase tracking-[0.18em] text-[#C6A55A]">
             <tr>
               <th className="p-4">Created</th>
-              <th className="p-4">Listing</th>
+              <th className="p-4">Context</th>
               <th className="p-4">Type</th>
               <th className="p-4">Company</th>
-              <th className="p-4">Country</th>
+              <th className="p-4">Phone</th>
               <th className="p-4">Contact</th>
               <th className="p-4">Status</th>
               <th className="p-4">Message</th>
@@ -100,15 +107,15 @@ export default async function AdminInquiriesPage() {
                 <td className="p-4 whitespace-nowrap">{formatDate(inquiry.created_at)}</td>
                 <td className="p-4">
                   <Link href={`/admin/inquiries/${inquiry.id}`} className="font-medium text-[#F5F1E8] underline-offset-4 hover:underline">
-                    {inquiry.listing_title}
+                    {getInquiryLabel(inquiry)}
                   </Link>
                 </td>
                 <td className="p-4">{inquiry.inquiry_type.replaceAll('_', ' ')}</td>
-                <td className="p-4">{inquiry.company}</td>
-                <td className="p-4">{inquiry.country}</td>
+                <td className="p-4">{inquiry.contact_company || 'Not provided'}</td>
+                <td className="p-4">{inquiry.contact_phone || 'Not provided'}</td>
                 <td className="p-4">
-                  <div>{inquiry.name}</div>
-                  <div className="text-xs text-[#F5F1E8]/45">{inquiry.email}</div>
+                  <div>{inquiry.contact_name}</div>
+                  <div className="text-xs text-[#F5F1E8]/45">{inquiry.contact_email}</div>
                 </td>
                 <td className="p-4">
                   <span className="rounded-full border border-[#C6A55A]/30 px-3 py-1 text-xs text-[#D8BC73]">

@@ -30,6 +30,23 @@ function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
   return value.length > maxLength;
 }
 
+function buildMessageWithListingContext(
+  message: string,
+  country: string,
+  listing: { title: string; slug: string; sourceName: string; sourceUrl: string },
+) {
+  return [
+    message,
+    '',
+    '--- Marketplace listing context ---',
+    `Market: ${country}`,
+    `Listing: ${listing.title}`,
+    `Slug: ${listing.slug}`,
+    `Source: ${listing.sourceName}`,
+    `Source URL: ${listing.sourceUrl}`,
+  ].join('\n');
+}
+
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -86,7 +103,9 @@ export async function submitMarketplaceInquiry(
     return { status: 'error', message: 'One or more fields is longer than allowed.' };
   }
 
-  if (message.length > MAX_MESSAGE_LENGTH) {
+  const messageWithListingContext = buildMessageWithListingContext(message, country, listing);
+
+  if (messageWithListingContext.length > MAX_MESSAGE_LENGTH) {
     return { status: 'error', message: 'Please keep the message under 2,500 characters.' };
   }
 
@@ -103,18 +122,15 @@ export async function submitMarketplaceInquiry(
   }
 
   const payload = {
-    listing_slug: listing.slug,
-    listing_title: listing.title,
-    source_url: listing.sourceUrl,
-    name,
-    email,
-    company,
-    country,
-    phone: phone || null,
+    listing_id: null,
+    buyer_request_id: null,
+    contact_name: name,
+    contact_email: email,
+    contact_company: company,
+    contact_phone: phone || null,
     inquiry_type: inquiryType,
-    message,
-    consent,
-    status: 'new',
+    message: messageWithListingContext,
+    status: 'received',
   };
 
   const response = await fetch(`${supabase.url}/rest/v1/marketplace_inquiries`, {
