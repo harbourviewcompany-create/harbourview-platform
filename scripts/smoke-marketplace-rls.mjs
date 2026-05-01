@@ -3,7 +3,7 @@ import {
   assertServiceRoleCanRead,
   closeSmokeRows,
   getSupabaseConfig,
-  makeListingInquiryPayload,
+  makeListingSubmissionPayload,
   restRequest,
 } from './marketplace-smoke-lib.mjs';
 
@@ -20,7 +20,7 @@ if (
 }
 
 const config = getSupabaseConfig();
-const validPayload = makeListingInquiryPayload();
+const validPayload = makeListingSubmissionPayload();
 const insertedIds = [validPayload.id];
 
 async function expectAllowed(label, request) {
@@ -52,7 +52,7 @@ async function expectBlockedByStatusOrEmptyRepresentation(label, request) {
   throw new Error(`${label} expected blocked or empty representation, got ${response.status}: ${text}`);
 }
 
-await expectAllowed('anon valid insert', () =>
+await expectAllowed('anon valid listing_submission insert', () =>
   restRequest({
     url: config.url,
     key: config.anonKey,
@@ -88,7 +88,7 @@ await expectBlockedByStatusOrEmptyRepresentation('anon update', () =>
   }),
 );
 
-const internalNotesPayload = makeListingInquiryPayload({
+const internalNotesPayload = makeListingSubmissionPayload({
   internal_notes: 'HARBOURVIEW_SMOKE_TEST: anon should not be able to insert internal notes.',
 });
 
