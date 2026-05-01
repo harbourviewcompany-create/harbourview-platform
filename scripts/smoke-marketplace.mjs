@@ -4,8 +4,9 @@ import {
   closeSmokeRows,
   getSupabaseConfig,
   insertInquiry,
-  makeListingInquiryPayload,
+  makeListingSubmissionPayload,
   makeQuotePayload,
+  makeWantedRequestSubmissionPayload,
 } from './marketplace-smoke-lib.mjs';
 
 const writeEnabled = process.env.HARBOURVIEW_SMOKE_WRITE === '1';
@@ -13,12 +14,13 @@ const cleanupEnabled = process.env.HARBOURVIEW_SMOKE_CLEANUP === '1';
 
 const checks = [
   ['quote request', makeQuotePayload()],
-  ['listing inquiry', makeListingInquiryPayload()],
+  ['submit listing', makeListingSubmissionPayload()],
+  ['wanted request', makeWantedRequestSubmissionPayload()],
 ];
 
 for (const [name, payload] of checks) {
   assertPayloadShape(name, payload);
-  console.log(`ok payload:${name}`);
+  console.log(`ok payload:${name}:${payload.inquiry_type}`);
 }
 
 if (!writeEnabled) {
@@ -43,7 +45,7 @@ for (const [name, payload] of checks) {
   }
 
   insertedIds.push(payload.id);
-  console.log(`ok insert:${name}:${payload.id}`);
+  console.log(`ok insert:${name}:${payload.inquiry_type}:${payload.id}`);
 }
 
 if (cleanupEnabled) {
