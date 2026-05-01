@@ -11,6 +11,9 @@ on:
         description: 'Type ALLOW_PRODUCTION_SMOKE_WRITES to permit production smoke writes'
         required: true
         default: 'NO'
+  push:
+    branches:
+      - 'smoke/marketplace-browser-*'
 
 permissions:
   contents: read
@@ -24,11 +27,17 @@ jobs:
     name: Browser-submit marketplace capture and verify Supabase rows
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      IS_CONTROLLED_SMOKE_BRANCH: ${{ startsWith(github.ref_name, 'smoke/marketplace-browser-') }}
+      IS_CONFIRMED_MANUAL_DISPATCH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.allow_production_writes == 'ALLOW_PRODUCTION_SMOKE_WRITES' }}
+      RESOLVED_SMOKE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_url || 'https://harbourview-platform.vercel.app' }}
     steps:
       - name: Validate production write confirmation
         run: |
-          if [ "${{ github.event.inputs.allow_production_writes }}" != "ALLOW_PRODUCTION_SMOKE_WRITES" ]; then
-            echo "Refusing to run production browser smoke writes without exact confirmation."
+          if [ "${IS_CONTROLLED_SMOKE_BRANCH}" = "true" ] || [ "${IS_CONFIRMED_MANUAL_DISPATCH}" = "true" ]; then
+            echo "Marketplace browser smoke write gate accepted."
+          else
+            echo "Refusing to run production browser smoke writes without exact manual confirmation or controlled smoke branch."
             exit 1
           fi
 
@@ -52,7 +61,7 @@ jobs:
 
       - name: Run marketplace browser smoke
         env:
-          HARBOURVIEW_SMOKE_BASE_URL: ${{ github.event.inputs.base_url }}
+          HARBOURVIEW_SMOKE_BASE_URL: ${{ env.RESOLVED_SMOKE_BASE_URL }}
           HARBOURVIEW_SMOKE_WRITE: '1'
           HARBOURVIEW_SMOKE_CLEANUP: '1'
           HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES: '1'
