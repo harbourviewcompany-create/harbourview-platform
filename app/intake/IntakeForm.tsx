@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
+type ApiResponse = { status?: 'success' | 'error'; message?: string }
 
 const listingTypes = [
   'New Product',
@@ -14,8 +15,11 @@ const listingTypes = [
   'Supplier Directory Listing',
 ]
 
+const initialMessage = ''
+
 export default function IntakeForm() {
   const [state, setState] = useState<FormState>('idle')
+  const [message, setMessage] = useState(initialMessage)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   function validate(data: FormData) {
@@ -28,9 +32,30 @@ export default function IntakeForm() {
     return errs
   }
 
+  function formDataToPayload(data: FormData) {
+    return Object.fromEntries(
+      Array.from(data.entries()).map(([key, value]) => [key, typeof value === 'string' ? value : ''])
+    )
+  }
+
+  async function readApiResponse(response: Response): Promise<ApiResponse> {
+    const contentType = response.headers.get('content-type') || ''
+
+    if (contentType.includes('application/json')) {
+      return (await response.json()) as ApiResponse
+    }
+
+    const text = await response.text()
+    return {
+      status: 'error',
+      message: `Listing submission returned a non-JSON response (${response.status}). ${text.slice(0, 120)} [LISTING_SUBMISSION_NON_JSON_RESPONSE]`,
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const data = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const data = new FormData(form)
     const errs = validate(data)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -38,39 +63,54 @@ export default function IntakeForm() {
     }
     setErrors({})
     setState('submitting')
+    setMessage('')
 
-    // Build a mailto link and open it — no backend required in v1
-    const subject = encodeURIComponent(`Intake Submission: ${data.get('title')}`)
-    const body = encodeURIComponent(
-      [
-        `Name: ${data.get('name')}`,
-        `Email: ${data.get('email')}`,
-        `Company: ${data.get('company') || 'N/A'}`,
-        `Listing Type: ${data.get('listingType')}`,
-        `Title: ${data.get('title')}`,
-        `Price / Budget: ${data.get('price') || 'N/A'}`,
-        `Location: ${data.get('location') || 'N/A'}`,
-        '',
-        'Description:',
-        `${data.get('description')}`,
-      ].join('\n')
-    )
-    window.location.href = `mailto:harbourviewcompany@gmail.com?subject=${subject}&body=${body}`
-    setState('success')
+    try {
+      const response = await fetch('/api/marketplace/listing-submission', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formDataToPayload(data)),
+      })
+      const result = await readApiResponse(response)
+
+      if (result.status === 'success') {
+        setState('success')
+        setMessage(result.message || 'Listing submission received. [LISTING_SUBMISSION_OK]')
+        form.reset()
+        return
+      }
+
+      setState('error')
+      setMessage(
+        result.message ||
+          `Listing submission could not be completed. API status: ${response.status}. [LISTING_SUBMISSION_API_EMPTY_RESPONSE]`
+      )
+    } catch (error) {
+      const detail = error instanceof Error ? error.name : 'UnknownError'
+      setState('error')
+      setMessage(
+        `Listing submission could not be completed before receiving an API response. ${detail}. [LISTING_SUBMISSION_NETWORK_ERROR]`
+      )
+    }
   }
 
   if (state === 'success') {
     return (
       <div className="card p-8 text-center">
         <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Submission Prepared</h2>
-        <p className="text-gray-500 text-sm mb-6">
-          Your email client has been opened with your listing details pre-filled.
-          Send the email to complete your submission. We review all listings before
-          publication.
+        <h2 className="text-navy font-bold text-xl mb-2">Submission Received</h2>
+        <p data-testid="listing-submission-diagnostic-message" className="text-gray-500 text-sm mb-6">
+          {message}
         </p>
         <button
-          onClick={() => setState('idle')}
+          onClick={() => {
+            setState('idle')
+            setMessage('')
+          }}
           className="btn-outline text-sm"
         >
           Submit another listing
@@ -212,12 +252,18 @@ export default function IntakeForm() {
         additional information.
       </p>
 
+      {state === 'error' && (
+        <p data-testid="listing-submission-diagnostic-message" className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {message}
+        </p>
+      )}
+
       <button
         type="submit"
         disabled={state === 'submitting'}
         className="btn-primary w-full py-3 text-base disabled:opacity-60"
       >
-        {state === 'submitting' ? 'Preparing…' : 'Submit Listing'}
+        {state === 'submitting' ? 'Submitting…' : 'Submit Listing'}
       </button>
     </form>
   )
