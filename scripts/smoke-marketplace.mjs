@@ -26,6 +26,13 @@ if (!writeEnabled) {
   process.exit(0);
 }
 
+if (
+  process.env.VERCEL_ENV === 'production' &&
+  process.env.HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES !== '1'
+) {
+  throw new Error('Refusing production write smoke. Set HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1 to override.');
+}
+
 const config = getSupabaseConfig();
 const insertedIds = [];
 
