@@ -24,8 +24,14 @@ jobs:
     name: Browser-submit marketplace capture and verify Supabase rows
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.inputs.allow_production_writes == 'ALLOW_PRODUCTION_SMOKE_WRITES' }}
     steps:
+      - name: Validate production write confirmation
+        run: |
+          if [ "${{ github.event.inputs.allow_production_writes }}" != "ALLOW_PRODUCTION_SMOKE_WRITES" ]; then
+            echo "Refusing to run production browser smoke writes without exact confirmation."
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -38,8 +44,11 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Install Playwright for smoke runner
+        run: npm install --no-save playwright@1.56.1
+
       - name: Install Playwright Chromium
-        run: npx -y -p playwright@1.56.1 playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run marketplace browser smoke
         env:
@@ -51,4 +60,4 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx -y -p playwright@1.56.1 npm run smoke:marketplace:browser
+        run: npm run smoke:marketplace:browser
