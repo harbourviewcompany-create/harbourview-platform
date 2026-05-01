@@ -1,18 +1,19 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { submitQuoteRequest, type QuoteRequestActionState } from '@/app/actions/submitQuoteRequest'
 
 type FormErrors = Record<string, string>
+type QuoteState = { status: 'idle' | 'success' | 'error'; message: string }
 
-const initialState: QuoteRequestActionState = { status: 'idle', message: '' }
+const initialState: QuoteState = { status: 'idle', message: '' }
 
 export default function QuoteRequestForm() {
   const searchParams = useSearchParams()
   const listingTitle = searchParams.get('listing') || ''
-  const [state, formAction, isPending] = useActionState(submitQuoteRequest, initialState)
+  const [state, setState] = useState<QuoteState>(initialState)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
@@ -34,17 +35,45 @@ export default function QuoteRequestForm() {
     return errs
   }
 
+  function formDataToPayload(data: FormData) {
+    return Object.fromEntries(
+      Array.from(data.entries()).map(([key, value]) => [key, typeof value === 'string' ? value : ''])
+    )
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+
     const data = new FormData(e.currentTarget)
     const errs = validate(data)
 
     if (Object.keys(errs).length > 0) {
-      e.preventDefault()
       setErrors(errs)
       return
     }
 
     setErrors({})
+
+    startTransition(async () => {
+      try {
+        const response = await fetch('/api/marketplace/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formDataToPayload(data)),
+        })
+        const result = (await response.json()) as QuoteState
+
+        setState({
+          status: result.status === 'success' ? 'success' : 'error',
+          message: result.message || 'Quote request could not be completed. Please try again.',
+        })
+      } catch {
+        setState({
+          status: 'error',
+          message: 'Quote request could not be completed. Please try again. [QUOTE_NETWORK_ERROR]',
+        })
+      }
+    })
   }
 
   if (state.status === 'success') {
@@ -61,7 +90,7 @@ export default function QuoteRequestForm() {
   }
 
   return (
-    <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="card p-6 space-y-5">
         <h2 className="text-navy font-semibold text-lg border-b pb-3">Quote Details</h2>
 
