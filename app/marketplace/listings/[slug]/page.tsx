@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { InquiryForm } from '@/components/marketplace/InquiryForm';
 import { getMarketplaceListing, marketplaceListings } from '@/lib/marketplace/listings';
 
 const verificationLabels = {
@@ -48,8 +49,6 @@ export default async function MarketplaceListingDetailPage({
   const listing = getMarketplaceListing(slug);
 
   if (!listing) notFound();
-
-  const emailSubject = encodeURIComponent('Marketplace verification request: ' + listing.title);
 
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-16 text-[#F5F1E8] md:px-10 lg:px-16">
@@ -143,7 +142,7 @@ export default async function MarketplaceListingDetailPage({
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
-              href={'mailto:harbourviewcompany@gmail.com?subject=' + emailSubject}
+              href="#inquiry"
               className="rounded-full bg-[#C6A55A] px-5 py-3 text-center text-sm font-medium text-[#081423] transition hover:bg-[#D8BC73]"
             >
               {listing.ctaLabel}
@@ -157,6 +156,8 @@ export default async function MarketplaceListingDetailPage({
               View source listing
             </a>
           </div>
+
+          <InquiryForm listingSlug={listing.slug} listingTitle={listing.title} ctaLabel={listing.ctaLabel} />
         </div>
       </article>
     </main>
