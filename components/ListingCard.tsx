@@ -5,7 +5,10 @@ import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
 import InquiryLink from './InquiryLink'
 
 interface ListingCardProps {
-  listing: Listing
+  listing: Listing & {
+    category?: string
+    budget?: string
+  }
 }
 
 const visualRules = [
@@ -21,18 +24,42 @@ const visualRules = [
   { terms: ['gloves', 'sanitation', 'parchment'], label: 'Facility supplies', shape: 'supply boxes' },
   { terms: ['cartons', 'shipping'], label: 'Shipping cartons', shape: 'cartons' },
   { terms: ['bundle', 'bulk procurement'], label: 'Consumables bundle', shape: 'assorted supplies' },
+  { terms: ['extraction', 'co2', 'ethanol', 'processing equipment'], label: 'Extraction equipment', shape: 'processing system' },
+  { terms: ['pos', 'technology', 'retail', 'metrc', 'biotrack'], label: 'Retail POS system', shape: 'retail technology' },
+  { terms: ['facility', 'real estate', 'cultivation', 'lease', 'warehouse'], label: 'Commercial facility', shape: 'facility request' },
 ]
 
-function getVisual(listing: Listing) {
-  const haystack = `${listing.title} ${listing.tags.join(' ')}`.toLowerCase()
+function titleCase(value: string) {
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function getSpecificFallback(listing: ListingCardProps['listing']) {
+  const firstUsefulTag = listing.tags.find((tag) => !['wanted', 'bulk'].includes(tag.toLowerCase()))
+
+  if (firstUsefulTag) {
+    return {
+      label: titleCase(firstUsefulTag),
+      shape: listing.category === 'wanted-requests' ? 'wanted request' : 'product category',
+    }
+  }
+
+  const category = listing.category ? titleCase(listing.category) : listing.title
+
+  return {
+    label: category,
+    shape: listing.category === 'wanted-requests' ? 'wanted request' : 'commercial supply category',
+  }
+}
+
+function getVisual(listing: ListingCardProps['listing']) {
+  const haystack = `${listing.title} ${listing.description} ${listing.tags.join(' ')}`.toLowerCase()
   const match = visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term)))
 
   if (match) return match
 
-  return {
-    label: listing.title,
-    shape: listing.tags[0] || 'Commercial supply category',
-  }
+  return getSpecificFallback(listing)
 }
 
 function getBadge(status?: ListingImageStatus) {
@@ -41,7 +68,7 @@ function getBadge(status?: ListingImageStatus) {
   return 'Representative image'
 }
 
-function RepresentativeFallback({ listing, badge }: { listing: Listing; badge: string }) {
+function RepresentativeFallback({ listing, badge }: { listing: ListingCardProps['listing']; badge: string }) {
   const visual = getVisual(listing)
 
   return (
@@ -65,7 +92,7 @@ function RepresentativeFallback({ listing, badge }: { listing: Listing; badge: s
   )
 }
 
-function ListingVisual({ listing }: { listing: Listing }) {
+function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
   const [hasImageError, setHasImageError] = useState(false)
   const badge = getBadge(listing.image?.status)
   const imageSrc = listing.image?.src
@@ -94,6 +121,12 @@ function ListingVisual({ listing }: { listing: Listing }) {
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
+  const isWantedRequest = listing.category === 'wanted-requests'
+  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request Quote'
+  const inquirySubject = isWantedRequest
+    ? `Harbourview Wanted Request Response: ${listing.title}`
+    : `Harbourview Marketplace Inquiry: ${listing.title}`
+
   return (
     <article className="card p-5 flex h-full flex-col gap-4">
       <ListingVisual listing={listing} />
@@ -105,9 +138,9 @@ export default function ListingCard({ listing }: ListingCardProps) {
           </h3>
           <p className="text-xs text-gray-400">{listing.location || 'Location available on request'}</p>
         </div>
-        {listing.price && (
+        {(listing.price || (isWantedRequest && listing.budget)) && (
           <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy">
-            {listing.price}
+            {isWantedRequest && listing.budget ? listing.budget : listing.price}
           </p>
         )}
       </div>
@@ -129,9 +162,10 @@ export default function ListingCard({ listing }: ListingCardProps) {
 
       <div className="mt-auto border-t border-gray-100 pt-4">
         <InquiryLink
-          subject={`Harbourview Marketplace Inquiry: ${listing.title}`}
+          subject={inquirySubject}
           email={listing.contactEmail}
           listingTitle={listing.title}
+          label={inquiryLabel}
         />
       </div>
     </article>
