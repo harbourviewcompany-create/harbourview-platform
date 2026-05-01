@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Harbourview Admin',
@@ -9,6 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') {
+    notFound();
+  }
+
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-10 text-[#F5F1E8] md:px-10 lg:px-16">
       <div className="mx-auto max-w-6xl">
