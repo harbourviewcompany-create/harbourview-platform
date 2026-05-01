@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
-type ApiResponse = { status?: 'success' | 'error'; message?: string }
 
 const listingTypes = [
   'New Product',
@@ -17,6 +17,34 @@ const listingTypes = [
 
 const initialMessage = ''
 
+function readFormString(data: FormData, key: string) {
+  const value = data.get(key)
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function buildSubmissionMessage(fields: {
+  listingType: string
+  title: string
+  price: string
+  location: string
+  description: string
+}) {
+  return [
+    'Harbourview marketplace listing submission',
+    '',
+    `Listing type: ${fields.listingType}`,
+    `Title: ${fields.title}`,
+    `Price / budget: ${fields.price || 'N/A'}`,
+    `Location: ${fields.location || 'N/A'}`,
+    '',
+    'Description:',
+    fields.description,
+    '',
+    'Harbourview action requested:',
+    'Review listing fit, verify required details, and determine whether the opportunity should be published, routed, or declined.',
+  ].join('\n')
+}
+
 export default function IntakeForm() {
   const [state, setState] = useState<FormState>('idle')
   const [message, setMessage] = useState(initialMessage)
@@ -24,32 +52,12 @@ export default function IntakeForm() {
 
   function validate(data: FormData) {
     const errs: Record<string, string> = {}
-    if (!data.get('name')) errs.name = 'Name is required.'
-    if (!data.get('email')) errs.email = 'Email is required.'
-    if (!data.get('listingType')) errs.listingType = 'Please select a listing type.'
-    if (!data.get('title')) errs.title = 'Listing title is required.'
-    if (!data.get('description')) errs.description = 'Description is required.'
+    if (!readFormString(data, 'name')) errs.name = 'Name is required.'
+    if (!readFormString(data, 'email')) errs.email = 'Email is required.'
+    if (!readFormString(data, 'listingType')) errs.listingType = 'Please select a listing type.'
+    if (!readFormString(data, 'title')) errs.title = 'Listing title is required.'
+    if (!readFormString(data, 'description')) errs.description = 'Description is required.'
     return errs
-  }
-
-  function formDataToPayload(data: FormData) {
-    return Object.fromEntries(
-      Array.from(data.entries()).map(([key, value]) => [key, typeof value === 'string' ? value : ''])
-    )
-  }
-
-  async function readApiResponse(response: Response): Promise<ApiResponse> {
-    const contentType = response.headers.get('content-type') || ''
-
-    if (contentType.includes('application/json')) {
-      return (await response.json()) as ApiResponse
-    }
-
-    const text = await response.text()
-    return {
-      status: 'error',
-      message: `Listing submission returned a non-JSON response (${response.status}). ${text.slice(0, 120)} [LISTING_SUBMISSION_NON_JSON_RESPONSE]`,
-    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -65,37 +73,40 @@ export default function IntakeForm() {
     setState('submitting')
     setMessage('')
 
-    try {
-      const response = await fetch('/api/marketplace/listing-submission', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formDataToPayload(data)),
-      })
-      const result = await readApiResponse(response)
+    const name = readFormString(data, 'name')
+    const email = readFormString(data, 'email').toLowerCase()
+    const company = readFormString(data, 'company')
+    const listingType = readFormString(data, 'listingType')
+    const title = readFormString(data, 'title')
+    const price = readFormString(data, 'price')
+    const location = readFormString(data, 'location')
+    const description = readFormString(data, 'description')
 
-      if (result.status === 'success') {
-        setState('success')
-        setMessage(result.message || 'Listing submission received. [LISTING_SUBMISSION_OK]')
-        form.reset()
-        return
-      }
+    const result = await submitMarketplaceInquiryDirect(
+      {
+        listing_id: null,
+        buyer_request_id: null,
+        contact_name: name,
+        contact_email: email,
+        contact_company: company || null,
+        contact_phone: null,
+        inquiry_type: listingType === 'Wanted Request' ? 'wanted_request_submission' : 'listing_submission',
+        message: buildSubmissionMessage({ listingType, title, price, location, description }),
+        status: 'received',
+      },
+      'Listing submission received. Harbourview will review it before publication or counterparty routing. [LISTING_SUBMISSION_OK]',
+      'LISTING_SUBMISSION'
+    )
 
-      setState('error')
-      setMessage(
-        result.message ||
-          `Listing submission could not be completed. API status: ${response.status}. [LISTING_SUBMISSION_API_EMPTY_RESPONSE]`
-      )
-    } catch (error) {
-      const detail = error instanceof Error ? error.name : 'UnknownError'
-      setState('error')
-      setMessage(
-        `Listing submission could not be completed before receiving an API response. ${detail}. [LISTING_SUBMISSION_NETWORK_ERROR]`
-      )
+    if (result.ok) {
+      setState('success')
+      setMessage(result.message)
+      form.reset()
+      return
     }
+
+    setState('error')
+    setMessage(result.message)
   }
 
   if (state === 'success') {

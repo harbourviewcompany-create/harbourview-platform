@@ -2,16 +2,46 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormErrors = Record<string, string>
 type QuoteState = { status: 'idle' | 'success' | 'error'; message: string }
 
-type QuoteApiResponse = {
-  status?: 'success' | 'error'
-  message?: string
+const initialState: QuoteState = { status: 'idle', message: '' }
+
+function buildQuoteMessage(fields: {
+  listingTitle: string
+  buyerType: string
+  targetMarket: string
+  volume: string
+  timeline: string
+  budget: string
+  supplierPreference: string
+  requirements: string
+}) {
+  return [
+    'Harbourview quote request',
+    '',
+    `Listing: ${fields.listingTitle || 'N/A'}`,
+    `Buyer type: ${fields.buyerType}`,
+    `Target market / jurisdiction: ${fields.targetMarket}`,
+    `Volume / order size: ${fields.volume}`,
+    `Timeline: ${fields.timeline}`,
+    `Budget / price target: ${fields.budget || 'N/A'}`,
+    `Supplier preference: ${fields.supplierPreference || 'N/A'}`,
+    '',
+    'Requirements:',
+    fields.requirements || 'N/A',
+    '',
+    'Harbourview action requested:',
+    'Review buyer fit, verify supplier/source availability, and advise on quote or introduction path.',
+  ].join('\n')
 }
 
-const initialState: QuoteState = { status: 'idle', message: '' }
+function readFormString(data: FormData, key: string) {
+  const value = data.get(key)
+  return typeof value === 'string' ? value.trim() : ''
+}
 
 export default function QuoteRequestForm() {
   const searchParams = useSearchParams()
@@ -30,34 +60,14 @@ export default function QuoteRequestForm() {
 
   function validate(data: FormData) {
     const errs: FormErrors = {}
-    if (!data.get('name')) errs.name = 'Name is required.'
-    if (!data.get('email')) errs.email = 'Email is required.'
-    if (!data.get('company')) errs.company = 'Company is required.'
-    if (!data.get('buyerType')) errs.buyerType = 'Buyer type is required.'
-    if (!data.get('targetMarket')) errs.targetMarket = 'Target market is required.'
-    if (!data.get('volume')) errs.volume = 'Volume or expected order size is required.'
-    if (!data.get('timeline')) errs.timeline = 'Timeline is required.'
+    if (!readFormString(data, 'name')) errs.name = 'Name is required.'
+    if (!readFormString(data, 'email')) errs.email = 'Email is required.'
+    if (!readFormString(data, 'company')) errs.company = 'Company is required.'
+    if (!readFormString(data, 'buyerType')) errs.buyerType = 'Buyer type is required.'
+    if (!readFormString(data, 'targetMarket')) errs.targetMarket = 'Target market is required.'
+    if (!readFormString(data, 'volume')) errs.volume = 'Volume or expected order size is required.'
+    if (!readFormString(data, 'timeline')) errs.timeline = 'Timeline is required.'
     return errs
-  }
-
-  function formDataToPayload(data: FormData) {
-    return Object.fromEntries(
-      Array.from(data.entries()).map(([key, value]) => [key, typeof value === 'string' ? value : ''])
-    )
-  }
-
-  async function readQuoteResponse(response: Response): Promise<QuoteApiResponse> {
-    const contentType = response.headers.get('content-type') || ''
-
-    if (contentType.includes('application/json')) {
-      return (await response.json()) as QuoteApiResponse
-    }
-
-    const text = await response.text()
-    return {
-      status: 'error',
-      message: `Quote request returned a non-JSON response (${response.status}). ${text.slice(0, 120)} [QUOTE_NON_JSON_RESPONSE]`,
-    }
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -74,31 +84,48 @@ export default function QuoteRequestForm() {
     setErrors({})
 
     startTransition(async () => {
-      try {
-        const response = await fetch('/api/marketplace/quote', {
-          method: 'POST',
-          cache: 'no-store',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formDataToPayload(data)),
-        })
-        const result = await readQuoteResponse(response)
+      const listingTitleValue = readFormString(data, 'listingTitle')
+      const name = readFormString(data, 'name')
+      const email = readFormString(data, 'email').toLowerCase()
+      const phone = readFormString(data, 'phone')
+      const company = readFormString(data, 'company')
+      const buyerType = readFormString(data, 'buyerType')
+      const targetMarket = readFormString(data, 'targetMarket')
+      const volume = readFormString(data, 'volume')
+      const timeline = readFormString(data, 'timeline')
+      const budget = readFormString(data, 'budget')
+      const supplierPreference = readFormString(data, 'supplierPreference')
+      const requirements = readFormString(data, 'requirements')
 
-        setState({
-          status: result.status === 'success' ? 'success' : 'error',
-          message:
-            result.message ||
-            `Quote request could not be completed. API status: ${response.status}. [QUOTE_API_EMPTY_RESPONSE]`,
-        })
-      } catch (error) {
-        const detail = error instanceof Error ? error.name : 'UnknownError'
-        setState({
-          status: 'error',
-          message: `Quote request could not be completed before receiving an API response. ${detail}. [QUOTE_NETWORK_ERROR]`,
-        })
-      }
+      const result = await submitMarketplaceInquiryDirect(
+        {
+          listing_id: null,
+          buyer_request_id: null,
+          contact_name: name,
+          contact_email: email,
+          contact_company: company,
+          contact_phone: phone || null,
+          inquiry_type: 'quote_routing',
+          message: buildQuoteMessage({
+            listingTitle: listingTitleValue,
+            buyerType,
+            targetMarket,
+            volume,
+            timeline,
+            budget,
+            supplierPreference,
+            requirements,
+          }),
+          status: 'received',
+        },
+        'Quote request received. Harbourview will review the request before supplier introduction or quote routing. [QUOTE_OK]',
+        'QUOTE'
+      )
+
+      setState({
+        status: result.ok ? 'success' : 'error',
+        message: result.message,
+      })
     })
   }
 
