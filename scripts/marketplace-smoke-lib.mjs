@@ -146,6 +146,27 @@ async function insertInquiry(config, payload) {
   });
 }
 
+async function assertServiceRoleCanRead(config, id) {
+  if (!config.serviceRoleKey) return { skipped: true };
+
+  const { response, text } = await restRequest({
+    url: config.url,
+    key: config.serviceRoleKey,
+    path: `marketplace_inquiries?id=eq.${id}&select=id,status,internal_notes`,
+  });
+
+  if (!response.ok) {
+    throw new Error(`service role read failed with ${response.status}: ${text}`);
+  }
+
+  const rows = JSON.parse(text);
+  if (!Array.isArray(rows) || rows.length !== 1 || rows[0].id !== id) {
+    throw new Error(`service role read expected inserted row ${id}, got ${text}`);
+  }
+
+  return { skipped: false, row: rows[0] };
+}
+
 async function closeSmokeRows(config, ids) {
   if (!config.serviceRoleKey || !ids.length) return { skipped: true };
 
@@ -167,6 +188,7 @@ export {
   SMOKE_MARKER,
   SMOKE_NAME,
   assertPayloadShape,
+  assertServiceRoleCanRead,
   closeSmokeRows,
   getSupabaseConfig,
   insertInquiry,
