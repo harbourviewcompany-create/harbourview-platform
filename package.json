@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
+    "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs"
   },
   "dependencies": {
     "next": "^15.3.1",
