@@ -17,6 +17,22 @@ const ALLOWED_INQUIRY_TYPES = new Set([
   'sourcing_mandate',
 ]);
 
+type InquiryDiagnosticCode =
+  | 'INQUIRY_LISTING_NOT_FOUND'
+  | 'INQUIRY_LISTING_UNAVAILABLE'
+  | 'INQUIRY_VALIDATION_REQUIRED_FIELDS'
+  | 'INQUIRY_VALIDATION_EMAIL'
+  | 'INQUIRY_VALIDATION_FIELD_LENGTH'
+  | 'INQUIRY_VALIDATION_MESSAGE_LENGTH'
+  | 'INQUIRY_VALIDATION_CONSENT'
+  | 'INQUIRY_CONFIG_MISSING'
+  | 'INQUIRY_SUPABASE_INSERT_FAILED'
+  | 'INQUIRY_OK';
+
+function withCode(message: string, code: InquiryDiagnosticCode) {
+  return `${message} [${code}]`;
+}
+
 function readField(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === 'string' ? value.trim() : '';
@@ -49,10 +65,19 @@ function buildMessageWithListingContext(
 
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !anonKey) return null;
   return { url: url.replace(/\/$/, ''), anonKey };
+}
+
+function logInquiryDiagnostic(code: InquiryDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
+  console.info('harbourview_marketplace_inquiry', {
+    code,
+    ...details,
+  });
 }
 
 export async function submitMarketplaceInquiry(
@@ -63,14 +88,22 @@ export async function submitMarketplaceInquiry(
   const listing = marketplaceListings.find((item) => item.slug === listingSlug);
 
   if (!listing) {
-    return { status: 'error', message: 'This listing is not available for public inquiry.' };
+    logInquiryDiagnostic('INQUIRY_LISTING_NOT_FOUND', { hasListingSlug: Boolean(listingSlug) });
+    return {
+      status: 'error',
+      message: withCode('This listing is not available for public inquiry.', 'INQUIRY_LISTING_NOT_FOUND'),
+    };
   }
 
   if (
     listing.availabilityStatus === 'sold_or_expired' ||
     listing.verificationStatus === 'sold_or_expired_source'
   ) {
-    return { status: 'error', message: 'This listing is no longer available for public inquiry.' };
+    logInquiryDiagnostic('INQUIRY_LISTING_UNAVAILABLE', { listingSlug: listing.slug });
+    return {
+      status: 'error',
+      message: withCode('This listing is no longer available for public inquiry.', 'INQUIRY_LISTING_UNAVAILABLE'),
+    };
   }
 
   const name = readField(formData, 'name');
@@ -86,11 +119,25 @@ export async function submitMarketplaceInquiry(
   const consent = formData.get('consent') === 'on';
 
   if (!name || !email || !company || !country || !message) {
-    return { status: 'error', message: 'Please complete name, email, company, country and message.' };
+    logInquiryDiagnostic('INQUIRY_VALIDATION_REQUIRED_FIELDS', {
+      hasName: Boolean(name),
+      hasEmail: Boolean(email),
+      hasCompany: Boolean(company),
+      hasCountry: Boolean(country),
+      hasMessage: Boolean(message),
+    });
+    return {
+      status: 'error',
+      message: withCode('Please complete name, email, company, country and message.', 'INQUIRY_VALIDATION_REQUIRED_FIELDS'),
+    };
   }
 
   if (!isValidEmail(email)) {
-    return { status: 'error', message: 'Please use a valid business email address.' };
+    logInquiryDiagnostic('INQUIRY_VALIDATION_EMAIL');
+    return {
+      status: 'error',
+      message: withCode('Please use a valid business email address.', 'INQUIRY_VALIDATION_EMAIL'),
+    };
   }
 
   if (
@@ -100,24 +147,43 @@ export async function submitMarketplaceInquiry(
     isOversized(country) ||
     isOversized(phone)
   ) {
-    return { status: 'error', message: 'One or more fields is longer than allowed.' };
+    logInquiryDiagnostic('INQUIRY_VALIDATION_FIELD_LENGTH');
+    return {
+      status: 'error',
+      message: withCode('One or more fields is longer than allowed.', 'INQUIRY_VALIDATION_FIELD_LENGTH'),
+    };
   }
 
   const messageWithListingContext = buildMessageWithListingContext(message, country, listing);
 
   if (messageWithListingContext.length > MAX_MESSAGE_LENGTH) {
-    return { status: 'error', message: 'Please keep the message under 2,500 characters.' };
+    logInquiryDiagnostic('INQUIRY_VALIDATION_MESSAGE_LENGTH', {
+      messageLength: messageWithListingContext.length,
+    });
+    return {
+      status: 'error',
+      message: withCode('Please keep the message under 2,500 characters.', 'INQUIRY_VALIDATION_MESSAGE_LENGTH'),
+    };
   }
 
   if (!consent) {
-    return { status: 'error', message: 'Please confirm consent before submitting the inquiry.' };
+    logInquiryDiagnostic('INQUIRY_VALIDATION_CONSENT');
+    return {
+      status: 'error',
+      message: withCode('Please confirm consent before submitting the inquiry.', 'INQUIRY_VALIDATION_CONSENT'),
+    };
   }
 
   const supabase = getSupabaseConfig();
   if (!supabase) {
+    logInquiryDiagnostic('INQUIRY_CONFIG_MISSING', {
+      hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      hasPublishableKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+    });
     return {
       status: 'error',
-      message: 'Inquiry capture is not configured yet. Please contact Harbourview directly.',
+      message: withCode('Inquiry capture is not configured yet. Please contact Harbourview directly.', 'INQUIRY_CONFIG_MISSING'),
     };
   }
 
@@ -145,14 +211,23 @@ export async function submitMarketplaceInquiry(
   });
 
   if (!response.ok) {
+    logInquiryDiagnostic('INQUIRY_SUPABASE_INSERT_FAILED', {
+      status: response.status,
+      statusText: response.statusText,
+    });
     return {
       status: 'error',
-      message: 'The inquiry could not be saved. Please try again or contact Harbourview directly.',
+      message: withCode('The inquiry could not be saved. Please try again or contact Harbourview directly.', 'INQUIRY_SUPABASE_INSERT_FAILED'),
     };
   }
 
+  logInquiryDiagnostic('INQUIRY_OK', {
+    listingSlug: listing.slug,
+    inquiryType,
+  });
+
   return {
     status: 'success',
-    message: 'Inquiry received. Harbourview will review the request before any introduction or seller contact.',
+    message: withCode('Inquiry received. Harbourview will review the request before any introduction or seller contact.', 'INQUIRY_OK'),
   };
 }
