@@ -1,0 +1,9 @@
+Marketplace browser smoke trigger
+
+Target: https://harbourview-platform.vercel.app
+Workflow: .github/workflows/marketplace-browser-smoke.yml
+Expected rows:
+- quote_routing
+- listing_submission
+- wanted_request_submission
+Expected cleanup: status=closed
