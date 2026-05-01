@@ -6,6 +6,11 @@ import { useSearchParams } from 'next/navigation'
 type FormErrors = Record<string, string>
 type QuoteState = { status: 'idle' | 'success' | 'error'; message: string }
 
+type QuoteApiResponse = {
+  status?: 'success' | 'error'
+  message?: string
+}
+
 const initialState: QuoteState = { status: 'idle', message: '' }
 
 export default function QuoteRequestForm() {
@@ -41,6 +46,20 @@ export default function QuoteRequestForm() {
     )
   }
 
+  async function readQuoteResponse(response: Response): Promise<QuoteApiResponse> {
+    const contentType = response.headers.get('content-type') || ''
+
+    if (contentType.includes('application/json')) {
+      return (await response.json()) as QuoteApiResponse
+    }
+
+    const text = await response.text()
+    return {
+      status: 'error',
+      message: `Quote request returned a non-JSON response (${response.status}). ${text.slice(0, 120)} [QUOTE_NON_JSON_RESPONSE]`,
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
@@ -58,19 +77,26 @@ export default function QuoteRequestForm() {
       try {
         const response = await fetch('/api/marketplace/quote', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(formDataToPayload(data)),
         })
-        const result = (await response.json()) as QuoteState
+        const result = await readQuoteResponse(response)
 
         setState({
           status: result.status === 'success' ? 'success' : 'error',
-          message: result.message || 'Quote request could not be completed. Please try again.',
+          message:
+            result.message ||
+            `Quote request could not be completed. API status: ${response.status}. [QUOTE_API_EMPTY_RESPONSE]`,
         })
-      } catch {
+      } catch (error) {
+        const detail = error instanceof Error ? error.name : 'UnknownError'
         setState({
           status: 'error',
-          message: 'Quote request could not be completed. Please try again. [QUOTE_NETWORK_ERROR]',
+          message: `Quote request could not be completed before receiving an API response. ${detail}. [QUOTE_NETWORK_ERROR]`,
         })
       }
     })
