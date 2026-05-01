@@ -226,7 +226,7 @@ async function assertServiceRoleCanRead(config, id) {
 async function closeSmokeRows(config, ids) {
   if (!config.serviceRoleKey || !ids.length) return { skipped: true };
 
-  const idFilter = ids.map((id) => `"${id}"`).join(',');
+  const idFilter = ids.map((id) => encodeURIComponent(id)).join(',');
   const { response, text } = await restRequest({
     url: config.url,
     key: config.serviceRoleKey,
