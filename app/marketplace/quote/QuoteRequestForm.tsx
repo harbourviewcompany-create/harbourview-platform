@@ -1,18 +1,29 @@
 'use client'
 
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { submitQuoteRequest, type QuoteRequestActionState } from '@/app/actions/submitQuoteRequest'
 
-type FormState = 'idle' | 'submitting' | 'success'
+type FormErrors = Record<string, string>
+
+const initialState: QuoteRequestActionState = { status: 'idle', message: '' }
 
 export default function QuoteRequestForm() {
   const searchParams = useSearchParams()
   const listingTitle = searchParams.get('listing') || ''
-  const [state, setState] = useState<FormState>('idle')
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [state, formAction, isPending] = useActionState(submitQuoteRequest, initialState)
+  const [errors, setErrors] = useState<FormErrors>({})
+  const formRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    if (state.status === 'success') {
+      formRef.current?.reset()
+      setErrors({})
+    }
+  }, [state.status])
 
   function validate(data: FormData) {
-    const errs: Record<string, string> = {}
+    const errs: FormErrors = {}
     if (!data.get('name')) errs.name = 'Name is required.'
     if (!data.get('email')) errs.email = 'Email is required.'
     if (!data.get('company')) errs.company = 'Company is required.'
@@ -24,56 +35,25 @@ export default function QuoteRequestForm() {
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
     const data = new FormData(e.currentTarget)
     const errs = validate(data)
 
     if (Object.keys(errs).length > 0) {
+      e.preventDefault()
       setErrors(errs)
       return
     }
 
     setErrors({})
-    setState('submitting')
-
-    const subject = encodeURIComponent(`Quote Request: ${data.get('listingTitle') || 'Consumables'}`)
-    const body = encodeURIComponent(
-      [
-        'Harbourview quote request',
-        '',
-        `Listing: ${data.get('listingTitle') || 'N/A'}`,
-        `Name: ${data.get('name')}`,
-        `Email: ${data.get('email')}`,
-        `Phone: ${data.get('phone') || 'N/A'}`,
-        `Company: ${data.get('company')}`,
-        `Buyer type: ${data.get('buyerType')}`,
-        `Target market / jurisdiction: ${data.get('targetMarket')}`,
-        `Volume / order size: ${data.get('volume')}`,
-        `Timeline: ${data.get('timeline')}`,
-        `Budget / price target: ${data.get('budget') || 'N/A'}`,
-        `Supplier preference: ${data.get('supplierPreference') || 'N/A'}`,
-        '',
-        'Requirements:',
-        `${data.get('requirements') || 'N/A'}`,
-        '',
-        'Harbourview action requested:',
-        'Review buyer fit, verify supplier/source availability, and advise on quote or introduction path.',
-      ].join('\n')
-    )
-
-    window.location.href = `mailto:harbourviewcompany@gmail.com?subject=${subject}&body=${body}`
-    setState('success')
   }
 
-  if (state === 'success') {
+  if (state.status === 'success') {
     return (
       <div className="card p-8 text-center">
         <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Quote Request Prepared</h2>
-        <p className="text-gray-500 text-sm mb-6">
-          Your email client has opened with the request details pre-filled. Send the email to complete the quote request.
-        </p>
-        <button onClick={() => setState('idle')} className="btn-outline text-sm">
+        <h2 className="text-navy font-bold text-xl mb-2">Quote Request Received</h2>
+        <p className="text-gray-500 text-sm mb-6">{state.message}</p>
+        <button onClick={() => window.location.reload()} className="btn-outline text-sm">
           Submit another request
         </button>
       </div>
@@ -81,7 +61,7 @@ export default function QuoteRequestForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="card p-6 space-y-5">
         <h2 className="text-navy font-semibold text-lg border-b pb-3">Quote Details</h2>
 
@@ -193,8 +173,12 @@ export default function QuoteRequestForm() {
         Harbourview reviews quote requests before supplier introduction. Product details, pricing, availability and supplier fit are confirmed before any commercial handoff.
       </p>
 
-      <button type="submit" disabled={state === 'submitting'} className="btn-primary w-full py-3 text-base disabled:opacity-60">
-        {state === 'submitting' ? 'Preparing…' : 'Request Quote'}
+      {state.status === 'error' && (
+        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
+      )}
+
+      <button type="submit" disabled={isPending} className="btn-primary w-full py-3 text-base disabled:opacity-60">
+        {isPending ? 'Submitting…' : 'Request Quote'}
       </button>
     </form>
   )
