@@ -9,6 +9,13 @@ export type InquiryActionState = {
 
 const MAX_MESSAGE_LENGTH = 2500;
 const MAX_TEXT_LENGTH = 180;
+const ALLOWED_INQUIRY_TYPES = new Set([
+  'listing_verification',
+  'seller_contact',
+  'quote_routing',
+  'similar_equipment',
+  'sourcing_mandate',
+]);
 
 function readField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -27,10 +34,7 @@ function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !anonKey) {
-    return null;
-  }
-
+  if (!url || !anonKey) return null;
   return { url: url.replace(/\/$/, ''), anonKey };
 }
 
@@ -42,17 +46,14 @@ export async function submitMarketplaceInquiry(
   const listing = marketplaceListings.find((item) => item.slug === listingSlug);
 
   if (!listing) {
-    return {
-      status: 'error',
-      message: 'This listing is not available for public inquiry.',
-    };
+    return { status: 'error', message: 'This listing is not available for public inquiry.' };
   }
 
-  if (listing.availabilityStatus === 'sold_or_expired') {
-    return {
-      status: 'error',
-      message: 'This listing is no longer available for public inquiry.',
-    };
+  if (
+    listing.availabilityStatus === 'sold_or_expired' ||
+    listing.verificationStatus === 'sold_or_expired_source'
+  ) {
+    return { status: 'error', message: 'This listing is no longer available for public inquiry.' };
   }
 
   const name = readField(formData, 'name');
@@ -60,22 +61,19 @@ export async function submitMarketplaceInquiry(
   const company = readField(formData, 'company');
   const country = readField(formData, 'country');
   const phone = readField(formData, 'phone');
-  const inquiryType = readField(formData, 'inquiry_type') || 'listing_verification';
+  const requestedInquiryType = readField(formData, 'inquiry_type') || 'listing_verification';
+  const inquiryType = ALLOWED_INQUIRY_TYPES.has(requestedInquiryType)
+    ? requestedInquiryType
+    : 'listing_verification';
   const message = readField(formData, 'message');
   const consent = formData.get('consent') === 'on';
 
   if (!name || !email || !company || !country || !message) {
-    return {
-      status: 'error',
-      message: 'Please complete name, email, company, country and message.',
-    };
+    return { status: 'error', message: 'Please complete name, email, company, country and message.' };
   }
 
   if (!isValidEmail(email)) {
-    return {
-      status: 'error',
-      message: 'Please use a valid business email address.',
-    };
+    return { status: 'error', message: 'Please use a valid business email address.' };
   }
 
   if (
@@ -83,31 +81,20 @@ export async function submitMarketplaceInquiry(
     isOversized(email) ||
     isOversized(company) ||
     isOversized(country) ||
-    isOversized(phone) ||
-    isOversized(inquiryType)
+    isOversized(phone)
   ) {
-    return {
-      status: 'error',
-      message: 'One or more fields is longer than allowed.',
-    };
+    return { status: 'error', message: 'One or more fields is longer than allowed.' };
   }
 
   if (message.length > MAX_MESSAGE_LENGTH) {
-    return {
-      status: 'error',
-      message: 'Please keep the message under 2,500 characters.',
-    };
+    return { status: 'error', message: 'Please keep the message under 2,500 characters.' };
   }
 
   if (!consent) {
-    return {
-      status: 'error',
-      message: 'Please confirm consent before submitting the inquiry.',
-    };
+    return { status: 'error', message: 'Please confirm consent before submitting the inquiry.' };
   }
 
   const supabase = getSupabaseConfig();
-
   if (!supabase) {
     return {
       status: 'error',
