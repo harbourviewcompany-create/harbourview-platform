@@ -1,0 +1,63 @@
+name: Marketplace Browser Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target base URL to test'
+        required: true
+        default: 'https://harbourview-platform.vercel.app'
+      allow_production_writes:
+        description: 'Type ALLOW_PRODUCTION_SMOKE_WRITES to permit production smoke writes'
+        required: true
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: marketplace-browser-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Browser-submit marketplace capture and verify Supabase rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate production write confirmation
+        run: |
+          if [ "${{ github.event.inputs.allow_production_writes }}" != "ALLOW_PRODUCTION_SMOKE_WRITES" ]; then
+            echo "Refusing to run production browser smoke writes without exact confirmation."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright for smoke runner
+        run: npm install --no-save playwright@1.56.1
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run marketplace browser smoke
+        env:
+          HARBOURVIEW_SMOKE_BASE_URL: ${{ github.event.inputs.base_url }}
+          HARBOURVIEW_SMOKE_WRITE: '1'
+          HARBOURVIEW_SMOKE_CLEANUP: '1'
+          HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES: '1'
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run smoke:marketplace:browser
