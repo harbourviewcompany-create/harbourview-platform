@@ -52,7 +52,7 @@ export default function QuoteRequestForm() {
       <div className="card p-8 text-center">
         <p className="text-gold text-4xl mb-4">✓</p>
         <h2 className="text-navy font-bold text-xl mb-2">Quote Request Received</h2>
-        <p className="text-gray-500 text-sm mb-6">{state.message}</p>
+        <p data-testid="quote-diagnostic-message" className="text-gray-500 text-sm mb-6">{state.message}</p>
         <button onClick={() => window.location.reload()} className="btn-outline text-sm">
           Submit another request
         </button>
@@ -174,7 +174,7 @@ export default function QuoteRequestForm() {
       </p>
 
       {state.status === 'error' && (
-        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
+        <p data-testid="quote-diagnostic-message" className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
       )}
 
       <button type="submit" disabled={isPending} className="btn-primary w-full py-3 text-base disabled:opacity-60">

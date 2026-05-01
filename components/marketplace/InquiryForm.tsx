@@ -92,7 +92,7 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
             {isPending ? 'Submitting...' : ctaLabel}
           </button>
           {state.message ? (
-            <p className={state.status === 'success' ? 'text-sm text-[#D8BC73]' : 'text-sm text-red-200'}>{state.message}</p>
+            <p data-testid="inquiry-diagnostic-message" className={state.status === 'success' ? 'text-sm text-[#D8BC73]' : 'text-sm text-red-200'}>{state.message}</p>
           ) : null}
         </div>
       </form>

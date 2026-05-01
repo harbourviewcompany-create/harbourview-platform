@@ -1,0 +1,176 @@
+const SMOKE_MARKER = 'HARBOURVIEW_SMOKE_TEST';
+const SMOKE_EMAIL = 'smoke-test@harbourview.local';
+const SMOKE_NAME = 'Harbourview Smoke Test';
+const SMOKE_COMPANY = 'Harbourview Smoke Test';
+
+function getEnv(name) {
+  const value = process.env[name];
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function getSupabaseConfig() {
+  const url = getEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/$/, '');
+  const anonKey =
+    getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') ||
+    getEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!url || !anonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL and anon/publishable key.');
+  }
+
+  return { url, anonKey, serviceRoleKey };
+}
+
+function makeHeaders(key, prefer = 'return=minimal') {
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    Prefer: prefer,
+  };
+}
+
+function makeQuotePayload(overrides = {}) {
+  return {
+    id: crypto.randomUUID(),
+    listing_id: null,
+    buyer_request_id: null,
+    contact_name: SMOKE_NAME,
+    contact_email: SMOKE_EMAIL,
+    contact_company: SMOKE_COMPANY,
+    contact_phone: '+1 555 0100',
+    inquiry_type: 'quote_routing',
+    message: [
+      `${SMOKE_MARKER}: quote request capture smoke test.`,
+      '',
+      'Harbourview quote request',
+      'Listing: Smoke test consumables listing',
+      'Buyer type: Licensed Producer / Operator',
+      'Target market / jurisdiction: Canada',
+      'Volume / order size: 1000 units',
+      'Timeline: Future planning',
+      'Budget / price target: Smoke test only',
+      'Supplier preference: Smoke test only',
+    ].join('\n'),
+    status: 'received',
+    ...overrides,
+  };
+}
+
+function makeListingInquiryPayload(overrides = {}) {
+  return {
+    id: crypto.randomUUID(),
+    listing_id: null,
+    buyer_request_id: null,
+    contact_name: SMOKE_NAME,
+    contact_email: SMOKE_EMAIL,
+    contact_company: SMOKE_COMPANY,
+    contact_phone: '+1 555 0100',
+    inquiry_type: 'listing_verification',
+    message: [
+      `${SMOKE_MARKER}: listing detail inquiry capture smoke test.`,
+      '',
+      '--- Marketplace listing context ---',
+      'Market: Canada',
+      'Listing: Smoke test source-backed listing',
+      'Slug: smoke-test-source-backed-listing',
+      'Source: Harbourview smoke test',
+      'Source URL: https://example.invalid/harbourview-smoke-test',
+    ].join('\n'),
+    status: 'received',
+    ...overrides,
+  };
+}
+
+function assertPayloadShape(name, payload) {
+  const required = [
+    'id',
+    'listing_id',
+    'buyer_request_id',
+    'contact_name',
+    'contact_email',
+    'contact_company',
+    'contact_phone',
+    'inquiry_type',
+    'message',
+    'status',
+  ];
+  const forbidden = [
+    'listing_slug',
+    'listing_title',
+    'source_url',
+    'name',
+    'email',
+    'company',
+    'country',
+    'phone',
+    'internal_notes',
+  ];
+
+  for (const field of required) {
+    if (!(field in payload)) throw new Error(`${name} payload missing ${field}`);
+  }
+
+  for (const field of forbidden) {
+    if (field in payload) throw new Error(`${name} payload includes forbidden field ${field}`);
+  }
+
+  if (payload.contact_email !== SMOKE_EMAIL) {
+    throw new Error(`${name} payload must use smoke-test email only`);
+  }
+
+  if (!payload.message.includes(SMOKE_MARKER)) {
+    throw new Error(`${name} payload must include ${SMOKE_MARKER}`);
+  }
+}
+
+async function restRequest({ url, key, path, method = 'GET', body, prefer }) {
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    method,
+    headers: makeHeaders(key, prefer),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await response.text();
+  return { response, text };
+}
+
+async function insertInquiry(config, payload) {
+  return restRequest({
+    url: config.url,
+    key: config.anonKey,
+    path: 'marketplace_inquiries',
+    method: 'POST',
+    body: payload,
+  });
+}
+
+async function closeSmokeRows(config, ids) {
+  if (!config.serviceRoleKey || !ids.length) return { skipped: true };
+
+  const idFilter = ids.map((id) => `"${id}"`).join(',');
+  const { response, text } = await restRequest({
+    url: config.url,
+    key: config.serviceRoleKey,
+    path: `marketplace_inquiries?id=in.(${idFilter})`,
+    method: 'PATCH',
+    body: { status: 'closed', internal_notes: `${SMOKE_MARKER}: closed by smoke cleanup.` },
+  });
+
+  return { skipped: false, ok: response.ok, status: response.status, text };
+}
+
+export {
+  SMOKE_COMPANY,
+  SMOKE_EMAIL,
+  SMOKE_MARKER,
+  SMOKE_NAME,
+  assertPayloadShape,
+  closeSmokeRows,
+  getSupabaseConfig,
+  insertInquiry,
+  makeListingInquiryPayload,
+  makeQuotePayload,
+  restRequest,
+};
