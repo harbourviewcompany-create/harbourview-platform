@@ -1,3 +1,5 @@
+import HeroCTAGroup from './HeroCTAGroup'
+
 export default function HarbourviewHomePage() {
   return (
     <section className="min-h-screen bg-hv-black text-hv-offwhite flex flex-col items-center justify-center">
@@ -6,10 +8,7 @@ export default function HarbourviewHomePage() {
           Market access backed by <span className="text-hv-gold">intelligence and relationships.</span>
         </h1>
 
-        <div className="flex gap-4 justify-center mt-10">
-          <a href="/marketplace" className="hv-btn-primary">Marketplace</a>
-          <a href="/intelligence" className="hv-btn-secondary">Intelligence</a>
-        </div>
+        <HeroCTAGroup />
       </div>
     </section>
   )
