@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:visibility": "node scripts/test-public-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
     "smoke:marketplace:browser": "node scripts/smoke-marketplace-browser.mjs"
