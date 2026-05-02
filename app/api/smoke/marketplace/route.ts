@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 type Row = { id: string; inquiry_type: string; status: string; contact_email: string; message?: string; created_at?: string }
 
+const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
 const EXPECTED_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
 const PREFIX = 'HARBOURVIEW_BROWSER_SMOKE_TEST:'
 const TYPES = new Set(['quote_routing', 'listing_submission', 'wanted_request_submission'])
@@ -16,8 +17,18 @@ function serverKey() {
   return readEnv('SUPABASE_' + 'SERVICE_' + 'ROLE_' + 'KEY')
 }
 
+function resolveBaseUrl(raw: string) {
+  const normalized = raw.trim().replace(/\/$/, '')
+  try {
+    if (normalized && new URL(normalized).hostname === EXPECTED_HOST) return normalized
+  } catch {
+    // fall through to locked Harbourview project URL
+  }
+  return LOCKED_SUPABASE_URL
+}
+
 function getConfig() {
-  const base = readEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/$/, '')
+  const base = resolveBaseUrl(readEnv('NEXT_PUBLIC_SUPABASE_URL'))
   const parsed = new URL(base)
   const key = serverKey()
   if (parsed.hostname !== EXPECTED_HOST) throw new Error('wrong project')
