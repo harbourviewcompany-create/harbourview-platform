@@ -1,0 +1,9 @@
+Marketplace browser smoke trigger
+
+Target: https://harbourview-platform.vercel.app
+Production commit: 1d80d08dbc4234d45c8a2db0f4a274d29d2064d2
+Expected rows:
+- quote_routing
+- listing_submission
+- wanted_request_submission
+Expected cleanup: status=closed
