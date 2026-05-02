@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import type { MarketplaceListing } from '@/lib/marketplace/listings';
+import type { PublicMarketplaceListing } from '@/lib/marketplace/publicListings';
 
-export function MarketplaceListingCard({ listing }: { listing: MarketplaceListing }) {
+export function MarketplaceListingCard({ listing }: { listing: PublicMarketplaceListing }) {
   return (
     <article className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]/80 p-5 shadow-lg shadow-black/20">
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#C6A55A]">
@@ -13,7 +13,7 @@ export function MarketplaceListingCard({ listing }: { listing: MarketplaceListin
       <h2 className="text-xl font-semibold leading-tight text-[#F5F1E8]">{listing.title}</h2>
 
       <div className="mt-4 space-y-2 text-sm text-[#F5F1E8]/68">
-        <p>{listing.summary}</p>
+        <p>{listing.publicSummary}</p>
         <p>
           <span className="text-[#C6A55A]">Price:</span> {listing.price || 'Confirm through Harbourview'}
         </p>
