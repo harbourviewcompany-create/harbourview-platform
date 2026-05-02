@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { InquiryForm } from '@/components/marketplace/InquiryForm';
-import { getMarketplaceListing, marketplaceListings } from '@/lib/marketplace/listings';
+import { getPublicMarketplaceListing } from '@/lib/marketplace/publicListings';
+import { marketplaceListings } from '@/lib/marketplace/listings';
 
 export function generateStaticParams() {
   return marketplaceListings.map((listing) => ({ slug: listing.slug }));
@@ -13,7 +14,7 @@ export default async function MarketplaceListingDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const listing = getMarketplaceListing(slug);
+  const listing = getPublicMarketplaceListing(slug);
 
   if (!listing) notFound();
 
@@ -47,7 +48,7 @@ export default async function MarketplaceListingDetailPage({
             </div>
           </div>
 
-          <p className="mt-8 max-w-3xl text-lg leading-8 text-[#F5F1E8]/82">{listing.summary}</p>
+          <p className="mt-8 max-w-3xl text-lg leading-8 text-[#F5F1E8]/82">{listing.publicSummary}</p>
 
           <section className="mt-8 grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-black/15 p-5">
