@@ -63,11 +63,11 @@ async function closeTypes(types) {
 }
 
 async function fillByName(page, name, value) {
-  await page.locator(`[name="${name}"]`).fill(value);
+  await page.locator(`input[name="${name}"], textarea[name="${name}"]`).fill(value);
 }
 
 async function selectByName(page, name, value) {
-  await page.locator(`[name="${name}"]`).selectOption(value);
+  await page.locator(`select[name="${name}"]`).selectOption(value);
 }
 
 async function submitQuote(page) {
