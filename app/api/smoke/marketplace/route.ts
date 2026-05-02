@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-type Row = { id: string; inquiry_type: string; status: string; contact_email: string; message?: string; created_at?: string }
+type Row = {
+  id: string
+  inquiry_type: string
+  status: string
+  contact_email: string
+  created_at?: string
+}
 
 const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
 const EXPECTED_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
@@ -11,10 +17,6 @@ const TYPES = new Set(['quote_routing', 'listing_submission', 'wanted_request_su
 
 function readEnv(name: string) {
   return process.env[name]?.trim() || ''
-}
-
-function serverKey() {
-  return readEnv('SUPABASE_' + 'SERVICE_' + 'ROLE_' + 'KEY')
 }
 
 function resolveBaseUrl(raw: string) {
@@ -27,17 +29,21 @@ function resolveBaseUrl(raw: string) {
   return LOCKED_SUPABASE_URL
 }
 
+function clientKey() {
+  return readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+}
+
 function getConfig() {
   const base = resolveBaseUrl(readEnv('NEXT_PUBLIC_SUPABASE_URL'))
   const parsed = new URL(base)
-  const key = serverKey()
+  const key = clientKey()
   if (parsed.hostname !== EXPECTED_HOST) throw new Error('wrong project')
   if (!key) throw new Error('verifier not configured')
   return { base, key }
 }
 
 function h(key: string) {
-  return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' }
+  return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }
 }
 
 function parse(body: Record<string, unknown>) {
@@ -52,33 +58,42 @@ function parse(body: Record<string, unknown>) {
   return { action, email, marker, kind }
 }
 
-async function readRow(c: { base: string; key: string }, email: string, marker: string, kind: string) {
-  const qs = `contact_email=eq.${encodeURIComponent(email)}&inquiry_type=eq.${encodeURIComponent(kind)}&select=id,inquiry_type,status,contact_email,message,created_at&order=created_at.desc&limit=5`
-  const res = await fetch(`${c.base}/rest/v1/marketplace_inquiries?${qs}`, { cache: 'no-store', headers: h(c.key) })
-  const txt = await res.text()
-  if (!res.ok) throw new Error(`read ${res.status}`)
-  const rows = JSON.parse(txt) as Row[]
-  return rows.find((r) => r.message?.includes(marker)) || null
-}
-
-async function closeRow(c: { base: string; key: string }, id: string, marker: string) {
-  const res = await fetch(`${c.base}/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}`, {
-    method: 'PATCH',
+async function callRpc(c: { base: string; key: string }, fn: string, input: ReturnType<typeof parse>) {
+  const res = await fetch(`${c.base}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
     cache: 'no-store',
     headers: h(c.key),
-    body: JSON.stringify({ status: 'closed', internal_notes: marker + ': closed by smoke cleanup.' }),
+    body: JSON.stringify({
+      p_email: input.email,
+      p_marker: input.marker,
+      p_inquiry_type: input.kind,
+    }),
   })
-  if (!res.ok) throw new Error(`close ${res.status}`)
+  const txt = await res.text()
+  if (!res.ok) throw new Error(`${fn} ${res.status}: ${txt.slice(0, 240)}`)
+  return JSON.parse(txt) as Row[]
 }
 
 export async function POST(request: Request) {
   try {
     const input = parse((await request.json()) as Record<string, unknown>)
     const c = getConfig()
-    const row = await readRow(c, input.email, input.marker, input.kind)
+    const fn = input.action === 'close' ? 'smoke_close_marketplace_inquiry' : 'smoke_verify_marketplace_inquiry'
+    const rows = await callRpc(c, fn, input)
+    const row = rows[0]
     if (!row) return NextResponse.json({ ok: true, found: false })
-    if (input.action === 'close') await closeRow(c, row.id, input.marker)
-    return NextResponse.json({ ok: true, found: true, closed: input.action === 'close', row: { id: row.id, inquiry_type: row.inquiry_type, status: input.action === 'close' ? 'closed' : row.status, contact_email: row.contact_email, created_at: row.created_at } })
+    return NextResponse.json({
+      ok: true,
+      found: true,
+      closed: input.action === 'close',
+      row: {
+        id: row.id,
+        inquiry_type: row.inquiry_type,
+        status: row.status,
+        contact_email: row.contact_email,
+        created_at: row.created_at,
+      },
+    })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'failed' }, { status: 400 })
   }
