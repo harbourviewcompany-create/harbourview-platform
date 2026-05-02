@@ -1,0 +1,5 @@
+Controlled marketplace browser smoke trigger.
+base_url=https://harbourview-platform.vercel.app
+allow_production_writes=ALLOW_PRODUCTION_SMOKE_WRITES
+cleanup=1
+created_by=ChatGPT
