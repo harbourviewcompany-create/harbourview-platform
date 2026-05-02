@@ -1,5 +1,7 @@
-const FALLBACK_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || FALLBACK_SUPABASE_URL).replace(/\/$/, '')
+const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
+const EXPECTED_SUPABASE_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
+const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const SUPABASE_URL = resolveSupabaseUrl(rawSupabaseUrl)
 const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ''
 
@@ -23,10 +25,16 @@ type MarketplaceInquiryInsert = {
 function isExpectedSupabaseUrl(url: string) {
   try {
     const parsed = new URL(url)
-    return parsed.hostname === 'zvxdgdkukjrrwamdpqrg.supabase.co'
+    return parsed.hostname === EXPECTED_SUPABASE_HOST
   } catch {
     return false
   }
+}
+
+function resolveSupabaseUrl(url: string) {
+  const normalized = url.trim().replace(/\/$/, '')
+  if (normalized && isExpectedSupabaseUrl(normalized)) return normalized
+  return LOCKED_SUPABASE_URL
 }
 
 export async function submitMarketplaceInquiryDirect(
