@@ -1,5 +1,5 @@
 import { MarketplaceListingCard } from '@/components/marketplace/MarketplaceListingCard';
-import { marketplaceListings } from '@/lib/marketplace/listings';
+import { publicMarketplaceListings } from '@/lib/marketplace/publicListings';
 
 export default function MarketplaceListingsPage() {
   return (
@@ -21,7 +21,7 @@ export default function MarketplaceListingsPage() {
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-2xl font-semibold text-[#C6A55A]">{marketplaceListings.length}</p>
+            <p className="text-2xl font-semibold text-[#C6A55A]">{publicMarketplaceListings.length}</p>
             <p className="mt-1 text-sm text-[#F5F1E8]/65">Initial listing candidates</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -35,7 +35,7 @@ export default function MarketplaceListingsPage() {
         </div>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-2">
-          {marketplaceListings.map(listing => (
+          {publicMarketplaceListings.map(listing => (
             <MarketplaceListingCard key={listing.slug} listing={listing} />
           ))}
         </div>
