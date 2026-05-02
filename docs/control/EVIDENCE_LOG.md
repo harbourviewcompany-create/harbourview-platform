@@ -147,6 +147,48 @@ This file records evidence for Harbourview claims. It is the counterweight to ag
 - Artifact location: GitHub connector response in chat execution history
 - Follow-up action: Run controlled browser smoke and preserve artifact where appropriate.
 
+### HV-EVID-2026-05-02-009
+
+- Date and time UTC: 2026-05-02, exact tool time not exported
+- Agent or human: ChatGPT via connected GitHub tool
+- Branch: `docs/harbourview-control-pack-v1`
+- Commit: `67b4953755a895a189c7081c582168bf100e5bbc` before this evidence-update commit
+- Environment: GitHub connector capability inspection
+- Claim being verified: Whether the connected GitHub tool surface can dispatch `.github/workflows/marketplace-browser-smoke.yml`.
+- Method: Listed available connected GitHub tool resources and inspected available Actions-related tools.
+- Result: Blocked
+- Key output: The connected GitHub tool surface exposes workflow run/job/artifact fetch and retry tools, but no workflow-dispatch tool. Because the requested path required dispatching `marketplace-browser-smoke.yml` with exact confirmation `ALLOW_PRODUCTION_SMOKE_WRITES`, the workflow was not run from this pass.
+- Artifact location: GitHub connector tool list in chat execution history
+- Follow-up action: Use GitHub UI/CLI or add a separately approved controlled trigger ticket. Do not claim smoke pass until a workflow run exists.
+
+### HV-EVID-2026-05-02-010
+
+- Date and time UTC: 2026-05-02, exact tool time not exported
+- Agent or human: ChatGPT via connected GitHub tool
+- Branch: `docs/harbourview-control-pack-v1`
+- Commit: `67b4953755a895a189c7081c582168bf100e5bbc` before this evidence-update commit
+- Environment: GitHub connector capability inspection
+- Claim being verified: Whether required GitHub Actions secrets can be verified by name only through the connected tool surface.
+- Method: Listed available connected GitHub tool resources and inspected for repository-secret listing/read tools.
+- Result: Blocked
+- Key output: The connected GitHub tool surface does not expose a repository-secret listing or read-by-name tool. Presence of `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` could not be verified. No secret values were requested or exposed.
+- Artifact location: GitHub connector tool list in chat execution history
+- Follow-up action: Verify secret names through GitHub Actions settings, GitHub CLI with appropriate permissions, or a safe diagnostic workflow in a separately approved ticket.
+
+### HV-EVID-2026-05-02-011
+
+- Date and time UTC: 2026-05-02, exact tool time not exported
+- Agent or human: ChatGPT via connected GitHub tool
+- Branch: `docs/harbourview-control-pack-v1`
+- Commit: `67b4953755a895a189c7081c582168bf100e5bbc` before this evidence-update commit
+- Environment: GitHub repository inspection
+- Claim being verified: Whether the marketplace browser smoke workflow definition itself supports the required production write gate.
+- Method: Fetched `.github/workflows/marketplace-browser-smoke.yml` from `main`.
+- Result: Informational pass
+- Key output: The workflow has `workflow_dispatch` inputs for `base_url` and `allow_production_writes`, default target `https://harbourview-platform.vercel.app`, and requires exact input `ALLOW_PRODUCTION_SMOKE_WRITES` unless run on a controlled `smoke/marketplace-browser-*` branch. This verifies workflow design only, not execution.
+- Artifact location: `.github/workflows/marketplace-browser-smoke.yml` on `main`
+- Follow-up action: Dispatch the workflow from a tool or human environment that supports workflow dispatch and secret verification.
+
 ## Evidence entry template
 
 ```md
