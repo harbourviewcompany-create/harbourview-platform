@@ -71,6 +71,31 @@ These are product and brand facts from the Harbourview control authority, not pr
 | Control files | The ten requested `docs/control/*.md` files were not found on `main` before creation. | Direct file fetches returned 404 |
 | Smoke result artifact on main | `smoke-results/marketplace-browser-smoke-latest.json` was not found on `main` during this pass. | Direct file fetch returned 404 |
 
+## Latest verification update: controlled marketplace browser smoke attempt
+
+Date: 2026-05-02  
+Updating agent: ChatGPT via connected GitHub tool  
+Branch: `docs/harbourview-control-pack-v1`  
+Commit before update: `67b4953755a895a189c7081c582168bf100e5bbc`  
+Evidence: `docs/control/EVIDENCE_LOG.md`, entries `HV-EVID-2026-05-02-009` through `HV-EVID-2026-05-02-011`
+
+Verified in this update:
+
+- The workflow file supports `workflow_dispatch` with `base_url` and `allow_production_writes` inputs.
+- The required exact confirmation string is `ALLOW_PRODUCTION_SMOKE_WRITES`.
+- The default target remains `https://harbourview-platform.vercel.app`.
+- The connected GitHub tool surface can inspect workflow files and fetch workflow/job/artifact data.
+- The connected GitHub tool surface does not expose a workflow-dispatch operation.
+- The connected GitHub tool surface does not expose a repository-secret list/read operation.
+
+Blocked in this update:
+
+- The workflow was not dispatched.
+- No workflow run ID exists from this pass.
+- Required secrets were not verified by name.
+- No smoke logs or artifacts were produced.
+- No row creation or cleanup was verified.
+
 ## Explicitly unverified
 
 Do not claim any of the following as complete until evidence is added:
@@ -96,7 +121,7 @@ Do not claim any of the following as complete until evidence is added:
 | Implementation | Unverified | No build, typecheck, lint, test or browser run was executed in this pass. |
 | Database | Unverified | Table references exist in code, but live database schema and RLS were not inspected. |
 | Deployment | Unverified | Workflow target exists, but deployment status was not checked in this pass. |
-| Evidence | Incomplete | No run logs or production smoke result artifact found on `main`. |
+| Evidence | Partially updated | Smoke verification attempt was recorded as blocked due to missing workflow-dispatch and secret-inspection tool capabilities. |
 
 ## Current allowed execution lane
 
@@ -104,11 +129,11 @@ The current safe lane is documentation control and verification hardening. Imple
 
 ## Immediate blocker
 
-The highest-value blocker is lack of fresh verification evidence for the deployed marketplace capture loop. The repo contains a browser smoke workflow and smoke verifier, but this pass did not verify secrets, run the workflow or inspect workflow results.
+Controlled production browser smoke cannot be run from the currently exposed GitHub tool surface because the tool surface does not expose workflow dispatch and does not expose repository-secret verification by name. The workflow file itself supports the required controlled production smoke gate, but it was not executed in this pass.
 
 ## Single highest-leverage next execution ticket
 
-Run controlled marketplace browser smoke verification against production, collect workflow logs and smoke artifacts, then update `EVIDENCE_LOG.md` and `PROJECT_STATE.md` with pass/fail evidence.
+Run the marketplace browser smoke through a mechanism that can dispatch GitHub Actions workflows and verify secrets by name only, then update `docs/control/EVIDENCE_LOG.md` and `docs/control/PROJECT_STATE.md` with the workflow run ID, logs, artifact status and row creation/cleanup evidence.
 
 ## Completion criteria
 
