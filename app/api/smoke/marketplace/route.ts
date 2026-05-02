@@ -29,17 +29,24 @@ function resolveBaseUrl(raw: string) {
   return LOCKED_SUPABASE_URL
 }
 
-function clientKey() {
-  return readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+function candidateClientKeys() {
+  return Array.from(
+    new Set(
+      [
+        readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+        readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
+      ].filter(Boolean),
+    ),
+  )
 }
 
 function getConfig() {
   const base = resolveBaseUrl(readEnv('NEXT_PUBLIC_SUPABASE_URL'))
   const parsed = new URL(base)
-  const key = clientKey()
+  const keys = candidateClientKeys()
   if (parsed.hostname !== EXPECTED_HOST) throw new Error('wrong project')
-  if (!key) throw new Error('verifier not configured')
-  return { base, key }
+  if (keys.length === 0) throw new Error('verifier not configured')
+  return { base, keys }
 }
 
 function h(key: string) {
@@ -58,11 +65,11 @@ function parse(body: Record<string, unknown>) {
   return { action, email, marker, kind }
 }
 
-async function callRpc(c: { base: string; key: string }, fn: string, input: ReturnType<typeof parse>) {
-  const res = await fetch(`${c.base}/rest/v1/rpc/${fn}`, {
+async function callRpcWithKey(base: string, key: string, fn: string, input: ReturnType<typeof parse>) {
+  const res = await fetch(`${base}/rest/v1/rpc/${fn}`, {
     method: 'POST',
     cache: 'no-store',
-    headers: h(c.key),
+    headers: h(key),
     body: JSON.stringify({
       p_email: input.email,
       p_marker: input.marker,
@@ -72,6 +79,22 @@ async function callRpc(c: { base: string; key: string }, fn: string, input: Retu
   const txt = await res.text()
   if (!res.ok) throw new Error(`${fn} ${res.status}: ${txt.slice(0, 240)}`)
   return JSON.parse(txt) as Row[]
+}
+
+async function callRpc(c: { base: string; keys: string[] }, fn: string, input: ReturnType<typeof parse>) {
+  const errors: string[] = []
+
+  for (const key of c.keys) {
+    try {
+      return await callRpcWithKey(c.base, key, fn, input)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown rpc failure'
+      errors.push(message)
+      if (!message.includes(' 401:')) break
+    }
+  }
+
+  throw new Error(errors.join(' | '))
 }
 
 export async function POST(request: Request) {
