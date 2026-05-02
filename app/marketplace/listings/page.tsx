@@ -14,7 +14,7 @@ export default function MarketplaceListingsPage() {
           </div>
           <div className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]/70 p-5 text-sm leading-6 text-[#F5F1E8]/72">
             <p>
-              These are source-backed opportunity candidates for Harbourview review. They are not represented as Harbourview-owned inventory, confirmed seller mandates or guaranteed available assets until seller authorization and current availability are confirmed.
+              These are Harbourview-reviewed marketplace candidates. Availability, seller engagement and commercial handoff are handled through controlled qualification before any introduction.
             </p>
           </div>
         </div>
@@ -22,7 +22,7 @@ export default function MarketplaceListingsPage() {
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <p className="text-2xl font-semibold text-[#C6A55A]">{marketplaceListings.length}</p>
-            <p className="mt-1 text-sm text-[#F5F1E8]/65">Initial sourced listing candidates</p>
+            <p className="mt-1 text-sm text-[#F5F1E8]/65">Initial listing candidates</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <p className="text-2xl font-semibold text-[#C6A55A]">4</p>
@@ -30,7 +30,7 @@ export default function MarketplaceListingsPage() {
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <p className="text-2xl font-semibold text-[#C6A55A]">Review first</p>
-            <p className="mt-1 text-sm text-[#F5F1E8]/65">Seller confirmation required before introduction</p>
+            <p className="mt-1 text-sm text-[#F5F1E8]/65">Qualification required before introduction</p>
           </div>
         </div>
 
