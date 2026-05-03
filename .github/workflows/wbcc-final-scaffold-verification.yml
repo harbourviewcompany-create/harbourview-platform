@@ -1,0 +1,77 @@
+name: WBCC Final Scaffold Verification
+
+on:
+  push:
+    branches:
+      - wbcc-final-scaffold-verification
+  workflow_dispatch:
+
+jobs:
+  verify-wbcc-scaffold:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Reconstruct scaffold ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $chunkFiles = Get-ChildItem -Path wbcc-upload -Filter 'chunk*.b64' | Sort-Object Name
+          if ($chunkFiles.Count -eq 0) { throw 'No WBCC scaffold chunks found.' }
+          $base64 = ''
+          foreach ($chunk in $chunkFiles) { $base64 += Get-Content -Path $chunk.FullName -Raw }
+          [System.IO.File]::WriteAllBytes('artifacts/wbcc-scaffold.zip', [Convert]::FromBase64String($base64))
+          New-Item -ItemType Directory -Force -Path artifacts/unpacked | Out-Null
+          Expand-Archive -Path artifacts/wbcc-scaffold.zip -DestinationPath artifacts/unpacked -Force
+          Copy-Item -Path artifacts/unpacked/WinBgControlCenter/* -Destination . -Recurse -Force
+          if (!(Test-Path WinBgControlCenter.sln)) { throw 'WinBgControlCenter.sln was not reconstructed at repository root.' }
+
+      - name: Verify required scaffold files
+        shell: pwsh
+        run: |
+          $required = @(
+            'WinBgControlCenter.sln',
+            'Directory.Build.props',
+            'Directory.Packages.props',
+            'scripts/run_simulation.ps1',
+            'src',
+            'tests',
+            'config',
+            'fixtures'
+          )
+          foreach ($path in $required) {
+            if (!(Test-Path $path)) { throw "Missing required scaffold path: $path" }
+          }
+
+      - name: dotnet restore
+        run: dotnet restore WinBgControlCenter.sln
+
+      - name: dotnet build
+        run: dotnet build WinBgControlCenter.sln --configuration Release --no-restore
+
+      - name: dotnet test
+        run: dotnet test WinBgControlCenter.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Run simulation
+        shell: pwsh
+        run: ./scripts/run_simulation.ps1
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wbcc-test-results
+          path: '**/*.trx'
+
+      - name: Upload simulation report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wbcc-simulation-report
+          path: 'artifacts/simulation/**'
