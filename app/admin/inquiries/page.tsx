@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { fetchAdminDatabase, isAdminDatabaseConfigured } from '@/lib/admin/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,14 +16,6 @@ type MarketplaceInquiry = {
   listing_id: string | null;
   buyer_request_id: string | null;
 };
-
-function getServiceConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
-  if (!url || !serviceRoleKey || !adminReviewEnabled) return null;
-  return { url: url.replace(/\/$/, ''), serviceRoleKey };
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -41,23 +34,13 @@ function preview(value: string) {
 function getInquiryLabel(inquiry: MarketplaceInquiry) {
   if (inquiry.listing_id) return `Listing ${inquiry.listing_id}`;
   if (inquiry.buyer_request_id) return `Buyer request ${inquiry.buyer_request_id}`;
-  return 'Source-backed marketplace inquiry';
+  return 'Marketplace inquiry';
 }
 
 async function getInquiries(): Promise<MarketplaceInquiry[]> {
-  const supabase = getServiceConfig();
-  if (!supabase) return [];
+  if (!isAdminDatabaseConfigured()) return [];
 
-  const response = await fetch(
-    `${supabase.url}/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id&order=created_at.desc&limit=50`,
-    {
-      headers: {
-        apikey: supabase.serviceRoleKey,
-        Authorization: `Bearer ${supabase.serviceRoleKey}`,
-      },
-      cache: 'no-store',
-    },
-  );
+  const response = await fetchAdminDatabase('/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id&order=created_at.desc&limit=50');
 
   if (!response.ok) return [];
   return response.json();
@@ -65,7 +48,7 @@ async function getInquiries(): Promise<MarketplaceInquiry[]> {
 
 export default async function AdminInquiriesPage() {
   const inquiries = await getInquiries();
-  const configured = Boolean(getServiceConfig());
+  const configured = isAdminDatabaseConfigured();
 
   return (
     <section>
@@ -83,7 +66,7 @@ export default async function AdminInquiriesPage() {
 
       {!configured ? (
         <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-          Admin inquiry review is disabled. Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private scaffold.
+          Admin inquiry review is disabled. Configure Supabase server environment and set the admin review kill switch to true.
         </div>
       ) : null}
 
