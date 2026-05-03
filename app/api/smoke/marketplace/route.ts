@@ -14,9 +14,14 @@ const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
 const EXPECTED_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
 const PREFIX = 'HARBOURVIEW_BROWSER_SMOKE_TEST:'
 const TYPES = new Set(['quote_routing', 'listing_submission', 'wanted_request_submission'])
+const PRODUCTION_HOSTS = new Set(['harbourview-platform.vercel.app'])
 
 function readEnv(name: string) {
   return process.env[name]?.trim() || ''
+}
+
+function envEnabled(name: string) {
+  return readEnv(name) === '1'
 }
 
 function resolveBaseUrl(raw: string) {
@@ -29,28 +34,37 @@ function resolveBaseUrl(raw: string) {
   return LOCKED_SUPABASE_URL
 }
 
-function candidateClientKeys() {
-  return Array.from(
-    new Set(
-      [
-        readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-        readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
-      ].filter(Boolean),
-    ),
-  )
+function isProductionSmokeTarget() {
+  const siteUrl = readEnv('HARBOURVIEW_SMOKE_BASE_URL') || readEnv('NEXT_PUBLIC_SITE_URL') || readEnv('VERCEL_PROJECT_PRODUCTION_URL')
+  try {
+    return PRODUCTION_HOSTS.has(new URL(siteUrl).hostname) || readEnv('VERCEL_ENV') === 'production'
+  } catch {
+    return readEnv('VERCEL_ENV') === 'production'
+  }
 }
 
 function getConfig() {
+  if (!envEnabled('HARBOURVIEW_SMOKE_WRITE')) throw new Error('smoke writes disabled')
+  if (!envEnabled('HARBOURVIEW_SMOKE_CLEANUP')) throw new Error('smoke cleanup disabled')
+  if (isProductionSmokeTarget() && !envEnabled('HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES')) {
+    throw new Error('production smoke writes disabled')
+  }
+
+  const serviceRoleKey = readEnv('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceRoleKey) throw new Error('smoke verifier service role not configured')
+
   const base = resolveBaseUrl(readEnv('NEXT_PUBLIC_SUPABASE_URL'))
   const parsed = new URL(base)
-  const keys = candidateClientKeys()
   if (parsed.hostname !== EXPECTED_HOST) throw new Error('wrong project')
-  if (keys.length === 0) throw new Error('verifier not configured')
-  return { base, keys }
+  return { base, serviceRoleKey }
 }
 
-function h(key: string) {
-  return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }
+function h(serviceRoleKey: string) {
+  return {
+    apikey: serviceRoleKey,
+    Authorization: 'Bearer ' + serviceRoleKey,
+    'Content-Type': 'application/json',
+  }
 }
 
 function parse(body: Record<string, unknown>) {
@@ -65,11 +79,11 @@ function parse(body: Record<string, unknown>) {
   return { action, email, marker, kind }
 }
 
-async function callRpcWithKey(base: string, key: string, fn: string, input: ReturnType<typeof parse>) {
-  const res = await fetch(`${base}/rest/v1/rpc/${fn}`, {
+async function callRpc(c: { base: string; serviceRoleKey: string }, fn: string, input: ReturnType<typeof parse>) {
+  const res = await fetch(`${c.base}/rest/v1/rpc/${fn}`, {
     method: 'POST',
     cache: 'no-store',
-    headers: h(key),
+    headers: h(c.serviceRoleKey),
     body: JSON.stringify({
       p_email: input.email,
       p_marker: input.marker,
@@ -79,22 +93,6 @@ async function callRpcWithKey(base: string, key: string, fn: string, input: Retu
   const txt = await res.text()
   if (!res.ok) throw new Error(`${fn} ${res.status}: ${txt.slice(0, 240)}`)
   return JSON.parse(txt) as Row[]
-}
-
-async function callRpc(c: { base: string; keys: string[] }, fn: string, input: ReturnType<typeof parse>) {
-  const errors: string[] = []
-
-  for (const key of c.keys) {
-    try {
-      return await callRpcWithKey(c.base, key, fn, input)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown rpc failure'
-      errors.push(message)
-      if (!message.includes(' 401:')) break
-    }
-  }
-
-  throw new Error(errors.join(' | '))
 }
 
 export async function POST(request: Request) {
