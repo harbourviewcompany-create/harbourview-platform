@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { requireAdminAuth } from '@/lib/auth/adminGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,8 @@ async function getInquiries(): Promise<MarketplaceInquiry[]> {
 }
 
 export default async function AdminInquiriesPage() {
+  await requireAdminAuth();
+
   const inquiries = await getInquiries();
   const configured = Boolean(getServiceConfig());
 
