@@ -1,0 +1,32 @@
+name: Windows Background Control Center CI
+on:
+  push:
+    branches: [ wbcc-v1-clean-scaffold ]
+  workflow_dispatch:
+jobs:
+  build-test-simulate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore
+        run: dotnet restore WinBgControlCenter.sln
+      - name: Build
+        run: dotnet build WinBgControlCenter.sln --configuration Release --no-restore
+      - name: Test
+        run: dotnet test WinBgControlCenter.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+      - name: Run simulation
+        shell: pwsh
+        run: ./scripts/run_simulation.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/*.trx'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulation-report
+          path: artifacts/simulation/**
