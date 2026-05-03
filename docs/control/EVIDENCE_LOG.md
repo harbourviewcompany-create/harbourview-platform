@@ -52,3 +52,70 @@ Vercel environment key drift was observed during hardening. The automated browse
 **Release decision**
 
 Automated production marketplace capture verification is passing for quote routing, listing submission and wanted request submission. This evidence supports marking the marketplace capture smoke gate as passed.
+
+## Evidence control standard
+
+This section is part of Harbourview Project Control Pack V1. It preserves the existing production evidence above and adds the durable standard for future evidence entries.
+
+### Purpose
+
+If a fact is not recorded here, in `PROJECT_STATE.md` or in a directly referenced PR/workflow artifact, it must not be treated as verified.
+
+### Required evidence fields
+
+Every future evidence entry must include:
+
+- Evidence ID
+- Date/time UTC
+- Agent or human
+- Branch and commit
+- Environment
+- Claim being verified
+- Method: command, workflow, file inspection or source
+- Result: pass, fail, blocked or informational
+- Key output
+- Artifact/log location
+- Follow-up action
+
+### Evidence quality levels
+
+| Level | Evidence type | Use |
+|---|---|---|
+| E0 | User instruction or locked context | Product/brand authority, not implementation proof |
+| E1 | File inspection | Repository content only |
+| E2 | Local command output | Local branch behavior |
+| E3 | CI workflow result | CI branch behavior |
+| E4 | Preview deployment verification | Preview behavior |
+| E5 | Production verification | Production behavior for stated target and commit |
+
+### Acceptable evidence
+
+- Command output summary with exact command and result
+- Workflow run ID or URL
+- Test artifact
+- Smoke result JSON
+- Screenshot with route, viewport, branch and commit context
+- PR diff and commit hash
+
+### Unacceptable evidence
+
+- Agent confidence
+- `tested manually` without steps
+- Screenshot without branch/route context
+- Passing claim without command or workflow output
+- Local-only evidence for a production claim
+- Secret values in logs or docs
+
+### Forbidden vague language
+
+Do not use:
+
+- verified in spirit
+- evidence pending but complete
+- logs unavailable but passed
+- checked quickly
+- production confirmed without target and commit
+
+### Completion criteria
+
+Evidence is acceptable only when it names exactly what was checked, states pass/fail/blocked/informational, does not prove more than it actually proves and points to a file, command, workflow, log or artifact.
