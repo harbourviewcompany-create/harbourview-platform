@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { updateInquiryStatus } from '@/app/actions/updateInquiryStatus';
+import { fetchAdminDatabase, isAdminDatabaseConfigured } from '@/lib/admin/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,14 +23,6 @@ type MarketplaceInquiry = {
 
 const statuses = ['received', 'reviewing', 'matched', 'closed'];
 
-function getServiceConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
-  if (!url || !serviceRoleKey || !adminReviewEnabled) return null;
-  return { url: url.replace(/\/$/, ''), serviceRoleKey };
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-CA', {
     year: 'numeric',
@@ -41,18 +34,10 @@ function formatDate(value: string) {
 }
 
 async function getInquiry(id: string): Promise<MarketplaceInquiry | null> {
-  const supabase = getServiceConfig();
-  if (!supabase) return null;
+  if (!isAdminDatabaseConfigured()) return null;
 
-  const response = await fetch(
-    `${supabase.url}/rest/v1/marketplace_inquiries?id=eq.${id}&select=*&limit=1`,
-    {
-      headers: {
-        apikey: supabase.serviceRoleKey,
-        Authorization: `Bearer ${supabase.serviceRoleKey}`,
-      },
-      cache: 'no-store',
-    },
+  const response = await fetchAdminDatabase(
+    `/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   );
 
   if (!response.ok) return null;
@@ -63,12 +48,12 @@ async function getInquiry(id: string): Promise<MarketplaceInquiry | null> {
 export default async function AdminInquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const inquiry = await getInquiry(id);
-  const configured = Boolean(getServiceConfig());
+  const configured = isAdminDatabaseConfigured();
 
   if (!configured) {
     return (
       <section className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-        Admin inquiry review is disabled. Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private scaffold.
+        Admin inquiry review is disabled. Configure Supabase server environment and set the admin review kill switch to true.
       </section>
     );
   }
@@ -84,7 +69,7 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <article className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-6">
           <p className="text-xs uppercase tracking-[0.24em] text-[#C6A55A]">{inquiry.inquiry_type.replaceAll('_', ' ')}</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Source-backed marketplace inquiry</h2>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Marketplace inquiry</h2>
 
           <div className="mt-6 grid gap-3 text-sm text-[#F5F1E8]/75 md:grid-cols-2">
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
