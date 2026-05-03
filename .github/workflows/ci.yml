@@ -2,6 +2,8 @@ name: Windows Background Control Center CI
 on:
   push:
     branches: [ wbcc-v1-clean-scaffold ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 jobs:
   build-test-simulate:
