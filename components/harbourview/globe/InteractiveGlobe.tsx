@@ -2,6 +2,8 @@
 
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
+import CountryHitLayer from './CountryHitLayer'
 
 function GlobeMesh() {
   return (
@@ -13,18 +15,24 @@ function GlobeMesh() {
 }
 
 export default function InteractiveGlobe() {
+  const reducedMotion = useReducedMotion()
+
   return (
     <div className="w-full max-w-[520px] aspect-square">
-      <Canvas camera={{ position: [0, 0, 2.5], fov: 50 }}>
+      <Canvas
+        dpr={[1, 1.5]}
+        camera={{ position: [0, 0, 2.5], fov: 50 }}
+      >
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
 
         <GlobeMesh />
+        <CountryHitLayer />
 
         <OrbitControls
           enablePan={false}
           enableZoom={false}
-          autoRotate
+          autoRotate={!reducedMotion}
           autoRotateSpeed={0.5}
         />
       </Canvas>
