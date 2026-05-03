@@ -1,7 +1,7 @@
 name: Windows Background Control Center CI
 on:
   push:
-    branches: [ wbcc-v1-clean-scaffold ]
+    branches: [ wbcc-v1-batch1-readonly-inventory ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
