@@ -1,0 +1,5 @@
+using Xunit;
+using WinBgControlCenter.Core;
+
+namespace WinBgControlCenter.Core.Tests;
+public sealed class PendingActionStoreTests { [Fact] public void IncompletePendingAction_DetectedOnLaunch() { var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")); var s = new PendingActionStore(dir); s.Write(new PendingActionRecord("a", "Pending")); Assert.Single(s.GetIncomplete()); } }
