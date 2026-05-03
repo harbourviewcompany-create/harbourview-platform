@@ -8,8 +8,12 @@ const PUBLIC_RENDER_FILES = [
 ];
 
 const ADMIN_FILES = [
-  'app/admin/layout.tsx',
   'app/admin/listings/page.tsx'
+];
+
+const ADMIN_GUARD_FILES = [
+  'app/admin/layout.tsx',
+  'lib/auth/adminGuard.ts'
 ];
 
 const PUBLIC_PROJECTION_FILE = 'lib/marketplace/publicListings.ts';
@@ -77,8 +81,15 @@ const ADMIN_REQUIRED_PATTERNS = [
   /listing\.sourceType/,
   /listing\.sourceEvidence/,
   /listing\.provenanceSummary/,
-  /listing\.internalReviewNotes/,
-  /HARBOURVIEW_ADMIN_REVIEW_ENABLED/
+  /listing\.internalReviewNotes/
+];
+
+const ADMIN_GUARD_REQUIRED_PATTERNS = [
+  /HARBOURVIEW_ADMIN_REVIEW_ENABLED/,
+  /requireAdminAuth/,
+  /hasAdminRole/,
+  /admin.*operator/s,
+  /analyst.*viewer/s
 ];
 
 function read(path) {
@@ -115,6 +126,13 @@ for (const pattern of ADMIN_REQUIRED_PATTERNS) {
   }
 }
 
+const adminGuardContent = ADMIN_GUARD_FILES.map(read).join('\n');
+for (const pattern of ADMIN_GUARD_REQUIRED_PATTERNS) {
+  if (!pattern.test(adminGuardContent)) {
+    failures.push(`Admin role guard missing: expected ${pattern}`);
+  }
+}
+
 if (failures.length) {
   console.error('Provenance visibility test failed:');
   for (const failure of failures) console.error(`- ${failure}`);
@@ -124,3 +142,4 @@ if (failures.length) {
 console.log('ok public listing render files do not expose source/provenance fields');
 console.log('ok public listing projection omits internal source/provenance fields');
 console.log('ok admin listing review retains source/provenance/evidence fields');
+console.log('ok admin provenance route uses server-side role guard');
