@@ -16,6 +16,7 @@ create policy user_roles_self_read
   using (user_id = auth.uid());
 
 create index if not exists idx_user_roles_role on public.user_roles(role);
+create index if not exists idx_user_roles_user_role on public.user_roles(user_id, role);
 
-comment on table public.user_roles is 'Internal Harbourview role assignments for admin provenance access.';
-comment on column public.user_roles.role is 'Allowed values: admin, operator, analyst, viewer.';
+comment on table public.user_roles is 'Internal Harbourview role assignments for admin access. Service role or direct SQL controls writes.';
+comment on column public.user_roles.role is 'Allowed values: admin, operator, analyst, viewer. Only admin and operator may access admin routes.';
