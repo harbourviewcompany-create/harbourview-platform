@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
     "smoke:marketplace:browser": "node scripts/smoke-marketplace-browser.mjs"
@@ -26,6 +27,7 @@
     "eslint-config-next": "^15.3.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^2.0.0"
   }
 }
