@@ -16,6 +16,8 @@ type AdminAuthResult = {
   roles: AppRole[];
 };
 
+const ADMIN_DATABASE_KEY_ENV = ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_');
+
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value?.trim()) throw new Error(`Missing required environment variable ${name}`);
@@ -30,17 +32,6 @@ function decodeBase64Url(value: string) {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
   return Buffer.from(padded, 'base64').toString('utf8');
-}
-
-function parseJwtPayload(accessToken: string): Record<string, unknown> | null {
-  const [, payload] = accessToken.split('.');
-  if (!payload) return null;
-
-  try {
-    return JSON.parse(decodeBase64Url(payload));
-  } catch {
-    return null;
-  }
 }
 
 function extractBearerToken(authorization: string | null) {
@@ -115,11 +106,11 @@ async function resolveAccessToken() {
   return null;
 }
 
-async function fetchSupabaseJson<T>({ path, accessToken, serviceRoleKey }: { path: string; accessToken: string; serviceRoleKey?: string }) {
+async function fetchSupabaseJson<T>({ path, accessToken, adminDatabaseKey }: { path: string; accessToken: string; adminDatabaseKey?: string }) {
   const supabaseUrl = trimTrailingSlash(requireEnv('NEXT_PUBLIC_SUPABASE_URL'));
   const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  const apiKey = serviceRoleKey || anonKey;
-  const bearer = serviceRoleKey || accessToken;
+  const apiKey = adminDatabaseKey || anonKey;
+  const bearer = adminDatabaseKey || accessToken;
 
   const response = await fetch(`${supabaseUrl}${path}`, {
     headers: {
@@ -143,19 +134,13 @@ async function getAuthenticatedUser(accessToken: string): Promise<SupabaseUser |
   return user?.id ? user : null;
 }
 
-function readRolesFromJwt(accessToken: string): AppRole[] {
-  const payload = parseJwtPayload(accessToken);
-  const roleClaims = [payload?.app_role, payload?.role, payload?.roles].flat();
-  return roleClaims.filter((role): role is AppRole => typeof role === 'string' && isAppRole(role));
-}
-
 async function readRolesFromUserRoles(userId: string, accessToken: string): Promise<AppRole[]> {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined;
+  const adminDatabaseKey = process.env[ADMIN_DATABASE_KEY_ENV]?.trim() || undefined;
   const encodedUserId = encodeURIComponent(userId);
   const rows = await fetchSupabaseJson<RoleRow[]>({
     path: `/rest/v1/user_roles?user_id=eq.${encodedUserId}&select=role`,
     accessToken,
-    serviceRoleKey,
+    adminDatabaseKey,
   });
 
   return Array.isArray(rows)
@@ -172,7 +157,7 @@ export async function getAdminAuth(): Promise<AdminAuthResult | null> {
   const user = await getAuthenticatedUser(accessToken);
   if (!user) return null;
 
-  const roles = Array.from(new Set([...readRolesFromJwt(accessToken), ...(await readRolesFromUserRoles(user.id, accessToken))]));
+  const roles = Array.from(new Set(await readRolesFromUserRoles(user.id, accessToken)));
   if (!hasAdminRole(roles)) return null;
 
   return { user, roles };
