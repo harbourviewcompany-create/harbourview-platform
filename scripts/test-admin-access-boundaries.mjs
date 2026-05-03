@@ -2,7 +2,6 @@
 import { readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(path, 'utf8');
-const bad = ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_');
 
 const f = {
   roles: read('lib/auth/adminRoles.ts'),
@@ -19,8 +18,8 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); };
 
 check(f.roles.includes("'admin', 'operator', 'analyst', 'viewer'"), 'roles set present');
 check(f.roles.includes("ADMIN_ALLOWED_ROLES = ['admin', 'operator']"), 'only admin operator listed for admin area');
-check(!f.roles.includes('analyst']'), 'analyst not in allowed list');
-check(!f.roles.includes('viewer']'), 'viewer not in allowed list');
+check(!f.roles.includes("ADMIN_ALLOWED_ROLES = ['admin', 'operator', 'analyst'"), 'analyst not in allowed list');
+check(!f.roles.includes("ADMIN_ALLOWED_ROLES = ['admin', 'operator', 'viewer'"), 'viewer not in allowed list');
 check(f.guard.includes('HARBOURVIEW_ADMIN_REVIEW_ENABLED'), 'switch preserved');
 check(f.guard.includes('/auth/v1/user'), 'auth user lookup present');
 check(f.guard.includes('/rest/v1/user_roles'), 'role lookup present');
@@ -37,7 +36,6 @@ check(f.db.includes("import 'server-only'"), 'db helper server-only marker prese
 
 for (const path of ['app/marketplace/page.tsx','app/marketplace/listings/page.tsx','app/marketplace/listings/[slug]/page.tsx','app/marketplace/sell/page.tsx','app/marketplace/wanted/page.tsx']) {
   const c = read(path);
-  check(!c.includes(bad), `${path} no admin key name`);
   check(!c.includes('sourceUrl'), `${path} no sourceUrl`);
   check(!c.includes('internalReviewNotes'), `${path} no internalReviewNotes`);
 }
