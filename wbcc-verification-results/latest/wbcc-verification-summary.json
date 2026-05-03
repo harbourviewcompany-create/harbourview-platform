@@ -1,0 +1,85 @@
+{
+  "verdict": "PASS_CONTROL_SAFE_V1",
+  "environment": {
+    "unsignedBuildWarning": "Unsigned CI verification build",
+    "npm": "10.9.7",
+    "powershell": "7.4.14",
+    "noAutoUpdate": true,
+    "timestamp": "2026-05-03T13:46:13.0966457+00:00",
+    "node": "v22.22.2",
+    "windows": {
+      "Caption": "Microsoft Windows Server 2025 Datacenter",
+      "Version": "10.0.26100",
+      "BuildNumber": "26100"
+    },
+    "isAdmin": true
+  },
+  "steps": [
+    {
+      "log": "verification-results/evidence/npm-test.log",
+      "name": "npm-test",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "log": "verification-results/evidence/runtime-proof.log",
+      "name": "runtime-proof",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "log": "support-bundles/wbcc-support-bundle.json",
+      "name": "support-bundle",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "log": "logs.jsonl",
+      "name": "log-integrity",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "log": "SHA256SUMS.txt",
+      "name": "checksum",
+      "passed": true,
+      "exitCode": 0
+    }
+  ],
+  "cleanup": {
+    "allWbccTestObjectsRemoved": true,
+    "scheduledTaskRemoved": true,
+    "startupFolderEntryRemoved": true,
+    "hkcuRunRemoved": true
+  },
+  "runtimeProof": {
+    "created": [
+      "HKCU Run",
+      "Startup Folder",
+      "Scheduled Task"
+    ],
+    "cleanup": {
+      "allWbccTestObjectsRemoved": true,
+      "scheduledTaskRemoved": true,
+      "startupFolderEntryRemoved": true,
+      "hkcuRunRemoved": true
+    },
+    "serviceDependencySimulation": {
+      "blockedRunningDependentsWithoutAdvancedOverride": true,
+      "checked": true,
+      "actionTaken": "simulation_only_no_services_stopped"
+    },
+    "browserAudit": {
+      "checked": true,
+      "guidanceOnly": true
+    },
+    "startupRestore": {
+      "sourceSpecificRollback": true,
+      "startupFolderTested": true,
+      "hklmRunSkippedReason": "not_permitted_in_non_admin_ci",
+      "hkcuRunTested": true
+    },
+    "passed": true
+  },
+  "manualCleanup": []
+}
