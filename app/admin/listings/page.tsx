@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { marketplaceListings } from '@/lib/marketplace/listings';
+
+export const dynamic = 'force-dynamic';
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -34,7 +37,9 @@ const authorizationLabels = {
   not_applicable: 'Authorization not applicable'
 };
 
-export default function AdminListingsPage() {
+export default async function AdminListingsPage() {
+  await requireAdminAuth();
+
   return (
     <section>
       <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
