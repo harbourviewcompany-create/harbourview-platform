@@ -65,6 +65,19 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 - `wanted_request_submission`: PASS
 - Smoke cleanup to `closed`: PASS
 
+## Admin access and provenance visibility closure
+
+**Status:** DEPLOYMENT_TRIGGERED
+
+**Last updated:** 2026-05-03
+
+**Source of truth**
+
+- PR #36 merged admin/operator role gate and production public provenance visibility probe.
+- Migration `005_user_roles_admin_gate.sql` applied to production Supabase.
+- PR #44 added a direct page-level `requireAdminAuth()` guard to `/admin/listings` after production verification found denied anonymous HTML still contained admin-only provenance labels.
+- This update exists only to trigger production deployment of the PR #44 main-branch closure commit.
+
 ## Current readiness label
 
 `MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
