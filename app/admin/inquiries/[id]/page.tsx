@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { updateInquiryStatus } from '@/app/actions/updateInquiryStatus';
+import { requireAdminAuth } from '@/lib/auth/adminGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +62,8 @@ async function getInquiry(id: string): Promise<MarketplaceInquiry | null> {
 }
 
 export default async function AdminInquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminAuth();
+
   const { id } = await params;
   const inquiry = await getInquiry(id);
   const configured = Boolean(getServiceConfig());
