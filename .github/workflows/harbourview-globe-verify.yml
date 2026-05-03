@@ -1,0 +1,53 @@
+name: Harbourview Globe Verify
+
+on:
+  push:
+    branches:
+      - harbourview-globe-v1-tickets-1-3
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Update lockfile with npm install
+        run: npm install
+
+      - name: Commit package-lock if changed
+        if: github.event_name == 'push'
+        run: |
+          if ! git diff --quiet -- package-lock.json package.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json package.json
+            git commit -m "Update Harbourview globe dependency lockfile [skip ci]"
+            git push
+          else
+            echo "No lockfile changes."
+          fi
+
+      - name: Verify clean npm ci
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
