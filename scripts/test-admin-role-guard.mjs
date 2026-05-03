@@ -31,6 +31,9 @@ assert(guard.includes('hasAdminRole(roles)'), 'admin guard must enforce allowed 
 assert(guard.includes('notFound()'), 'failed authorization should not expose admin route');
 assert(adminLayout.includes('await requireAdminAuth()'), 'admin layout must invoke server-side role guard');
 assert(adminLayout.includes("export const dynamic = 'force-dynamic'"), 'admin layout must be dynamic and not statically expose admin content');
+assert(adminListings.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin listings page must import direct role guard');
+assert(adminListings.includes('await requireAdminAuth()'), 'admin listings page must invoke direct role guard before rendering provenance');
+assert(adminListings.includes("export const dynamic = 'force-dynamic'"), 'admin listings page must be dynamic and not statically expose provenance content');
 assert(adminListings.includes('View source listing'), 'admin listings must retain source link for authorized users');
 assert(adminListings.includes('Evidence captured'), 'admin listings must retain evidence for authorized users');
 assert(adminListings.includes('Internal review notes'), 'admin listings must retain internal review notes for authorized users');
@@ -44,4 +47,5 @@ if (failures.length) {
 console.log('ok admin role model denies anonymous/missing roles before render');
 console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
+console.log('ok admin listings page directly guards provenance render');
 console.log('ok admin provenance rendering is preserved behind role guard');
