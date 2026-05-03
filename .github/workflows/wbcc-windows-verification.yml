@@ -1,19 +1,28 @@
 name: WBCC Windows Runtime Verification
+
 on:
   push:
-    branches: [wbcc/windows-runtime-verification]
+    branches: [main]
+    paths-ignore:
+      - 'wbcc-verification-results/**'
   workflow_dispatch:
+
 permissions:
-  contents: read
+  contents: write
+
 jobs:
   verify:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
       - name: Run WBCC Windows verification
         shell: pwsh
         run: |
@@ -42,6 +51,7 @@ jobs:
           $summary|ConvertTo-Json -Depth 12|Set-Content verification-results/wbcc-verification-summary.json
           "# WBCC V1 Verification Report`n`nFinal verdict: **$verdict**`n`nCleanup passed: $cleanup`n`nManual cleanup: $(if($manual.Count){$manual -join '; '}else{'None required'})" | Set-Content verification-results/wbcc-verification-report.md
           if($verdict -ne 'PASS_CONTROL_SAFE_V1'){exit 1}
+
       - name: Upload WBCC verification artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,3 +61,19 @@ jobs:
             wbcc-ci/verification-results/**
             wbcc-ci/SHA256SUMS.txt
             wbcc-ci/support-bundles/**
+
+      - name: Commit WBCC verification summary to repository
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path wbcc-verification-results/latest | Out-Null
+          Copy-Item wbcc-ci/verification-results/wbcc-verification-summary.json wbcc-verification-results/latest/wbcc-verification-summary.json -Force
+          Copy-Item wbcc-ci/verification-results/wbcc-verification-report.md wbcc-verification-results/latest/wbcc-verification-report.md -Force
+          Copy-Item wbcc-ci/SHA256SUMS.txt wbcc-verification-results/latest/SHA256SUMS.txt -Force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wbcc-verification-results/latest/wbcc-verification-summary.json wbcc-verification-results/latest/wbcc-verification-report.md wbcc-verification-results/latest/SHA256SUMS.txt
+          if ((git status --porcelain).Length -gt 0) {
+            git commit -m "Record WBCC Windows verification result [skip ci]"
+            git push
+          }
