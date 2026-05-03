@@ -1,8 +1,8 @@
 create table if not exists public.user_roles (
-  user_id uuid not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('admin', 'operator', 'analyst', 'viewer')),
   created_at timestamptz not null default now(),
-  created_by uuid,
+  created_by uuid references auth.users(id) on delete set null,
   primary key (user_id, role)
 );
 
