@@ -81,3 +81,29 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 ## Current readiness label
 
 `MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
+
+## Harbourview Project Control Pack V1
+
+**Status:** PR review lane
+
+**Control PR:** `#27`
+
+**Branch:** `docs/harbourview-control-pack-v1`
+
+**Purpose:** Add durable project-control documents under `docs/control/` so future agent, coding, database, deployment and PR-review work has explicit scope, safety gates and evidence rules.
+
+**Documentation-only rule:** Control-pack work must not modify application code, database migrations, workflows, package files or environment files.
+
+**Authority order for future work**
+
+1. Latest explicit user instruction in the active workstream
+2. `docs/control/BUILD_CONTROL.md`
+3. `docs/control/AGENT_PERMISSIONS.md`
+4. Surface-specific controls:
+   - `docs/control/DESIGN_SYSTEM.md` for UI/design/globe work
+   - `docs/control/DATABASE_CONTROL.md` for database, RLS, Supabase and service-role work
+   - `docs/control/DEPLOYMENT_RUNBOOK.md` for deployment, env and workflow work
+   - `docs/control/VERIFICATION_PLAN.md` for evidence requirements
+5. Existing repository code, tests and production evidence
+
+**Operating rule:** Use the control pack as a guardrail, not bureaucracy. Minor docs or copy changes should not require every control file to be updated. State-changing work must update this file and `docs/control/EVIDENCE_LOG.md`.
