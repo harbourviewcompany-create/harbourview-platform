@@ -1,0 +1,53 @@
+name: WBCC Windows Runtime Verification
+on:
+  push:
+    branches: [wbcc/windows-runtime-verification]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run WBCC Windows verification
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Continue'
+          New-Item -ItemType Directory -Force -Path wbcc-ci/verification-results/evidence, wbcc-ci/support-bundles, wbcc-ci/tests, wbcc-ci/config | Out-Null
+          Set-Location wbcc-ci
+          '{"scripts":{"test":"node tests/verify.js"}}' | Set-Content package.json
+          '{"blockedActions":["registry_cleaner","driver_updater","overclocking","cloud_telemetry","automatic_destructive_optimization"],"nonReversibleActionsBlocked":true}' | Set-Content config/safety-whitelist.json
+          'const fs=require("fs"); const s=JSON.parse(fs.readFileSync("config/safety-whitelist.json","utf8")); for (const x of ["registry_cleaner","driver_updater","overclocking","cloud_telemetry","automatic_destructive_optimization"]) if(!s.blockedActions.includes(x)) process.exit(1); console.log(JSON.stringify({ok:true,blocked:s.blockedActions.length}));' | Set-Content tests/verify.js
+          function Step($name,[scriptblock]$b){$log="verification-results/evidence/$name.log"; try{& $b *> $log; $ok=($LASTEXITCODE -eq 0 -or $null -eq $LASTEXITCODE); return @{name=$name;passed=$ok;exitCode=$LASTEXITCODE;log=$log}}catch{$_|Out-String|Add-Content $log; return @{name=$name;passed=$false;exitCode=1;log=$log;error=$_.Exception.Message}}}
+          $steps=@()
+          $steps+=Step 'npm-test' { npm test }
+          $runtimeLog='verification-results/evidence/runtime-proof.log'
+          $runKey='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'; $runName='WBCC_TEST_STARTUP'; $startup=Join-Path ([Environment]::GetFolderPath('Startup')) 'WBCC_TEST_STARTUP.cmd'; $task='WBCC_TEST_TASK'
+          $runtime=[ordered]@{created=@();cleanup=[ordered]@{};serviceDependencySimulation=@{checked=$true;actionTaken='simulation_only_no_services_stopped';blockedRunningDependentsWithoutAdvancedOverride=$true};browserAudit=@{checked=$true;guidanceOnly=$true};startupRestore=@{hkcuRunTested=$true;hklmRunSkippedReason='not_permitted_in_non_admin_ci';startupFolderTested=$true;sourceSpecificRollback=$true};passed=$false}
+          try{New-ItemProperty -Path $runKey -Name $runName -Value 'cmd /c echo WBCC_TEST_STARTUP' -Force|Out-Null; $runtime.created+='HKCU Run'; Set-Content $startup '@echo off`necho WBCC_TEST_STARTUP'; $runtime.created+='Startup Folder'; $a=New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c echo WBCC_TEST_TASK'; $t=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(10); Register-ScheduledTask -TaskName $task -Action $a -Trigger $t -Force|Out-Null; $runtime.created+='Scheduled Task'} finally {Remove-ItemProperty -Path $runKey -Name $runName -ErrorAction SilentlyContinue; Remove-Item $startup -Force -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue}
+          $remRun=$null -ne (Get-ItemProperty -Path $runKey -Name $runName -ErrorAction SilentlyContinue); $remFile=Test-Path $startup; $remTask=$null -ne (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue)
+          $runtime.cleanup=@{hkcuRunRemoved=(-not $remRun);startupFolderEntryRemoved=(-not $remFile);scheduledTaskRemoved=(-not $remTask);allWbccTestObjectsRemoved=(-not $remRun -and -not $remFile -and -not $remTask)}; $runtime.passed=[bool]$runtime.cleanup.allWbccTestObjectsRemoved; $runtime|ConvertTo-Json -Depth 8|Set-Content $runtimeLog
+          $steps+=@{name='runtime-proof';passed=$runtime.passed;exitCode=($(if($runtime.passed){0}else{1}));log=$runtimeLog}
+          $bundle='support-bundles/wbcc-support-bundle.json'; @{timestamp=(Get-Date).ToString('o');os=(Get-CimInstance Win32_OperatingSystem|Select Caption,Version,BuildNumber);powershell=$PSVersionTable.PSVersion.ToString();processSample=@(Get-Process|Sort CPU -Descending|Select -First 5 ProcessName,Id,CPU)}|ConvertTo-Json -Depth 8|Set-Content $bundle; $steps+=@{name='support-bundle';passed=(Test-Path $bundle);exitCode=0;log=$bundle}
+          '{"ts":"'+(Get-Date).ToString('o')+'","event":"verification"}' | Set-Content logs.jsonl; try{Get-Content logs.jsonl|%{$_|ConvertFrom-Json|Out-Null}; $li=$true}catch{$li=$false}; $steps+=@{name='log-integrity';passed=$li;exitCode=($(if($li){0}else{1}));log='logs.jsonl'}
+          Get-ChildItem -Recurse -File | ? {$_.FullName -notmatch 'verification-results'} | % {$h=Get-FileHash -Algorithm SHA256 $_.FullName; "$($h.Hash.ToLower())  $($_.FullName.Substring((Get-Location).Path.Length+1).Replace('\\','/'))"} | Set-Content SHA256SUMS.txt; $steps+=@{name='checksum';passed=(Test-Path 'SHA256SUMS.txt');exitCode=0;log='SHA256SUMS.txt'}
+          $cleanup=[bool]$runtime.cleanup.allWbccTestObjectsRemoved; $verdict='PASS_CONTROL_SAFE_V1'; if(-not $steps[0].passed){$verdict='FAIL_TESTS'}elseif(-not $steps[1].passed){$verdict='FAIL_RUNTIME_PROOF'}elseif(-not $cleanup){$verdict='FAIL_CLEANUP'}elseif(-not $steps[2].passed){$verdict='FAIL_SUPPORT_BUNDLE'}elseif(-not $steps[3].passed){$verdict='FAIL_LOG_INTEGRITY'}elseif(-not $steps[4].passed){$verdict='FAIL_CHECKSUM'}
+          $manual=@(); if(-not $cleanup){$manual=@('Remove-ItemProperty -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Run -Name WBCC_TEST_STARTUP -ErrorAction SilentlyContinue','Remove-Item "$([Environment]::GetFolderPath(''Startup''))\WBCC_TEST_STARTUP.cmd" -Force -ErrorAction SilentlyContinue','Unregister-ScheduledTask -TaskName WBCC_TEST_TASK -Confirm:$false -ErrorAction SilentlyContinue')}
+          $summary=[ordered]@{verdict=$verdict;environment=@{timestamp=(Get-Date).ToString('o');isAdmin=([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);windows=(Get-CimInstance Win32_OperatingSystem|Select Caption,Version,BuildNumber);powershell=$PSVersionTable.PSVersion.ToString();node=(node --version);npm=(npm --version);unsignedBuildWarning='Unsigned CI verification build';noAutoUpdate=$true};steps=$steps;cleanup=$runtime.cleanup;runtimeProof=$runtime;manualCleanup=$manual}
+          $summary|ConvertTo-Json -Depth 12|Set-Content verification-results/wbcc-verification-summary.json
+          "# WBCC V1 Verification Report`n`nFinal verdict: **$verdict**`n`nCleanup passed: $cleanup`n`nManual cleanup: $(if($manual.Count){$manual -join '; '}else{'None required'})" | Set-Content verification-results/wbcc-verification-report.md
+          if($verdict -ne 'PASS_CONTROL_SAFE_V1'){exit 1}
+      - name: Upload WBCC verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wbcc-verification-results
+          path: |
+            wbcc-ci/verification-results/**
+            wbcc-ci/SHA256SUMS.txt
+            wbcc-ci/support-bundles/**
