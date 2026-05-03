@@ -1,5 +1,5 @@
 import HeroCTAGroup from './HeroCTAGroup'
-import StaticGlobeFallback from './globe/StaticGlobeFallback'
+import GlobeStage from './globe/GlobeStage'
 
 export default function HarbourviewHomePage() {
   return (
@@ -12,7 +12,7 @@ export default function HarbourviewHomePage() {
         <HeroCTAGroup />
 
         <div className="mt-14 w-full flex justify-center">
-          <StaticGlobeFallback />
+          <GlobeStage />
         </div>
       </div>
     </section>
