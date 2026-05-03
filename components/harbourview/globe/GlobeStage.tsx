@@ -3,9 +3,12 @@
 import dynamic from 'next/dynamic'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import StaticGlobeFallback from './StaticGlobeFallback'
+import GlobeLoader from './GlobeLoader'
+import CanvasErrorBoundary from './CanvasErrorBoundary'
 
 const InteractiveGlobe = dynamic(() => import('./InteractiveGlobe'), {
   ssr: false,
+  loading: () => <GlobeLoader />,
 })
 
 export default function GlobeStage() {
@@ -13,5 +16,9 @@ export default function GlobeStage() {
     return <StaticGlobeFallback />
   }
 
-  return <InteractiveGlobe />
+  return (
+    <CanvasErrorBoundary>
+      <InteractiveGlobe />
+    </CanvasErrorBoundary>
+  )
 }
