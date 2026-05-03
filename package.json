@@ -14,14 +14,18 @@
     "smoke:marketplace:browser": "node scripts/smoke-marketplace-browser.mjs"
   },
   "dependencies": {
+    "@react-three/drei": "^10.0.0",
+    "@react-three/fiber": "^9.0.0",
     "next": "^15.3.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.174.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.174.0",
     "autoprefixer": "^10.5.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.3.1",
