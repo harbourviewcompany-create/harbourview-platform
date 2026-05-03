@@ -1,19 +1,15 @@
 name: Windows Background Control Center CI
-
 on:
   push:
     branches: [ wbcc-final-scaffold-verification ]
   pull_request:
   workflow_dispatch:
-
 jobs:
   build-test-simulate:
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
       - name: Restore
@@ -25,14 +21,12 @@ jobs:
       - name: Run simulation
         shell: pwsh
         run: ./scripts/run_simulation.ps1
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
           path: '**/*.trx'
-      - name: Upload simulation report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: simulation-report

@@ -1,1 +1,1 @@
-{"schemaVersion":"1.0","defaultRiskClass":"NeedsUserDecision","rules":[{"id":"safe-startup-preview","targetKind":"StartupItem","conditions":{"always":true},"riskClass":"NeedsUserDecision","allowedActions":["DisableStartupItem"],"reason":"Reversible startup preview only."}]}
+{"schemaVersion":"1.0","defaultRiskClass":"NeedsUserDecision","rules":[{"id":"r1","targetKind":"StartupItem","conditions":{},"riskClass":"NeedsUserDecision","allowedActions":["DisableStartupItem"],"reason":"ok"}]}

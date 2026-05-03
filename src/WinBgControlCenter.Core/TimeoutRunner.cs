@@ -1,11 +1,2 @@
 namespace WinBgControlCenter.Core;
-
-public sealed class TimeoutRunner
-{
-    public async Task<TimeoutResult<T>> Run<T>(Func<CancellationToken, Task<T>> work, TimeSpan timeout)
-    {
-        using var cts = new CancellationTokenSource(timeout);
-        try { return new TimeoutResult<T>(true, false, false, await work(cts.Token), null); }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested) { return new TimeoutResult<T>(false, true, false, default, "Timed out"); }
-    }
-}
+public sealed class TimeoutRunner { public async Task<TimeoutResult<T>> Run<T>(Func<CancellationToken,Task<T>> work,TimeSpan timeout){using var cts=new CancellationTokenSource(timeout);try{return new TimeoutResult<T>(true,false,false,await work(cts.Token),null);}catch(OperationCanceledException)when(cts.IsCancellationRequested){return new TimeoutResult<T>(false,true,false,default,"Timed out");}} }

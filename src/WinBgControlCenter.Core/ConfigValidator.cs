@@ -1,63 +1,10 @@
 using System.Text.Json;
-
 namespace WinBgControlCenter.Core;
-
 public sealed class ConfigValidator
 {
-    public ConfigValidationResult Validate(string safetyJson, string riskJson, string timeoutJson)
-    {
-        var errors = new List<string>();
-        ValidateSafety(safetyJson, errors);
-        ValidateRisk(riskJson, errors);
-        ValidateTimeout(timeoutJson, errors);
-        return new ConfigValidationResult(errors.Count == 0, errors.Count == 0, errors);
-    }
-
-    private static void ValidateSafety(string json, List<string> errors)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("hardExclusions", out var hard)) { errors.Add("Missing hardExclusions."); return; }
-        RequireNonEmpty(hard, "processNames", errors);
-        RequireNonEmpty(hard, "serviceNames", errors);
-        RequireNonEmpty(hard, "scheduledTaskPathPrefixes", errors);
-        if (!root.TryGetProperty("forbiddenActions", out var forbidden) || forbidden.ValueKind != JsonValueKind.Array) { errors.Add("Missing forbiddenActions."); return; }
-        var names = forbidden.EnumerateArray().Select(x => x.GetString()).Where(x => x is not null).ToHashSet(StringComparer.OrdinalIgnoreCase)!;
-        foreach (var required in ForbiddenActionGuard.Forbidden.Select(x => x.ToString())) if (!names.Contains(required)) errors.Add($"Missing forbidden action {required}.");
-        foreach (var name in names) if (!Enum.TryParse<ActionKind>(name, true, out var parsed) || !ForbiddenActionGuard.Forbidden.Contains(parsed)) errors.Add($"Unknown forbidden action {name}.");
-    }
-
-    private static void ValidateRisk(string json, List<string> errors)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("defaultRiskClass", out var defaultRisk) || !Enum.TryParse<RiskClass>(defaultRisk.GetString(), true, out _)) errors.Add("Invalid defaultRiskClass.");
-        if (!root.TryGetProperty("rules", out var rules) || rules.ValueKind != JsonValueKind.Array || rules.GetArrayLength() == 0) { errors.Add("Rules must be non-empty."); return; }
-        foreach (var rule in rules.EnumerateArray())
-        {
-            if (!rule.TryGetProperty("targetKind", out var target) || !Enum.TryParse<SystemItemKind>(target.GetString(), true, out _)) errors.Add("Invalid targetKind.");
-            if (!rule.TryGetProperty("riskClass", out var risk) || !Enum.TryParse<RiskClass>(risk.GetString(), true, out _)) errors.Add("Invalid riskClass.");
-            if (!rule.TryGetProperty("allowedActions", out var actions) || actions.ValueKind != JsonValueKind.Array) { errors.Add("Invalid allowedActions."); continue; }
-            foreach (var action in actions.EnumerateArray())
-            {
-                var name = action.GetString();
-                if (!Enum.TryParse<ActionKind>(name, true, out var parsed)) { errors.Add($"Invalid actionKind {name}."); continue; }
-                if (ForbiddenActionGuard.Forbidden.Contains(parsed)) errors.Add($"Risk rule includes forbidden action {name}.");
-            }
-        }
-    }
-
-    private static void ValidateTimeout(string json, List<string> errors)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        foreach (var prop in root.EnumerateObject().Where(p => p.Name.EndsWith("TimeoutMs", StringComparison.OrdinalIgnoreCase))) if (prop.Value.GetInt32() <= 0) errors.Add($"Invalid timeout {prop.Name}.");
-        if (!root.TryGetProperty("timeoutMeansSafe", out var safe) || safe.GetBoolean()) errors.Add("timeoutMeansSafe must be false.");
-        if (!root.TryGetProperty("blockActionsWhenRequiredEvidenceTimesOut", out var block) || !block.GetBoolean()) errors.Add("Timeout evidence must block actions.");
-    }
-
-    private static void RequireNonEmpty(JsonElement parent, string name, List<string> errors)
-    {
-        if (!parent.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array || arr.GetArrayLength() == 0) errors.Add($"{name} must be non-empty.");
-    }
+ public ConfigValidationResult Validate(string safetyJson,string riskJson,string timeoutJson){var e=new List<string>();try{ValidateSafety(safetyJson,e);ValidateRisk(riskJson,e);ValidateTimeout(timeoutJson,e);}catch(Exception ex){e.Add(ex.Message);}return new ConfigValidationResult(e.Count==0,e.Count==0,e);} 
+ static void ValidateSafety(string json,List<string> e){using var d=JsonDocument.Parse(json);var r=d.RootElement;if(!r.TryGetProperty("hardExclusions",out var h)){e.Add("Missing hardExclusions.");return;}Req(h,"processNames",e);Req(h,"serviceNames",e);Req(h,"scheduledTaskPathPrefixes",e);if(!r.TryGetProperty("forbiddenActions",out var f)||f.ValueKind!=JsonValueKind.Array){e.Add("Missing forbiddenActions.");return;}var names=f.EnumerateArray().Select(x=>x.GetString()??string.Empty).Where(x=>!string.IsNullOrWhiteSpace(x)).ToHashSet(StringComparer.OrdinalIgnoreCase);foreach(var required in ForbiddenActionGuard.Forbidden.Select(x=>x.ToString()))if(!names.Contains(required))e.Add($"Missing forbidden action {required}.");foreach(var name in names)if(!Enum.TryParse<ActionKind>(name,true,out var p)||!ForbiddenActionGuard.Forbidden.Contains(p))e.Add($"Unknown forbidden action {name}.");}
+ static void ValidateRisk(string json,List<string> e){using var d=JsonDocument.Parse(json);var r=d.RootElement;if(!r.TryGetProperty("defaultRiskClass",out var dr)||!Enum.TryParse<RiskClass>(dr.GetString(),true,out _))e.Add("Invalid defaultRiskClass.");if(!r.TryGetProperty("rules",out var rules)||rules.ValueKind!=JsonValueKind.Array||rules.GetArrayLength()==0){e.Add("Rules must be non-empty.");return;}foreach(var rule in rules.EnumerateArray()){if(!rule.TryGetProperty("targetKind",out var target)||!Enum.TryParse<SystemItemKind>(target.GetString(),true,out _))e.Add("Invalid targetKind.");if(!rule.TryGetProperty("riskClass",out var risk)||!Enum.TryParse<RiskClass>(risk.GetString(),true,out _))e.Add("Invalid riskClass.");if(!rule.TryGetProperty("allowedActions",out var acts)||acts.ValueKind!=JsonValueKind.Array){e.Add("Invalid allowedActions.");continue;}foreach(var a in acts.EnumerateArray()){var name=a.GetString();if(!Enum.TryParse<ActionKind>(name,true,out var p)){e.Add($"Invalid actionKind {name}.");continue;}if(ForbiddenActionGuard.Forbidden.Contains(p))e.Add($"Risk rule includes forbidden action {name}.");}}}
+ static void ValidateTimeout(string json,List<string> e){using var d=JsonDocument.Parse(json);var r=d.RootElement;foreach(var p in r.EnumerateObject().Where(p=>p.Name.EndsWith("TimeoutMs",StringComparison.OrdinalIgnoreCase)))if(p.Value.GetInt32()<=0)e.Add($"Invalid timeout {p.Name}.");if(!r.TryGetProperty("timeoutMeansSafe",out var s)||s.GetBoolean())e.Add("timeoutMeansSafe must be false.");if(!r.TryGetProperty("blockActionsWhenRequiredEvidenceTimesOut",out var b)||!b.GetBoolean())e.Add("Timeout evidence must block actions.");}
+ static void Req(JsonElement p,string n,List<string> e){if(!p.TryGetProperty(n,out var a)||a.ValueKind!=JsonValueKind.Array||a.GetArrayLength()==0)e.Add($"{n} must be non-empty.");}
 }

@@ -1,0 +1,80 @@
+# Harbourview Marketplace Inquiry Capture
+
+## Purpose
+
+Marketplace inquiry capture replaces public `mailto:` CTAs with a controlled form on listing detail pages. The intent is to collect qualified buyer, seller-contact, quote-routing and sourcing-mandate requests before Harbourview makes any introduction.
+
+## Public flow
+
+1. A visitor opens a source-backed listing detail page.
+2. The primary CTA anchors to the inline inquiry form.
+3. The form submits through `app/actions/submitInquiry.ts`.
+4. The action validates the listing slug against local marketplace fixtures, blocks sold or expired source leads, validates required fields, confirms consent and writes to `marketplace_inquiries` through Supabase REST.
+5. The public user receives a success or public-safe failure message.
+
+## Production schema alignment
+
+The production table already uses the following inquiry columns:
+
+- `listing_id` nullable UUID
+- `buyer_request_id` nullable UUID
+- `inquiry_type` text, default `general`
+- `message` text
+- `contact_name` text
+- `contact_email` text
+- `contact_company` nullable text
+- `contact_phone` nullable text
+- `status` `inquiry_status`, default `received`
+- `internal_notes` nullable text
+- `created_at` / `updated_at`
+
+Static marketplace fixtures do not currently carry a Supabase `listing_id`, so public listing inquiries insert `listing_id: null` and `buyer_request_id: null`. The listing title, slug, source name, source URL and market entered by the requester are appended to the inquiry `message` as review context instead of inventing extra database columns.
+
+The production `inquiry_status` lifecycle is:
+
+- `received`
+- `reviewing`
+- `matched`
+- `closed`
+
+## Required environment variables
+
+Production and preview Vercel environments need:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` for the isolated admin review scaffold
+
+The service role key must remain server-only. Do not prefix it with `NEXT_PUBLIC_`.
+
+The admin scaffold also fails closed unless `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` is set server-side. Keep that flag unset until the deployment is protected by Harbourview's final admin authentication and role model.
+
+## Supabase migrations
+
+Apply the marketplace inquiry migrations before testing live submissions:
+
+- `supabase/migrations/20260430_marketplace_inquiries.sql`
+- `supabase/migrations/20260501_001_harden_marketplace_inquiries.sql`
+
+`20260430_marketplace_inquiries.sql` is aligned to the existing production schema. `20260501_001_harden_marketplace_inquiries.sql` does not create or reshape the table; it only enforces RLS, grants and indexes against the production columns.
+
+The hardening behavior grants public insert only. Public and authenticated users do not receive select, update or delete table privileges until Harbourview introduces a finalized admin/reviewer role model. The temporary admin scaffold reads and updates through the server-only service role key when the explicit admin-review flag is enabled.
+
+## Admin review scaffold
+
+Admin inquiry review lives under:
+
+- `/admin/inquiries`
+- `/admin/inquiries/[id]`
+
+This is intentionally isolated from public navigation, marked noindex and disabled by default. It uses the server-only service role key only when `HARBOURVIEW_ADMIN_REVIEW_ENABLED=true` is present because the repository does not yet contain a finalized app role and admin-auth model.
+
+Before production use, replace or wrap the scaffold with the final Harbourview admin authentication and role checks.
+
+## Known risks before production use
+
+- The current admin scaffold is route-isolated but not a complete authentication system.
+- Leave `HARBOURVIEW_ADMIN_REVIEW_ENABLED` unset unless the deployment is otherwise access-controlled.
+- Authenticated Supabase users do not receive inquiry read/update table access until the final app-role model is introduced.
+- Inquiry capture depends on Supabase environment variables and applied migrations.
+- No automated test runner is currently configured, so verification is build plus manual checklist.
