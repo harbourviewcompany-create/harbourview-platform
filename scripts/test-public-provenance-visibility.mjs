@@ -85,9 +85,10 @@ const ADMIN_REQUIRED_PATTERNS = [
 ];
 
 const ADMIN_GUARD_REQUIRED_PATTERNS = [
-  /HARBOURVIEW_ADMIN_REVIEW_ENABLED/,
   /requireAdminAuth/,
   /hasAdminRole/,
+  /unauthorized/,
+  /forbidden/,
   /admin.*operator/s,
   /analyst.*viewer/s
 ];

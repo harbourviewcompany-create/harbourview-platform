@@ -24,11 +24,13 @@ for (const role of ['analyst', 'viewer']) {
   assert(!new RegExp(`ADMIN_ALLOWED_ROLES[\\s\\S]*'${role}'`).test(roleHelper), `${role} must be denied`);
 }
 
-assert(guard.includes('HARBOURVIEW_ADMIN_REVIEW_ENABLED'), 'admin guard must preserve env kill switch');
+assert(!guard.includes('HARBOURVIEW_ADMIN_REVIEW_ENABLED'), 'route auth must not depend on the admin review data-plane flag');
 assert(guard.includes('/auth/v1/user'), 'admin guard must verify Supabase Auth user');
 assert(guard.includes('/rest/v1/user_roles'), 'admin guard must read user_roles');
 assert(guard.includes('hasAdminRole(roles)'), 'admin guard must enforce allowed roles');
-assert(guard.includes('notFound()'), 'failed authorization should not expose admin route');
+assert(!guard.includes('notFound'), 'admin guard must not hide auth failures as a missing route');
+assert(guard.includes('unauthorized()'), 'missing or invalid tokens must receive explicit unauthenticated denial');
+assert(guard.includes('forbidden()'), 'valid non-admin roles must receive explicit forbidden denial');
 assert(adminLayout.includes('await requireAdminAuth()'), 'admin layout must invoke server-side role guard');
 assert(adminLayout.includes("export const dynamic = 'force-dynamic'"), 'admin layout must be dynamic and not statically expose admin content');
 assert(adminListings.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin listings page must import direct role guard');
@@ -44,7 +46,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('ok admin role model denies anonymous/missing roles before render');
+console.log('ok admin role model denies anonymous/missing roles with explicit auth interruptions');
 console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
 console.log('ok admin listings page directly guards provenance render');

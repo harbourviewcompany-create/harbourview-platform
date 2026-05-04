@@ -1,5 +1,5 @@
 import { cookies, headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { forbidden, unauthorized } from 'next/navigation';
 import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
@@ -16,6 +16,15 @@ type AdminAuthResult = {
   user: SupabaseUser;
   roles: AppRole[];
 };
+
+type AdminAuthFailureReason =
+  | 'missing_access_token'
+  | 'invalid_access_token'
+  | 'missing_admin_role';
+
+type AdminAuthCheck =
+  | { ok: true; auth: AdminAuthResult }
+  | { ok: false; reason: AdminAuthFailureReason };
 
 // Admin routes allow admin/operator roles; analyst/viewer roles are denied.
 function requireEnv(name: string) {
@@ -162,22 +171,35 @@ async function readRolesFromUserRoles(userId: string, accessToken: string): Prom
 }
 
 export async function getAdminAuth(): Promise<AdminAuthResult | null> {
-  if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') return null;
+  const result = await getAdminAuthCheck();
+  return result.ok ? result.auth : null;
+}
 
+export async function getAdminAuthCheck(): Promise<AdminAuthCheck> {
   const accessToken = await resolveAccessToken();
-  if (!accessToken) return null;
+  if (!accessToken) return { ok: false, reason: 'missing_access_token' };
 
-  const user = await getAuthenticatedUser(accessToken);
-  if (!user) return null;
+  let user: SupabaseUser | null;
+  try {
+    user = await getAuthenticatedUser(accessToken);
+  } catch {
+    return { ok: false, reason: 'invalid_access_token' };
+  }
+  if (!user) return { ok: false, reason: 'invalid_access_token' };
 
   const roles = Array.from(new Set([...readRolesFromJwt(accessToken), ...(await readRolesFromUserRoles(user.id, accessToken))]));
-  if (!hasAdminRole(roles)) return null;
+  if (!hasAdminRole(roles)) return { ok: false, reason: 'missing_admin_role' };
 
-  return { user, roles };
+  return { ok: true, auth: { user, roles } };
 }
 
 export async function requireAdminAuth() {
-  const auth = await getAdminAuth();
-  if (!auth) notFound();
-  return auth;
+  const result = await getAdminAuthCheck();
+  if (result.ok) return result.auth;
+
+  if (result.reason === 'missing_access_token' || result.reason === 'invalid_access_token') {
+    unauthorized();
+  }
+
+  forbidden();
 }
