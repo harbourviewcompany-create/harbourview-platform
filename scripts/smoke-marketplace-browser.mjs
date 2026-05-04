@@ -26,8 +26,14 @@ const cleanupEnabled = process.env.HARBOURVIEW_SMOKE_CLEANUP === '1';
 const isProductionTarget = BASE_URL.includes('harbourview-platform.vercel.app') || process.env.VERCEL_ENV === 'production';
 
 function assertWriteGates() {
-  if (!writeEnabled) throw new Error('Browser smoke writes are disabled. Set HARBOURVIEW_SMOKE_WRITE=1.');
-  if (!cleanupEnabled) throw new Error('Browser smoke cleanup is required. Set HARBOURVIEW_SMOKE_CLEANUP=1.');
+  if (!writeEnabled) {
+    console.log('Browser smoke is write-based. Set HARBOURVIEW_SMOKE_WRITE=1 to run it.');
+    process.exit(0);
+  }
+  if (!cleanupEnabled) {
+    console.log('Browser smoke cleanup is required. Set HARBOURVIEW_SMOKE_CLEANUP=1 to run it.');
+    process.exit(0);
+  }
   if (isProductionTarget && process.env.HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES !== '1') {
     throw new Error('Refusing production browser smoke writes. Set HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1.');
   }

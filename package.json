@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:visibility": "node scripts/test-public-provenance-visibility.mjs",
-    "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs",
+    "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",

@@ -25,6 +25,15 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /Provenance summary/i,
   /Internal review notes/i,
   /Internal-only source/i,
+  /review_status/,
+  /priority/,
+  /last_contacted_at/,
+  /next_follow_up_at/,
+  /internal_response_notes/,
+  /internal_notes/,
+  /private_notes/,
+  /service_role/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
   /listing\.sourceUrl/,
   /listing\.sourceName/,
   /listing\.sourceType/,
@@ -68,7 +77,16 @@ const PUBLIC_PROJECTION_FORBIDDEN_PATTERNS = [
   /lastReviewedAt:/,
   /nextReviewDueAt:/,
   /confidenceScore:/,
-  /monetizationPath:/
+  /monetizationPath:/,
+  /review_status:/,
+  /priority:/,
+  /last_contacted_at:/,
+  /next_follow_up_at:/,
+  /internal_response_notes:/,
+  /internal_notes:/,
+  /private_notes:/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
+  /service_role/
 ];
 
 const ADMIN_REQUIRED_PATTERNS = [

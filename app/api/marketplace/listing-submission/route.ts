@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
@@ -204,6 +205,18 @@ export async function POST(request: Request) {
       )
     }
 
+    const payload = {
+      listing_id: null,
+      buyer_request_id: null,
+      contact_name: name,
+      contact_email: email,
+      contact_company: company || null,
+      contact_phone: null,
+      inquiry_type: listingType === 'Wanted Request' ? 'wanted_request_submission' : 'listing_submission',
+      message,
+      status: 'received',
+    }
+
     let response: Response
 
     try {
@@ -215,17 +228,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           Prefer: 'return=minimal',
         },
-        body: JSON.stringify({
-          listing_id: null,
-          buyer_request_id: null,
-          contact_name: name,
-          contact_email: email,
-          contact_company: company || null,
-          contact_phone: null,
-          inquiry_type: listingType === 'Wanted Request' ? 'wanted_request_submission' : 'listing_submission',
-          message,
-          status: 'received',
-        }),
+        body: JSON.stringify(payload),
       })
     } catch (error) {
       logListingSubmissionDiagnostic('LISTING_SUBMISSION_SUPABASE_REQUEST_FAILED', {
@@ -249,6 +252,17 @@ export async function POST(request: Request) {
         502
       )
     }
+
+    await notifyMarketplaceInquiry({
+      ...payload,
+      id: null,
+      created_at: new Date().toISOString(),
+      priority: 'medium',
+    }).catch((error) => {
+      console.info('harbourview_marketplace_listing_notification_failed', {
+        errorName: error instanceof Error ? error.name : 'unknown',
+      })
+    })
 
     logListingSubmissionDiagnostic('LISTING_SUBMISSION_OK', {
       inquiryType: listingType === 'Wanted Request' ? 'wanted_request_submission' : 'listing_submission',
