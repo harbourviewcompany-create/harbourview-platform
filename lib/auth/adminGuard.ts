@@ -122,11 +122,20 @@ async function resolveAccessToken() {
   return null;
 }
 
-async function fetchSupabaseJson<T>({ path, accessToken, serviceRoleKey }: { path: string; accessToken: string; serviceRoleKey?: string }) {
+async function fetchSupabaseJson<T>({
+  path,
+  accessToken,
+  serviceRoleKey,
+  bearerToken,
+}: {
+  path: string;
+  accessToken: string;
+  serviceRoleKey?: string;
+  bearerToken?: string;
+}) {
   const supabaseUrl = resolveLockedSupabaseUrl();
-  const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  const apiKey = serviceRoleKey || anonKey;
-  const bearer = serviceRoleKey || accessToken;
+  const apiKey = serviceRoleKey || requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const bearer = bearerToken || serviceRoleKey || accessToken;
 
   const response = await fetch(`${supabaseUrl}${path}`, {
     headers: {
@@ -146,7 +155,13 @@ async function fetchSupabaseJson<T>({ path, accessToken, serviceRoleKey }: { pat
 }
 
 async function getAuthenticatedUser(accessToken: string): Promise<SupabaseUser | null> {
-  const user = await fetchSupabaseJson<SupabaseUser>({ path: '/auth/v1/user', accessToken });
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined;
+  const user = await fetchSupabaseJson<SupabaseUser>({
+    path: '/auth/v1/user',
+    accessToken,
+    serviceRoleKey,
+    bearerToken: accessToken,
+  });
   return user?.id ? user : null;
 }
 
