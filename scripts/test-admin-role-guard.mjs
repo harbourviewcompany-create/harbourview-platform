@@ -60,7 +60,7 @@ assert(adminLoginRoute.includes("sameSite: 'lax'"), 'admin login session cookie 
 assert(adminLoginRoute.includes("path: '/'"), 'admin login session cookie must be available at the admin route path');
 assert(adminLoginRoute.includes('ADMIN_SESSION_MAX_AGE_SECONDS'), 'admin login session cookie must use an explicit max age');
 assert(guard.includes('ADMIN_SESSION_COOKIE_NAME'), 'admin guard must read the same named cookie that login sets');
-assert(/if \(!result\.ok\)[\s\S]*response\.cookies\.delete\(ADMIN_SESSION_COOKIE_NAME\)[\s\S]*return response/.test(adminLoginRoute), 'failed admin login must delete the existing admin session cookie before redirect');
+assert(/if \(!result\.ok\)[\s\S]*response\.cookies\.set\(ADMIN_SESSION_COOKIE_NAME, '',[\s\S]*maxAge: 0,[\s\S]*return response/.test(adminLoginRoute), 'failed admin login must expire the existing admin session cookie before redirect');
 
 if (failures.length) {
   console.error('Admin role guard test failed:');
@@ -75,4 +75,4 @@ console.log('ok admin listings page directly guards provenance render');
 console.log('ok admin inquiry pages directly guard workflow render');
 console.log('ok admin provenance rendering is preserved behind role guard');
 console.log('ok admin login establishes only admin/operator HttpOnly sessions');
-console.log('ok failed admin login clears stale admin session cookie');
+console.log('ok failed admin login expires stale admin session cookie');
