@@ -33,9 +33,8 @@ function requireEnv(name: string) {
   return value.trim();
 }
 
-function resolveSupabaseApiKey(serviceRoleKey?: string) {
+function resolveSupabaseApiKey() {
   return (
-    serviceRoleKey ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
     requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
   );
@@ -133,17 +132,15 @@ async function resolveAccessToken() {
 async function fetchSupabaseJson<T>({
   path,
   accessToken,
-  serviceRoleKey,
   bearerToken,
 }: {
   path: string;
   accessToken: string;
-  serviceRoleKey?: string;
   bearerToken?: string;
 }) {
   const supabaseUrl = resolveLockedSupabaseUrl();
-  const apiKey = resolveSupabaseApiKey(serviceRoleKey);
-  const bearer = bearerToken || serviceRoleKey || accessToken;
+  const apiKey = resolveSupabaseApiKey();
+  const bearer = bearerToken || accessToken;
 
   const response = await fetch(`${supabaseUrl}${path}`, {
     headers: {
@@ -163,11 +160,9 @@ async function fetchSupabaseJson<T>({
 }
 
 async function getAuthenticatedUser(accessToken: string): Promise<SupabaseUser | null> {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined;
   const user = await fetchSupabaseJson<SupabaseUser>({
     path: '/auth/v1/user',
     accessToken,
-    serviceRoleKey,
     bearerToken: accessToken,
   });
   return user?.id ? user : null;
@@ -180,12 +175,10 @@ function readRolesFromJwt(accessToken: string): AppRole[] {
 }
 
 async function readRolesFromUserRoles(userId: string, accessToken: string): Promise<AppRole[]> {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined;
   const encodedUserId = encodeURIComponent(userId);
   const rows = await fetchSupabaseJson<RoleRow[]>({
     path: `/rest/v1/user_roles?user_id=eq.${encodedUserId}&select=role`,
     accessToken,
-    serviceRoleKey,
   });
 
   return Array.isArray(rows)
