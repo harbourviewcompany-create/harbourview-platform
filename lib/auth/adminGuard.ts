@@ -33,6 +33,14 @@ function requireEnv(name: string) {
   return value.trim();
 }
 
+function resolveSupabaseApiKey(serviceRoleKey?: string) {
+  return (
+    serviceRoleKey ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  );
+}
+
 function decodeBase64Url(value: string) {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
@@ -134,7 +142,7 @@ async function fetchSupabaseJson<T>({
   bearerToken?: string;
 }) {
   const supabaseUrl = resolveLockedSupabaseUrl();
-  const apiKey = serviceRoleKey || requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const apiKey = resolveSupabaseApiKey(serviceRoleKey);
   const bearer = bearerToken || serviceRoleKey || accessToken;
 
   const response = await fetch(`${supabaseUrl}${path}`, {
