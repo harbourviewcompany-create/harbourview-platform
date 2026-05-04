@@ -5,7 +5,7 @@ import { useState } from 'react'
 
 const marketplaceLinks = [
   { label: 'Source-Backed Listings', href: '/marketplace/listings' },
-  { label: 'Consumables', href: '/marketplace/consumables' },
+  { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
   { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },

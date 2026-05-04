@@ -82,6 +82,36 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 
 `MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
 
+## Live Source Intake V0 and consumables foundation
+
+**Status:** IMPLEMENTATION BRANCH
+
+**Branch:** `feature/live-source-intake-v0-consumables`
+
+**Migration:** `supabase/migrations/007_live_source_intake_v0_consumables.sql`
+
+**Purpose:** Add private admin/operator-only live source intake and candidate review foundations while keeping public publication manual, controlled and out of scope for V0.
+
+**Private tables added**
+
+- `source_registry`
+- `source_snapshots`
+- `marketplace_candidates`
+- `candidate_review_events`
+
+**Controls**
+
+- RLS is enabled on all new private tables.
+- Anonymous access is revoked.
+- Authenticated access is limited to existing `admin` and `operator` roles through `public.user_roles`.
+- Automatic URL fetch is deferred; V0 uses manual URL, title and text capture only.
+- Candidate `approved_draft` does not publish publicly.
+- Restricted/excluded consumables and licence-review candidates are blocked from `approved_draft`.
+
+**Public category**
+
+`Consumables & Operating Supplies` is the public category label. Public copy must remain inquiry-first and avoid supplier verification, availability, certification, COA, licence or guaranteed-supply claims.
+
 ## Harbourview Project Control Pack V1
 
 **Status:** PR review lane
