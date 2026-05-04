@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 const ALLOWED_STATUSES = new Set(['received', 'reviewing', 'matched', 'closed']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -11,12 +12,11 @@ function readField(formData: FormData, key: string) {
 }
 
 function getServiceConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
 
-  if (!url || !serviceRoleKey || !adminReviewEnabled) return null;
-  return { url: url.replace(/\/$/, ''), serviceRoleKey };
+  if (!serviceRoleKey || !adminReviewEnabled) return null;
+  return { url: resolveLockedSupabaseUrl(), serviceRoleKey };
 }
 
 export async function updateInquiryStatus(formData: FormData): Promise<void> {

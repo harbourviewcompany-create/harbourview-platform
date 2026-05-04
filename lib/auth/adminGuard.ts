@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 type SupabaseUser = {
   id: string;
@@ -20,10 +21,6 @@ function requireEnv(name: string) {
   const value = process.env[name];
   if (!value?.trim()) throw new Error(`Missing required environment variable ${name}`);
   return value.trim();
-}
-
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/$/, '');
 }
 
 function decodeBase64Url(value: string) {
@@ -116,7 +113,7 @@ async function resolveAccessToken() {
 }
 
 async function fetchSupabaseJson<T>({ path, accessToken, serviceRoleKey }: { path: string; accessToken: string; serviceRoleKey?: string }) {
-  const supabaseUrl = trimTrailingSlash(requireEnv('NEXT_PUBLIC_SUPABASE_URL'));
+  const supabaseUrl = resolveLockedSupabaseUrl();
   const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
   const apiKey = serviceRoleKey || anonKey;
   const bearer = serviceRoleKey || accessToken;

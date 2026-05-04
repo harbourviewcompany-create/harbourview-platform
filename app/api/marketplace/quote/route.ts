@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -60,13 +61,12 @@ function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
 }
 
 function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-  if (!url || !anonKey) return null
-  return { url: url.replace(/\/$/, ''), anonKey }
+  if (!anonKey) return null
+  return { url: resolveLockedSupabaseUrl(), anonKey }
 }
 
 function logQuoteDiagnostic(code: QuoteDiagnosticCode, details?: Record<string, string | number | boolean | null>) {

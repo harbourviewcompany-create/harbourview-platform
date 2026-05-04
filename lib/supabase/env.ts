@@ -1,5 +1,6 @@
 const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
 const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
+const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
 
 function readEnv(name: string) {
   return process.env[name]?.trim() || ''
@@ -33,6 +34,18 @@ function assertLockedSupabaseUrl(url: string) {
   return url
 }
 
+function normalizeUrl(url: string) {
+  return url.trim().replace(/\/$/, '')
+}
+
+function isExpectedSupabaseUrl(url: string) {
+  try {
+    return new URL(url).hostname === EXPECTED_SUPABASE_HOST
+  } catch {
+    return false
+  }
+}
+
 export function getExpectedSupabaseProjectRef() {
   return EXPECTED_SUPABASE_PROJECT_REF
 }
@@ -41,8 +54,17 @@ export function getExpectedSupabaseHost() {
   return EXPECTED_SUPABASE_HOST
 }
 
+export function getLockedSupabaseUrl() {
+  return LOCKED_SUPABASE_URL
+}
+
+export function resolveLockedSupabaseUrl(rawUrl = readEnv('NEXT_PUBLIC_SUPABASE_URL')) {
+  const normalizedUrl = normalizeUrl(rawUrl)
+  return normalizedUrl && isExpectedSupabaseUrl(normalizedUrl) ? normalizedUrl : LOCKED_SUPABASE_URL
+}
+
 export function getSupabaseUrl() {
-  return assertLockedSupabaseUrl(requireEnv('NEXT_PUBLIC_SUPABASE_URL'))
+  return resolveLockedSupabaseUrl(requireEnv('NEXT_PUBLIC_SUPABASE_URL'))
 }
 
 export function getSupabaseAnonKey() {
@@ -65,22 +87,28 @@ export function getSupabaseEnvStatus() {
   const url = readEnv('NEXT_PUBLIC_SUPABASE_URL')
   const hasAnonKey = Boolean(readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'))
   const hasPublishableKey = Boolean(readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'))
+  const normalizedUrl = url ? normalizeUrl(url) : ''
+  const resolvedUrl = resolveLockedSupabaseUrl(url)
+  const rawHost = normalizedUrl ? new URL(normalizedUrl).hostname : null
+  const resolvedHost = new URL(resolvedUrl).hostname
+  const urlUsesExpectedProject = Boolean(normalizedUrl && rawHost === EXPECTED_SUPABASE_HOST)
   const missing = [
-    !url ? 'NEXT_PUBLIC_SUPABASE_URL' : '',
     !hasAnonKey && !hasPublishableKey
       ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
       : '',
   ].filter(Boolean)
 
   if (url) {
-    assertLockedSupabaseUrl(url)
+    assertLockedSupabaseUrl(resolveLockedSupabaseUrl(url))
   }
 
   return {
     configured: missing.length === 0,
     missing,
     projectRef: EXPECTED_SUPABASE_PROJECT_REF,
-    host: url ? new URL(url).hostname : null,
+    host: rawHost,
+    resolvedHost,
+    urlUsesExpectedProject,
     hasUrl: Boolean(url),
     hasAnonKey,
     hasPublishableKey,

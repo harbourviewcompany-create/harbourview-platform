@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { updateInquiryStatus } from '@/app/actions/updateInquiryStatus';
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +24,10 @@ type MarketplaceInquiry = {
 const statuses = ['received', 'reviewing', 'matched', 'closed'];
 
 function getServiceConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
-  if (!url || !serviceRoleKey || !adminReviewEnabled) return null;
-  return { url: url.replace(/\/$/, ''), serviceRoleKey };
+  if (!serviceRoleKey || !adminReviewEnabled) return null;
+  return { url: resolveLockedSupabaseUrl(), serviceRoleKey };
 }
 
 function formatDate(value: string) {
