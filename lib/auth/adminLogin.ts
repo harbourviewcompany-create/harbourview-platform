@@ -3,6 +3,7 @@ import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 export const ADMIN_SESSION_COOKIE_NAME = 'hv-admin-session';
+export const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24;
 
 type SupabasePasswordSession = {
   access_token: string;
@@ -23,7 +24,6 @@ type AdminLoginResult =
   | {
       ok: true;
       session: SupabasePasswordSession & { access_token: string; user: { id: string; email?: string } };
-      maxAge: number;
     }
   | { ok: false; reason: 'invalid_credentials' | 'missing_admin_role' | 'auth_unavailable' };
 
@@ -115,7 +115,6 @@ export async function signInAdminOperator(email: string, password: string): Prom
   return {
     ok: true,
     session: session as SupabasePasswordSession & { access_token: string; user: { id: string; email?: string } },
-    maxAge: Math.max(60, session.expires_in || 3600),
   };
 }
 

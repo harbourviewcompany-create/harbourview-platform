@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   ADMIN_SESSION_COOKIE_NAME,
+  ADMIN_SESSION_MAX_AGE_SECONDS,
   createAdminSessionCookieValue,
   signInAdminOperator,
 } from '@/lib/auth/adminLogin';
@@ -29,10 +30,10 @@ export async function POST(request: Request) {
   const response = redirectTo(request, '/admin/inquiries');
   response.cookies.set(ADMIN_SESSION_COOKIE_NAME, createAdminSessionCookieValue(result.session), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: result.maxAge,
+    maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
   });
 
   return response;

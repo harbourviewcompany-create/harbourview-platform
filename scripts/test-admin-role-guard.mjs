@@ -46,7 +46,11 @@ assert(adminLogin.includes('/rest/v1/user_roles'), 'admin login must check user_
 assert(adminLogin.includes('hasAdminRole'), 'admin login must allow only admin/operator roles');
 assert(!adminLogin.includes('SUPABASE_SERVICE_ROLE_KEY'), 'admin login must not use the service-role key');
 assert(adminLoginRoute.includes('httpOnly: true'), 'admin login route must set an HttpOnly session cookie');
+assert(adminLoginRoute.includes('secure: true'), 'admin login route must set a Secure session cookie');
 assert(adminLoginRoute.includes("sameSite: 'lax'"), 'admin login session cookie must use SameSite=Lax');
+assert(adminLoginRoute.includes("path: '/'"), 'admin login session cookie must be available at the admin route path');
+assert(adminLoginRoute.includes('ADMIN_SESSION_MAX_AGE_SECONDS'), 'admin login session cookie must use an explicit max age');
+assert(guard.includes('ADMIN_SESSION_COOKIE_NAME'), 'admin guard must read the same named cookie that login sets');
 
 if (failures.length) {
   console.error('Admin role guard test failed:');

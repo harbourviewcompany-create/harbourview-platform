@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { forbidden, unauthorized } from 'next/navigation';
 import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
+import { ADMIN_SESSION_COOKIE_NAME } from './adminLogin';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 type SupabaseUser = {
@@ -102,6 +103,12 @@ async function resolveAccessToken() {
 
   const cookieStore = await cookies();
   const cookieEntries = cookieStore.getAll();
+  const namedSessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE_NAME);
+
+  if (namedSessionCookie) {
+    const token = readAccessTokenFromCookieValue(namedSessionCookie.value);
+    if (token) return token;
+  }
 
   for (const cookie of cookieEntries) {
     const token = readAccessTokenFromCookieValue(cookie.value);
