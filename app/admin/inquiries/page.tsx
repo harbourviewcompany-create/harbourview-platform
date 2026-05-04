@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { fetchAdminSupabaseJson, getAdminDataClient, type AdminDataError } from '@/lib/supabase/adminDataClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,13 +16,6 @@ type MarketplaceInquiry = {
   listing_id: string | null;
   buyer_request_id: string | null;
 };
-
-function getServiceConfig() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
-  if (!serviceRoleKey || !adminReviewEnabled) return null;
-  return { url: resolveLockedSupabaseUrl(), serviceRoleKey };
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -51,28 +44,18 @@ function getInquiryContext(inquiry: MarketplaceInquiry) {
   return getInquiryTypeLabel(inquiry.inquiry_type);
 }
 
-async function getInquiries(): Promise<MarketplaceInquiry[]> {
-  const supabase = getServiceConfig();
-  if (!supabase) return [];
-
-  const response = await fetch(
-    `${supabase.url}/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id&order=created_at.desc&limit=50`,
-    {
-      headers: {
-        apikey: supabase.serviceRoleKey,
-        Authorization: `Bearer ${supabase.serviceRoleKey}`,
-      },
-      cache: 'no-store',
-    },
+async function getInquiries(): Promise<{ inquiries: MarketplaceInquiry[]; error: AdminDataError | null }> {
+  const result = await fetchAdminSupabaseJson<MarketplaceInquiry[]>(
+    '/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id&order=created_at.desc&limit=50',
   );
 
-  if (!response.ok) return [];
-  return response.json();
+  if (!result.ok) return { inquiries: [], error: result.error };
+  return { inquiries: result.data, error: null };
 }
 
 export default async function AdminInquiriesPage() {
-  const inquiries = await getInquiries();
-  const configured = Boolean(getServiceConfig());
+  const { inquiries, error } = await getInquiries();
+  const configured = getAdminDataClient().ok;
 
   return (
     <section>
@@ -88,9 +71,9 @@ export default async function AdminInquiriesPage() {
         </Link>
       </div>
 
-      {!configured ? (
+      {!configured || error ? (
         <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-          Admin inquiry review is disabled. Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private scaffold.
+          {error?.message || 'Admin inquiry review is not configured. Set SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private queue.'}
         </div>
       ) : null}
 

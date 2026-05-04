@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { updateInquiryStatus } from '@/app/actions/updateInquiryStatus';
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { fetchAdminSupabaseJson, getAdminDataClient, type AdminDataError } from '@/lib/supabase/adminDataClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +23,6 @@ type MarketplaceInquiry = {
 
 const statuses = ['received', 'reviewing', 'matched', 'closed'];
 
-function getServiceConfig() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const adminReviewEnabled = process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED === 'true';
-  if (!serviceRoleKey || !adminReviewEnabled) return null;
-  return { url: resolveLockedSupabaseUrl(), serviceRoleKey };
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-CA', {
     year: 'numeric',
@@ -47,35 +40,24 @@ function getInquiryTypeLabel(inquiryType: string) {
   return inquiryType.replaceAll('_', ' ');
 }
 
-async function getInquiry(id: string): Promise<MarketplaceInquiry | null> {
-  const supabase = getServiceConfig();
-  if (!supabase) return null;
-
-  const response = await fetch(
-    `${supabase.url}/rest/v1/marketplace_inquiries?id=eq.${id}&select=*&limit=1`,
-    {
-      headers: {
-        apikey: supabase.serviceRoleKey,
-        Authorization: `Bearer ${supabase.serviceRoleKey}`,
-      },
-      cache: 'no-store',
-    },
+async function getInquiry(id: string): Promise<{ inquiry: MarketplaceInquiry | null; error: AdminDataError | null }> {
+  const result = await fetchAdminSupabaseJson<MarketplaceInquiry[]>(
+    `/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   );
 
-  if (!response.ok) return null;
-  const rows = (await response.json()) as MarketplaceInquiry[];
-  return rows[0] ?? null;
+  if (!result.ok) return { inquiry: null, error: result.error };
+  return { inquiry: result.data[0] ?? null, error: null };
 }
 
 export default async function AdminInquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const inquiry = await getInquiry(id);
-  const configured = Boolean(getServiceConfig());
+  const { inquiry, error } = await getInquiry(id);
+  const configured = getAdminDataClient().ok;
 
-  if (!configured) {
+  if (!configured || error) {
     return (
       <section className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-        Admin inquiry review is disabled. Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private scaffold.
+        {error?.message || 'Admin inquiry review is not configured. Set SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment before using this private queue.'}
       </section>
     );
   }
