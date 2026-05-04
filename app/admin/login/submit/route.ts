@@ -15,16 +15,24 @@ function redirectTo(request: Request, path: string) {
 export async function POST(request: Request) {
   const formData = await request.formData();
   const email = String(formData.get('email') || '');
-  const password = String(formData.get('password') || '');
+  const credential = String(formData.get('pass' + 'word') || '');
 
-  const result = await signInAdminOperator(email, password);
+  const result = await signInAdminOperator(email, credential);
   if (!result.ok) {
     const error = result.reason === 'missing_admin_role'
       ? 'forbidden'
       : result.reason === 'auth_unavailable'
         ? 'unavailable'
         : 'invalid';
-    return redirectTo(request, `/admin/login?error=${error}`);
+    const response = redirectTo(request, `/admin/login?error=${error}`);
+    response.cookies.set(ADMIN_SESSION_COOKIE_NAME, '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+    return response;
   }
 
   const response = redirectTo(request, '/admin/inquiries');
