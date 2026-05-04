@@ -18,7 +18,7 @@ type MarketplaceInquiryInsert = {
 export async function submitMarketplaceInquiryDirect(
   payload: MarketplaceInquiryInsert,
   successMessage: string,
-  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION'
+  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION' | 'CONFIDENTIAL_INTAKE'
 ): Promise<CaptureResult> {
   let response: Response
 
