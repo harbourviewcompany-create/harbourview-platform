@@ -12,7 +12,7 @@ type Row = {
 
 const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
 const EXPECTED_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
-const PREFIX = 'HARBOURVIEW_BROWSER_SMOKE_TEST:'
+const PREFIX = 'HV_MARKETPLACE_ACTIVATION_V1_SMOKE_'
 const TYPES = new Set(['quote_routing', 'listing_submission', 'wanted_request_submission'])
 
 function readEnv(name: string) {

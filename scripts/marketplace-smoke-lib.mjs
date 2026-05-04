@@ -1,4 +1,19 @@
-const SMOKE_MARKER = 'HARBOURVIEW_SMOKE_TEST';
+function activationSmokeMarker(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type) => parts.find((part) => part.type === type)?.value || '00';
+  return `HV_MARKETPLACE_ACTIVATION_V1_SMOKE_${value('year')}${value('month')}${value('day')}_${value('hour')}${value('minute')}${value('second')}`;
+}
+
+const SMOKE_MARKER = process.env.HARBOURVIEW_SMOKE_MARKER || activationSmokeMarker();
 const SMOKE_EMAIL = 'smoke-test@harbourview.local';
 const SMOKE_NAME = 'Harbourview Smoke Test';
 const SMOKE_COMPANY = 'Harbourview Smoke Test';

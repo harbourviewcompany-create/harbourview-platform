@@ -40,6 +40,13 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function getInquiryTypeLabel(inquiryType: string) {
+  if (inquiryType === 'listing_submission') return 'Listing submission';
+  if (inquiryType === 'wanted_request_submission') return 'Wanted request';
+  if (inquiryType === 'quote_request' || inquiryType === 'quote_routing') return 'Quote/general inquiry';
+  return inquiryType.replaceAll('_', ' ');
+}
+
 async function getInquiry(id: string): Promise<MarketplaceInquiry | null> {
   const supabase = getServiceConfig();
   if (!supabase) return null;
@@ -83,8 +90,8 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <article className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-6">
-          <p className="text-xs uppercase tracking-[0.24em] text-[#C6A55A]">{inquiry.inquiry_type.replaceAll('_', ' ')}</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Source-backed marketplace inquiry</h2>
+          <p className="text-xs uppercase tracking-[0.24em] text-[#C6A55A]">{getInquiryTypeLabel(inquiry.inquiry_type)}</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">{getInquiryTypeLabel(inquiry.inquiry_type)}</h2>
 
           <div className="mt-6 grid gap-3 text-sm text-[#F5F1E8]/75 md:grid-cols-2">
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">

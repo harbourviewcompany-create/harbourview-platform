@@ -1,4 +1,5 @@
 import { getMarketplaceListing, marketplaceListings, type MarketplaceListing } from './listings';
+import { softLaunchSeedListings } from './softLaunchSeedListings';
 
 const publicSummaries: Record<MarketplaceListing['slug'], string> = {
   'cascade-tek-cvo-5-l-vacuum-oven':
@@ -64,9 +65,13 @@ export function toPublicMarketplaceListing(listing: MarketplaceListing): PublicM
   };
 }
 
-export const publicMarketplaceListings = marketplaceListings.map(toPublicMarketplaceListing);
+export const publicMarketplaceListings = [
+  ...marketplaceListings.map(toPublicMarketplaceListing),
+  ...softLaunchSeedListings,
+];
 
 export function getPublicMarketplaceListing(slug: string) {
   const listing = getMarketplaceListing(slug);
-  return listing ? toPublicMarketplaceListing(listing) : undefined;
+  if (listing) return toPublicMarketplaceListing(listing);
+  return softLaunchSeedListings.find((seedListing) => seedListing.slug === slug);
 }

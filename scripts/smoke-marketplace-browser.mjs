@@ -4,7 +4,23 @@ const SMOKE_RUN_ID = `browser-${Date.now()}-${Math.random().toString(36).slice(2
 const SMOKE_EMAIL = `smoke+${SMOKE_RUN_ID}@harbourview.local`;
 const SMOKE_NAME = `Harbourview Browser Smoke ${SMOKE_RUN_ID}`;
 const SMOKE_COMPANY = `Harbourview Browser Smoke ${SMOKE_RUN_ID}`;
-const SMOKE_MARKER = `HARBOURVIEW_BROWSER_SMOKE_TEST:${SMOKE_RUN_ID}`;
+
+function activationSmokeMarker(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type) => parts.find((part) => part.type === type)?.value || '00';
+  return `HV_MARKETPLACE_ACTIVATION_V1_SMOKE_${value('year')}${value('month')}${value('day')}_${value('hour')}${value('minute')}${value('second')}`;
+}
+
+const SMOKE_MARKER = process.env.HARBOURVIEW_SMOKE_MARKER || activationSmokeMarker();
 const writeEnabled = process.env.HARBOURVIEW_SMOKE_WRITE === '1';
 const cleanupEnabled = process.env.HARBOURVIEW_SMOKE_CLEANUP === '1';
 const isProductionTarget = BASE_URL.includes('harbourview-platform.vercel.app') || process.env.VERCEL_ENV === 'production';

@@ -38,10 +38,17 @@ function preview(value: string) {
   return value.length > 120 ? `${value.slice(0, 120)}...` : value;
 }
 
-function getInquiryLabel(inquiry: MarketplaceInquiry) {
+function getInquiryTypeLabel(inquiryType: string) {
+  if (inquiryType === 'listing_submission') return 'Listing submission';
+  if (inquiryType === 'wanted_request_submission') return 'Wanted request';
+  if (inquiryType === 'quote_request' || inquiryType === 'quote_routing') return 'Quote/general inquiry';
+  return inquiryType.replaceAll('_', ' ');
+}
+
+function getInquiryContext(inquiry: MarketplaceInquiry) {
   if (inquiry.listing_id) return `Listing ${inquiry.listing_id}`;
   if (inquiry.buyer_request_id) return `Buyer request ${inquiry.buyer_request_id}`;
-  return 'Source-backed marketplace inquiry';
+  return getInquiryTypeLabel(inquiry.inquiry_type);
 }
 
 async function getInquiries(): Promise<MarketplaceInquiry[]> {
@@ -107,10 +114,10 @@ export default async function AdminInquiriesPage() {
                 <td className="p-4 whitespace-nowrap">{formatDate(inquiry.created_at)}</td>
                 <td className="p-4">
                   <Link href={`/admin/inquiries/${inquiry.id}`} className="font-medium text-[#F5F1E8] underline-offset-4 hover:underline">
-                    {getInquiryLabel(inquiry)}
+                    {getInquiryContext(inquiry)}
                   </Link>
                 </td>
-                <td className="p-4">{inquiry.inquiry_type.replaceAll('_', ' ')}</td>
+                <td className="p-4">{getInquiryTypeLabel(inquiry.inquiry_type)}</td>
                 <td className="p-4">{inquiry.contact_company || 'Not provided'}</td>
                 <td className="p-4">{inquiry.contact_phone || 'Not provided'}</td>
                 <td className="p-4">

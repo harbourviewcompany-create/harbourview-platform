@@ -2,6 +2,8 @@ import { MarketplaceListingCard } from '@/components/marketplace/MarketplaceList
 import { publicMarketplaceListings } from '@/lib/marketplace/publicListings';
 
 export default function MarketplaceListingsPage() {
+  const sectionCount = new Set(publicMarketplaceListings.map((listing) => listing.section)).size;
+
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-16 text-[#F5F1E8] md:px-10 lg:px-16">
       <section className="mx-auto max-w-7xl">
@@ -25,7 +27,7 @@ export default function MarketplaceListingsPage() {
             <p className="mt-1 text-sm text-[#F5F1E8]/65">Initial listing candidates</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-2xl font-semibold text-[#C6A55A]">4</p>
+            <p className="text-2xl font-semibold text-[#C6A55A]">{sectionCount}</p>
             <p className="mt-1 text-sm text-[#F5F1E8]/65">Marketplace sections represented</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
