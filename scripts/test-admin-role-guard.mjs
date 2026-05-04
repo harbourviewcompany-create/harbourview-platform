@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 
 const roleHelper = readFileSync('lib/auth/adminRoles.ts', 'utf8');
 const guard = readFileSync('lib/auth/adminGuard.ts', 'utf8');
-const adminLayout = readFileSync('app/admin/layout.tsx', 'utf8');
-const adminListings = readFileSync('app/admin/listings/page.tsx', 'utf8');
+const adminLayout = readFileSync('app/admin/(protected)/layout.tsx', 'utf8');
+const adminLogin = readFileSync('lib/auth/adminLogin.ts', 'utf8');
+const adminLoginRoute = readFileSync('app/admin/login/submit/route.ts', 'utf8');
+const adminListings = readFileSync('app/admin/(protected)/listings/page.tsx', 'utf8');
 
 const failures = [];
 
@@ -39,6 +41,12 @@ assert(adminListings.includes("export const dynamic = 'force-dynamic'"), 'admin 
 assert(adminListings.includes('View source listing'), 'admin listings must retain source link for authorized users');
 assert(adminListings.includes('Evidence captured'), 'admin listings must retain evidence for authorized users');
 assert(adminListings.includes('Internal review notes'), 'admin listings must retain internal review notes for authorized users');
+assert(adminLogin.includes('/auth/v1/token?grant_type=password'), 'admin login must authenticate with Supabase Auth password flow');
+assert(adminLogin.includes('/rest/v1/user_roles'), 'admin login must check user_roles before setting a session');
+assert(adminLogin.includes('hasAdminRole'), 'admin login must allow only admin/operator roles');
+assert(!adminLogin.includes('SUPABASE_SERVICE_ROLE_KEY'), 'admin login must not use the service-role key');
+assert(adminLoginRoute.includes('httpOnly: true'), 'admin login route must set an HttpOnly session cookie');
+assert(adminLoginRoute.includes("sameSite: 'lax'"), 'admin login session cookie must use SameSite=Lax');
 
 if (failures.length) {
   console.error('Admin role guard test failed:');
@@ -51,3 +59,4 @@ console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
 console.log('ok admin listings page directly guards provenance render');
 console.log('ok admin provenance rendering is preserved behind role guard');
+console.log('ok admin login establishes only admin/operator HttpOnly sessions');

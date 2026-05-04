@@ -8,11 +8,11 @@ const PUBLIC_RENDER_FILES = [
 ];
 
 const ADMIN_FILES = [
-  'app/admin/listings/page.tsx'
+  'app/admin/(protected)/listings/page.tsx'
 ];
 
 const ADMIN_GUARD_FILES = [
-  'app/admin/layout.tsx',
+  'app/admin/(protected)/layout.tsx',
   'lib/auth/adminGuard.ts'
 ];
 
