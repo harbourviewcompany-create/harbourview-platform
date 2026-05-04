@@ -9,10 +9,28 @@ const baseUrl = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_P
 const listingsSource = readFileSync('lib/marketplace/listings.ts', 'utf8');
 const slugMatches = [...listingsSource.matchAll(/slug:\s*'([^']+)'/g)].map((match) => match[1]);
 const sourceUrlMatches = [...listingsSource.matchAll(/sourceUrl:\s*'([^']+)'/g)].map((match) => match[1]);
+
 const routes = [
   '/marketplace',
-  '/marketplace/listings',
+  '/marketplace/sell',
+  '/marketplace/sell?type=wanted',
+  '/marketplace/wanted',
+  '/intake',
   ...slugMatches.map((slug) => `/marketplace/listings/${slug}`),
+];
+
+// Admin routes — expected to return 403 or auth redirect, not leak data
+const adminRoutes = [
+  '/admin',
+  '/admin/inquiries',
+  '/admin/listings',
+];
+
+// API routes to probe for leakage
+const apiRoutes = [
+  '/api/marketplace/capture',
+  '/api/marketplace/quote',
+  '/api/marketplace/listing-submission',
 ];
 
 const forbiddenStrings = [
@@ -44,25 +62,77 @@ const forbiddenStrings = [
 const failures = [];
 const results = [];
 
-for (const route of routes) {
+async function probeRoute(route, expectForbidden = false) {
   const url = `${baseUrl}${route}`;
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'text/html',
-      'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.0',
-    },
-  });
-  const html = await response.text();
-  const matches = forbiddenStrings.filter((value) => value && html.includes(value));
-
-  results.push({ route, status: response.status, bytes: html.length, matches });
-
-  if (!response.ok) {
-    failures.push(`${route} returned HTTP ${response.status}`);
+  let response;
+  let html = '';
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        Accept: 'text/html',
+        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.1',
+      },
+    });
+    html = await response.text();
+  } catch (err) {
+    failures.push(`${route} fetch error: ${err.message}`);
+    results.push({ route, status: 'error', error: err.message, matches: [] });
+    return;
   }
 
+  const matches = forbiddenStrings.filter((value) => value && html.includes(value));
+  results.push({ route, status: response.status, bytes: html.length, matches });
+
+  if (expectForbidden) {
+    // Admin routes must NOT return 200 anonymously
+    if (response.status === 200) {
+      failures.push(`${route} returned HTTP 200 anonymously — expected 403 or auth redirect`);
+    }
+    // Admin routes must not leak forbidden strings regardless
+    for (const match of matches) {
+      failures.push(`${route} leaked forbidden string: ${match}`);
+    }
+  } else {
+    if (!response.ok) {
+      failures.push(`${route} returned HTTP ${response.status}`);
+    }
+    for (const match of matches) {
+      failures.push(`${route} leaked forbidden string: ${match}`);
+    }
+  }
+}
+
+// Probe public routes
+for (const route of routes) {
+  await probeRoute(route, false);
+}
+
+// Probe admin routes (expect 403/redirect, not 200)
+for (const route of adminRoutes) {
+  await probeRoute(route, true);
+}
+
+// Probe API routes with GET (expect non-200 but check for leakage in any response)
+for (const route of apiRoutes) {
+  const url = `${baseUrl}${route}`;
+  let response;
+  let body = '';
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.1' },
+    });
+    body = await response.text();
+  } catch (err) {
+    results.push({ route, status: 'error', error: err.message, matches: [] });
+    continue;
+  }
+  const matches = forbiddenStrings.filter((value) => value && body.includes(value));
+  results.push({ route, status: response.status, bytes: body.length, matches });
   for (const match of matches) {
-    failures.push(`${route} leaked forbidden string: ${match}`);
+    failures.push(`${route} (API) leaked forbidden string: ${match}`);
   }
 }
 

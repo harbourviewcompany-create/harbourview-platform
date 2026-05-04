@@ -55,7 +55,7 @@ export default function WantedPage() {
           {wantedRequests.length === 0 ? (
             <div className="text-center py-16">
               <p className="text-gray-400 text-lg mb-4">No active wanted requests.</p>
-              <Link href="/marketplace/sell" className="btn-primary">
+              <Link href="/marketplace/sell?type=wanted" className="btn-primary">
                 Post a Wanted Request
               </Link>
             </div>
@@ -82,7 +82,7 @@ export default function WantedPage() {
               </Link>
               .
             </p>
-            <Link href="/marketplace/sell" className="btn-primary text-sm shrink-0">
+            <Link href="/marketplace/sell?type=wanted" className="btn-primary text-sm shrink-0">
               Post a Wanted Request
             </Link>
           </div>

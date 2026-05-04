@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
-type FormState = 'idle' | 'submitting' | 'success'
+type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
 const discussionTypes = [
   'Acquisition or Investment Opportunity',
@@ -14,8 +15,23 @@ const discussionTypes = [
   'General Enquiry',
 ]
 
+function buildIntakeMessage(fields: {
+  discussionType: string
+  message: string
+}) {
+  return [
+    'Harbourview confidential intake',
+    '',
+    `Nature of Discussion: ${fields.discussionType || 'General Enquiry'}`,
+    '',
+    'Details:',
+    fields.message,
+  ].join('\n')
+}
+
 export default function ConfidentialIntakeForm() {
   const [state, setState] = useState<FormState>('idle')
+  const [errorMessage, setErrorMessage] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   function validate(data: FormData) {
@@ -26,9 +42,10 @@ export default function ConfidentialIntakeForm() {
     return errs
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const data = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const data = new FormData(form)
     const errs = validate(data)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -36,34 +53,49 @@ export default function ConfidentialIntakeForm() {
     }
     setErrors({})
     setState('submitting')
+    setErrorMessage('')
 
-    const subject = encodeURIComponent(
-      `Confidential Intake: ${data.get('discussionType') || 'General Enquiry'}`
+    const name = (data.get('name') as string).trim()
+    const email = (data.get('email') as string).trim().toLowerCase()
+    const company = ((data.get('company') as string) || '').trim() || null
+    const discussionType = ((data.get('discussionType') as string) || '').trim()
+    const message = (data.get('message') as string).trim()
+
+    const result = await submitMarketplaceInquiryDirect(
+      {
+        listing_id: null,
+        buyer_request_id: null,
+        contact_name: name,
+        contact_email: email,
+        contact_company: company,
+        contact_phone: null,
+        inquiry_type: 'sourcing_mandate',
+        message: buildIntakeMessage({ discussionType, message }),
+        status: 'received',
+      },
+      'Confidential intake received. Harbourview will review it and respond directly. [CAPTURE_OK]',
+      'CONFIDENTIAL_INTAKE'
     )
-    const body = encodeURIComponent(
-      [
-        `Name: ${data.get('name')}`,
-        `Email: ${data.get('email')}`,
-        `Company / Organisation: ${data.get('company') || 'N/A'}`,
-        `Nature of Discussion: ${data.get('discussionType') || 'N/A'}`,
-        '',
-        'Details:',
-        `${data.get('message')}`,
-      ].join('\n')
-    )
-    window.location.href = `mailto:harbourviewcompany@gmail.com?subject=${subject}&body=${body}`
-    setState('success')
+
+    if (result.ok) {
+      setState('success')
+      form.reset()
+      return
+    }
+
+    setState('error')
+    setErrorMessage(result.message)
   }
 
   if (state === 'success') {
     return (
       <div className="card p-8 text-center">
         <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Intake Submitted</h2>
+        <h2 className="text-navy font-bold text-xl mb-2">Intake Received</h2>
         <p className="text-gray-500 text-sm">
-          Your email client has been opened with your enquiry pre-filled. Send the
-          email to complete your submission. We review all intake requests and respond
-          directly.
+          Your enquiry has been submitted securely to Harbourview. We review all
+          intake requests and respond directly. All submissions are handled in
+          confidence.
         </p>
       </div>
     )
@@ -147,6 +179,19 @@ export default function ConfidentialIntakeForm() {
         All submissions are reviewed and handled in confidence. We do not share
         intake details without explicit consent.
       </p>
+
+      {state === 'error' && (
+        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}{' '}
+          <a
+            href="mailto:harbourviewcompany@gmail.com"
+            className="underline"
+          >
+            Contact Harbourview directly
+          </a>{' '}
+          if the issue persists.
+        </p>
+      )}
 
       <button
         type="submit"
