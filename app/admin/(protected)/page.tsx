@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
+import { requireAdminAuth } from '@/lib/auth/adminGuard';
 
-export default function AdminRootPage() {
+export default async function AdminRootPage() {
+  await requireAdminAuth();
   redirect('/admin/inquiries');
 }

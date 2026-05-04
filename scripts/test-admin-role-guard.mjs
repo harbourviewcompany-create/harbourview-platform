@@ -7,6 +7,9 @@ const adminLayout = readFileSync('app/admin/(protected)/layout.tsx', 'utf8');
 const adminLogin = readFileSync('lib/auth/adminLogin.ts', 'utf8');
 const adminLoginRoute = readFileSync('app/admin/login/submit/route.ts', 'utf8');
 const adminListings = readFileSync('app/admin/(protected)/listings/page.tsx', 'utf8');
+const adminInquiries = readFileSync('app/admin/(protected)/inquiries/page.tsx', 'utf8');
+const adminInquiryDetail = readFileSync('app/admin/(protected)/inquiries/[id]/page.tsx', 'utf8');
+const adminRoot = readFileSync('app/admin/(protected)/page.tsx', 'utf8');
 
 const failures = [];
 
@@ -41,6 +44,12 @@ assert(adminListings.includes("export const dynamic = 'force-dynamic'"), 'admin 
 assert(adminListings.includes('View source listing'), 'admin listings must retain source link for authorized users');
 assert(adminListings.includes('Evidence captured'), 'admin listings must retain evidence for authorized users');
 assert(adminListings.includes('Internal review notes'), 'admin listings must retain internal review notes for authorized users');
+assert(adminInquiries.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin inquiries page must import direct role guard');
+assert(adminInquiries.includes('await requireAdminAuth()'), 'admin inquiries page must invoke direct role guard before rendering workflow fields');
+assert(adminInquiryDetail.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin inquiry detail page must import direct role guard');
+assert(adminInquiryDetail.includes('await requireAdminAuth()'), 'admin inquiry detail page must invoke direct role guard before rendering workflow fields');
+assert(adminRoot.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin root page must import direct role guard before redirecting');
+assert(adminRoot.includes('await requireAdminAuth()'), 'admin root page must invoke direct role guard before redirecting');
 assert(adminLogin.includes('/auth/v1/token?grant_type=password'), 'admin login must authenticate with Supabase Auth password flow');
 assert(adminLogin.includes('/rest/v1/user_roles'), 'admin login must check user_roles before setting a session');
 assert(adminLogin.includes('hasAdminRole'), 'admin login must allow only admin/operator roles');
@@ -62,5 +71,6 @@ console.log('ok admin role model denies anonymous/missing roles with explicit au
 console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
 console.log('ok admin listings page directly guards provenance render');
+console.log('ok admin inquiry pages directly guard workflow render');
 console.log('ok admin provenance rendering is preserved behind role guard');
 console.log('ok admin login establishes only admin/operator HttpOnly sessions');

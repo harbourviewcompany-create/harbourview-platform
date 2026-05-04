@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { fetchAdminSupabaseJson, getAdminDataClient, type AdminDataError } from '@/lib/supabase/adminDataClient';
 import {
   getInquiryTypeLabel,
@@ -92,6 +93,8 @@ async function getInquiries(): Promise<{ inquiries: MarketplaceInquiry[]; error:
 }
 
 export default async function AdminInquiriesPage({ searchParams }: AdminInquiriesPageProps) {
+  await requireAdminAuth();
+
   const params = await searchParams;
   const { inquiries, error } = await getInquiries();
   const configured = getAdminDataClient().ok;
