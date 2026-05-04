@@ -17,6 +17,7 @@ type AdminAuthResult = {
   roles: AppRole[];
 };
 
+// Admin routes allow admin/operator roles; analyst/viewer roles are denied.
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value?.trim()) throw new Error(`Missing required environment variable ${name}`);
