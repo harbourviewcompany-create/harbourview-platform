@@ -4,8 +4,7 @@ import ConfidentialIntakeForm from './ConfidentialIntakeForm'
 
 export const metadata: Metadata = {
   title: 'Confidential Intake',
-  description:
-    'Begin a confidential discussion with Harbourview. For buyers, sellers, operators, and partners seeking a managed introduction or advisory engagement.',
+  description: 'Submit a confidential Harbourview inquiry.',
 }
 
 export default function IntakePage() {
@@ -15,33 +14,23 @@ export default function IntakePage() {
         <div className="page-container">
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Confidential Intake</h1>
           <p className="text-gray-300 max-w-2xl">
-            For buyers, sellers, operators, and partners seeking a confidential
-            conversation. Harbourview manages the intake process — submissions are
-            reviewed and responses are handled directly.
+            Share qualified opportunities, commercial requirements, or confidential inquiries.
+            Harbourview reviews submissions before any follow-up or introduction.
           </p>
         </div>
       </section>
 
-      <section className="py-12">
-        <div className="page-container grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2">
+      <section className="py-12 bg-gray-50">
+        <div className="page-container grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
+          <div className="card p-6 sm:p-8">
             <ConfidentialIntakeForm />
           </div>
 
-          <div className="space-y-6">
-            <div className="card p-6">
-              <h2 className="text-navy font-semibold text-base mb-3">Confidentiality</h2>
-              <p className="text-sm text-gray-500">
-                All intake submissions are handled in confidence. Details are not
-                shared with third parties without explicit consent.
-              </p>
-            </div>
-
+          <aside className="space-y-6">
             <div className="card p-6">
               <h2 className="text-navy font-semibold text-base mb-3">Submit Opportunity</h2>
               <p className="text-sm text-gray-500 mb-4">
-                To list equipment, inventory, services, or a business opportunity
-                through Harbourview Marketplace, use the dedicated opportunity intake form.
+                To list equipment, inventory, services, or a business opportunity through Harbourview Marketplace, use the dedicated opportunity intake form.
               </p>
               <a href="/marketplace/sell" className="btn-primary text-sm">
                 Go to Opportunity Intake
@@ -49,19 +38,18 @@ export default function IntakePage() {
             </div>
 
             <div className="card p-6">
-              <h2 className="text-navy font-semibold text-base mb-3">Direct Email</h2>
-              <p className="text-sm text-gray-500">
-                You can also reach us at{' '}
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  className="text-navy underline hover:text-gold"
-                >
-                  {CONTACT_EMAIL}
-                </a>
-                .
+              <h2 className="text-navy font-semibold text-base mb-3">Direct Contact</h2>
+              <p className="text-sm text-gray-500 mb-3">
+                For confidential inquiries and qualified opportunities:
               </p>
+              <a
+                href={'mailto:' + CONTACT_EMAIL}
+                className="text-navy underline hover:text-gold text-sm"
+              >
+                {CONTACT_EMAIL}
+              </a>
             </div>
-          </div>
+          </aside>
         </div>
       </section>
     </>
