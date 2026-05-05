@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CONTACT_EMAIL } from '@/lib/contact'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
@@ -22,7 +23,7 @@ function buildIntakeMessage(fields: {
   return [
     'Harbourview confidential intake',
     '',
-    `Nature of Discussion: ${fields.discussionType || 'General Enquiry'}`,
+    `Purpose of Discussion: ${fields.discussionType || 'General Enquiry'}`,
     '',
     'Details:',
     fields.message,
@@ -147,7 +148,7 @@ export default function ConfidentialIntakeForm() {
 
       <div>
         <label htmlFor="discussionType" className="block text-sm font-medium text-gray-700 mb-1">
-          Nature of Discussion
+          Purpose of Discussion
         </label>
         <select
           id="discussionType"
@@ -184,7 +185,7 @@ export default function ConfidentialIntakeForm() {
         <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}{' '}
           <a
-            href="mailto:harbourviewcompany@gmail.com"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="underline"
           >
             Contact Harbourview directly
