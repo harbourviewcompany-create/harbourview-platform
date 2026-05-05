@@ -1,0 +1,116 @@
+name: Temporary Production Copy Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BASE_URL: https://harbourview-platform.vercel.app
+
+jobs:
+  probe:
+    name: Probe production public copy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Run production copy probe
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p probe-artifacts
+
+          PATHS=("/" "/marketplace" "/marketplace/listings" "/marketplace/consumables" "/marketplace/wanted" "/marketplace/sell")
+          FORBIDDEN=("View source listing" "sourceUrl" "sourceName" "Evidence captured" "provenanceSummary" "sourceEvidence" "verificationStatus" "availabilityStatus" "sellerAuthorizationStatus" "internalReviewNotes" "reviewedBy" "lastReviewedAt" "nextReviewDueAt")
+          OLD_COPY=("Professional Marketplace" "Marketplace Categories" "B2B cannabis industry marketplace" "Submit Supply" "Post Wanted Request" "Request Supply Information")
+
+          printf '| Path | Status | x-vercel-cache | age | x-vercel-id | Content-Length | Harbourview Network | Old copy hits | Leakage hits |\n' | tee probe-artifacts/summary.md
+          printf '|---|---:|---|---:|---|---:|---:|---|---|\n' | tee -a probe-artifacts/summary.md
+
+          failures=0
+
+          for path in "${PATHS[@]}"; do
+            safe="${path//\//_}"
+            if [[ "$safe" == "_" ]]; then
+              safe="root"
+            else
+              safe="${safe#_}"
+            fi
+
+            headers="probe-artifacts/headers-${safe}.txt"
+            body="probe-artifacts/body-${safe}.html"
+            url="${BASE_URL}${path}?verify=$(date +%s)-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+            status="$(curl -sSL -D "$headers" \
+              -H "Cache-Control: no-cache" \
+              -H "Pragma: no-cache" \
+              -H "User-Agent: harbourview-production-copy-probe/${GITHUB_RUN_ID}" \
+              -o "$body" \
+              -w '%{http_code}' \
+              "$url" || true)"
+
+            cache="$(awk 'BEGIN{IGNORECASE=1} /^x-vercel-cache:/ {sub(/^[^:]+:[[:space:]]*/, ""); gsub(/\r/, ""); print; exit}' "$headers" || true)"
+            age="$(awk 'BEGIN{IGNORECASE=1} /^age:/ {sub(/^[^:]+:[[:space:]]*/, ""); gsub(/\r/, ""); print; exit}' "$headers" || true)"
+            vercel_id="$(awk 'BEGIN{IGNORECASE=1} /^x-vercel-id:/ {sub(/^[^:]+:[[:space:]]*/, ""); gsub(/\r/, ""); print; exit}' "$headers" || true)"
+            length="$(wc -c < "$body" | tr -d ' ')"
+
+            if grep -Fq "Harbourview Network" "$body"; then
+              has_network="yes"
+            else
+              has_network="no"
+              failures=$((failures + 1))
+            fi
+
+            old_hits=()
+            for term in "${OLD_COPY[@]}"; do
+              if grep -Fq "$term" "$body"; then
+                old_hits+=("$term")
+              fi
+            done
+
+            leak_hits=()
+            for term in "${FORBIDDEN[@]}"; do
+              if grep -Fq "$term" "$body"; then
+                leak_hits+=("$term")
+              fi
+            done
+
+            old_joined="none"
+            if (( ${#old_hits[@]} > 0 )); then
+              old_joined="$(IFS='; '; echo "${old_hits[*]}")"
+              failures=$((failures + 1))
+            fi
+
+            leak_joined="none"
+            if (( ${#leak_hits[@]} > 0 )); then
+              leak_joined="$(IFS='; '; echo "${leak_hits[*]}")"
+              failures=$((failures + 1))
+            fi
+
+            if [[ "$status" != "200" ]]; then
+              failures=$((failures + 1))
+            fi
+
+            printf '| `%s` | %s | %s | %s | `%s` | %s | %s | %s | %s |\n' \
+              "$path" "$status" "${cache:-missing}" "${age:-missing}" "${vercel_id:-missing}" "$length" "$has_network" "$old_joined" "$leak_joined" | tee -a probe-artifacts/summary.md
+          done
+
+          echo '' | tee -a probe-artifacts/summary.md
+          if (( failures == 0 )); then
+            echo 'FINAL_VERDICT=PRODUCTION VERIFIED' | tee -a probe-artifacts/summary.md
+          else
+            echo "FINAL_VERDICT=POST-MERGE HOLD" | tee -a probe-artifacts/summary.md
+            echo "FAILURE_COUNT=${failures}" | tee -a probe-artifacts/summary.md
+            exit 1
+          fi
+
+      - name: Upload probe artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-copy-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: probe-artifacts/
+          if-no-files-found: error
