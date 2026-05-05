@@ -4,6 +4,23 @@ export type GeneticsDisclosureLevel =
   | 'level_2_qualified_introduction_approved'
   | 'level_3_deal_room_approved'
 
+export type GeneticsRoutingIntent =
+  | 'seed_access'
+  | 'genetics_licensing'
+  | 'territory_discussion'
+  | 'tissue_culture'
+  | 'clean_stock'
+  | 'breeding_collaboration'
+  | 'research_collaboration'
+  | 'commercial_rollout'
+
+export type GeneticsHolderPermissionStatus =
+  | 'public_showcase_approved'
+  | 'inquiry_routing_approved'
+  | 'named_intro_approved'
+  | 'deal_room_approved'
+  | 'revoked'
+
 export type GeneticsDrop = {
   id: string
   title: string
@@ -15,6 +32,13 @@ export type GeneticsDrop = {
   targetMarkets?: string[]
   signals: string[]
   ctaLabel: string
+  routingCategory: string
+  routingIntent: GeneticsRoutingIntent[]
+  eligibleMarkets: string[]
+  requiresLicenceReview: boolean
+  requiresPathwayReview: boolean
+  geneticsHolderPermissionStatus: GeneticsHolderPermissionStatus
+  minimumRevealLevelForIntro: GeneticsDisclosureLevel
 }
 
 export type GeneticsProfile = {
@@ -56,6 +80,14 @@ export const geneticsProfiles: GeneticsProfile[] = [
         shortPositioning: 'CBD-dominant cultivar for EU licensing pathways.',
         signals: ['CBD-dominant', 'Licensing available', 'Tissue culture compatible'],
         ctaLabel: 'Request Licensing Access',
+        routingCategory: 'genetics_cultivar_licensing',
+        routingIntent: ['genetics_licensing', 'commercial_rollout', 'tissue_culture'],
+        eligibleMarkets: ['Germany', 'Europe', 'Australia', 'New Zealand'],
+        territoryModel: 'non_exclusive_or_territory_review',
+        requiresLicenceReview: true,
+        requiresPathwayReview: true,
+        geneticsHolderPermissionStatus: 'inquiry_routing_approved',
+        minimumRevealLevelForIntro: 'level_3_deal_room_approved',
       },
     ],
     primaryCta: 'Request Licensing Access',
@@ -78,6 +110,14 @@ export const geneticsProfiles: GeneticsProfile[] = [
         shortPositioning: 'THC-forward cultivar line with exclusive territory discussion.',
         signals: ['Exclusive territory', 'Breeder IP', 'Licensed operators only'],
         ctaLabel: 'Request Territory Access',
+        routingCategory: 'genetics_territory_rights',
+        routingIntent: ['territory_discussion', 'genetics_licensing', 'commercial_rollout'],
+        eligibleMarkets: ['LATAM', 'Europe', 'Australia'],
+        territoryModel: 'exclusive_or_nonexclusive_review',
+        requiresLicenceReview: true,
+        requiresPathwayReview: true,
+        geneticsHolderPermissionStatus: 'inquiry_routing_approved',
+        minimumRevealLevelForIntro: 'level_3_deal_room_approved',
       },
     ],
     primaryCta: 'Request Territory Discussion',
@@ -100,6 +140,14 @@ export const geneticsProfiles: GeneticsProfile[] = [
         shortPositioning: 'Submit cultivars for clean-stock and propagation.',
         signals: ['Clean stock', 'Propagation', 'Licensed operators'],
         ctaLabel: 'Request Intake Review',
+        routingCategory: 'genetics_clean_stock_propagation',
+        routingIntent: ['tissue_culture', 'clean_stock', 'commercial_rollout'],
+        eligibleMarkets: ['Canada', 'United States', 'Europe', 'Australia'],
+        territoryModel: 'service_pathway_review',
+        requiresLicenceReview: true,
+        requiresPathwayReview: true,
+        geneticsHolderPermissionStatus: 'inquiry_routing_approved',
+        minimumRevealLevelForIntro: 'level_3_deal_room_approved',
       },
     ],
     primaryCta: 'Request Clean-Stock Review',
