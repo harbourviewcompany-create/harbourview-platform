@@ -1,1 +1,1 @@
-export const CONTACT_EMAIL = 'hello@harbourview.co'
+export const CONTACT_EMAIL = 'harbourviewcompany@gmail.com'
