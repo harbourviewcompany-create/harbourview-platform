@@ -78,6 +78,16 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 - PR #44 added a direct page-level `requireAdminAuth()` guard to `/admin/listings` after production verification found denied anonymous HTML still contained admin-only provenance labels.
 - This update exists only to trigger production deployment of the PR #44 main-branch closure commit.
 
+## Marketplace commercial polish
+
+**Status:** BRANCH — `marketplace-commercial-polish-v1`
+
+**Purpose:** Marketplace commercial polish added to improve supplier acquisition, wanted-request conversion and inquiry-first category framing. No schema, RLS or admin authorization changes.
+
+**Pages updated:** `/marketplace`, `/marketplace/consumables`, `/marketplace/wanted`, `/marketplace/sell`
+
+**Fixtures updated:** `lib/fixtures/consumables.ts` — 8 listing titles replaced with commercial opportunity framing.
+
 ## Current readiness label
 
 `MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`

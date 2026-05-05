@@ -4,8 +4,8 @@ import { consumables } from '@/lib/fixtures/consumables'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
-  title: 'Consumables & Operating Supplies',
-  description: 'Packaging, lab, facility, logistics and operating-supply categories available by inquiry through Harbourview Marketplace.',
+  title: 'Consumables & Operating Supplies | Harbourview Marketplace',
+  description: 'Packaging, lab, cultivation, processing, sanitation, logistics, retail and maintenance supply categories handled through inquiry-first sourcing and supplier qualification.',
 }
 
 export default function ConsumablesPage() {
@@ -16,15 +16,21 @@ export default function ConsumablesPage() {
           <p className="text-gold text-sm font-medium mb-1">
             <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
           </p>
-          <h1 className="text-3xl font-bold mb-2">Consumables & Operating Supplies</h1>
+          <h1 className="text-3xl font-bold mb-2">Consumables &amp; Operating Supplies</h1>
           <p className="text-gray-300 max-w-xl">
-            Controlled operating-supply categories for packaging, lab, facility, logistics and recurring supply needs. Supplier qualification and specifications are handled by inquiry.
+            Packaging, lab, cultivation, processing, sanitation, logistics, retail and maintenance supply categories handled through inquiry-first sourcing and supplier qualification.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Link href="/marketplace/quote?listing=Bulk%20Consumables%20Procurement%20Request" className="btn-primary">
+            <Link
+              href="/marketplace/quote?listing=Consumables%20and%20Operating%20Supplies"
+              className="btn-primary"
+            >
               Request Supply Information
             </Link>
-            <Link href="/marketplace/wanted" className="btn-outline border-gold text-gold hover:bg-gold hover:text-navy">
+            <Link
+              href="/marketplace/sell?type=wanted"
+              className="btn-outline border-gold text-gold hover:bg-gold hover:text-navy"
+            >
               Post a Wanted Request
             </Link>
           </div>
@@ -36,7 +42,7 @@ export default function ConsumablesPage() {
           <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
             <h2 className="text-navy font-semibold text-lg mb-2">Sourcing operating supplies at volume?</h2>
             <p className="text-gray-600 text-sm max-w-3xl">
-              Submit volume, region, timing and specification requirements. Harbourview reviews the request and routes qualified demand through private supplier qualification before quote or introduction.
+              Submit volume, region, timing and specification requirements. Harbourview reviews the request and routes qualified demand through private supplier qualification before introduction or quote routing. Use the wanted request path if you have a specific supply need.
             </p>
           </div>
 

@@ -4,9 +4,9 @@ import { wantedRequests } from '@/lib/fixtures/wanted-requests'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
-  title: 'Buyer Wanted Requests',
+  title: 'Wanted Requests | Harbourview Marketplace',
   description:
-    'Browse active buy-side requests from operators seeking equipment, inventory, and services. Post your own wanted request through the Harbourview marketplace.',
+    'Post a wanted request to surface supply through Harbourview. Browse screened buy-side requests from operators seeking equipment, inventory and services.',
 }
 
 export default function WantedPage() {
@@ -14,12 +14,13 @@ export default function WantedPage() {
     <>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Buyer Wanted Requests</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Active buy-side requests from operators seeking specific equipment,
-            inventory, and services. Browse existing requests or post your own
-            through the seller intake form.
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Wanted Requests</h1>
+          <p className="text-gray-300 max-w-2xl mb-6">
+            Browse screened buy-side requests from operators seeking equipment, inventory and services — or post your own wanted request. Harbourview reviews each request and routes it through inquiry-first follow-up before any supplier contact.
           </p>
+          <Link href="/marketplace/sell?type=wanted" className="btn-primary">
+            Post a Wanted Request
+          </Link>
         </div>
       </section>
 
@@ -28,25 +29,21 @@ export default function WantedPage() {
           {/* How it works */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
             <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Browse Requests</h3>
+              <h3 className="font-semibold text-navy text-base mb-2">Post a Request</h3>
               <p className="text-gray-500 text-sm">
-                Review active buy-side requests from operators. If you can supply
-                what a buyer needs, submit a listing referencing the request.
+                Describe what you need to source — equipment, inventory, inputs or services. Use the wanted request form and Harbourview will review the submission before routing it to relevant suppliers.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Post a Request</h3>
+              <h3 className="font-semibold text-navy text-base mb-2">Screened Intake</h3>
               <p className="text-gray-500 text-sm">
-                Looking for specific equipment, inventory, or services? Submit a
-                wanted request through the seller intake form — select &quot;Wanted
-                Request&quot; as the listing type.
+                Wanted requests use the same reviewed intake form as supply listings. Harbourview screens for category fit and commercial relevance before any supplier routing.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
               <h3 className="font-semibold text-navy text-base mb-2">Managed Introductions</h3>
               <p className="text-gray-500 text-sm">
-                Harbourview facilitates introductions between screened buyers and
-                sellers. Confidentiality is maintained throughout.
+                Harbourview facilitates inquiry-first introductions between screened buyers and suppliers. Confidentiality is maintained throughout.
               </p>
             </div>
           </div>
@@ -72,7 +69,7 @@ export default function WantedPage() {
 
           <div className="mt-12 border-t pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <p className="text-gray-500 text-sm">
-              Have something that matches a request?{' '}
+              Have supply that matches a request?{' '}
               <Link href="/marketplace/sell" className="text-navy underline hover:text-gold">
                 Submit a listing
               </Link>{' '}

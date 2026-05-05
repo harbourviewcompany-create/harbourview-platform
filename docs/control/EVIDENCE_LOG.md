@@ -2,6 +2,57 @@
 
 This file records release evidence for Harbourview Marketplace production gates.
 
+## 2026-05-05: Marketplace Commercial Polish V1
+
+**Evidence ID:** `HV-MARKETPLACE-COMMERCIAL-POLISH-V1`
+
+**Branch:** `marketplace-commercial-polish-v1`
+
+**Agent:** Claude (automated)
+
+**Claim being verified:** Public marketplace pages have been rewritten for commercial supplier acquisition and inquiry-first framing. No schema, RLS, admin authorization, capture route or admin guard changes were made.
+
+**Files changed**
+
+- `app/marketplace/page.tsx` — Hero rewritten with supplier/buyer proposition, two dominant CTAs (Submit Supply, Post Wanted Request), secondary CTA (Request Confidential Support), three-step trust block (Submit/Screen/Route), supplier acquisition section with accepted/excluded categories.
+- `app/marketplace/consumables/page.tsx` — Hero updated to commercial sourcing language, body copy updated, CTA updated to `/marketplace/quote?listing=Consumables%20and%20Operating%20Supplies` and `/marketplace/sell?type=wanted`.
+- `app/marketplace/wanted/page.tsx` — Hero rewritten, primary CTA made dominant above fold, guidance blocks reworded to screened intake and inquiry-first routing, removed language requiring users to manually select listing type.
+- `app/marketplace/sell/page.tsx` — Wanted-mode hero body copy and in-form banner updated with clearer instruction per spec.
+- `lib/fixtures/consumables.ts` — All 8 listing titles and descriptions replaced with commercial opportunity framing. Titles: Bulk Packaging Supply Programs, Recurring Lab & QA Consumables, Cultivation Operating Supplies, Processing Room Consumables, Sanitation & PPE Replenishment, Logistics & Warehouse Supplies, Retail Operating Supplies, Maintenance Consumables Supply.
+
+**Routes affected**
+
+- `/marketplace` (hero, trust block, supplier acquisition section, category grid)
+- `/marketplace/consumables` (hero, body, CTAs, listing cards)
+- `/marketplace/wanted` (hero, guidance blocks, CTAs)
+- `/marketplace/sell` (wanted-mode body and in-form instruction)
+- `/marketplace/sell?type=wanted` (wanted-mode body and in-form instruction)
+
+**Tests run**
+
+| Test | Command | Result |
+|---|---|---|
+| TypeScript typecheck | `npm run typecheck` | Pre-existing environment type errors (missing `@types/node`/`next` in standalone tsc). No new errors introduced. Same error set as `main`. |
+| Next.js build | `npm run build` | PASS — all pages compiled, `/marketplace`, `/marketplace/consumables`, `/marketplace/wanted`, `/marketplace/sell` emitted cleanly. |
+| Public provenance visibility | `npm run test:visibility` | PASS — `ok public listing render files do not expose source/provenance fields` |
+
+**Leakage result**
+
+PASS. No forbidden strings (sourceUrl, sourceName, provenanceSummary, sourceEvidence, verificationStatus, availabilityStatus, sellerAuthorizationStatus, internalReviewNotes, reviewedBy, lastReviewedAt, nextReviewDueAt, source_registry, source_snapshots, marketplace_candidates, candidate_review_events) appear in any public render file.
+
+**Hard boundaries confirmed**
+
+- No migrations added.
+- No Supabase schema changes.
+- No RLS policy changes.
+- No admin authorization or adminGuard changes.
+- No protected admin route changes.
+- No `/api/marketplace/capture` behavior changes.
+- No source URLs, provenance, evidence or internal fields exposed publicly.
+- No verified/confirmed/guaranteed/live-deal language used.
+
+**Final verdict:** READY TO MERGE
+
 ## 2026-05-04: Live Source Intake V0 and Consumables Foundation implementation
 
 **Evidence ID:** `HV-LIVE-SOURCE-INTAKE-V0-CONSUMABLES`

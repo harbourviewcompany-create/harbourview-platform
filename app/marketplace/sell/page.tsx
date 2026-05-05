@@ -24,7 +24,7 @@ export default async function SellPage({
           </h1>
           <p className="text-gray-300 max-w-2xl">
             {isWanted
-              ? 'Looking for specific equipment, inventory, or services? Post a wanted request below — select "Wanted Request" as the listing type. Harbourview will match you with qualified suppliers.'
+              ? 'Describe what you need to source — equipment, inventory, inputs or services. Harbourview will review the request before routing it to relevant suppliers or keeping it confidential.'
               : 'Submit equipment, inventory, services, or a business opportunity for review. Listings are assessed before reaching the marketplace and introductions are made to qualified counterparties.'}
           </p>
         </div>
@@ -34,8 +34,7 @@ export default async function SellPage({
         <div className="page-container max-w-2xl">
           {isWanted && (
             <div className="mb-6 rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-navy">
-              <strong>Posting a Wanted Request:</strong> Select &ldquo;Wanted Request&rdquo; as the
-              listing type below and describe what you are looking to source.
+              <strong>Posting a Wanted Request:</strong> Use this form to describe what you need to source. Harbourview will review the request before routing it to relevant suppliers or keeping it confidential. Select &ldquo;Wanted Request&rdquo; as the listing type below.
             </div>
           )}
           <IntakeForm />

@@ -28,66 +28,66 @@ const common = {
 export const consumables: Listing[] = [
   {
     id: 'cons-001',
-    title: 'Packaging Supply Category',
+    title: 'Bulk Packaging Supply Programs',
     description:
-      'Operating supplies category for packaging programs. Specifications, quantity, region, supplier fit and commercial terms are available upon inquiry.',
-    tags: ['Packaging', 'Supplier Qualification Required', 'Bulk supply category'],
+      'Recurring bulk packaging supply for cannabis operators. Pouches, jars, tubes, exit bags, tamper seals and branded packaging formats available through inquiry-first supplier qualification. Volume, specification, format and region are confirmed before supplier introduction.',
+    tags: ['Packaging', 'Bulk Programs', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-002',
-    title: 'Lab & QA Supplies Category',
+    title: 'Recurring Lab & QA Consumables',
     description:
-      'Operating supplies category for lab and quality workflows. Harbourview routes inquiries for specification review and supplier qualification before introduction.',
-    tags: ['Lab & QA Supplies', 'Specifications available upon inquiry'],
+      'Lab and quality assurance consumable supply for licensed operators. Testing supplies, sample containers, labware, documentation materials and recurring QA inputs sourced through screened supplier qualification. Specifications and volumes are handled by inquiry.',
+    tags: ['Lab & QA', 'Recurring Supply', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-003',
-    title: 'Cultivation Supplies Category',
+    title: 'Cultivation Operating Supplies',
     description:
-      'Operating supplies category for cultivation teams seeking recurring inputs, facility materials or qualified supply options. Inquiry review is required.',
-    tags: ['Cultivation Supplies', 'Inquiry Required'],
+      'Cultivation inputs and facility materials for licensed growing operations. Nutrients, growing media, monitoring supplies, facility consumables and seasonal inputs sourced through inquiry-first supplier qualification. Volume, timing and specification are confirmed before routing.',
+    tags: ['Cultivation', 'Operating Supplies', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-004',
-    title: 'Processing Supplies Category',
+    title: 'Processing Room Consumables',
     description:
-      'Operating supplies category for production and processing workflows. Supplier qualification, quantity, specifications and region are handled by inquiry.',
-    tags: ['Processing Supplies', 'Supplier Qualification Required'],
+      'Consumables for cannabis processing and production environments. Extraction-compatible materials, processing aids, containment supplies and facility consumables available through screened supplier qualification. Supplier fit and specifications are handled by inquiry.',
+    tags: ['Processing', 'Production Supplies', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-005',
-    title: 'Sanitation & PPE Category',
+    title: 'Sanitation & PPE Replenishment',
     description:
-      'Operating supplies category for sanitation, facility and PPE programs. Specifications, volume, destination and supplier fit are available upon inquiry.',
-    tags: ['Sanitation & PPE', 'Operating supplies category'],
+      'Sanitation, hygiene and personal protective equipment for cannabis facility operations. Recurring replenishment programs for cleaning supplies, PPE, facility hygiene products and compliance-relevant materials sourced through inquiry-first qualification.',
+    tags: ['Sanitation', 'PPE', 'Facility Compliance', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-006',
-    title: 'Logistics & Warehouse Supplies Category',
+    title: 'Logistics & Warehouse Supplies',
     description:
-      'Operating supplies category for storage, shipping, handling and warehouse requirements. Harbourview reviews inquiries before supplier routing.',
-    tags: ['Logistics & Warehouse Supplies', 'Bulk supply category'],
+      'Logistics, storage and warehouse supply programs for cannabis operators. Cartons, pallets, handling materials, climate-control packaging and inbound/outbound supply chain consumables handled through screened supplier qualification. Volume and region confirmed by inquiry.',
+    tags: ['Logistics', 'Warehouse', 'Supply Chain', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-007',
-    title: 'Retail Supplies Category',
+    title: 'Retail Operating Supplies',
     description:
-      'Operating supplies category for retail support materials and recurring supply needs. Commercial terms and supplier options are available upon inquiry.',
-    tags: ['Retail Supplies', 'Inquiry Required'],
+      'Retail support materials and point-of-sale consumables for licensed cannabis retailers. Display materials, bags, receipts, compliance labels, customer-facing packaging and recurring retail supply needs sourced through inquiry-first supplier qualification.',
+    tags: ['Retail', 'Point of Sale', 'Operating Supplies', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-008',
-    title: 'Maintenance Consumables Category',
+    title: 'Maintenance Consumables Supply',
     description:
-      'Operating supplies category for maintenance, facility upkeep and routine replenishment. Supplier qualification and specifications are reviewed privately.',
-    tags: ['Maintenance Consumables', 'Specifications available upon inquiry'],
+      'Maintenance, facility upkeep and routine replenishment supply for cannabis operations. Replacement parts, cleaning agents, lubricants, safety supplies and recurring maintenance materials sourced through screened supplier qualification. Specifications reviewed privately.',
+    tags: ['Maintenance', 'Facility Upkeep', 'Recurring Supply', 'Inquiry Required'],
     ...common,
   },
 ].map(withRepresentativeImage)
