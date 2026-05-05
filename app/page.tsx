@@ -18,19 +18,18 @@ const capabilities = [
     body: 'Market monitoring, pricing signals, and deal flow analysis across regulated markets.',
   },
   {
-    title: 'Managed Deal Access',
-    body: 'Reviewed opportunities are matched so buyers and sellers only engage with screened, relevant matches.',
+    title: 'Strategic Introductions',
+    body: 'Facilitated counterparty introductions with pre-qualification, background review, and confidentiality controls built into every engagement.',
   },
   {
-    title: 'Counterparty Screening',
-    body: 'Background review and commercial assessment of buyers, sellers, and partners before introductions are made.',
+    title: 'Managed Deal Access',
+    body: 'Opportunities are matched to qualified counterparties through a structured process — buyers and sellers only engage with screened, relevant matches.',
   },
 ]
 
 export default function HomePage() {
   return (
     <>
-      {/* Section 1 — Hero */}
       <section className="bg-navy text-white py-24">
         <div className="page-container max-w-4xl">
           <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-6">
@@ -55,13 +54,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Section 2 — What Harbourview Does */}
       <section className="py-20 bg-white">
         <div className="page-container">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
             What Harbourview Does
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {capabilities.map((item) => (
               <div key={item.title} className="border-t-2 border-gold pt-5">
                 <h3 className="font-semibold text-navy text-base mb-2">{item.title}</h3>
@@ -72,7 +70,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Section 3 — Buyer and Seller Pathways */}
       <section className="py-20 bg-gray-50">
         <div className="page-container grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <div>
@@ -112,51 +109,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Section 4 — Signals and Intelligence */}
-      <section className="bg-navy text-white py-20">
-        <div className="page-container">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-10">
-            Intelligence Capabilities
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div className="border border-navy-light rounded-lg p-8">
-              <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-                Coming Soon
-              </div>
-              <h3 className="text-xl font-bold mb-3">Signals</h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                Market monitoring and commercial signals for regulated industry
-                participants — pricing trends, supply shifts, and deal flow indicators.
-              </p>
-              <Link
-                href="/signals"
-                className="text-gold text-sm font-medium hover:underline"
-              >
-                Learn more →
-              </Link>
-            </div>
-
-            <div className="border border-navy-light rounded-lg p-8">
-              <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-                Coming Soon
-              </div>
-              <h3 className="text-xl font-bold mb-3">Intelligence</h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                Commercial briefs, counterparty dossiers, and route-to-market analysis
-                prepared for operators, investors, and advisors.
-              </p>
-              <Link
-                href="/intelligence"
-                className="text-gold text-sm font-medium hover:underline"
-              >
-                Learn more →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 5 — Confidential Intake CTA */}
       <section className="py-20 bg-white">
         <div className="page-container max-w-2xl text-center mx-auto">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
