@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createGeneticsRoutingRecord } from '@/lib/introduction-routing/geneticsExecution'
+import { persistGeneticsRoutingRecord, persistGeneticsRoutingEvent } from '@/lib/introduction-routing/geneticsStorage'
+import { createClient } from '@supabase/supabase-js'
+
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,8 +16,18 @@ export async function POST(req: NextRequest) {
 
     const record = createGeneticsRoutingRecord(body)
 
-    // V1: return computed routing record
-    // TODO: persist to Supabase using service role key when configured
+    const client = getServiceClient()
+
+    if (client) {
+      await persistGeneticsRoutingRecord({ client, record })
+
+      await persistGeneticsRoutingEvent({
+        client,
+        routingRecordId: record.id,
+        eventType: 'request_created',
+        eventSummary: 'Genetics access request created and scored',
+      })
+    }
 
     return NextResponse.json({ success: true, record })
   } catch (err) {
