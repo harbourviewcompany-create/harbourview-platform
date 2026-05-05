@@ -6,6 +6,10 @@ import {
   standardClinicalEducationDisclaimer,
 } from '@/lib/fixtures/clinical-education'
 
+function isGated(module: ClinicalEducationModule) {
+  return module.moduleStatus === 'Research in progress' || module.moduleStatus === 'Professional review required'
+}
+
 export function ClinicalEducationStatusBadge({
   status,
   riskLevel,
@@ -84,21 +88,42 @@ export function ClinicalEducationModuleCard({ module }: { module: ClinicalEducat
 }
 
 export function ClinicalEducationModuleDetail({ module }: { module: ClinicalEducationModule }) {
+  const gated = isGated(module)
+
   return (
     <section className="bg-white py-16">
       <div className="page-container grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
         <div>
           <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-gold">Education scope</h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <Panel title="Audience" items={module.audience} />
-            <Panel title="Education themes" items={module.educationThemes} />
-            <Panel title="Format relevance" items={module.formatRelevance} />
-            <Panel title="Country relevance" items={module.countryRelevance} />
-          </div>
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <Panel title="Allowed public language" items={module.safeLanguage} />
-            <Panel title="Controlled language" items={module.restrictedLanguage} />
-          </div>
+          {gated ? (
+            <div className="rounded-lg border border-gold bg-gold-pale p-8">
+              <ClinicalEducationStatusBadge status="Available by request" riskLevel={module.riskLevel} />
+              <h3 className="mt-5 text-2xl font-bold text-navy">Detailed module available by request</h3>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-gray-600">
+                This module is visible as part of the Harbourview Network education map, but detailed public content is held until review is complete. Qualified requests can be routed through the education support intake.
+              </p>
+              <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <Panel title="Audience" items={module.audience} />
+                <Panel title="Controlled themes" items={module.educationThemes.slice(0, 5)} />
+              </div>
+              <Link href="/network/clinical-education/request" className="mt-6 inline-flex btn-primary px-6 py-3 text-sm">
+                Request Education Support
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <Panel title="Audience" items={module.audience} />
+                <Panel title="Education themes" items={module.educationThemes} />
+                <Panel title="Format relevance" items={module.formatRelevance} />
+                <Panel title="Country relevance" items={module.countryRelevance} />
+              </div>
+              <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <Panel title="Allowed public language" items={module.safeLanguage} />
+                <Panel title="Controlled language" items={module.restrictedLanguage} />
+              </div>
+            </>
+          )}
         </div>
         <aside className="space-y-6">
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-6">
@@ -109,8 +134,8 @@ export function ClinicalEducationModuleDetail({ module }: { module: ClinicalEduc
                 <dd className="text-gray-500">{module.researchStatus}</dd>
               </div>
               <div>
-                <dt className="font-semibold text-navy">Professional review</dt>
-                <dd className="text-gray-500">{module.professionalReviewRequired ? 'Required before advanced publication' : 'Not required for current public overview'}</dd>
+                <dt className="font-semibold text-navy">Public availability</dt>
+                <dd className="text-gray-500">{gated ? 'Available by request until review is complete' : 'Public overview available'}</dd>
               </div>
             </dl>
           </div>
@@ -157,7 +182,7 @@ export function CountryReadinessTable({ countries }: { countries: ClinicalEducat
 
 function Panel({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-lg border border-gray-200 p-6">
+    <div className="rounded-lg border border-gray-200 bg-white p-6">
       <h3 className="font-semibold text-navy">{title}</h3>
       <ul className="mt-4 space-y-2 text-sm text-gray-500">
         {items.map((item) => (
