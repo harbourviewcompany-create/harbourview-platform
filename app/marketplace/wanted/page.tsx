@@ -4,11 +4,11 @@ import { wantedRequests } from '@/lib/fixtures/wanted-requests'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
-  title: 'Post What You Want to Buy | Harbourview Marketplace',
+  title: 'Post What You Want to Buy | Harbourview Network',
   description:
-    'Post a wanted request on Harbourview Marketplace. Describe what you want to buy and Harbourview will review and route supplier responses privately.',
+    'Post a wanted request through Harbourview Network. Describe what you want to buy and Harbourview will review and route supplier responses privately.',
   openGraph: {
-    title: 'Post What You Want to Buy | Harbourview Marketplace',
+    title: 'Post What You Want to Buy | Harbourview Network',
     description:
       'Post a wanted request and Harbourview will route supplier responses privately.',
   },

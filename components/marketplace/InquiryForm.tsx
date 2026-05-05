@@ -84,7 +84,7 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
 
         <label className="flex gap-3 text-sm leading-6 text-[#F5F1E8]/70 md:col-span-2">
           <input type="checkbox" name="consent" required className="mt-1 h-4 w-4" />
-          I consent to Harbourview reviewing this inquiry and contacting me about marketplace, sourcing or intelligence services.
+          I consent to Harbourview reviewing this inquiry and contacting me about Network, sourcing or intelligence services.
         </label>
 
         <div className="flex flex-col gap-3 md:col-span-2 sm:flex-row sm:items-center">

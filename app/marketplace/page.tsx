@@ -2,13 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Marketplace | Harbourview',
+  title: 'Network | Harbourview',
   description:
-    'Buy and sell equipment, supplies, services and commercial opportunities through Harbourview. Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions.',
+    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.',
   openGraph: {
-    title: 'Harbourview Marketplace',
+    title: 'Harbourview Network',
     description:
-      'Buy and sell equipment, supplies, services and commercial opportunities through Harbourview.',
+      'A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.',
   },
 }
 
@@ -56,10 +56,10 @@ const categories = [
       'Post what you want to buy. Harbourview reviews requests and routes them to relevant suppliers privately.',
   },
   {
-    label: 'Marketplace Listings',
+    label: 'Network Opportunities',
     href: '/marketplace/listings',
     description:
-      'Reviewed listing candidates across equipment, operating supplies and commercial opportunities routed through Harbourview qualification.',
+      'Reviewed Network opportunities across equipment, operating supplies and commercial opportunities routed through Harbourview qualification.',
   },
   {
     label: 'Supplier Directory',
@@ -77,23 +77,23 @@ export default function MarketplacePage() {
         <div className="page-container">
           <div className="max-w-4xl">
             <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-gold">
-              Harbourview Marketplace
+              Harbourview Network
             </p>
             <h1 className="text-3xl font-bold leading-tight sm:text-5xl">
-              Buy and sell equipment, supplies, services and commercial opportunities through Harbourview.
+              A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-gray-300 sm:text-lg">
-              Harbourview helps sellers surface available opportunities and helps buyers inquire to purchase. Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions or transaction follow-up.
+              Harbourview Network helps serious operators surface qualified supply, buyer demand, commercial opportunities and market-specific pathways. Contact details are not public. Harbourview reviews inquiries before coordinating introductions or transaction follow-up.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link href="/marketplace/sell" className="btn-primary text-center">
-                List Something for Sale
+                Submit Opportunity
               </Link>
               <Link
                 href="#categories"
                 className="btn-outline border-gold text-center text-gold hover:bg-gold hover:text-navy"
               >
-                Browse Marketplace
+                Browse Network
               </Link>
               <Link
                 href="/marketplace/sell?type=wanted"
@@ -106,21 +106,21 @@ export default function MarketplacePage() {
         </div>
       </section>
 
-      {/* How deals work */}
+      {/* How the network works */}
       <section className="border-b border-gray-100 py-12">
         <div className="page-container">
-          <h2 className="mb-6 text-lg font-semibold text-navy">How deals work</h2>
+          <h2 className="mb-6 text-lg font-semibold text-navy">How the network works</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="border-t-2 border-gold pt-5">
-              <h3 className="mb-2 text-base font-semibold text-navy">Sellers list</h3>
+              <h3 className="mb-2 text-base font-semibold text-navy">Operators submit</h3>
               <p className="text-sm text-gray-500">
-                Sellers submit available items, assets, services or opportunities for Harbourview review. Listing is not automatic and does not expose seller contact details publicly.
+                Operators submit available products, assets, services or opportunities for Harbourview review. Publication is not automatic and does not expose contact details publicly.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
               <h3 className="mb-2 text-base font-semibold text-navy">Buyers browse and inquire</h3>
               <p className="text-sm text-gray-500">
-                Buyers browse public categories, view listings and inquire to buy. Buyer inquiries are reviewed by Harbourview before any counterparty contact.
+                Buyers browse Network categories, view opportunities and inquire to buy. Buyer inquiries are reviewed by Harbourview before any counterparty contact.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
@@ -142,7 +142,7 @@ export default function MarketplacePage() {
       {/* Category grid */}
       <section id="categories" className="py-12">
         <div className="page-container">
-          <h2 className="mb-6 text-lg font-semibold text-navy">Browse categories</h2>
+          <h2 className="mb-6 text-lg font-semibold text-navy">Network categories</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((cat) => (
               <Link key={cat.href} href={cat.href} className="card p-6">
@@ -158,14 +158,14 @@ export default function MarketplacePage() {
       <section className="border-t border-gray-100 py-10">
         <div className="page-container flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-semibold text-navy">Have something to sell?</p>
+            <p className="font-semibold text-navy">Have an opportunity to submit?</p>
             <p className="text-sm text-gray-500">
               Submit equipment, supplies, services or commercial opportunities for Harbourview review.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link href="/marketplace/sell" className="btn-primary shrink-0">
-              List Something for Sale
+              Submit Opportunity
             </Link>
             <Link
               href="/marketplace/sell?type=wanted"

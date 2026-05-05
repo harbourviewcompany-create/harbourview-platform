@@ -12,9 +12,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const listing = consumables.find((l) => l.id === id)
-  if (!listing) return { title: 'Listing not found | Harbourview Marketplace' }
+  if (!listing) return { title: 'Listing not found | Harbourview Network' }
   return {
-    title: `${listing.title} | Harbourview Marketplace`,
+    title: `${listing.title} | Harbourview Network`,
     description: `${listing.description.slice(0, 140)} — Inquire to buy through Harbourview.`,
   }
 }
@@ -34,7 +34,7 @@ export default async function ConsumableDetailPage({ params }: Props) {
       <section className="bg-navy text-white py-10">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link>
+            <Link href="/marketplace" className="hover:underline">Network</Link>
             {' / '}
             <Link href="/marketplace/consumables" className="hover:underline">Consumables &amp; Operating Supplies</Link>
             {' /'}
@@ -104,7 +104,7 @@ export default async function ConsumableDetailPage({ params }: Props) {
               {/* Screening note */}
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <p className="text-xs text-gray-500">
-                  <strong className="text-gray-700">Compliance and screening:</strong> Restricted chemicals, controlled solvents, pesticides, prescription products, unverified cannabis inventory and genetics or seeds without licence-review clearance are excluded from this marketplace. Harbourview reviews all submissions before any introduction or routing.
+                  <strong className="text-gray-700">Compliance and screening:</strong> Restricted chemicals, controlled solvents, pesticides, prescription products, unverified cannabis inventory and genetics or seeds without licence-review clearance are excluded from Harbourview Network. Harbourview reviews all submissions before any introduction or routing.
                 </p>
               </div>
             </div>

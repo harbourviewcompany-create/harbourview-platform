@@ -16,7 +16,7 @@ export default function CannabisInventoryPage() {
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
+          <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl font-bold mb-2">Cannabis Inventory</h1>
           <p className="text-gray-300 max-w-xl">

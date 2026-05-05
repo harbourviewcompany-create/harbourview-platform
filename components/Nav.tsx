@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const marketplaceLinks = [
-  { label: 'Marketplace Listings', href: '/marketplace/listings' },
+  { label: 'Network Opportunities', href: '/marketplace/listings' },
   { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
@@ -15,8 +15,8 @@ const marketplaceLinks = [
 ]
 
 const navLinks = [
-  { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
-  { label: 'List for Sale', href: '/marketplace/sell', hasDropdown: false },
+  { label: 'Network', href: '/marketplace', hasDropdown: true },
+  { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
   { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
   { label: 'Signals', href: '/signals', hasDropdown: false },
   { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
@@ -95,7 +95,7 @@ export default function Nav() {
         <div className="lg:hidden bg-navy-dark border-t border-navy-light">
           <div className="page-container py-4 flex flex-col gap-3 text-sm font-medium">
             <Link href="/marketplace" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Marketplace
+              Network
             </Link>
             {marketplaceLinks.map((l) => (
               <Link
@@ -108,7 +108,7 @@ export default function Nav() {
               </Link>
             ))}
             <Link href="/marketplace/sell" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              List for Sale
+              Submit Opportunity
             </Link>
             <Link href="/marketplace/wanted" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Wanted Requests

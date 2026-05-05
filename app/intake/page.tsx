@@ -37,13 +37,13 @@ export default function IntakePage() {
             </div>
 
             <div className="card p-6">
-              <h2 className="text-navy font-semibold text-base mb-3">Submit a Listing</h2>
+              <h2 className="text-navy font-semibold text-base mb-3">Submit Opportunity</h2>
               <p className="text-sm text-gray-500 mb-4">
                 To list equipment, inventory, services, or a business opportunity
-                in the marketplace, use the dedicated seller intake form.
+                through Harbourview Network, use the dedicated opportunity intake form.
               </p>
               <a href="/marketplace/sell" className="btn-primary text-sm">
-                Go to Seller Intake
+                Go to Opportunity Intake
               </a>
             </div>
 
