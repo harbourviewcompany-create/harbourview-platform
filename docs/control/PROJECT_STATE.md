@@ -82,6 +82,22 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 
 `MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
 
+## Marketplace Commercial Polish V1
+
+**Status:** IMPLEMENTATION BRANCH
+
+**Branch:** `marketplace-commercial-polish-v1`
+
+Marketplace commercial polish was added to improve supplier acquisition, wanted-request conversion and inquiry-first category framing. No schema, RLS, admin authorization, admin guard logic, protected admin routes, Supabase helpers or capture architecture changes are included.
+
+**Public scope**
+
+- `/marketplace` now leads with supplier and buyer conversion CTAs above the category grid.
+- `/marketplace` documents the inquiry handling model: submit, screen and route.
+- `/marketplace` includes supplier acquisition copy for marketplace visibility review.
+- `/marketplace/consumables` uses inquiry-first sourcing language and public-safe consumables opportunity cards.
+- `/marketplace/wanted` and `/marketplace/sell?type=wanted` reduce wanted-request friction with direct buyer-demand instructions.
+
 ## Live Source Intake V0 and consumables foundation
 
 **Status:** IMPLEMENTATION BRANCH

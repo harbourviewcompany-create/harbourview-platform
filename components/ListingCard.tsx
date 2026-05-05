@@ -122,7 +122,17 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
 
 export default function ListingCard({ listing }: ListingCardProps) {
   const isWantedRequest = listing.category === 'wanted-requests'
-  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request Quote'
+  const isConsumables =
+    listing.title.toLowerCase().includes('consumable') ||
+    listing.title.toLowerCase().includes('supplies') ||
+    listing.tags.some((tag) =>
+      ['packaging', 'lab & qa supplies', 'cultivation supplies', 'processing supplies', 'sanitation & ppe', 'logistics & warehouse supplies', 'retail supplies', 'maintenance consumables'].includes(tag.toLowerCase())
+    )
+  const inquiryLabel = isWantedRequest
+    ? 'Respond to Request'
+    : isConsumables
+      ? 'Request Supply Information'
+      : 'Request Quote'
   const inquirySubject = isWantedRequest
     ? `Harbourview Wanted Request Response: ${listing.title}`
     : `Harbourview Marketplace Inquiry: ${listing.title}`
