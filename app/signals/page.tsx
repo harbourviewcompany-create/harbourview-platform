@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Signals',
@@ -91,9 +90,21 @@ export default function SignalsPage() {
               Request early access to dated, source-backed regulatory monitoring
               for market access, compliance strategy and commercial timing.
             </p>
-            <Link href="/intake" className="btn-primary px-8 py-3">
-              Request Access
-            </Link>
+            <form className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+              <label htmlFor="signals-email" className="sr-only">
+                Get notified when this launches
+              </label>
+              <input
+                id="signals-email"
+                name="email"
+                type="email"
+                placeholder="Get notified when this launches"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+              />
+              <button type="submit" className="btn-primary shrink-0 px-6 py-2 text-sm">
+                Notify Me
+              </button>
+            </form>
           </div>
         </div>
       </section>
