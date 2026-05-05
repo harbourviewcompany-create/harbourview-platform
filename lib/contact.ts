@@ -1,6 +1,8 @@
+const BRANDED_CONTACT_EMAIL = ['hello', 'harbourview.co'].join('@')
+
 export const HARBOURVIEW_CONTACT = {
-  email: 'harbourviewcompany@gmail.com',
-  mailtoHref: 'mailto:harbourviewcompany@gmail.com',
+  email: BRANDED_CONTACT_EMAIL,
+  mailtoHref: `mailto:${BRANDED_CONTACT_EMAIL}`,
   phone: null,
   phoneHref: null,
   whatsapp: null,
