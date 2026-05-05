@@ -48,9 +48,19 @@ export default function HomePage() {
               href="/marketplace"
               className="btn-outline px-8 py-3 text-base border-gold text-gold hover:bg-gold hover:text-navy"
             >
-              Explore Marketplace
+              Explore Network
             </Link>
           </div>
+        </div>
+      </section>
+
+
+      <section className="bg-navy text-white py-20">
+        <div className="page-container max-w-3xl">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">Harbourview Network</h2>
+          <h3 className="text-2xl sm:text-3xl font-bold mb-5">A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.</h3>
+          <p className="text-gray-300 leading-relaxed mb-8">Harbourview Network covers reviewed supply, buyer demand, commercial opportunities and market-specific pathways. Contact details are not public. Harbourview reviews inquiries before coordinating introductions or transaction follow-up.</p>
+          <Link href="/marketplace" className="btn-primary px-8 py-3 text-base">Enter Network</Link>
         </div>
       </section>
 
@@ -81,12 +91,12 @@ export default function HomePage() {
             </h3>
             <p className="text-gray-500 leading-relaxed mb-6">
               Browse listings that have been reviewed before publication. Post wanted
-              requests to reach sellers actively monitoring the Marketplace. Request
+              requests to reach sellers actively monitoring the Network. Request
               controlled introductions to screened counterparties. Confidentiality
               is maintained throughout.
             </p>
             <Link href="/marketplace/wanted" className="btn-secondary px-6 py-2.5 text-sm">
-              Post a Wanted Request
+              Post What You Want to Buy
             </Link>
           </div>
 
@@ -99,7 +109,7 @@ export default function HomePage() {
             </h3>
             <p className="text-gray-500 leading-relaxed mb-6">
               Submit products, inventory, equipment, or services for review. Listings
-              are assessed before reaching the Marketplace. Introductions are made to
+              are assessed before reaching the Network. Introductions are made to
               qualified counterparties — not broadcast to unscreened audiences.
             </p>
             <Link href="/marketplace/sell" className="btn-secondary px-6 py-2.5 text-sm">

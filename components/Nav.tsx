@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const marketplaceLinks = [
-  { label: 'Marketplace Opportunities', href: '/marketplace/listings' },
+  { label: 'Network Opportunities', href: '/marketplace/listings' },
   { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
@@ -15,7 +15,7 @@ const marketplaceLinks = [
 ]
 
 const navLinks = [
-  { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
+  { label: 'Network', href: '/marketplace', hasDropdown: true },
   { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
   { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
   { label: 'Signals', href: '/signals', hasDropdown: false },
