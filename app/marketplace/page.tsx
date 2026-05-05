@@ -34,7 +34,7 @@ const categories = [
     description: 'New equipment, automation and operating supplies.',
   },
   {
-    label: 'Controlled Inventory',
+    label: 'Cannabis Inventory',
     href: '/marketplace/cannabis-inventory',
     description: 'Licensed-only inventory review and routing.',
   },
@@ -46,7 +46,7 @@ const categories = [
   {
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
-    description: 'Active buyer demand across equipment and inventory.',
+    description: 'Active buyer demand across equipment, inputs and inventory.',
   },
   {
     label: 'Marketplace Opportunities',
