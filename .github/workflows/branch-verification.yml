@@ -29,5 +29,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Listing quality
+        run: npm run test:listing-quality
+
+      - name: Public visibility
+        run: npm run test:visibility
+
       - name: Build
         run: npm run build
