@@ -64,7 +64,7 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     price: 'Price on request',
     condition: 'used',
     location: 'Oakland, CA',
-    tags: ['Lab Equipment', 'HPLC', 'Testing', 'Analytical', 'Closing Operation', 'Inquiry Required'],
+    tags: ['Lab Equipment', 'HPLC', 'Testing', 'Analytical', 'Closing Operation', '3 units', 'Inquiry Required'],
     postedDate: '2026-05-05',
     contactEmail: 'harbourviewcompany@gmail.com',
   },

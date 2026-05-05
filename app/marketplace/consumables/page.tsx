@@ -4,11 +4,11 @@ import { consumables } from '@/lib/fixtures/consumables'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
-  title: 'Consumables & Operating Supplies | Harbourview Marketplace',
+  title: 'Consumables & Operating Supplies | Harbourview Network',
   description:
     'Bulk and recurring packaging, lab, cultivation, processing, sanitation, logistics, retail and maintenance supply. Inquire to buy through Harbourview.',
   openGraph: {
-    title: 'Consumables & Operating Supplies | Harbourview Marketplace',
+    title: 'Consumables & Operating Supplies | Harbourview Network',
     description:
       'Bulk and recurring consumables and operating supplies. Inquire to buy through Harbourview.',
   },
@@ -20,7 +20,7 @@ export default function ConsumablesPage() {
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
+            <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl font-bold mb-2">Consumables &amp; Operating Supplies</h1>
           <p className="text-gray-300 max-w-xl">

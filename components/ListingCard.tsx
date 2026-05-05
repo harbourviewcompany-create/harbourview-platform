@@ -136,7 +136,7 @@ export default function ListingCard({ listing }: ListingCardProps) {
   const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Inquire to Buy'
   const inquirySubject = isWantedRequest
     ? `Harbourview Wanted Request Response: ${listing.title}`
-    : `Harbourview Marketplace Inquiry: ${listing.title}`
+    : `Harbourview Network Inquiry: ${listing.title}`
 
   return (
     <article className="card p-5 flex h-full flex-col gap-4">

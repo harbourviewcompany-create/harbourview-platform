@@ -4,8 +4,8 @@ import { Suspense } from 'react'
 import QuoteRequestForm from './QuoteRequestForm'
 
 export const metadata: Metadata = {
-  title: 'Inquire to Buy | Harbourview Marketplace',
-  description: 'Submit a buyer inquiry for Harbourview Marketplace listings. Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions.',
+  title: 'Inquire to Buy | Harbourview Network',
+  description: 'Submit a buyer inquiry for Harbourview Network opportunities. Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions.',
 }
 
 export default function QuoteRequestPage() {
@@ -14,7 +14,7 @@ export default function QuoteRequestPage() {
       <section className="bg-navy text-white py-14">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
+            <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Inquire to Buy</h1>
           <p className="text-gray-300 max-w-2xl">

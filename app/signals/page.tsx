@@ -43,7 +43,7 @@ export default function SignalsPage() {
             <div className="border-t-2 border-gold pt-5">
               <h3 className="font-semibold text-navy text-base mb-2">Deal Flow</h3>
               <p className="text-gray-500 text-sm">
-                Aggregated deal flow indicators from Harbourview&apos;s marketplace
+                Aggregated deal flow indicators from Harbourview Network
                 and introduction activity.
               </p>
             </div>
