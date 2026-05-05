@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
+import { validateDealListing } from '@/lib/fixtures/listingQuality'
 import InquiryLink from './InquiryLink'
 
 interface ListingCardProps {
@@ -121,13 +122,17 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
+  if (process.env.NODE_ENV === 'development') {
+    const quality = validateDealListing(listing)
+    if (quality.warnings.length > 0) {
+      console.warn(
+        `[Harbourview ListingCard] Quality warnings for "${listing.id}":`,
+        quality.warnings.map((w) => `${w.signal}: ${w.message}`)
+      )
+    }
+  }
+
   const isWantedRequest = listing.category === 'wanted-requests'
-  const isConsumables =
-    listing.title.toLowerCase().includes('consumable') ||
-    listing.title.toLowerCase().includes('supplies') ||
-    listing.tags.some((tag) =>
-      ['packaging', 'lab & qa supplies', 'cultivation supplies', 'processing supplies', 'sanitation & ppe', 'logistics & warehouse supplies', 'retail supplies', 'maintenance consumables'].includes(tag.toLowerCase())
-    )
   const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Inquire to Buy'
   const inquirySubject = isWantedRequest
     ? `Harbourview Wanted Request Response: ${listing.title}`
