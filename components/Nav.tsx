@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const marketplaceLinks = [
-  { label: 'Source-Backed Listings', href: '/marketplace/listings' },
+  { label: 'Marketplace Listings', href: '/marketplace/listings' },
   { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
@@ -16,7 +16,7 @@ const marketplaceLinks = [
 
 const navLinks = [
   { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
-  { label: 'Submit Supply', href: '/marketplace/sell', hasDropdown: false },
+  { label: 'List for Sale', href: '/marketplace/sell', hasDropdown: false },
   { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
   { label: 'Signals', href: '/signals', hasDropdown: false },
   { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
@@ -108,7 +108,7 @@ export default function Nav() {
               </Link>
             ))}
             <Link href="/marketplace/sell" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Submit Supply
+              List for Sale
             </Link>
             <Link href="/marketplace/wanted" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Wanted Requests
