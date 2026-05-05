@@ -1,56 +1,56 @@
 {
   "verdict": "PASS_CONTROL_SAFE_V1",
   "environment": {
-    "timestamp": "2026-05-05T21:31:58.4040129+00:00",
-    "isAdmin": true,
     "windows": {
       "Caption": "Microsoft Windows Server 2025 Datacenter",
       "Version": "10.0.26100",
       "BuildNumber": "26100"
     },
     "unsignedBuildWarning": "Unsigned CI verification build",
-    "noAutoUpdate": true,
-    "npm": "10.9.7",
     "node": "v22.22.2",
-    "powershell": "7.4.14"
+    "isAdmin": true,
+    "timestamp": "2026-05-05T22:24:56.0948451+00:00",
+    "npm": "10.9.7",
+    "powershell": "7.4.14",
+    "noAutoUpdate": true
   },
   "steps": [
     {
       "exitCode": 0,
-      "name": "npm-test",
       "log": "verification-results/evidence/npm-test.log",
+      "name": "npm-test",
       "passed": true
     },
     {
       "exitCode": 0,
-      "name": "runtime-proof",
       "log": "verification-results/evidence/runtime-proof.log",
+      "name": "runtime-proof",
       "passed": true
     },
     {
       "exitCode": 0,
-      "name": "support-bundle",
       "log": "support-bundles/wbcc-support-bundle.json",
+      "name": "support-bundle",
       "passed": true
     },
     {
       "exitCode": 0,
-      "name": "log-integrity",
       "log": "logs.jsonl",
+      "name": "log-integrity",
       "passed": true
     },
     {
       "exitCode": 0,
-      "name": "checksum",
       "log": "SHA256SUMS.txt",
+      "name": "checksum",
       "passed": true
     }
   ],
   "cleanup": {
-    "startupFolderEntryRemoved": true,
     "hkcuRunRemoved": true,
     "allWbccTestObjectsRemoved": true,
-    "scheduledTaskRemoved": true
+    "scheduledTaskRemoved": true,
+    "startupFolderEntryRemoved": true
   },
   "runtimeProof": {
     "created": [
@@ -59,25 +59,25 @@
       "Scheduled Task"
     ],
     "cleanup": {
-      "startupFolderEntryRemoved": true,
       "hkcuRunRemoved": true,
       "allWbccTestObjectsRemoved": true,
-      "scheduledTaskRemoved": true
+      "scheduledTaskRemoved": true,
+      "startupFolderEntryRemoved": true
     },
     "serviceDependencySimulation": {
-      "blockedRunningDependentsWithoutAdvancedOverride": true,
       "checked": true,
-      "actionTaken": "simulation_only_no_services_stopped"
+      "actionTaken": "simulation_only_no_services_stopped",
+      "blockedRunningDependentsWithoutAdvancedOverride": true
     },
     "browserAudit": {
-      "checked": true,
-      "guidanceOnly": true
+      "guidanceOnly": true,
+      "checked": true
     },
     "startupRestore": {
-      "sourceSpecificRollback": true,
+      "hkcuRunTested": true,
       "hklmRunSkippedReason": "not_permitted_in_non_admin_ci",
       "startupFolderTested": true,
-      "hkcuRunTested": true
+      "sourceSpecificRollback": true
     },
     "passed": true
   },
