@@ -2,9 +2,13 @@ import type { Metadata } from 'next'
 import { CONTACT_EMAIL, CONTACT_MAILTO_HREF } from '@/lib/contact'
 import ConfidentialIntakeForm from './ConfidentialIntakeForm'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export const metadata: Metadata = {
   title: 'Confidential Intake',
-  description: 'Submit a Harbourview inquiry.',
+  description:
+    'Submit a confidential Harbourview inquiry for market access, commercial intelligence, and qualified introductions.',
 }
 
 export default function IntakePage() {
@@ -14,8 +18,7 @@ export default function IntakePage() {
         <div className="page-container">
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Confidential Intake</h1>
           <p className="text-gray-300 max-w-2xl">
-            Share qualified opportunities, commercial requirements, or confidential inquiries.
-            Harbourview reviews submissions before follow-up.
+            Share qualified opportunities, commercial requirements, or confidential market-access inquiries. Harbourview reviews submissions before follow-up.
           </p>
         </div>
       </section>
@@ -27,16 +30,6 @@ export default function IntakePage() {
           </div>
 
           <aside className="space-y-6">
-            <div className="card p-6">
-              <h2 className="text-navy font-semibold text-base mb-3">Submit Opportunity</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                To list equipment, inventory, services, or a commercial opportunity through Harbourview Marketplace, use the dedicated opportunity intake form.
-              </p>
-              <a href="/marketplace/sell" className="btn-primary text-sm">
-                Go to Opportunity Intake
-              </a>
-            </div>
-
             <div className="card p-6">
               <h2 className="text-navy font-semibold text-base mb-3">Direct Contact</h2>
               <p className="text-sm text-gray-500 mb-3">
