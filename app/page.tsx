@@ -26,8 +26,8 @@ const capabilities = [
     body: 'Background review and commercial assessment of buyers, sellers, and partners before introductions are made.',
   },
   {
-    title: 'Controlled Marketplace Routing',
-    body: 'Reviewed listings matched to qualified counterparties through a structured, managed process.',
+    title: 'Controlled Network Routing',
+    body: 'Reviewed opportunities matched to qualified counterparties through a structured, managed process.',
   },
 ]
 
@@ -47,7 +47,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <Link href="/marketplace" className="btn-primary px-8 py-3 text-base">
-              Explore Marketplace
+              Explore Network
             </Link>
             <Link
               href="/intake"
@@ -80,19 +80,19 @@ export default function HomePage() {
       <section className="bg-navy text-white py-20">
         <div className="page-container max-w-3xl">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-            Marketplace
+            Network
           </h2>
           <h3 className="text-2xl sm:text-3xl font-bold mb-5">
             A controlled environment for reviewed commercial listings.
           </h3>
           <p className="text-gray-300 leading-relaxed mb-8">
-            The Harbourview marketplace covers new and surplus equipment, cannabis
+            Harbourview Network covers new and surplus equipment, cannabis
             inventory for licensed operators, wanted requests from active buyers,
             professional services, business opportunities, and supplier discovery.
             Listings are reviewed before publication. Introductions are managed.
           </p>
           <Link href="/marketplace" className="btn-primary px-8 py-3 text-base">
-            Enter Marketplace
+            Enter Network
           </Link>
         </div>
       </section>
@@ -109,7 +109,7 @@ export default function HomePage() {
             </h3>
             <p className="text-gray-500 leading-relaxed mb-6">
               Browse listings that have been reviewed before publication. Post wanted
-              requests to reach sellers actively monitoring the marketplace. Request
+              requests to reach sellers actively monitoring the Network. Request
               controlled introductions to screened counterparties. Confidentiality
               is maintained throughout.
             </p>
@@ -128,11 +128,11 @@ export default function HomePage() {
             </h3>
             <p className="text-gray-500 leading-relaxed mb-6">
               Submit products, inventory, equipment, or services for review. Listings
-              are assessed before reaching the marketplace. Introductions are made to
+              are assessed before reaching the Network. Introductions are made to
               qualified counterparties — not broadcast to unscreened audiences.
             </p>
             <Link href="/marketplace/sell" className="btn-secondary px-6 py-2.5 text-sm">
-              Submit a Listing
+              Submit Opportunity
             </Link>
           </div>
         </div>

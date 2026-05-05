@@ -4,8 +4,8 @@ import { Suspense } from 'react'
 import QuoteRequestForm from './QuoteRequestForm'
 
 export const metadata: Metadata = {
-  title: 'Request Quote | Harbourview Marketplace',
-  description: 'Request a quote for Harbourview Marketplace consumables, packaging, production supplies or supplier-sourced listings.',
+  title: 'Inquire to Buy | Harbourview Network',
+  description: 'Submit a buyer inquiry for Harbourview Network opportunities. Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions.',
 }
 
 export default function QuoteRequestPage() {
@@ -14,18 +14,21 @@ export default function QuoteRequestPage() {
       <section className="bg-navy text-white py-14">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
+            <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Request a Quote</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Inquire to Buy</h1>
           <p className="text-gray-300 max-w-2xl">
-            Tell Harbourview what you need, where it needs to ship and the volume you are considering. We review the request before supplier introduction or quote.
+            Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions or transaction follow-up. Provide the listing of interest, your budget or target price, quantity, location, timing and intended use.
           </p>
         </div>
       </section>
 
       <section className="py-12">
         <div className="page-container max-w-3xl">
-          <Suspense fallback={<div className="card p-6 text-sm text-gray-500">Loading quote request…</div>}>
+          <div className="mb-6 rounded border border-gold/30 bg-gold-pale px-4 py-3 text-sm text-navy">
+            Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions or transaction follow-up.
+          </div>
+          <Suspense fallback={<div className="card p-6 text-sm text-gray-500">Loading inquiry form…</div>}>
             <QuoteRequestForm />
           </Suspense>
         </div>

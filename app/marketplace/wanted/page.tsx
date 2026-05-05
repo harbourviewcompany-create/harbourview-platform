@@ -4,13 +4,13 @@ import { wantedRequests } from '@/lib/fixtures/wanted-requests'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
-  title: 'Wanted Requests | Harbourview Marketplace',
+  title: 'Post What You Want to Buy | Harbourview Network',
   description:
-    'Post wanted requests for reviewed, inquiry-first sourcing across equipment, consumables, inventory and services through Harbourview Marketplace.',
+    'Post a wanted request through Harbourview Network. Describe what you want to buy and Harbourview will review and route supplier responses privately.',
   openGraph: {
-    title: 'Wanted Requests | Harbourview Marketplace',
+    title: 'Post What You Want to Buy | Harbourview Network',
     description:
-      'Post wanted requests for reviewed, inquiry-first sourcing across equipment, consumables, inventory and services through Harbourview Marketplace.',
+      'Post a wanted request and Harbourview will route supplier responses privately.',
   },
 }
 
@@ -19,22 +19,13 @@ export default function WantedPage() {
     <>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Buyer Wanted Requests</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Operators can post wanted requests for equipment, consumables,
-            inventory, services or operating support. Wanted requests use the
-            same reviewed intake form, with the submission positioned around
-            buyer demand and sourcing requirements.
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Post What You Want to Buy</h1>
+          <p className="text-gray-300 max-w-2xl mb-6">
+            Describe what you want to buy — equipment, inventory, inputs or services. Harbourview reviews wanted requests and routes them to relevant suppliers or handles them confidentially. Your contact details are not shared with suppliers before Harbourview coordinates a response.
           </p>
-          <div className="mt-6">
-            <Link
-              href="/marketplace/sell?type=wanted"
-              className="btn-primary inline-flex"
-              data-testid="wanted-post-request"
-            >
-              Post a Wanted Request
-            </Link>
-          </div>
+          <Link href="/marketplace/sell?type=wanted" className="btn-primary inline-flex">
+            Post What You Want to Buy
+          </Link>
         </div>
       </section>
 
@@ -42,25 +33,21 @@ export default function WantedPage() {
         <div className="page-container">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
             <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Browse Requests</h3>
+              <h3 className="font-semibold text-navy text-base mb-2">Describe what you need</h3>
               <p className="text-gray-500 text-sm">
-                Review current buy-side requests from operators. If you can supply
-                what a buyer needs, submit a response or related supply listing.
+                Submit what you want to buy — quantity, location, timing, budget and any compliance requirements. Be specific to improve supplier routing.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Post a Request</h3>
+              <h3 className="font-semibold text-navy text-base mb-2">Harbourview reviews</h3>
               <p className="text-gray-500 text-sm">
-                Looking for specific equipment, consumables, inventory or
-                services? Use the wanted-request intake path and describe what
-                you need to source.
+                Wanted requests use the same reviewed intake form as seller listings. Harbourview screens for category fit and commercial relevance before routing.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Reviewed Routing</h3>
+              <h3 className="font-semibold text-navy text-base mb-2">Private supplier routing</h3>
               <p className="text-gray-500 text-sm">
-                Harbourview reviews wanted requests before inquiry-first routing,
-                supplier follow-up or confidential handling where appropriate.
+                Harbourview routes requests to relevant suppliers privately. Your contact details are not shared before Harbourview coordinates a response. If you need active sourcing beyond standard routing, separate commercial terms may apply.
               </p>
             </div>
           </div>
@@ -68,17 +55,13 @@ export default function WantedPage() {
           {wantedRequests.length === 0 ? (
             <div className="text-center py-16">
               <p className="text-gray-400 text-lg mb-4">No wanted requests are currently listed.</p>
-              <Link
-                href="/marketplace/sell?type=wanted"
-                className="btn-primary"
-                data-testid="wanted-post-request"
-              >
-                Post a Wanted Request
+              <Link href="/marketplace/sell?type=wanted" className="btn-primary">
+                Post What You Want to Buy
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="text-lg font-semibold text-navy mb-6">Wanted Requests</h2>
+              <h2 className="text-lg font-semibold text-navy mb-6">Current Wanted Requests</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {wantedRequests.map((listing) => (
                   <ListingCard key={listing.id} listing={listing} />
@@ -89,22 +72,18 @@ export default function WantedPage() {
 
           <div className="mt-12 border-t pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <p className="text-gray-500 text-sm">
-              Have something that matches a request?{' '}
+              Have supply that matches a request?{' '}
               <Link href="/marketplace/sell" className="text-navy underline hover:text-gold">
-                Submit supply for review
-              </Link>{' '}
-              or{' '}
+                List it for sale
+              </Link>
+              {' '}or{' '}
               <Link href="/intake" className="text-navy underline hover:text-gold">
                 request confidential support
               </Link>
               .
             </p>
-            <Link
-              href="/marketplace/sell?type=wanted"
-              className="btn-primary text-sm shrink-0"
-              data-testid="wanted-post-request"
-            >
-              Post a Wanted Request
+            <Link href="/marketplace/sell?type=wanted" className="btn-primary text-sm shrink-0">
+              Post What You Want to Buy
             </Link>
           </div>
         </div>

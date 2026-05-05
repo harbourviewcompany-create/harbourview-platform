@@ -9,32 +9,32 @@ type QuoteState = { status: 'idle' | 'success' | 'error'; message: string }
 
 const initialState: QuoteState = { status: 'idle', message: '' }
 
-function buildQuoteMessage(fields: {
+function buildBuyerInquiryMessage(fields: {
   listingTitle: string
   buyerType: string
   targetMarket: string
   volume: string
   timeline: string
   budget: string
-  supplierPreference: string
+  intendedUse: string
   requirements: string
 }) {
   return [
-    'Harbourview quote request',
+    'Harbourview buyer inquiry',
     '',
-    `Listing: ${fields.listingTitle || 'N/A'}`,
+    `Listing of interest: ${fields.listingTitle || 'N/A'}`,
     `Buyer type: ${fields.buyerType}`,
-    `Target market / jurisdiction: ${fields.targetMarket}`,
-    `Volume / order size: ${fields.volume}`,
+    `Location / target market: ${fields.targetMarket}`,
+    `Quantity / order size: ${fields.volume}`,
     `Timeline: ${fields.timeline}`,
-    `Budget / price target: ${fields.budget || 'N/A'}`,
-    `Supplier preference: ${fields.supplierPreference || 'N/A'}`,
+    `Budget / target price: ${fields.budget || 'N/A'}`,
+    `Intended use: ${fields.intendedUse || 'N/A'}`,
     '',
-    'Requirements:',
+    'Requirements or compliance notes:',
     fields.requirements || 'N/A',
     '',
     'Harbourview action requested:',
-    'Review buyer fit, verify supplier/source availability, and advise on quote or introduction path.',
+    'Review buyer inquiry, assess fit, and coordinate introduction or transaction follow-up where appropriate.',
   ].join('\n')
 }
 
@@ -64,8 +64,8 @@ export default function QuoteRequestForm() {
     if (!readFormString(data, 'email')) errs.email = 'Email is required.'
     if (!readFormString(data, 'company')) errs.company = 'Company is required.'
     if (!readFormString(data, 'buyerType')) errs.buyerType = 'Buyer type is required.'
-    if (!readFormString(data, 'targetMarket')) errs.targetMarket = 'Target market is required.'
-    if (!readFormString(data, 'volume')) errs.volume = 'Volume or expected order size is required.'
+    if (!readFormString(data, 'targetMarket')) errs.targetMarket = 'Location or target market is required.'
+    if (!readFormString(data, 'volume')) errs.volume = 'Quantity or order size is required.'
     if (!readFormString(data, 'timeline')) errs.timeline = 'Timeline is required.'
     return errs
   }
@@ -94,7 +94,7 @@ export default function QuoteRequestForm() {
       const volume = readFormString(data, 'volume')
       const timeline = readFormString(data, 'timeline')
       const budget = readFormString(data, 'budget')
-      const supplierPreference = readFormString(data, 'supplierPreference')
+      const intendedUse = readFormString(data, 'intendedUse')
       const requirements = readFormString(data, 'requirements')
 
       const result = await submitMarketplaceInquiryDirect(
@@ -106,19 +106,19 @@ export default function QuoteRequestForm() {
           contact_company: company,
           contact_phone: phone || null,
           inquiry_type: 'quote_routing',
-          message: buildQuoteMessage({
+          message: buildBuyerInquiryMessage({
             listingTitle: listingTitleValue,
             buyerType,
             targetMarket,
             volume,
             timeline,
             budget,
-            supplierPreference,
+            intendedUse,
             requirements,
           }),
           status: 'received',
         },
-        'Quote request received. Harbourview will review the request before supplier introduction or quote routing. [QUOTE_OK]',
+        'Buyer inquiry received. Harbourview will review it before coordinating an introduction or transaction follow-up. [QUOTE_OK]',
         'QUOTE'
       )
 
@@ -133,10 +133,10 @@ export default function QuoteRequestForm() {
     return (
       <div className="card p-8 text-center">
         <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Quote Request Received</h2>
+        <h2 className="text-navy font-bold text-xl mb-2">Buyer Inquiry Received</h2>
         <p data-testid="quote-diagnostic-message" className="text-gray-500 text-sm mb-6">{state.message}</p>
         <button onClick={() => window.location.reload()} className="btn-outline text-sm">
-          Submit another request
+          Submit another inquiry
         </button>
       </div>
     )
@@ -145,18 +145,18 @@ export default function QuoteRequestForm() {
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">Quote Details</h2>
+        <h2 className="text-navy font-semibold text-lg border-b pb-3">What are you looking to buy?</h2>
 
         <div>
           <label htmlFor="listingTitle" className="block text-sm font-medium text-gray-700 mb-1">
-            Listing
+            Listing of interest
           </label>
           <input
             id="listingTitle"
             name="listingTitle"
             type="text"
             defaultValue={listingTitle}
-            placeholder="Consumables or specific product listing"
+            placeholder="Listing title or category"
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
           />
         </div>
@@ -164,9 +164,9 @@ export default function QuoteRequestForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label htmlFor="volume" className="block text-sm font-medium text-gray-700 mb-1">
-              Volume / Order Size <span className="text-red-500">*</span>
+              Quantity / Order Size <span className="text-red-500">*</span>
             </label>
-            <input id="volume" name="volume" type="text" placeholder="e.g. 10,000 tubes monthly" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
+            <input id="volume" name="volume" type="text" placeholder="e.g. 10,000 units or one lot" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
             {errors.volume && <p className="text-red-500 text-xs mt-1">{errors.volume}</p>}
           </div>
           <div>
@@ -177,7 +177,7 @@ export default function QuoteRequestForm() {
               <option value="">Select timeline</option>
               <option value="ASAP">ASAP</option>
               <option value="Within 30 days">Within 30 days</option>
-              <option value="30-90 days">30-90 days</option>
+              <option value="30–90 days">30–90 days</option>
               <option value="Future planning">Future planning</option>
             </select>
             {errors.timeline && <p className="text-red-500 text-xs mt-1">{errors.timeline}</p>}
@@ -186,18 +186,18 @@ export default function QuoteRequestForm() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">Budget / Price Target</label>
-            <input id="budget" name="budget" type="text" placeholder="Optional" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
+            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">Budget / Target Price</label>
+            <input id="budget" name="budget" type="text" placeholder="Optional — share if comfortable" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
           </div>
           <div>
-            <label htmlFor="supplierPreference" className="block text-sm font-medium text-gray-700 mb-1">Supplier Preference</label>
-            <input id="supplierPreference" name="supplierPreference" type="text" placeholder="Canada, US, EU, lowest cost, etc." className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
+            <label htmlFor="intendedUse" className="block text-sm font-medium text-gray-700 mb-1">Intended Use</label>
+            <input id="intendedUse" name="intendedUse" type="text" placeholder="e.g. licensed cultivation, processing, retail" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
           </div>
         </div>
 
         <div>
-          <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">Requirements</label>
-          <textarea id="requirements" name="requirements" rows={4} placeholder="Size, material, certification, branding, compliance or delivery requirements." className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none" />
+          <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">Requirements or compliance notes</label>
+          <textarea id="requirements" name="requirements" rows={4} placeholder="Specs, certifications, compliance requirements, packaging, delivery or condition requirements." className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none" />
         </div>
       </div>
 
@@ -244,7 +244,7 @@ export default function QuoteRequestForm() {
             {errors.buyerType && <p className="text-red-500 text-xs mt-1">{errors.buyerType}</p>}
           </div>
           <div>
-            <label htmlFor="targetMarket" className="block text-sm font-medium text-gray-700 mb-1">Target Market <span className="text-red-500">*</span></label>
+            <label htmlFor="targetMarket" className="block text-sm font-medium text-gray-700 mb-1">Location / Target Market <span className="text-red-500">*</span></label>
             <input id="targetMarket" name="targetMarket" type="text" placeholder="e.g. Canada, Germany, California" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
             {errors.targetMarket && <p className="text-red-500 text-xs mt-1">{errors.targetMarket}</p>}
           </div>
@@ -252,7 +252,7 @@ export default function QuoteRequestForm() {
       </div>
 
       <p className="text-xs text-gray-400">
-        Harbourview reviews quote requests before supplier introduction. Product details, pricing, availability and supplier fit are confirmed before any commercial handoff.
+        Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions or transaction follow-up. Your contact details are kept confidential.
       </p>
 
       {state.status === 'error' && (
@@ -260,7 +260,7 @@ export default function QuoteRequestForm() {
       )}
 
       <button type="submit" disabled={isPending} className="btn-primary w-full py-3 text-base disabled:opacity-60">
-        {isPending ? 'Submitting…' : 'Request Quote'}
+        {isPending ? 'Submitting…' : 'Submit Buyer Inquiry'}
       </button>
     </form>
   )

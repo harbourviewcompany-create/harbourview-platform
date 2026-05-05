@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
 const marketplaceLinks = [
-  { label: 'Marketplace', href: '/marketplace' },
-  { label: 'Submit Listing', href: '/marketplace/sell' },
+  { label: 'Network', href: '/marketplace' },
+  { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
@@ -39,9 +39,9 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Marketplace */}
+          {/* Network */}
           <div>
-            <p className="text-white font-semibold text-sm mb-3">Marketplace</p>
+            <p className="text-white font-semibold text-sm mb-3">Network</p>
             <ul className="space-y-2 text-sm">
               {marketplaceLinks.map((l) => (
                 <li key={l.href}>
