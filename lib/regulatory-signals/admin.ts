@@ -110,6 +110,14 @@ export async function createRegulatorySignal(formData: FormData, userId: string)
   })
 }
 
+export async function linkRegulatoryEvidence(signalId: string, evidenceId: string) {
+  return adminRequest('/rest/v1/regulatory_signals.signal_evidence_links', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify({ signal_id: signalId, evidence_id: evidenceId, relationship: 'supporting' }),
+  })
+}
+
 export async function transitionRegulatorySignalStatus(id: string, toStatus: string, userId: string, note: string) {
   const current = await getRegulatorySignal(id)
   if (!current.ok) return current
