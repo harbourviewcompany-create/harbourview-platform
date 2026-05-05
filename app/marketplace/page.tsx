@@ -2,22 +2,22 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Inquiry-First Cannabis Marketplace | Harbourview',
+  title: 'Harbourview Network | Global Cannabis Commercial Access',
   description:
-    'Submit supply, post wanted requests and route reviewed cannabis-sector commercial opportunities through Harbourview inquiry-first marketplace.',
+    'Explore regulated cannabis supply, wanted requests, category pathways and qualified commercial opportunities through Harbourview Network.',
   openGraph: {
-    title: 'Harbourview Marketplace',
+    title: 'Harbourview Network',
     description:
-      'Submit supply, post wanted requests and route reviewed cannabis-sector commercial opportunities through Harbourview inquiry-first marketplace.',
+      'Explore regulated cannabis supply, wanted requests, category pathways and qualified commercial opportunities through Harbourview Network.',
   },
 }
 
 const categories = [
   {
-    label: 'Marketplace Listings',
+    label: 'Featured Opportunities',
     href: '/marketplace/listings',
     description:
-      'Listing candidates across suppliers, equipment, operating supplies and commercial opportunities routed through Harbourview qualification before introduction.',
+      'Reviewed commercial opportunities across products, inputs, equipment, services and structured cannabis-sector demand signals.',
   },
   {
     label: 'Consumables & Operating Supplies',
@@ -47,7 +47,7 @@ const categories = [
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
     description:
-      'Buyer-side demand signals from operators looking for equipment, inputs, inventory or services.',
+      'Buyer-side demand signals from operators looking for equipment, inputs, inventory, genetics or services.',
   },
   {
     label: 'Services',
@@ -62,10 +62,10 @@ const categories = [
       'Facilities, partnerships, acquisition targets, licensing routes and structured commercial opportunities.',
   },
   {
-    label: 'Supplier Directory',
-    href: '/supplier-directory',
+    label: 'Request Introduction',
+    href: '/intake',
     description:
-      'Supplier profiles across equipment, packaging, services, testing, logistics and operator support.',
+      'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
   },
 ]
 
@@ -76,13 +76,13 @@ export default function MarketplacePage() {
         <div className="page-container">
           <div className="max-w-4xl">
             <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-gold">
-              Harbourview Marketplace
+              Harbourview Network
             </p>
             <h1 className="text-3xl font-bold leading-tight sm:text-5xl">
-              List supply, surface buyer demand and route qualified cannabis-sector opportunities through Harbourview.
+              Surface supply, buyer demand and qualified cannabis-sector opportunities through one controlled global network.
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-gray-300 sm:text-lg">
-              Harbourview helps operators, suppliers and service providers surface reviewed supply, wanted requests and commercial opportunities through a controlled inquiry-first marketplace.
+              Harbourview Network connects regulated cannabis products, inputs, genetics, services, wanted requests and country-specific access pathways through a controlled commercial discovery layer.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
@@ -90,7 +90,7 @@ export default function MarketplacePage() {
                 className="btn-primary text-center"
                 data-testid="marketplace-submit-supply"
               >
-                Submit Supply
+                Submit Opportunity
               </Link>
               <Link
                 href="/marketplace/sell?type=wanted"
@@ -104,7 +104,7 @@ export default function MarketplacePage() {
                 className="btn-outline border-white/40 text-center text-white hover:bg-white hover:text-navy"
                 data-testid="marketplace-request-confidential-support"
               >
-                Request Confidential Support
+                Request Introduction
               </Link>
             </div>
           </div>
@@ -114,9 +114,9 @@ export default function MarketplacePage() {
       <section className="py-12">
         <div className="page-container">
           <div className="mb-10">
-            <h2 className="text-2xl font-semibold text-navy">Marketplace categories</h2>
+            <h2 className="text-2xl font-semibold text-navy">Network categories</h2>
             <p className="mt-2 max-w-3xl text-sm text-gray-600">
-              Browse public category paths, then use inquiry-first capture when a listing, request or supplier opportunity needs Harbourview review.
+              Explore public category paths, then use inquiry-first capture when an opportunity, request or introduction needs Harbourview review.
             </p>
           </div>
 
@@ -144,10 +144,10 @@ export default function MarketplacePage() {
           <div className="mb-12 rounded-lg border border-gold/30 bg-gold-pale p-6">
             <div className="max-w-4xl">
               <h2 className="text-lg font-semibold text-navy">
-                Suppliers: get reviewed for marketplace visibility
+                Suppliers and buyers: get reviewed for Harbourview Network visibility
               </h2>
               <p className="mt-3 text-sm leading-6 text-gray-700">
-                Suppliers of equipment, consumables, services and operating support can submit opportunities for Harbourview review. Early submissions may be considered for category visibility, wanted-request matching or confidential buyer routing where appropriate.
+                Suppliers, buyers and operators can submit opportunities for Harbourview review. Early submissions may be considered for category visibility, wanted-request matching or confidential counterparty routing where appropriate. Supplier identity, contact details and sourcing records remain private unless Harbourview approves disclosure through a qualified introduction.
               </p>
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div>
@@ -156,7 +156,7 @@ export default function MarketplacePage() {
                     <li>Consumables & operating supplies</li>
                     <li>Used and surplus equipment</li>
                     <li>Commercial services</li>
-                    <li>Supplier directory profiles</li>
+                    <li>Featured commercial opportunities</li>
                     <li>Business opportunities</li>
                   </ul>
                 </div>
@@ -175,7 +175,7 @@ export default function MarketplacePage() {
                 className="btn-primary mt-6 inline-flex"
                 data-testid="marketplace-submit-supply-secondary"
               >
-                Submit Supply for Review
+                Submit Opportunity for Review
               </Link>
             </div>
           </div>
