@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Intelligence',
@@ -12,9 +11,6 @@ export default function IntelligencePage() {
     <>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-            Coming Soon
-          </div>
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Intelligence</h1>
           <p className="text-gray-300 max-w-2xl">
             Commercial briefs, counterparty dossiers, and route-to-market analysis
@@ -60,12 +56,23 @@ export default function IntelligencePage() {
             <h2 className="text-navy font-bold text-xl mb-3">Request a Briefing</h2>
             <p className="text-gray-500 text-sm mb-6">
               Intelligence engagements are handled on a confidential basis. Submit
-              an intake request to describe your requirements and be contacted by
-              the Harbourview team.
+              your email to be notified when this access path is available.
             </p>
-            <Link href="/intake" className="btn-primary px-8 py-3">
-              Request a Briefing
-            </Link>
+            <form className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+              <label htmlFor="intelligence-email" className="sr-only">
+                Get notified when this launches
+              </label>
+              <input
+                id="intelligence-email"
+                name="email"
+                type="email"
+                placeholder="Get notified when this launches"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+              />
+              <button type="submit" className="btn-primary shrink-0 px-6 py-2 text-sm">
+                Notify Me
+              </button>
+            </form>
           </div>
         </div>
       </section>
