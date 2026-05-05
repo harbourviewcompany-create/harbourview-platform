@@ -4,8 +4,8 @@ import { consumables } from '@/lib/fixtures/consumables'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
-  title: 'Consumables',
-  description: 'Packaging, production and facility consumables available via Harbourview marketplace.',
+  title: 'Consumables & Operating Supplies',
+  description: 'Packaging, lab, facility, logistics and operating-supply categories available by inquiry through Harbourview Marketplace.',
 }
 
 export default function ConsumablesPage() {
@@ -16,13 +16,13 @@ export default function ConsumablesPage() {
           <p className="text-gold text-sm font-medium mb-1">
             <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
           </p>
-          <h1 className="text-3xl font-bold mb-2">Consumables</h1>
+          <h1 className="text-3xl font-bold mb-2">Consumables & Operating Supplies</h1>
           <p className="text-gray-300 max-w-xl">
-            Supplier-sourced consumables including packaging, production and facility supplies. All listings are verified before introduction or quote.
+            Controlled operating-supply categories for packaging, lab, facility, logistics and recurring supply needs. Supplier qualification and specifications are handled by inquiry.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link href="/marketplace/quote?listing=Bulk%20Consumables%20Procurement%20Request" className="btn-primary">
-              Request a Bulk Quote
+              Request Supply Information
             </Link>
             <Link href="/marketplace/wanted" className="btn-outline border-gold text-gold hover:bg-gold hover:text-navy">
               Post a Wanted Request
@@ -34,9 +34,9 @@ export default function ConsumablesPage() {
       <section className="py-12">
         <div className="page-container">
           <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
-            <h2 className="text-navy font-semibold text-lg mb-2">Buying consumables at volume?</h2>
+            <h2 className="text-navy font-semibold text-lg mb-2">Sourcing operating supplies at volume?</h2>
             <p className="text-gray-600 text-sm max-w-3xl">
-              Submit your volume, market, delivery timeline and requirements. Harbourview reviews the request, verifies supplier fit and routes qualified demand through broker review before quote or introduction.
+              Submit volume, region, timing and specification requirements. Harbourview reviews the request and routes qualified demand through private supplier qualification before quote or introduction.
             </p>
           </div>
 

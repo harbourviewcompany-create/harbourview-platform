@@ -17,19 +17,19 @@ const categories = [
     label: 'Marketplace Listings',
     href: '/marketplace/listings',
     description:
-      'Reviewed listing candidates across suppliers, equipment, consumables and commercial opportunities routed through Harbourview qualification before introduction.',
+      'Listing candidates across suppliers, equipment, operating supplies and commercial opportunities routed through Harbourview qualification before introduction.',
   },
   {
-    label: 'Consumables',
+    label: 'Consumables & Operating Supplies',
     href: '/marketplace/consumables',
     description:
-      'Packaging, production and facility consumables including tubes, jars, pouches, cones and supply inputs.',
+      'Packaging, lab, cultivation, processing, sanitation, logistics, retail and maintenance supply categories handled by inquiry.',
   },
   {
     label: 'New Products',
     href: '/marketplace/new-products',
     description:
-      'New equipment, packaging, automation, cultivation, processing and operating supplies.',
+      'New equipment, packaging, automation, cultivation, processing and operating-supply categories.',
   },
   {
     label: 'Used & Surplus',

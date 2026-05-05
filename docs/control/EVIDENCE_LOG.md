@@ -2,6 +2,27 @@
 
 This file records release evidence for Harbourview Marketplace production gates.
 
+## 2026-05-04: Live Source Intake V0 and Consumables Foundation implementation
+
+**Evidence ID:** `HV-LIVE-SOURCE-INTAKE-V0-CONSUMABLES`
+
+**Branch:** `feature/live-source-intake-v0-consumables`
+
+**Claim being verified:** The repo contains a private admin/operator-only source intake and candidate review foundation, with a public-safe `Consumables & Operating Supplies` category and no automatic publication.
+
+**Implementation evidence**
+
+- Migration: `supabase/migrations/007_live_source_intake_v0_consumables.sql`
+- Admin routes: `/admin/sources`, `/admin/sources/new`, `/admin/sources/[id]`, `/admin/candidates`, `/admin/candidates/[id]`
+- Private tables: `source_registry`, `source_snapshots`, `marketplace_candidates`, `candidate_review_events`
+- Public category: `Consumables & Operating Supplies`
+
+**Limitations**
+
+- Automatic fetch is deferred in V0 because SSRF-safe fetching is intentionally out of scope.
+- No `candidate_publication_links` table is created in V0.
+- No production migration or deployment is implied by this evidence entry.
+
 ## 2026-05-02: Automated production marketplace capture smoke passed
 
 **Objective:** Prove that Tyler no longer needs to manually test marketplace quote, listing submission or wanted request capture after deployment.

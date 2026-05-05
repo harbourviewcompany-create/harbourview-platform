@@ -131,3 +131,33 @@ Stop if dependencies fail to install, required secrets are missing, production w
 ## Completion criteria
 
 Verification is complete only when commands/workflows are listed, results are pass/fail/blocked, evidence location is recorded and failures have a next ticket.
+
+## Live Source Intake V0 Verification
+
+Required for changes to private source intake, marketplace candidates or the consumables category foundation:
+
+```bash
+npm run typecheck
+npm run build
+npm run test:admin-guard
+npm run test:visibility
+npm run test:live-source-intake
+```
+
+If deployment authority is present, also run:
+
+```bash
+npm run probe:production-visibility
+```
+
+Required checks:
+
+- migration `007_live_source_intake_v0_consumables.sql` creates only private intake/candidate tables
+- RLS is enabled and deny-by-default for anonymous users
+- admin/operator-only access uses existing `public.user_roles`
+- `/admin/sources` and `/admin/candidates` are directly guarded with `requireAdminAuth()`
+- V0 source capture remains manual-only and stores `fetch_status = skipped`
+- candidate workflow never publishes publicly
+- restricted/excluded consumables and licence-review candidates cannot reach `approved_draft`
+- public consumables UI uses only safe inquiry-first labels
+- public leakage probes include private source/candidate table and field names

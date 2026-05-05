@@ -31,6 +31,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/listings" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
               Listing provenance
             </Link>
+            <Link href="/admin/sources" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
+              Sources
+            </Link>
+            <Link href="/admin/candidates" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
+              Candidates
+            </Link>
             <form action="/admin/logout" method="post">
               <button type="submit" className="rounded-full border border-white/20 px-4 py-2 text-[#F5F1E8]/70 transition hover:bg-white/10">
                 Sign out

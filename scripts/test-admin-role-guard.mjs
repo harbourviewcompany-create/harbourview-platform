@@ -10,6 +10,10 @@ const adminListings = readFileSync('app/admin/(protected)/listings/page.tsx', 'u
 const adminInquiries = readFileSync('app/admin/(protected)/inquiries/page.tsx', 'utf8');
 const adminInquiryDetail = readFileSync('app/admin/(protected)/inquiries/[id]/page.tsx', 'utf8');
 const adminRoot = readFileSync('app/admin/(protected)/page.tsx', 'utf8');
+const adminSources = readFileSync('app/admin/(protected)/sources/page.tsx', 'utf8');
+const adminSourcesNew = readFileSync('app/admin/(protected)/sources/new/page.tsx', 'utf8');
+const adminCandidates = readFileSync('app/admin/(protected)/candidates/page.tsx', 'utf8');
+const adminCandidateDetail = readFileSync('app/admin/(protected)/candidates/[id]/page.tsx', 'utf8');
 
 const failures = [];
 
@@ -50,6 +54,15 @@ assert(adminInquiryDetail.includes("import { requireAdminAuth } from '@/lib/auth
 assert(adminInquiryDetail.includes('await requireAdminAuth()'), 'admin inquiry detail page must invoke direct role guard before rendering workflow fields');
 assert(adminRoot.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin root page must import direct role guard before redirecting');
 assert(adminRoot.includes('await requireAdminAuth()'), 'admin root page must invoke direct role guard before redirecting');
+for (const [name, content] of [
+  ['admin sources', adminSources],
+  ['admin source intake', adminSourcesNew],
+  ['admin candidates', adminCandidates],
+  ['admin candidate detail', adminCandidateDetail],
+]) {
+  assert(content.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), `${name} page must import direct role guard`);
+  assert(content.includes('await requireAdminAuth()'), `${name} page must invoke direct role guard before rendering private source/candidate fields`);
+}
 assert(adminLogin.includes('/auth/v1/token?grant_type=password'), 'admin login must authenticate with Supabase Auth password flow');
 assert(adminLogin.includes('/rest/v1/user_roles'), 'admin login must check user_roles before setting a session');
 assert(adminLogin.includes('hasAdminRole'), 'admin login must allow only admin/operator roles');
@@ -73,6 +86,7 @@ console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
 console.log('ok admin listings page directly guards provenance render');
 console.log('ok admin inquiry pages directly guard workflow render');
+console.log('ok admin source and candidate pages directly guard private intake render');
 console.log('ok admin provenance rendering is preserved behind role guard');
 console.log('ok admin login establishes only admin/operator HttpOnly sessions');
 console.log('ok failed admin login expires stale admin session cookie');

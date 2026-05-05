@@ -12,6 +12,7 @@ const sourceUrlMatches = [...listingsSource.matchAll(/sourceUrl:\s*'([^']+)'/g)]
 
 const routes = [
   '/marketplace',
+  '/marketplace/consumables',
   '/marketplace/sell',
   '/marketplace/sell?type=wanted',
   '/marketplace/wanted',
@@ -24,6 +25,8 @@ const adminRoutes = [
   '/admin',
   '/admin/inquiries',
   '/admin/listings',
+  '/admin/sources',
+  '/admin/candidates',
 ];
 
 // API routes to probe for leakage
@@ -56,6 +59,28 @@ const forbiddenStrings = [
   'reviewedBy',
   'lastReviewedAt',
   'nextReviewDueAt',
+  'source_registry',
+  'source_snapshots',
+  'marketplace_candidates',
+  'candidate_review_events',
+  'captured_url',
+  'captured_text',
+  'raw_html_hash',
+  'confidence_score',
+  'commercial_relevance_score',
+  'compliance_risk_score',
+  'supplier_verified',
+  'seller_authorization_status',
+  'certifications_claimed',
+  'certifications_verified',
+  'coa_available',
+  'expiry_date',
+  'lot_tracking_available',
+  'requires_license_review',
+  'restricted_item',
+  'review_notes',
+  'analyst notes',
+  'raw evidence',
   ...sourceUrlMatches,
 ];
 
