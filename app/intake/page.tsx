@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { CONTACT_EMAIL } from '@/lib/contact'
 import ConfidentialIntakeForm from './ConfidentialIntakeForm'
 
 export const metadata: Metadata = {
@@ -40,7 +41,7 @@ export default function IntakePage() {
               <h2 className="text-navy font-semibold text-base mb-3">Submit Opportunity</h2>
               <p className="text-sm text-gray-500 mb-4">
                 To list equipment, inventory, services, or a business opportunity
-                through Harbourview Network, use the dedicated opportunity intake form.
+                through Harbourview Marketplace, use the dedicated opportunity intake form.
               </p>
               <a href="/marketplace/sell" className="btn-primary text-sm">
                 Go to Opportunity Intake
@@ -52,10 +53,10 @@ export default function IntakePage() {
               <p className="text-sm text-gray-500">
                 You can also reach us at{' '}
                 <a
-                  href="mailto:harbourviewcompany@gmail.com"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   className="text-navy underline hover:text-gold"
                 >
-                  harbourviewcompany@gmail.com
+                  {CONTACT_EMAIL}
                 </a>
                 .
               </p>
