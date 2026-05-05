@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 const marketplaceLinks = [
-  { label: 'Network', href: '/marketplace' },
+  { label: 'Marketplace', href: '/marketplace' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'New Products', href: '/marketplace/new-products' },
@@ -9,7 +9,6 @@ const marketplaceLinks = [
   { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
   { label: 'Services', href: '/marketplace/services' },
   { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
-  { label: 'Supplier Directory', href: '/supplier-directory' },
 ]
 
 const companyLinks = [
@@ -19,17 +18,11 @@ const companyLinks = [
   { label: 'Contact', href: '/contact' },
 ]
 
-const legalLinks = [
-  { label: 'Privacy Policy', href: '/legal/privacy' },
-  { label: 'Terms of Use', href: '/legal/terms' },
-  { label: 'Disclaimer', href: '/legal/disclaimer' },
-]
-
 export default function Footer() {
   return (
     <footer className="bg-navy text-gray-300 mt-auto">
       <div className="page-container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
             <p className="text-gold font-bold text-lg mb-2">Harbourview</p>
@@ -39,9 +32,9 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Network */}
+          {/* Marketplace */}
           <div>
-            <p className="text-white font-semibold text-sm mb-3">Network</p>
+            <p className="text-white font-semibold text-sm mb-3">Marketplace</p>
             <ul className="space-y-2 text-sm">
               {marketplaceLinks.map((l) => (
                 <li key={l.href}>
@@ -58,20 +51,6 @@ export default function Footer() {
             <p className="text-white font-semibold text-sm mb-3">Company</p>
             <ul className="space-y-2 text-sm">
               {companyLinks.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <p className="text-white font-semibold text-sm mb-3">Legal</p>
-            <ul className="space-y-2 text-sm">
-              {legalLinks.map((l) => (
                 <li key={l.href}>
                   <Link href={l.href} className="hover:text-gold transition-colors">
                     {l.label}

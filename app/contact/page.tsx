@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { CONTACT_EMAIL } from '@/lib/contact'
 import ContactForm from './ContactForm'
 
 export const metadata: Metadata = {
@@ -44,10 +45,10 @@ export default function ContactPage() {
               <p className="text-sm text-gray-500">
                 You can also reach us directly at{' '}
                 <a
-                  href="mailto:harbourviewcompany@gmail.com"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   className="text-navy underline hover:text-gold"
                 >
-                  harbourviewcompany@gmail.com
+                  {CONTACT_EMAIL}
                 </a>
                 .
               </p>

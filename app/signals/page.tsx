@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Signals',
@@ -55,9 +54,6 @@ export default function SignalsPage() {
     <>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-            Coming Soon
-          </div>
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Signals</h1>
           <p className="text-gray-300 max-w-2xl">
             Global policy and regulatory change monitoring for regulated
@@ -88,17 +84,27 @@ export default function SignalsPage() {
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
             <h2 className="text-navy font-bold text-xl mb-3">
-              Source-Backed Monitoring
+              Request Signals Access
             </h2>
             <p className="text-gray-500 text-sm mb-6">
-              Signals is being built for dated, source-backed regulatory
-              monitoring. It is not live investment advice, real-time buyer
-              demand, supplier intelligence, deal flow, or private Harbourview
-              Network activity.
+              Request early access to dated, source-backed regulatory monitoring
+              for market access, compliance strategy and commercial timing.
             </p>
-            <Link href="/intake" className="btn-primary px-8 py-3">
-              Request Early Access
-            </Link>
+            <form className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+              <label htmlFor="signals-email" className="sr-only">
+                Get notified when this launches
+              </label>
+              <input
+                id="signals-email"
+                name="email"
+                type="email"
+                placeholder="Get notified when this launches"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+              />
+              <button type="submit" className="btn-primary shrink-0 px-6 py-2 text-sm">
+                Notify Me
+              </button>
+            </form>
           </div>
         </div>
       </section>

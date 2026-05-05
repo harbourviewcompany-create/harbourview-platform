@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CONTACT_EMAIL } from '@/lib/contact'
 
 type FormState = 'idle' | 'submitting' | 'success'
 
@@ -38,7 +39,7 @@ export default function ContactForm() {
         `${data.get('message')}`,
       ].join('\n')
     )
-    window.location.href = `mailto:harbourviewcompany@gmail.com?subject=${subject}&body=${body}`
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`
     setState('success')
   }
 

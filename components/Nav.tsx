@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const marketplaceLinks = [
-  { label: 'Network Opportunities', href: '/marketplace/listings' },
+  { label: 'Marketplace Opportunities', href: '/marketplace/listings' },
   { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
   { label: 'New Products', href: '/marketplace/new-products' },
   { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
@@ -15,7 +15,7 @@ const marketplaceLinks = [
 ]
 
 const navLinks = [
-  { label: 'Network', href: '/marketplace', hasDropdown: true },
+  { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
   { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
   { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
   { label: 'Signals', href: '/signals', hasDropdown: false },
@@ -45,7 +45,7 @@ export default function Nav() {
                   onMouseLeave={() => setDropdownOpen(false)}
                 >
                   <Link href={link.href} className="hover:text-gold transition-colors">
-                    {link.label} v
+                    {link.label} ▾
                   </Link>
                   {dropdownOpen && (
                     <div className="absolute top-full left-0 mt-1 w-64 bg-white text-navy rounded shadow-lg border border-gray-100 py-1 z-50">
@@ -75,7 +75,7 @@ export default function Nav() {
 
           <div className="hidden lg:block">
             <Link href="/intake" className="btn-primary text-sm">
-              Request Intake
+              Start a Conversation
             </Link>
           </div>
 
@@ -95,7 +95,7 @@ export default function Nav() {
         <div className="lg:hidden bg-navy-dark border-t border-navy-light">
           <div className="page-container py-4 flex flex-col gap-3 text-sm font-medium">
             <Link href="/marketplace" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Network
+              Marketplace
             </Link>
             {marketplaceLinks.map((l) => (
               <Link

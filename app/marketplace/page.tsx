@@ -2,13 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Network | Harbourview',
+  title: 'Marketplace',
   description:
-    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.',
+    'Harbourview Marketplace is a controlled commercial marketplace for regulated products, inputs, services and market-specific opportunities.',
   openGraph: {
-    title: 'Harbourview Network',
+    title: 'Harbourview Marketplace',
     description:
-      'A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.',
+      'A controlled commercial marketplace for regulated products, inputs, services and market-specific opportunities.',
   },
 }
 
@@ -16,56 +16,47 @@ const categories = [
   {
     label: 'Used & Surplus Equipment',
     href: '/marketplace/used-surplus',
-    description:
-      'Used systems, surplus assets, discounted overstock, liquidations and facility closure packages. Inquire to buy.',
+    description: 'Surplus equipment, liquidations and closure packages.',
   },
   {
     label: 'Business Opportunities',
     href: '/marketplace/business-opportunities',
-    description:
-      'Facilities, partnerships, acquisition targets, licensing routes and structured commercial opportunities.',
+    description: 'Facilities, partnerships and structured commercial routes.',
   },
   {
     label: 'Consumables & Operating Supplies',
     href: '/marketplace/consumables',
-    description:
-      'Bulk and recurring packaging, lab, cultivation, processing, sanitation, logistics, retail and maintenance supply. Inquire to buy.',
+    description: 'Packaging, lab, cultivation and sanitation supplies.',
   },
   {
     label: 'New Products',
     href: '/marketplace/new-products',
-    description:
-      'New equipment, packaging, automation, cultivation, processing and operating-supply categories.',
+    description: 'New equipment, automation and operating supplies.',
   },
   {
     label: 'Cannabis Inventory',
     href: '/marketplace/cannabis-inventory',
-    description:
-      'Wholesale flower, biomass, extracts and genetics for licensed, qualified counterparties.',
+    description: 'Licensed-only inventory review and routing.',
   },
   {
     label: 'Services',
     href: '/marketplace/services',
-    description:
-      'Commercial, compliance, logistics, QA, facility, accounting and operational service providers.',
+    description: 'Compliance, logistics, QA and operational providers.',
   },
   {
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
-    description:
-      'Post what you want to buy. Harbourview reviews requests and routes them to relevant suppliers privately.',
+    description: 'Buyer demand across equipment, inputs and inventory.',
   },
   {
-    label: 'Network Opportunities',
+    label: 'Marketplace Opportunities',
     href: '/marketplace/listings',
-    description:
-      'Reviewed Network opportunities across equipment, operating supplies and commercial opportunities routed through Harbourview qualification.',
+    description: 'Reviewed opportunities routed through Harbourview qualification.',
   },
   {
     label: 'Supplier Directory',
     href: '/supplier-directory',
-    description:
-      'Supplier profiles across equipment, packaging, services, testing, logistics and operator support.',
+    description: 'Supplier profiles across operating support categories.',
   },
 ]
 
@@ -77,13 +68,13 @@ export default function MarketplacePage() {
         <div className="page-container">
           <div className="max-w-4xl">
             <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-gold">
-              Harbourview Network
+              Harbourview Marketplace
             </p>
             <h1 className="text-3xl font-bold leading-tight sm:text-5xl">
-              A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.
+              A controlled commercial marketplace for regulated products, inputs, services and market-specific opportunities.
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-gray-300 sm:text-lg">
-              Harbourview Network helps serious operators surface qualified supply, buyer demand, commercial opportunities and market-specific pathways. Contact details are not public. Harbourview reviews inquiries before coordinating introductions or transaction follow-up.
+              Harbourview Marketplace helps serious operators surface reviewed commercial opportunities and market-specific pathways. Contact details are not public. Harbourview reviews inquiries before coordinating introductions or transaction follow-up.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link href="/marketplace/sell" className="btn-primary text-center">
@@ -93,7 +84,7 @@ export default function MarketplacePage() {
                 href="#categories"
                 className="btn-outline border-gold text-center text-gold hover:bg-gold hover:text-navy"
               >
-                Browse Network
+                Browse Marketplace
               </Link>
               <Link
                 href="/marketplace/sell?type=wanted"
@@ -106,10 +97,10 @@ export default function MarketplacePage() {
         </div>
       </section>
 
-      {/* How the network works */}
+      {/* How the marketplace works */}
       <section className="border-b border-gray-100 py-12">
         <div className="page-container">
-          <h2 className="mb-6 text-lg font-semibold text-navy">How the network works</h2>
+          <h2 className="mb-6 text-lg font-semibold text-navy">How the marketplace works</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="border-t-2 border-gold pt-5">
               <h3 className="mb-2 text-base font-semibold text-navy">Operators submit</h3>
@@ -120,7 +111,7 @@ export default function MarketplacePage() {
             <div className="border-t-2 border-gold pt-5">
               <h3 className="mb-2 text-base font-semibold text-navy">Buyers browse and inquire</h3>
               <p className="text-sm text-gray-500">
-                Buyers browse Network categories, view opportunities and inquire to buy. Buyer inquiries are reviewed by Harbourview before any counterparty contact.
+                Buyers browse Marketplace categories, view opportunities and inquire to buy. Buyer inquiries are reviewed by Harbourview before any counterparty contact.
               </p>
             </div>
             <div className="border-t-2 border-gold pt-5">
@@ -142,7 +133,7 @@ export default function MarketplacePage() {
       {/* Category grid */}
       <section id="categories" className="py-12">
         <div className="page-container">
-          <h2 className="mb-6 text-lg font-semibold text-navy">Network categories</h2>
+          <h2 className="mb-6 text-lg font-semibold text-navy">Marketplace categories</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((cat) => (
               <Link key={cat.href} href={cat.href} className="card p-6">
