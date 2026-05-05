@@ -28,66 +28,66 @@ const common = {
 export const consumables: Listing[] = [
   {
     id: 'cons-001',
-    title: 'Packaging Supply Category',
+    title: 'Bulk Packaging Supply Programs',
     description:
-      'Operating supplies category for packaging programs. Specifications, quantity, region, supplier fit and commercial terms are available upon inquiry.',
-    tags: ['Packaging', 'Supplier Qualification Required', 'Bulk supply category'],
+      'Inquiry-first packaging supply programs for operators sourcing pouches, labels, cartons or recurring packaging inputs at commercial volume.',
+    tags: ['Packaging', 'Supplier Qualification Required', 'Bulk supply category', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-002',
-    title: 'Lab & QA Supplies Category',
+    title: 'Recurring Lab & QA Consumables',
     description:
-      'Operating supplies category for lab and quality workflows. Harbourview routes inquiries for specification review and supplier qualification before introduction.',
-    tags: ['Lab & QA Supplies', 'Specifications available upon inquiry'],
+      'Recurring lab and QA consumables for operators that need specification review, replenishment planning and supplier qualification before quote routing.',
+    tags: ['Lab & QA Supplies', 'Specifications available upon inquiry', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-003',
-    title: 'Cultivation Supplies Category',
+    title: 'Cultivation Operating Supplies',
     description:
-      'Operating supplies category for cultivation teams seeking recurring inputs, facility materials or qualified supply options. Inquiry review is required.',
-    tags: ['Cultivation Supplies', 'Inquiry Required'],
+      'Operating supply categories for cultivation teams sourcing facility materials, routine inputs or recurring support supplies through reviewed inquiry.',
+    tags: ['Cultivation Supplies', 'Operating supplies category', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-004',
-    title: 'Processing Supplies Category',
+    title: 'Processing Room Consumables',
     description:
-      'Operating supplies category for production and processing workflows. Supplier qualification, quantity, specifications and region are handled by inquiry.',
-    tags: ['Processing Supplies', 'Supplier Qualification Required'],
+      'Processing-room consumables for production workflows where quantity, specifications, region and supplier fit need private review before routing.',
+    tags: ['Processing Supplies', 'Supplier Qualification Required', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-005',
-    title: 'Sanitation & PPE Category',
+    title: 'Sanitation & PPE Replenishment',
     description:
-      'Operating supplies category for sanitation, facility and PPE programs. Specifications, volume, destination and supplier fit are available upon inquiry.',
-    tags: ['Sanitation & PPE', 'Operating supplies category'],
+      'Sanitation, facility and PPE replenishment categories for teams coordinating specifications, volume, destination and supplier fit by inquiry.',
+    tags: ['Sanitation & PPE', 'Operating supplies category', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-006',
-    title: 'Logistics & Warehouse Supplies Category',
+    title: 'Logistics & Warehouse Supplies',
     description:
-      'Operating supplies category for storage, shipping, handling and warehouse requirements. Harbourview reviews inquiries before supplier routing.',
-    tags: ['Logistics & Warehouse Supplies', 'Bulk supply category'],
+      'Storage, shipping, handling and warehouse supply categories for commercial operators coordinating bulk requirements through reviewed intake.',
+    tags: ['Logistics & Warehouse Supplies', 'Bulk supply category', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-007',
-    title: 'Retail Supplies Category',
+    title: 'Retail Operating Supplies',
     description:
-      'Operating supplies category for retail support materials and recurring supply needs. Commercial terms and supplier options are available upon inquiry.',
-    tags: ['Retail Supplies', 'Inquiry Required'],
+      'Retail support materials and recurring operating supplies for storefront or distribution teams seeking private supplier qualification before quote.',
+    tags: ['Retail Supplies', 'Specifications available upon inquiry', 'Inquiry Required'],
     ...common,
   },
   {
     id: 'cons-008',
-    title: 'Maintenance Consumables Category',
+    title: 'Maintenance Consumables Supply',
     description:
-      'Operating supplies category for maintenance, facility upkeep and routine replenishment. Supplier qualification and specifications are reviewed privately.',
-    tags: ['Maintenance Consumables', 'Specifications available upon inquiry'],
+      'Maintenance, facility upkeep and routine replenishment supply categories for commercial sites coordinating specifications and availability by inquiry.',
+    tags: ['Maintenance Consumables', 'Specifications available upon inquiry', 'Inquiry Required'],
     ...common,
   },
 ].map(withRepresentativeImage)

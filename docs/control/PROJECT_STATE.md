@@ -78,9 +78,35 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 - PR #44 added a direct page-level `requireAdminAuth()` guard to `/admin/listings` after production verification found denied anonymous HTML still contained admin-only provenance labels.
 - This update exists only to trigger production deployment of the PR #44 main-branch closure commit.
 
+## Marketplace commercial polish
+
+**Status:** BRANCH — `marketplace-commercial-polish-v1`
+
+**Purpose:** Marketplace commercial polish added to improve supplier acquisition, wanted-request conversion and inquiry-first category framing. No schema, RLS or admin authorization changes.
+
+**Pages updated:** `/marketplace`, `/marketplace/consumables`, `/marketplace/wanted`, `/marketplace/sell`
+
+**Fixtures updated:** `lib/fixtures/consumables.ts` — 8 listing titles replaced with commercial opportunity framing.
+
 ## Current readiness label
 
 `MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
+
+## Marketplace Commercial Polish V1
+
+**Status:** IMPLEMENTATION BRANCH
+
+**Branch:** `marketplace-commercial-polish-v1`
+
+Marketplace commercial polish was added to improve supplier acquisition, wanted-request conversion and inquiry-first category framing. No schema, RLS, admin authorization, admin guard logic, protected admin routes, Supabase helpers or capture architecture changes are included.
+
+**Public scope**
+
+- `/marketplace` now leads with supplier and buyer conversion CTAs above the category grid.
+- `/marketplace` documents the inquiry handling model: submit, screen and route.
+- `/marketplace` includes supplier acquisition copy for marketplace visibility review.
+- `/marketplace/consumables` uses inquiry-first sourcing language and public-safe consumables opportunity cards.
+- `/marketplace/wanted` and `/marketplace/sell?type=wanted` reduce wanted-request friction with direct buyer-demand instructions.
 
 ## Live Source Intake V0 and consumables foundation
 

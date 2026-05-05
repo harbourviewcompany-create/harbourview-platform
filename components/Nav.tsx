@@ -16,7 +16,7 @@ const marketplaceLinks = [
 
 const navLinks = [
   { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
-  { label: 'Submit Listing', href: '/marketplace/sell', hasDropdown: false },
+  { label: 'Submit Supply', href: '/marketplace/sell', hasDropdown: false },
   { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
   { label: 'Signals', href: '/signals', hasDropdown: false },
   { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
@@ -45,7 +45,7 @@ export default function Nav() {
                   onMouseLeave={() => setDropdownOpen(false)}
                 >
                   <Link href={link.href} className="hover:text-gold transition-colors">
-                    {link.label} ▾
+                    {link.label} v
                   </Link>
                   {dropdownOpen && (
                     <div className="absolute top-full left-0 mt-1 w-64 bg-white text-navy rounded shadow-lg border border-gray-100 py-1 z-50">
@@ -108,7 +108,7 @@ export default function Nav() {
               </Link>
             ))}
             <Link href="/marketplace/sell" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Submit Listing
+              Submit Supply
             </Link>
             <Link href="/marketplace/wanted" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Wanted Requests
