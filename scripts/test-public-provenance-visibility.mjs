@@ -81,7 +81,13 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /Source-backed/i,
   /source page/i,
   /source listing/i,
-  /source lead/i
+  /source lead/i,
+  /equipnet/i,
+  /labx/i,
+  /machinio/i,
+  /thc label solutions/i,
+  /marijuana packaging/i,
+  /supplier directory/i
 ];
 
 const PUBLIC_PROJECTION_REQUIRED_PATTERNS = [
