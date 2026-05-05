@@ -8,7 +8,7 @@ This file records release evidence for Harbourview Marketplace production gates.
 
 **Branch:** `marketplace-commercial-polish-v1`
 
-**Commit:** `PENDING_FINAL_COMMIT`
+**Commit:** `dd6fee681edff33d28eae2b757684d771b4a0162`
 
 **Environment:** Local built Next.js app at `http://127.0.0.1:3100`
 
