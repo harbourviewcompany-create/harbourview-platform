@@ -21,7 +21,7 @@ const categories = [
   {
     label: 'Business Opportunities',
     href: '/marketplace/business-opportunities',
-    description: 'Facilities, partnerships and structured commercial opportunities.',
+    description: 'Facilities, partnerships and structured commercial routes.',
   },
   {
     label: 'Consumables & Operating Supplies',
@@ -41,12 +41,12 @@ const categories = [
   {
     label: 'Services',
     href: '/marketplace/services',
-    description: 'Commercial, compliance, logistics and operational providers.',
+    description: 'Compliance, logistics, QA and operational providers.',
   },
   {
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
-    description: 'Active buyer demand across equipment, inputs and inventory.',
+    description: 'Buyer demand across equipment, inputs and inventory.',
   },
   {
     label: 'Marketplace Opportunities',
