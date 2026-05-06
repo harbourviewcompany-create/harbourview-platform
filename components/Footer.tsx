@@ -11,6 +11,7 @@ const networkLinks = [
   { label: 'Browse Listings', href: '/marketplace' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
+  { label: 'Clinical Education', href: '/network/clinical-education' },
   { label: 'Services', href: '/marketplace/services' },
 ]
 
