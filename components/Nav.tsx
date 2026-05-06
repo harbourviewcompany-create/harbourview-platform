@@ -7,8 +7,8 @@ const marketplaceLinks = [
   { label: 'Browse Listings', href: '/marketplace' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
-  { label: 'Categories', href: '/marketplace/categories' },
   { label: 'Services', href: '/marketplace/services' },
+  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
 ]
 
 const navLinks = [
@@ -93,6 +93,9 @@ export default function Nav() {
             <Link href="/marketplace" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Marketplace
             </Link>
+            <p className="pl-4 text-[11px] uppercase tracking-widest text-gold/70">
+              Harbourview Network
+            </p>
             {marketplaceLinks.map((l) => (
               <Link
                 key={l.href}
