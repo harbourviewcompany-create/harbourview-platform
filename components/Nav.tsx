@@ -4,23 +4,19 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const marketplaceLinks = [
-  { label: 'Marketplace Opportunities', href: '/marketplace/listings' },
-  { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
-  { label: 'New Products', href: '/marketplace/new-products' },
-  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
-  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
+  { label: 'Browse Listings', href: '/marketplace' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Services', href: '/marketplace/services' },
   { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
 ]
 
 const navLinks = [
   { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
-  { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
-  { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
   { label: 'Signals', href: '/signals', hasDropdown: false },
   { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
   { label: 'Intake', href: '/intake', hasDropdown: false },
+  { label: 'About', href: '/about', hasDropdown: false },
 ]
 
 export default function Nav() {
@@ -30,12 +26,12 @@ export default function Nav() {
   return (
     <header className="bg-navy text-white shadow-md">
       <div className="page-container">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <span className="text-gold font-bold text-xl tracking-tight">Harbourview</span>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium">
+          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium">
             {navLinks.map((link) =>
               link.hasDropdown ? (
                 <div
@@ -45,7 +41,7 @@ export default function Nav() {
                   onMouseLeave={() => setDropdownOpen(false)}
                 >
                   <Link href={link.href} className="hover:text-gold transition-colors">
-                    {link.label} ▾
+                    {link.label} <span className="text-gold/70">⌄</span>
                   </Link>
                   {dropdownOpen && (
                     <div className="absolute top-full left-0 mt-1 w-64 bg-white text-navy rounded shadow-lg border border-gray-100 py-1 z-50">
@@ -74,7 +70,7 @@ export default function Nav() {
           </nav>
 
           <div className="hidden lg:block">
-            <Link href="/intake" className="btn-primary text-sm">
+            <Link href="/intake" className="btn-primary text-sm px-4 py-2">
               Start a Conversation
             </Link>
           </div>
@@ -97,6 +93,9 @@ export default function Nav() {
             <Link href="/marketplace" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Marketplace
             </Link>
+            <p className="pl-4 text-[11px] uppercase tracking-widest text-gold/70">
+              Harbourview Network
+            </p>
             {marketplaceLinks.map((l) => (
               <Link
                 key={l.href}
@@ -107,12 +106,6 @@ export default function Nav() {
                 {l.label}
               </Link>
             ))}
-            <Link href="/marketplace/sell" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Submit Opportunity
-            </Link>
-            <Link href="/marketplace/wanted" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Wanted Requests
-            </Link>
             <Link href="/signals" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Signals
             </Link>
@@ -121,6 +114,9 @@ export default function Nav() {
             </Link>
             <Link href="/intake" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
               Intake
+            </Link>
+            <Link href="/about" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
+              About
             </Link>
           </div>
         </div>
