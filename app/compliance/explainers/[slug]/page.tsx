@@ -1,7 +1,12 @@
 import { getExplainer } from '@/lib/compliance/explainers'
 
-export default function ExplainerPage({ params }: { params: { slug: string } }) {
-  const explainer = getExplainer(params.slug)
+type ExplainerPageProps = {
+  params: Promise<{ slug: string }>
+}
+
+export default async function ExplainerPage({ params }: ExplainerPageProps) {
+  const { slug } = await params
+  const explainer = getExplainer(slug)
 
   if (!explainer) return <div>Not found</div>
 
