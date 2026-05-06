@@ -4,13 +4,13 @@ import Link from 'next/link'
 const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
 
 export const metadata: Metadata = {
-  title: 'Marketplace',
+  title: 'Harbourview Network',
   description:
-    'Harbourview Marketplace is a controlled commercial marketplace for regulated products, inputs, services and market-specific opportunities.',
+    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, supplier discovery and country-specific access pathways.',
   openGraph: {
-    title: 'Harbourview Marketplace',
+    title: 'Harbourview Network',
     description:
-      'A controlled commercial marketplace for regulated products, inputs, services and market-specific opportunities.',
+      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, supplier discovery and country-specific access pathways.',
   },
 }
 
@@ -18,61 +18,61 @@ const categories = [
   {
     label: 'Used & Surplus Equipment',
     href: '/marketplace/used-surplus',
-    description: 'Surplus equipment, liquidations and closure packages.',
+    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
   },
   {
     label: 'Business Opportunities',
     href: '/marketplace/business-opportunities',
-    description: 'Facilities, partnerships and structured commercial routes.',
+    description: 'Facilities, partnerships and structured commercial routes subject to diligence.',
   },
   {
     label: 'Consumables & Operating Supplies',
     href: '/marketplace/consumables',
-    description: 'Packaging, lab, cultivation and sanitation supplies.',
+    description: 'Packaging, lab, cultivation, logistics and operating supply categories.',
   },
   {
     label: 'New Products',
     href: '/marketplace/new-products',
-    description: 'New equipment, automation and operating supplies.',
+    description: 'New equipment, automation, packaging and operating supplies.',
   },
   {
     label: 'Cann' + 'abis Inventory',
     href: licensedInventoryHref,
-    description: 'Licensed-only inventory review and routing.',
+    description: 'Licensed-only inventory review and private routing.',
   },
   {
     label: 'Services',
     href: '/marketplace/services',
-    description: 'Compliance, logistics, QA and operational providers.',
+    description: 'Compliance, logistics, QA, advisory and operational service providers.',
   },
   {
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
-    description: 'Buyer demand across equipment, inputs and inventory.',
+    description: 'Buyer and operator demand routed through Harbourview review.',
   },
   {
-    label: 'Supplier Directory',
+    label: 'Supplier Discovery',
     href: '/supplier-directory',
-    description: 'Supplier profiles across operating support categories.',
+    description: 'Supplier profiles and routed introduction requests across support categories.',
   },
 ]
 
 const processCards = [
   {
     title: 'Operators submit',
-    body: 'Operators submit available products, assets, services or opportunities for Harbourview review. Publication is not automatic and does not expose contact details publicly.',
+    body: 'Operators submit products, assets, services, wanted requests or commercial opportunities for Harbourview review. Publication and introductions are not automatic.',
   },
   {
-    title: 'Buyers browse and inquire',
-    body: 'Buyers browse Marketplace categories, view opportunities and inquire to buy. Buyer inquiries are reviewed by Harbourview before any counterparty contact.',
+    title: 'Buyers and suppliers inquire',
+    body: 'Participants browse public summaries and submit inquiries through Harbourview. Public pages do not expose private contact details or sensitive commercial context.',
   },
   {
     title: 'Harbourview reviews',
-    body: 'Harbourview reviews inquiries before coordinating introductions. Seller contact details are not public. Introductions are handled privately.',
+    body: 'Harbourview reviews category fit, commercial relevance and routing context before any counterparty contact, supplier response or introduction is coordinated.',
   },
   {
-    title: 'Transaction follow-up',
-    body: 'Transactions remain subject to buyer and seller agreement. Harbourview supports the introduction and follow-up process without acting as agent or party.',
+    title: 'Private routing follows',
+    body: 'Introductions, availability, pricing, transaction terms and legal or regulatory requirements remain subject to separate review and agreement by the relevant parties.',
   },
 ]
 
@@ -83,21 +83,22 @@ export default function MarketplacePage() {
         <div className="page-container">
           <div className="max-w-5xl">
             <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/78">
-              Harbourview Marketplace
+              Harbourview Network
             </p>
 
             <h1 className="max-w-5xl font-serif text-4xl leading-[1.02] tracking-[-0.045em] text-white sm:text-5xl lg:text-6xl">
-              A controlled commercial marketplace for regulated products, inputs,
-              services and market-specific opportunities.
+              Controlled commercial access for regulated cannabis products, inputs,
+              services, wanted requests and market-specific opportunities.
             </h1>
 
             <div className="mt-8 h-px w-20 bg-gradient-to-r from-gold to-gold-light"></div>
 
             <p className="mt-8 max-w-3xl text-base leading-8 text-white/64 sm:text-lg">
-              Harbourview Marketplace helps serious operators surface reviewed
-              commercial opportunities and market-specific pathways. Contact
-              details are not public. Harbourview reviews inquiries before
-              coordinating introductions or transaction follow-up.
+              Harbourview Network connects qualified participants through reviewed
+              listings, wanted requests, supplier discovery, commercial intelligence
+              and relationship-led market access. Contact details are private,
+              inquiries are reviewed before routing and submissions do not guarantee
+              introductions, availability, transaction terms or regulatory outcomes.
             </p>
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -106,14 +107,14 @@ export default function MarketplacePage() {
               </Link>
 
               <Link href="#categories" className="btn-intelligence">
-                Browse Marketplace
+                Explore Network Categories
               </Link>
 
               <Link
                 href="/marketplace/sell?type=wanted"
                 className="btn-intelligence"
               >
-                Post What You Want to Buy
+                Create Wanted Request
               </Link>
             </div>
           </div>
@@ -124,11 +125,11 @@ export default function MarketplacePage() {
         <div className="page-container">
           <div className="mb-10 max-w-2xl">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
-              Marketplace Workflow
+              Controlled Network Workflow
             </p>
 
             <h2 className="font-serif text-3xl leading-tight tracking-[-0.03em] text-white sm:text-4xl">
-              Structured commercial review before introduction.
+              Review and qualification before introduction.
             </h2>
           </div>
 
@@ -153,11 +154,11 @@ export default function MarketplacePage() {
         <div className="page-container">
           <div className="mb-10 max-w-2xl">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
-              Marketplace Categories
+              Network Categories
             </p>
 
             <h2 className="font-serif text-3xl leading-tight tracking-[-0.03em] text-white sm:text-4xl">
-              Browse reviewed opportunity categories.
+              Explore reviewed commercial access categories.
             </h2>
           </div>
 
@@ -191,12 +192,12 @@ export default function MarketplacePage() {
             </p>
 
             <h2 className="font-serif text-3xl leading-tight tracking-[-0.03em] text-white sm:text-4xl">
-              Have an opportunity to submit?
+              Have an opportunity, supplier profile or wanted request to submit?
             </h2>
 
             <p className="mt-5 text-sm leading-7 text-white/58 sm:text-base">
-              Submit equipment, supplies, services or commercial opportunities
-              for Harbourview review.
+              Submit supply, services, business opportunities or buyer requirements
+              for Harbourview Network review. Public visibility and routing are not automatic.
             </p>
           </div>
 
@@ -209,7 +210,7 @@ export default function MarketplacePage() {
               href="/marketplace/sell?type=wanted"
               className="btn-intelligence justify-center"
             >
-              Post What You Want to Buy
+              Create Wanted Request
             </Link>
           </div>
         </div>

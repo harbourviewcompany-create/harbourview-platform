@@ -3,9 +3,9 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Harbourview | Market Access Intelligence and Commercial Advisory',
+  title: 'Harbourview | Market Access Intelligence and Harbourview Network',
   description:
-    'Harbourview provides commercial intelligence, strategic introductions, and market-access support for serious participants in regulated markets.',
+    'Harbourview is an intelligence-led market-access platform for serious participants in regulated cannabis and adjacent supply chains.',
 }
 
 export default function HomePage() {
@@ -32,9 +32,9 @@ export default function HomePage() {
 
         <div className="page-container relative z-10 py-10 sm:py-20 lg:py-28">
           <div className="hero-grid min-h-[78vh] lg:min-h-[82vh]">
-            <div className="max-w-[540px]">
+            <div className="max-w-[560px]">
               <p className="hero-eyebrow">
-                Commercial Intelligence and Marketplace Access
+                Commercial Intelligence and Controlled Network Access
               </p>
 
               <h1 className="hero-title">
@@ -52,9 +52,16 @@ export default function HomePage() {
               <div className="mb-7 h-px w-16 bg-gradient-to-r from-gold to-gold-light sm:mb-8"></div>
 
               <p className="hero-body">
-                Harbourview supports qualified operators with commercial intelligence,
-                counterparty access and structured market-entry pathways across
-                regulated markets.
+                Harbourview supports serious participants in regulated cannabis and
+                adjacent supply chains through commercial intelligence, reviewed
+                opportunities, counterparty access and country-specific market pathways.
+              </p>
+
+              <p className="mb-7 max-w-xl text-sm leading-7 text-white/50">
+                Harbourview Network connects supply, buyer demand, services, wanted
+                requests and qualified introductions through controlled inquiry review.
+                Contact details remain private unless Harbourview coordinates a routed
+                response.
               </p>
 
               <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-gold/78 sm:text-[11px]">
@@ -63,12 +70,12 @@ export default function HomePage() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
                 <Link href="/marketplace" className="btn-marketplace">
-                  <span>Marketplace</span>
+                  <span>Enter Harbourview Network</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
 
                 <Link href="/intelligence" className="btn-intelligence">
-                  <span>Intelligence</span>
+                  <span>Request Intelligence</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
               </div>
@@ -84,8 +91,8 @@ export default function HomePage() {
                   Discover
                 </p>
                 <p className="text-sm leading-7 text-white/52">
-                  Identify relevant market signals, qualified opportunities and
-                  commercial pathways.
+                  Identify relevant access signals, reviewed opportunity categories
+                  and country-specific commercial pathways.
                 </p>
               </div>
 
@@ -94,8 +101,8 @@ export default function HomePage() {
                   Screen
                 </p>
                 <p className="text-sm leading-7 text-white/52">
-                  Evaluate counterparties, route viability and jurisdictional fit
-                  before engagement.
+                  Assess category fit, counterparty context, licence-sensitive
+                  requirements and route viability before engagement.
                 </p>
               </div>
 
@@ -104,8 +111,8 @@ export default function HomePage() {
                   Connect
                 </p>
                 <p className="text-sm leading-7 text-white/52">
-                  Structured introductions and controlled commercial discussions
-                  for serious operators.
+                  Route qualified inquiries, wanted requests and introductions through
+                  controlled Harbourview review without public contact disclosure.
                 </p>
               </div>
             </div>

@@ -64,7 +64,7 @@ function getVisual(listing: ListingCardProps['listing']) {
 }
 
 function getBadge(status?: ListingImageStatus) {
-  if (status === 'verified') return 'Verified image'
+  if (status === 'verified') return 'Image reviewed'
   if (status === 'supplier-provided') return 'Supplier image'
   return 'Representative image'
 }
@@ -133,7 +133,7 @@ export default function ListingCard({ listing }: ListingCardProps) {
   }
 
   const isWantedRequest = listing.category === 'wanted-requests'
-  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Inquire to Buy'
+  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request Routed Inquiry'
   const inquirySubject = isWantedRequest
     ? `Harbourview Wanted Request Response: ${listing.title}`
     : `Harbourview Network Inquiry: ${listing.title}`
@@ -170,6 +170,10 @@ export default function ListingCard({ listing }: ListingCardProps) {
           ))}
         </div>
       )}
+
+      <p className="text-xs leading-5 text-gray-400">
+        Public summary only. Contact details are private and inquiries are reviewed before routing.
+      </p>
 
       <div className="mt-auto border-t border-gray-100 pt-4">
         <InquiryLink
