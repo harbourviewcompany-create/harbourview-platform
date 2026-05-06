@@ -1,56 +1,56 @@
 {
   "verdict": "PASS_CONTROL_SAFE_V1",
   "environment": {
-    "isAdmin": true,
     "unsignedBuildWarning": "Unsigned CI verification build",
     "node": "v22.22.2",
+    "powershell": "7.4.14",
+    "timestamp": "2026-05-06T14:36:15.0478139+00:00",
+    "npm": "10.9.7",
     "windows": {
       "Caption": "Microsoft Windows Server 2025 Datacenter",
       "Version": "10.0.26100",
       "BuildNumber": "26100"
     },
-    "powershell": "7.4.14",
-    "timestamp": "2026-05-06T13:39:27.2940463+00:00",
-    "npm": "10.9.7",
+    "isAdmin": true,
     "noAutoUpdate": true
   },
   "steps": [
     {
-      "name": "npm-test",
       "log": "verification-results/evidence/npm-test.log",
       "exitCode": 0,
+      "name": "npm-test",
       "passed": true
     },
     {
-      "name": "runtime-proof",
       "log": "verification-results/evidence/runtime-proof.log",
       "exitCode": 0,
+      "name": "runtime-proof",
       "passed": true
     },
     {
-      "name": "support-bundle",
       "log": "support-bundles/wbcc-support-bundle.json",
       "exitCode": 0,
+      "name": "support-bundle",
       "passed": true
     },
     {
-      "name": "log-integrity",
       "log": "logs.jsonl",
       "exitCode": 0,
+      "name": "log-integrity",
       "passed": true
     },
     {
-      "name": "checksum",
       "log": "SHA256SUMS.txt",
       "exitCode": 0,
+      "name": "checksum",
       "passed": true
     }
   ],
   "cleanup": {
     "hkcuRunRemoved": true,
-    "allWbccTestObjectsRemoved": true,
     "scheduledTaskRemoved": true,
-    "startupFolderEntryRemoved": true
+    "startupFolderEntryRemoved": true,
+    "allWbccTestObjectsRemoved": true
   },
   "runtimeProof": {
     "created": [
@@ -60,9 +60,9 @@
     ],
     "cleanup": {
       "hkcuRunRemoved": true,
-      "allWbccTestObjectsRemoved": true,
       "scheduledTaskRemoved": true,
-      "startupFolderEntryRemoved": true
+      "startupFolderEntryRemoved": true,
+      "allWbccTestObjectsRemoved": true
     },
     "serviceDependencySimulation": {
       "actionTaken": "simulation_only_no_services_stopped",
@@ -74,10 +74,10 @@
       "guidanceOnly": true
     },
     "startupRestore": {
+      "hkcuRunTested": true,
       "startupFolderTested": true,
-      "sourceSpecificRollback": true,
       "hklmRunSkippedReason": "not_permitted_in_non_admin_ci",
-      "hkcuRunTested": true
+      "sourceSpecificRollback": true
     },
     "passed": true
   },
