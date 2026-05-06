@@ -88,14 +88,17 @@
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.28em;
+    line-height: 1.55;
     text-transform: uppercase;
+    margin-bottom: clamp(0.7rem, 1.4vh, 1.15rem);
   }
 
   .hero-title {
     font-family: Georgia, 'Times New Roman', serif;
-    font-size: clamp(3.6rem, 4.5vw, 5.35rem);
-    line-height: 0.98;
+    font-size: clamp(2.9rem, 3.8vw, 4.6rem);
+    line-height: 0.92;
     letter-spacing: -0.045em;
+    margin-bottom: clamp(1rem, 2vh, 1.5rem);
   }
 
   .hero-title-gold {
@@ -108,19 +111,20 @@
   }
 
   .hero-body {
-    max-width: 460px;
+    max-width: 500px;
     color: rgba(245,241,232,0.74);
-    font-size: 17px;
-    line-height: 1.9;
+    font-size: 16px;
+    line-height: 1.72;
+    margin-bottom: 1rem;
   }
 
   .hero-globe {
     position: absolute;
-    right: -8%;
+    right: -7%;
     top: 52%;
-    width: min(50vw, 860px);
+    width: min(46vw, 760px);
     transform: translateY(-50%);
-    opacity: 0.96;
+    opacity: 0.94;
     filter: drop-shadow(0 0 80px rgba(0,0,0,0.88));
     pointer-events: none;
     z-index: 0;
@@ -184,6 +188,25 @@
 
   .page-container {
     @apply mx-auto max-w-7xl px-5 sm:px-8 lg:px-12;
+  }
+
+  @media (min-width: 1025px) and (max-height: 820px) {
+    .hero-title {
+      font-size: clamp(2.65rem, 3.4vw, 4.05rem);
+      line-height: 0.91;
+      margin-bottom: 0.95rem;
+    }
+
+    .hero-body {
+      font-size: 15px;
+      line-height: 1.62;
+      margin-bottom: 0.8rem;
+    }
+
+    .hero-globe {
+      width: min(43vw, 690px);
+      right: -5%;
+    }
   }
 
   @media (max-width: 1024px) {
