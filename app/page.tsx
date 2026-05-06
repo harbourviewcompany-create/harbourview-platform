@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
-      <section className="hero-shell min-h-[calc(100vh-64px)] border-b border-gold/10 text-white lg:min-h-screen">
+      <section className="hero-shell min-h-[calc(100svh-72px)] border-b border-gold/10 text-white sm:min-h-[calc(100svh-80px)]">
         <div className="hero-gradient-shield"></div>
         <div className="hero-mobile-text-shield"></div>
         <div className="signal-beam"></div>
@@ -30,8 +30,8 @@ export default function HomePage() {
           priority
         />
 
-        <div className="page-container relative z-10 py-10 sm:py-20 lg:py-28">
-          <div className="hero-grid min-h-[78vh] lg:min-h-[82vh]">
+        <div className="page-container relative z-10 py-8 sm:py-10 lg:py-12">
+          <div className="hero-grid min-h-[calc(100svh-152px)] sm:min-h-[calc(100svh-176px)] lg:min-h-[calc(100svh-184px)]">
             <div className="max-w-[560px]">
               <p className="hero-eyebrow">
                 Commercial Intelligence and Controlled Network Access
@@ -49,7 +49,7 @@ export default function HomePage() {
                 <span className="hero-title-gold">relationships.</span>
               </h1>
 
-              <div className="mb-7 h-px w-16 bg-gradient-to-r from-gold to-gold-light sm:mb-8"></div>
+              <div className="mb-5 h-px w-16 bg-gradient-to-r from-gold to-gold-light sm:mb-6"></div>
 
               <p className="hero-body">
                 Harbourview supports serious participants in regulated cannabis and
@@ -57,7 +57,7 @@ export default function HomePage() {
                 opportunities, counterparty access and country-specific market pathways.
               </p>
 
-              <p className="mb-7 max-w-xl text-sm leading-7 text-white/50">
+              <p className="mb-5 max-w-xl text-sm leading-7 text-white/50">
                 Harbourview Network connects supply, buyer demand, services, wanted
                 requests and qualified introductions through controlled inquiry review.
                 Contact details remain private unless Harbourview coordinates a routed
