@@ -12,7 +12,6 @@ const networkLinks = [
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
-  { label: 'Services', href: '/marketplace/services' },
 ]
 
 const companyLinks = [
@@ -20,30 +19,30 @@ const companyLinks = [
   { label: 'Contact', href: '/contact' },
   { label: 'Privacy', href: '/legal/privacy' },
   { label: 'Terms', href: '/legal/terms' },
-  { label: 'Disclaimer', href: '/legal/disclaimer' },
 ]
 
 export default function Footer() {
   return (
-    <footer className="bg-navy text-gray-300 mt-auto border-t border-navy-light">
-      <div className="page-container py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-          <div>
-            <p className="text-gold font-bold text-xl mb-4">Harbourview</p>
-            <p className="text-sm text-gray-400 leading-relaxed max-w-sm">
-              Commercial intelligence, strategic introductions, and market-access support
-              for serious participants in regulated markets.
+    <footer className="mt-auto border-t border-gold/10 bg-[#030b16] text-gray-300">
+      <div className="page-container py-12 sm:py-16">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:gap-12">
+          <div className="max-w-sm border-b border-gold/10 pb-8 lg:border-0 lg:pb-0">
+            <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
+            <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light"></div>
+            <p className="mt-5 text-sm leading-7 text-white/58">
+              Commercial intelligence, strategic introductions and market-access
+              support for serious participants in regulated markets.
             </p>
           </div>
 
           <div>
-            <p className="text-white font-semibold text-sm uppercase tracking-widest mb-4">
+            <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
               Platform
             </p>
-            <ul className="space-y-3 text-sm">
+            <ul className="space-y-3 text-sm text-white/62">
               {platformLinks.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
+                  <Link href={l.href} className="transition-colors hover:text-gold">
                     {l.label}
                   </Link>
                 </li>
@@ -52,13 +51,13 @@ export default function Footer() {
           </div>
 
           <div>
-            <p className="text-white font-semibold text-sm uppercase tracking-widest mb-4">
-              Harbourview Network
+            <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
+              Network
             </p>
-            <ul className="space-y-3 text-sm">
+            <ul className="space-y-3 text-sm text-white/62">
               {networkLinks.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
+                  <Link href={l.href} className="transition-colors hover:text-gold">
                     {l.label}
                   </Link>
                 </li>
@@ -67,13 +66,13 @@ export default function Footer() {
           </div>
 
           <div>
-            <p className="text-white font-semibold text-sm uppercase tracking-widest mb-4">
+            <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
               Company
             </p>
-            <ul className="space-y-3 text-sm">
+            <ul className="space-y-3 text-sm text-white/62">
               {companyLinks.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
+                  <Link href={l.href} className="transition-colors hover:text-gold">
                     {l.label}
                   </Link>
                 </li>
@@ -82,11 +81,12 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-navy-light mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
+        <div className="mt-10 flex flex-col gap-4 border-t border-gold/10 pt-6 text-xs text-white/38 sm:mt-12 sm:flex-row sm:items-end sm:justify-between">
           <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
-          <p className="text-center sm:text-right max-w-md leading-relaxed">
-            Harbourview supports confidential commercial engagement through controlled intake,
-            reviewed pathways, and source-backed intelligence across regulated markets.
+
+          <p className="max-w-md leading-6 sm:text-right">
+            Harbourview supports confidential commercial engagement through
+            controlled intake, reviewed pathways and source-backed intelligence.
           </p>
         </div>
       </div>
