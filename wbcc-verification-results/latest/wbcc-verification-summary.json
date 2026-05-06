@@ -1,48 +1,48 @@
 {
   "verdict": "PASS_CONTROL_SAFE_V1",
   "environment": {
-    "unsignedBuildWarning": "Unsigned CI verification build",
-    "npm": "10.9.7",
+    "powershell": "7.4.14",
+    "isAdmin": true,
     "windows": {
       "Caption": "Microsoft Windows Server 2025 Datacenter",
       "Version": "10.0.26100",
       "BuildNumber": "26100"
     },
-    "timestamp": "2026-05-06T11:26:41.5504393+00:00",
-    "node": "v22.22.2",
-    "isAdmin": true,
-    "powershell": "7.4.14",
-    "noAutoUpdate": true
+    "unsignedBuildWarning": "Unsigned CI verification build",
+    "noAutoUpdate": true,
+    "npm": "10.9.7",
+    "timestamp": "2026-05-06T11:34:48.0920323+00:00",
+    "node": "v22.22.2"
   },
   "steps": [
     {
-      "name": "npm-test",
+      "passed": true,
       "log": "verification-results/evidence/npm-test.log",
-      "passed": true,
+      "name": "npm-test",
       "exitCode": 0
     },
     {
-      "name": "runtime-proof",
+      "passed": true,
       "log": "verification-results/evidence/runtime-proof.log",
-      "passed": true,
+      "name": "runtime-proof",
       "exitCode": 0
     },
     {
-      "name": "support-bundle",
+      "passed": true,
       "log": "support-bundles/wbcc-support-bundle.json",
-      "passed": true,
+      "name": "support-bundle",
       "exitCode": 0
     },
     {
-      "name": "log-integrity",
+      "passed": true,
       "log": "logs.jsonl",
-      "passed": true,
+      "name": "log-integrity",
       "exitCode": 0
     },
     {
-      "name": "checksum",
-      "log": "SHA256SUMS.txt",
       "passed": true,
+      "log": "SHA256SUMS.txt",
+      "name": "checksum",
       "exitCode": 0
     }
   ],
@@ -65,9 +65,9 @@
       "allWbccTestObjectsRemoved": true
     },
     "serviceDependencySimulation": {
+      "blockedRunningDependentsWithoutAdvancedOverride": true,
       "actionTaken": "simulation_only_no_services_stopped",
-      "checked": true,
-      "blockedRunningDependentsWithoutAdvancedOverride": true
+      "checked": true
     },
     "browserAudit": {
       "checked": true,
@@ -76,8 +76,8 @@
     "startupRestore": {
       "startupFolderTested": true,
       "sourceSpecificRollback": true,
-      "hklmRunSkippedReason": "not_permitted_in_non_admin_ci",
-      "hkcuRunTested": true
+      "hkcuRunTested": true,
+      "hklmRunSkippedReason": "not_permitted_in_non_admin_ci"
     },
     "passed": true
   },
