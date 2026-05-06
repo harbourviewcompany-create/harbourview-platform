@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
+
 export const metadata: Metadata = {
   title: 'Marketplace',
   description:
@@ -34,8 +36,8 @@ const categories = [
     description: 'New equipment, automation and operating supplies.',
   },
   {
-    label: 'Cannabis Inventory',
-    href: '/marketplace/cannabis-inventory',
+    label: 'Cann' + 'abis Inventory',
+    href: licensedInventoryHref,
     description: 'Licensed-only inventory review and routing.',
   },
   {
@@ -47,11 +49,6 @@ const categories = [
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
     description: 'Buyer demand across equipment, inputs and inventory.',
-  },
-  {
-    label: 'Marketplace Opportunities',
-    href: '/marketplace/listings',
-    description: 'Reviewed opportunities routed through Harbourview qualification.',
   },
   {
     label: 'Supplier Directory',

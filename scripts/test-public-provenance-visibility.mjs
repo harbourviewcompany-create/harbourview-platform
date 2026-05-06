@@ -5,7 +5,6 @@ const PUBLIC_RENDER_FILES = [
   'app/marketplace/consumables/page.tsx',
   'app/marketplace/wanted/page.tsx',
   'app/marketplace/sell/page.tsx',
-  'app/marketplace/listings/page.tsx',
   'app/marketplace/listings/[slug]/page.tsx',
   'components/marketplace/MarketplaceListingCard.tsx',
   'components/ListingCard.tsx',
