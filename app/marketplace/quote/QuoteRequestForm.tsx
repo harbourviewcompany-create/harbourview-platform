@@ -20,10 +20,10 @@ function buildBuyerInquiryMessage(fields: {
   requirements: string
 }) {
   return [
-    'Harbourview buyer inquiry',
+    'Harbourview routed inquiry',
     '',
-    `Listing of interest: ${fields.listingTitle || 'N/A'}`,
-    `Buyer type: ${fields.buyerType}`,
+    `Listing or category of interest: ${fields.listingTitle || 'N/A'}`,
+    `Buyer / participant type: ${fields.buyerType}`,
     `Location / target market: ${fields.targetMarket}`,
     `Quantity / order size: ${fields.volume}`,
     `Timeline: ${fields.timeline}`,
@@ -34,7 +34,7 @@ function buildBuyerInquiryMessage(fields: {
     fields.requirements || 'N/A',
     '',
     'Harbourview action requested:',
-    'Review buyer inquiry, assess fit, and coordinate introduction or transaction follow-up where appropriate.',
+    'Review inquiry, assess fit, and coordinate routed introduction or transaction follow-up where appropriate.',
   ].join('\n')
 }
 
@@ -63,7 +63,7 @@ export default function QuoteRequestForm() {
     if (!readFormString(data, 'name')) errs.name = 'Name is required.'
     if (!readFormString(data, 'email')) errs.email = 'Email is required.'
     if (!readFormString(data, 'company')) errs.company = 'Company is required.'
-    if (!readFormString(data, 'buyerType')) errs.buyerType = 'Buyer type is required.'
+    if (!readFormString(data, 'buyerType')) errs.buyerType = 'Participant type is required.'
     if (!readFormString(data, 'targetMarket')) errs.targetMarket = 'Location or target market is required.'
     if (!readFormString(data, 'volume')) errs.volume = 'Quantity or order size is required.'
     if (!readFormString(data, 'timeline')) errs.timeline = 'Timeline is required.'
@@ -118,7 +118,7 @@ export default function QuoteRequestForm() {
           }),
           status: 'received',
         },
-        'Buyer inquiry received. Harbourview will review it before coordinating an introduction or transaction follow-up. [QUOTE_OK]',
+        'Inquiry received. Harbourview will review it before coordinating any routed introduction or transaction follow-up. [QUOTE_OK]',
         'QUOTE'
       )
 
@@ -133,7 +133,7 @@ export default function QuoteRequestForm() {
     return (
       <div className="card p-8 text-center">
         <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Buyer Inquiry Received</h2>
+        <h2 className="text-navy font-bold text-xl mb-2">Inquiry Received</h2>
         <p data-testid="quote-diagnostic-message" className="text-gray-500 text-sm mb-6">{state.message}</p>
         <button onClick={() => window.location.reload()} className="btn-outline text-sm">
           Submit another inquiry
@@ -145,18 +145,18 @@ export default function QuoteRequestForm() {
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">What are you looking to buy?</h2>
+        <h2 className="text-navy font-semibold text-lg border-b pb-3">What are you looking to access?</h2>
 
         <div>
           <label htmlFor="listingTitle" className="block text-sm font-medium text-gray-700 mb-1">
-            Listing of interest
+            Listing or category of interest
           </label>
           <input
             id="listingTitle"
             name="listingTitle"
             type="text"
             defaultValue={listingTitle}
-            placeholder="Listing title or category"
+            placeholder="Listing title, supplier, wanted request or category"
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
           />
         </div>
@@ -166,7 +166,7 @@ export default function QuoteRequestForm() {
             <label htmlFor="volume" className="block text-sm font-medium text-gray-700 mb-1">
               Quantity / Order Size <span className="text-red-500">*</span>
             </label>
-            <input id="volume" name="volume" type="text" placeholder="e.g. 10,000 units or one lot" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
+            <input id="volume" name="volume" type="text" placeholder="e.g. 10,000 units, one lot, or service scope" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
             {errors.volume && <p className="text-red-500 text-xs mt-1">{errors.volume}</p>}
           </div>
           <div>
@@ -191,18 +191,18 @@ export default function QuoteRequestForm() {
           </div>
           <div>
             <label htmlFor="intendedUse" className="block text-sm font-medium text-gray-700 mb-1">Intended Use</label>
-            <input id="intendedUse" name="intendedUse" type="text" placeholder="e.g. licensed cultivation, processing, retail" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
+            <input id="intendedUse" name="intendedUse" type="text" placeholder="e.g. licensed cultivation, processing, export, retail" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
           </div>
         </div>
 
         <div>
           <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">Requirements or compliance notes</label>
-          <textarea id="requirements" name="requirements" rows={4} placeholder="Specs, certifications, compliance requirements, packaging, delivery or condition requirements." className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none" />
+          <textarea id="requirements" name="requirements" rows={4} placeholder="Specs, certifications, licence context, compliance requirements, delivery, condition or documentation requirements." className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none" />
         </div>
       </div>
 
       <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">Buyer Details</h2>
+        <h2 className="text-navy font-semibold text-lg border-b pb-3">Participant Details</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
@@ -231,13 +231,15 @@ export default function QuoteRequestForm() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label htmlFor="buyerType" className="block text-sm font-medium text-gray-700 mb-1">Buyer Type <span className="text-red-500">*</span></label>
+            <label htmlFor="buyerType" className="block text-sm font-medium text-gray-700 mb-1">Participant Type <span className="text-red-500">*</span></label>
             <select id="buyerType" name="buyerType" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white">
-              <option value="">Select buyer type</option>
+              <option value="">Select participant type</option>
               <option value="Licensed Producer / Operator">Licensed Producer / Operator</option>
+              <option value="Supplier">Supplier</option>
               <option value="Brand">Brand</option>
               <option value="Distributor">Distributor</option>
               <option value="Retailer">Retailer</option>
+              <option value="Investor / Advisor">Investor / Advisor</option>
               <option value="Startup / New Operator">Startup / New Operator</option>
               <option value="Other">Other</option>
             </select>
@@ -252,7 +254,7 @@ export default function QuoteRequestForm() {
       </div>
 
       <p className="text-xs text-gray-400">
-        Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions or transaction follow-up. Your contact details are kept confidential.
+        Contact details are not public. Harbourview reviews inquiries before routing. Submission does not guarantee introduction, availability, transaction terms or legal/regulatory outcome.
       </p>
 
       {state.status === 'error' && (
@@ -260,7 +262,7 @@ export default function QuoteRequestForm() {
       )}
 
       <button type="submit" disabled={isPending} className="btn-primary w-full py-3 text-base disabled:opacity-60">
-        {isPending ? 'Submitting…' : 'Submit Buyer Inquiry'}
+        {isPending ? 'Submitting…' : 'Submit Routed Inquiry'}
       </button>
     </form>
   )
