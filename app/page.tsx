@@ -70,12 +70,12 @@ export default function HomePage() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
                 <Link href="/marketplace" className="btn-marketplace">
-                  <span>Enter Harbourview Network</span>
+                  <span>Marketplace</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
 
                 <Link href="/intelligence" className="btn-intelligence">
-                  <span>Request Intelligence</span>
+                  <span>Intelligence</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
               </div>
