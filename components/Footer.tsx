@@ -1,14 +1,14 @@
 import Link from 'next/link'
 
 const platformLinks = [
-  { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Harbourview Network', href: '/marketplace' },
   { label: 'Signals', href: '/signals' },
   { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Intake', href: '/intake' },
+  { label: 'Confidential Intake', href: '/intake' },
 ]
 
 const networkLinks = [
-  { label: 'Browse Listings', href: '/marketplace' },
+  { label: 'Explore Network', href: '/marketplace' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
@@ -30,8 +30,8 @@ export default function Footer() {
             <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
             <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light"></div>
             <p className="mt-5 text-sm leading-7 text-white/58">
-              Commercial intelligence, strategic introductions and market-access
-              support for serious participants in regulated markets.
+              Commercial intelligence, controlled network access and market-access
+              support for serious participants in regulated cannabis and adjacent supply chains.
             </p>
           </div>
 
@@ -87,6 +87,7 @@ export default function Footer() {
           <p className="max-w-md leading-6 sm:text-right">
             Harbourview supports confidential commercial engagement through
             controlled intake, reviewed pathways and source-backed intelligence.
+            Submissions do not guarantee introductions, availability or transaction outcomes.
           </p>
         </div>
       </div>
