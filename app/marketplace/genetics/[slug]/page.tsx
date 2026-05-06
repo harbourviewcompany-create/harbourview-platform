@@ -2,8 +2,15 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getGeneticsProfile } from '@/lib/marketplace/geneticsShowcaseReset'
 
-export default function GeneticsProfilePage({ params }: { params: { slug: string } }) {
-  const profile = getGeneticsProfile(params.slug)
+type GeneticsProfilePageProps = {
+  params: Promise<{
+    slug: string
+  }>
+}
+
+export default async function GeneticsProfilePage({ params }: GeneticsProfilePageProps) {
+  const { slug } = await params
+  const profile = getGeneticsProfile(slug)
 
   if (!profile) return notFound()
 
