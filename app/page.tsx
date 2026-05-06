@@ -1,227 +1,78 @@
-import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Market Access Intelligence and Commercial Advisory',
   description:
     'Harbourview provides commercial intelligence, strategic introductions, and market-access support for serious participants in regulated markets.',
-  openGraph: {
-    title: 'Harbourview | Market Access Intelligence and Commercial Advisory',
-    description:
-      'Harbourview provides commercial intelligence, strategic introductions, and market-access support for serious participants in regulated markets.',
-  },
 }
-
-const capabilities = [
-  {
-    title: 'Commercial Intelligence',
-    body: 'Harbourview monitors policy, regulatory, pathway, and market-access developments across regulated markets to support timing, route assessment, and commercial decision-making.',
-  },
-  {
-    title: 'Strategic Introductions',
-    body: 'Harbourview facilitates controlled introductions between qualified counterparties where relevance, seriousness, and confidentiality have been assessed.',
-  },
-  {
-    title: 'Market-Access Support',
-    body: 'Harbourview supports selected operators with pathway assessment, opportunity qualification, and structured commercial engagement across regulated markets.',
-  },
-]
-
-const processSteps = [
-  {
-    number: '01',
-    title: 'Signal',
-    body: 'We monitor policy, regulatory, pathway, and market-access developments across selected regulated markets.',
-  },
-  {
-    number: '02',
-    title: 'Assess',
-    body: 'We assess route viability, timing, jurisdictional context, and commercial relevance before engagement.',
-  },
-  {
-    number: '03',
-    title: 'Qualify',
-    body: 'Participants and opportunities are screened for seriousness, fit, and counterparty relevance.',
-  },
-  {
-    number: '04',
-    title: 'Connect',
-    body: 'Qualified parties are introduced through a controlled and confidential process.',
-  },
-]
-
-const controls = [
-  'Source-backed intelligence',
-  'Reviewed market-access pathways',
-  'Qualified counterparties',
-  'Confidential introductions',
-  'Compliance-aware routing',
-  'Controlled intake workflows',
-]
 
 export default function HomePage() {
   return (
-    <>
-      <section className="bg-navy text-white py-24">
-        <div className="page-container max-w-5xl">
-          <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-6 max-w-4xl">
-            Market access backed by<br className="hidden sm:block" />{' '}
-            <span className="text-gold">intelligence and relationships.</span>
-          </h1>
-          <p className="text-gray-300 text-lg max-w-3xl mb-10 leading-relaxed">
-            Harbourview provides commercial intelligence, strategic introductions,
-            and market-access support for serious participants in regulated markets.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="/intake" className="btn-primary px-8 py-3 text-base">
-              Request a Confidential Discussion
-            </Link>
-            <Link
-              href="/marketplace"
-              className="border border-gold/60 text-gold px-8 py-3 text-base rounded hover:bg-gold/10 transition-colors"
-            >
-              Explore Marketplace
-            </Link>
-          </div>
-        </div>
-      </section>
+    <section className="hero-shell min-h-[calc(100vh-64px)] border-b border-gold/10 text-white lg:min-h-screen">
+      <div className="signal-beam"></div>
 
-      <section className="py-20 bg-white">
-        <div className="page-container">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-            What Harbourview Does
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            {capabilities.map((item) => (
-              <div key={item.title} className="border-t-2 border-gold pt-5">
-                <h3 className="font-semibold text-navy text-base mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Image
+        src="https://images.unsplash.com/photo-1521295121783-8a321d551ad2?q=80&w=1600&auto=format&fit=crop"
+        alt="Harbourview Globe"
+        width={1600}
+        height={1600}
+        className="hero-globe"
+        priority
+      />
 
-      <section className="py-20 bg-gray-50 border-y border-gray-100">
-        <div className="page-container">
-          <div className="max-w-3xl mb-12">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-              Process
-            </h2>
-            <h3 className="text-2xl sm:text-3xl font-bold text-navy mb-4">
-              How Harbourview works
-            </h3>
-            <p className="text-gray-500 leading-relaxed">
-              Harbourview uses a controlled process to identify relevant signals,
-              assess market-access pathways, qualify counterparties, and support
-              confidential commercial engagement.
+      <div className="page-container relative z-10 py-16 sm:py-24 lg:py-28">
+        <div className="hero-grid min-h-[78vh] lg:min-h-[82vh]">
+          <div className="max-w-[560px]">
+            <p className="hero-eyebrow mb-10">
+              Commercial Intelligence and Marketplace Access
             </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {processSteps.map((step) => (
-              <div key={step.title} className="bg-white border border-gray-100 rounded-lg p-6 shadow-sm">
-                <p className="text-[11px] tracking-[0.2em] text-gold font-semibold mb-3">
-                  {step.number}
-                </p>
-                <h4 className="text-gold font-semibold text-sm uppercase tracking-widest mb-3">
-                  {step.title}
-                </h4>
-                <p className="text-gray-500 text-sm leading-relaxed">{step.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      <section className="py-20 bg-white">
-        <div className="page-container grid grid-cols-1 lg:grid-cols-2 gap-14 items-start">
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-              Controlled Access
-            </h2>
-            <h3 className="text-2xl sm:text-3xl font-bold text-navy mb-5">
-              Built for regulated markets.
-            </h3>
-            <p className="text-gray-500 leading-relaxed">
-              Harbourview is designed for commercial environments where access,
-              timing, qualification, and confidentiality matter. Regulatory context,
-              reviewed pathways, source-backed intelligence, and counterparty fit are
-              considered before sensitive introductions or market-access discussions progress.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {controls.map((control) => (
-              <div key={control} className="border border-gray-200 rounded-lg p-4 text-sm font-medium text-navy">
-                {control}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            <h1 className="hero-title mb-10">
+              <span className="hero-title-gold">Market access</span>
+              <br />
+              <span className="hero-title-white">backed by</span>
+              <br />
+              <span className="hero-title-gold">intelligence</span>
+              <br />
+              <span className="hero-title-white">and</span>
+              <br />
+              <span className="hero-title-gold">relationships.</span>
+            </h1>
 
-      <section className="py-20 bg-gray-50">
-        <div className="page-container">
-          <div className="max-w-3xl mb-12">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-              Structured Intake Workflows
-            </h2>
-            <h3 className="text-2xl sm:text-3xl font-bold text-navy mb-4">
-              Controlled paths for qualified commercial requests.
-            </h3>
-            <p className="text-gray-500 leading-relaxed">
-              For qualified buyers, sellers, and operators, the Harbourview Network
-              provides controlled intake paths for wanted requests, selected opportunities,
-              and review before public or private routing.
+            <div className="mb-10 h-px w-16 bg-gradient-to-r from-gold to-gold-light"></div>
+
+            <p className="hero-body mb-14">
+              Harbourview supports qualified operators with commercial intelligence,
+              counterparty access and structured market-entry pathways across
+              regulated markets.
             </p>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-            <div>
-              <h3 className="text-xl font-bold text-navy mb-4">
-                Submit a Wanted Request
-              </h3>
-              <p className="text-gray-500 leading-relaxed mb-6">
-                For buyers seeking specific inventory, services, equipment, or market-access
-                pathways. Requests are reviewed before circulation or matching.
-              </p>
-              <Link href="/marketplace/wanted" className="btn-secondary px-6 py-2.5 text-sm">
-                Submit Wanted Request
-              </Link>
+
+            <div className="mb-5 text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/85">
+              Select your entry point
             </div>
 
-            <div>
-              <h3 className="text-xl font-bold text-navy mb-4">
-                Submit an Opportunity
-              </h3>
-              <p className="text-gray-500 leading-relaxed mb-6">
-                For sellers, operators, or service providers with relevant commercial
-                pathways. Submissions are reviewed before any public or private routing.
-              </p>
-              <Link href="/marketplace/sell" className="btn-secondary px-6 py-2.5 text-sm">
-                Submit Opportunity
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+              <Link href="/marketplace" className="btn-marketplace">
+                <span>Marketplace</span>
+                <span className="text-xl leading-none">→</span>
+              </Link>
+
+              <Link href="/intelligence" className="btn-intelligence">
+                <span>Intelligence</span>
+                <span className="text-xl leading-none">→</span>
               </Link>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="py-20 bg-white">
-        <div className="page-container max-w-2xl text-center mx-auto">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-            Confidential Intake
-          </h2>
-          <h3 className="text-2xl sm:text-3xl font-bold text-navy mb-5">
-            Begin a confidential conversation.
-          </h3>
-          <p className="text-gray-500 leading-relaxed mb-8">
-            For buyers, sellers, operators, and partners seeking a confidential
-            conversation, Harbourview manages the intake process. Submissions are
-            reviewed and responses are handled directly.
-          </p>
-          <Link href="/intake" className="btn-primary px-8 py-3 text-base">
-            Request a Confidential Discussion
-          </Link>
+          <div aria-hidden="true"></div>
         </div>
-      </section>
-    </>
+
+        <div className="hidden border-t border-gold/10 pt-8 text-center text-[11px] uppercase tracking-[0.3em] text-gold/55 lg:block">
+          Commercial Intelligence. Marketplace Access. Strategic Introductions.
+        </div>
+      </div>
+    </section>
   )
 }
