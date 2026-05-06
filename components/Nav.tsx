@@ -16,10 +16,10 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-50 border-b border-gold/10 bg-[#020814]/95 text-white shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
       <div className="page-container">
-        <div className="flex h-16 items-center justify-between sm:h-20">
+        <div className="flex h-[72px] items-center justify-between pt-[max(env(safe-area-inset-top),0px)] sm:h-20">
           <Link
             href="/"
-            className="premium-wordmark text-[17px] tracking-[0.32em] sm:text-[22px]"
+            className="premium-wordmark text-[15px] tracking-[0.28em] sm:text-[22px]"
             aria-label="Harbourview home"
           >
             HARBOURVIEW
@@ -34,7 +34,7 @@ export default function Nav() {
           </nav>
 
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/20 text-gold transition-colors hover:border-gold/50 hover:bg-gold/10 lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/20 bg-white/[0.02] text-gold transition-colors hover:border-gold/50 hover:bg-gold/10 lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
@@ -50,12 +50,12 @@ export default function Nav() {
 
       {mobileOpen && (
         <div className="border-t border-gold/10 bg-[#020814]/98 lg:hidden">
-          <div className="page-container flex flex-col gap-4 py-6 text-[13px] font-semibold uppercase tracking-[0.2em] text-white/78">
+          <div className="page-container flex flex-col gap-1 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.22em] text-white/78">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="py-2 transition-colors hover:text-gold"
+                className="rounded-sm border border-transparent px-1 py-3 transition-colors hover:border-gold/10 hover:bg-white/[0.02] hover:text-gold"
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}

@@ -13,6 +13,7 @@ export default function HomePage() {
     <>
       <section className="hero-shell min-h-[calc(100vh-64px)] border-b border-gold/10 text-white lg:min-h-screen">
         <div className="hero-gradient-shield"></div>
+        <div className="hero-mobile-text-shield"></div>
         <div className="signal-beam"></div>
 
         <div className="lighthouse-wrap" aria-hidden="true">
@@ -29,14 +30,14 @@ export default function HomePage() {
           priority
         />
 
-        <div className="page-container relative z-10 py-16 sm:py-24 lg:py-28">
+        <div className="page-container relative z-10 py-10 sm:py-20 lg:py-28">
           <div className="hero-grid min-h-[78vh] lg:min-h-[82vh]">
             <div className="max-w-[540px]">
-              <p className="hero-eyebrow mb-9">
+              <p className="hero-eyebrow">
                 Commercial Intelligence and Marketplace Access
               </p>
 
-              <h1 className="hero-title mb-8">
+              <h1 className="hero-title">
                 <span className="hero-title-gold">Market access</span>
                 <br />
                 <span className="hero-title-white">backed by</span>
@@ -48,19 +49,19 @@ export default function HomePage() {
                 <span className="hero-title-gold">relationships.</span>
               </h1>
 
-              <div className="mb-8 h-px w-16 bg-gradient-to-r from-gold to-gold-light"></div>
+              <div className="mb-7 h-px w-16 bg-gradient-to-r from-gold to-gold-light sm:mb-8"></div>
 
-              <p className="hero-body mb-10">
+              <p className="hero-body">
                 Harbourview supports qualified operators with commercial intelligence,
                 counterparty access and structured market-entry pathways across
                 regulated markets.
               </p>
 
-              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/82">
+              <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-gold/78 sm:text-[11px]">
                 Select your entry point
               </div>
 
-              <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
                 <Link href="/marketplace" className="btn-marketplace">
                   <span>Marketplace</span>
                   <span className="text-xl leading-none">→</span>
