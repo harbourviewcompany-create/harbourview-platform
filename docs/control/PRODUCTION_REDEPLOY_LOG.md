@@ -68,3 +68,16 @@ Required runtime values:
 Notes:
 - Documentation-only deployment trigger.
 - No application logic, route structure, API routes, Supabase schema, RLS policies or validation logic changed in this commit.
+
+## 2026-05-06 deployment capacity recheck trigger
+
+Purpose: create one safe documentation-only main commit to test whether production deployment capacity has reset and to trigger a fresh Git deployment for public-route verification.
+
+Verification gate:
+- A new READY production deployment must be created from main.
+- The public production alias must move off the previous stale production deployment.
+- Route probing starts only after the alias moves.
+
+Notes:
+- Documentation-only deployment trigger.
+- No application logic, route structure, API routes, Supabase schema, RLS policies or validation logic changed in this commit.
