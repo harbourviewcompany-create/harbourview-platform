@@ -19,6 +19,7 @@ const companyLinks = [
   { label: 'Contact', href: '/contact' },
   { label: 'Privacy', href: '/legal/privacy' },
   { label: 'Terms', href: '/legal/terms' },
+  { label: 'Disclaimer', href: '/legal/disclaimer' },
 ]
 
 export default function Footer() {
