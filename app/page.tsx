@@ -29,18 +29,22 @@ const capabilities = [
 
 const processSteps = [
   {
+    number: '01',
     title: 'Signal',
     body: 'We monitor policy, regulatory, pathway, and market-access developments across selected regulated markets.',
   },
   {
+    number: '02',
     title: 'Assess',
     body: 'We assess route viability, timing, jurisdictional context, and commercial relevance before engagement.',
   },
   {
+    number: '03',
     title: 'Qualify',
     body: 'Participants and opportunities are screened for seriousness, fit, and counterparty relevance.',
   },
   {
+    number: '04',
     title: 'Connect',
     body: 'Qualified parties are introduced through a controlled and confidential process.',
   },
@@ -116,6 +120,9 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {processSteps.map((step) => (
               <div key={step.title} className="bg-white border border-gray-100 rounded-lg p-6 shadow-sm">
+                <p className="text-[11px] tracking-[0.2em] text-gold font-semibold mb-3">
+                  {step.number}
+                </p>
                 <h4 className="text-gold font-semibold text-sm uppercase tracking-widest mb-3">
                   {step.title}
                 </h4>
@@ -163,7 +170,7 @@ export default function HomePage() {
             </h3>
             <p className="text-gray-500 leading-relaxed">
               For qualified buyers, sellers, and operators, the Harbourview Network
-              provides controlled intake paths for wanted requests, commercial opportunities,
+              provides controlled intake paths for wanted requests, selected opportunities,
               and review before public or private routing.
             </p>
           </div>
@@ -173,8 +180,8 @@ export default function HomePage() {
                 Submit a Wanted Request
               </h3>
               <p className="text-gray-500 leading-relaxed mb-6">
-                For buyers seeking specific inventory, services, equipment, or commercial
-                opportunities. Requests are reviewed before circulation or matching.
+                For buyers seeking specific inventory, services, equipment, or market-access
+                pathways. Requests are reviewed before circulation or matching.
               </p>
               <Link href="/marketplace/wanted" className="btn-secondary px-6 py-2.5 text-sm">
                 Submit Wanted Request
@@ -187,7 +194,7 @@ export default function HomePage() {
               </h3>
               <p className="text-gray-500 leading-relaxed mb-6">
                 For sellers, operators, or service providers with relevant commercial
-                opportunities. Submissions are reviewed before any public or private routing.
+                pathways. Submissions are reviewed before any public or private routing.
               </p>
               <Link href="/marketplace/sell" className="btn-secondary px-6 py-2.5 text-sm">
                 Submit Opportunity
