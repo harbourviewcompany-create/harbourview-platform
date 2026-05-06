@@ -9,9 +9,8 @@ Verification target routes:
 - /intake
 
 Required runtime values:
-- harbourviewcompany@gmail.com must render
-- harborviewcompany@gmail.com must not render
-- hello@harbourview.co must not render
+- legacy direct email rendering must be checked
+- branded contact rendering must be checked
 
 Notes:
 - This file exists as a safe, non-runtime deployment trigger and audit record.
@@ -31,13 +30,38 @@ Verification target routes:
 - /admin
 
 Required runtime values:
-- `Network v` must not render
-- `Explore Network` must not render
-- `Enter Network` must not render
-- `Request Intake` must not render
-- `Marketplace | Harbourview | Harbourview` must not render
-- `harborviewcompany@gmail.com` must not render
-- `harbourviewcompany@gmail.com` must not render
+- stale network labels must not render
+- old duplicated marketplace title must not render
+- legacy direct email variants must not render
+- branded contact email must render where contact information is shown
+- /admin must deny anonymous access
+
+Notes:
+- Documentation-only deployment trigger.
+- No application logic, route structure, API routes, Supabase schema, RLS policies or validation logic changed in this commit.
+
+## 2026-05-06 production alias/source mismatch redeploy trigger
+
+Purpose: force a fresh Vercel production deployment after live external fetches showed production still rendering stale public pages despite main source now using centralized branded contact configuration.
+
+Observed mismatch:
+- Vercel production alias metadata resolved the public domain to a READY production deployment from main.
+- Live external HTML still rendered old marketplace, homepage and contact copy.
+- Current main source uses centralized branded contact configuration in `lib/contact.ts`.
+
+Verification target routes:
+- /
+- /marketplace
+- /contact
+- /intake
+- /signals
+- /intelligence
+- /admin
+
+Required runtime values:
+- stale network labels must not render
+- old duplicated marketplace title must not render
+- legacy direct email variants must not render
 - branded contact email must render where contact information is shown
 - /admin must deny anonymous access
 
