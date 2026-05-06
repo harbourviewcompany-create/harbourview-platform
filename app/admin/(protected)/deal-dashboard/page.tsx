@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { groupDealsByStatus } from '@/lib/introduction-routing/dealDashboard'
+import { DealDashboardClient } from '@/components/admin/deal-dashboard/DealDashboardClient'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -11,27 +11,15 @@ function getClient() {
 export default async function Page() {
   const client = getClient()
   let records = []
+  let events = []
 
   if (client) {
-    const { data } = await client.from('genetics_routing_records').select('*')
-    records = data || []
+    const { data: recordData } = await client.from('genetics_routing_records').select('*')
+    const { data: eventData } = await client.from('genetics_routing_events').select('*')
+
+    records = recordData || []
+    events = eventData || []
   }
 
-  const grouped = groupDealsByStatus(records)
-
-  return (
-    <main className="p-6">
-      <h1 className="text-xl font-semibold">Deal Dashboard</h1>
-      {grouped.map((g) => (
-        <div key={g.status} className="mt-6">
-          <h2>{g.status}</h2>
-          {g.records.map((r: any) => (
-            <div key={r.id} className="border p-3 mt-2">
-              {r.requester_company} - {r.score}
-            </div>
-          ))}
-        </div>
-      ))}
-    </main>
-  )
+  return <DealDashboardClient records={records} events={events} />
 }
