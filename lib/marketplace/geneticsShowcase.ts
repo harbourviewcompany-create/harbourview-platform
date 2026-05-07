@@ -20,6 +20,10 @@ export type GeneticsProfile = {
   drops: GeneticsDrop[]
 }
 
+export type PublicGeneticsProfile = Omit<GeneticsProfile, 'privateFields'> & {
+  privateFieldPolicy: string
+}
+
 export const geneticsProfiles: GeneticsProfile[] = [
   {
     slug: 'nordline-cbd-program',
@@ -89,6 +93,21 @@ export const geneticsProfiles: GeneticsProfile[] = [
   },
 ]
 
-export function getGeneticsProfile(slug: string) {
-  return geneticsProfiles.find((profile) => profile.slug === slug)
+export function toPublicGeneticsProfile(profile: GeneticsProfile): PublicGeneticsProfile {
+  const { privateFields, ...publicProfile } = profile
+
+  return {
+    ...publicProfile,
+    privateFieldPolicy:
+      'Direct contact details, pricing, sensitive breeding information, unpublished genetics, private documents and negotiation terms are controlled through Harbourview review.',
+  }
+}
+
+export function getPublicGeneticsProfiles() {
+  return geneticsProfiles.map(toPublicGeneticsProfile)
+}
+
+export function getPublicGeneticsProfile(slug: string) {
+  const profile = geneticsProfiles.find((item) => item.slug === slug)
+  return profile ? toPublicGeneticsProfile(profile) : undefined
 }
