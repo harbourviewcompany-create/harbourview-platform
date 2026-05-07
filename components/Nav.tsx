@@ -6,6 +6,7 @@ import { useState } from 'react'
 const navLinks = [
   { label: 'Network', href: '/marketplace' },
   { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Signals', href: '/signals' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -26,7 +27,7 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-10 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/75 lg:flex">
+          <nav className="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75 xl:gap-9 lg:flex">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link-premium">
                 {link.label}
@@ -51,12 +52,12 @@ export default function Nav() {
 
       {mobileOpen && (
         <div className="border-t border-gold/10 bg-[#020814]/98 lg:hidden">
-          <div className="page-container flex flex-col gap-1 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.22em] text-white/78">
+          <div className="page-container grid grid-cols-1 gap-2 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.2em] text-white/82 sm:grid-cols-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-sm border border-transparent px-1 py-3 transition-colors hover:border-gold/10 hover:bg-white/[0.02] hover:text-gold"
+                className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}

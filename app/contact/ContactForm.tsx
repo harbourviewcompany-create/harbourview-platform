@@ -45,22 +45,32 @@ export default function ContactForm() {
 
   if (state === 'success') {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Message Prepared</h2>
-        <p className="text-gray-500 text-sm">
-          Your email client has been opened with your message pre-filled. Send
-          the email to complete your enquiry.
+      <div className="card p-8 text-center sm:p-10">
+        <p className="mb-4 text-4xl text-gold">✓</p>
+        <h2 className="mb-2 text-xl font-bold text-navy">Message Prepared</h2>
+        <p className="mx-auto max-w-md text-sm leading-7 text-gray-600">
+          Your email client has been opened with your message pre-filled. Send the email to
+          complete your enquiry.
         </p>
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-5" noValidate>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+    <form onSubmit={handleSubmit} className="card space-y-6 p-6 sm:p-8" noValidate>
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-dark">
+          Confidential Contact Form
+        </p>
+        <h2 className="text-2xl font-semibold tracking-[-0.02em] text-navy">Send a reviewed inquiry</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-600">
+          Include enough context for Harbourview to assess fit before follow-up. Required fields are marked.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-gray-700">
             Full Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -68,13 +78,13 @@ export default function ContactForm() {
             name="name"
             type="text"
             autoComplete="name"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+            className="w-full rounded-sm border border-gray-300 bg-white px-3.5 py-3 text-sm text-navy shadow-sm transition focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25"
           />
-          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+          {errors.name && <p className="mt-1.5 text-xs text-red-600">{errors.name}</p>}
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">
             Email Address <span className="text-red-500">*</span>
           </label>
           <input
@@ -82,41 +92,48 @@ export default function ContactForm() {
             name="email"
             type="email"
             autoComplete="email"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+            className="w-full rounded-sm border border-gray-300 bg-white px-3.5 py-3 text-sm text-navy shadow-sm transition focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25"
           />
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+          {errors.email && <p className="mt-1.5 text-xs text-red-600">{errors.email}</p>}
         </div>
       </div>
 
       <div>
-        <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="subject" className="mb-1.5 block text-sm font-medium text-gray-700">
           Subject
         </label>
         <input
           id="subject"
           name="subject"
           type="text"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+          placeholder="Market access inquiry, reviewed opportunity, intelligence request, or general contact"
+          className="w-full rounded-sm border border-gray-300 bg-white px-3.5 py-3 text-sm text-navy shadow-sm transition placeholder:text-gray-400 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25"
         />
       </div>
 
       <div>
-        <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="message" className="mb-1.5 block text-sm font-medium text-gray-700">
           Message <span className="text-red-500">*</span>
         </label>
         <textarea
           id="message"
           name="message"
-          rows={6}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none"
+          rows={7}
+          placeholder="Describe who you are, the nature of the opportunity or request, relevant market context, and the type of follow-up you are seeking."
+          className="min-h-[190px] w-full resize-y rounded-sm border border-gray-300 bg-white px-3.5 py-3 text-sm leading-7 text-navy shadow-sm transition placeholder:text-gray-400 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25"
         />
-        {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
+        {errors.message && <p className="mt-1.5 text-xs text-red-600">{errors.message}</p>}
       </div>
+
+      <p className="rounded-sm border border-gold/15 bg-gold/5 px-4 py-3 text-xs leading-6 text-gray-600">
+        Submissions are reviewed before follow-up. Do not include information you are not authorized
+        to share.
+      </p>
 
       <button
         type="submit"
         disabled={state === 'submitting'}
-        className="btn-primary w-full py-3 text-base disabled:opacity-60"
+        className="btn-primary w-full justify-center py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[220px]"
       >
         {state === 'submitting' ? 'Opening email…' : 'Send Message'}
       </button>
