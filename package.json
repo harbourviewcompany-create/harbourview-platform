@@ -14,6 +14,8 @@
     "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs",
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
     "test:listing-quality": "node scripts/test-listing-quality.mjs",
+    "test:regulatory-signals-public-leakage": "node scripts/test-regulatory-signals-public-leakage.mjs",
+    "test:regulatory-signals-contract": "node scripts/test-regulatory-signals-contract.mjs",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
