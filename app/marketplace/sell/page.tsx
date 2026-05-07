@@ -74,7 +74,7 @@ export default async function SellPage({
               </p>
             </>
           )}
-          <IntakeForm initialListingType={isWanted ? 'Wanted Request' : undefined} submitLabel={isWanted ? 'Submit Wanted Request' : 'Submit Listing'} />
+          <IntakeForm />
         </div>
       </section>
     </>
