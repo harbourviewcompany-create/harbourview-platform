@@ -36,6 +36,9 @@ jobs:
       - name: Public visibility
         run: npm run test:visibility
 
+      - name: Compliance visibility
+        run: npm run test:compliance-visibility
+
       - name: Build
         run: npm run build
 
