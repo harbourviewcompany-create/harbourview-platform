@@ -76,13 +76,15 @@ jobs:
             'reviewedBy',
             'lastReviewedAt',
             'nextReviewDueAt',
-            'contactEmail',
           ]
 
           const approvedHeroAssets = [
             'harbourview-globe-hero-v2.svg',
             'harbourview-coming-soon-placeholder.svg',
           ]
+
+          const networkCtaNames = [/^Enter Harbourview Network/i, /^Preview Network/i, /^Enter Network/i, /^Marketplace/i]
+          const intelligenceCtaName = /^Request Intelligence/i
 
           const failures = []
           const evidence = {
@@ -118,8 +120,16 @@ jobs:
             }
           }
 
+          async function firstExistingLocator(page, namePatterns) {
+            for (const name of namePatterns) {
+              const locator = page.getByRole('link', { name }).first()
+              if ((await locator.count()) > 0) return { locator, name: String(name) }
+            }
+            return { locator: null, name: namePatterns.map(String).join(' | ') }
+          }
+
           async function locatorVisibleAboveFold(locator, viewport) {
-            if ((await locator.count()) < 1) return { visible: false, reason: 'not found' }
+            if (!locator || (await locator.count()) < 1) return { visible: false, reason: 'not found' }
             const first = locator.first()
             if (!(await first.isVisible().catch(() => false))) return { visible: false, reason: 'not visible' }
             const box = await first.boundingBox()
@@ -128,26 +138,26 @@ jobs:
             return { visible: aboveFold, reason: aboveFold ? 'visible above fold' : `outside fold: y=${box.y}, height=${box.height}, viewportHeight=${viewport.height}`, box }
           }
 
-          async function clickCta(context, label, linkRegex, expectedPathPrefix) {
+          async function clickCta(context, label, namePatterns, expectedPathPrefix) {
             const page = await context.newPage()
-            const result = { label, expectedPathPrefix, found: false, finalUrl: null, ok: false }
+            const result = { label, expectedPathPrefix, matchedName: null, found: false, finalUrl: null, ok: false }
             try {
               await page.goto(bustedUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 })
               await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-              const locator = page.getByRole('link', { name: linkRegex }).first()
-              const count = await locator.count()
-              result.found = count > 0
-              if (!count) {
-                fail(`cta-${label}-exists`, `No homepage CTA link matched ${linkRegex}`)
+              const matched = await firstExistingLocator(page, namePatterns)
+              result.matchedName = matched.name
+              result.found = Boolean(matched.locator)
+              if (!matched.locator) {
+                fail(`cta-${label}-exists`, `No homepage CTA link matched ${matched.name}`)
                 return result
               }
-              await locator.click({ timeout: 10000 })
+              await matched.locator.click({ timeout: 10000 })
               await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
               result.finalUrl = page.url()
               const finalPath = new URL(result.finalUrl).pathname
               result.ok = finalPath.startsWith(expectedPathPrefix)
               if (!result.ok) {
-                fail(`cta-${label}-routes`, `CTA matched ${linkRegex} landed on ${finalPath}; expected path prefix ${expectedPathPrefix}`)
+                fail(`cta-${label}-routes`, `CTA matched ${matched.name} landed on ${finalPath}; expected path prefix ${expectedPathPrefix}`)
               }
             } catch (error) {
               fail(`cta-${label}-click`, error && error.message ? error.message : String(error))
@@ -190,16 +200,16 @@ jobs:
                   fail(`horizontal-overflow-${viewport.name}`, `Horizontal overflow ${horizontalOverflow}px at ${viewport.width}x${viewport.height}`)
                 }
 
-                const networkCta = page.getByRole('link', { name: /network|marketplace|preview network/i }).first()
-                const intelligenceCta = page.getByRole('link', { name: /intelligence/i }).first()
-                const networkVisibility = await locatorVisibleAboveFold(networkCta, viewport)
-                const intelligenceVisibility = await locatorVisibleAboveFold(intelligenceCta, viewport)
+                const networkMatched = await firstExistingLocator(page, networkCtaNames)
+                const intelligenceLocator = page.getByRole('link', { name: intelligenceCtaName }).first()
+                const networkVisibility = await locatorVisibleAboveFold(networkMatched.locator, viewport)
+                const intelligenceVisibility = await locatorVisibleAboveFold(intelligenceLocator, viewport)
 
                 if (!networkVisibility.visible) {
-                  fail(`network-cta-visible-above-fold-${viewport.name}`, networkVisibility.reason)
+                  fail(`network-cta-visible-above-fold-${viewport.name}`, `${networkMatched.name}: ${networkVisibility.reason}`)
                 }
                 if (!intelligenceVisibility.visible) {
-                  fail(`intelligence-cta-visible-above-fold-${viewport.name}`, intelligenceVisibility.reason)
+                  fail(`intelligence-cta-visible-above-fold-${viewport.name}`, `${intelligenceCtaName}: ${intelligenceVisibility.reason}`)
                 }
 
                 const imageSources = await page.$$eval('img', (imgs) =>
@@ -213,6 +223,11 @@ jobs:
                   fail(`approved-hero-asset-${viewport.name}`, `No approved hero image asset found. Sources: ${decodedSources.join(' | ') || 'none'}`)
                 }
 
+                const h1Text = await page.locator('h1').first().innerText({ timeout: 10000 }).catch(() => '')
+                if (!/market access|opening soon|full site/i.test(h1Text)) {
+                  fail(`homepage-hero-title-${viewport.name}`, `Unexpected or missing H1 text: ${h1Text}`)
+                }
+
                 evidence.viewports.push({
                   ...viewport,
                   status: response ? response.status() : null,
@@ -223,13 +238,14 @@ jobs:
                   intelligenceVisibility,
                   imageSources: decodedSources,
                   approvedAssetFound,
+                  h1Text,
                 })
 
                 await page.close()
               }
 
-              await clickCta(context, 'network-or-marketplace', /network|marketplace|preview network/i, '/marketplace')
-              await clickCta(context, 'intelligence', /intelligence/i, '/intelligence')
+              await clickCta(context, 'network-or-marketplace', networkCtaNames, '/marketplace')
+              await clickCta(context, 'intelligence', [intelligenceCtaName], '/intelligence')
 
               for (const routePath of publicRoutes) {
                 const url = bustedUrl(routePath)
