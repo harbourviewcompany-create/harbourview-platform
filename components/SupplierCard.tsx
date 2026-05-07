@@ -25,11 +25,15 @@ export default function SupplierCard({ supplier }: SupplierCardProps) {
         ))}
       </div>
 
+      <p className="text-xs leading-5 text-gray-400">
+        Public supplier summary. Introduction requests are reviewed before routing.
+      </p>
+
       <div className="mt-auto border-t border-gray-100 pt-4">
         <InquiryLink
           subject={`Harbourview Supplier Inquiry: ${supplier.name}`}
           email={supplier.contactEmail}
-          label="Request Supplier Intro"
+          label="Request Routed Intro"
           listingTitle={supplier.name}
         />
       </div>

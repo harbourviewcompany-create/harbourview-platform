@@ -1,0 +1,91 @@
+.shell {
+  position: absolute;
+  right: -8%;
+  top: 52%;
+  width: min(50vw, 860px);
+  aspect-ratio: 1 / 1;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.fallback,
+.canvasLayer,
+.webglCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.fallback {
+  opacity: 0.96;
+  object-fit: contain;
+  filter: drop-shadow(0 0 80px rgba(0, 0, 0, 0.88));
+  transition: opacity 700ms ease;
+}
+
+.canvasLayer {
+  opacity: 0;
+  filter: drop-shadow(0 0 92px rgba(0, 0, 0, 0.9));
+  transition: opacity 900ms ease;
+}
+
+.shellReady .fallback {
+  opacity: 0.18;
+}
+
+.shellReady .canvasLayer {
+  opacity: 0.98;
+}
+
+.webglCanvas {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvasLayer {
+    display: none;
+  }
+
+  .fallback {
+    opacity: 0.96;
+  }
+}
+
+@media (max-width: 1024px) {
+  .shell {
+    right: -50%;
+    top: 50%;
+    width: min(88vw, 420px);
+  }
+
+  .fallback {
+    opacity: 0.42;
+    filter: drop-shadow(0 0 52px rgba(0, 0, 0, 0.92));
+  }
+
+  .shellReady .fallback {
+    opacity: 0.12;
+  }
+
+  .shellReady .canvasLayer {
+    opacity: 0.52;
+  }
+}
+
+@media (max-width: 420px) {
+  .shell {
+    right: -58%;
+    top: 49%;
+    width: 98vw;
+  }
+
+  .fallback {
+    opacity: 0.38;
+  }
+
+  .shellReady .canvasLayer {
+    opacity: 0.48;
+  }
+}
