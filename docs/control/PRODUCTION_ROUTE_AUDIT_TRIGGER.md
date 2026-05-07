@@ -1,8 +1,8 @@
 # Production Route Audit Trigger
 
-Purpose: trigger a clean production redeploy and the `Production Route Audit` workflow after PR #75 and PR #76 route cleanup.
+Purpose: trigger the PR-based live production route audit against `https://harbourview-platform.vercel.app` after production middleware hardening.
 
-Commit under audit: `da03ca72f896ddabdf7abd362930c2c881b03ab5` plus this trigger commit.
+Commit under audit: `0d93209e3b738bdd0b1f6af2fc5a37cb10596506`.
 
 Required production checks:
 - `/`
