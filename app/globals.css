@@ -52,6 +52,34 @@
     width: 100%;
   }
 
+  .card {
+    @apply rounded-sm border border-gray-200 bg-white text-navy shadow-sm;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center rounded-sm font-semibold uppercase tracking-[0.16em] transition;
+    background: linear-gradient(180deg, #dfc37c 0%, #b68f3b 100%);
+    border: 1px solid rgba(136, 99, 36, 0.34);
+    color: #071425;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.26), 0 12px 28px rgba(11,26,47,0.12);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.03);
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center rounded-sm border font-semibold uppercase tracking-[0.16em] transition;
+    border-color: rgba(198,165,90,0.42);
+    color: #0B1A2F;
+    background: rgba(255,255,255,0.76);
+  }
+
+  .btn-outline:hover {
+    color: #A8842D;
+    border-color: rgba(198,165,90,0.7);
+  }
+
   .hero-shell {
     position: relative;
     overflow: hidden;
