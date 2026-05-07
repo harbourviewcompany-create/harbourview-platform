@@ -26,6 +26,12 @@ export type GeneticsProfile = {
   accessModel: string
   pathwaySummary: string
   imageMood: string
+  breedingPhilosophy: string
+  commercialNarrative: string
+  marketIntent: string
+  programBackground: string
+  participationNote: string
+  internationalContext: string
 }
 
 export const geneticsProfiles: GeneticsProfile[] = [
@@ -42,6 +48,18 @@ export const geneticsProfiles: GeneticsProfile[] = [
     accessModel: 'Profile visible / access reviewed',
     pathwaySummary: 'Suitable for selected CBD commercial pathway discussions. Country review required.',
     imageMood: 'cool botanical laboratory with gold-accented glass and shadowed leaves',
+    breedingPhilosophy:
+      'The program focuses on stable cannabinoid expression, commercial consistency and genetics suitable for structured low-THC and CBD-oriented cultivation pathways.',
+    commercialNarrative:
+      'The genetics are positioned for operators seeking differentiated CBD cultivars with tissue-culture compatibility and controlled commercial rollout discussions.',
+    marketIntent:
+      'Focused on selected Europe, Australia and New Zealand pathway conversations rather than broad public licensing campaigns.',
+    programBackground:
+      'Built around cultivar consistency, propagation discipline and long-term commercial suitability for regulated operators.',
+    participationNote:
+      'Participation and review are intentionally selective during the initial Harbourview Genetics rollout phase.',
+    internationalContext:
+      'Relevant to operators exploring CBD commercial pathways, low-THC cultivation strategies and selective market-entry discussions.',
     drops: [
       {
         id: 'alpine-cbd-line',
@@ -72,6 +90,18 @@ export const geneticsProfiles: GeneticsProfile[] = [
     accessModel: 'Public profile / contact private',
     pathwaySummary: 'Territory discussions available for selected commercial partners. No market outcome is guaranteed.',
     imageMood: 'dark equatorial botanical field study with cinematic shadow and gold rim light',
+    breedingPhilosophy:
+      'The breeding direction emphasizes cultivar identity, regional adaptation and preserving differentiated genetic character over large-scale commoditization.',
+    commercialNarrative:
+      'The portfolio is positioned for selected operators seeking unique territory narratives, differentiated flower positioning and exclusive commercial access discussions.',
+    marketIntent:
+      'Focused on controlled rollout partnerships across selected Europe, LATAM and Australia pathway discussions.',
+    programBackground:
+      'Built from breeder-led selection work with emphasis on rarity, identity and controlled international exposure.',
+    participationNote:
+      'Harbourview presents selected breeder programs during a curated rollout phase rather than maintaining an open-access directory.',
+    internationalContext:
+      'Relevant to operators seeking differentiated cultivar positioning, selective territory rights and branded commercial rollout pathways.',
     drops: [
       {
         id: 'sierra-gold-line',
@@ -102,6 +132,18 @@ export const geneticsProfiles: GeneticsProfile[] = [
     accessModel: 'Program visible / technical details private',
     pathwaySummary: 'Clean-stock and preservation discussions available after Harbourview review.',
     imageMood: 'sterile tissue culture glassware with deep navy shadows and gold highlights',
+    breedingPhilosophy:
+      'The laboratory direction emphasizes preservation quality, propagation stability and controlled cultivar stewardship for long-term regulated cultivation.',
+    commercialNarrative:
+      'The program is designed for genetics holders and operators requiring cleaner propagation workflows, preservation pathways and selective tissue-culture support.',
+    marketIntent:
+      'Focused on North America and Europe commercial conversations involving clean-stock and propagation infrastructure.',
+    programBackground:
+      'Built around tissue-culture discipline, cultivar preservation and long-term commercial propagation support.',
+    participationNote:
+      'Harbourview reviews all propagation and clean-stock programs before any commercial exposure or introduction discussion.',
+    internationalContext:
+      'Relevant to licensed operators, pharma-aligned cultivation groups and genetics holders exploring propagation infrastructure partnerships.',
     drops: [
       {
         id: 'clean-stock-intake',
