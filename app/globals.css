@@ -17,6 +17,16 @@
   }
 }
 
+:root {
+  --hv-black: #030507;
+  --hv-near-black: #050A10;
+  --hv-navy: #07172A;
+  --hv-ocean-navy: #0A2138;
+  --hv-gold: #C6A55A;
+  --hv-dark-gold: #A8842D;
+  --hv-offwhite: #F5F1E8;
+}
+
 @layer components {
   .premium-wordmark {
     font-family: Georgia, 'Times New Roman', serif;
@@ -376,5 +386,25 @@
     .hero-support-copy {
       max-width: 330px;
     }
+  }
+
+  .hv-btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 font-semibold rounded transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
+    background-color: var(--hv-gold);
+    color: #0B1A2F;
+  }
+
+  .hv-btn-primary:hover {
+    background-color: var(--hv-dark-gold);
+  }
+
+  .hv-btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 font-semibold rounded border transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
+    border-color: var(--hv-gold);
+    color: var(--hv-gold);
+  }
+
+  .hv-btn-secondary:hover {
+    background-color: rgba(198, 165, 90, 0.1);
   }
 }

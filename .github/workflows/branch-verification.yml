@@ -8,9 +8,11 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  verify:
+  contact-production-visual:
+    name: Contact production visual verification
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -21,22 +23,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Playwright Chromium in temporary verifier directory
+        run: |
+          mkdir -p .tmp/contact-visual
+          cd .tmp/contact-visual
+          npm init -y
+          npm install --no-audit --no-fund playwright@1.52.0
+          npx playwright install chromium
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Run contact production visual verification
+        env:
+          BASE_URL: https://harbourview.vercel.app
+          ARTIFACT_DIR: verification-results/contact-production-visual
+        run: node scripts/verify-contact-production-visual.mjs
 
-      - name: Listing quality
-        run: npm run test:listing-quality
-
-      - name: Public visibility
-        run: npm run test:visibility
-
-      - name: Build
-        run: npm run build
-
-      - name: Visibility
-        run: npm run test:visibility
+      - name: Upload contact production visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-contact-production-visual-verification
+          path: verification-results/contact-production-visual/
+          if-no-files-found: error
+          retention-days: 30
