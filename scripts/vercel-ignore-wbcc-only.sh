@@ -8,6 +8,10 @@ set -euo pipefail
 # verification files or WBCC workflow maintenance. Harbourview app,
 # public route, Supabase, auth, marketplace, copy and asset changes
 # continue to build normally.
+#
+# Fail-open rule:
+#   If Vercel's checkout cannot resolve the previous SHA, head SHA, or
+#   diff range, continue the build instead of failing the deployment.
 
 base="${VERCEL_GIT_PREVIOUS_SHA:-}"
 head="${VERCEL_GIT_COMMIT_SHA:-HEAD}"
@@ -16,12 +20,21 @@ if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]]; th
   base="HEAD^"
 fi
 
-if ! git rev-parse --verify "$base" >/dev/null 2>&1; then
-  echo "Vercel ignore: cannot resolve base ref; continue build."
+if ! git rev-parse --verify "${head}^{commit}" >/dev/null 2>&1; then
+  echo "Vercel ignore: cannot resolve head ref '$head'; continue build."
   exit 1
 fi
 
-changed_files="$(git diff --name-only "$base" "$head")"
+if ! git rev-parse --verify "${base}^{commit}" >/dev/null 2>&1; then
+  echo "Vercel ignore: cannot resolve base ref '$base'; continue build."
+  exit 1
+fi
+
+if ! changed_files="$(git diff --name-only "$base" "$head" 2>/tmp/vercel-ignore-git-diff.err)"; then
+  echo "Vercel ignore: git diff failed for range '$base'..'$head'; continue build."
+  cat /tmp/vercel-ignore-git-diff.err || true
+  exit 1
+fi
 
 if [[ -z "$changed_files" ]]; then
   echo "Vercel ignore: no changed files detected; continue build."
