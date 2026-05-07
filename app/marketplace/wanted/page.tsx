@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { wantedRequests } from '@/lib/fixtures/wanted-requests'
-import ListingCard from '@/components/ListingCard'
+import type { WantedRequest } from '@/lib/fixtures/types'
+import InquiryLink from '@/components/InquiryLink'
 
 export const metadata: Metadata = {
   title: 'Wanted Requests | Harbourview Network',
@@ -28,6 +29,127 @@ const workflow = [
     body: 'Harbourview may route requests privately. Submission does not guarantee supplier response, availability, pricing or transaction terms.',
   },
 ]
+
+const visualRules = [
+  { terms: ['extraction', 'co2', 'ethanol', 'processing equipment'], label: 'Extraction equipment', shape: 'processing system' },
+  { terms: ['mylar', 'pouch', 'exit bags', 'packaging'], label: 'Mylar pouches', shape: 'pouches' },
+  { terms: ['pos', 'technology', 'retail', 'metrc', 'biotrack'], label: 'Retail POS system', shape: 'retail technology' },
+  { terms: ['facility', 'real estate', 'cultivation', 'lease', 'warehouse'], label: 'Commercial facility', shape: 'facility request' },
+]
+
+function titleCase(value: string) {
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function getWantedVisual(listing: WantedRequest) {
+  const haystack = `${listing.title} ${listing.description} ${listing.tags.join(' ')}`.toLowerCase()
+  const match = visualRules.find((rule) => rule.terms.some((term) => haystack.includes(term)))
+
+  if (match) return match
+
+  const firstUsefulTag = listing.tags.find((tag) => !['wanted', 'bulk'].includes(tag.toLowerCase()))
+
+  if (firstUsefulTag) {
+    return {
+      label: titleCase(firstUsefulTag),
+      shape: 'wanted request',
+    }
+  }
+
+  return {
+    label: 'Wanted Request',
+    shape: 'commercial requirement',
+  }
+}
+
+function WantedBudget({ budget }: { budget?: string }) {
+  if (!budget) return null
+
+  if (budget === '$3,000–$8,000') {
+    return (
+      <>
+        <span>$</span>3,000–<span>$</span>8,000
+      </>
+    )
+  }
+
+  return <>{budget}</>
+}
+
+function WantedVisual({ listing }: { listing: WantedRequest }) {
+  const visual = getWantedVisual(listing)
+
+  return (
+    <div className="relative h-36 overflow-hidden rounded-lg border border-gray-100 bg-gradient-to-br from-gold-pale via-white to-gray-100 p-4">
+      <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
+        Representative image
+      </span>
+      <div className="flex h-full items-end justify-between gap-3 pt-8">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gold">Harbourview</p>
+          <p className="mt-1 text-sm font-semibold text-navy">{visual.label}</p>
+          <p className="text-xs text-gray-500">{visual.shape}</p>
+        </div>
+        <div className="flex items-end gap-1.5 opacity-80" aria-hidden="true">
+          <div className="h-10 w-5 rounded-t-full rounded-b-sm border border-gold/50 bg-white/80" />
+          <div className="h-14 w-7 rounded-t-full rounded-b-sm border border-gold/50 bg-white/90" />
+          <div className="h-8 w-5 rounded-t-full rounded-b-sm border border-gold/50 bg-white/75" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WantedListingCard({ listing }: { listing: WantedRequest }) {
+  return (
+    <article className="flex h-full flex-col gap-4 rounded-2xl border border-white/80 bg-[#f8f4ea] p-5 text-navy shadow-[0_22px_60px_rgba(0,0,0,0.24)]">
+      <WantedVisual listing={listing} />
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="mb-1 text-base font-semibold leading-snug text-navy">
+            {listing.title}
+          </h3>
+          <p className="text-xs text-gray-500">{listing.location || 'Location available on request'}</p>
+        </div>
+        {listing.budget && (
+          <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy shadow-sm">
+            <WantedBudget budget={listing.budget} />
+          </p>
+        )}
+      </div>
+
+      <p className="line-clamp-4 text-sm leading-6 text-gray-700">{listing.description}</p>
+
+      {listing.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {listing.tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs leading-5 text-gray-600">
+        Public summary only. Contact details are private and inquiries are reviewed before routing.
+      </p>
+
+      <div className="mt-auto border-t border-gold/25 pt-4">
+        <InquiryLink
+          subject={`Harbourview Wanted Request Response: ${listing.title}`}
+          listingTitle={listing.title}
+          label="Respond to Request"
+        />
+      </div>
+    </article>
+  )
+}
 
 export default function WantedPage() {
   return (
@@ -103,7 +225,7 @@ export default function WantedPage() {
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {wantedRequests.map((listing) => (
-                  <ListingCard key={listing.id} listing={listing} />
+                  <WantedListingCard key={listing.id} listing={listing} />
                 ))}
               </div>
             </>
