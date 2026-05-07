@@ -41,7 +41,22 @@ jobs:
       - name: Regulatory Signals contract test
         run: npm run test:regulatory-signals-contract
 
+      - name: Start built app for public route checks
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-next.log 2>&1 &
+          echo $! > /tmp/harbourview-next.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/signals >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/harbourview-next.log
+          exit 1
+
       - name: Regulatory Signals public leakage test
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
         run: npm run test:regulatory-signals-public-leakage
 
       - name: Marketplace smoke test

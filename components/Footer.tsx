@@ -4,7 +4,7 @@ const platformLinks = [
   { label: 'Harbourview Network', href: '/marketplace' },
   { label: 'Signals', href: '/signals' },
   { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Confidential Intake', href: '/intake' },
+  { label: 'Request Introduction', href: '/intake' },
 ]
 
 const networkLinks = [
