@@ -31,7 +31,7 @@ export const wantedRequests: WantedRequest[] = [
     title: 'Wanted: Dispensary POS System — Used or Refurbished',
     description:
       'Illinois retail operator seeking used or refurbished dispensary POS system for immediate purchase. Must support BioTrack or Metrc compliance integrations. Budget-conscious buyer with requirement for commercial scale retail operations. Inquiry required through Harbourview.',
-    budget: '$3,000–$8,000',
+    budget: '\u00243,000–$8,000',
     urgency: 'flexible',
     location: 'Illinois, USA',
     postedDate: '2026-05-05',
