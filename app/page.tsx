@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   title: 'Harbourview | Opening Soon',
   description:
     'Harbourview is preparing controlled commercial intelligence and network access for serious participants in regulated cannabis and adjacent supply chains.',
+  openGraph: {
+    title: 'Harbourview | Opening Soon',
+    description:
+      'Harbourview is preparing controlled commercial intelligence and network access for serious participants in regulated cannabis and adjacent supply chains.',
+  },
 }
 
 export default function HomePage() {
@@ -33,14 +38,13 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-5 max-w-lg text-sm leading-7 text-white/72 sm:text-base">
-            Harbourview is preparing controlled commercial intelligence, network
-            access and reviewed inquiry pathways for serious participants in
-            regulated cannabis and adjacent supply chains.
+            Harbourview is preparing controlled commercial intelligence, network access and reviewed
+            inquiry pathways for serious participants in regulated cannabis and adjacent supply chains.
           </p>
 
           <p className="mt-4 max-w-lg text-xs leading-6 text-white/54 sm:text-sm">
-            Inquiries are reviewed before routing. Contact details, counterparties
-            and transaction-sensitive information are not published publicly.
+            Inquiries are reviewed before routing. Contact details, counterparties and
+            transaction-sensitive information are not published publicly.
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
