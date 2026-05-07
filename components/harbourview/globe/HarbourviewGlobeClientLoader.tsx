@@ -9,6 +9,10 @@ type PremiumWebGLGlobeProps = {
   onError?: () => void
 }
 
+type HarbourviewGlobeClientLoaderProps = {
+  fallbackSrc?: string
+}
+
 const VERTEX_SHADER = `
 attribute vec3 aPosition;
 attribute vec3 aNormal;
@@ -334,7 +338,9 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
   return <canvas ref={canvasRef} className={styles.webglCanvas} aria-hidden="true" />
 }
 
-export function HarbourviewGlobeClientLoader() {
+export function HarbourviewGlobeClientLoader({
+  fallbackSrc = '/assets/harbourview-globe-hero.svg',
+}: HarbourviewGlobeClientLoaderProps) {
   const [shouldRenderCanvas, setShouldRenderCanvas] = useState(false)
   const [canvasReady, setCanvasReady] = useState(false)
 
@@ -389,7 +395,7 @@ export function HarbourviewGlobeClientLoader() {
       data-globe-mode={shouldRenderCanvas ? 'webgl' : 'static'}
     >
       <Image
-        src="/assets/harbourview-globe-hero.svg"
+        src={fallbackSrc}
         alt=""
         width={1600}
         height={1600}
