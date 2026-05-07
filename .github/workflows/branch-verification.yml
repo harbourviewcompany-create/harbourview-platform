@@ -96,3 +96,5 @@ jobs:
           path: verification-results/contact-production-visual/
           if-no-files-found: error
           retention-days: 30
+
+# branch-verification harness trigger
