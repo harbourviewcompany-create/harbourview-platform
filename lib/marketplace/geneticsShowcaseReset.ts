@@ -32,6 +32,12 @@ export type GeneticsProfile = {
   programBackground: string
   participationNote: string
   internationalContext: string
+  curatorNote: string
+  rarityMarker: string
+  releaseCycle: string
+  programStatus: string
+  editorialQuote: string
+  identityTone: string
 }
 
 export const geneticsProfiles: GeneticsProfile[] = [
@@ -60,6 +66,14 @@ export const geneticsProfiles: GeneticsProfile[] = [
       'Participation and review are intentionally selective during the initial Harbourview Genetics rollout phase.',
     internationalContext:
       'Relevant to operators exploring CBD commercial pathways, low-THC cultivation strategies and selective market-entry discussions.',
+    curatorNote:
+      'Curated for operators seeking disciplined CBD-focused positioning with structured international rollout intent.',
+    rarityMarker: 'Selected pathway release',
+    releaseCycle: 'Spring review cycle',
+    programStatus: 'Under active licensing review',
+    editorialQuote:
+      'Built for consistency, disciplined rollout and long-term regulated positioning rather than commodity exposure.',
+    identityTone: 'minimal alpine laboratory aesthetic',
     drops: [
       {
         id: 'alpine-cbd-line',
@@ -102,6 +116,14 @@ export const geneticsProfiles: GeneticsProfile[] = [
       'Harbourview presents selected breeder programs during a curated rollout phase rather than maintaining an open-access directory.',
     internationalContext:
       'Relevant to operators seeking differentiated cultivar positioning, selective territory rights and branded commercial rollout pathways.',
+    curatorNote:
+      'Selected for distinct breeder identity, controlled territory structure and strong narrative differentiation potential.',
+    rarityMarker: 'Limited territory cycle',
+    releaseCycle: 'Territory allocation phase',
+    programStatus: 'Selected partner review underway',
+    editorialQuote:
+      'Positioned for operators seeking differentiated genetics with identity strong enough to anchor a market story.',
+    identityTone: 'dark equatorial archive with cinematic contrast and gold shadowing',
     drops: [
       {
         id: 'sierra-gold-line',
@@ -144,6 +166,14 @@ export const geneticsProfiles: GeneticsProfile[] = [
       'Harbourview reviews all propagation and clean-stock programs before any commercial exposure or introduction discussion.',
     internationalContext:
       'Relevant to licensed operators, pharma-aligned cultivation groups and genetics holders exploring propagation infrastructure partnerships.',
+    curatorNote:
+      'Included for its disciplined propagation positioning and relevance to preservation-oriented commercial operators.',
+    rarityMarker: 'Controlled intake queue',
+    releaseCycle: 'Limited laboratory intake',
+    programStatus: 'Review queue active',
+    editorialQuote:
+      'Built around preservation discipline, propagation quality and long-term cultivar stewardship.',
+    identityTone: 'sterile luxury laboratory atmosphere with restrained gold illumination',
     drops: [
       {
         id: 'clean-stock-intake',
