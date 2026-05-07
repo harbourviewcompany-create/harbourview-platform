@@ -1,4 +1,83 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="901" viewBox="0 0 1600 901" role="img" aria-labelledby="title desc">
-  <title id="title">Harbourview coming soon visual placeholder</title>
-  <desc id="desc">Premium dark Harbourview landing visual with gold globe, lighthouse beam and global commercial intelligence positioning.</desc>
-  <image href="data:image/webp;base64,UklGRhY8AgBXRUJQVlA4WAoAAAAQAAAAHwYAhAMASUNDUBUCAAAAADNsaW5vAhAAAG1udHJSR0IgWFlaIAfOAAIACQAFAAwAAGFjc3BNU0ZUAAAAAElFQyBzUkdCAAAAAAAAAAAAAAAAAAD21gABAAAAANMtSFB...
+  <title id="title">Harbourview coming soon placeholder</title>
+  <desc id="desc">Premium dark Harbourview landing visual with gold globe, lighthouse beam and coming soon staging.</desc>
+  <defs>
+    <radialGradient id="bgGlow" cx="72%" cy="30%" r="65%">
+      <stop offset="0" stop-color="#18243a"/>
+      <stop offset="0.28" stop-color="#071426"/>
+      <stop offset="1" stop-color="#01050d"/>
+    </radialGradient>
+    <radialGradient id="gold" cx="38%" cy="33%" r="72%">
+      <stop offset="0" stop-color="#ffe6a3"/>
+      <stop offset="0.28" stop-color="#c79532"/>
+      <stop offset="0.58" stop-color="#71490d"/>
+      <stop offset="1" stop-color="#181006"/>
+    </radialGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffe39a" stop-opacity="0.75"/>
+      <stop offset="0.22" stop-color="#d1a64f" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#d1a64f" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#061527"/>
+      <stop offset="1" stop-color="#01050d"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="26" stdDeviation="32" flood-color="#000" flood-opacity="0.78"/></filter>
+  </defs>
+  <rect width="1600" height="901" fill="url(#bgGlow)"/>
+  <rect width="1600" height="901" fill="#000" opacity="0.18"/>
+  <text x="66" y="62" fill="#d6b46a" font-family="Georgia, 'Times New Roman', serif" font-size="31" letter-spacing="4">HARBOURVIEW</text>
+  <g fill="#efe3c8" opacity="0.82" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="1.8">
+    <text x="632" y="60">MARKETPLACE</text><text x="780" y="60">INTELLIGENCE</text><text x="923" y="60">SOLUTIONS</text><text x="1046" y="60">ABOUT</text><text x="1142" y="60">INSIGHTS</text><text x="1266" y="60">CONTACT</text>
+  </g>
+  <rect x="1380" y="34" width="152" height="40" rx="2" fill="none" stroke="#b6812e"/>
+  <text x="1405" y="60" fill="#d5a142" font-family="Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1.9">CLIENT LOGIN</text>
+  <text x="70" y="179" fill="#d79d39" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="8">GLOBAL COMMERCIAL INTELLIGENCE</text>
+  <text x="68" y="270" fill="#f1d8aa" font-family="Georgia, 'Times New Roman', serif" font-size="82" letter-spacing="7">HARBOURVIEW</text>
+  <text x="70" y="337" fill="#eed7ad" font-family="Georgia, 'Times New Roman', serif" font-size="44">Market access backed by</text>
+  <text x="70" y="390" fill="#eed7ad" font-family="Georgia, 'Times New Roman', serif" font-size="44">intelligence and relationships.</text>
+  <text x="72" y="430" fill="#a7acb5" font-family="Arial, sans-serif" font-size="19">We connect businesses to global opportunities</text>
+  <text x="72" y="457" fill="#a7acb5" font-family="Arial, sans-serif" font-size="19">with the insight, network and local expertise</text>
+  <text x="72" y="484" fill="#a7acb5" font-family="Arial, sans-serif" font-size="19">that drive real results.</text>
+  <rect x="72" y="522" width="220" height="55" rx="3" fill="#d7a84d" stroke="#e6c170"/>
+  <text x="102" y="556" fill="#111319" font-family="Arial, sans-serif" font-size="15" font-weight="800" letter-spacing="2">MARKETPLACE</text><text x="258" y="556" fill="#111319" font-size="25">→</text>
+  <rect x="312" y="522" width="215" height="55" rx="3" fill="#071120" stroke="#c08f3a"/>
+  <text x="344" y="556" fill="#d7a84d" font-family="Arial, sans-serif" font-size="15" font-weight="800" letter-spacing="2">INTELLIGENCE</text><text x="493" y="556" fill="#d7a84d" font-size="25">→</text>
+  <g transform="translate(785 98)" filter="url(#shadow)">
+    <circle cx="360" cy="318" r="328" fill="#03080f"/>
+    <circle cx="360" cy="318" r="320" fill="url(#gold)" opacity="0.95"/>
+    <path d="M48 335 C78 196 176 86 315 42 C450 -2 605 57 684 171 C616 107 505 92 432 139 C345 195 309 288 246 349 C196 397 122 390 48 335Z" fill="#02070d" opacity="0.72"/>
+    <path d="M497 62 C583 94 648 164 675 254 C700 336 681 428 625 500 C624 418 598 344 547 291 C488 230 448 155 497 62Z" fill="#04090e" opacity="0.5"/>
+    <path d="M156 250 C205 185 277 142 360 133 C463 121 548 169 598 252 C545 226 500 229 461 266 C408 316 372 368 307 369 C232 370 179 322 156 250Z" fill="#d2a246" opacity="0.82"/>
+    <path d="M230 170 L300 135 L383 144 L452 185 L522 205 L571 262 L531 313 L454 305 L394 363 L305 356 L232 315 L172 260Z" fill="none" stroke="#2a1704" stroke-width="3" opacity="0.85"/>
+    <path d="M310 137 L324 360 M383 145 L374 360 M452 185 L410 350 M232 315 L531 313 M172 260 L571 262 M255 190 L505 205 M205 235 L548 242" fill="none" stroke="#2a1704" stroke-width="2" opacity="0.75"/>
+    <path d="M389 328 C425 355 445 393 443 447 C442 513 474 555 532 582 C469 623 382 640 299 617 C336 571 329 512 309 464 C286 407 318 363 389 328Z" fill="#b98729" opacity="0.62"/>
+    <path d="M502 215 C534 220 557 239 581 268 C606 299 632 305 663 301 C657 370 623 441 572 488 C557 429 535 394 499 373 C461 350 459 293 502 215Z" fill="#cc9b3d" opacity="0.62"/>
+    <circle cx="360" cy="318" r="323" fill="none" stroke="#d6a345" stroke-width="6" opacity="0.75"/>
+    <circle cx="360" cy="318" r="334" fill="none" stroke="#6f4810" stroke-width="2" opacity="0.85"/>
+    <circle cx="360" cy="318" r="348" fill="none" stroke="#c79633" stroke-width="1" stroke-dasharray="6 10" opacity="0.7"/>
+    <ellipse cx="249" cy="172" rx="225" ry="110" fill="#fff" opacity="0.09" transform="rotate(-26 249 172)"/>
+    <rect x="215" y="275" width="88" height="42" rx="4" fill="#2b1b08" opacity="0.82" stroke="#b98729"/>
+    <text x="230" y="302" fill="#e9bd60" font-family="Arial" font-size="14">Morocco</text>
+  </g>
+  <g opacity="0.9">
+    <path d="M405 672 L918 384" stroke="url(#beam)" stroke-width="64" stroke-linecap="round" opacity="0.38" filter="url(#soft)"/>
+    <path d="M405 672 L918 384" stroke="url(#beam)" stroke-width="22" stroke-linecap="round" opacity="0.52"/>
+  </g>
+  <rect y="782" width="1600" height="119" fill="url(#water)"/>
+  <g opacity="0.92" stroke="#d0a244" fill="none">
+    <path d="M0 809 C80 800 126 820 210 806 C297 792 347 828 430 810 C524 790 594 826 690 808 C791 789 844 829 946 810 C1040 793 1113 822 1200 807 C1310 788 1400 827 1600 803" stroke-width="2" opacity="0.45"/>
+    <path d="M0 846 C130 833 214 857 338 841 C456 826 530 859 650 843 C772 828 872 858 985 839 C1114 817 1218 862 1325 843 C1432 824 1508 847 1600 834" stroke-width="2" opacity="0.35"/>
+    <path d="M110 879 C260 863 363 890 516 874 C676 857 795 889 944 872 C1100 854 1204 892 1375 874" stroke-width="2" opacity="0.3"/>
+  </g>
+  <g transform="translate(352 609)">
+    <path d="M23 162 L64 162 L56 63 L31 63 Z" fill="#86631e" stroke="#d6b46a" stroke-width="2"/>
+    <rect x="30" y="46" width="27" height="18" fill="#f6d985" stroke="#d6b46a"/>
+    <path d="M25 46 L43 20 L61 46 Z" fill="#b8892c" stroke="#d6b46a"/>
+    <line x1="43" y1="20" x2="43" y2="0" stroke="#d6b46a"/>
+    <ellipse cx="43" cy="166" rx="55" ry="12" fill="#110b03" opacity="0.7"/>
+    <circle cx="43" cy="55" r="19" fill="#f6d985" opacity="0.24" filter="url(#soft)"/>
+  </g>
+  <rect width="1600" height="901" fill="none" stroke="#c6a55a" stroke-opacity="0.08"/>
+</svg>
