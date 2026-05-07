@@ -65,7 +65,6 @@ jobs:
 
   contact-production-visual:
     name: Contact production visual verification
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
