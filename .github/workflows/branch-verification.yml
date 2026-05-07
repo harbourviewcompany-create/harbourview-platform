@@ -39,11 +39,30 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Start built app for route visibility checks
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-next.log 2>&1 &
+          echo $! > /tmp/harbourview-next.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/compliance >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/harbourview-next.log
+          exit 1
+
+      - name: Compliance visibility
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+        run: npm run test:compliance-visibility
+
       - name: Visibility
         run: npm run test:visibility
 
   contact-production-visual:
     name: Contact production visual verification
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
