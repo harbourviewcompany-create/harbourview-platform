@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -60,13 +62,12 @@ function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
 }
 
 function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-  if (!url || !anonKey) return null
-  return { url: url.replace(/\/$/, ''), anonKey }
+  if (!anonKey) return null
+  return { url: resolveLockedSupabaseUrl(), anonKey }
 }
 
 function logQuoteDiagnostic(code: QuoteDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
@@ -222,6 +223,18 @@ export async function POST(request: Request) {
       return json('error', withCode('Quote capture is not configured yet. Please contact Harbourview directly.', 'QUOTE_CONFIG_MISSING'), 500)
     }
 
+    const payload = {
+      listing_id: null,
+      buyer_request_id: null,
+      contact_name: name,
+      contact_email: email,
+      contact_company: company,
+      contact_phone: phone || null,
+      inquiry_type: 'quote_routing',
+      message,
+      status: 'received',
+    }
+
     let response: Response
 
     try {
@@ -233,17 +246,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           Prefer: 'return=minimal',
         },
-        body: JSON.stringify({
-          listing_id: null,
-          buyer_request_id: null,
-          contact_name: name,
-          contact_email: email,
-          contact_company: company,
-          contact_phone: phone || null,
-          inquiry_type: 'quote_routing',
-          message,
-          status: 'received',
-        }),
+        body: JSON.stringify(payload),
       })
     } catch (error) {
       logQuoteDiagnostic('QUOTE_SUPABASE_REQUEST_FAILED', {
@@ -259,6 +262,17 @@ export async function POST(request: Request) {
       })
       return json('error', withCode('The quote request could not be saved. Please try again or contact Harbourview directly.', 'QUOTE_SUPABASE_INSERT_FAILED'), 502)
     }
+
+    await notifyMarketplaceInquiry({
+      ...payload,
+      id: null,
+      created_at: new Date().toISOString(),
+      priority: 'medium',
+    }).catch((error) => {
+      console.info('harbourview_marketplace_quote_notification_failed', {
+        errorName: error instanceof Error ? error.name : 'unknown',
+      })
+    })
 
     logQuoteDiagnostic('QUOTE_OK', {
       inquiryType: 'quote_routing',

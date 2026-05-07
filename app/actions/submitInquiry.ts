@@ -1,6 +1,8 @@
 'use server';
 
 import { marketplaceListings } from '@/lib/marketplace/listings';
+import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
@@ -64,13 +66,12 @@ function buildMessageWithListingContext(
 }
 
 function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!url || !anonKey) return null;
-  return { url: url.replace(/\/$/, ''), anonKey };
+  if (!anonKey) return null;
+  return { url: resolveLockedSupabaseUrl(), anonKey };
 }
 
 function logInquiryDiagnostic(code: InquiryDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
@@ -220,6 +221,17 @@ export async function submitMarketplaceInquiry(
       message: withCode('The inquiry could not be saved. Please try again or contact Harbourview directly.', 'INQUIRY_SUPABASE_INSERT_FAILED'),
     };
   }
+
+  await notifyMarketplaceInquiry({
+    ...payload,
+    id: null,
+    created_at: new Date().toISOString(),
+    priority: 'medium',
+  }).catch((error) => {
+    console.info('harbourview_marketplace_inquiry_notification_failed', {
+      errorName: error instanceof Error ? error.name : 'unknown',
+    });
+  });
 
   logInquiryDiagnostic('INQUIRY_OK', {
     listingSlug: listing.slug,

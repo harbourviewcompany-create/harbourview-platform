@@ -4,9 +4,9 @@ import { suppliers } from '@/lib/fixtures/suppliers'
 import SupplierCard from '@/components/SupplierCard'
 
 export const metadata: Metadata = {
-  title: 'Supplier Directory',
+  title: 'Supplier Discovery | Harbourview Network',
   description:
-    'Verified cannabis industry suppliers — equipment, packaging, genetics, testing, logistics, and compliance.',
+    'Supplier discovery for regulated cannabis and adjacent supply-chain participants. Supplier introductions are routed through Harbourview review.',
 }
 
 export default function SupplierDirectoryPage() {
@@ -14,10 +14,12 @@ export default function SupplierDirectoryPage() {
     <>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Supplier Directory</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Supplier Discovery</h1>
           <p className="text-gray-300 max-w-2xl">
-            Cannabis industry suppliers and service providers. Browse by category or
-            contact directly. To list your business,{' '}
+            Supplier and service-provider profiles for regulated cannabis and adjacent
+            supply-chain participants. Public profiles are commercial summaries only.
+            Request introductions through Harbourview review rather than direct public contact.
+            To submit your business,{' '}
             <Link href="/intake" className="text-gold underline hover:text-gold-light">
               submit via Intake
             </Link>
@@ -28,11 +30,20 @@ export default function SupplierDirectoryPage() {
 
       <section className="py-12">
         <div className="page-container">
+          <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
+            <h2 className="text-navy font-semibold text-lg mb-2">Controlled supplier introductions</h2>
+            <p className="text-gray-600 text-sm max-w-3xl">
+              Supplier profiles do not imply verified availability, licensing, exclusivity,
+              pricing or transaction readiness. Harbourview reviews introduction requests
+              before routing and may request additional context before any counterparty contact.
+            </p>
+          </div>
+
           {suppliers.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-gray-400 text-lg mb-4">No suppliers listed yet.</p>
+              <p className="text-gray-400 text-lg mb-4">No supplier profiles listed yet.</p>
               <Link href="/intake" className="btn-primary">
-                Submit Your Business
+                Submit Supplier Profile
               </Link>
             </div>
           ) : (
@@ -45,7 +56,7 @@ export default function SupplierDirectoryPage() {
 
           <div className="mt-12 border-t pt-8">
             <p className="text-gray-500 text-sm">
-              Want to be listed?{' '}
+              Want to be considered for supplier discovery?{' '}
               <Link href="/intake" className="text-navy underline hover:text-gold">
                 Submit your company via Intake
               </Link>

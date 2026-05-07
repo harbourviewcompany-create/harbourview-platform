@@ -89,7 +89,7 @@ await expectBlockedByStatusOrEmptyRepresentation('anon update', () =>
 );
 
 const internalNotesPayload = makeListingSubmissionPayload({
-  internal_notes: 'HARBOURVIEW_SMOKE_TEST: anon should not be able to insert internal notes.',
+  internal_notes: `${validPayload.message.split(':')[0]}: anon should not be able to insert internal notes.`,
 });
 
 await expectBlockedByStatusOrEmptyRepresentation('anon insert with internal_notes', () =>

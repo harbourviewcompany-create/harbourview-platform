@@ -4,6 +4,8 @@
 
 These smoke tests verify the marketplace capture spine without relying only on manual browser clicks. They focus on the Supabase REST payloads used by `/marketplace/quote` and listing detail inquiry forms, plus anon RLS behavior for `marketplace_inquiries`.
 
+The current Harbourview schema and capture code use `quote_routing` for quote/general marketplace inquiries. Admin review surfaces label that value as `Quote/general inquiry`; `listing_submission` and `wanted_request_submission` are used for listing and wanted-request capture.
+
 ## Scripts
 
 ```bash
@@ -38,7 +40,7 @@ All write probes use clearly marked synthetic data:
 - `contact_email = smoke-test@harbourview.local`
 - `contact_name = Harbourview Smoke Test`
 - `contact_company = Harbourview Smoke Test`
-- `message` contains `HARBOURVIEW_SMOKE_TEST`
+- `message` contains a unique marker in the format `HV_MARKETPLACE_ACTIVATION_V1_SMOKE_YYYYMMDD_HHMMSS`
 
 ## Production-Safe Checks
 
@@ -48,7 +50,7 @@ Safe for production by default:
 npm run smoke:marketplace
 ```
 
-This validates payload shape only. It confirms both capture flows use production columns:
+This validates payload shape only. It confirms quote/general, listing submission and wanted-request submission flows use production columns:
 
 - `listing_id`
 - `buyer_request_id`
@@ -71,7 +73,7 @@ $env:HARBOURVIEW_SMOKE_WRITE = '1'
 npm run smoke:marketplace
 ```
 
-This inserts one quote-routing row and one listing-verification row through the anon Supabase REST path. By default, these rows remain in `marketplace_inquiries` with `status = received`.
+This inserts one `quote_routing` row, one `listing_submission` row and one `wanted_request_submission` row through the anon Supabase REST path. By default, these rows remain in `marketplace_inquiries` with `status = received`.
 
 To close smoke rows after insertion, provide the server-only service role key and cleanup flag:
 
