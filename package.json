@@ -15,7 +15,7 @@
     "test:signals-public-leakage": "node scripts/test-signals-public-leakage.mjs",
     "test:regulatory-signals-public-leakage": "node scripts/test-regulatory-signals-public-leakage.mjs",
     "test:regulatory-signals-contract": "node scripts/test-regulatory-signals-contract.mjs",
-    "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs",
+    "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
