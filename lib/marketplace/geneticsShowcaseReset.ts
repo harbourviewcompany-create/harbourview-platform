@@ -6,6 +6,11 @@ export type GeneticsDrop = {
   signals: string[]
   targetMarkets: string[]
   cta: string
+  accessStatus: string
+  pathwayBadge: string
+  territoryStatus: string
+  urgencySignal: string
+  imageMood: string
 }
 
 export type GeneticsProfile = {
@@ -17,6 +22,10 @@ export type GeneticsProfile = {
   overview: string
   focus: string[]
   drops: GeneticsDrop[]
+  prestigeSignal: string
+  accessModel: string
+  pathwaySummary: string
+  imageMood: string
 }
 
 export const geneticsProfiles: GeneticsProfile[] = [
@@ -29,6 +38,10 @@ export const geneticsProfiles: GeneticsProfile[] = [
     overview:
       'A selected CBD genetics program for operators seeking licensing, low-THC commercial positioning and tissue-culture compatible propagation discussions.',
     focus: ['CBD genetics', 'Licensing', 'Low-THC pathways', 'Tissue culture compatible'],
+    prestigeSignal: 'EU-aligned CBD licensing window',
+    accessModel: 'Profile visible / access reviewed',
+    pathwaySummary: 'Suitable for selected CBD commercial pathway discussions. Country review required.',
+    imageMood: 'cool botanical laboratory with gold-accented glass and shadowed leaves',
     drops: [
       {
         id: 'alpine-cbd-line',
@@ -38,6 +51,11 @@ export const geneticsProfiles: GeneticsProfile[] = [
         signals: ['CBD-dominant', 'Licensing available', 'Country review required'],
         targetMarkets: ['Europe', 'Australia', 'New Zealand'],
         cta: 'Request Licensing Discussion',
+        accessStatus: 'Qualified review',
+        pathwayBadge: 'CBD pathway discussion',
+        territoryStatus: 'Selected markets open',
+        urgencySignal: 'Licensing window open for qualified operators',
+        imageMood: 'misty alpine botanical macro with restrained gold light',
       },
     ],
   },
@@ -50,6 +68,10 @@ export const geneticsProfiles: GeneticsProfile[] = [
     overview:
       'A breeder-led portfolio built around territory opportunities, commercial rollout partnerships and selective genetics access for licensed operators.',
     focus: ['Breeder-led IP', 'Territory opportunities', 'THC cultivars', 'Breeding collaboration'],
+    prestigeSignal: 'Breeder-led territory opportunity',
+    accessModel: 'Public profile / contact private',
+    pathwaySummary: 'Territory discussions available for selected commercial partners. No market outcome is guaranteed.',
+    imageMood: 'dark equatorial botanical field study with cinematic shadow and gold rim light',
     drops: [
       {
         id: 'sierra-gold-line',
@@ -59,6 +81,11 @@ export const geneticsProfiles: GeneticsProfile[] = [
         signals: ['Exclusive territory', 'Breeder-led IP', 'Licensed operators only'],
         targetMarkets: ['LATAM', 'Europe', 'Australia'],
         cta: 'Request Territory Access',
+        accessStatus: 'Territory review',
+        pathwayBadge: 'Commercial rollout partner',
+        territoryStatus: 'Exclusive discussion available',
+        urgencySignal: 'Selected territory conversations open',
+        imageMood: 'high-contrast breeder archive with dark canopy texture and gold plate detail',
       },
     ],
   },
@@ -71,6 +98,10 @@ export const geneticsProfiles: GeneticsProfile[] = [
     overview:
       'A tissue-culture and clean-stock program for genetics holders, licensed producers and pharma-aligned cultivation groups seeking propagation support.',
     focus: ['Tissue culture', 'Clean stock', 'Cultivar preservation', 'Propagation'],
+    prestigeSignal: 'Clean-stock propagation program',
+    accessModel: 'Program visible / technical details private',
+    pathwaySummary: 'Clean-stock and preservation discussions available after Harbourview review.',
+    imageMood: 'sterile tissue culture glassware with deep navy shadows and gold highlights',
     drops: [
       {
         id: 'clean-stock-intake',
@@ -80,6 +111,11 @@ export const geneticsProfiles: GeneticsProfile[] = [
         signals: ['Clean stock', 'Pathogen screening pathway', 'Cultivar preservation'],
         targetMarkets: ['Canada', 'United States', 'Europe'],
         cta: 'Request Clean-Stock Review',
+        accessStatus: 'Intake review',
+        pathwayBadge: 'Clean-stock pathway',
+        territoryStatus: 'Lab intake by review',
+        urgencySignal: 'Limited intake queue for selected cultivars',
+        imageMood: 'premium tissue culture lab close-up with glass vessels and restrained gold glow',
       },
     ],
   },
