@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicRegulatorySignalBySlug } from '@/lib/regulatory-signals/public'
 import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
@@ -9,7 +10,9 @@ export default async function RegulatorySignalDetailPage({ params }: { params: P
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <a href="/signals" className="mb-8 inline-block text-xs text-neutral-500 underline">Back to Signals</a>
+      <Link href="/signals" className="mb-8 inline-block text-xs text-neutral-500 underline">
+        Back to Signals
+      </Link>
       <h1 className="text-3xl font-semibold">{signal.headline}</h1>
       <div className="mt-3 text-xs text-neutral-500">
         {signal.country_name || 'Global'} • {signal.signal_type} • {signal.signal_date} • {signal.confidence}
