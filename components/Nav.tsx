@@ -3,125 +3,66 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
-const marketplaceLinks = [
-  { label: 'Source-Backed Listings', href: '/marketplace/listings' },
-  { label: 'Consumables', href: '/marketplace/consumables' },
-  { label: 'New Products', href: '/marketplace/new-products' },
-  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
-  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
-  { label: 'Wanted Requests', href: '/marketplace/wanted' },
-  { label: 'Services', href: '/marketplace/services' },
-  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
-]
-
 const navLinks = [
-  { label: 'Marketplace', href: '/marketplace', hasDropdown: true },
-  { label: 'Submit Listing', href: '/marketplace/sell', hasDropdown: false },
-  { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
-  { label: 'Signals', href: '/signals', hasDropdown: false },
-  { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
-  { label: 'Intake', href: '/intake', hasDropdown: false },
+  { label: 'Network', href: '/marketplace' },
+  { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Signals', href: '/signals' },
+  { label: 'Clinical Education', href: '/network/clinical-education' },
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
 ]
 
 export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   return (
-    <header className="bg-navy text-white shadow-md">
+    <header className="sticky top-0 z-50 border-b border-gold/10 bg-[#020814]/95 text-white shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
       <div className="page-container">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-gold font-bold text-xl tracking-tight">Harbourview</span>
+        <div className="flex h-[72px] items-center justify-between pt-[max(env(safe-area-inset-top),0px)] sm:h-20">
+          <Link
+            href="/"
+            className="premium-wordmark text-[15px] tracking-[0.28em] sm:text-[22px]"
+            aria-label="Harbourview home"
+          >
+            HARBOURVIEW
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium">
-            {navLinks.map((link) =>
-              link.hasDropdown ? (
-                <div
-                  key={link.href}
-                  className="relative"
-                  onMouseEnter={() => setDropdownOpen(true)}
-                  onMouseLeave={() => setDropdownOpen(false)}
-                >
-                  <Link href={link.href} className="hover:text-gold transition-colors">
-                    {link.label} ▾
-                  </Link>
-                  {dropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-64 bg-white text-navy rounded shadow-lg border border-gray-100 py-1 z-50">
-                      {marketplaceLinks.map((l) => (
-                        <Link
-                          key={l.href}
-                          href={l.href}
-                          className="block px-4 py-2 text-sm hover:bg-gold-pale hover:text-navy transition-colors"
-                        >
-                          {l.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="hover:text-gold transition-colors"
-                >
-                  {link.label}
-                </Link>
-              )
-            )}
+          <nav className="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75 xl:gap-9 lg:flex">
+            {navLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="nav-link-premium">
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
-          <div className="hidden lg:block">
-            <Link href="/intake" className="btn-primary text-sm">
-              Request Intake
-            </Link>
-          </div>
-
           <button
-            className="lg:hidden p-2 rounded hover:bg-navy-light"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/20 bg-white/[0.02] text-gold transition-colors hover:border-gold/50 hover:bg-gold/10 lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
           >
-            <span className="block w-5 h-0.5 bg-white mb-1"></span>
-            <span className="block w-5 h-0.5 bg-white mb-1"></span>
-            <span className="block w-5 h-0.5 bg-white"></span>
+            <span className="relative block h-4 w-5">
+              <span className="absolute left-0 top-0 block h-0.5 w-5 bg-current"></span>
+              <span className="absolute left-0 top-[7px] block h-0.5 w-5 bg-current"></span>
+              <span className="absolute bottom-0 left-0 block h-0.5 w-5 bg-current"></span>
+            </span>
           </button>
         </div>
       </div>
 
       {mobileOpen && (
-        <div className="lg:hidden bg-navy-dark border-t border-navy-light">
-          <div className="page-container py-4 flex flex-col gap-3 text-sm font-medium">
-            <Link href="/marketplace" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Marketplace
-            </Link>
-            {marketplaceLinks.map((l) => (
+        <div className="border-t border-gold/10 bg-[#020814]/98 lg:hidden">
+          <div className="page-container grid grid-cols-1 gap-2 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.2em] text-white/82 sm:grid-cols-2">
+            {navLinks.map((link) => (
               <Link
-                key={l.href}
-                href={l.href}
-                className="pl-4 text-gray-300 hover:text-gold"
+                key={link.href}
+                href={link.href}
+                className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
                 onClick={() => setMobileOpen(false)}
               >
-                {l.label}
+                {link.label}
               </Link>
             ))}
-            <Link href="/marketplace/sell" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Submit Listing
-            </Link>
-            <Link href="/marketplace/wanted" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Wanted Requests
-            </Link>
-            <Link href="/signals" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Signals
-            </Link>
-            <Link href="/intelligence" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Intelligence
-            </Link>
-            <Link href="/intake" className="hover:text-gold" onClick={() => setMobileOpen(false)}>
-              Intake
-            </Link>
           </div>
         </div>
       )}

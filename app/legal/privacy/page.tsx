@@ -25,7 +25,7 @@ export default function PrivacyPage() {
             <p>
               This Privacy Policy describes how Harbourview (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;)
               handles information collected through this website and its associated
-              intake, contact, and marketplace forms.
+              intake, contact, and Network forms.
             </p>
 
             <div>

@@ -1,10 +1,3 @@
-const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
-const EXPECTED_SUPABASE_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
-const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const SUPABASE_URL = resolveSupabaseUrl(rawSupabaseUrl)
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ''
-
 type CaptureResult = {
   ok: boolean
   message: string
@@ -22,53 +15,21 @@ type MarketplaceInquiryInsert = {
   status: 'received'
 }
 
-function isExpectedSupabaseUrl(url: string) {
-  try {
-    const parsed = new URL(url)
-    return parsed.hostname === EXPECTED_SUPABASE_HOST
-  } catch {
-    return false
-  }
-}
-
-function resolveSupabaseUrl(url: string) {
-  const normalized = url.trim().replace(/\/$/, '')
-  if (normalized && isExpectedSupabaseUrl(normalized)) return normalized
-  return LOCKED_SUPABASE_URL
-}
-
 export async function submitMarketplaceInquiryDirect(
   payload: MarketplaceInquiryInsert,
   successMessage: string,
-  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION'
+  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION' | 'CONFIDENTIAL_INTAKE'
 ): Promise<CaptureResult> {
-  if (!SUPABASE_URL || !isExpectedSupabaseUrl(SUPABASE_URL)) {
-    return {
-      ok: false,
-      message: `${successMessage.replace(/received\..*$/i, 'could not be completed.')} Invalid Supabase project configuration. [${diagnosticPrefix}_SUPABASE_CLIENT_CONFIG_INVALID]`,
-    }
-  }
-
-  if (!SUPABASE_ANON_KEY) {
-    return {
-      ok: false,
-      message: `${successMessage.replace(/received\..*$/i, 'could not be completed.')} Missing public Supabase key. [${diagnosticPrefix}_SUPABASE_CLIENT_KEY_MISSING]`,
-    }
-  }
-
   let response: Response
 
   try {
-    response = await fetch(`${SUPABASE_URL}/rest/v1/marketplace_inquiries`, {
+    response = await fetch('/api/marketplace/capture', {
       method: 'POST',
       cache: 'no-store',
       headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, success_message: successMessage }),
     })
   } catch (error) {
     const detail = error instanceof Error ? error.name : 'UnknownError'

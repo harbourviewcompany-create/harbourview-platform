@@ -1,6 +1,10 @@
 export type MarketplaceSection =
   | 'Used & Surplus'
   | 'New Products'
+  | 'Cannabis Inventory'
+  | 'Wanted Requests'
+  | 'Services'
+  | 'Business Opportunities'
   | 'Supplier Directory'
   | 'Lab & Testing Equipment';
 

@@ -2,17 +2,21 @@ import { readFileSync } from 'node:fs';
 
 const PUBLIC_RENDER_FILES = [
   'app/marketplace/page.tsx',
-  'app/marketplace/listings/page.tsx',
+  'app/marketplace/consumables/page.tsx',
+  'app/marketplace/wanted/page.tsx',
+  'app/marketplace/sell/page.tsx',
   'app/marketplace/listings/[slug]/page.tsx',
-  'components/marketplace/MarketplaceListingCard.tsx'
+  'components/marketplace/MarketplaceListingCard.tsx',
+  'components/ListingCard.tsx',
+  'lib/fixtures/consumables.ts'
 ];
 
 const ADMIN_FILES = [
-  'app/admin/listings/page.tsx'
+  'app/admin/(protected)/listings/page.tsx'
 ];
 
 const ADMIN_GUARD_FILES = [
-  'app/admin/layout.tsx',
+  'app/admin/(protected)/layout.tsx',
   'lib/auth/adminGuard.ts'
 ];
 
@@ -25,6 +29,37 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /Provenance summary/i,
   /Internal review notes/i,
   /Internal-only source/i,
+  /review_status/,
+  /priority/,
+  /last_contacted_at/,
+  /next_follow_up_at/,
+  /internal_response_notes/,
+  /internal_notes/,
+  /private_notes/,
+  /service_role/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
+  /source_registry/,
+  /source_snapshots/,
+  /marketplace_candidates/,
+  /candidate_review_events/,
+  /captured_url/,
+  /captured_text/,
+  /raw_html_hash/,
+  /confidence_score/,
+  /commercial_relevance_score/,
+  /compliance_risk_score/,
+  /supplier_verified/,
+  /seller_authorization_status/,
+  /certifications_claimed/,
+  /certifications_verified/,
+  /coa_available/,
+  /expiry_date/,
+  /lot_tracking_available/,
+  /requires_license_review/,
+  /restricted_item/,
+  /review_notes/,
+  /analyst notes/i,
+  /raw evidence/i,
   /listing\.sourceUrl/,
   /listing\.sourceName/,
   /listing\.sourceType/,
@@ -68,7 +103,36 @@ const PUBLIC_PROJECTION_FORBIDDEN_PATTERNS = [
   /lastReviewedAt:/,
   /nextReviewDueAt:/,
   /confidenceScore:/,
-  /monetizationPath:/
+  /monetizationPath:/,
+  /review_status:/,
+  /priority:/,
+  /last_contacted_at:/,
+  /next_follow_up_at:/,
+  /internal_response_notes:/,
+  /internal_notes:/,
+  /private_notes:/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
+  /service_role/,
+  /source_registry:/,
+  /source_snapshots:/,
+  /marketplace_candidates:/,
+  /candidate_review_events:/,
+  /captured_url:/,
+  /captured_text:/,
+  /raw_html_hash:/,
+  /confidence_score:/,
+  /commercial_relevance_score:/,
+  /compliance_risk_score:/,
+  /supplier_verified:/,
+  /seller_authorization_status:/,
+  /certifications_claimed:/,
+  /certifications_verified:/,
+  /coa_available:/,
+  /expiry_date:/,
+  /lot_tracking_available:/,
+  /requires_license_review:/,
+  /restricted_item:/,
+  /review_notes:/
 ];
 
 const ADMIN_REQUIRED_PATTERNS = [
@@ -85,9 +149,10 @@ const ADMIN_REQUIRED_PATTERNS = [
 ];
 
 const ADMIN_GUARD_REQUIRED_PATTERNS = [
-  /HARBOURVIEW_ADMIN_REVIEW_ENABLED/,
   /requireAdminAuth/,
   /hasAdminRole/,
+  /unauthorized/,
+  /forbidden/,
   /admin.*operator/s,
   /analyst.*viewer/s
 ];

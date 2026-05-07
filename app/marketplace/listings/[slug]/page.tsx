@@ -1,11 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { InquiryForm } from '@/components/marketplace/InquiryForm';
-import { getPublicMarketplaceListing } from '@/lib/marketplace/publicListings';
-import { marketplaceListings } from '@/lib/marketplace/listings';
+import { getPublicMarketplaceListing, publicMarketplaceListings } from '@/lib/marketplace/publicListings';
 
 export function generateStaticParams() {
-  return marketplaceListings.map((listing) => ({ slug: listing.slug }));
+  return publicMarketplaceListings.map((listing) => ({ slug: listing.slug }));
 }
 
 export default async function MarketplaceListingDetailPage({

@@ -13,8 +13,13 @@ type Row = {
 const LOCKED_SUPABASE_URL = 'https://zvxdgdkukjrrwamdpqrg.supabase.co'
 const EXPECTED_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
 const PREFIX = 'HARBOURVIEW_BROWSER_SMOKE_TEST:'
-const TYPES = new Set(['quote_routing', 'listing_submission', 'wanted_request_submission'])
-const PRODUCTION_HOSTS = new Set(['harbourview-platform.vercel.app'])
+const TYPES = new Set([
+  'quote_routing',
+  'listing_submission',
+  'wanted_request_submission',
+  'sourcing_mandate',
+])
+const PRODUCTION_HOSTS = new Set(['harbourview-platform.vercel.app', 'harbourview.vercel.app'])
 
 function readEnv(name: string) {
   return process.env[name]?.trim() || ''
@@ -35,7 +40,11 @@ function resolveBaseUrl(raw: string) {
 }
 
 function isProductionSmokeTarget() {
-  const siteUrl = readEnv('HARBOURVIEW_SMOKE_BASE_URL') || readEnv('NEXT_PUBLIC_SITE_URL') || readEnv('VERCEL_PROJECT_PRODUCTION_URL')
+  const siteUrl =
+    readEnv('HARBOURVIEW_SMOKE_BASE_URL') ||
+    readEnv('NEXT_PUBLIC_SITE_URL') ||
+    readEnv('VERCEL_PROJECT_PRODUCTION_URL')
+
   try {
     return PRODUCTION_HOSTS.has(new URL(siteUrl).hostname) || readEnv('VERCEL_ENV') === 'production'
   } catch {
@@ -56,6 +65,7 @@ function getConfig() {
   const base = resolveBaseUrl(readEnv('NEXT_PUBLIC_SUPABASE_URL'))
   const parsed = new URL(base)
   if (parsed.hostname !== EXPECTED_HOST) throw new Error('wrong project')
+
   return { base, serviceRoleKey }
 }
 
@@ -72,10 +82,12 @@ function parse(body: Record<string, unknown>) {
   const email = String(body.email || '').trim().toLowerCase()
   const marker = String(body.marker || '').trim()
   const kind = String(body.inquiry_type || '').trim()
+
   if (action !== 'verify' && action !== 'close') throw new Error('bad action')
   if (!email.startsWith('smoke+') || !email.endsWith('@harbourview.local')) throw new Error('bad email')
   if (!marker.startsWith(PREFIX) || marker.length > 120) throw new Error('bad marker')
   if (!TYPES.has(kind)) throw new Error('bad inquiry type')
+
   return { action, email, marker, kind }
 }
 
@@ -90,8 +102,10 @@ async function callRpc(c: { base: string; serviceRoleKey: string }, fn: string, 
       p_inquiry_type: input.kind,
     }),
   })
+
   const txt = await res.text()
   if (!res.ok) throw new Error(`${fn} ${res.status}: ${txt.slice(0, 240)}`)
+
   return JSON.parse(txt) as Row[]
 }
 
@@ -99,10 +113,16 @@ export async function POST(request: Request) {
   try {
     const input = parse((await request.json()) as Record<string, unknown>)
     const c = getConfig()
-    const fn = input.action === 'close' ? 'smoke_close_marketplace_inquiry' : 'smoke_verify_marketplace_inquiry'
+    const fn =
+      input.action === 'close'
+        ? 'smoke_close_marketplace_inquiry'
+        : 'smoke_verify_marketplace_inquiry'
+
     const rows = await callRpc(c, fn, input)
     const row = rows[0]
+
     if (!row) return NextResponse.json({ ok: true, found: false })
+
     return NextResponse.json({
       ok: true,
       found: true,
@@ -116,6 +136,9 @@ export async function POST(request: Request) {
       },
     })
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'failed' }, { status: 400 })
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : 'failed' },
+      { status: 400 },
+    )
   }
 }

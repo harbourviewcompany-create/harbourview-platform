@@ -6,6 +6,7 @@ import {
   insertInquiry,
   makeListingSubmissionPayload,
   makeQuotePayload,
+  makeSourcingMandatePayload,
   makeWantedRequestSubmissionPayload,
 } from './marketplace-smoke-lib.mjs';
 
@@ -16,6 +17,7 @@ const checks = [
   ['quote request', makeQuotePayload()],
   ['submit listing', makeListingSubmissionPayload()],
   ['wanted request', makeWantedRequestSubmissionPayload()],
+  ['confidential intake', makeSourcingMandatePayload()],
 ];
 
 for (const [name, payload] of checks) {

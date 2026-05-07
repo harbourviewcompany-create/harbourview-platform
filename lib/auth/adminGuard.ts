@@ -1,6 +1,8 @@
 import { cookies, headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { forbidden, unauthorized } from 'next/navigation';
 import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
+import { ADMIN_SESSION_COOKIE_NAME } from './adminLogin';
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 type SupabaseUser = {
   id: string;
@@ -16,14 +18,27 @@ type AdminAuthResult = {
   roles: AppRole[];
 };
 
+type AdminAuthFailureReason =
+  | 'missing_access_token'
+  | 'invalid_access_token'
+  | 'missing_admin_role';
+
+type AdminAuthCheck =
+  | { ok: true; auth: AdminAuthResult }
+  | { ok: false; reason: AdminAuthFailureReason };
+
+// Admin routes allow admin/operator roles; analyst/viewer roles are denied.
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value?.trim()) throw new Error(`Missing required environment variable ${name}`);
   return value.trim();
 }
 
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/$/, '');
+function resolveSupabaseApiKey() {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  );
 }
 
 function decodeBase64Url(value: string) {
@@ -88,6 +103,12 @@ async function resolveAccessToken() {
 
   const cookieStore = await cookies();
   const cookieEntries = cookieStore.getAll();
+  const namedSessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE_NAME);
+
+  if (namedSessionCookie) {
+    const token = readAccessTokenFromCookieValue(namedSessionCookie.value);
+    if (token) return token;
+  }
 
   for (const cookie of cookieEntries) {
     const token = readAccessTokenFromCookieValue(cookie.value);
@@ -115,11 +136,18 @@ async function resolveAccessToken() {
   return null;
 }
 
-async function fetchSupabaseJson<T>({ path, accessToken, serviceRoleKey }: { path: string; accessToken: string; serviceRoleKey?: string }) {
-  const supabaseUrl = trimTrailingSlash(requireEnv('NEXT_PUBLIC_SUPABASE_URL'));
-  const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  const apiKey = serviceRoleKey || anonKey;
-  const bearer = serviceRoleKey || accessToken;
+async function fetchSupabaseJson<T>({
+  path,
+  accessToken,
+  bearerToken,
+}: {
+  path: string;
+  accessToken: string;
+  bearerToken?: string;
+}) {
+  const supabaseUrl = resolveLockedSupabaseUrl();
+  const apiKey = resolveSupabaseApiKey();
+  const bearer = bearerToken || accessToken;
 
   const response = await fetch(`${supabaseUrl}${path}`, {
     headers: {
@@ -139,7 +167,11 @@ async function fetchSupabaseJson<T>({ path, accessToken, serviceRoleKey }: { pat
 }
 
 async function getAuthenticatedUser(accessToken: string): Promise<SupabaseUser | null> {
-  const user = await fetchSupabaseJson<SupabaseUser>({ path: '/auth/v1/user', accessToken });
+  const user = await fetchSupabaseJson<SupabaseUser>({
+    path: '/auth/v1/user',
+    accessToken,
+    bearerToken: accessToken,
+  });
   return user?.id ? user : null;
 }
 
@@ -150,12 +182,10 @@ function readRolesFromJwt(accessToken: string): AppRole[] {
 }
 
 async function readRolesFromUserRoles(userId: string, accessToken: string): Promise<AppRole[]> {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined;
   const encodedUserId = encodeURIComponent(userId);
   const rows = await fetchSupabaseJson<RoleRow[]>({
     path: `/rest/v1/user_roles?user_id=eq.${encodedUserId}&select=role`,
     accessToken,
-    serviceRoleKey,
   });
 
   return Array.isArray(rows)
@@ -164,22 +194,35 @@ async function readRolesFromUserRoles(userId: string, accessToken: string): Prom
 }
 
 export async function getAdminAuth(): Promise<AdminAuthResult | null> {
-  if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') return null;
+  const result = await getAdminAuthCheck();
+  return result.ok ? result.auth : null;
+}
 
+export async function getAdminAuthCheck(): Promise<AdminAuthCheck> {
   const accessToken = await resolveAccessToken();
-  if (!accessToken) return null;
+  if (!accessToken) return { ok: false, reason: 'missing_access_token' };
 
-  const user = await getAuthenticatedUser(accessToken);
-  if (!user) return null;
+  let user: SupabaseUser | null;
+  try {
+    user = await getAuthenticatedUser(accessToken);
+  } catch {
+    return { ok: false, reason: 'invalid_access_token' };
+  }
+  if (!user) return { ok: false, reason: 'invalid_access_token' };
 
   const roles = Array.from(new Set([...readRolesFromJwt(accessToken), ...(await readRolesFromUserRoles(user.id, accessToken))]));
-  if (!hasAdminRole(roles)) return null;
+  if (!hasAdminRole(roles)) return { ok: false, reason: 'missing_admin_role' };
 
-  return { user, roles };
+  return { ok: true, auth: { user, roles } };
 }
 
 export async function requireAdminAuth() {
-  const auth = await getAdminAuth();
-  if (!auth) notFound();
-  return auth;
+  const result = await getAdminAuthCheck();
+  if (result.ok) return result.auth;
+
+  if (result.reason === 'missing_access_token' || result.reason === 'invalid_access_token') {
+    unauthorized();
+  }
+
+  forbidden();
 }

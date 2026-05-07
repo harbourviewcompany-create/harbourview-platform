@@ -1,73 +1,98 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+
+import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
+import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 
 export const metadata: Metadata = {
-  title: 'Signals',
+  title: 'Signals | Harbourview',
   description:
-    'Market monitoring and commercial signals for regulated industry participants. Pricing trends, supply shifts, and deal flow indicators.',
+    'Global policy and regulatory change monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.',
 }
 
-export default function SignalsPage() {
+export default async function SignalsPage() {
+  const signals = await getPublicRegulatorySignals()
+
   return (
-    <>
+    <main>
       <section className="bg-navy text-white py-14">
         <div className="page-container">
-          <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-            Coming Soon
-          </div>
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Signals</h1>
           <p className="text-gray-300 max-w-2xl">
-            Market monitoring and commercial signals for serious participants
-            in regulated markets.
+            Global policy and regulatory change monitoring for regulated
+            cannabis, hemp/CBD and adjacent controlled-market pathways.
           </p>
         </div>
       </section>
 
-      <section className="py-16">
-        <div className="page-container max-w-2xl">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12">
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Pricing Signals</h3>
-              <p className="text-gray-500 text-sm">
-                Indicative pricing data across equipment categories, cannabis
-                inventory types, and service segments in regulated markets.
-              </p>
+      <section className="py-12">
+        <div className="page-container space-y-6">
+          {signals.length === 0 && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
+              No published regulatory signals yet.
             </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Supply Shifts</h3>
-              <p className="text-gray-500 text-sm">
-                Early indicators of supply tightening or surplus across key
-                inventory and equipment categories.
+          )}
+
+          {signals.map((signal) => (
+            <article
+              key={signal.id}
+              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+            >
+              <h2 className="text-lg font-semibold text-navy">
+                {signal.headline}
+              </h2>
+              <div className="mt-1 text-xs text-gray-500">
+                {signal.country_name} • {signal.signal_type} •{' '}
+                {signal.signal_date}
+              </div>
+              <p className="mt-3 text-sm text-gray-700">
+                {signal.public_summary}
               </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Deal Flow</h3>
-              <p className="text-gray-500 text-sm">
-                Aggregated deal flow indicators from Harbourview&apos;s marketplace
-                and introduction activity.
+              <p className="mt-2 text-sm text-gray-500">
+                {signal.public_implication}
               </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Market Commentary</h3>
-              <p className="text-gray-500 text-sm">
-                Periodic commentary on conditions in regulated markets from the
-                Harbourview team.
-              </p>
-            </div>
+              {signal.canonical_source_url && (
+                <a
+                  href={signal.canonical_source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-block text-xs font-medium text-navy underline"
+                >
+                  View source
+                </a>
+              )}
+            </article>
+          ))}
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+            <h2 className="mb-3 text-xl font-bold text-navy">
+              Request Signals Access
+            </h2>
+            <p className="mx-auto mb-6 max-w-2xl text-sm text-gray-500">
+              Request early access to dated, source-backed regulatory monitoring
+              for market access, compliance strategy and commercial timing.
+            </p>
+            <form className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+              <label htmlFor="signals-email" className="sr-only">
+                Get notified when this launches
+              </label>
+              <input
+                id="signals-email"
+                name="email"
+                type="email"
+                placeholder="Get notified when this launches"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+              />
+              <button type="submit" className="btn-primary shrink-0 px-6 py-2 text-sm">
+                Notify Me
+              </button>
+            </form>
           </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-            <h2 className="text-navy font-bold text-xl mb-3">Request Early Access</h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Signals is in development. Submit an intake request to register
-              interest and be contacted when the module launches.
-            </p>
-            <Link href="/intake" className="btn-primary px-8 py-3">
-              Request Early Access
-            </Link>
+          <div className="text-xs leading-relaxed text-gray-500">
+            {REGULATORY_SIGNALS_DISCLAIMER}
           </div>
         </div>
       </section>
-    </>
+    </main>
   )
 }

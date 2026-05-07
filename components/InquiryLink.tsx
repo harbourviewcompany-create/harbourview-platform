@@ -9,7 +9,7 @@ interface InquiryLinkProps {
 
 export default function InquiryLink({
   subject,
-  label = 'Request Quote',
+  label = 'Inquire to Buy',
   listingTitle,
 }: InquiryLinkProps) {
   const title = listingTitle || subject.replace(/^Inquiry:\s*/i, '').replace(/^Supplier Inquiry:\s*/i, '')
