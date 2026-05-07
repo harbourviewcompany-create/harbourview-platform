@@ -21,15 +21,13 @@ export default async function IntelligencePage() {
   return (
     <main className="bg-[#020814] text-white">
       <section className="hero-shell relative overflow-hidden border-b border-gold/10 py-16 sm:py-20">
-        <div className="hero-gradient-shield"></div>
+        <div className="hero-gradient-shield" />
 
         <HarbourviewGlobeClientLoader />
 
         <div className="page-container relative z-10">
           <div className="max-w-3xl">
-            <p className="hero-eyebrow">
-              Harbourview Intelligence Globe
-            </p>
+            <p className="hero-eyebrow">Harbourview Intelligence Globe</p>
 
             <h1 className="hero-title max-w-4xl">
               <span className="hero-title-gold">Country-reviewed</span>
@@ -141,13 +139,9 @@ export default async function IntelligencePage() {
                     context.
                   </p>
 
-                  <p>
-                    Region: {country.region || 'International'}
-                  </p>
+                  <p>Region: {country.region || 'International'}</p>
 
-                  <p>
-                    Published signals: {country.count}
-                  </p>
+                  <p>Published signals: {country.count}</p>
                 </div>
 
                 <div className="mt-6 border-t border-gold/10 pt-4 text-xs leading-6 text-white/44">

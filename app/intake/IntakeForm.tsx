@@ -55,6 +55,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
   const [message, setMessage] = useState(initialMessage)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const defaultListingType = initialListingType && listingTypes.includes(initialListingType) ? initialListingType : ''
+  const isWantedRequest = defaultListingType === 'Wanted Request'
 
   function validate(data: FormData) {
     const errs: Record<string, string> = {}
@@ -139,9 +140,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">
-          Contact Details
-        </h2>
+        <h2 className="text-navy font-semibold text-lg border-b pb-3">Contact Details</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
@@ -187,9 +186,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
       </div>
 
       <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">
-          Listing Details
-        </h2>
+        <h2 className="text-navy font-semibold text-lg border-b pb-3">Listing Details</h2>
 
         <div>
           <label htmlFor="listingType" className="block text-sm font-medium text-gray-700 mb-1">
@@ -217,7 +214,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
             id="title"
             name="title"
             type="text"
-            placeholder="e.g. 10L CO₂ Extraction System — Used"
+            placeholder={isWantedRequest ? 'e.g. Wanted: 50,000 child-resistant pouches' : 'e.g. 10L CO₂ Extraction System — Used'}
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
           />
           {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
@@ -232,7 +229,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
               id="price"
               name="price"
               type="text"
-              placeholder="e.g. $25,000 or POA"
+              placeholder={isWantedRequest ? 'e.g. $3,000–$8,000 or volume pricing' : 'e.g. $25,000 or POA'}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
             />
           </div>
@@ -258,16 +255,15 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
             id="description"
             name="description"
             rows={5}
-            placeholder="Provide a clear description of what you are listing, its condition, and any relevant specifications."
+            placeholder={isWantedRequest ? 'Describe the requirement, expected volume, market, timing, budget range and any compliance or documentation requirements.' : 'Provide a clear description of what you are listing, its condition, and any relevant specifications.'}
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none"
           />
           {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
         </div>
       </div>
 
-      <p className="text-xs text-gray-400">
-        Submissions are reviewed before publication. We will contact you if we need
-        additional information.
+      <p className="text-xs text-white/44">
+        Submissions are reviewed before publication or routing. Contact details are not public.
       </p>
 
       {state === 'error' && (
@@ -276,11 +272,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={state === 'submitting'}
-        className="btn-primary w-full py-3 text-base disabled:opacity-60"
-      >
+      <button type="submit" disabled={state === 'submitting'} className="btn-primary w-full py-3 text-base disabled:opacity-60">
         {state === 'submitting' ? 'Submitting…' : submitLabel}
       </button>
     </form>

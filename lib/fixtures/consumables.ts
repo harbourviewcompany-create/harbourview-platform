@@ -31,7 +31,7 @@ export const consumables: Listing[] = [
     title: 'Child-Resistant Mylar Pouches — 1oz, 3.5g & 7g Formats',
     description:
       'Bulk supply of child-resistant resealable mylar pouches across 1oz, 3.5g and 7g formats. Plain and custom-print options available. Minimum order quantities and per-unit pricing reviewed by volume. Sample quantities available before commitment. Suitable for licensed operators sourcing 25,000+ units on a recurring cadence. Inquiry required through Harbourview.',
-    tags: ['Packaging', 'Child-Resistant', 'Mylar Pouches', 'Custom Print', 'Licensed Operators', 'Inquiry Required'],
+    tags: ['Packaging', 'Child-Resistant', 'Mylar Pouches', 'Custom Print', 'Supplier Qualification Required', 'Inquiry Required'],
     ...common,
   },
   {

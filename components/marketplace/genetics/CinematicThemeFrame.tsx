@@ -3,7 +3,7 @@ type Props = {
   theme?: 'alpine' | 'equatorial' | 'laboratory'
 }
 
-const themeClasses: Record<string, string> = {
+const themeClasses: Record<NonNullable<Props['theme']>, string> = {
   alpine:
     'bg-[radial-gradient(circle_at_20%_18%,rgba(198,165,90,0.18),transparent_28%),linear-gradient(145deg,#081423,#05070A)]',
   equatorial:
