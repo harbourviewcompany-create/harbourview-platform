@@ -339,7 +339,7 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
 }
 
 export function HarbourviewGlobeClientLoader({
-  fallbackSrc = '/assets/harbourview-globe-hero.svg',
+  fallbackSrc = '/assets/harbourview-globe-hero-v2.svg',
 }: HarbourviewGlobeClientLoaderProps) {
   const [shouldRenderCanvas, setShouldRenderCanvas] = useState(false)
   const [canvasReady, setCanvasReady] = useState(false)
