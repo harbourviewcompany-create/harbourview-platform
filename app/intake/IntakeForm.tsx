@@ -5,6 +5,11 @@ import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
+type IntakeFormProps = {
+  initialListingType?: string
+  submitLabel?: string
+}
+
 const listingTypes = [
   'New Product',
   'Used / Surplus Equipment',
@@ -45,10 +50,11 @@ function buildSubmissionMessage(fields: {
   ].join('\n')
 }
 
-export default function IntakeForm() {
+export default function IntakeForm({ initialListingType, submitLabel = 'Submit Listing' }: IntakeFormProps) {
   const [state, setState] = useState<FormState>('idle')
   const [message, setMessage] = useState(initialMessage)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const defaultListingType = initialListingType && listingTypes.includes(initialListingType) ? initialListingType : ''
 
   function validate(data: FormData) {
     const errs: Record<string, string> = {}
@@ -192,6 +198,7 @@ export default function IntakeForm() {
           <select
             id="listingType"
             name="listingType"
+            defaultValue={defaultListingType}
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white"
           >
             <option value="">— Select a type —</option>
@@ -274,7 +281,7 @@ export default function IntakeForm() {
         disabled={state === 'submitting'}
         className="btn-primary w-full py-3 text-base disabled:opacity-60"
       >
-        {state === 'submitting' ? 'Submitting…' : 'Submit Listing'}
+        {state === 'submitting' ? 'Submitting…' : submitLabel}
       </button>
     </form>
   )

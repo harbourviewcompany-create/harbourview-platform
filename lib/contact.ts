@@ -1,15 +1,15 @@
-const BRANDED_CONTACT_EMAIL = ['hello', 'harbourview.co'].join('@')
+const CURRENT_CONTACT_EMAIL = 'harbourviewcompany@gmail.com'
 
 export const HARBOURVIEW_CONTACT = {
-  email: BRANDED_CONTACT_EMAIL,
-  mailtoHref: `mailto:${BRANDED_CONTACT_EMAIL}`,
+  email: CURRENT_CONTACT_EMAIL,
+  mailtoHref: `mailto:${CURRENT_CONTACT_EMAIL}`,
   phone: null,
   phoneHref: null,
   whatsapp: null,
   whatsappHref: null,
   telegram: null,
   telegramHref: null,
-  publicBaseUrl: 'https://harbourview-platform.vercel.app',
+  publicBaseUrl: 'https://harbourview.vercel.app',
 } as const
 
 export const CONTACT_EMAIL = HARBOURVIEW_CONTACT.email

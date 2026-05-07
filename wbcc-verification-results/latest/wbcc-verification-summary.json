@@ -1,56 +1,56 @@
 {
   "verdict": "PASS_CONTROL_SAFE_V1",
   "environment": {
-    "timestamp": "2026-05-07T10:51:37.4987085+00:00",
+    "timestamp": "2026-05-07T12:25:15.1664786+00:00",
+    "unsignedBuildWarning": "Unsigned CI verification build",
+    "powershell": "7.4.14",
+    "node": "v22.22.2",
+    "npm": "10.9.7",
+    "isAdmin": true,
+    "noAutoUpdate": true,
     "windows": {
       "Caption": "Microsoft Windows Server 2025 Datacenter",
       "Version": "10.0.26100",
       "BuildNumber": "26100"
-    },
-    "node": "v22.22.2",
-    "unsignedBuildWarning": "Unsigned CI verification build",
-    "noAutoUpdate": true,
-    "powershell": "7.4.14",
-    "npm": "10.9.7",
-    "isAdmin": true
+    }
   },
   "steps": [
     {
-      "log": "verification-results/evidence/npm-test.log",
       "passed": true,
+      "name": "npm-test",
       "exitCode": 0,
-      "name": "npm-test"
+      "log": "verification-results/evidence/npm-test.log"
     },
     {
-      "log": "verification-results/evidence/runtime-proof.log",
       "passed": true,
+      "name": "runtime-proof",
       "exitCode": 0,
-      "name": "runtime-proof"
+      "log": "verification-results/evidence/runtime-proof.log"
     },
     {
-      "log": "support-bundles/wbcc-support-bundle.json",
       "passed": true,
+      "name": "support-bundle",
       "exitCode": 0,
-      "name": "support-bundle"
+      "log": "support-bundles/wbcc-support-bundle.json"
     },
     {
-      "log": "logs.jsonl",
       "passed": true,
+      "name": "log-integrity",
       "exitCode": 0,
-      "name": "log-integrity"
+      "log": "logs.jsonl"
     },
     {
-      "log": "SHA256SUMS.txt",
       "passed": true,
+      "name": "checksum",
       "exitCode": 0,
-      "name": "checksum"
+      "log": "SHA256SUMS.txt"
     }
   ],
   "cleanup": {
     "startupFolderEntryRemoved": true,
     "hkcuRunRemoved": true,
-    "allWbccTestObjectsRemoved": true,
-    "scheduledTaskRemoved": true
+    "scheduledTaskRemoved": true,
+    "allWbccTestObjectsRemoved": true
   },
   "runtimeProof": {
     "created": [
@@ -61,12 +61,12 @@
     "cleanup": {
       "startupFolderEntryRemoved": true,
       "hkcuRunRemoved": true,
-      "allWbccTestObjectsRemoved": true,
-      "scheduledTaskRemoved": true
+      "scheduledTaskRemoved": true,
+      "allWbccTestObjectsRemoved": true
     },
     "serviceDependencySimulation": {
-      "blockedRunningDependentsWithoutAdvancedOverride": true,
       "actionTaken": "simulation_only_no_services_stopped",
+      "blockedRunningDependentsWithoutAdvancedOverride": true,
       "checked": true
     },
     "browserAudit": {
