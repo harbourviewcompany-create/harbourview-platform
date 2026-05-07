@@ -6,11 +6,11 @@ const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
 export const metadata: Metadata = {
   title: 'Harbourview Network',
   description:
-    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, supplier discovery and country-specific access pathways.',
+    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   openGraph: {
     title: 'Harbourview Network',
     description:
-      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, supplier discovery and country-specific access pathways.',
+      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   },
 }
 
@@ -51,9 +51,9 @@ const categories = [
     description: 'Buyer and operator demand routed through Harbourview review.',
   },
   {
-    label: 'Supplier Discovery',
-    href: '/supplier-directory',
-    description: 'Supplier profiles and routed introduction requests across support categories.',
+    label: 'Request Introduction',
+    href: '/intake',
+    description: 'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
   },
 ]
 
@@ -68,7 +68,7 @@ const processCards = [
   },
   {
     title: 'Harbourview reviews',
-    body: 'Harbourview reviews category fit, commercial relevance and routing context before any counterparty contact, supplier response or introduction is coordinated.',
+    body: 'Harbourview reviews category fit, commercial relevance and routing context before any counterparty contact, response or introduction is coordinated.',
   },
   {
     title: 'Private routing follows',
@@ -95,10 +95,11 @@ export default function MarketplacePage() {
 
             <p className="mt-8 max-w-3xl text-base leading-8 text-white/64 sm:text-lg">
               Harbourview Network connects qualified participants through reviewed
-              listings, wanted requests, supplier discovery, commercial intelligence
-              and relationship-led market access. Contact details are private,
-              inquiries are reviewed before routing and submissions do not guarantee
-              introductions, availability, transaction terms or regulatory outcomes.
+              opportunities, wanted requests, qualified introductions, commercial
+              intelligence and relationship-led market access. Contact details are
+              private, inquiries are reviewed before routing and submissions do not
+              guarantee introductions, availability, transaction terms or regulatory
+              outcomes.
             </p>
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -192,12 +193,13 @@ export default function MarketplacePage() {
             </p>
 
             <h2 className="font-serif text-3xl leading-tight tracking-[-0.03em] text-white sm:text-4xl">
-              Have an opportunity, supplier profile or wanted request to submit?
+              Have an opportunity, introduction request or wanted request to submit?
             </h2>
 
             <p className="mt-5 text-sm leading-7 text-white/58 sm:text-base">
-              Submit supply, services, business opportunities or buyer requirements
-              for Harbourview Network review. Public visibility and routing are not automatic.
+              Submit supply, services, business opportunities, buyer requirements
+              or introduction requests for Harbourview Network review. Public
+              visibility and routing are not automatic.
             </p>
           </div>
 
