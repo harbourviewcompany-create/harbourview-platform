@@ -21,7 +21,7 @@ export default function HomePage() {
           <div className="lighthouse-glow"></div>
         </div>
 
-        <HarbourviewGlobeClientLoader />
+        <HarbourviewGlobeClientLoader fallbackSrc="/assets/harbourview-globe-hero-v2.svg" />
 
         <div className="page-container relative z-10 py-7 sm:py-8 lg:py-9">
           <div className="hero-grid">
