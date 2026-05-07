@@ -1,113 +1,59 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 
 export const metadata: Metadata = {
-  title: 'Harbourview | Market Access Intelligence and Harbourview Network',
+  title: 'Harbourview | Coming Soon',
   description:
-    'Harbourview is an intelligence-led market-access platform for serious participants in regulated cannabis and adjacent supply chains.',
+    'Harbourview is preparing a controlled commercial network and market-access intelligence platform.',
 }
 
 export default function HomePage() {
   return (
-    <>
-      <section className="hero-shell border-b border-gold/10 text-white">
-        <div className="hero-gradient-shield"></div>
-        <div className="hero-mobile-text-shield"></div>
-        <div className="signal-beam"></div>
+    <main className="relative min-h-screen overflow-hidden bg-[#01040a] text-white">
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-95"
+        style={{ backgroundImage: "url('/assets/harbourview-coming-soon-placeholder.svg')" }}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/40" aria-hidden="true" />
 
-        <div className="lighthouse-wrap" aria-hidden="true">
-          <div className="lighthouse-core"></div>
-          <div className="lighthouse-glow"></div>
-        </div>
+      <section className="relative z-10 flex min-h-screen items-end px-6 pb-8 sm:px-10 lg:items-center lg:px-16 lg:pb-0">
+        <div className="max-w-2xl rounded-[2rem] border border-[#C6A55A]/18 bg-black/18 p-6 shadow-[0_30px_100px_rgba(0,0,0,0.42)] backdrop-blur-[2px] sm:p-8 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-0">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.42em] text-[#D6A349] sm:text-xs">
+            Global commercial intelligence
+          </p>
 
-        <HarbourviewGlobeClientLoader fallbackSrc="/assets/harbourview-globe-hero-v2.svg" />
+          <h1 className="font-serif text-5xl leading-[0.98] tracking-[0.08em] text-[#F0D7A8] sm:text-7xl lg:text-8xl">
+            HARBOURVIEW
+          </h1>
 
-        <div className="page-container relative z-10 py-7 sm:py-8 lg:py-9">
-          <div className="hero-grid">
-            <div className="max-w-[540px]">
-              <p className="hero-eyebrow">
-                Commercial Intelligence and Controlled Network Access
-              </p>
+          <p className="mt-5 max-w-xl font-serif text-3xl leading-tight text-[#EFD8AE] sm:text-4xl lg:text-5xl">
+            Full site opening soon.
+          </p>
 
-              <h1 className="hero-title">
-                <span className="hero-title-gold">Market access</span>
-                <br />
-                <span className="hero-title-white">backed by intelligence</span>
-                <br />
-                <span className="hero-title-gold">and relationships.</span>
-              </h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-white/68 sm:text-lg">
+            Harbourview is staging its controlled commercial network, market-access intelligence and reviewed opportunity pathways.
+          </p>
 
-              <div className="mb-4 h-px w-16 bg-gradient-to-r from-gold to-gold-light sm:mb-5"></div>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/contact"
+              className="inline-flex items-center justify-between rounded-[3px] border border-[#E6C170] bg-[#D7A84D] px-7 py-4 text-sm font-extrabold uppercase tracking-[0.18em] text-[#111319] transition hover:bg-[#E6C170]"
+            >
+              <span>Contact</span>
+              <span className="ml-8 text-xl leading-none">→</span>
+            </Link>
 
-              <p className="hero-body">
-                Harbourview supports serious participants in regulated cannabis and
-                adjacent supply chains through commercial intelligence, reviewed
-                opportunities, counterparty access and country-specific market pathways.
-              </p>
-
-              <p className="hero-support-copy">
-                Harbourview Network connects supply, buyer demand, services, wanted
-                requests and qualified introductions through controlled inquiry review.
-                Contact details remain private unless Harbourview coordinates a routed
-                response.
-              </p>
-
-              <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-gold/78 sm:text-[11px]">
-                Select your entry point
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
-                <Link href="/marketplace" className="btn-marketplace">
-                  <span>Enter Network</span>
-                  <span className="text-xl leading-none">→</span>
-                </Link>
-
-                <Link href="/intelligence" className="btn-intelligence">
-                  <span>Intelligence</span>
-                  <span className="text-xl leading-none">→</span>
-                </Link>
-              </div>
-            </div>
-
-            <div aria-hidden="true"></div>
-          </div>
-
-          <div className="hidden border-t border-gold/10 pt-8 lg:block">
-            <div className="mx-auto grid max-w-5xl grid-cols-3 gap-10 text-center">
-              <div>
-                <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-gold/72">
-                  Discover
-                </p>
-                <p className="text-sm leading-7 text-white/52">
-                  Identify relevant access signals, reviewed opportunity categories
-                  and country-specific commercial pathways.
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-gold/72">
-                  Screen
-                </p>
-                <p className="text-sm leading-7 text-white/52">
-                  Assess category fit, counterparty context, licence-sensitive
-                  requirements and route viability before engagement.
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-gold/72">
-                  Connect
-                </p>
-                <p className="text-sm leading-7 text-white/52">
-                  Route qualified inquiries, wanted requests and introductions through
-                  controlled Harbourview review without public contact disclosure.
-                </p>
-              </div>
-            </div>
+            <Link
+              href="/marketplace"
+              className="inline-flex items-center justify-between rounded-[3px] border border-[#C08F3A] bg-[#071120]/82 px-7 py-4 text-sm font-extrabold uppercase tracking-[0.18em] text-[#D7A84D] transition hover:border-[#E6C170] hover:text-[#E6C170]"
+            >
+              <span>Network</span>
+              <span className="ml-8 text-xl leading-none">→</span>
+            </Link>
           </div>
         </div>
       </section>
-    </>
+    </main>
   )
 }
