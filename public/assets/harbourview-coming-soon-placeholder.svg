@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Harbourview coming soon placeholder</title>
+  <desc id="desc">Dark navy and gold Harbourview globe and lighthouse coming soon placeholder.</desc>
+  <defs>
+    <radialGradient id="bg" cx="72%" cy="32%" r="72%"><stop offset="0" stop-color="#16243a"/><stop offset="0.38" stop-color="#061221"/><stop offset="1" stop-color="#01040a"/></radialGradient>
+    <radialGradient id="gold" cx="38%" cy="30%" r="70%"><stop offset="0" stop-color="#ffe9ad"/><stop offset="0.24" stop-color="#c99b3f"/><stop offset="0.58" stop-color="#6e430b"/><stop offset="1" stop-color="#0b0804"/></radialGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffe29a" stop-opacity="0.8"/><stop offset="0.28" stop-color="#c6a55a" stop-opacity="0.34"/><stop offset="1" stop-color="#c6a55a" stop-opacity="0"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="28" stdDeviation="32" flood-color="#000" flood-opacity="0.82"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="#000" opacity="0.18"/>
+  <text x="66" y="64" fill="#d7b46c" font-family="Georgia,serif" font-size="31" letter-spacing="4">HARBOURVIEW</text>
+  <g fill="#efe2c8" opacity="0.82" font-family="Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="1.7">
+    <text x="632" y="62">MARKETPLACE</text><text x="780" y="62">INTELLIGENCE</text><text x="924" y="62">SOLUTIONS</text><text x="1048" y="62">ABOUT</text><text x="1144" y="62">INSIGHTS</text><text x="1268" y="62">CONTACT</text>
+  </g>
+  <rect x="1380" y="34" width="152" height="42" rx="2" fill="none" stroke="#b98635"/>
+  <text x="1405" y="61" fill="#d6a349" font-family="Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="1.9">CLIENT LOGIN</text>
+  <text x="70" y="181" fill="#d49c3d" font-family="Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="8">GLOBAL COMMERCIAL INTELLIGENCE</text>
+  <text x="67" y="272" fill="#f0d7a8" font-family="Georgia,serif" font-size="82" letter-spacing="7">HARBOURVIEW</text>
+  <text x="72" y="340" fill="#efd8ae" font-family="Georgia,serif" font-size="45">Market access backed by</text>
+  <text x="72" y="393" fill="#efd8ae" font-family="Georgia,serif" font-size="45">intelligence and relationships.</text>
+  <text x="72" y="437" fill="#a8adb8" font-family="Arial,sans-serif" font-size="20">Full site opening soon. Controlled commercial network,</text>
+  <text x="72" y="466" fill="#a8adb8" font-family="Arial,sans-serif" font-size="20">market intelligence and qualified access pathways are being staged.</text>
+  <rect x="72" y="522" width="220" height="55" rx="3" fill="#d7a84d" stroke="#edc577"/>
+  <text x="105" y="557" fill="#111319" font-family="Arial,sans-serif" font-size="15" font-weight="800" letter-spacing="2">CONTACT</text><text x="255" y="557" fill="#111319" font-size="25">→</text>
+  <rect x="312" y="522" width="215" height="55" rx="3" fill="#071120" stroke="#c08f3a"/>
+  <text x="345" y="557" fill="#d7a84d" font-family="Arial,sans-serif" font-size="15" font-weight="800" letter-spacing="2">NETWORK</text><text x="494" y="557" fill="#d7a84d" font-size="25">→</text>
+  <path d="M398 672 L950 382" stroke="url(#beam)" stroke-width="72" stroke-linecap="round" opacity="0.36" filter="url(#blur)"/>
+  <path d="M398 672 L950 382" stroke="url(#beam)" stroke-width="22" stroke-linecap="round" opacity="0.52"/>
+  <g transform="translate(785 98)" filter="url(#shadow)">
+    <circle cx="360" cy="318" r="328" fill="#03080f"/>
+    <circle cx="360" cy="318" r="321" fill="url(#gold)" opacity="0.98"/>
+    <path d="M50 336 C82 190 186 82 323 43 C455 5 604 62 684 170 C610 112 506 96 433 139 C347 190 313 288 248 350 C196 399 122 390 50 336Z" fill="#02070d" opacity="0.75"/>
+    <path d="M151 252 C206 181 281 141 365 134 C466 125 552 171 604 252 C548 228 501 231 462 267 C409 317 372 369 307 369 C231 370 177 321 151 252Z" fill="#d2a246" opacity="0.85"/>
+    <path d="M230 170 L300 135 L383 144 L452 185 L522 205 L571 262 L531 313 L454 305 L394 363 L305 356 L232 315 L172 260Z" fill="none" stroke="#251604" stroke-width="3" opacity="0.88"/>
+    <path d="M310 137 L324 360 M383 145 L374 360 M452 185 L410 350 M232 315 L531 313 M172 260 L571 262 M255 190 L505 205 M205 235 L548 242" fill="none" stroke="#251604" stroke-width="2" opacity="0.72"/>
+    <path d="M389 328 C425 355 445 393 443 447 C442 513 474 555 532 582 C469 623 382 640 299 617 C336 571 329 512 309 464 C286 407 318 363 389 328Z" fill="#b98729" opacity="0.62"/>
+    <path d="M502 215 C534 220 557 239 581 268 C606 299 632 305 663 301 C657 370 623 441 572 488 C557 429 535 394 499 373 C461 350 459 293 502 215Z" fill="#cc9b3d" opacity="0.62"/>
+    <circle cx="360" cy="318" r="323" fill="none" stroke="#d6a345" stroke-width="6" opacity="0.75"/>
+    <circle cx="360" cy="318" r="348" fill="none" stroke="#c79633" stroke-width="1" stroke-dasharray="6 10" opacity="0.72"/>
+    <ellipse cx="250" cy="172" rx="226" ry="110" fill="#fff" opacity="0.09" transform="rotate(-26 250 172)"/>
+  </g>
+  <rect y="780" width="1600" height="120" fill="#03101d" opacity="0.95"/>
+  <g opacity="0.9" stroke="#d0a244" fill="none"><path d="M0 811 C88 799 145 822 229 807 C320 790 374 829 466 811 C566 791 636 827 735 808 C833 790 892 829 994 810 C1092 792 1165 822 1262 806 C1375 788 1460 828 1600 804" stroke-width="2" opacity="0.45"/><path d="M0 848 C130 832 214 858 338 842 C456 826 530 860 650 843 C772 828 872 859 985 839 C1114 817 1218 863 1325 843 C1432 824 1508 848 1600 834" stroke-width="2" opacity="0.35"/></g>
+  <g transform="translate(352 608)"><path d="M23 162 L64 162 L56 63 L31 63 Z" fill="#87631f" stroke="#d6b46a" stroke-width="2"/><rect x="30" y="46" width="27" height="18" fill="#f6d985" stroke="#d6b46a"/><path d="M25 46 L43 20 L61 46 Z" fill="#b8892c" stroke="#d6b46a"/><line x1="43" y1="20" x2="43" y2="0" stroke="#d6b46a"/><ellipse cx="43" cy="166" rx="55" ry="12" fill="#110b03" opacity="0.7"/></g>
+</svg>
