@@ -12,8 +12,16 @@ if (!schema.includes('regulatory_signals.signals')) {
   process.exit(1)
 }
 
-const legacy = fs.readFileSync('./lib/signals/types.ts','utf-8')
-if (legacy.toLowerCase().includes('deal') || legacy.toLowerCase().includes('supplier')) {
+const regulatorySurface = [
+  './lib/regulatory-signals/public.ts',
+  './lib/regulatory-signals/types.ts',
+]
+  .filter((path) => fs.existsSync(path))
+  .map((path) => fs.readFileSync(path, 'utf-8'))
+  .join('\n')
+  .toLowerCase()
+
+if (regulatorySurface.includes('deal') || regulatorySurface.includes('supplier')) {
   console.error('Marketplace signal contamination detected')
   process.exit(1)
 }
