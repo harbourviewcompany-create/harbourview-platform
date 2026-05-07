@@ -60,11 +60,11 @@ export const usedSurplusListings: UsedSurplusListing[] = [
     category: 'used-surplus',
     title: 'Lab Equipment Bundle — HPLC, Analytical Scale & Centrifuge, Closing Testing Operation',
     description:
-      'Bundle of analytical lab instruments from a licensed testing operation that is closing. Includes Shimadzu LC-2030 HPLC, Mettler Toledo analytical balance (0.01mg resolution), and benchtop centrifuge. Calibration records and maintenance documentation included. Suitable for licensed testing laboratories and qualified lab operators. Individually priced on request; bundle pricing available. Inquiry required through Harbourview — inspection arranged prior to purchase.',
+      'Bundle of analytical lab instruments from a licensed testing operation that is closing. Includes Shimadzu LC-2030 HPLC, Mettler Toledo analytical balance (0.01mg resolution), and benchtop centrifuge. Calibration records and maintenance documentation included. Suitable for licensed testing laboratories and qualified lab operators handling commercial scale QA or batch-release workflows. Individually priced on request; bundle pricing available. Inquiry required through Harbourview — inspection arranged prior to purchase.',
     price: 'Price on request',
     condition: 'used',
     location: 'Oakland, CA',
-    tags: ['Lab Equipment', 'HPLC', 'Testing', 'Analytical', 'Closing Operation', '3 units', 'Inquiry Required'],
+    tags: ['Lab Equipment', 'HPLC', 'Testing', 'Analytical', 'Closing Operation', 'Commercial Scale', 'Inquiry Required'],
     postedDate: '2026-05-05',
     contactEmail: 'harbourviewcompany@gmail.com',
   },
