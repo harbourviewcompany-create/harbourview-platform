@@ -1,6 +1,6 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Market Access Intelligence and Harbourview Network',
@@ -21,14 +21,7 @@ export default function HomePage() {
           <div className="lighthouse-glow"></div>
         </div>
 
-        <Image
-          src="/assets/harbourview-globe-hero-v2.svg"
-          alt="Harbourview Globe"
-          width={1600}
-          height={1600}
-          className="hero-globe"
-          priority
-        />
+        <HarbourviewGlobeClientLoader />
 
         <div className="page-container relative z-10 py-8 sm:py-10 lg:py-12">
           <div className="hero-grid min-h-[calc(100svh-152px)] sm:min-h-[calc(100svh-176px)] lg:min-h-[calc(100svh-184px)]">
