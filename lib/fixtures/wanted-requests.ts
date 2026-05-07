@@ -11,7 +11,6 @@ export const wantedRequests: WantedRequest[] = [
     urgency: 'within-30-days',
     location: 'Nevada, USA',
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
     tags: ['Extraction', 'CO₂', 'Ethanol', 'Immediate Purchase', 'Licensed Processor', 'Commercial Scale', 'Inquiry Required'],
   },
   {
@@ -24,7 +23,6 @@ export const wantedRequests: WantedRequest[] = [
     urgency: 'asap',
     location: 'Michigan, USA',
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
     tags: ['Packaging', 'Child-Resistant', 'Bulk Supply', 'Immediate Purchase', 'Licensed Operators', 'Commercial Scale', 'Inquiry Required'],
   },
   {
@@ -37,7 +35,6 @@ export const wantedRequests: WantedRequest[] = [
     urgency: 'flexible',
     location: 'Illinois, USA',
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
     tags: ['POS', 'Retail', 'Compliance', 'Immediate Purchase', 'Licensed Operator', 'Commercial Scale', 'Inquiry Required'],
   },
   {
@@ -50,7 +47,6 @@ export const wantedRequests: WantedRequest[] = [
     urgency: 'within-30-days',
     location: 'Colorado, USA',
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
     tags: ['Facility', 'Cultivation', 'Expansion Project', 'Immediate Acquisition', 'Licensed Operator', 'Commercial Scale', 'Inquiry Required'],
   },
 ]
