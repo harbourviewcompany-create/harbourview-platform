@@ -22,7 +22,7 @@ export default function HomePage() {
         </div>
 
         <Image
-          src="/assets/harbourview-globe-hero.svg"
+          src="/assets/harbourview-globe-hero-v2.svg"
           alt="Harbourview Globe"
           width={1600}
           height={1600}
