@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { consumables } from '@/lib/fixtures/consumables'
+import { getLiveConsumableOpportunities } from '@/lib/marketplace/liveOpportunities'
 import ListingCard from '@/components/ListingCard'
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export const metadata: Metadata = {
   },
 }
 
-export default function ConsumablesPage() {
+export default async function ConsumablesPage() {
+  const listings = await getLiveConsumableOpportunities(consumables)
+
   return (
     <>
       <section className="bg-navy text-white py-12">
@@ -61,7 +64,7 @@ export default function ConsumablesPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {consumables.map((listing) => (
+            {listings.map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
             ))}
           </div>
