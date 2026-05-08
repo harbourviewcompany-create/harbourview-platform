@@ -32,7 +32,6 @@ export default function SupplierCard({ supplier }: SupplierCardProps) {
       <div className="mt-auto border-t border-gray-100 pt-4">
         <InquiryLink
           subject={`Harbourview Supplier Inquiry: ${supplier.name}`}
-          email={supplier.contactEmail}
           label="Request Routed Intro"
           listingTitle={supplier.name}
         />
