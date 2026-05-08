@@ -1,0 +1,132 @@
+name: Production Admin Security Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target base URL to test'
+        required: true
+        default: 'https://harbourview-platform.vercel.app'
+      confirmation:
+        description: 'Type RUN_ADMIN_SECURITY_PROBE to run production admin probe'
+        required: true
+        default: 'NO'
+  push:
+    branches:
+      - 'probe/admin-security-*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-admin-security-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Verify production admin denial and public provenance visibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip probe]') }}
+    env:
+      IS_CONTROLLED_PROBE_BRANCH: ${{ startsWith(github.ref_name, 'probe/admin-security-') }}
+      IS_CONFIRMED_MANUAL_DISPATCH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirmation == 'RUN_ADMIN_SECURITY_PROBE' }}
+      RESOLVED_PROBE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_url || 'https://harbourview-platform.vercel.app' }}
+    steps:
+      - name: Validate production probe confirmation
+        run: |
+          if [ "${IS_CONTROLLED_PROBE_BRANCH}" = "true" ] || [ "${IS_CONFIRMED_MANUAL_DISPATCH}" = "true" ]; then
+            echo "Production admin probe gate accepted."
+          else
+            echo "Refusing to run production admin probe without exact confirmation or controlled probe branch."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run local admin guard tests
+        id: admin_guard_tests
+        continue-on-error: true
+        run: npm run test:admin-guard > admin-guard-tests.log 2>&1
+
+      - name: Run public provenance visibility probe
+        id: public_visibility_probe
+        continue-on-error: true
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: ${{ env.RESOLVED_PROBE_BASE_URL }}
+        run: npm run probe:production-visibility > production-visibility-probe.log 2>&1
+
+      - name: Run anonymous admin route denial probe
+        id: admin_denial_probe
+        continue-on-error: true
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: ${{ env.RESOLVED_PROBE_BASE_URL }}
+        run: node scripts/probe-production-admin-security.mjs > production-admin-security-probe.log 2>&1
+
+      - name: Write result artifact
+        if: ${{ always() }}
+        run: |
+          guard_code=0
+          visibility_code=0
+          admin_code=0
+          if [ "${{ steps.admin_guard_tests.outcome }}" != "success" ]; then guard_code=1; fi
+          if [ "${{ steps.public_visibility_probe.outcome }}" != "success" ]; then visibility_code=1; fi
+          if [ "${{ steps.admin_denial_probe.outcome }}" != "success" ]; then admin_code=1; fi
+          status="passed"
+          if [ "$guard_code" -ne 0 ] || [ "$visibility_code" -ne 0 ] || [ "$admin_code" -ne 0 ]; then
+            status="failed"
+          fi
+          mkdir -p probe-results
+          guard_b64=$(base64 -w 0 admin-guard-tests.log || true)
+          visibility_b64=$(base64 -w 0 production-visibility-probe.log || true)
+          admin_b64=$(base64 -w 0 production-admin-security-probe.log || true)
+          cat > probe-results/production-admin-security-latest.json <<EOF
+          {
+            "status": "${status}",
+            "workflow_run_id": "${GITHUB_RUN_ID}",
+            "workflow_run_attempt": "${GITHUB_RUN_ATTEMPT}",
+            "branch": "${GITHUB_REF_NAME}",
+            "commit": "${GITHUB_SHA}",
+            "base_url": "${RESOLVED_PROBE_BASE_URL}",
+            "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "checks": {
+              "admin_guard_tests": "${{ steps.admin_guard_tests.outcome }}",
+              "public_visibility_probe": "${{ steps.public_visibility_probe.outcome }}",
+              "admin_denial_probe": "${{ steps.admin_denial_probe.outcome }}"
+            },
+            "expected": {
+              "anonymous_admin_routes_denied": true,
+              "public_marketplace_source_provenance_leakage": false,
+              "admin_allowed_roles": ["admin", "operator"],
+              "admin_denied_roles": ["anonymous", "missing-role", "viewer", "analyst"]
+            },
+            "logs_base64": {
+              "admin_guard_tests": "${guard_b64}",
+              "public_visibility_probe": "${visibility_b64}",
+              "admin_denial_probe": "${admin_b64}"
+            }
+          }
+          EOF
+          cat admin-guard-tests.log || true
+          cat production-visibility-probe.log || true
+          cat production-admin-security-probe.log || true
+          if [ "$status" != "passed" ]; then exit 1; fi
+
+      - name: Commit probe result artifact to trigger branch
+        if: ${{ always() && startsWith(github.ref_name, 'probe/admin-security-') }}
+        run: |
+          git config user.name "harbourview-probe-bot"
+          git config user.email "harbourviewcompany@gmail.com"
+          git add probe-results/production-admin-security-latest.json
+          git commit -m "Record production admin security probe result [skip probe]" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}"

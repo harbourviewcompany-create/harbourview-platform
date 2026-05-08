@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 
 const PUBLIC_RENDER_FILES = [
   'app/marketplace/page.tsx',
+  'app/marketplace/listings/page.tsx',
   'app/marketplace/consumables/page.tsx',
   'app/marketplace/wanted/page.tsx',
   'app/marketplace/sell/page.tsx',
-  'app/marketplace/listings/page.tsx',
   'app/marketplace/listings/[slug]/page.tsx',
+  'app/marketplace/genetics/page.tsx',
+  'app/marketplace/genetics/[slug]/page.tsx',
   'components/marketplace/MarketplaceListingCard.tsx',
   'components/ListingCard.tsx',
   'lib/fixtures/consumables.ts'
@@ -87,7 +89,8 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /machinio/i,
   /thc label solutions/i,
   /marijuana packaging/i,
-  /supplier directory/i
+  /Supplier Directory/i,
+  /contactEmail/
 ];
 
 const PUBLIC_PROJECTION_REQUIRED_PATTERNS = [

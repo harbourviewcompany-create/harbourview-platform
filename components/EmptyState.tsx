@@ -12,11 +12,11 @@ export default function EmptyState({ category }: EmptyStateProps) {
         No {category} listings yet
       </h3>
       <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">
-        Be the first to list in this category. Submit your listing through our
-        intake form and we&apos;ll publish it after review.
+        Submit an opportunity through Harbourview intake for review. Publication,
+        routing and introductions are not automatic.
       </p>
       <Link href="/intake" className="btn-primary">
-        Submit a Listing via Intake
+        Submit Opportunity via Intake
       </Link>
     </div>
   )
