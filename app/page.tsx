@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 const primarySections = [
   {
@@ -95,6 +96,45 @@ const pathwaySteps = [
   {
     title: 'Connect',
     body: 'Route qualified inquiries, wanted requests and introductions through controlled Harbourview review without public contact disclosure.',
+  },
+]
+
+const publicSections = [
+  {
+    title: 'Harbourview Network',
+    href: '/network',
+    eyebrow: 'Commercial network',
+    body: 'Explore reviewed categories for products, inputs, services, wanted requests and commercial access pathways.',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    eyebrow: 'Country pathway review',
+    body: 'Review public-safe intelligence panels, market pathway context and controlled country-level summaries.',
+  },
+  {
+    title: 'Signals',
+    href: '/signals',
+    eyebrow: 'Policy monitoring',
+    body: 'Track source-backed regulatory and policy movement without fake live-claim positioning.',
+  },
+  {
+    title: 'Compliance Pathways',
+    href: '/compliance',
+    eyebrow: 'Orientation only',
+    body: 'Use public compliance orientation pages for pathway context, not legal advice or guaranteed eligibility.',
+  },
+  {
+    title: 'Clinical Education',
+    href: '/network/clinical-education',
+    eyebrow: 'Education pathway',
+    body: 'Access controlled clinical education positioning for regulated commercial audiences.',
+  },
+  {
+    title: 'Request Introduction',
+    href: '/intake',
+    eyebrow: 'Reviewed intake',
+    body: 'Submit a confidential request for Harbourview review before any private routing or counterparty contact.',
   },
 ]
 
@@ -327,6 +367,29 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <PublicSection id="public-sections" tone="navy">
+        <SectionHeader
+          eyebrow="Available public sections"
+          title="A controlled gateway to the live Harbourview routes."
+        >
+          The live site now surfaces the public sections clearly while preserving review-first
+          positioning and avoiding overclaims.
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {publicSections.map((section) => (
+            <PublicLinkCard
+              key={section.href}
+              href={section.href}
+              eyebrow={section.eyebrow}
+              title={section.title}
+            >
+              {section.body}
+            </PublicLinkCard>
+          ))}
+        </div>
+      </PublicSection>
 
       <section className="py-14 sm:py-18">
         <div className="page-container">

@@ -1,4 +1,27 @@
 import Link from 'next/link'
+
+const platformLinks = [
+  { label: 'Harbourview Network', href: '/marketplace' },
+  { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Signals', href: '/signals' },
+  { label: 'Compliance Pathways', href: '/compliance' },
+  { label: 'Request Introduction', href: '/intake' },
+]
+
+const networkLinks = [
+  { label: 'Explore Network', href: '/marketplace' },
+  { label: 'Reviewed Listings', href: '/marketplace/listings' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Submit Opportunity', href: '/marketplace/sell' },
+  { label: 'Clinical Education', href: '/network/clinical-education' },
+]
+
+const companyLinks = [
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+  { label: 'Privacy', href: '/legal/privacy' },
+  { label: 'Terms', href: '/legal/terms' },
+]
 import { footerGroups } from '@/lib/institutional/content'
 
 export default function Footer() {

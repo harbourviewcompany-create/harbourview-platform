@@ -28,6 +28,7 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
+          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
           <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
