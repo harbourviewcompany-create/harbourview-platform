@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview-platform.vercel.app').replace(/\/$/, '')
+const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app').replace(/\/$/, '')
 const MAX_ATTEMPTS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS || '30')
 const WAIT_MS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS || '10000')
 
