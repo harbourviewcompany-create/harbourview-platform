@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process'
 
 const sourcePath = 'lib/intelligence/fixtures.ts'
 const schemaPath = 'lib/intelligence/schema.ts'
+const jsonFixturePath = 'lib/intelligence/country-fixtures.json'
 const source = readFileSync(sourcePath, 'utf8')
 
 const forbiddenPublicTokens = [
@@ -39,7 +40,11 @@ for (const token of forbiddenPublicTokens) {
   }
 }
 
-execSync(`npx tsc ${sourcePath} ${schemaPath} --module commonjs --target es2020 --esModuleInterop --skipLibCheck --outDir .tmp/intelligence-fixture-test`, { stdio: 'inherit' })
+execSync(
+  `npx tsc ${sourcePath} ${schemaPath} --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --resolveJsonModule --outDir .tmp/intelligence-fixture-test`,
+  { stdio: 'inherit' }
+)
+execSync(`cp ${jsonFixturePath} .tmp/intelligence-fixture-test/country-fixtures.json`, { stdio: 'inherit' })
 
 const fixtureModule = await import(pathToFileURL(`${process.cwd()}/.tmp/intelligence-fixture-test/fixtures.js`))
 const schemaModule = await import(pathToFileURL(`${process.cwd()}/.tmp/intelligence-fixture-test/schema.js`))
