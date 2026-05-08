@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { wantedRequests } from '@/lib/fixtures/wanted-requests'
 import type { WantedRequest } from '@/lib/fixtures/types'
-import InquiryLink from '@/components/InquiryLink'
 
 export const metadata: Metadata = {
   title: 'Wanted Requests | Harbourview Network',
@@ -141,11 +140,9 @@ function WantedListingCard({ listing }: { listing: WantedRequest }) {
       </p>
 
       <div className="mt-auto border-t border-gold/25 pt-4">
-        <InquiryLink
-          subject={`Harbourview Wanted Request Response: ${listing.title}`}
-          listingTitle={listing.title}
-          label="Respond to Request"
-        />
+        <Link href={`/marketplace/quote?listing=${encodeURIComponent(listing.title)}`} className="btn-outline px-4 py-2 text-xs">
+          Respond to Request
+        </Link>
       </div>
     </article>
   )
