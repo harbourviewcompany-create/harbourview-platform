@@ -15,8 +15,6 @@ interface LiveOpportunityRecord {
   imageAssetSource?: unknown
 }
 
-const fallbackContactEmail = 'harbourviewcompany@gmail.com'
-
 function asText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
 }
@@ -67,7 +65,6 @@ function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    contactEmail: fallbackContactEmail,
     image: imageSrc
       ? {
           src: imageSrc,
