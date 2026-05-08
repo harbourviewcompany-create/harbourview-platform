@@ -2,14 +2,13 @@ import Link from 'next/link'
 
 interface InquiryLinkProps {
   subject: string
-  email?: string
   label?: string
   listingTitle?: string
 }
 
 export default function InquiryLink({
   subject,
-  label = 'Request Quote',
+  label = 'Inquire to Buy',
   listingTitle,
 }: InquiryLinkProps) {
   const title = listingTitle || subject.replace(/^Inquiry:\s*/i, '').replace(/^Supplier Inquiry:\s*/i, '')

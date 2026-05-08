@@ -1,0 +1,67 @@
+name: Harbourview Production Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      primary_base_url:
+        description: 'Primary production base URL'
+        required: true
+        default: 'https://harbourview.vercel.app'
+      include_secondary:
+        description: 'Also verify the secondary Vercel domain'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      secondary_base_url:
+        description: 'Secondary production base URL'
+        required: false
+        default: 'https://harbourview-platform.vercel.app'
+      expected_commit:
+        description: 'Optional expected deployed commit SHA for evidence only'
+        required: false
+        default: ''
+  schedule:
+    - cron: '17 9 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: harbourview-production-verification-${{ github.event.inputs.primary_base_url || 'scheduled' }}
+  cancel-in-progress: false
+
+jobs:
+  production-verification:
+    name: Production verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run production verification probe
+        env:
+          PRIMARY_BASE_URL: ${{ github.event.inputs.primary_base_url || 'https://harbourview.vercel.app' }}
+          INCLUDE_SECONDARY: ${{ github.event.inputs.include_secondary || 'false' }}
+          SECONDARY_BASE_URL: ${{ github.event.inputs.secondary_base_url || 'https://harbourview-platform.vercel.app' }}
+          EXPECTED_COMMIT: ${{ github.event.inputs.expected_commit || '' }}
+        run: node scripts/verify-production.mjs
+
+      - name: Upload production verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-production-verification
+          path: verification-results/production/
+          if-no-files-found: error
+          retention-days: 30

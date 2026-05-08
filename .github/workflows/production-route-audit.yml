@@ -1,0 +1,28 @@
+name: Production Route Audit
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  production-route-audit:
+    name: Production Route Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Probe production routes
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+          HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS: 60
+          HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS: 10000
+        run: node scripts/probe-production-routes.mjs

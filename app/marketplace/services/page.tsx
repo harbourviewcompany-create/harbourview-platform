@@ -1,28 +1,26 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { serviceListings } from '@/lib/fixtures/services'
 import ListingCard from '@/components/ListingCard'
 import EmptyState from '@/components/EmptyState'
+import { getLiveServiceListings } from '@/lib/marketplace/liveServices'
 
 export const metadata: Metadata = {
-  title: 'Services',
+  title: 'Services | Harbourview Network',
   description:
-    'Cannabis industry services: compliance consulting, facility design, accounting, logistics, and more.',
+    'Service providers for regulated cannabis and adjacent supply-chain operators. Introduction requests are reviewed through Harbourview Network.',
 }
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const serviceListings = await getLiveServiceListings()
+
   return (
     <>
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
+            <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl font-bold mb-2">Services</h1>
-          <p className="text-gray-300 max-w-xl">
-            Professional services for cannabis operators. Compliance, design,
-            finance, logistics, and licensing support.
-          </p>
         </div>
       </section>
 
@@ -37,16 +35,6 @@ export default function ServicesPage() {
               ))}
             </div>
           )}
-
-          <div className="mt-10 border-t pt-8">
-            <p className="text-gray-500 text-sm">
-              Offering services to cannabis operators?{' '}
-              <Link href="/intake" className="text-navy underline hover:text-gold">
-                Submit via Intake
-              </Link>
-              .
-            </p>
-          </div>
         </div>
       </section>
     </>

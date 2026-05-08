@@ -30,7 +30,7 @@ export type RawTextRetentionStatus =
   | 'not_stored'
 
 export type SignalType =
-  | 'supplier_lead'
+  | 'counterparty_lead'
   | 'buyer_demand'
   | 'seller_listing'
   | 'used_equipment'
@@ -53,7 +53,7 @@ export type MarketplaceCategory =
   | 'wanted_requests'
   | 'services'
   | 'business_opportunities'
-  | 'supplier_directory'
+  | 'counterparty_directory'
   | 'policy_regulatory_signal'
   | 'ignore'
 
@@ -71,7 +71,7 @@ export type SignalStatus =
   | 'ready_for_outreach'
   | 'outreach_sent'
   | 'converted_to_listing'
-  | 'converted_to_supplier'
+  | 'converted_to_counterparty'
   | 'converted_to_wanted_request'
   | 'converted_to_dossier'
 
@@ -108,7 +108,7 @@ export type SignalJobStatus =
 
 export type SignalConversionType =
   | 'marketplace_listing'
-  | 'supplier_directory_record'
+  | 'counterparty_directory_record'
   | 'wanted_request'
   | 'private_brokerage_opportunity'
   | 'dossier_item'
@@ -371,7 +371,7 @@ export const SIGNAL_CONSTANTS = {
   ] as const satisfies readonly RawTextRetentionStatus[],
 
   SIGNAL_TYPES: [
-    'supplier_lead',
+    'counterparty_lead',
     'buyer_demand',
     'seller_listing',
     'used_equipment',
@@ -395,7 +395,7 @@ export const SIGNAL_CONSTANTS = {
     'wanted_requests',
     'services',
     'business_opportunities',
-    'supplier_directory',
+    'counterparty_directory',
     'policy_regulatory_signal',
     'ignore',
   ] as const satisfies readonly MarketplaceCategory[],
@@ -414,7 +414,7 @@ export const SIGNAL_CONSTANTS = {
     'ready_for_outreach',
     'outreach_sent',
     'converted_to_listing',
-    'converted_to_supplier',
+    'converted_to_counterparty',
     'converted_to_wanted_request',
     'converted_to_dossier',
   ] as const satisfies readonly SignalStatus[],
@@ -460,7 +460,7 @@ export const SIGNAL_CONSTANTS = {
 
   SIGNAL_CONVERSION_TYPES: [
     'marketplace_listing',
-    'supplier_directory_record',
+    'counterparty_directory_record',
     'wanted_request',
     'private_brokerage_opportunity',
     'dossier_item',

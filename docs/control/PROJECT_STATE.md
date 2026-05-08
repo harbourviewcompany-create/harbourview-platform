@@ -2,6 +2,20 @@
 
 This file tracks durable project readiness state for Harbourview Marketplace.
 
+<!-- Trigger commit: Branch Verification re-run -->
+
+## Marketplace buy/sell conversion
+
+**Status:** BRANCH — `marketplace-buy-sell-conversion-v1`
+
+Marketplace buy/sell conversion added to clarify seller listing, buyer inquiry and wanted-request flows. Default marketplace fees are seller-side and disclosed during seller intake. Buyers do not see fee language for normal listing inquiries. Buyer-side commercial terms are reserved for active sourcing mandates or confidential sourcing support. Harbourview remains a controlled introduction marketplace. No public seller contact exposure.
+
+New routes: `/marketplace/consumables/[id]` (8 static listing detail pages).
+
+Nav updated: "Submit Supply" → "List for Sale". Quote page repositioned as "Inquire to Buy".
+
+No schema, RLS, admin auth, adminGuard or capture route changes.
+
 ## Marketplace capture verification
 
 **Status:** PASS
