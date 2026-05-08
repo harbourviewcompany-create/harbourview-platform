@@ -24,7 +24,6 @@ export interface Listing {
   location: string
   tags: string[]
   postedDate: string
-  contactEmail?: string
   image?: ListingImage
 }
 
@@ -72,6 +71,6 @@ export interface Supplier {
   description: string
   categories: string[]
   location: string
-  contactEmail: string
+  privateContactEmail: string
   website?: string
 }
