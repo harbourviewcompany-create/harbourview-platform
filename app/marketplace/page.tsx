@@ -13,6 +13,7 @@ export const metadata: Metadata = {
       'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   },
 }
+}
 
 const categories = [
   {

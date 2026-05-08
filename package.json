@@ -1,6 +1,5 @@
 {
   "name": "harbourview-platform",
-  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -21,6 +20,8 @@
     "test:services-public-leakage": "node scripts/test-services-public-leakage.mjs",
     "test:intelligence-fixtures": "node scripts/test-intelligence-fixture-projection.mjs",
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
+    "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
+    "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",

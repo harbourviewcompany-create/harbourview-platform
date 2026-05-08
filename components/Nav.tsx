@@ -1,3 +1,20 @@
+const forbiddenPublicStrings = [
+  'Supplier Directory',
+  'contactEmail',
+  'sourceUrl',
+  'sourceName',
+  'Evidence captured',
+  'provenanceSummary',
+  'sourceEvidence',
+  'verificationStatus',
+  'availabilityStatus',
+  'sellerAuthorizationStatus',
+  'internalReviewNotes',
+  'reviewedBy',
+  'lastReviewedAt',
+  'nextReviewDueAt',
+  'hello@harbourview.co',
+]
 'use client'
 
 import Link from 'next/link'
