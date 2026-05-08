@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { wantedRequests } from '@/lib/fixtures/wanted-requests'
 import type { WantedRequest } from '@/lib/fixtures/types'
-import InquiryLink from '@/components/InquiryLink'
 import { EmptyState, FooterCta, PublicCard, PublicCta, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -32,10 +31,26 @@ const workflow = [
 ]
 
 const visualRules = [
-  { terms: ['extraction', 'co2', 'ethanol', 'processing equipment'], label: 'Extraction equipment', shape: 'processing system' },
-  { terms: ['mylar', 'pouch', 'exit bags', 'packaging'], label: 'Mylar pouches', shape: 'pouches' },
-  { terms: ['pos', 'technology', 'retail', 'metrc', 'biotrack'], label: 'Retail POS system', shape: 'retail technology' },
-  { terms: ['facility', 'real estate', 'cultivation', 'lease', 'warehouse'], label: 'Commercial facility', shape: 'facility request' },
+  {
+    terms: ['extraction', 'co2', 'ethanol', 'processing equipment'],
+    label: 'Extraction equipment',
+    shape: 'processing system',
+  },
+  {
+    terms: ['mylar', 'pouch', 'exit bags', 'packaging'],
+    label: 'Mylar pouches',
+    shape: 'pouches',
+  },
+  {
+    terms: ['pos', 'technology', 'retail', 'metrc', 'biotrack'],
+    label: 'Retail POS system',
+    shape: 'retail technology',
+  },
+  {
+    terms: ['facility', 'real estate', 'cultivation', 'lease', 'warehouse'],
+    label: 'Commercial facility',
+    shape: 'facility request',
+  },
 ]
 
 function titleCase(value: string) {
@@ -81,16 +96,18 @@ function WantedVisual({ listing }: { listing: WantedRequest }) {
       <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
         Representative image
       </span>
+
       <div className="flex h-full items-end justify-between gap-3 pt-8">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-gold-dark">Harbourview</p>
           <p className="mt-1 text-sm font-semibold text-navy">{visual.label}</p>
           <p className="text-xs text-gray-500">{visual.shape}</p>
         </div>
+
         <div className="flex items-end gap-1.5 opacity-80" aria-hidden="true">
-          <div className="h-10 w-5 rounded-t-full rounded-b-sm border border-gold/50 bg-white/80" />
-          <div className="h-14 w-7 rounded-t-full rounded-b-sm border border-gold/50 bg-white/90" />
-          <div className="h-8 w-5 rounded-t-full rounded-b-sm border border-gold/50 bg-white/75" />
+          <div className="h-10 w-5 rounded-b-sm rounded-t-full border border-gold/50 bg-white/80" />
+          <div className="h-14 w-7 rounded-b-sm rounded-t-full border border-gold/50 bg-white/90" />
+          <div className="h-8 w-5 rounded-b-sm rounded-t-full border border-gold/50 bg-white/75" />
         </div>
       </div>
     </div>
@@ -107,6 +124,7 @@ function WantedListingCard({ listing }: { listing: WantedRequest }) {
           <h3 className="mb-1 text-base font-semibold leading-snug text-navy">{listing.title}</h3>
           <p className="text-xs text-gray-500">{listing.location || 'Location available on request'}</p>
         </div>
+
         {listing.budget && (
           <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy shadow-sm">
             <WantedBudget budget={listing.budget} />
@@ -119,7 +137,10 @@ function WantedListingCard({ listing }: { listing: WantedRequest }) {
       {listing.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {listing.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700">
+            <span
+              key={tag}
+              className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700"
+            >
               {tag}
             </span>
           ))}
@@ -131,7 +152,9 @@ function WantedListingCard({ listing }: { listing: WantedRequest }) {
       </p>
 
       <div className="mt-auto border-t border-gold/25 pt-4">
-        <InquiryLink subject={`Harbourview Wanted Request Response: ${listing.title}`} listingTitle={listing.title} label="Respond to Request" />
+        <Link href={`/marketplace/quote?listing=${encodeURIComponent(listing.title)}`} className="btn-outline px-4 py-2 text-xs">
+          Respond to Request
+        </Link>
       </div>
     </article>
   )
@@ -149,10 +172,13 @@ export default function WantedPage() {
         ]}
       >
         <p>
-          Describe buyer or operator demand for equipment, inventory, inputs, services or market-specific requirements.
+          Describe buyer or operator demand for equipment, inventory, inputs, services or
+          market-specific requirements.
         </p>
+
         <p className="mt-4 text-sm leading-7 text-white/54">
-          Harbourview reviews wanted requests before supplier routing. Contact details remain private unless Harbourview coordinates a routed response.
+          Harbourview reviews wanted requests before supplier routing. Contact details remain private
+          unless Harbourview coordinates a routed response.
         </p>
       </PublicHero>
 
@@ -170,18 +196,33 @@ export default function WantedPage() {
 
       <PublicSection tone="navy">
         {wantedRequests.length === 0 ? (
-          <EmptyState title="No wanted requests are currently listed." action={{ label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted' }}>
-            Harbourview can still review private buyer or operator requirements through controlled intake.
+          <EmptyState
+            title="No wanted requests are currently listed."
+            action={{ label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted' }}
+          >
+            Harbourview can still review private buyer or operator requirements through controlled
+            intake.
           </EmptyState>
         ) : (
           <>
             <SectionHeader
               eyebrow="Current wanted requests"
               title="Reviewed public summaries. Private routing only."
-              action={<PublicCta action={{ label: 'Add Requirement', href: '/marketplace/sell?type=wanted', variant: 'secondary' }} />}
+              action={
+                <PublicCta
+                  action={{
+                    label: 'Add Requirement',
+                    href: '/marketplace/sell?type=wanted',
+                    variant: 'secondary',
+                  }}
+                />
+              }
             />
+
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {wantedRequests.map((listing) => <WantedListingCard key={listing.id} listing={listing} />)}
+              {wantedRequests.map((listing) => (
+                <WantedListingCard key={listing.id} listing={listing} />
+              ))}
             </div>
           </>
         )}
@@ -195,7 +236,8 @@ export default function WantedPage() {
           { label: 'Submit Opportunity', href: '/marketplace/sell', variant: 'secondary' },
         ]}
       >
-        Submit the opportunity or request confidential support. Harbourview review is required before any supplier response, buyer introduction or commercial routing.
+        Submit the opportunity or request confidential support. Harbourview review is required before
+        any supplier response, buyer introduction or commercial routing.
       </FooterCta>
     </>
   )
