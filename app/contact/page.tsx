@@ -21,17 +21,17 @@ const contactPaths = [
 export default function ContactPage() {
   return (
     <>
-      <section className="border-b border-gold/10 bg-[#061120] py-16 text-white sm:py-20 lg:py-24">
+      <section className="border-b border-gold/10 bg-[#061120] py-10 text-white sm:py-12 lg:py-14">
         <div className="page-container">
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
             <div className="max-w-4xl">
-              <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/78">
+              <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/78">
                 Contact Harbourview
               </p>
               <h1 className="font-serif text-4xl leading-[1.02] tracking-[-0.045em] text-white sm:text-5xl lg:text-6xl">
-                Start with a controlled commercial inquiry.
+                Start a confidential Harbourview conversation
               </h1>
-              <p className="mt-7 max-w-3xl text-base leading-8 text-white/64 sm:text-lg">
+              <p className="mt-6 max-w-3xl text-base leading-8 text-white/64 sm:text-lg">
                 Use this page for qualified opportunities, wanted requests,
                 intelligence questions, market-access support and confidential
                 commercial routing. Harbourview reviews inquiries before follow-up
