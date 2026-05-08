@@ -1,3 +1,6 @@
+import rawCountryIntelligenceFixtures from './country-fixtures.json'
+import { PublicCountryIntelligenceFixturesSchema } from './schema'
+
 export const intelligenceFixtureSources = [
   'harbourview_unified_v4_compact_top.html',
   'harbourview_v8_clean_map.html',
@@ -43,92 +46,8 @@ export const privateIntelligenceFieldQuarantine = [
   'nextReviewDueAt'
 ] as const
 
-export const countryIntelligenceFixtures: PublicCountryIntelligenceFixture[] = [
-  {
-    slug: 'germany',
-    country: 'Germany',
-    region: 'Europe',
-    statusLabel: 'Medical market with adult-use framework and controlled pilot pathway',
-    pathways: ['medical', 'adultUse'],
-    publicSummary: 'Priority European access market. Prototype material points to a large medical channel, import relevance and controlled adult-use evolution. Public use requires analyst review before presenting country-specific route claims.',
-    opportunityCategories: ['medical import pathway', 'pharmacy channel intelligence', 'EU-GMP supply qualification', 'pilot-program monitoring'],
-    tradeRole: ['import market', 'buyer demand signal'],
-    regulatorLabel: 'BfArM / regional authorities',
-    coordinates: { lat: 51, lng: 10 },
-    reviewStatus: 'needsAnalystReview',
-    sourcePrototype: 'harbourview_unified_v4_compact_top.html'
-  },
-  {
-    slug: 'united-kingdom',
-    country: 'United Kingdom',
-    region: 'Europe',
-    statusLabel: 'Medical market',
-    pathways: ['medical'],
-    publicSummary: 'Medical access market with import and specialist-prescribing relevance. Prototype content should be treated as directional until regulator and market-pathway fields are revalidated.',
-    opportunityCategories: ['medical access monitoring', 'import pathway review', 'clinic and pharmacy channel mapping'],
-    tradeRole: ['import market'],
-    regulatorLabel: 'Home Office / MHRA',
-    coordinates: { lat: 54, lng: -2 },
-    reviewStatus: 'needsAnalystReview',
-    sourcePrototype: 'harbourview_unified_v4_compact_top.html'
-  },
-  {
-    slug: 'canada',
-    country: 'Canada',
-    region: 'North America',
-    statusLabel: 'Federal adult-use and medical market',
-    pathways: ['medical', 'adultUse'],
-    publicSummary: 'Established regulated producer and export-origin market. Public fixture keeps only high-level market role and excludes non-public commercial counterparties, commercial terms, direct contact details and evidence records.',
-    opportunityCategories: ['export-origin qualification', 'licensed producer screening', 'bulk supply discovery', 'regulatory export documentation review'],
-    tradeRole: ['export market', 'supply origin'],
-    regulatorLabel: 'Health Canada',
-    coordinates: { lat: 56, lng: -106 },
-    reviewStatus: 'publicSafeSeed',
-    sourcePrototype: 'harbourview_global_cannabis_guidebook_v2_2026.html'
-  },
-  {
-    slug: 'colombia',
-    country: 'Colombia',
-    region: 'South America',
-    statusLabel: 'Medical and cultivation/export pathway',
-    pathways: ['medical'],
-    publicSummary: 'Regional cultivation and export-origin candidate. Prototype signal material is quarantined from public output pending evidence review and date-stamped policy validation.',
-    opportunityCategories: ['cultivation pathway review', 'export-origin screening', 'Latin America policy monitoring'],
-    tradeRole: ['export market', 'supply origin'],
-    regulatorLabel: 'Ministry of Health / INVIMA',
-    coordinates: { lat: 4.6, lng: -74.1 },
-    reviewStatus: 'needsAnalystReview',
-    sourcePrototype: 'Signals - Cannabis Policy South America.html'
-  },
-  {
-    slug: 'brazil',
-    country: 'Brazil',
-    region: 'South America',
-    statusLabel: 'Medical access market',
-    pathways: ['medical'],
-    publicSummary: 'Large medical-access market with evolving policy and import relevance. Keep public presentation conservative until current regulator and product-access rules are rechecked.',
-    opportunityCategories: ['medical access monitoring', 'import pathway review', 'policy change tracking'],
-    tradeRole: ['import market', 'buyer demand signal'],
-    regulatorLabel: 'ANVISA',
-    coordinates: { lat: -14.2, lng: -51.9 },
-    reviewStatus: 'needsAnalystReview',
-    sourcePrototype: 'Signals - Cannabis Policy South America.html'
-  },
-  {
-    slug: 'australia',
-    country: 'Australia',
-    region: 'Oceania',
-    statusLabel: 'Medical market',
-    pathways: ['medical'],
-    publicSummary: 'Medical cannabis market with import and domestic production relevance. Prototype records should be normalized before use in public country pages.',
-    opportunityCategories: ['medical market access', 'import pathway review', 'operator screening'],
-    tradeRole: ['import market', 'domestic production'],
-    regulatorLabel: 'TGA / ODC',
-    coordinates: { lat: -25, lng: 133 },
-    reviewStatus: 'needsAnalystReview',
-    sourcePrototype: 'harbourview_global_cannabis_guidebook_v2_2026.html'
-  }
-]
+export const countryIntelligenceFixtures: PublicCountryIntelligenceFixture[] =
+  PublicCountryIntelligenceFixturesSchema.parse(rawCountryIntelligenceFixtures) as PublicCountryIntelligenceFixture[]
 
 export function projectPublicCountryIntelligence(
   fixture: PublicCountryIntelligenceFixture
