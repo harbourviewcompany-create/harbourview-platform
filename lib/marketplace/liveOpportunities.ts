@@ -1,4 +1,4 @@
-import type { Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
+import type { BusinessOpportunity, Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
 
 interface LiveOpportunityRecord {
   id?: unknown
@@ -13,6 +13,19 @@ interface LiveOpportunityRecord {
   imageStatus?: unknown
   imageCaption?: unknown
   imageAssetSource?: unknown
+  opportunityType?: unknown
+  licenseType?: unknown
+  state?: unknown
+  reviewStatus?: unknown
+  publicationStatus?: unknown
+  publicVisibility?: unknown
+  visibility?: unknown
+  expiresAt?: unknown
+}
+
+export interface LiveBusinessOpportunityResult {
+  listings: BusinessOpportunity[]
+  source: 'live' | 'fixture' | 'empty' | 'error'
 }
 
 const fallbackContactEmail = 'harbourviewcompany@gmail.com'
@@ -23,12 +36,7 @@ function asText(value: unknown): string | undefined {
 
 function asTags(value: unknown): string[] {
   if (!Array.isArray(value)) return ['Inquiry Required']
-
-  const tags = value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean)
-
+  const tags = value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
   return tags.length > 0 ? tags : ['Inquiry Required']
 }
 
@@ -38,52 +46,65 @@ function asImageStatus(value: unknown): ListingImageStatus {
 }
 
 function asImageAssetSource(value: unknown): ListingImage['assetSource'] {
-  if (
-    value === 'supplier_provided' ||
-    value === 'licensed_stock' ||
-    value === 'internal_photo' ||
-    value === 'generated'
-  ) {
-    return value
-  }
-
+  if (value === 'supplier_provided' || value === 'licensed_stock' || value === 'internal_photo' || value === 'generated') return value
   return 'supplier_provided'
 }
 
-function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null {
+function asOpportunityType(value: unknown): BusinessOpportunity['opportunityType'] {
+  if (value === 'acquisition' || value === 'partnership' || value === 'lease' || value === 'license-transfer') return value
+  return 'partnership'
+}
+
+function isApprovedForPublic(record: LiveOpportunityRecord): boolean {
+  const visibility = record.publicVisibility || record.visibility
+  const expiresAt = asText(record.expiresAt)
+  const isCurrent = !expiresAt || Number.isNaN(Date.parse(expiresAt)) || Date.parse(expiresAt) > Date.now()
+  return record.reviewStatus === 'approved' && record.publicationStatus === 'published' && visibility === 'public' && isCurrent
+}
+
+function normalizeBusinessOpportunity(record: LiveOpportunityRecord): BusinessOpportunity | null {
+  if (!isApprovedForPublic(record)) return null
   const id = asText(record.id)
   const title = asText(record.title)
   const description = asText(record.description)
-
   if (!id || !title || !description) return null
-
   const imageSrc = asText(record.imageSrc)
-
   return {
     id,
+    category: 'business-opportunities',
     title,
     description,
+    opportunityType: asOpportunityType(record.opportunityType),
+    licenseType: asText(record.licenseType),
+    state: asText(record.state) || 'Review required',
     price: asText(record.price) || 'Price on request',
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    contactEmail: fallbackContactEmail,
-    image: imageSrc
-      ? {
-          src: imageSrc,
-          alt: asText(record.imageAlt) || title,
-          status: asImageStatus(record.imageStatus),
-          caption: asText(record.imageCaption),
-          assetSource: asImageAssetSource(record.imageAssetSource),
-        }
-      : undefined,
+    image: imageSrc ? { src: imageSrc, alt: asText(record.imageAlt) || title, status: asImageStatus(record.imageStatus), caption: asText(record.imageCaption), assetSource: asImageAssetSource(record.imageAssetSource) } : undefined,
   }
 }
 
-function getFeedUrl(): string | null {
-  const feedUrl = process.env.HARBOURVIEW_CONSUMABLES_FEED_URL?.trim()
-  if (!feedUrl) return null
+function sanitizeBusinessOpportunity(listing: BusinessOpportunity): BusinessOpportunity {
+  return {
+    id: listing.id,
+    category: 'business-opportunities',
+    title: listing.title,
+    description: listing.description,
+    opportunityType: listing.opportunityType,
+    licenseType: listing.licenseType,
+    state: listing.state,
+    price: listing.price,
+    location: listing.location,
+    tags: listing.tags,
+    postedDate: listing.postedDate,
+    image: listing.image,
+  }
+}
 
+function getFeedUrl(envKey: string): string | null {
+  const feedUrl = process.env[envKey]?.trim()
+  if (!feedUrl) return null
   try {
     const url = new URL(feedUrl)
     return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
@@ -92,24 +113,45 @@ function getFeedUrl(): string | null {
   }
 }
 
-export async function getLiveConsumableOpportunities(fallbackListings: Listing[]): Promise<Listing[]> {
-  const feedUrl = getFeedUrl()
-  if (!feedUrl) return fallbackListings
+function extractRecords(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { records?: unknown }).records)) return (payload as { records: unknown[] }).records
+  return []
+}
 
+export async function getLiveBusinessOpportunities(fallbackListings: BusinessOpportunity[]): Promise<LiveBusinessOpportunityResult> {
+  const fallback = fallbackListings.map(sanitizeBusinessOpportunity)
+  const feedUrl = getFeedUrl('HARBOURVIEW_BUSINESS_OPPORTUNITIES_FEED_URL')
+  if (!feedUrl) return { listings: fallback, source: fallback.length > 0 ? 'fixture' : 'empty' }
   try {
-    const response = await fetch(feedUrl, {
-      headers: { accept: 'application/json' },
-      next: { revalidate: 300 },
-    })
-
-    if (!response.ok) return fallbackListings
-
+    const response = await fetch(feedUrl, { headers: { accept: 'application/json' }, next: { revalidate: 300 } })
+    if (!response.ok) return { listings: fallback, source: 'error' }
     const payload: unknown = await response.json()
-    const records = Array.isArray(payload) ? payload : []
-    const liveListings = records
-      .map((record) => normalizeLiveOpportunity(record as LiveOpportunityRecord))
-      .filter((listing): listing is Listing => Boolean(listing))
+    const liveListings = extractRecords(payload).map((record) => normalizeBusinessOpportunity(record as LiveOpportunityRecord)).filter((listing): listing is BusinessOpportunity => Boolean(listing))
+    if (liveListings.length > 0) return { listings: liveListings, source: 'live' }
+    return { listings: fallback, source: fallback.length > 0 ? 'fixture' : 'empty' }
+  } catch {
+    return { listings: fallback, source: 'error' }
+  }
+}
 
+function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null {
+  const id = asText(record.id)
+  const title = asText(record.title)
+  const description = asText(record.description)
+  if (!id || !title || !description) return null
+  const imageSrc = asText(record.imageSrc)
+  return { id, title, description, price: asText(record.price) || 'Price on request', location: asText(record.location) || 'Region confirmed by inquiry', tags: asTags(record.tags), postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10), contactEmail: fallbackContactEmail, image: imageSrc ? { src: imageSrc, alt: asText(record.imageAlt) || title, status: asImageStatus(record.imageStatus), caption: asText(record.imageCaption), assetSource: asImageAssetSource(record.imageAssetSource) } : undefined }
+}
+
+export async function getLiveConsumableOpportunities(fallbackListings: Listing[]): Promise<Listing[]> {
+  const feedUrl = getFeedUrl('HARBOURVIEW_CONSUMABLES_FEED_URL')
+  if (!feedUrl) return fallbackListings
+  try {
+    const response = await fetch(feedUrl, { headers: { accept: 'application/json' }, next: { revalidate: 300 } })
+    if (!response.ok) return fallbackListings
+    const payload: unknown = await response.json()
+    const liveListings = extractRecords(payload).map((record) => normalizeLiveOpportunity(record as LiveOpportunityRecord)).filter((listing): listing is Listing => Boolean(listing))
     return liveListings.length > 0 ? liveListings : fallbackListings
   } catch {
     return fallbackListings
