@@ -131,6 +131,12 @@ const publicSections = [
     body: 'Access controlled clinical education positioning for regulated commercial audiences.',
   },
   {
+    title: 'Contact Harbourview',
+    href: '/contact',
+    eyebrow: 'Confidential contact',
+    body: 'Start a controlled Harbourview conversation for commercial intelligence, network access or market-entry support.',
+  },
+  {
     title: 'Request Introduction',
     href: '/intake',
     eyebrow: 'Reviewed intake',
