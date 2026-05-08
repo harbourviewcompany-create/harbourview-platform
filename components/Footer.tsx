@@ -61,6 +61,7 @@ const networkLinks = [
   { label: 'Reviewed Listings', href: '/marketplace/listings' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
+  { label: 'Genetics', href: '/marketplace/genetics' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
 ]
 

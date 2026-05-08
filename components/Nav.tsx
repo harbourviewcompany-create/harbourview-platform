@@ -21,6 +21,11 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const navLinks = [
+  { label: 'Network', href: '/marketplace' },
+  { label: 'Reviewed Listings', href: '/marketplace/listings' },
+  { label: 'Submit Opportunity', href: '/marketplace/sell' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Genetics', href: '/marketplace/genetics' },
   { label: 'Network', href: '/network' },
   { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },

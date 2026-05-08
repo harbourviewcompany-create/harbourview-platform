@@ -17,6 +17,12 @@ export const metadata: Metadata = {
 
 const categories = [
   {
+    label: 'Reviewed Network Listings',
+    href: '/marketplace/listings',
+    description:
+      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
+  },
+  {
     label: 'Used & Surplus Equipment',
     href: '/marketplace/used-surplus',
     description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
@@ -52,9 +58,16 @@ const categories = [
     description: 'Buyer and operator demand routed through Harbourview review.',
   },
   {
+    label: 'Genetics, Seeds & Tissue Culture',
+    href: '/marketplace/genetics',
+    description:
+      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
+  },
+  {
     label: 'Request Introduction',
     href: '/intake',
-    description: 'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
+    description:
+      'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
   },
 ]
 
