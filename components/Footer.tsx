@@ -2,13 +2,15 @@ import Link from 'next/link'
 
 const platformLinks = [
   { label: 'Harbourview Network', href: '/marketplace' },
-  { label: 'Signals', href: '/signals' },
   { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Signals', href: '/signals' },
+  { label: 'Compliance Pathways', href: '/compliance' },
   { label: 'Request Introduction', href: '/intake' },
 ]
 
 const networkLinks = [
   { label: 'Explore Network', href: '/marketplace' },
+  { label: 'Reviewed Listings', href: '/marketplace/listings' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
