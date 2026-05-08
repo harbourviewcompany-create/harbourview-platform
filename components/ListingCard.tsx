@@ -178,7 +178,6 @@ export default function ListingCard({ listing }: ListingCardProps) {
       <div className="mt-auto border-t border-gold/25 pt-4">
         <InquiryLink
           subject={inquirySubject}
-          email={listing.contactEmail}
           listingTitle={listing.title}
           label={inquiryLabel}
         />
