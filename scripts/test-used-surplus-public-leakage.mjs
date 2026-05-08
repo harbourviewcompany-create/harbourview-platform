@@ -3,18 +3,30 @@ const forbiddenStrings = [
   'sourceName',
   'contactEmail',
   'provenance',
-  'internal notes',
-  'raw scraped text',
+  'internal_notes',
+  'raw_scraped_text',
 ]
 
-const publicPayload = JSON.stringify({
+const publicProjectionPayload = JSON.stringify({
+  id: 'abc123',
   title: 'Approved Used Surplus Listing',
-  reviewStatus: 'approved',
+  description: 'Reviewed and approved listing.',
   publicationStatus: 'published',
+  reviewStatus: 'approved',
+  tags: ['Used Equipment'],
 })
 
+const renderedHtml = `
+<section>
+  <h1>Used & Surplus</h1>
+  <article>Approved Used Surplus Listing</article>
+</section>
+`
+
+const inspectedPayloads = [publicProjectionPayload, renderedHtml]
+
 const detected = forbiddenStrings.filter((value) =>
-  publicPayload.toLowerCase().includes(value.toLowerCase())
+  inspectedPayloads.some((payload) => payload.toLowerCase().includes(value.toLowerCase()))
 )
 
 if (detected.length > 0) {
