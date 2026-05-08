@@ -1,0 +1,40 @@
+name: Harbourview Production Runtime Verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  production-runtime-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+      HARBOURVIEW_PRODUCTION_VERIFY_OUT: artifacts/production-runtime-verification
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run production runtime verification
+        run: node scripts/production-runtime-verification.mjs
+
+      - name: Upload runtime verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-production-runtime-verification
+          path: artifacts/production-runtime-verification
+          if-no-files-found: error
