@@ -17,8 +17,8 @@ export default function HomePage() {
   return (
     <section className="relative isolate min-h-[calc(100svh-72px)] overflow-hidden bg-[#01050d] text-white sm:min-h-[calc(100svh-80px)]">
       <Image
-        src="/assets/harbourview-coming-soon-placeholder.svg"
-        alt="Harbourview coming soon visual with gold globe and lighthouse"
+        src="/assets/harbourview-globe-hero-realistic.webp"
+        alt="Harbourview realistic dark navy and gold globe visual"
         fill
         priority
         sizes="100vw"
