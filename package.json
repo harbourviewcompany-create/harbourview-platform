@@ -17,6 +17,7 @@
     "test:regulatory-signals-contract": "node scripts/test-regulatory-signals-contract.mjs",
     "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
+    "test:intelligence-fixtures": "node scripts/test-intelligence-fixture-projection.mjs",
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
@@ -29,7 +30,8 @@
     "next": "^15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.174.0"
+    "three": "^0.174.0",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
