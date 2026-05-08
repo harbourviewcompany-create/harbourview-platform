@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
 import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
