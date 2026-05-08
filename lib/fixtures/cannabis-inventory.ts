@@ -14,7 +14,6 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Michigan',
     tags: ['Flower', 'Indoor', 'Wholesale', 'Hybrid', 'Bulk Available', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-002',
@@ -29,7 +28,6 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Colorado',
     tags: ['Hemp', 'CBD', 'Biomass', 'Organic', 'Bulk Supply', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-003',
@@ -43,7 +41,6 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'California',
     tags: ['Concentrate', 'Live Resin', 'Wholesale', 'Lot Available', 'Licensed Retailers', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-004',
@@ -57,7 +54,6 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Oregon',
     tags: ['Seed', 'Genetics', 'Hemp', 'Feminised', 'New Stock', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-005',
@@ -71,7 +67,6 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Ontario, Canada',
     tags: ['Extract', 'GMP', 'Export', 'EU', 'UK', 'Canadian LP', 'Bulk', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'ci-006',
@@ -85,6 +80,5 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Germany',
     tags: ['Flower', 'GMP', 'EU-GMP', 'Import', 'Licensed Producer', 'Germany', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]
