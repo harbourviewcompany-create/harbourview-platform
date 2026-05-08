@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { newProducts } from '@/lib/fixtures/new-products'
+import { getApprovedEquipmentListings } from '@/lib/marketplace/newProductsPublic'
 import ListingCard from '@/components/ListingCard'
 import EmptyState from '@/components/EmptyState'
 
@@ -10,13 +11,18 @@ export const metadata: Metadata = {
     'New commercial equipment, packaging and operating supplies relevant to regulated cannabis and adjacent supply chains. Inquiries are reviewed through Harbourview Network.',
 }
 
-export default function NewProductsPage() {
+export default async function NewProductsPage() {
+  const approvedEquipment = await getApprovedEquipmentListings()
+  const listings = approvedEquipment.length > 0
+    ? [...approvedEquipment, ...newProducts]
+    : newProducts
+
   return (
     <>
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-          <Link href="/marketplace" className="hover:underline">Network</Link> /
+            <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl font-bold mb-2">New Products</h1>
           <p className="text-gray-300 max-w-xl">
@@ -37,11 +43,11 @@ export default function NewProductsPage() {
             </p>
           </div>
 
-          {newProducts.length === 0 ? (
+          {listings.length === 0 ? (
             <EmptyState category="New Products" />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {newProducts.map((listing) => (
+              {listings.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>

@@ -1,8 +1,10 @@
 # Production Route Audit Trigger
 
-Purpose: trigger the PR-based live production route audit against `https://harbourview-platform.vercel.app` after production middleware hardening.
+Purpose: trigger the live production route audit against the canonical production domain, `https://harbourview.vercel.app`.
 
-Commit under audit: `0d93209e3b738bdd0b1f6af2fc5a37cb10596506`.
+Canonical production target: `https://harbourview.vercel.app`.
+
+Legacy/unknown alias: `https://harbourview-platform.vercel.app` must not be used in production audit prompts, scripts, deployment checks or GO/HOLD decisions unless the task is explicitly investigating that alias.
 
 Required production checks:
 - `/`
@@ -16,4 +18,4 @@ Required production checks:
 - `/admin`
 - `/marketplace/listings`
 
-GO requires no legacy homepage, no legacy submit/wanted/commercial-intelligence dependencies, no standalone `/marketplace/listings` page, anonymous `/admin` denial and zero forbidden leakage strings.
+GO requires valid public routes, anonymous `/admin` denial, no standalone `/marketplace/listings` page and zero forbidden leakage strings.
