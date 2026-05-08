@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const navLinks = [
-  { label: 'Network', href: '/marketplace' },
+  { label: 'Network', href: '/network' },
+  { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Signals', href: '/signals' },
-  { label: 'Clinical Education', href: '/network/clinical-education' },
-  { label: 'About', href: '/about' },
+  { label: 'Education', href: '/education' },
+  { label: 'Policy & Standards', href: '/policy-standards' },
   { label: 'Contact', href: '/contact' },
 ]
 
@@ -27,13 +27,17 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75 xl:gap-9 lg:flex">
+          <nav className="hidden items-center gap-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link-premium">
+              <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
                 {link.label}
               </Link>
             ))}
           </nav>
+
+          <Link href="/contact" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
+            Request Access
+          </Link>
 
           <button
             className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/20 bg-white/[0.02] text-gold transition-colors hover:border-gold/50 hover:bg-gold/10 lg:hidden"
@@ -63,6 +67,13 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/contact"
+              className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light sm:col-span-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              Request Access
+            </Link>
           </div>
         </div>
       )}
