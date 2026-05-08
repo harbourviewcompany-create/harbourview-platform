@@ -19,6 +19,7 @@
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
     "test:intelligence-fixtures": "node scripts/test-intelligence-fixture-projection.mjs",
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
+    "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
