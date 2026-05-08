@@ -7,6 +7,7 @@ const navLinks = [
   { label: 'Network', href: '/marketplace' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Signals', href: '/signals' },
+  { label: 'Compliance', href: '/compliance' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -27,7 +28,7 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75 xl:gap-9 lg:flex">
+          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link-premium">
                 {link.label}
