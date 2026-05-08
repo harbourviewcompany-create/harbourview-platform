@@ -17,7 +17,6 @@ const listingTypes = [
   'Wanted Request',
   'Service',
   'Business Opportunity',
-  'Supplier Directory Listing',
 ]
 
 const initialMessage = ''
