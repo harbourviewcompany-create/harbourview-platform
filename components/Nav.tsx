@@ -7,8 +7,9 @@ const navLinks = [
   { label: 'Network', href: '/network' },
   { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Education', href: '/education' },
-  { label: 'Policy & Standards', href: '/policy-standards' },
+  { label: 'Signals', href: '/signals' },
+  { label: 'Compliance', href: '/compliance' },
+  { label: 'Clinical Education', href: '/network/clinical-education' },
   { label: 'Contact', href: '/contact' },
 ]
 
@@ -27,7 +28,7 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
+          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
                 {link.label}
@@ -44,11 +45,12 @@ export default function Nav() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
+            type="button"
           >
-            <span className="relative block h-4 w-5">
-              <span className="absolute left-0 top-0 block h-0.5 w-5 bg-current"></span>
-              <span className="absolute left-0 top-[7px] block h-0.5 w-5 bg-current"></span>
-              <span className="absolute bottom-0 left-0 block h-0.5 w-5 bg-current"></span>
+            <span className="relative block h-4 w-5" aria-hidden="true">
+              <span className="absolute left-0 top-0 block h-0.5 w-5 bg-current" />
+              <span className="absolute left-0 top-[7px] block h-0.5 w-5 bg-current" />
+              <span className="absolute bottom-0 left-0 block h-0.5 w-5 bg-current" />
             </span>
           </button>
         </div>
@@ -67,6 +69,7 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+
             <Link
               href="/contact"
               className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light sm:col-span-2"
