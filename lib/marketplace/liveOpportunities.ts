@@ -91,7 +91,6 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    contactEmail: fallbackContactEmail,
     image: imageSrc
       ? {
           src: imageSrc,

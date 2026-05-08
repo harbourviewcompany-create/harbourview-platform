@@ -1,0 +1,53 @@
+name: Deploy Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Existing source branch to deploy as preview'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create deploy-intent preview branch
+        env:
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+        run: |
+          SAFE_BRANCH=$(echo "$SOURCE_BRANCH" | tr '/' '-')
+          PREVIEW_BRANCH="preview/${SAFE_BRANCH}"
+
+          echo "Using preview branch: ${PREVIEW_BRANCH}"
+
+          git checkout -B "$PREVIEW_BRANCH"
+
+          git commit --allow-empty -m "[deploy-preview] Trigger Vercel preview for ${SOURCE_BRANCH}"
+
+          git push origin "$PREVIEW_BRANCH" --force
+
+      - name: Output preview trigger result
+        env:
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+        run: |
+          SAFE_BRANCH=$(echo "$SOURCE_BRANCH" | tr '/' '-')
+          PREVIEW_BRANCH="preview/${SAFE_BRANCH}"
+
+          echo "Preview deployment trigger branch pushed: ${PREVIEW_BRANCH}"
+          echo "This branch matches the Vercel deploy-intent gate configured in scripts/vercel-ignore-wbcc-only.sh"
