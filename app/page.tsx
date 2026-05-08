@@ -83,6 +83,21 @@ const guardrails = [
   'Reviewed inquiry routing only',
 ]
 
+const pathwaySteps = [
+  {
+    title: 'Discover',
+    body: 'Identify relevant access signals, reviewed opportunity categories and country-specific commercial pathways.',
+  },
+  {
+    title: 'Screen',
+    body: 'Assess category fit, counterparty context, licence-sensitive requirements and route viability before engagement.',
+  },
+  {
+    title: 'Connect',
+    body: 'Route qualified inquiries, wanted requests and introductions through controlled Harbourview review without public contact disclosure.',
+  },
+]
+
 export const metadata: Metadata = {
   title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
   description:
@@ -99,12 +114,12 @@ export default function HomePage() {
     <main className="bg-[#01050d] text-white">
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-16 sm:py-20 lg:py-24">
         <Image
-          src="/assets/harbourview-coming-soon-placeholder.svg"
+          src="/assets/harbourview-globe-hero-v2.svg"
           alt="Harbourview gold globe and lighthouse visual"
           fill
           priority
           sizes="100vw"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-center opacity-70"
+          className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
         />
 
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(1,5,13,0.96)_0%,rgba(1,5,13,0.84)_44%,rgba(1,5,13,0.44)_72%,rgba(1,5,13,0.86)_100%),linear-gradient(180deg,rgba(1,5,13,0.22)_0%,rgba(1,5,13,0.82)_100%)]" />
@@ -293,6 +308,23 @@ export default function HomePage() {
               routing.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="border-b border-gold/10 bg-[#01050d] py-12 text-white sm:py-16">
+        <div className="page-container grid gap-4 md:grid-cols-3">
+          {pathwaySteps.map((step) => (
+            <article
+              key={step.title}
+              className="rounded-sm border border-gold/12 bg-white/[0.025] p-5 sm:p-6"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/80">
+                {step.title}
+              </p>
+
+              <p className="mt-4 text-sm leading-7 text-white/60">{step.body}</p>
+            </article>
+          ))}
         </div>
       </section>
 
