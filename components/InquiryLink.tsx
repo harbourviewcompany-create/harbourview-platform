@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 interface InquiryLinkProps {
   subject: string
+  email?: string
   label?: string
   listingTitle?: string
 }
