@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 const PUBLIC_RENDER_FILES = [
   'app/marketplace/page.tsx',
+  'app/marketplace/listings/page.tsx',
   'app/marketplace/consumables/page.tsx',
   'app/marketplace/wanted/page.tsx',
   'app/marketplace/sell/page.tsx',
@@ -80,7 +81,9 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /Source-backed/i,
   /source page/i,
   /source listing/i,
-  /source lead/i
+  /source lead/i,
+  /Supplier Directory/i,
+  /contactEmail/
 ];
 
 const PUBLIC_PROJECTION_REQUIRED_PATTERNS = [
