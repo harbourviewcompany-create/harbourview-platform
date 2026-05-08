@@ -22,7 +22,6 @@ const common = {
   price: 'Price on request',
   location: 'Region confirmed by inquiry',
   postedDate: '2026-05-05',
-  contactEmail: 'harbourviewcompany@gmail.com',
 }
 
 export const consumables: Listing[] = [
