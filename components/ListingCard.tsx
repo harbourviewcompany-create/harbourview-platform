@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
+import { validateDealListing } from '@/lib/fixtures/listingQuality'
 import InquiryLink from './InquiryLink'
 
 interface ListingCardProps {
@@ -63,7 +64,7 @@ function getVisual(listing: ListingCardProps['listing']) {
 }
 
 function getBadge(status?: ListingImageStatus) {
-  if (status === 'verified') return 'Verified image'
+  if (status === 'verified') return 'Image reviewed'
   if (status === 'supplier-provided') return 'Supplier image'
   return 'Representative image'
 }
@@ -121,48 +122,48 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
+  if (process.env.NODE_ENV === 'development') {
+    const quality = validateDealListing(listing)
+    if (quality.warnings.length > 0) {
+      console.warn(
+        `[Harbourview ListingCard] Quality warnings for "${listing.id}":`,
+        quality.warnings.map((w) => `${w.signal}: ${w.message}`)
+      )
+    }
+  }
+
   const isWantedRequest = listing.category === 'wanted-requests'
-  const isConsumables =
-    listing.title.toLowerCase().includes('consumable') ||
-    listing.title.toLowerCase().includes('supplies') ||
-    listing.tags.some((tag) =>
-      ['packaging', 'lab & qa supplies', 'cultivation supplies', 'processing supplies', 'sanitation & ppe', 'logistics & warehouse supplies', 'retail supplies', 'maintenance consumables'].includes(tag.toLowerCase())
-    )
-  const inquiryLabel = isWantedRequest
-    ? 'Respond to Request'
-    : isConsumables
-      ? 'Request Supply Information'
-      : 'Request Quote'
+  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request Routed Inquiry'
   const inquirySubject = isWantedRequest
     ? `Harbourview Wanted Request Response: ${listing.title}`
-    : `Harbourview Marketplace Inquiry: ${listing.title}`
+    : `Harbourview Network Inquiry: ${listing.title}`
 
   return (
-    <article className="card p-5 flex h-full flex-col gap-4">
+    <article className="flex h-full flex-col gap-4 rounded-2xl border border-white/80 bg-[#f8f4ea] p-5 text-navy shadow-[0_22px_60px_rgba(0,0,0,0.24)]">
       <ListingVisual listing={listing} />
 
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-navy text-base leading-snug mb-1">
+          <h3 className="mb-1 text-base font-semibold leading-snug text-navy">
             {listing.title}
           </h3>
-          <p className="text-xs text-gray-400">{listing.location || 'Location available on request'}</p>
+          <p className="text-xs text-gray-500">{listing.location || 'Location available on request'}</p>
         </div>
         {(listing.price || (isWantedRequest && listing.budget)) && (
-          <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy">
+          <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy shadow-sm">
             {isWantedRequest && listing.budget ? listing.budget : listing.price}
           </p>
         )}
       </div>
 
-      <p className="text-sm text-gray-600 line-clamp-4">{listing.description}</p>
+      <p className="line-clamp-4 text-sm leading-6 text-gray-700">{listing.description}</p>
 
       {listing.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {listing.tags.map((tag) => (
             <span
               key={tag}
-              className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"
+              className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700"
             >
               {tag}
             </span>
@@ -170,10 +171,13 @@ export default function ListingCard({ listing }: ListingCardProps) {
         </div>
       )}
 
-      <div className="mt-auto border-t border-gray-100 pt-4">
+      <p className="text-xs leading-5 text-gray-600">
+        Public summary only. Contact details are private and inquiries are reviewed before routing.
+      </p>
+
+      <div className="mt-auto border-t border-gold/25 pt-4">
         <InquiryLink
           subject={inquirySubject}
-          email={listing.contactEmail}
           listingTitle={listing.title}
           label={inquiryLabel}
         />

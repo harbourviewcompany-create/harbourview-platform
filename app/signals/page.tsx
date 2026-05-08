@@ -1,73 +1,80 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+
+import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
+import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
+import { EmptyState, FooterCta, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Signals',
+  title: 'Signals | Harbourview',
   description:
-    'Market monitoring and commercial signals for regulated industry participants. Pricing trends, supply shifts, and deal flow indicators.',
+    'Global policy and regulatory change monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.',
 }
 
-export default function SignalsPage() {
+export default async function SignalsPage() {
+  const signals = await getPublicRegulatorySignals()
+
   return (
-    <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-            Coming Soon
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Signals</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Market monitoring and commercial signals for serious participants
-            in regulated markets.
-          </p>
-        </div>
-      </section>
+    <main>
+      <PublicHero
+        eyebrow="Harbourview Signals"
+        title="Regulatory and policy change signals for controlled markets."
+        actions={[
+          { label: 'Request Signal Review', href: '/contact' },
+          { label: 'Intelligence Services', href: '/intelligence', variant: 'secondary' },
+        ]}
+      >
+        <p>
+          Source-backed monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Public summaries are informational only and do not guarantee market access, import eligibility or regulatory outcome.
+        </p>
+      </PublicHero>
 
-      <section className="py-16">
-        <div className="page-container max-w-2xl">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12">
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Pricing Signals</h3>
-              <p className="text-gray-500 text-sm">
-                Indicative pricing data across equipment categories, cannabis
-                inventory types, and service segments in regulated markets.
-              </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Supply Shifts</h3>
-              <p className="text-gray-500 text-sm">
-                Early indicators of supply tightening or surplus across key
-                inventory and equipment categories.
-              </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Deal Flow</h3>
-              <p className="text-gray-500 text-sm">
-                Aggregated deal flow indicators from Harbourview&apos;s marketplace
-                and introduction activity.
-              </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="font-semibold text-navy text-base mb-2">Market Commentary</h3>
-              <p className="text-gray-500 text-sm">
-                Periodic commentary on conditions in regulated markets from the
-                Harbourview team.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-            <h2 className="text-navy font-bold text-xl mb-3">Request Early Access</h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Signals is in development. Submit an intake request to register
-              interest and be contacted when the module launches.
-            </p>
-            <Link href="/intake" className="btn-primary px-8 py-3">
-              Request Early Access
-            </Link>
-          </div>
+      <PublicSection tone="dark">
+        <div className="space-y-6">
+          {signals.length === 0 ? (
+            <EmptyState title="No published regulatory signals yet.">
+              Harbourview can review a country, policy update or commercial pathway on request.
+            </EmptyState>
+          ) : (
+            signals.map((signal) => (
+              <PublicCard key={signal.id} className="p-6">
+                <h2 className="text-lg font-semibold text-[#f4f1eb]">{signal.headline}</h2>
+                <div className="mt-2 text-xs uppercase tracking-[0.18em] text-gold/66">
+                  {signal.country_name} • {signal.signal_type} • {signal.signal_date}
+                </div>
+                <p className="mt-4 text-sm leading-7 text-white/66">{signal.public_summary}</p>
+                <p className="mt-3 text-sm leading-7 text-white/50">{signal.public_implication}</p>
+                {signal.canonical_source_url && (
+                  <a
+                    href={signal.canonical_source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-block text-xs font-semibold uppercase tracking-[0.16em] text-gold underline decoration-gold/40 underline-offset-4"
+                  >
+                    View source
+                  </a>
+                )}
+              </PublicCard>
+            ))
+          )}
         </div>
-      </section>
-    </>
+      </PublicSection>
+
+      <FooterCta
+        eyebrow="Request signals access"
+        title="Need a dated, source-backed signal assessed?"
+        actions={[{ label: 'Request Review', href: '/contact' }]}
+      >
+        Request review for market access, compliance strategy, commercial timing or country-specific pathway monitoring.
+      </FooterCta>
+
+      <PublicSection tone="navy" className="pt-0">
+        <PublicCard muted className="p-5 text-xs leading-6 text-white/44">
+          {REGULATORY_SIGNALS_DISCLAIMER}
+        </PublicCard>
+      </PublicSection>
+    </main>
   )
 }
