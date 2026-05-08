@@ -2,6 +2,99 @@
 
 This file records release evidence for Harbourview Marketplace production gates.
 
+## 2026-05-05: Marketplace Buy/Sell Conversion V1
+
+**Evidence ID:** `HV-MARKETPLACE-BUY-SELL-CONVERSION-V1`
+
+**Branch:** `marketplace-buy-sell-conversion-v1`
+
+**Agent:** Claude (automated)
+
+**Claim being verified:** Public marketplace pages have been converted from a quote/supply funnel to a controlled buy/sell marketplace. Seller-side fee disclosure has been added to the seller intake page. Normal buyer inquiries do not display fee language. Buyer-side commercial terms are reserved for active sourcing/mandate paths only. No schema, RLS, admin auth or capture route changes were made.
+
+**Files changed**
+
+| File | Change |
+|---|---|
+| `app/marketplace/page.tsx` | Rewritten — buy/sell hero ("Buy and sell equipment, supplies, services and commercial opportunities"), "How deals work" 4-step block, "List Something for Sale" / "Browse Marketplace" / "Post What You Want to Buy" CTAs, category grid reordered to prioritise Used & Surplus, Business Opportunities |
+| `app/marketplace/sell/page.tsx` | Seller flow — default headline "List Something for Sale", seller fee disclosure box, accepted detail checklist, seller acknowledgment statement, seller-side fee language only; wanted path "Post What You Want to Buy" with wanted-request instruction, no fee language |
+| `app/marketplace/quote/page.tsx` | Renamed to buyer inquiry — headline "Inquire to Buy", buyer routing copy, no fee language |
+| `app/marketplace/quote/QuoteRequestForm.tsx` | Buyer inquiry form — labels, fields, success message updated to buyer inquiry framing; added Intended Use field; `inquiry_type` remains `quote_routing`; success message updated |
+| `app/marketplace/consumables/page.tsx` | Buy/sell framing — "Inquire to Buy" primary CTA, "Post What You Want to Buy" secondary, "List Supply for Sale" tertiary; no fee language |
+| `app/marketplace/wanted/page.tsx` | "Post What You Want to Buy" headline and CTAs; guidance blocks reworded; active-sourcing caveat added only to the private-routing step |
+| `app/marketplace/consumables/[id]/page.tsx` | **New file** — 8 static listing detail pages pre-rendered via `generateStaticParams`; buyer section, seller section, compliance note, "Inquire to Buy" / "List Similar Item" / "Post What You Want to Buy" CTAs; no fee language; "Representative image" badge |
+| `components/ListingCard.tsx` | Default CTA label changed from "Request Quote" to "Inquire to Buy"; removed consumables-specific "Request Supply Information" branch |
+| `components/InquiryLink.tsx` | Default label changed from "Request Quote" to "Inquire to Buy" |
+| `components/Nav.tsx` | "Submit Supply" → "List for Sale"; "Source-Backed Listings" dropdown item → "Marketplace Listings" (visibility fix) |
+
+**New routes added**
+
+- `/marketplace/consumables/cons-001` through `/marketplace/consumables/cons-008` (8 static detail pages)
+
+**Before/after CTA behavior**
+
+| Location | Before | After |
+|---|---|---|
+| `/marketplace` hero | Submit Supply, Post Wanted Request, Request Confidential Support | List Something for Sale, Browse Marketplace, Post What You Want to Buy |
+| `/marketplace/sell` (default) | Submit Supply for Review | List Something for Sale + seller fee disclosure |
+| `/marketplace/sell?type=wanted` | Post a Wanted Request | Post What You Want to Buy + wanted instruction |
+| `/marketplace/quote` | Request Quote | Inquire to Buy |
+| `/marketplace/consumables` | Request Supply Information | Inquire to Buy |
+| Listing cards | Request Quote | Inquire to Buy |
+| Nav | Submit Supply | List for Sale |
+
+**Fee model correction**
+
+- Seller listing page (`/marketplace/sell`): seller fee disclosure box added. Seller acknowledgment statement added. No buyer fee language.
+- Buyer inquiry page (`/marketplace/quote`): no fee language. Only routing/privacy note.
+- Wanted request path: no default fee language. Active-sourcing caveat only in the private-routing step description.
+- Listing detail pages (`/marketplace/consumables/[id]`): no fee language.
+- Listing cards: no fee language.
+
+**Confirmation: normal buyer inquiries do not show fee language**
+
+CONFIRMED. Fee language appears only on `/marketplace/sell` (seller path). No fee language on `/marketplace/quote`, listing cards, listing detail pages, `/marketplace/consumables`, or `/marketplace/wanted`.
+
+**Admin triage labeling**
+
+Submitted inquiries continue to use existing `inquiry_type` values:
+- Seller listing submissions: `listing_submission`
+- Buyer inquiries: `quote_routing`
+- Wanted requests: `wanted_request_submission`
+- Confidential intake / sourcing mandate: `sourcing_mandate`
+
+Submitted message content for seller listings now includes "Harbourview action requested: Review listing fit, verify required details…". Buyer inquiry message includes "Harbourview action requested: Review buyer inquiry, assess fit, and coordinate introduction or transaction follow-up where appropriate."
+
+**Post-launch operator workflow (evidence doc)**
+
+Seller submission → review listing → confirm seller authority → confirm seller-side commercial terms where appropriate → approve/publish or route privately → buyer inquiry received → qualify buyer seriousness → coordinate introduction or follow-up through Harbourview → track negotiating / closed / lost
+
+**Tests run**
+
+| Test | Command | Result |
+|---|---|---|
+| Next.js build | `npm run build` | PASS — 41 pages compiled; all 8 `consumables/[id]` paths pre-rendered |
+| Public provenance visibility | `npm run test:visibility` | PASS — all 4 checks pass after fixing "Source-Backed" → "Marketplace Listings" in Nav |
+| TypeScript typecheck | `npm run typecheck` | Pre-existing env-level type errors only (same as `main`). No new errors from these changes. |
+
+**Leakage result**
+
+PASS. No forbidden strings exposed in any public render file after "Source-Backed" nav label fix.
+
+**Hard boundaries confirmed**
+
+- No migrations, schema or RLS changes
+- No admin auth or adminGuard changes
+- No protected admin route changes
+- No `/api/marketplace/capture` behavior changes
+- No seller private contact details exposed publicly
+- No buyer private contact details exposed publicly
+- No verified/guaranteed/confirmed buyer language used
+- No fake prices, fake seller identities or fake availability added
+- No source/provenance/admin fields exposed publicly
+
+**Final verdict:** READY TO MERGE
+
 ## 2026-05-04: Marketplace Commercial Polish V1
 
 **Evidence ID:** `HV-MARKETPLACE-COMMERCIAL-POLISH-V1`

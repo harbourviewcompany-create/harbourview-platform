@@ -5,9 +5,9 @@ import ListingCard from '@/components/ListingCard'
 import EmptyState from '@/components/EmptyState'
 
 export const metadata: Metadata = {
-  title: 'Business Opportunities',
+  title: 'Business Opportunities | Harbourview Network',
   description:
-    'Cannabis license transfers, facility leases, acquisitions, and partnership opportunities.',
+    'Facilities, partnerships, acquisitions, licence-linked opportunities and structured commercial routes subject to legal, regulatory and commercial diligence.',
 }
 
 export default function BusinessOpportunitiesPage() {
@@ -16,18 +16,28 @@ export default function BusinessOpportunitiesPage() {
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Marketplace</Link> /
+          <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl font-bold mb-2">Business Opportunities</h1>
           <p className="text-gray-300 max-w-xl">
-            License transfers, facility leases, acquisitions, and partnership
-            structures in the regulated cannabis industry.
+            Facilities, partnerships, acquisitions, licence-linked opportunities and
+            structured commercial routes in regulated cannabis and adjacent supply chains.
+            All opportunities remain subject to legal, regulatory and commercial diligence.
           </p>
         </div>
       </section>
 
       <section className="py-12">
         <div className="page-container">
+          <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
+            <h2 className="text-navy font-semibold text-lg mb-2">Diligence required</h2>
+            <p className="text-gray-600 text-sm max-w-3xl">
+              Public summaries do not represent legal advice, verified licensing status,
+              exclusivity, guaranteed availability or completed diligence. Harbourview reviews
+              inquiries before routing and does not guarantee introductions or transaction outcomes.
+            </p>
+          </div>
+
           {businessOpportunities.length === 0 ? (
             <EmptyState category="Business Opportunities" />
           ) : (
@@ -40,7 +50,7 @@ export default function BusinessOpportunitiesPage() {
 
           <div className="mt-10 border-t pt-8">
             <p className="text-gray-500 text-sm">
-              Have a business opportunity to list?{' '}
+              Have a business opportunity to submit?{' '}
               <Link href="/intake" className="text-navy underline hover:text-gold">
                 Submit via Intake
               </Link>

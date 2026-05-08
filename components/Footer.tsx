@@ -1,91 +1,48 @@
-import Link from 'next/link'
-
-const marketplaceLinks = [
-  { label: 'Harbourview Network', href: '/marketplace' },
-  { label: 'Submit Opportunity', href: '/marketplace/sell' },
-  { label: 'Wanted Requests', href: '/marketplace/wanted' },
-  { label: 'New Products', href: '/marketplace/new-products' },
-  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
-  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
-  { label: 'Services', href: '/marketplace/services' },
-  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
+const categories = [
+  {
+    label: 'Reviewed Network Listings',
+    href: '/marketplace/listings',
+    description:
+      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
+  },
+  {
+    label: 'Used & Surplus Equipment',
+    href: '/marketplace/used-surplus',
+    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
+  },
+  {
+    label: 'New Products',
+    href: '/marketplace/new-products',
+    description: 'New products, inputs and commercial supply categories for regulated operators.',
+  },
+  {
+    label: 'Cannabis Inventory',
+    href: licensedInventoryHref,
+    description:
+      'Controlled inventory pathways for regulated cannabis products where appropriate review is required.',
+  },
+  {
+    label: 'Wanted Requests',
+    href: '/marketplace/wanted',
+    description:
+      'Buyer-side requirements and demand signals routed through Harbourview review.',
+  },
+  {
+    label: 'Services',
+    href: '/marketplace/services',
+    description:
+      'Commercial, operational, compliance, logistics and specialist services for regulated supply chains.',
+  },
+  {
+    label: 'Business Opportunities',
+    href: '/marketplace/business-opportunities',
+    description:
+      'Structured commercial opportunities, partnerships and market-access pathways.',
+  },
+  {
+    label: 'Genetics, Seeds & Tissue Culture',
+    href: '/marketplace/genetics',
+    description:
+      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
+  },
 ]
-
-const companyLinks = [
-  { label: 'Signals', href: '/signals' },
-  { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Intake', href: '/intake' },
-  { label: 'Contact', href: '/contact' },
-]
-
-const legalLinks = [
-  { label: 'Privacy Policy', href: '/legal/privacy' },
-  { label: 'Terms of Use', href: '/legal/terms' },
-  { label: 'Disclaimer', href: '/legal/disclaimer' },
-]
-
-export default function Footer() {
-  return (
-    <footer className="bg-navy text-gray-300 mt-auto">
-      <div className="page-container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="md:col-span-1">
-            <p className="text-gold font-bold text-lg mb-2">Harbourview</p>
-            <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-              Commercial intelligence, strategic introductions, and market-access
-              support for serious participants in regulated markets.
-            </p>
-          </div>
-
-          <div>
-            <p className="text-white font-semibold text-sm mb-3">Network</p>
-            <ul className="space-y-2 text-sm">
-              {marketplaceLinks.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p className="text-white font-semibold text-sm mb-3">Company</p>
-            <ul className="space-y-2 text-sm">
-              {companyLinks.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p className="text-white font-semibold text-sm mb-3">Legal</p>
-            <ul className="space-y-2 text-sm">
-              {legalLinks.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="border-t border-navy-light mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-          <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
-          <div className="flex gap-4">
-            <Link href="/legal/privacy" className="hover:text-gold transition-colors">Privacy</Link>
-            <Link href="/legal/terms" className="hover:text-gold transition-colors">Terms</Link>
-            <Link href="/legal/disclaimer" className="hover:text-gold transition-colors">Disclaimer</Link>
-          </div>
-        </div>
-      </div>
-    </footer>
-  )
-}

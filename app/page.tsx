@@ -1,206 +1,65 @@
-import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Harbourview | Market Access Intelligence and Commercial Advisory',
+  title: 'Harbourview | Opening Soon',
   description:
-    'Harbourview provides commercial intelligence, strategic introductions, and market-access support for serious participants in regulated markets.',
+    'Harbourview is preparing controlled commercial intelligence and network access for serious participants in regulated cannabis and adjacent supply chains.',
   openGraph: {
-    title: 'Harbourview | Market Access Intelligence and Commercial Advisory',
+    title: 'Harbourview | Opening Soon',
     description:
-      'Harbourview provides commercial intelligence, strategic introductions, and market-access support for serious participants in regulated markets.',
+      'Harbourview is preparing controlled commercial intelligence and network access for serious participants in regulated cannabis and adjacent supply chains.',
   },
 }
 
-const capabilities = [
-  {
-    title: 'Commercial Intelligence',
-    body: 'Market monitoring, pricing signals, and deal flow analysis across regulated markets.',
-  },
-  {
-    title: 'Strategic Introductions',
-    body: 'Facilitated counterparty introductions with pre-qualification and confidentiality controls.',
-  },
-  {
-    title: 'Counterparty Screening',
-    body: 'Background review and commercial assessment of buyers, sellers, and partners before introductions are made.',
-  },
-  {
-    title: 'Controlled Marketplace Routing',
-    body: 'Reviewed listings matched to qualified counterparties through a structured, managed process.',
-  },
-]
-
 export default function HomePage() {
   return (
-    <>
-      {/* Section 1 — Hero */}
-      <section className="bg-navy text-white py-24">
-        <div className="page-container max-w-4xl">
-          <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-6">
-            Market access backed by intelligence{' '}
-            <span className="text-gold">and relationships.</span>
+    <section className="relative isolate min-h-[calc(100svh-72px)] overflow-hidden bg-[#01050d] text-white sm:min-h-[calc(100svh-80px)]">
+      <Image
+        src="/assets/harbourview-coming-soon-placeholder.svg"
+        alt="Harbourview coming soon visual with gold globe and lighthouse"
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
+      />
+
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(1,5,13,0.72)_0%,rgba(1,5,13,0.42)_42%,rgba(1,5,13,0.12)_72%),linear-gradient(180deg,rgba(1,5,13,0.1)_0%,rgba(1,5,13,0.18)_58%,rgba(1,5,13,0.74)_100%)]" />
+
+      <div className="page-container flex min-h-[calc(100svh-72px)] items-end pb-10 pt-20 sm:min-h-[calc(100svh-80px)] sm:pb-12 lg:items-center lg:pb-0 lg:pt-10">
+        <div className="max-w-xl rounded-sm border border-gold/18 bg-[#01060f]/72 p-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-md sm:p-7 lg:ml-0 lg:mt-[18vh]">
+          <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.34em] text-gold/82 sm:text-[11px]">
+            Harbourview platform staging
+          </p>
+
+          <h1 className="font-serif text-4xl leading-[0.98] tracking-[-0.045em] text-gold-pale sm:text-5xl lg:text-6xl">
+            Full site opening soon.
           </h1>
-          <p className="text-gray-300 text-lg max-w-2xl mb-10 leading-relaxed">
-            Harbourview provides commercial intelligence, strategic introductions,
-            and market-access support for serious participants in regulated markets.
+
+          <p className="mt-5 max-w-lg text-sm leading-7 text-white/72 sm:text-base">
+            Harbourview is preparing controlled commercial intelligence, network access and reviewed
+            inquiry pathways for serious participants in regulated cannabis and adjacent supply chains.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="/marketplace" className="btn-primary px-8 py-3 text-base">
-              Explore Marketplace
-            </Link>
-            <Link
-              href="/intake"
-              className="btn-outline px-8 py-3 text-base border-gold text-gold hover:bg-gold hover:text-navy"
-            >
-              Request a Confidential Discussion
-            </Link>
-          </div>
-        </div>
-      </section>
 
-      {/* Section 2 — What Harbourview Does */}
-      <section className="py-20 bg-white">
-        <div className="page-container">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-            What Harbourview Does
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {capabilities.map((item) => (
-              <div key={item.title} className="border-t-2 border-gold pt-5">
-                <h3 className="font-semibold text-navy text-base mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Section 3 — Marketplace Entry */}
-      <section className="bg-navy text-white py-20">
-        <div className="page-container max-w-3xl">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-            Marketplace
-          </h2>
-          <h3 className="text-2xl sm:text-3xl font-bold mb-5">
-            A controlled environment for reviewed commercial listings.
-          </h3>
-          <p className="text-gray-300 leading-relaxed mb-8">
-            The Harbourview marketplace covers new and surplus equipment, cannabis
-            inventory for licensed operators, wanted requests from active buyers,
-            professional services, business opportunities, and supplier discovery.
-            Listings are reviewed before publication. Introductions are managed.
+          <p className="mt-4 max-w-lg text-xs leading-6 text-white/54 sm:text-sm">
+            Inquiries are reviewed before routing. Contact details, counterparties and
+            transaction-sensitive information are not published publicly.
           </p>
-          <Link href="/marketplace" className="btn-primary px-8 py-3 text-base">
-            Enter Marketplace
-          </Link>
-        </div>
-      </section>
 
-      {/* Section 4 — Buyer Pathway */}
-      <section className="py-20 bg-gray-50">
-        <div className="page-container grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-              For Buyers
-            </h2>
-            <h3 className="text-2xl font-bold text-navy mb-4">
-              Source reviewed inventory, equipment, and opportunities.
-            </h3>
-            <p className="text-gray-500 leading-relaxed mb-6">
-              Browse listings that have been reviewed before publication. Post wanted
-              requests to reach sellers actively monitoring the marketplace. Request
-              controlled introductions to screened counterparties. Confidentiality
-              is maintained throughout.
-            </p>
-            <Link href="/marketplace/wanted" className="btn-secondary px-6 py-2.5 text-sm">
-              Post a Wanted Request
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link href="/contact" className="btn-marketplace min-w-0 justify-center sm:min-w-[210px]">
+              <span>Contact Harbourview</span>
+              <span className="text-xl leading-none">→</span>
             </Link>
-          </div>
 
-          {/* Section 5 — Seller Pathway */}
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-              For Sellers
-            </h2>
-            <h3 className="text-2xl font-bold text-navy mb-4">
-              Reach qualified buyers through a managed channel.
-            </h3>
-            <p className="text-gray-500 leading-relaxed mb-6">
-              Submit products, inventory, equipment, or services for review. Listings
-              are assessed before reaching the marketplace. Introductions are made to
-              qualified counterparties — not broadcast to unscreened audiences.
-            </p>
-            <Link href="/marketplace/sell" className="btn-secondary px-6 py-2.5 text-sm">
-              Submit a Listing
+            <Link href="/marketplace" className="btn-intelligence min-w-0 justify-center sm:min-w-[210px]">
+              <span>Preview Network</span>
+              <span className="text-xl leading-none">→</span>
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* Section 6 — Signals and Intelligence */}
-      <section className="bg-navy text-white py-20">
-        <div className="page-container">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-10">
-            Intelligence Capabilities
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            <div className="border border-navy-light rounded-lg p-8">
-              <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-                Coming Soon
-              </div>
-              <h3 className="text-xl font-bold mb-3">Signals</h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                Market monitoring and commercial signals for regulated industry
-                participants — pricing trends, supply shifts, and deal flow indicators.
-              </p>
-              <Link
-                href="/signals"
-                className="text-gold text-sm font-medium hover:underline"
-              >
-                Learn more →
-              </Link>
-            </div>
-
-            <div className="border border-navy-light rounded-lg p-8">
-              <div className="inline-block text-xs font-semibold uppercase tracking-widest bg-gold text-navy px-2 py-1 rounded mb-4">
-                Coming Soon
-              </div>
-              <h3 className="text-xl font-bold mb-3">Intelligence</h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                Commercial briefs, counterparty dossiers, and route-to-market analysis
-                prepared for operators, investors, and advisors.
-              </p>
-              <Link
-                href="/intelligence"
-                className="text-gold text-sm font-medium hover:underline"
-              >
-                Learn more →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 7 — Confidential Intake CTA */}
-      <section className="py-20 bg-white">
-        <div className="page-container max-w-2xl text-center mx-auto">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gold mb-4">
-            Confidential Intake
-          </h2>
-          <h3 className="text-2xl sm:text-3xl font-bold text-navy mb-5">
-            Begin a confidential conversation.
-          </h3>
-          <p className="text-gray-500 leading-relaxed mb-8">
-            For buyers, sellers, operators, and partners seeking a confidential
-            conversation, Harbourview manages the intake process. Submissions are
-            reviewed and responses are handled directly.
-          </p>
-          <Link href="/intake" className="btn-primary px-8 py-3 text-base">
-            Begin Confidential Intake
-          </Link>
-        </div>
-      </section>
-    </>
+      </div>
+    </section>
   )
 }
