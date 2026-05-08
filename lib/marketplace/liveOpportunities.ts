@@ -1,6 +1,6 @@
 import type { Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
 
-interface LiveOpportunityRecord {
+export interface LiveOpportunityRecord {
   id?: unknown
   title?: unknown
   description?: unknown
@@ -13,7 +13,18 @@ interface LiveOpportunityRecord {
   imageStatus?: unknown
   imageCaption?: unknown
   imageAssetSource?: unknown
+  sourceUrl?: unknown
+  sourceName?: unknown
+  supplierEmail?: unknown
+  contactEmail?: unknown
+  provenance?: unknown
+  rawSupplierMetadata?: unknown
+  internalNotes?: unknown
 }
+
+const fallbackContactEmail = 'harbourviewcompany@gmail.com'
+const allowedImageProtocols = new Set(['https:'])
+const blockedImageHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
 
 function asText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
@@ -48,14 +59,29 @@ function asImageAssetSource(value: unknown): ListingImage['assetSource'] {
   return 'supplier_provided'
 }
 
-function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null {
+export function isValidPublicImageUrl(value: unknown): value is string {
+  const imageUrl = asText(value)
+  if (!imageUrl) return false
+
+  try {
+    const parsed = new URL(imageUrl)
+    if (!allowedImageProtocols.has(parsed.protocol)) return false
+    if (blockedImageHosts.has(parsed.hostname.toLowerCase())) return false
+    if (!parsed.hostname.includes('.')) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null {
   const id = asText(record.id)
   const title = asText(record.title)
   const description = asText(record.description)
 
   if (!id || !title || !description) return null
 
-  const imageSrc = asText(record.imageSrc)
+  const imageSrc = isValidPublicImageUrl(record.imageSrc) ? record.imageSrc : undefined
 
   return {
     id,
@@ -83,7 +109,7 @@ function getFeedUrl(): string | null {
 
   try {
     const url = new URL(feedUrl)
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
+    return url.protocol === 'https:' ? url.toString() : null
   } catch {
     return null
   }
