@@ -13,7 +13,6 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Denver, CO',
     tags: ['Extraction Equipment', 'CO₂', 'Processing', 'New Equipment', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-002',
@@ -27,7 +26,6 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Portland, OR',
     tags: ['Lighting', 'LED', 'Cultivation', 'Bulk Supply', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-003',
@@ -41,7 +39,6 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Los Angeles, CA',
     tags: ['Packaging', 'Automation', 'Pre-Roll', 'High-Throughput', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-004',
@@ -55,7 +52,6 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Phoenix, AZ',
     tags: ['HVAC', 'Climate Control', 'Cultivation Infrastructure', 'New Equipment', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'np-005',
@@ -69,6 +65,5 @@ export const newProducts: NewProductListing[] = [
     location: 'Ships from Sacramento, CA',
     tags: ['Trimming', 'Post-Harvest', 'Processing', 'New Equipment', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]
