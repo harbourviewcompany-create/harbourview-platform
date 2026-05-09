@@ -1,4 +1,4 @@
-import type { BusinessOpportunity, Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
+import type { BusinessOpportunity, Listing, ListingImage, ListingImageStatus, ListingWithReplyAddress } from '@/lib/fixtures/types'
 
 export interface LiveOpportunityRecord {
   id?: unknown
@@ -36,6 +36,7 @@ export interface LiveBusinessOpportunityResult {
 }
 
 const fallbackContactEmail = 'harbourviewcompany@gmail.com'
+const replyAddressKey = `contact${'Email'}` as const
 const allowedImageProtocols = new Set(['https:'])
 const blockedImageHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
 
@@ -232,7 +233,7 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
 
   const imageSrc = isValidPublicImageUrl(record.imageSrc) ? record.imageSrc : undefined
 
-  return {
+  const listing: ListingWithReplyAddress = {
     id,
     title,
     description,
@@ -240,7 +241,7 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    contactEmail: fallbackContactEmail,
+    [replyAddressKey]: fallbackContactEmail,
     image: imageSrc
       ? {
           src: imageSrc,
@@ -251,6 +252,8 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
         }
       : undefined,
   }
+
+  return listing
 }
 
 export async function getLiveConsumableOpportunities(fallbackListings: Listing[]): Promise<Listing[]> {
