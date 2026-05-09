@@ -6,12 +6,31 @@ APP_ROOT="/opt/harbourview"
 REPO_URL="https://github.com/harbourviewcompany-create/harbourview-platform.git"
 BRANCH="deploy/self-host-portability"
 DOMAIN="staging.harbourview.co"
-RELEASE_ID="release-$(date +%Y%m%d-%H%M%S)"
+APP_PORT="3000"
+PREFLIGHT_PORT="3001"
+SHORT_SHA="$(date +%s)"
+RELEASE_ID="release-$(date +%Y%m%d-%H%M%S)-${SHORT_SHA: -7}"
 SOURCE_DIR="$APP_ROOT/releases/$RELEASE_ID-source"
 RUNTIME_DIR="$APP_ROOT/releases/$RELEASE_ID-runtime"
 PREVIOUS_CURRENT=""
+PREFLIGHT_PID=""
+ENV_FILE="$APP_ROOT/shared/.env.production"
 
-echo "== Harbourview first deploy started =="
+rollback() {
+  if [ -n "$PREFLIGHT_PID" ]; then
+    kill "$PREFLIGHT_PID" >/dev/null 2>&1 || true
+  fi
+
+  if [ -n "$PREVIOUS_CURRENT" ]; then
+    echo "Rolling back to previous release: $PREVIOUS_CURRENT"
+    ln -sfn "$PREVIOUS_CURRENT" "$APP_ROOT/current"
+    systemctl restart harbourview || true
+  fi
+}
+
+trap rollback ERR
+
+echo "== Harbourview safer release deploy started =="
 echo "Release: $RELEASE_ID"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -27,7 +46,6 @@ else
 fi
 
 echo "== Checking secrets are populated =="
-ENV_FILE="$APP_ROOT/shared/.env.production"
 
 if grep -q "^NEXT_PUBLIC_SUPABASE_URL=$" "$ENV_FILE" || \
    grep -q "^NEXT_PUBLIC_SUPABASE_ANON_KEY=$" "$ENV_FILE" || \
@@ -36,6 +54,12 @@ if grep -q "^NEXT_PUBLIC_SUPABASE_URL=$" "$ENV_FILE" || \
   echo "Edit secrets first, then rerun."
   exit 1
 fi
+
+echo "== Validating Caddy configuration =="
+caddy validate --config /etc/caddy/Caddyfile
+
+echo "== Checking systemd health =="
+systemctl status caddy --no-pager >/dev/null
 
 echo "== Cloning Harbourview repo =="
 sudo -u "$APP_USER" git clone "$REPO_URL" "$SOURCE_DIR"
@@ -48,12 +72,9 @@ sudo -u "$APP_USER" npm ci
 echo "== Running pre-build verification =="
 sudo -u "$APP_USER" npm run typecheck
 sudo -u "$APP_USER" npm run test:visibility
-sudo -u "$APP_USER" npm run test:regulatory-signals-public-leakage || {
-  echo "Regulatory signals leakage test failed."
-  exit 1
-}
+sudo -u "$APP_USER" npm run test:regulatory-signals-public-leakage
 
-echo "== Building standalone Next.js app =="
+echo "== Building standalone Next.js runtime =="
 sudo -u "$APP_USER" npm run build
 
 echo "== Packaging runtime bundle =="
@@ -63,73 +84,60 @@ sudo -u "$APP_USER" mkdir -p "$RUNTIME_DIR/.next"
 sudo -u "$APP_USER" cp -R .next/static "$RUNTIME_DIR/.next/static"
 sudo -u "$APP_USER" cp -R public "$RUNTIME_DIR/public"
 
+echo "== Starting temporary preflight runtime =="
+cd "$RUNTIME_DIR"
+sudo -u "$APP_USER" env PORT="$PREFLIGHT_PORT" NODE_ENV=production node server.js > "$APP_ROOT/logs/preflight-$RELEASE_ID.log" 2>&1 &
+PREFLIGHT_PID=$!
+
+sleep 10
+
+echo "== Running temporary-port preflight checks =="
+curl -fsS "http://127.0.0.1:$PREFLIGHT_PORT/" >/dev/null
+curl -fsS "http://127.0.0.1:$PREFLIGHT_PORT/marketplace" >/dev/null
+curl -fsS "http://127.0.0.1:$PREFLIGHT_PORT/signals" >/dev/null
+curl -fsS "http://127.0.0.1:$PREFLIGHT_PORT/intelligence" >/dev/null
+curl -fsS "http://127.0.0.1:$PREFLIGHT_PORT/contact" >/dev/null
+curl -fsS "http://127.0.0.1:$PREFLIGHT_PORT/intake" >/dev/null
+
+ADMIN_STATUS="$(curl -s -o /tmp/harbourview-admin-check.html -w "%{http_code}" "http://127.0.0.1:$PREFLIGHT_PORT/admin")"
+echo "Anonymous /admin status on preflight: $ADMIN_STATUS"
+
+if [ "$ADMIN_STATUS" = "200" ]; then
+  echo "HOLD: anonymous /admin returned 200 during preflight"
+  exit 1
+fi
+
+echo "== Stopping temporary preflight runtime =="
+kill "$PREFLIGHT_PID"
+PREFLIGHT_PID=""
+
 echo "== Switching current symlink =="
 ln -sfn "$RUNTIME_DIR" "$APP_ROOT/current"
 chown -h "$APP_USER:$APP_USER" "$APP_ROOT/current"
 
-echo "== Restarting Harbourview service =="
+echo "== Restarting Harbourview systemd service =="
 systemctl restart harbourview
 sleep 5
 
-echo "== Checking service status =="
 if ! systemctl is-active --quiet harbourview; then
-  echo "Harbourview service failed to start."
-
-  if [ -n "$PREVIOUS_CURRENT" ]; then
-    echo "Rolling back symlink to $PREVIOUS_CURRENT"
-    ln -sfn "$PREVIOUS_CURRENT" "$APP_ROOT/current"
-    systemctl restart harbourview
-  fi
-
+  echo "HOLD: harbourview systemd service failed after activation"
   journalctl -u harbourview -n 100 --no-pager
   exit 1
 fi
 
-echo "== Local HTTP verification =="
-curl -fsS "http://127.0.0.1:3000/" >/dev/null
-curl -fsS "http://127.0.0.1:3000/marketplace" >/dev/null
-curl -fsS "http://127.0.0.1:3000/signals" >/dev/null
-curl -fsS "http://127.0.0.1:3000/intelligence" >/dev/null
-curl -fsS "http://127.0.0.1:3000/contact" >/dev/null
-curl -fsS "http://127.0.0.1:3000/intake" >/dev/null
+echo "== Verifying public HTTPS availability =="
+curl -I "https://$DOMAIN/"
 
-ADMIN_STATUS="$(curl -s -o /tmp/harbourview-admin-check.html -w "%{http_code}" "http://127.0.0.1:3000/admin")"
-echo "Anonymous /admin status: $ADMIN_STATUS"
-
-if [ "$ADMIN_STATUS" = "200" ]; then
-  echo "HOLD: /admin returned 200 anonymously."
-  if [ -n "$PREVIOUS_CURRENT" ]; then
-    echo "Rolling back due to admin exposure."
-    ln -sfn "$PREVIOUS_CURRENT" "$APP_ROOT/current"
-    systemctl restart harbourview
-  fi
-  exit 1
-fi
-
-echo "== Public HTTPS verification =="
-curl -I "https://$DOMAIN/" || {
-  echo "Public HTTPS check failed. Confirm DNS A record points to this VPS and Caddy has issued cert."
-  exit 1
-}
-
-echo "== Production leakage probe against staging URL =="
+echo "== Running production leakage probe =="
 cd "$SOURCE_DIR"
-sudo -u "$APP_USER" env HARBOURVIEW_PUBLIC_BASE_URL="https://$DOMAIN" npm run probe:production-visibility || {
-  echo "HOLD: leakage probe failed."
+sudo -u "$APP_USER" env HARBOURVIEW_PUBLIC_BASE_URL="https://$DOMAIN" npm run probe:production-visibility
 
-  if [ -n "$PREVIOUS_CURRENT" ]; then
-    echo "Rolling back due to leakage failure."
-    ln -sfn "$PREVIOUS_CURRENT" "$APP_ROOT/current"
-    systemctl restart harbourview
-  fi
-
-  exit 1
-}
-
-echo "== Deployment complete =="
-echo "GO for staging if all checks above passed."
+echo "== Release retention summary =="
 echo "Current release: $RUNTIME_DIR"
-echo "Previous release: ${PREVIOUS_CURRENT:-none}"
-echo ""
-echo "Rollback command if needed:"
-echo "  ln -sfn \"$PREVIOUS_CURRENT\" \"$APP_ROOT/current\" && systemctl restart harbourview"
+echo "Previous release retained: ${PREVIOUS_CURRENT:-none}"
+
+echo "== Rollback command =="
+echo "sudo ln -sfn \"$PREVIOUS_CURRENT\" \"$APP_ROOT/current\" && sudo systemctl restart harbourview"
+
+echo "== Deployment completed successfully =="
+echo "GO if all verification checks above passed."
