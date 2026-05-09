@@ -1,6 +1,9 @@
 name: Temporary Lock Sync
 
 on:
+  push:
+    branches:
+      - fix/main-build-blockers-current
   workflow_dispatch:
 
 permissions:
@@ -8,6 +11,7 @@ permissions:
 
 jobs:
   sync-lock:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
