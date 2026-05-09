@@ -286,6 +286,10 @@ function fallbackListings(): UsedSurplusListing[] {
 
     return projectedListing
   })
+function fallbackListings() {
+  return usedSurplusListings.map((listing) => ({
+    ...listing,
+  }))
 }
 
 export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
