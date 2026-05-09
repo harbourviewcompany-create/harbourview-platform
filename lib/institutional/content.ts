@@ -49,7 +49,7 @@ export const intelligenceModules: ModuleItem[] = [
   },
   {
     title: 'Counterparty Intelligence',
-    description: 'Public-safe framing for reviewed counterparty discovery, confidential routing and private evidence handling.',
+    description: 'Public-safe framing for reviewed counterparty discovery, confidential routing and private source-material handling.',
     href: '/intelligence/counterparty-intelligence',
   },
   {
@@ -62,10 +62,10 @@ export const intelligenceModules: ModuleItem[] = [
 export const educationTracks: ModuleItem[] = [
   { title: 'Clinical Education', description: 'Non-promotional resources for clinicians, care teams and medical-market stakeholders.', href: '/network/clinical-education' },
   { title: 'Pharmacy Education', description: 'Dispensing workflows, controlled handling concepts, patient counseling context and product-format education.' },
-  { title: 'Quality & Compliance', description: 'GMP, GACP, GDP, batch documentation, CoA review, supplier qualification and audit readiness.' },
-  { title: 'Importer & Distributor', description: 'Route feasibility, supplier intake, documentation review, product onboarding and distribution readiness.' },
+  { title: 'Quality & Compliance', description: 'GMP, GACP, GDP, batch documentation, CoA review, qualification and audit readiness.' },
+  { title: 'Importer & Distributor', description: 'Route feasibility, intake documentation review, product onboarding and distribution readiness.' },
   { title: 'Cultivation & Production', description: 'Production controls, post-harvest discipline, genetics integrity, batch consistency and export readiness.' },
-  { title: 'Procurement', description: 'Supplier assessment, documentation review, product evaluation, substitution risk and buyer readiness.' },
+  { title: 'Procurement', description: 'Documentation review, product evaluation, substitution risk and buyer readiness.' },
   { title: 'Regulatory & Policy', description: 'Access model comparisons, quality safeguards, diversion prevention and market conduct education.' },
   { title: 'Investor Due Diligence', description: 'License quality, compliance exposure, operating maturity, market viability and defensibility.' },
   { title: 'Laboratory & Testing', description: 'CoA integrity, contaminant testing, method reliability, stability and lab due diligence concepts.' },
@@ -83,16 +83,17 @@ export const policyModules: ModuleItem[] = [
 
 export const assessmentModules: ModuleItem[] = [
   { title: 'Country Pathway Assessment', description: 'A reviewed request path for assessing country-level route feasibility and access considerations.' },
-  { title: 'Export Readiness', description: 'A commercial readiness review for suppliers seeking international market access.' },
+  { title: 'Export Readiness', description: 'A commercial readiness review for companies seeking international market access.' },
   { title: 'Importer Readiness', description: 'A review path for importer, distributor and intake preparedness.' },
-  { title: 'Supplier Documentation', description: 'A structured review of supplier documentation, quality evidence and commercial readiness.' },
+  { title: 'Supplier Documentation', description: 'A structured review of supplier documentation, quality materials and commercial readiness.' },
+  { title: 'Documentation Review', description: 'A structured review of documentation, quality evidence and commercial readiness.' },
   { title: 'Counterparty Fit', description: 'A controlled request path for assessing role fit, seriousness and route compatibility.' },
   { title: 'Due Diligence Readiness', description: 'A readiness pathway for investors, acquirers and operators preparing institutional review materials.' },
 ]
 
 export const trustModules: ModuleItem[] = [
   { title: 'Editorial Review', description: 'Reviewed publication standards, topic ownership, update discipline and correction handling.' },
-  { title: 'Source Standards', description: 'Source discipline, evidence grading, confidence language and separation of public summaries from private materials.' },
+  { title: 'Source Standards', description: 'Source discipline, confidence language and separation of public summaries from private materials.' },
   { title: 'Data Governance', description: 'Commercial sensitivity rules, access controls, document retention principles and audit trail framing.' },
   { title: 'Confidentiality Model', description: 'Controlled handling for counterparties, private inquiries, assessment submissions and introduction pathways.' },
   { title: 'Product Safety', description: 'Product complaint concepts, batch traceability, recall readiness and post-market safety education.' },
@@ -104,7 +105,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     eyebrow: 'Controlled commercial network',
     title: 'Harbourview Network',
     description:
-      'Controlled commercial discovery for regulated cannabis products, services, suppliers, wanted requests and market-access opportunities.',
+      'Controlled commercial discovery for regulated cannabis products, services, wanted requests and market-access opportunities.',
     primaryCta: { label: 'Enter Network', href: '/marketplace' },
     secondaryCta: { label: 'Submit Listing', href: '/marketplace/sell' },
     boundary: PUBLIC_PRIVATE_BOUNDARY,
@@ -115,8 +116,8 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
         items: [
           { title: 'Listings', description: 'Public-safe listing summaries across relevant product, service and supply-chain categories.', href: '/marketplace' },
           { title: 'Wanted Requests', description: 'Buyer-side demand signals expressed without exposing confidential contact details.', href: '/marketplace/wanted' },
-          { title: 'Supplier Directory', description: 'Supplier discovery with restrained claims and controlled inquiry paths.', href: '/supplier-directory' },
-          { title: 'Qualified Routing', description: 'Reviewed inquiry handling for introductions, supplier interest and commercial fit.' },
+          { title: 'Network Directory', description: 'Directory-style discovery with restrained claims and controlled inquiry paths.', href: '/marketplace' },
+          { title: 'Qualified Routing', description: 'Reviewed inquiry handling for introductions, commercial interest and fit.' },
         ],
       },
     ],
@@ -136,7 +137,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
         items: [
           { title: 'Country Access', description: 'Potential market-entry openings and country-specific access pathways requiring review.' },
           { title: 'Distribution Mandates', description: 'Reviewed distributor, importer and commercial channel opportunities.' },
-          { title: 'Strategic Partnerships', description: 'Operator, supplier, service, clinical, research and institutional collaboration pathways.' },
+          { title: 'Strategic Partnerships', description: 'Operator, service, clinical, research and institutional collaboration pathways.' },
           { title: 'Asset & Business Packages', description: 'Facility, surplus, bulk, operational and business opportunity categories handled with discretion.' },
         ],
       },
@@ -149,7 +150,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
       'Reviewed country, licensing, regulatory, category, counterparty and trade-route context for disciplined market access.',
     primaryCta: { label: 'Request Intelligence Brief', href: '/contact' },
     secondaryCta: { label: 'Explore Country Briefs', href: '/intelligence/country-briefs' },
-    boundary: 'Public intelligence is high-level and reviewed as available. Harbourview does not publish sensitive source evidence, private counterparty details or confidential commercial route information publicly.',
+    boundary: 'Public intelligence is high-level and reviewed as available. Harbourview does not publish sensitive source materials, private counterparty details or confidential commercial route information publicly.',
     sections: [
       {
         title: 'Intelligence modules',
@@ -185,7 +186,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     sections: [
       {
         title: 'Regulator-facing resource areas',
-        description: 'The policy layer is neutral, comparative and evidence-led. It does not imply government endorsement.',
+        description: 'The policy layer is neutral, comparative and source-led. It does not imply government endorsement.',
         items: policyModules,
       },
     ],
@@ -194,7 +195,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     eyebrow: 'Readiness and feasibility',
     title: 'Assessments',
     description:
-      'Controlled intake pathways for assessing market-access readiness, country-route feasibility, supplier documentation, counterparty fit and due diligence preparedness.',
+      'Controlled intake pathways for assessing market-access readiness, country-route feasibility, documentation, counterparty fit and due diligence preparedness.',
     primaryCta: { label: 'Request Assessment', href: '/contact' },
     secondaryCta: { label: 'View Assessment Types', href: '#assessment-types' },
     boundary: ASSESSMENT_DISCLAIMER,
@@ -221,7 +222,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
         items: [
           { title: 'Regulator Resources', description: 'Neutral resources for policy comparison, safeguards, access models and market conduct.' },
           { title: 'Association Collaboration', description: 'Structured education and standards collaboration with industry and professional bodies.' },
-          { title: 'Research Collaboration', description: 'University, clinical and evidence-focused collaboration pathways.' },
+          { title: 'Research Collaboration', description: 'University, clinical and source-focused collaboration pathways.' },
           { title: 'Lab, Logistics & Standards', description: 'Partnership pathways for testing, quality, trade route and standards stakeholders.' },
         ],
       },
@@ -231,10 +232,10 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     eyebrow: 'Trust, safety and governance',
     title: 'Trust, Safety & Governance',
     description:
-      'A formal platform layer for claim discipline, source review, confidentiality, evidence standards, product safety principles and controlled information handling.',
+      'A formal platform layer for claim discipline, source review, confidentiality, publication standards, product safety principles and controlled information handling.',
     primaryCta: { label: 'Contact Harbourview', href: '/contact' },
     secondaryCta: { label: 'Review Policy & Standards', href: '/policy-standards' },
-    boundary: 'Sensitive commercial information, evidence materials, analyst notes and counterparty identities are handled through controlled private workflows and are not intended for public display.',
+    boundary: 'Sensitive commercial information, source materials, analyst notes and counterparty identities are handled through controlled private workflows and are not intended for public display.',
     sections: [
       {
         title: 'Governance controls',
@@ -251,7 +252,7 @@ export const footerGroups = [
     links: [
       { label: 'Listings', href: '/marketplace' },
       { label: 'Wanted Requests', href: '/marketplace/wanted' },
-      { label: 'Supplier Directory', href: '/supplier-directory' },
+      { label: 'Network Directory', href: '/marketplace' },
       { label: 'Submit Listing', href: '/marketplace/sell' },
       { label: 'Request Introduction', href: '/contact' },
     ],
@@ -303,7 +304,7 @@ export const footerGroups = [
     title: 'Trust',
     links: [
       { label: 'Trust, Safety & Governance', href: '/trust-governance' },
-      { label: 'Evidence Standards', href: '/trust-governance' },
+      { label: 'Source Standards', href: '/trust-governance' },
       { label: 'Source Policy', href: '/trust-governance' },
       { label: 'Correction Policy', href: '/trust-governance' },
       { label: 'Confidentiality', href: '/trust-governance' },
