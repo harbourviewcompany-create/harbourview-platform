@@ -1,23 +1,34 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+
 import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
+  description:
+    'Harbourview provides controlled network access, reviewed intelligence, professional education and institutional pathways for serious participants in regulated cannabis markets.',
+  openGraph: {
+    title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
+    description:
+      'Controlled network access, reviewed intelligence, education and institutional pathways for regulated cannabis markets.',
+  },
+}
 
 const primarySections = [
   {
     title: 'Harbourview Network',
-    href: '/network',
+    href: '/marketplace',
     eyebrow: 'Network access',
     description:
-      'Explore controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
+      'Explore controlled commercial discovery across listings, wanted requests, reviewed categories and inquiry pathways.',
     cta: 'Enter Network',
   },
   {
     title: 'Intelligence',
     href: '/intelligence',
-    eyebrow: 'Country and pathway review',
+    eyebrow: 'Market review',
     description:
-      'Review country-level commercial intelligence, route viability summaries and publication-controlled market-access context.',
+      'Review country-level commercial intelligence and publication-controlled pathway context.',
     cta: 'Open Intelligence',
   },
   {
@@ -25,7 +36,7 @@ const primarySections = [
     href: '/signals',
     eyebrow: 'Policy movement',
     description:
-      'Request source-backed review of regulatory, policy and commercial timing signals across controlled-market pathways.',
+      'Review source-backed regulatory, policy and timing signals across controlled-market pathways.',
     cta: 'Review Signals',
   },
   {
@@ -33,7 +44,7 @@ const primarySections = [
     href: '/compliance',
     eyebrow: 'Orientation only',
     description:
-      'Browse public-safe regional compliance orientation for regulated cannabis operators before jurisdiction-specific review.',
+      'Browse public-safe compliance orientation before jurisdiction-specific review.',
     cta: 'View Pathways',
   },
 ]
@@ -43,20 +54,27 @@ const secondarySections = [
     title: 'Clinical Education',
     href: '/network/clinical-education',
     description:
-      'Access the public clinical education entry point for controlled cannabis-market context and stakeholder education.',
+      'Access the public clinical education entry point for controlled-market context.',
   },
   {
     title: 'Contact Harbourview',
     href: '/contact',
     description:
-      'Start a confidential Harbourview conversation for commercial intelligence, network access or market-entry support.',
+      'Start a confidential Harbourview conversation for commercial intelligence or network access.',
   },
   {
     title: 'Request Introduction',
     href: '/intake',
     description:
-      'Use the controlled intake path when a commercial request needs review before any routing or introduction.',
+      'Use the controlled intake path when a commercial request needs review before routing.',
   },
+]
+
+const guardrails = [
+  'No public counterparty exposure',
+  'No guaranteed access claims',
+  'No live commercial-route claims',
+  'Reviewed inquiry routing only',
 ]
 
 const workflowSteps = [
@@ -77,13 +95,6 @@ const audiences = [
   'Investors and acquirers',
 ]
 
-const guardrails = [
-  'No public counterparty exposure',
-  'No guaranteed access claims',
-  'No live deal-flow claims',
-  'Reviewed inquiry routing only',
-]
-
 const pathwaySteps = [
   {
     title: 'Discover',
@@ -102,7 +113,7 @@ const pathwaySteps = [
 const publicSections = [
   {
     title: 'Harbourview Network',
-    href: '/network',
+    href: '/marketplace',
     eyebrow: 'Commercial network',
     body: 'Explore reviewed categories for products, inputs, services, wanted requests and commercial access pathways.',
   },
@@ -144,73 +155,11 @@ const publicSections = [
   },
 ]
 
-export const metadata: Metadata = {
-  title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
-  description:
-    'Harbourview provides controlled network access, reviewed intelligence, professional education and institutional pathways for serious participants in regulated cannabis markets.',
-  openGraph: {
-    title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
-    description:
-      'Controlled network access, reviewed intelligence, education and institutional pathways for regulated cannabis markets.',
-  },
-}
-
 export default function HomePage() {
   return (
-    <section className="relative isolate min-h-[calc(100svh-72px)] overflow-hidden bg-[#01050d] text-white sm:min-h-[calc(100svh-80px)]">
-      <Image
-        src="/assets/harbourview-globe-hero-realistic.webp"
-        alt="Harbourview realistic dark navy and gold globe visual"
-        fill
-        priority
-        sizes="100vw"
-        className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
-      />
-
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(1,5,13,0.72)_0%,rgba(1,5,13,0.42)_42%,rgba(1,5,13,0.12)_72%),linear-gradient(180deg,rgba(1,5,13,0.1)_0%,rgba(1,5,13,0.18)_58%,rgba(1,5,13,0.74)_100%)]" />
-
-      <div className="page-container flex min-h-[calc(100svh-72px)] items-end pb-10 pt-20 sm:min-h-[calc(100svh-80px)] sm:pb-12 lg:items-center lg:pb-0 lg:pt-10">
-        <div className="max-w-xl rounded-sm border border-gold/18 bg-[#01060f]/72 p-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-md sm:p-7 lg:ml-0 lg:mt-[18vh]">
-          <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.34em] text-gold/82 sm:text-[11px]">
-            Harbourview platform staging
-          </p>
-
-          <h1 className="font-serif text-4xl leading-[0.98] tracking-[-0.045em] text-gold-pale sm:text-5xl lg:text-6xl">
-            Full site opening soon.
-          </h1>
-
-          <p className="mt-5 max-w-lg text-sm leading-7 text-white/72 sm:text-base">
-            Harbourview is preparing controlled commercial intelligence, network access and reviewed
-            inquiry pathways for serious participants in regulated cannabis and adjacent supply chains.
-          </p>
-
-          <p className="mt-4 max-w-lg text-xs leading-6 text-white/54 sm:text-sm">
-            Inquiries are reviewed before routing. Contact details, counterparties and
-            transaction-sensitive information are not published publicly.
-          </p>
-
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Link href="/contact" className="btn-marketplace min-w-0 justify-center sm:min-w-[210px]">
-              <span>Contact Harbourview</span>
-              <span className="text-xl leading-none">→</span>
-            </Link>
-
-            <Link href="/marketplace" className="btn-intelligence min-w-0 justify-center sm:min-w-[210px]">
-              <span>Preview Network</span>
-              <span className="text-xl leading-none">→</span>
-            </Link>
     <main className="bg-[#01050d] text-white">
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-16 sm:py-20 lg:py-24">
-        <Image
-          src="/assets/harbourview-globe-hero-v2.svg"
-          alt="Harbourview gold globe and lighthouse visual"
-          fill
-          priority
-          sizes="100vw"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
-        />
-
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(1,5,13,0.96)_0%,rgba(1,5,13,0.84)_44%,rgba(1,5,13,0.44)_72%,rgba(1,5,13,0.86)_100%),linear-gradient(180deg,rgba(1,5,13,0.22)_0%,rgba(1,5,13,0.82)_100%)]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_22%,rgba(198,165,90,0.18),transparent_34%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
 
         <div className="page-container">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(320px,0.72fr)] lg:items-end">
@@ -222,25 +171,25 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-white/72 sm:text-lg">
-                Harbourview connects controlled network access, reviewed intelligence, regulatory
-                signals, compliance pathways, clinical education and confidential inquiry routes for
-                serious participants in regulated cannabis markets.
+                Harbourview connects controlled network access, reviewed intelligence,
+                regulatory signals, compliance pathways, clinical education and confidential
+                inquiry routes for serious participants in regulated cannabis markets.
               </p>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/52 sm:text-base">
-                Public pages support discovery and context. Contact details, counterparties, route
-                assessments and transaction-sensitive information are handled through reviewed private
-                workflows.
+                Public pages support discovery and context. Contact details, counterparties,
+                route assessments and transaction-sensitive information are handled through
+                reviewed private workflows.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link href="/network" className="btn-marketplace justify-center">
+                <Link href="/marketplace" className="btn-marketplace justify-center">
                   <span>Enter Network</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
 
                 <Link href="/intelligence" className="btn-intelligence justify-center">
-                  <span>Open Intelligence</span>
+                  <span>Request Intelligence</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
               </div>
@@ -283,8 +232,8 @@ export default function HomePage() {
 
             <p className="mt-5 text-base leading-8 text-white/60">
               Harbourview is organized around controlled discovery, reviewed intelligence,
-              professional education, compliance orientation, assessment pathways and institutional
-              collaboration.
+              professional education, compliance orientation, assessment pathways and
+              institutional collaboration.
             </p>
           </div>
 
@@ -293,7 +242,7 @@ export default function HomePage() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/34 hover:bg-[#091a30] sm:p-7"
+                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/30 hover:bg-[#091a30] sm:p-7"
               >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-gold/70">
                   {section.eyebrow}
@@ -324,7 +273,7 @@ export default function HomePage() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/34 hover:bg-[#071425]"
+                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/30 hover:bg-[#071425]"
               >
                 <h3 className="font-serif text-2xl tracking-[-0.03em] text-[#f4f1eb]">
                   {section.title}
