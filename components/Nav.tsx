@@ -1,20 +1,3 @@
-const forbiddenPublicStrings = [
-  'Supplier Directory',
-  'contactEmail',
-  'sourceUrl',
-  'sourceName',
-  'Evidence captured',
-  'provenanceSummary',
-  'sourceEvidence',
-  'verificationStatus',
-  'availabilityStatus',
-  'sellerAuthorizationStatus',
-  'internalReviewNotes',
-  'reviewedBy',
-  'lastReviewedAt',
-  'nextReviewDueAt',
-  'hello@harbourview.co',
-]
 'use client'
 
 import Link from 'next/link'
@@ -22,12 +5,6 @@ import { useState } from 'react'
 
 const navLinks = [
   { label: 'Network', href: '/marketplace' },
-  { label: 'Reviewed Listings', href: '/marketplace/listings' },
-  { label: 'Submit Opportunity', href: '/marketplace/sell' },
-  { label: 'Wanted Requests', href: '/marketplace/wanted' },
-  { label: 'Genetics', href: '/marketplace/genetics' },
-  { label: 'Network', href: '/network' },
-  { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Signals', href: '/signals' },
   { label: 'Compliance', href: '/compliance' },
@@ -42,15 +19,10 @@ export default function Nav() {
     <header className="sticky top-0 z-50 border-b border-gold/10 bg-[#020814]/95 text-white shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
       <div className="page-container">
         <div className="flex h-[72px] items-center justify-between pt-[max(env(safe-area-inset-top),0px)] sm:h-20">
-          <Link
-            href="/"
-            className="premium-wordmark text-[15px] tracking-[0.28em] sm:text-[22px]"
-            aria-label="Harbourview home"
-          >
+          <Link href="/" className="premium-wordmark text-[15px] tracking-[0.28em] sm:text-[22px]" aria-label="Harbourview home">
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
           <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
@@ -59,8 +31,8 @@ export default function Nav() {
             ))}
           </nav>
 
-          <Link href="/contact" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
-            Request Access
+          <Link href="/intake" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
+            Request Introduction
           </Link>
 
           <button
@@ -94,11 +66,11 @@ export default function Nav() {
             ))}
 
             <Link
-              href="/contact"
+              href="/intake"
               className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light sm:col-span-2"
               onClick={() => setMobileOpen(false)}
             >
-              Request Access
+              Request Introduction
             </Link>
           </div>
         </div>
