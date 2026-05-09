@@ -1,22 +1,5 @@
-import type { Listing, ListingImage } from './types'
-
-const representativeCaption =
-  'Representative operating-supplies category image. Specifications, supplier fit and commercial terms are available upon inquiry.'
-
-const consumablesImageMap: Record<string, ListingImage> = {
-  'cons-001': { src: '/marketplace/consumables/02-mylar-pouches.webp', alt: 'Unbranded child-resistant mylar pouches arranged in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-002': { src: '/marketplace/consumables/08-labels-and-tamper-seals.webp', alt: 'Unbranded lab and QA supply materials shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-003': { src: '/marketplace/consumables/09-facility-supplies.webp', alt: 'Unbranded cultivation supplies shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-004': { src: '/marketplace/consumables/09-facility-supplies.webp', alt: 'Unbranded processing room consumables shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-005': { src: '/marketplace/consumables/09-facility-supplies.webp', alt: 'Unbranded sanitation and PPE supplies shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-006': { src: '/marketplace/consumables/10-shipping-cartons-and-bundles.webp', alt: 'Unbranded shipping cartons and warehouse supplies shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-007': { src: '/marketplace/consumables/02-mylar-pouches.webp', alt: 'Unbranded retail and dispensary operating supplies shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  'cons-008': { src: '/marketplace/consumables/10-shipping-cartons-and-bundles.webp', alt: 'Unbranded facility maintenance supplies shown in a studio product shot', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-}
-
-function withRepresentativeImage(listing: Listing): Listing {
-  return { ...listing, image: consumablesImageMap[listing.id] }
-}
+import type { Listing } from './types'
+import { withRepresentativeImage } from './representativeImages'
 
 const common = {
   price: 'Price on request',

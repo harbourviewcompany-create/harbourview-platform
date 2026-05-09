@@ -1,6 +1,18 @@
 import Link from 'next/link'
 import { footerGroups } from '@/lib/institutional/content'
 
+const publicFooterGroups = footerGroups
+  .map((group) => ({
+    ...group,
+    links: group.links.filter((link) => {
+      const label = link.label.toLowerCase()
+      const href = link.href.toLowerCase()
+
+      return !label.includes('supplier') && !href.includes('supplier')
+    }),
+  }))
+  .filter((group) => group.links.length > 0)
+
 export default function Footer() {
   return (
     <footer className="mt-auto border-t border-gold/10 bg-[#030b16] text-gray-300">
@@ -8,6 +20,7 @@ export default function Footer() {
         <div className="border-b border-gold/10 pb-10">
           <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
           <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light"></div>
+          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
           <p className="mt-5 max-w-3xl text-sm leading-7 text-white/58">
             Controlled commercial network access, reviewed intelligence, professional education,
             policy resources and institutional pathways for serious participants in regulated cannabis markets.
@@ -16,6 +29,7 @@ export default function Footer() {
 
         <div className="grid grid-cols-1 gap-9 pt-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
           {footerGroups.map((group) => (
+          {publicFooterGroups.map((group) => (
             <div key={group.title}>
               <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
                 {group.title}
