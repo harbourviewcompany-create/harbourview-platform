@@ -6,15 +6,6 @@ const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,
   },
-  async redirects() {
-    return [
-      {
-        source: '/marketplace/wanted-requests',
-        destination: '/marketplace/wanted',
-        permanent: true,
-      },
-    ]
-  },
 }
 
 export default nextConfig
