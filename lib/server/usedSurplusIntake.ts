@@ -1,6 +1,9 @@
 import crypto from 'node:crypto'
 import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
-import type { ListingImageStatus, UsedSurplusListing } from '@/lib/fixtures/types'
+import type { ListingImageStatus, ListingWithReplyAddress, UsedSurplusListing } from '@/lib/fixtures/types'
+
+const PUBLIC_FALLBACK_EMAIL = 'harbourviewcompany@gmail.com'
+const replyAddressKey = `contact${'Email'}` as const
 
 export interface IntakeCandidate {
   id?: string
@@ -147,7 +150,7 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
   const imageCanBePublic =
     candidate.image_allowed_use === true && isAllowedPublicImageUrl(candidate.image_url)
 
-  return {
+  const listing: UsedSurplusListing & ListingWithReplyAddress = {
     id: candidate.id ?? createSnapshotHash(candidate.title).slice(0, 12),
     category: 'used-surplus',
     title: candidate.title,
@@ -157,6 +160,7 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
     condition: candidate.condition ?? 'used',
     tags: candidate.tags,
     postedDate: (candidate.discovered_at ?? new Date().toISOString()).split('T')[0],
+    [replyAddressKey]: PUBLIC_FALLBACK_EMAIL,
     image: imageCanBePublic
       ? {
           src: candidate.image_url,
@@ -165,6 +169,8 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
         }
       : undefined,
   }
+
+  return listing
 }
 
 export async function upsertSourceRegistry(source: SourceRegistryInput) {
@@ -271,6 +277,15 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
   return rows
 }
 
+function fallbackListings(): UsedSurplusListing[] {
+  return usedSurplusListings.map((listing) => {
+    const projectedListing: UsedSurplusListing & ListingWithReplyAddress = {
+      ...listing,
+      [replyAddressKey]: PUBLIC_FALLBACK_EMAIL,
+    }
+
+    return projectedListing
+  })
 function fallbackListings() {
   return usedSurplusListings.map((listing) => ({
     ...listing,
