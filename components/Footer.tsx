@@ -1,51 +1,3 @@
-const categories = [
-  {
-    label: 'Reviewed Network Listings',
-    href: '/marketplace/listings',
-    description:
-      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
-  },
-  {
-    label: 'Used & Surplus Equipment',
-    href: '/marketplace/used-surplus',
-    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
-  },
-  {
-    label: 'New Products',
-    href: '/marketplace/new-products',
-    description: 'New products, inputs and commercial supply categories for regulated operators.',
-  },
-  {
-    label: 'Cannabis Inventory',
-    href: licensedInventoryHref,
-    description:
-      'Controlled inventory pathways for regulated cannabis products where appropriate review is required.',
-  },
-  {
-    label: 'Wanted Requests',
-    href: '/marketplace/wanted',
-    description:
-      'Buyer-side requirements and demand signals routed through Harbourview review.',
-  },
-  {
-    label: 'Services',
-    href: '/marketplace/services',
-    description:
-      'Commercial, operational, compliance, logistics and specialist services for regulated supply chains.',
-  },
-  {
-    label: 'Business Opportunities',
-    href: '/marketplace/business-opportunities',
-    description:
-      'Structured commercial opportunities, partnerships and market-access pathways.',
-  },
-  {
-    label: 'Genetics, Seeds & Tissue Culture',
-    href: '/marketplace/genetics',
-    description:
-      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
-  },
-]
 import Link from 'next/link'
 
 const platformLinks = [
@@ -61,7 +13,6 @@ const networkLinks = [
   { label: 'Reviewed Listings', href: '/marketplace/listings' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
-  { label: 'Genetics', href: '/marketplace/genetics' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
 ]
 
@@ -77,45 +28,53 @@ export default function Footer() {
   return (
     <footer className="mt-auto border-t border-gold/10 bg-[#030b16] text-gray-300">
       <div className="page-container py-12 sm:py-16">
-        <div className="border-b border-gold/10 pb-10">
-          <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:gap-12">
+          <div className="max-w-sm border-b border-gold/10 pb-8 lg:border-0 lg:pb-0">
+            <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
+            <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
+            <p className="mt-5 text-sm leading-7 text-white/58">
+              Commercial intelligence, controlled network access and market-access support for serious participants.
+            </p>
+          </div>
 
-          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
+          <div>
+            <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">Platform</p>
+            <ul className="space-y-3 text-sm text-white/62">
+              {platformLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="transition-colors hover:text-gold">{link.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-          <p className="mt-5 max-w-3xl text-sm leading-7 text-white/58">
-            Controlled commercial network access, reviewed intelligence, professional education,
-            policy resources and institutional pathways for serious participants in regulated
-            cannabis markets.
-          </p>
-        </div>
+          <div>
+            <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">Network</p>
+            <ul className="space-y-3 text-sm text-white/62">
+              {networkLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="transition-colors hover:text-gold">{link.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        <div className="grid grid-cols-1 gap-9 pt-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
-          {footerGroups.map((group) => (
-            <div key={group.title}>
-              <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
-                {group.title}
-              </p>
-
-              <ul className="space-y-3 text-sm text-white/62">
-                {group.links.map((link) => (
-                  <li key={`${group.title}-${link.label}-${link.href}`}>
-                    <Link href={link.href} className="transition-colors hover:text-gold">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div>
+            <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">Company</p>
+            <ul className="space-y-3 text-sm text-white/62">
+              {companyLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="transition-colors hover:text-gold">{link.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <div className="mt-10 flex flex-col gap-4 border-t border-gold/10 pt-6 text-xs text-white/38 sm:mt-12 sm:flex-row sm:items-end sm:justify-between">
           <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
-
-          <p className="max-w-2xl leading-6 sm:text-right">
-            Harbourview is intentionally not an open-contact directory. Public pages support
-            discovery and context. Sensitive commercial, regulatory, documentary and counterparty
-            information is handled through reviewed private workflows.
+          <p className="max-w-md leading-6 sm:text-right">
+            Public pages support discovery and context. Sensitive commercial information is handled through reviewed private workflows.
           </p>
         </div>
       </div>

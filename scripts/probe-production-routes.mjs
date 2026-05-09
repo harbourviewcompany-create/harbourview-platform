@@ -39,8 +39,8 @@ const routes = [
   {
     path: '/',
     okStatuses: [200],
-    titleIncludes: 'Harbourview | Market Access Intelligence and Commercial Advisory',
-    mustInclude: ['Market access backed by', 'Request a Confidential Discussion'],
+    titleIncludes: 'Harbourview | Opening Soon',
+    mustInclude: ['Full site opening soon', 'Preview Network'],
     mustNotInclude: ['The Cannabis Industry\'s Professional Marketplace', 'view all listings'],
   },
   {
