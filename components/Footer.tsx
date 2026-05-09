@@ -22,6 +22,7 @@ const companyLinks = [
   { label: 'Privacy', href: '/legal/privacy' },
   { label: 'Terms', href: '/legal/terms' },
 ]
+import { footerGroups } from '@/lib/institutional/content'
 
 export default function Footer() {
   return (
