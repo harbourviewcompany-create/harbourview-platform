@@ -3,6 +3,24 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
+const marketplaceLinks = [
+  { label: 'Network Opportunities', href: '/marketplace/listings' },
+  { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
+  { label: 'New Products', href: '/marketplace/new-products' },
+  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
+  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Services', href: '/marketplace/services' },
+  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
+]
+
+const navLinks = [
+  { label: 'Network', href: '/marketplace', hasDropdown: true },
+  { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
+  { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
+  { label: 'Signals', href: '/signals', hasDropdown: false },
+  { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
+  { label: 'Intake', href: '/intake', hasDropdown: false },
 const navLinks = [
   { label: 'Network', href: '/marketplace' },
   { label: 'Reviewed Listings', href: '/marketplace/listings' },

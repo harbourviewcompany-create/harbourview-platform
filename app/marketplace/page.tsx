@@ -1,10 +1,17 @@
 import type { Metadata } from 'next'
-import { FooterCta, PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+import {
+  FooterCta,
+  PublicCard,
+  PublicHero,
+  PublicLinkCard,
+  PublicSection,
+  SectionHeader,
+} from '@/components/PublicUi'
 
 const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
 
 export const metadata: Metadata = {
-  title: 'Harbourview Network',
+  title: 'Network | Harbourview',
   description:
     'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   openGraph: {
@@ -110,7 +117,10 @@ export default function MarketplacePage() {
       </PublicHero>
 
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="Controlled network workflow" title="Review and qualification before introduction." />
+        <SectionHeader
+          eyebrow="Controlled network workflow"
+          title="Review and qualification before introduction."
+        />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {processCards.map((card) => (
             <PublicCard key={card.title} className="p-6">
@@ -123,7 +133,10 @@ export default function MarketplacePage() {
       </PublicSection>
 
       <PublicSection id="categories" tone="navy">
-        <SectionHeader eyebrow="Network categories" title="Explore reviewed commercial access categories." />
+        <SectionHeader
+          eyebrow="Network categories"
+          title="Explore reviewed commercial access categories."
+        />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {categories.map((cat) => (
             <PublicLinkCard key={cat.href} href={cat.href} title={cat.label}>
