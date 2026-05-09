@@ -36,7 +36,7 @@ export interface NewProductListing extends Listing {
   condition: 'new'
 }
 
-export interface UsedSurplusListing extends ListingWithReplyAddress {
+export interface UsedSurplusListing extends Listing {
   category: 'used-surplus'
   condition: 'used' | 'refurbished' | 'surplus'
   hoursUsed?: string
