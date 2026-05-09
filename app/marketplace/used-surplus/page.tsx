@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
 import ListingCard from '@/components/ListingCard'
 import EmptyState from '@/components/EmptyState'
+import { getApprovedUsedSurplusListings } from '@/lib/server/usedSurplusIntake'
 
 export const metadata: Metadata = {
   title: 'Used & Surplus | Harbourview Network',
@@ -10,13 +10,18 @@ export const metadata: Metadata = {
     'Used equipment, surplus assets, liquidations and closure-related supply relevant to regulated operators. Inquiries are reviewed through Harbourview Network.',
 }
 
-export default function UsedSurplusPage() {
+export default async function UsedSurplusPage() {
+  const listings = await getApprovedUsedSurplusListings()
+
   return (
     <>
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-          <Link href="/marketplace" className="hover:underline">Network</Link> /
+            <Link href="/marketplace" className="hover:underline">
+              Network
+            </Link>{' '}
+            /
           </p>
           <h1 className="text-3xl font-bold mb-2">Used &amp; Surplus</h1>
           <p className="text-gray-300 max-w-xl">
@@ -37,11 +42,11 @@ export default function UsedSurplusPage() {
             </p>
           </div>
 
-          {usedSurplusListings.length === 0 ? (
+          {listings.length === 0 ? (
             <EmptyState category="Used & Surplus" />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {usedSurplusListings.map((listing) => (
+              {listings.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>

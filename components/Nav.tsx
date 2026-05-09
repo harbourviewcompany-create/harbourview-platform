@@ -107,7 +107,9 @@ export default function Nav() {
                   <div
                     id={menuId}
                     role="menu"
-                    className={`absolute left-0 top-full min-w-[220px] pt-4 ${isOpen ? 'block' : 'hidden'}`}
+                    className={`absolute left-0 top-full min-w-[220px] pt-4 ${
+                      isOpen ? 'block' : 'hidden'
+                    }`}
                   >
                     <div className="rounded-sm border border-gold/14 bg-[#020814]/98 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                       {group.items.map((item) => (
@@ -128,7 +130,12 @@ export default function Nav() {
             })}
 
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
+              <Link
+                key={`${link.label}-${link.href}`}
+                href={link.href}
+                className="nav-link-premium whitespace-nowrap"
+                onClick={closeMenus}
+              >
                 {link.label}
               </Link>
             ))}
@@ -201,7 +208,7 @@ export default function Nav() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {navLinks.map((link) => (
                 <Link
-                  key={link.href}
+                  key={`${link.label}-${link.href}`}
                   href={link.href}
                   className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
                   onClick={closeMenus}
