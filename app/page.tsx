@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -160,8 +161,9 @@ export default function HomePage() {
     <main className="bg-[#01050d] text-white">
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-16 sm:py-20 lg:py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_22%,rgba(198,165,90,0.18),transparent_34%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
+        <HarbourviewGlobeClientLoader />
 
-        <div className="page-container">
+        <div className="page-container relative z-10">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(320px,0.72fr)] lg:items-end">
             <div className="max-w-4xl">
               <p className="hero-eyebrow">Commercial intelligence and controlled market access</p>
