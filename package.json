@@ -1,5 +1,6 @@
 {
   "name": "harbourview-platform",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -7,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
     "test:visibility": "node scripts/test-public-provenance-visibility.mjs",
+    "test:visibility": "node scripts/test-public-provenance-visibility.mjs && node scripts/test-business-opportunities-public-leakage.mjs",
     "test:listing-quality": "node scripts/test-listing-quality.mjs",
     "test:compliance-visibility": "node scripts/test-compliance-visibility.mjs",
     "test:clinical-education": "node scripts/test-clinical-education-guardrails.mjs",
@@ -20,6 +23,7 @@
     "test:services-public-leakage": "node scripts/test-services-public-leakage.mjs",
     "test:intelligence-fixtures": "node scripts/test-intelligence-fixture-projection.mjs",
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
+    "test:used-surplus-public-leakage": "node scripts/test-used-surplus-public-leakage.mjs",
     "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
@@ -31,12 +35,12 @@
   "dependencies": {
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
+    "@supabase/supabase-js": "^2.105.4",
     "ai": "^5.0.0",
     "next": "^15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.174.0",
-    "zod": "^3.25.28"
     "zod": "^4.1.5"
   },
   "devDependencies": {

@@ -19,7 +19,7 @@ export default function Footer() {
       <div className="page-container py-12 sm:py-16">
         <div className="border-b border-gold/10 pb-10">
           <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
-          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light"></div>
+          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
           <p className="mt-5 max-w-3xl text-sm leading-7 text-white/58">
             Controlled commercial network access, reviewed intelligence, professional education,
             policy resources and institutional pathways for serious participants in regulated cannabis markets.

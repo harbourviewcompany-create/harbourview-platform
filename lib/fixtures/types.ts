@@ -71,6 +71,5 @@ export interface Supplier {
   description: string
   categories: string[]
   location: string
-  privateContactEmail: string
   website?: string
 }
