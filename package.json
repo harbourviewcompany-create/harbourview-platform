@@ -31,10 +31,10 @@
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
     "smoke:marketplace:browser": "node scripts/smoke-marketplace-browser.mjs"
   },
-
   "dependencies": {
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
+    "@supabase/supabase-js": "^2.105.4",
     "next": "^15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
