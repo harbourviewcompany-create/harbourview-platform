@@ -6,7 +6,8 @@ set -euo pipefail
 #   exit 1 = continue the Vercel build
 #
 # Deployment policy:
-#   - Always build production deployments for main.
+#   - Always build production deployments.
+#   - Always build main.
 #   - Always build release branches: release/*.
 #   - Build preview branches only when the branch name or commit message
 #     explicitly carries deploy intent.
@@ -17,17 +18,20 @@ set -euo pipefail
 #   - Branch name contains deploy-preview
 #   - Commit message contains [deploy-preview], [vercel-preview], or [preview]
 #
-# This keeps GitHub Actions as the first verification layer and prevents
-# routine working-branch commits from consuming Vercel deployment quota.
-#
 # Fail-open rule:
-#   Production and release branches fail open to build. Ambiguous preview
+#   Production, main and release branches fail open to build. Ambiguous preview
 #   branches fail closed to skip unless explicit deploy intent is present.
 
 branch="${VERCEL_GIT_COMMIT_REF:-}"
 commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-}"
+vercel_env="${VERCEL_ENV:-}"
 base="${VERCEL_GIT_PREVIOUS_SHA:-}"
 head="${VERCEL_GIT_COMMIT_SHA:-HEAD}"
+
+if [[ "$vercel_env" == "production" ]]; then
+  echo "Vercel ignore: production environment detected; continue build."
+  exit 1
+fi
 
 if [[ "$branch" == "main" ]]; then
   echo "Vercel ignore: main branch detected; continue production build."
@@ -53,6 +57,9 @@ if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]]; th
   base="HEAD^"
 fi
 
+# Vercel's shallow clone can omit VERCEL_GIT_PREVIOUS_SHA on old or rewritten
+# branches. Never allow a missing comparison commit to fail the ignore command.
+# Ambiguous non-production previews without deploy intent are skipped instead.
 if ! git rev-parse --verify "${head}^{commit}" >/dev/null 2>&1; then
   echo "Vercel ignore: cannot resolve head ref '$head'; no preview deploy intent found; skip build."
   exit 0

@@ -1,0 +1,17 @@
+[Unit]
+Description=Harbourview Next.js Application
+After=network.target
+
+[Service]
+Type=simple
+User=harbourview
+WorkingDirectory=/opt/harbourview/current
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/opt/harbourview/shared/.env.production
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
