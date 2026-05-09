@@ -10,7 +10,7 @@ function applyNoStoreHeaders(response: NextResponse) {
   response.headers.set('Surrogate-Control', 'no-store');
   response.headers.set('Pragma', 'no-cache');
   response.headers.set('Expires', '0');
-  response.headers.set('X-Harbourview-Runtime-Cache-BYPASS', 'pr75-pr76-production-route-cleanup-2026-05-06');
+  response.headers.set('X-Harbourview-Runtime-Cache-Bypass', 'pr75-pr76-production-route-cleanup-2026-05-06');
   return response;
 }
 
