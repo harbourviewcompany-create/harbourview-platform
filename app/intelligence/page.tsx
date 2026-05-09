@@ -33,7 +33,10 @@ export default async function IntelligencePage() {
                 <span className="hero-title-gold">market pathways.</span>
               </h1>
               <p className="hero-body max-w-2xl">
-                Explore public-safe country panels for market pathway context, review status, opportunity categories and controlled next actions. Intelligence is presented as reviewed commercial context, not as legal advice, guaranteed access or live buyer demand.
+                Explore public-safe country panels for market pathway context, review status,
+                opportunity categories and controlled next actions. Intelligence is presented
+                as reviewed commercial context, not as legal advice, guaranteed access or live
+                buyer demand.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="#country-map" className="btn-marketplace">
@@ -52,7 +55,9 @@ export default async function IntelligencePage() {
                 Public intelligence controls
               </p>
               <p>
-                Public panels use typed fixtures and a public projection layer. They exclude raw evidence, private contacts, unpublished analyst notes and direct counterparty information.
+                Public panels use typed fixtures and a public projection layer. They exclude raw
+                evidence, private contacts, unpublished analyst notes and direct counterparty
+                information.
               </p>
             </div>
           </div>
@@ -75,7 +80,9 @@ export default async function IntelligencePage() {
               </h2>
             </div>
             <p className="text-sm leading-7 text-white/56">
-              The existing Signals route stays intact. Intelligence now uses the country map as the front-facing navigation layer while Signals continues to handle policy and regulatory change monitoring.
+              The existing Signals route stays intact. Intelligence now uses the country map as
+              the front-facing navigation layer while Signals continues to handle policy and
+              regulatory change monitoring.
             </p>
           </div>
 
@@ -91,14 +98,26 @@ export default async function IntelligencePage() {
                     <span>•</span>
                     <span>{signal.signal_type.replace(/_/g, ' ')}</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-[#f4f1eb]">{signal.headline}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/62">{signal.public_summary}</p>
+
+                  <h3 className="text-xl font-semibold text-[#f4f1eb]">
+                    {signal.headline}
+                  </h3>
+
+                  <p className="mt-4 text-sm leading-7 text-white/62">
+                    {signal.public_summary}
+                  </p>
+
+                  <div className="mt-5 rounded-sm border border-gold/10 bg-black/20 p-4 text-xs leading-6 text-white/52">
+                    {signal.public_implication}
+                  </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="rounded-sm border border-gold/10 bg-[#071425] p-6 text-sm leading-7 text-white/58">
-              No public regulatory signals are published yet. Country intelligence can still be requested for a selected market.
+            <div className="rounded-sm border border-gold/10 bg-[#071425] p-6 text-sm leading-7 text-white/58 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+              No public intelligence summaries are currently published. Harbourview can review
+              country-specific regulatory movement, route viability and commercial-access signals
+              on request before anything is made public.
             </div>
           )}
 
@@ -123,7 +142,9 @@ export default async function IntelligencePage() {
                   Need a country brief before entering a market?
                 </h2>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-white/58">
-                  Harbourview can assess route viability, counterparty fit, opportunity categories and country-specific commercial access constraints before public listing, buyer outreach or wanted-request activation.
+                  Harbourview can assess route viability, counterparty fit, opportunity categories
+                  and country-specific commercial access constraints before public listing, buyer
+                  outreach or wanted-request activation.
                 </p>
               </div>
               <Link href="/contact" className="btn-marketplace">
