@@ -1,32 +1,33 @@
-const forbiddenPublicStrings = [
-  'Supplier Directory',
-  'contactEmail',
-  'sourceUrl',
-  'sourceName',
-  'Evidence captured',
-  'provenanceSummary',
-  'sourceEvidence',
-  'verificationStatus',
-  'availabilityStatus',
-  'sellerAuthorizationStatus',
-  'internalReviewNotes',
-  'reviewedBy',
-  'lastReviewedAt',
-  'nextReviewDueAt',
-  'hello@harbourview.co',
-]
 'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
 
+const marketplaceLinks = [
+  { label: 'Network Opportunities', href: '/marketplace/listings' },
+  { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
+  { label: 'New Products', href: '/marketplace/new-products' },
+  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
+  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Services', href: '/marketplace/services' },
+  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
+]
+
+const navLinks = [
+  { label: 'Network', href: '/marketplace', hasDropdown: true },
+  { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
+  { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
+  { label: 'Signals', href: '/signals', hasDropdown: false },
+  { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
+  { label: 'Intake', href: '/intake', hasDropdown: false },
 const navLinks = [
   { label: 'Network', href: '/marketplace' },
   { label: 'Reviewed Listings', href: '/marketplace/listings' },
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Genetics', href: '/marketplace/genetics' },
-  { label: 'Network', href: '/network' },
+  { label: 'Network Home', href: '/network' },
   { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Signals', href: '/signals' },
@@ -50,10 +51,9 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
           <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
+              <Link key={`${link.label}-${link.href}`} href={link.href} className="nav-link-premium whitespace-nowrap">
                 {link.label}
               </Link>
             ))}
@@ -84,7 +84,7 @@ export default function Nav() {
           <div className="page-container grid grid-cols-1 gap-2 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.2em] text-white/82 sm:grid-cols-2">
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={`${link.label}-${link.href}`}
                 href={link.href}
                 className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
                 onClick={() => setMobileOpen(false)}
