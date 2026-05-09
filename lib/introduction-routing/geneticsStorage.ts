@@ -1,6 +1,7 @@
 import { GeneticsRoutingRecord } from './geneticsExecution'
 
 type SupabaseMutationResult = PromiseLike<{ data: unknown; error: unknown }>
+type SupabasePayload = Record<string, unknown>
 
 type SupabaseInsertResult = {
   select?: (cols?: string) => {
@@ -10,8 +11,8 @@ type SupabaseInsertResult = {
 
 type SupabaseLike = {
   from: (table: string) => {
-    insert: (payload: any) => SupabaseInsertResult
-    update: (payload: any) => { eq: (column: string, value: string) => SupabaseMutationResult }
+    insert: (payload: SupabasePayload) => SupabaseInsertResult
+    update: (payload: SupabasePayload) => { eq: (column: string, value: string) => SupabaseMutationResult }
   }
 }
 
