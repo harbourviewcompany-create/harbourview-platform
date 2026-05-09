@@ -77,32 +77,40 @@ export default async function IntelligencePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            {featuredSignals.map((signal) => (
-              <article
-                key={signal.id}
-                className="rounded-sm border border-gold/12 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6"
-              >
-                <div className="mb-4 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.24em] text-gold/72">
-                  <span>{signal.country_name}</span>
-                  <span>•</span>
-                  <span>{signal.signal_type.replace(/_/g, ' ')}</span>
-                </div>
+          {featuredSignals.length > 0 ? (
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              {featuredSignals.map((signal) => (
+                <article
+                  key={signal.id}
+                  className="rounded-sm border border-gold/12 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6"
+                >
+                  <div className="mb-4 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.24em] text-gold/72">
+                    <span>{signal.country_name}</span>
+                    <span>•</span>
+                    <span>{signal.signal_type.replace(/_/g, ' ')}</span>
+                  </div>
 
-                <h3 className="text-xl font-semibold text-[#f4f1eb]">
-                  {signal.headline}
-                </h3>
+                  <h3 className="text-xl font-semibold text-[#f4f1eb]">
+                    {signal.headline}
+                  </h3>
 
-                <p className="mt-4 text-sm leading-7 text-white/62">
-                  {signal.public_summary}
-                </p>
+                  <p className="mt-4 text-sm leading-7 text-white/62">
+                    {signal.public_summary}
+                  </p>
 
-                <div className="mt-5 rounded-sm border border-gold/10 bg-black/20 p-4 text-xs leading-6 text-white/52">
-                  {signal.public_implication}
-                </div>
-              </article>
-            ))}
-          </div>
+                  <div className="mt-5 rounded-sm border border-gold/10 bg-black/20 p-4 text-xs leading-6 text-white/52">
+                    {signal.public_implication}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-sm border border-gold/10 bg-[#071425] p-6 text-sm leading-7 text-white/58 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+              No public intelligence summaries are currently published. Harbourview
+              can review country-specific regulatory movement, route viability and
+              commercial-access signals on request before anything is made public.
+            </div>
+          )}
         </div>
       </section>
 
@@ -117,40 +125,48 @@ export default async function IntelligencePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {featuredCountries.map((country) => (
-              <div
-                key={country.countryName}
-                className="rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-[#f4f1eb]">
-                    {country.countryName}
-                  </h3>
+          {featuredCountries.length > 0 ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {featuredCountries.map((country) => (
+                <div
+                  key={country.countryName}
+                  className="rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-[#f4f1eb]">
+                      {country.countryName}
+                    </h3>
 
-                  <span className="rounded-full border border-gold/20 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-gold/70">
-                    Reviewed
-                  </span>
+                    <span className="rounded-full border border-gold/20 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-gold/70">
+                      Reviewed
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 text-sm leading-7 text-white/58">
+                    <p>
+                      Public-safe country overview and reviewed commercial pathway
+                      context.
+                    </p>
+
+                    <p>Region: {country.region || 'International'}</p>
+
+                    <p>Published signals: {country.count}</p>
+                  </div>
+
+                  <div className="mt-6 border-t border-gold/10 pt-4 text-xs leading-6 text-white/44">
+                    Country intelligence visibility is controlled and may not reflect
+                    unpublished reviews, private assessments or pending analyst work.
+                  </div>
                 </div>
-
-                <div className="space-y-3 text-sm leading-7 text-white/58">
-                  <p>
-                    Public-safe country overview and reviewed commercial pathway
-                    context.
-                  </p>
-
-                  <p>Region: {country.region || 'International'}</p>
-
-                  <p>Published signals: {country.count}</p>
-                </div>
-
-                <div className="mt-6 border-t border-gold/10 pt-4 text-xs leading-6 text-white/44">
-                  Country intelligence visibility is controlled and may not reflect
-                  unpublished reviews, private assessments or pending analyst work.
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-sm border border-gold/10 bg-[#071425] p-6 text-sm leading-7 text-white/58 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+              No public country intelligence panels are currently published.
+              Harbourview can assess a market on request, including pathway fit,
+              review status, opportunity categories and commercial-access context.
+            </div>
+          )}
         </div>
       </section>
     </main>
