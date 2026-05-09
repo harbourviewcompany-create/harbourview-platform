@@ -5,11 +5,21 @@ set -euo pipefail
 #   exit 0 = ignore/skip this Vercel build
 #   exit 1 = continue the Vercel build
 #
+# Canonical project guard:
+#   - Canonical Vercel project: harbourview in the harbourviewnetwork team.
+#   - Canonical project id: prj_FiWMX10YY6MDo2WbTDVUKe6QWF8c.
+#   - Stale duplicate contexts must not consume build quota.
+#   - If VERCEL_PROJECT_ID is exposed and does not match the canonical id,
+#     skip immediately before any production/main branch allow rule.
+#   - If VERCEL_PROJECT_ID is not exposed, fall back to generated/project URLs
+#     that distinguish the stale harbourview-platform project from the canonical
+#     harbourview project.
+#
 # Deployment policy:
-#   - Always build production deployments.
-#   - Always build main.
-#   - Always build release branches: release/*.
-#   - Build preview branches only when the branch name or commit message
+#   - Always build the canonical production deployment.
+#   - Always build canonical main.
+#   - Always build canonical release branches: release/*.
+#   - Build canonical preview branches only when the branch name or commit message
 #     explicitly carries deploy intent.
 #   - Skip WBCC-only verification changes.
 #
@@ -19,14 +29,69 @@ set -euo pipefail
 #   - Commit message contains [deploy-preview], [vercel-preview], or [preview]
 #
 # Fail-open rule:
-#   Production, main and release branches fail open to build. Ambiguous preview
-#   branches fail closed to skip unless explicit deploy intent is present.
+#   Canonical production, main and release branches fail open to build. Ambiguous
+#   preview branches fail closed to skip unless explicit deploy intent is present.
+#   Unknown project identity falls through to the branch policy rather than
+#   risking an accidental canonical production block.
 
 branch="${VERCEL_GIT_COMMIT_REF:-}"
 commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-}"
 vercel_env="${VERCEL_ENV:-}"
 base="${VERCEL_GIT_PREVIOUS_SHA:-}"
 head="${VERCEL_GIT_COMMIT_SHA:-HEAD}"
+project_id="${VERCEL_PROJECT_ID:-}"
+project_production_url="${VERCEL_PROJECT_PRODUCTION_URL:-}"
+deployment_url="${VERCEL_URL:-}"
+branch_url="${VERCEL_BRANCH_URL:-}"
+
+canonical_project_id="prj_FiWMX10YY6MDo2WbTDVUKe6QWF8c"
+
+is_stale_harbourview_platform_url() {
+  local candidate="${1:-}"
+
+  [[ -z "$candidate" ]] && return 1
+
+  case "$candidate" in
+    harbourview-platform-*|*.harbourview-platform-*|*harbourview-platform-*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_known_canonical_project_url() {
+  local candidate="${1:-}"
+
+  [[ -z "$candidate" ]] && return 1
+
+  case "$candidate" in
+    harbourview.vercel.app|harbourview-harbourviewnetwork.vercel.app|harbourview-git-main-harbourviewnetwork.vercel.app|harbourview-*-harbourviewnetwork.vercel.app|harbourview-git-*-harbourviewnetwork.vercel.app)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+if [[ -n "$project_id" ]]; then
+  if [[ "$project_id" != "$canonical_project_id" ]]; then
+    echo "Vercel ignore: non-canonical project id '$project_id' detected; skip duplicate Harbourview build."
+    exit 0
+  fi
+
+  echo "Vercel ignore: canonical project id detected; evaluate branch deployment policy."
+elif is_stale_harbourview_platform_url "$project_production_url" || is_stale_harbourview_platform_url "$deployment_url" || is_stale_harbourview_platform_url "$branch_url"; then
+  echo "Vercel ignore: stale harbourview-platform deployment URL detected; skip duplicate Harbourview build."
+  exit 0
+elif [[ -n "$project_production_url" ]] && ! is_known_canonical_project_url "$project_production_url"; then
+  echo "Vercel ignore: non-canonical production URL '$project_production_url' detected; skip duplicate Harbourview build."
+  exit 0
+else
+  echo "Vercel ignore: project id not exposed; no stale project URL detected; evaluate branch deployment policy."
+fi
 
 if [[ "$vercel_env" == "production" ]]; then
   echo "Vercel ignore: production environment detected; continue build."
