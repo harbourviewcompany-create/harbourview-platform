@@ -29,7 +29,7 @@ export function scoreGeneticsAccessRequest(req: GeneticsAccessRequest) {
   if (req.credibleCompany) quality += 5
   quality += 4 + 4 + 2
 
-  let strategic = 10
+  const strategic = 10
 
   let risk = 15
   if (!req.licenceStatus) risk -= 5

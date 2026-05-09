@@ -1,12 +1,19 @@
+import type { ReactNode } from 'react'
+
 import {
   calculateRelationshipStrength,
   reliabilityBand,
   repeatCounterpartyProfiles,
   topRelationshipProfiles,
   recommendOperator,
+  type RelationshipProfile,
 } from '@/lib/introduction-routing/relationshipIntelligence'
 
-export function RelationshipIntelligencePanel({ profiles }: { profiles: any[] }) {
+type RelationshipIntelligencePanelProps = {
+  profiles: RelationshipProfile[]
+}
+
+export function RelationshipIntelligencePanel({ profiles }: RelationshipIntelligencePanelProps) {
   const topProfiles = topRelationshipProfiles(profiles)
   const repeatProfiles = repeatCounterpartyProfiles(profiles)
   const recommendedOperator = recommendOperator({
@@ -58,7 +65,7 @@ export function RelationshipIntelligencePanel({ profiles }: { profiles: any[] })
   )
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#C6A55A]">{title}</h3>
