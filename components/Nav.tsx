@@ -69,7 +69,6 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
           <nav
             className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex"
             aria-label="Primary navigation"
@@ -142,8 +141,8 @@ export default function Nav() {
             ))}
           </nav>
 
-          <Link href="/contact" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
-            Request Access
+          <Link href="/intake" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
+            Request Introduction
           </Link>
 
           <button
@@ -220,11 +219,11 @@ export default function Nav() {
             </div>
 
             <Link
-              href="/contact"
+              href="/intake"
               className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light"
               onClick={closeMenus}
             >
-              Request Access
+              Request Introduction
             </Link>
           </nav>
         </div>
