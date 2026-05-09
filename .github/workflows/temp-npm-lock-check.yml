@@ -6,22 +6,25 @@ on:
       - fix/package-lock-ai-drift-main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: fix/package-lock-ai-drift-main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Validate package JSON
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json valid')"
-      - name: Run package-lock-only dry check
+      - name: Generate package lock
         run: npm install --package-lock-only --ignore-scripts
-      - name: Verify npm ci
-        run: npm ci
-      - name: Upload generated lock
-        uses: actions/upload-artifact@v4
+      - name: Commit generated lock
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          name: generated-package-lock
-          path: package-lock.json
+          commit_message: Update package lock for dependency drift
+          file_pattern: package-lock.json
