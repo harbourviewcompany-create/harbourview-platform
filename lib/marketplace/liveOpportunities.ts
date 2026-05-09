@@ -1,4 +1,9 @@
-import type { BusinessOpportunity, Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
+import type {
+  BusinessOpportunity,
+  Listing,
+  ListingImage,
+  ListingImageStatus,
+} from '@/lib/fixtures/types'
 
 export interface LiveOpportunityRecord {
   id?: unknown
