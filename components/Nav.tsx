@@ -9,7 +9,7 @@ const navLinks = [
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Genetics', href: '/marketplace/genetics' },
-  { label: 'Network', href: '/network' },
+  { label: 'Network Home', href: '/network' },
   { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Signals', href: '/signals' },
