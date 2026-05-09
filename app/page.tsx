@@ -1,3 +1,161 @@
+import Link from 'next/link'
+import type { Metadata } from 'next'
+
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
+import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
+  description:
+    'Harbourview provides controlled network access, reviewed intelligence, professional education and institutional pathways for serious participants in regulated cannabis markets.',
+  openGraph: {
+    title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
+    description:
+      'Controlled network access, reviewed intelligence, education and institutional pathways for regulated cannabis markets.',
+  },
+}
+
+const primarySections = [
+  {
+    title: 'Harbourview Network',
+    href: '/marketplace',
+    eyebrow: 'Network access',
+    description:
+      'Explore controlled commercial discovery across listings, wanted requests, reviewed categories and inquiry pathways.',
+    cta: 'Enter Network',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    eyebrow: 'Market review',
+    description:
+      'Review country-level commercial intelligence and publication-controlled pathway context.',
+    cta: 'Open Intelligence',
+  },
+  {
+    title: 'Signals',
+    href: '/signals',
+    eyebrow: 'Policy movement',
+    description:
+      'Review source-backed regulatory, policy and timing signals across controlled-market pathways.',
+    cta: 'Review Signals',
+  },
+  {
+    title: 'Compliance Pathways',
+    href: '/compliance',
+    eyebrow: 'Orientation only',
+    description:
+      'Browse public-safe compliance orientation before jurisdiction-specific review.',
+    cta: 'View Pathways',
+  },
+]
+
+const secondarySections = [
+  {
+    title: 'Clinical Education',
+    href: '/network/clinical-education',
+    description:
+      'Access the public clinical education entry point for controlled-market context.',
+  },
+  {
+    title: 'Contact Harbourview',
+    href: '/contact',
+    description:
+      'Start a confidential Harbourview conversation for commercial intelligence or network access.',
+  },
+  {
+    title: 'Request Introduction',
+    href: '/intake',
+    description:
+      'Use the controlled intake path when a commercial request needs review before routing.',
+  },
+]
+
+const guardrails = [
+  'No public counterparty exposure',
+  'No guaranteed access claims',
+  'No live commercial-route claims',
+  'Reviewed inquiry routing only',
+]
+
+const workflowSteps = [
+  'Discover public context and available pathways.',
+  'Submit a request, listing, opportunity or institutional inquiry.',
+  'Harbourview reviews fit, sensitivity and routing requirements.',
+  'Sensitive commercial, regulatory and counterparty details remain private.',
+  'Qualified introductions, assessments or intelligence requests proceed only after review.',
+]
+
+const audiences = [
+  'Doctors and pharmacists',
+  'Importers and distributors',
+  'Cultivators and operators',
+  'QA, labs and compliance teams',
+  'Procurement and buyers',
+  'Regulators and institutions',
+  'Investors and acquirers',
+]
+
+const pathwaySteps = [
+  {
+    title: 'Discover',
+    body: 'Identify relevant access signals, reviewed opportunity categories and country-specific commercial pathways.',
+  },
+  {
+    title: 'Screen',
+    body: 'Assess category fit, counterparty context, licence-sensitive requirements and route viability before engagement.',
+  },
+  {
+    title: 'Connect',
+    body: 'Route qualified inquiries, wanted requests and introductions through controlled Harbourview review without public contact disclosure.',
+  },
+]
+
+const publicSections = [
+  {
+    title: 'Harbourview Network',
+    href: '/marketplace',
+    eyebrow: 'Commercial network',
+    body: 'Explore reviewed opportunities, wanted requests and controlled inquiry pathways.',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    eyebrow: 'Country pathway review',
+    body: 'Review public-safe country, route and access-pathway context.',
+  },
+  {
+    title: 'Signals',
+    href: '/signals',
+    eyebrow: 'Policy monitoring',
+    body: 'Review source-backed regulatory and commercial timing signals.',
+  },
+  {
+    title: 'Compliance Pathways',
+    href: '/compliance',
+    eyebrow: 'Orientation only',
+    body: 'Use public orientation pages for pathway context, not legal advice.',
+  },
+  {
+    title: 'Clinical Education',
+    href: '/network/clinical-education',
+    eyebrow: 'Education pathway',
+    body: 'Access controlled clinical education positioning for regulated commercial audiences.',
+  },
+  {
+    title: 'Contact Harbourview',
+    href: '/contact',
+    eyebrow: 'Confidential contact',
+    body: 'Start a controlled Harbourview conversation for commercial intelligence, network access or market-entry support.',
+  },
+  {
+    title: 'Request Introduction',
+    href: '/intake',
+    eyebrow: 'Reviewed intake',
+    body: 'Submit a confidential request for Harbourview review before any private routing or counterparty contact.',
+  },
+]
+
 export default function HomePage() {
   return (
     <main className="bg-[#01050d] text-white">
