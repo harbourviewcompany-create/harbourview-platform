@@ -24,6 +24,7 @@ export interface Listing {
   location: string
   tags: string[]
   postedDate: string
+  contactEmail?: string
   image?: ListingImage
 }
 
