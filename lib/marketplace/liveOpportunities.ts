@@ -3,8 +3,6 @@ import type {
   Listing,
   ListingImage,
   ListingImageStatus,
-  ListingReplyAddressKey,
-  ListingWithReplyAddress,
 } from '@/lib/fixtures/types'
 
 export interface LiveOpportunityRecord {
@@ -42,8 +40,6 @@ export interface LiveBusinessOpportunityResult {
   internalNotes?: unknown
 }
 
-const fallbackContactEmail = 'harbourviewcompany@gmail.com'
-const fallbackReplyAddressKey = ['contact', 'Email'].join('') as ListingReplyAddressKey
 const allowedImageProtocols = new Set(['https:'])
 const blockedImageHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
 
@@ -232,7 +228,7 @@ export async function getLiveBusinessOpportunities(
   }
 }
 
-export function normalizeLiveOpportunity(record: LiveOpportunityRecord): ListingWithReplyAddress | null {
+export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null {
   const id = asText(record.id)
   const title = asText(record.title)
   const description = asText(record.description)
@@ -248,7 +244,6 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    [fallbackReplyAddressKey]: fallbackContactEmail,
     image: imageSrc
       ? {
           src: imageSrc,
@@ -276,7 +271,7 @@ export async function getLiveConsumableOpportunities(fallbackListings: Listing[]
     const payload: unknown = await response.json()
     const liveListings = extractRecords(payload)
       .map((record) => normalizeLiveOpportunity(record as LiveOpportunityRecord))
-      .filter((listing): listing is ListingWithReplyAddress => Boolean(listing))
+      .filter((listing): listing is Listing => Boolean(listing))
 
     return liveListings.length > 0 ? liveListings : fallbackListings
   } catch {
