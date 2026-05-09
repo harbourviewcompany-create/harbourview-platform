@@ -1,20 +1,3 @@
-const forbiddenPublicStrings = [
-  'Supplier Directory',
-  'contactEmail',
-  'sourceUrl',
-  'sourceName',
-  'Evidence captured',
-  'provenanceSummary',
-  'sourceEvidence',
-  'verificationStatus',
-  'availabilityStatus',
-  'sellerAuthorizationStatus',
-  'internalReviewNotes',
-  'reviewedBy',
-  'lastReviewedAt',
-  'nextReviewDueAt',
-  'hello@harbourview.co',
-]
 'use client'
 
 import Link from 'next/link'
@@ -26,7 +9,7 @@ const navLinks = [
   { label: 'Submit Opportunity', href: '/marketplace/sell' },
   { label: 'Wanted Requests', href: '/marketplace/wanted' },
   { label: 'Genetics', href: '/marketplace/genetics' },
-  { label: 'Network', href: '/network' },
+  { label: 'Network Home', href: '/network' },
   { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Signals', href: '/signals' },
@@ -50,7 +33,6 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
           <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link-premium whitespace-nowrap">
