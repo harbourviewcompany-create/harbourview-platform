@@ -190,7 +190,7 @@ export default function HomePage() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/34 hover:bg-[#091a30] sm:p-7"
+                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/30 hover:bg-[#091a30] sm:p-7"
               >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-gold/70">
                   {section.eyebrow}
@@ -221,7 +221,7 @@ export default function HomePage() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/34 hover:bg-[#071425]"
+                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/30 hover:bg-[#071425]"
               >
                 <h3 className="font-serif text-2xl tracking-[-0.03em] text-[#f4f1eb]">
                   {section.title}
