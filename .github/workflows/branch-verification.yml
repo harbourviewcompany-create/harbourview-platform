@@ -36,6 +36,9 @@ jobs:
       - name: Intelligence fixtures projection
         run: npm run test:intelligence-fixtures
 
+      - name: Intelligence OS extraction
+        run: npm run test:intelligence-os
+
       - name: Listing quality
         run: npm run test:listing-quality
 

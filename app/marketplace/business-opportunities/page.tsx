@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { businessOpportunities } from '@/lib/fixtures/business-opportunities'
 import ListingCard from '@/components/ListingCard'
 import EmptyState from '@/components/EmptyState'
+import { getLiveBusinessOpportunities } from '@/lib/marketplace/liveOpportunities'
 
 export const metadata: Metadata = {
   title: 'Business Opportunities | Harbourview Network',
@@ -10,13 +11,15 @@ export const metadata: Metadata = {
     'Facilities, partnerships, acquisitions, licence-linked opportunities and structured commercial routes subject to legal, regulatory and commercial diligence.',
 }
 
-export default function BusinessOpportunitiesPage() {
+export default async function BusinessOpportunitiesPage() {
+  const opportunityFeed = await getLiveBusinessOpportunities(businessOpportunities)
+
   return (
     <>
       <section className="bg-navy text-white py-12">
         <div className="page-container">
           <p className="text-gold text-sm font-medium mb-1">
-          <Link href="/marketplace" className="hover:underline">Network</Link> /
+            <Link href="/marketplace" className="hover:underline">Network</Link> /
           </p>
           <h1 className="text-3xl font-bold mb-2">Business Opportunities</h1>
           <p className="text-gray-300 max-w-xl">
@@ -38,11 +41,21 @@ export default function BusinessOpportunitiesPage() {
             </p>
           </div>
 
-          {businessOpportunities.length === 0 ? (
+          {opportunityFeed.source === 'error' && (
+            <div className="mb-8 rounded-lg border border-gold/20 bg-white p-5">
+              <h2 className="text-navy font-semibold text-base mb-2">Reviewed opportunity feed temporarily unavailable</h2>
+              <p className="text-gray-600 text-sm max-w-3xl">
+                Harbourview is showing reviewed fallback summaries while the controlled live feed is unavailable.
+                Publication, routing and transaction details remain subject to separate review.
+              </p>
+            </div>
+          )}
+
+          {opportunityFeed.listings.length === 0 ? (
             <EmptyState category="Business Opportunities" />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {businessOpportunities.map((listing) => (
+              {opportunityFeed.listings.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>

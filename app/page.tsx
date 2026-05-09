@@ -6,10 +6,10 @@ import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/Publi
 const primarySections = [
   {
     title: 'Harbourview Network',
-    href: '/network',
+    href: '/marketplace',
     eyebrow: 'Network access',
     description:
-      'Explore controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
+      'Explore controlled commercial discovery across listings, wanted requests, reviewed categories and inquiry pathways.',
     cta: 'Enter Network',
   },
   {
@@ -80,7 +80,7 @@ const audiences = [
 const guardrails = [
   'No public counterparty exposure',
   'No guaranteed access claims',
-  'No live deal-flow claims',
+  'No live commercial-route claims',
   'Reviewed inquiry routing only',
 ]
 
@@ -102,7 +102,7 @@ const pathwaySteps = [
 const publicSections = [
   {
     title: 'Harbourview Network',
-    href: '/network',
+    href: '/marketplace',
     eyebrow: 'Commercial network',
     body: 'Explore reviewed categories for products, inputs, services, wanted requests and commercial access pathways.',
   },
@@ -180,25 +180,21 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-white/72 sm:text-lg">
-                Harbourview connects controlled network access, reviewed intelligence, regulatory
-                signals, compliance pathways, clinical education and confidential inquiry routes for
-                serious participants in regulated cannabis markets.
+                Harbourview connects controlled network access, reviewed intelligence, regulatory signals, compliance pathways, clinical education and confidential inquiry routes for serious participants in regulated cannabis markets.
               </p>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/52 sm:text-base">
-                Public pages support discovery and context. Contact details, counterparties, route
-                assessments and transaction-sensitive information are handled through reviewed private
-                workflows.
+                Public pages support discovery and context. Contact details, counterparties, route assessments and transaction-sensitive information are handled through reviewed private workflows.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link href="/network" className="btn-marketplace justify-center">
+                <Link href="/marketplace" className="btn-marketplace justify-center">
                   <span>Enter Network</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
 
                 <Link href="/intelligence" className="btn-intelligence justify-center">
-                  <span>Open Intelligence</span>
+                  <span>Request Intelligence</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
               </div>
@@ -240,9 +236,7 @@ export default function HomePage() {
             </h2>
 
             <p className="mt-5 text-base leading-8 text-white/60">
-              Harbourview is organized around controlled discovery, reviewed intelligence,
-              professional education, compliance orientation, assessment pathways and institutional
-              collaboration.
+              Harbourview is organized around controlled discovery, reviewed intelligence, professional education, compliance orientation, assessment pathways and institutional collaboration.
             </p>
           </div>
 
@@ -251,7 +245,7 @@ export default function HomePage() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/34 hover:bg-[#091a30] sm:p-7"
+                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/30 hover:bg-[#091a30] sm:p-7"
               >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-gold/70">
                   {section.eyebrow}
@@ -282,7 +276,7 @@ export default function HomePage() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/34 hover:bg-[#071425]"
+                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/30 hover:bg-[#071425]"
               >
                 <h3 className="font-serif text-2xl tracking-[-0.03em] text-[#f4f1eb]">
                   {section.title}
@@ -298,9 +292,7 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 rounded-sm border border-gold/10 bg-[#061120] p-5 text-xs leading-6 text-white/44 sm:text-sm sm:leading-7">
-            Harbourview provides commercial intelligence, controlled network access and reviewed
-            inquiry pathways. Public content is informational and does not constitute legal,
-            regulatory, medical, investment or compliance advice.
+            Harbourview provides commercial intelligence, controlled network access and reviewed inquiry pathways. Public content is informational and does not constitute legal, regulatory, medical, investment or compliance advice.
           </div>
         </div>
       </section>
@@ -349,9 +341,7 @@ export default function HomePage() {
             </div>
 
             <p className="mt-7 text-sm leading-7 text-white/54">
-              Harbourview does not publish confidential counterparty, source or
-              transaction-sensitive information on public pages. Inquiries are reviewed before
-              routing.
+              Harbourview does not publish confidential counterparty, source or transaction-sensitive information on public pages. Inquiries are reviewed before routing.
             </p>
           </div>
         </div>
@@ -379,8 +369,7 @@ export default function HomePage() {
           eyebrow="Available public sections"
           title="A controlled gateway to the live Harbourview routes."
         >
-          The live site now surfaces the public sections clearly while preserving review-first
-          positioning and avoiding overclaims.
+          The live site now surfaces the public sections clearly while preserving review-first positioning and avoiding overclaims.
         </SectionHeader>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -405,9 +394,7 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">
-              Request access, ask for intelligence, review public compliance orientation or begin a
-              confidential commercial conversation. Harbourview reviews fit and handles sensitive
-              information through controlled private workflows.
+              Request access, ask for intelligence, review public compliance orientation or begin a confidential commercial conversation. Harbourview reviews fit and handles sensitive information through controlled private workflows.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
