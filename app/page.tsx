@@ -6,7 +6,7 @@ import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/Publi
 const primarySections = [
   {
     title: 'Harbourview Network',
-    href: '/network',
+    href: '/marketplace',
     eyebrow: 'Network access',
     description:
       'Explore controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
@@ -102,7 +102,7 @@ const pathwaySteps = [
 const publicSections = [
   {
     title: 'Harbourview Network',
-    href: '/network',
+    href: '/marketplace',
     eyebrow: 'Commercial network',
     body: 'Explore reviewed categories for products, inputs, services, wanted requests and commercial access pathways.',
   },
@@ -192,13 +192,13 @@ export default function HomePage() {
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link href="/network" className="btn-marketplace justify-center">
+                <Link href="/marketplace" className="btn-marketplace justify-center">
                   <span>Enter Network</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
 
                 <Link href="/intelligence" className="btn-intelligence justify-center">
-                  <span>Open Intelligence</span>
+                  <span>Request Intelligence</span>
                   <span className="text-xl leading-none">→</span>
                 </Link>
               </div>
