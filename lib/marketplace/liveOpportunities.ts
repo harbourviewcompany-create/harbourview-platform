@@ -35,7 +35,6 @@ export interface LiveBusinessOpportunityResult {
   internalNotes?: unknown
 }
 
-const fallbackContactEmail = 'harbourviewcompany@gmail.com'
 const allowedImageProtocols = new Set(['https:'])
 const blockedImageHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
 
@@ -240,7 +239,6 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    contactEmail: fallbackContactEmail,
     image: imageSrc
       ? {
           src: imageSrc,
