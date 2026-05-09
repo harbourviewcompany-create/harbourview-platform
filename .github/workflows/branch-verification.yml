@@ -36,11 +36,17 @@ jobs:
       - name: Intelligence fixtures projection
         run: npm run test:intelligence-fixtures
 
+      - name: Intelligence OS extraction
+        run: npm run test:intelligence-os
+
       - name: Listing quality
         run: npm run test:listing-quality
 
       - name: Public visibility
         run: npm run test:visibility
+
+      - name: Services public leakage
+        run: npm run test:services-public-leakage
 
       - name: Build
         run: npm run build
@@ -102,5 +108,3 @@ jobs:
           path: verification-results/contact-production-visual/
           if-no-files-found: error
           retention-days: 30
-
-# branch-verification harness trigger
