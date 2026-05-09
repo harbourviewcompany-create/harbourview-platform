@@ -2,6 +2,8 @@
 
 This file tracks durable project readiness state for Harbourview Marketplace.
 
+<!-- Trigger commit: Branch Verification re-run -->
+
 ## Marketplace buy/sell conversion
 
 **Status:** BRANCH — `marketplace-buy-sell-conversion-v1`

@@ -1,113 +1,80 @@
 import type { Metadata } from 'next'
 
+import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
+import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
+import { EmptyState, FooterCta, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
+
 export const metadata: Metadata = {
-  title: 'Signals',
+  title: 'Signals | Harbourview',
   description:
-    'Global policy and regulatory change monitoring for regulated cannabis, hemp/CBD, and adjacent controlled-market pathways.',
+    'Global policy and regulatory change monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.',
 }
 
-const signalSections = [
-  {
-    title: 'Regulatory Changes',
-    description:
-      'Source-backed updates from regulators, agencies, and statutory authorities affecting regulated cannabis and adjacent controlled-market pathways.',
-  },
-  {
-    title: 'Policy Announcements',
-    description:
-      'Government and agency policy announcements that may alter compliance requirements, market structure, access conditions, or commercial timing.',
-  },
-  {
-    title: 'Import and Export Pathways',
-    description:
-      'Changes to cross-border rules, controlled-substance permissions, customs pathways, and authorization frameworks for compliant movement of products.',
-  },
-  {
-    title: 'Licensing and Market Access',
-    description:
-      'Updates to licensing regimes, application windows, eligibility rules, operating permissions, and country-level market entry conditions.',
-  },
-  {
-    title: 'Prescription and Patient Access',
-    description:
-      'Changes to medical cannabis prescribing rules, patient access pathways, dispensing criteria, and recognized treatment channels.',
-  },
-  {
-    title: 'Hemp, CBD and Controlled Cannabinoids',
-    description:
-      'Policy and regulatory movement affecting hemp, CBD, novel cannabinoids, controlled cannabinoid scheduling, and related product classifications.',
-  },
-  {
-    title: 'Enforcement and Compliance Actions',
-    description:
-      'Notable enforcement actions, compliance notices, agency decisions, and judicial outcomes relevant to regulated operators and market participants.',
-  },
-  {
-    title: 'Consultations and Pending Rule Changes',
-    description:
-      'Open consultations, proposed rules, legislative movement, and pending decisions that may signal future changes in regulated-market pathways.',
-  },
-]
+export default async function SignalsPage() {
+  const signals = await getPublicRegulatorySignals()
 
-export default function SignalsPage() {
   return (
-    <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Signals</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Global policy and regulatory change monitoring for regulated
-            cannabis, hemp/CBD and adjacent controlled-market pathways.
-          </p>
+    <main>
+      <PublicHero
+        eyebrow="Harbourview Signals"
+        title="Regulatory and policy change signals for controlled markets."
+        actions={[
+          { label: 'Request Signal Review', href: '/contact' },
+          { label: 'Intelligence Services', href: '/intelligence', variant: 'secondary' },
+        ]}
+      >
+        <p>
+          Source-backed monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Public summaries are informational only and do not guarantee market access, import eligibility or regulatory outcome.
+        </p>
+      </PublicHero>
+
+      <PublicSection tone="dark">
+        <div className="space-y-6">
+          {signals.length === 0 ? (
+            <EmptyState title="No published regulatory signals yet.">
+              Harbourview can review a country, policy update or commercial pathway on request.
+            </EmptyState>
+          ) : (
+            signals.map((signal) => (
+              <PublicCard key={signal.id} className="p-6">
+                <h2 className="text-lg font-semibold text-[#f4f1eb]">{signal.headline}</h2>
+                <div className="mt-2 text-xs uppercase tracking-[0.18em] text-gold/66">
+                  {signal.country_name} • {signal.signal_type} • {signal.signal_date}
+                </div>
+                <p className="mt-4 text-sm leading-7 text-white/66">{signal.public_summary}</p>
+                <p className="mt-3 text-sm leading-7 text-white/50">{signal.public_implication}</p>
+                {signal.canonical_source_url && (
+                  <a
+                    href={signal.canonical_source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-block text-xs font-semibold uppercase tracking-[0.16em] text-gold underline decoration-gold/40 underline-offset-4"
+                  >
+                    View source
+                  </a>
+                )}
+              </PublicCard>
+            ))
+          )}
         </div>
-      </section>
+      </PublicSection>
 
-      <section className="py-16">
-        <div className="page-container max-w-2xl">
-          <p className="text-gray-500 text-sm mb-10">
-            Harbourview Signals tracks official notices, regulator updates,
-            legislative movement, enforcement actions and country-level policy
-            shifts that may affect market access, compliance strategy and
-            commercial timing.
-          </p>
+      <FooterCta
+        eyebrow="Request signals access"
+        title="Need a dated, source-backed signal assessed?"
+        actions={[{ label: 'Request Review', href: '/contact' }]}
+      >
+        Request review for market access, compliance strategy, commercial timing or country-specific pathway monitoring.
+      </FooterCta>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12">
-            {signalSections.map((section) => (
-              <div key={section.title} className="border-t-2 border-gold pt-5">
-                <h3 className="font-semibold text-navy text-base mb-2">
-                  {section.title}
-                </h3>
-                <p className="text-gray-500 text-sm">{section.description}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-            <h2 className="text-navy font-bold text-xl mb-3">
-              Request Signals Access
-            </h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Request early access to dated, source-backed regulatory monitoring
-              for market access, compliance strategy and commercial timing.
-            </p>
-            <form className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
-              <label htmlFor="signals-email" className="sr-only">
-                Get notified when this launches
-              </label>
-              <input
-                id="signals-email"
-                name="email"
-                type="email"
-                placeholder="Get notified when this launches"
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
-              />
-              <button type="submit" className="btn-primary shrink-0 px-6 py-2 text-sm">
-                Notify Me
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
-    </>
+      <PublicSection tone="navy" className="pt-0">
+        <PublicCard muted className="p-5 text-xs leading-6 text-white/44">
+          {REGULATORY_SIGNALS_DISCLAIMER}
+        </PublicCard>
+      </PublicSection>
+    </main>
   )
 }

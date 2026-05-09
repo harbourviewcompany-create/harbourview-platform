@@ -1,47 +1,90 @@
-import { MarketplaceListingCard } from '@/components/marketplace/MarketplaceListingCard';
-import { publicMarketplaceListings } from '@/lib/marketplace/publicListings';
+import type { Metadata } from 'next'
+import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Reviewed Network Listings | Harbourview Network',
+  description:
+    'A safe public entry point for Harbourview Network listing categories, wanted requests and opportunity submissions.',
+  openGraph: {
+    title: 'Reviewed Network Listings | Harbourview Network',
+    description:
+      'Explore Harbourview Network categories and submit commercial opportunities through controlled review pathways.',
+  },
+}
+
+const accessCards = [
+  {
+    title: 'Explore the Network',
+    href: '/marketplace',
+    eyebrow: 'Network overview',
+    body: 'Review the public Harbourview Network categories for regulated products, inputs, services, wanted requests and commercial access pathways.',
+  },
+  {
+    title: 'Review Wanted Requests',
+    href: '/marketplace/wanted',
+    eyebrow: 'Buyer demand',
+    body: 'View public summaries of operator requirements and buyer-side demand that can be routed through Harbourview review.',
+  },
+  {
+    title: 'Submit an Opportunity',
+    href: '/marketplace/sell',
+    eyebrow: 'Controlled intake',
+    body: 'Submit supply, services, assets or commercial opportunities for Harbourview review before any publication or introduction pathway.',
+  },
+]
+
+const guardrails = [
+  'Public pages show controlled summaries only.',
+  'Private counterparty details are not published on this route.',
+  'Availability, terms and introduction fit remain subject to Harbourview review.',
+]
 
 export default function MarketplaceListingsPage() {
-  const sectionCount = new Set(publicMarketplaceListings.map((listing) => listing.section)).size;
-
   return (
-    <main className="min-h-screen bg-[#081423] px-6 py-16 text-[#F5F1E8] md:px-10 lg:px-16">
-      <section className="mx-auto max-w-7xl">
-        <p className="text-sm uppercase tracking-[0.28em] text-[#C6A55A]">Harbourview Network</p>
-        <div className="mt-4 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
-          <div>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
-              Network opportunities, supplier leads and surplus supply.
-            </h1>
-          </div>
-          <div className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]/70 p-5 text-sm leading-6 text-[#F5F1E8]/72">
-            <p>
-              These are Harbourview-reviewed Network opportunities. Availability, seller engagement and commercial handoff are handled through controlled qualification before any introduction.
-            </p>
-          </div>
-        </div>
+    <>
+      <PublicHero
+        eyebrow="Harbourview Network Listings"
+        title="Reviewed commercial pathways for qualified network opportunities."
+        actions={[
+          { label: 'Explore Network', href: '/marketplace' },
+          { label: 'View Wanted Requests', href: '/marketplace/wanted', variant: 'secondary' },
+          { label: 'Submit Opportunity', href: '/marketplace/sell', variant: 'secondary' },
+        ]}
+      >
+        <p>
+          Harbourview Network organizes public access around controlled category summaries, wanted requests and reviewed submission pathways.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Sensitive counterparty information, commercial terms and internal review context remain private unless a separate qualified introduction is appropriate.
+        </p>
+      </PublicHero>
 
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-2xl font-semibold text-[#C6A55A]">{publicMarketplaceListings.length}</p>
-            <p className="mt-1 text-sm text-[#F5F1E8]/65">Initial Network opportunities</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-2xl font-semibold text-[#C6A55A]">{sectionCount}</p>
-            <p className="mt-1 text-sm text-[#F5F1E8]/65">Network categories represented</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-2xl font-semibold text-[#C6A55A]">Review first</p>
-            <p className="mt-1 text-sm text-[#F5F1E8]/65">Qualification required before introduction</p>
-          </div>
-        </div>
-
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
-          {publicMarketplaceListings.map(listing => (
-            <MarketplaceListingCard key={listing.slug} listing={listing} />
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="Public access routes" title="Start from the appropriate reviewed pathway." />
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {accessCards.map((card) => (
+            <PublicLinkCard key={card.href} href={card.href} eyebrow={card.eyebrow} title={card.title}>
+              {card.body}
+            </PublicLinkCard>
           ))}
         </div>
-      </section>
-    </main>
-  );
+      </PublicSection>
+
+      <PublicSection tone="navy">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <SectionHeader eyebrow="Review standard" title="Public visibility is intentionally limited." className="mb-0" />
+          <PublicCard className="p-7">
+            <ul className="space-y-5">
+              {guardrails.map((item) => (
+                <li key={item} className="flex gap-4 text-sm leading-7 text-white/62">
+                  <span className="mt-3 h-px w-8 shrink-0 bg-gradient-to-r from-gold to-gold-light" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </PublicCard>
+        </div>
+      </PublicSection>
+    </>
+  )
 }

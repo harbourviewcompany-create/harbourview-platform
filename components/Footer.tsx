@@ -1,73 +1,50 @@
 import Link from 'next/link'
-
-const marketplaceLinks = [
-  { label: 'Network', href: '/marketplace' },
-  { label: 'Submit Opportunity', href: '/marketplace/sell' },
-  { label: 'Wanted Requests', href: '/marketplace/wanted' },
-  { label: 'New Products', href: '/marketplace/new-products' },
-  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
-  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
-  { label: 'Services', href: '/marketplace/services' },
-  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
-]
-
-const companyLinks = [
-  { label: 'Signals', href: '/signals' },
-  { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Intake', href: '/intake' },
-  { label: 'Contact', href: '/contact' },
-]
+import { footerGroups } from '@/lib/institutional/content'
 
 export default function Footer() {
   return (
-    <footer className="bg-navy text-gray-300 mt-auto">
-      <div className="page-container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Brand */}
-          <div className="md:col-span-1">
-            <p className="text-gold font-bold text-lg mb-2">Harbourview</p>
-            <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-              Commercial intelligence, strategic introductions, and market-access
-              support for serious participants in regulated markets.
-            </p>
-          </div>
+    <footer className="mt-auto border-t border-gold/10 bg-[#030b16] text-gray-300">
+      <div className="page-container py-12 sm:py-16">
+        <div className="border-b border-gold/10 pb-10">
+          <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
 
-          {/* Network */}
-          <div>
-            <p className="text-white font-semibold text-sm mb-3">Network</p>
-            <ul className="space-y-2 text-sm">
-              {marketplaceLinks.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
 
-          {/* Company */}
-          <div>
-            <p className="text-white font-semibold text-sm mb-3">Company</p>
-            <ul className="space-y-2 text-sm">
-              {companyLinks.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className="hover:text-gold transition-colors">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <p className="mt-5 max-w-3xl text-sm leading-7 text-white/58">
+            Controlled commercial network access, reviewed intelligence, professional education,
+            policy resources and institutional pathways for serious participants in regulated
+            cannabis markets.
+          </p>
         </div>
 
-        <div className="border-t border-navy-light mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
+        <div className="grid grid-cols-1 gap-9 pt-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
+          {footerGroups.map((group) => (
+            <div key={group.title}>
+              <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
+                {group.title}
+              </p>
+
+              <ul className="space-y-3 text-sm text-white/62">
+                {group.links.map((link) => (
+                  <li key={`${group.title}-${link.label}-${link.href}`}>
+                    <Link href={link.href} className="transition-colors hover:text-gold">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 flex flex-col gap-4 border-t border-gold/10 pt-6 text-xs text-white/38 sm:mt-12 sm:flex-row sm:items-end sm:justify-between">
           <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
-          <div className="flex gap-4">
-            <Link href="/legal/privacy" className="hover:text-gold transition-colors">Privacy</Link>
-            <Link href="/legal/terms" className="hover:text-gold transition-colors">Terms</Link>
-            <Link href="/legal/disclaimer" className="hover:text-gold transition-colors">Disclaimer</Link>
-          </div>
+
+          <p className="max-w-2xl leading-6 sm:text-right">
+            Harbourview is intentionally not an open-contact directory. Public pages support
+            discovery and context. Sensitive commercial, regulatory, documentary and counterparty
+            information is handled through reviewed private workflows.
+          </p>
         </div>
       </div>
     </footer>

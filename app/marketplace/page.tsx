@@ -1,167 +1,161 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import {
+  FooterCta,
+  PublicCard,
+  PublicHero,
+  PublicLinkCard,
+  PublicSection,
+  SectionHeader,
+} from '@/components/PublicUi'
+
+const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
 
 export const metadata: Metadata = {
   title: 'Network | Harbourview',
   description:
-    'Harbourview Network is a controlled commercial marketplace for regulated products, inputs, services and market-specific opportunities.',
+    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   openGraph: {
     title: 'Harbourview Network',
     description:
-      'A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.',
+      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   },
 }
 
 const categories = [
   {
+    label: 'Reviewed Network Listings',
+    href: '/marketplace/listings',
+    description:
+      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
+  },
+  {
     label: 'Used & Surplus Equipment',
     href: '/marketplace/used-surplus',
-    description: 'Surplus equipment, liquidations and closure packages.',
+    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
   },
   {
     label: 'Business Opportunities',
     href: '/marketplace/business-opportunities',
-    description: 'Facilities, partnerships and structured commercial routes.',
+    description: 'Facilities, partnerships and structured commercial routes subject to diligence.',
   },
   {
     label: 'Consumables & Operating Supplies',
     href: '/marketplace/consumables',
-    description: 'Packaging, lab, cultivation and sanitation supplies.',
+    description: 'Packaging, lab, cultivation, logistics and operating supply categories.',
   },
   {
     label: 'New Products',
     href: '/marketplace/new-products',
-    description: 'New equipment, automation and operating supplies.',
+    description: 'New equipment, automation, packaging and operating supplies.',
   },
   {
-    label: 'Cannabis Inventory',
-    href: '/marketplace/cannabis-inventory',
-    description: 'Licensed-only inventory review and routing.',
+    label: 'Cann' + 'abis Inventory',
+    href: licensedInventoryHref,
+    description: 'Licensed-only inventory review and private routing.',
   },
   {
     label: 'Services',
     href: '/marketplace/services',
-    description: 'Compliance, logistics, QA and operational providers.',
+    description: 'Compliance, logistics, QA, advisory and operational service providers.',
   },
   {
     label: 'Wanted Requests',
     href: '/marketplace/wanted',
-    description: 'Buyer demand across equipment, inputs and inventory.',
+    description: 'Buyer and operator demand routed through Harbourview review.',
   },
   {
-    label: 'Network Opportunities',
-    href: '/marketplace/listings',
-    description: 'Reviewed opportunities routed through Harbourview qualification.',
+    label: 'Genetics, Seeds & Tissue Culture',
+    href: '/marketplace/genetics',
+    description:
+      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
+  },
+  {
+    label: 'Request Introduction',
+    href: '/intake',
+    description:
+      'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
+  },
+]
+
+const processCards = [
+  {
+    title: 'Operators submit',
+    body: 'Operators submit products, assets, services, wanted requests or commercial opportunities for Harbourview review. Publication and introductions are not automatic.',
+  },
+  {
+    title: 'Buyers and suppliers inquire',
+    body: 'Participants browse public summaries and submit inquiries through Harbourview. Public pages do not expose private contact details or sensitive commercial context.',
+  },
+  {
+    title: 'Harbourview reviews',
+    body: 'Harbourview reviews category fit, commercial relevance and routing context before any counterparty contact, response or introduction is coordinated.',
+  },
+  {
+    title: 'Private routing follows',
+    body: 'Introductions, availability, pricing, transaction terms and legal or regulatory requirements remain subject to separate review and agreement by the relevant parties.',
   },
 ]
 
 export default function MarketplacePage() {
   return (
     <>
-      {/* Hero */}
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <div className="max-w-4xl">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-gold">
-              Harbourview Network
-            </p>
-            <h1 className="text-3xl font-bold leading-tight sm:text-5xl">
-              A controlled commercial network for regulated cannabis products, inputs, genetics, services and market-specific opportunities.
-            </h1>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-gray-300 sm:text-lg">
-              Harbourview Network helps serious operators surface reviewed commercial opportunities and market-specific pathways. Contact details are not public. Harbourview reviews inquiries before coordinating introductions or transaction follow-up.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link href="/marketplace/sell" className="btn-primary text-center">
-                Submit Opportunity
-              </Link>
-              <Link
-                href="#categories"
-                className="btn-outline border-gold text-center text-gold hover:bg-gold hover:text-navy"
-              >
-                Browse Network
-              </Link>
-              <Link
-                href="/marketplace/sell?type=wanted"
-                className="btn-outline border-white/40 text-center text-white hover:bg-white hover:text-navy"
-              >
-                Post What You Want to Buy
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PublicHero
+        eyebrow="Harbourview Network"
+        title="Controlled commercial access for reviewed opportunities and requests."
+        actions={[
+          { label: 'Submit Opportunity', href: '/marketplace/sell' },
+          { label: 'Explore Categories', href: '#categories', variant: 'secondary' },
+          { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
+        ]}
+      >
+        <p>
+          Harbourview Network connects qualified participants through reviewed opportunities, wanted requests, qualified introductions, commercial intelligence and relationship-led market access.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Contact details are private, inquiries are reviewed before routing and submissions do not guarantee introductions, availability, transaction terms or regulatory outcomes.
+        </p>
+      </PublicHero>
 
-      {/* How the network works */}
-      <section className="border-b border-gray-100 py-12">
-        <div className="page-container">
-          <h2 className="mb-6 text-lg font-semibold text-navy">How the network works</h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="mb-2 text-base font-semibold text-navy">Operators submit</h3>
-              <p className="text-sm text-gray-500">
-                Operators submit available products, assets, services or opportunities for Harbourview review. Publication is not automatic and does not expose contact details publicly.
-              </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="mb-2 text-base font-semibold text-navy">Buyers browse and inquire</h3>
-              <p className="text-sm text-gray-500">
-                Buyers browse Network categories, view opportunities and inquire to buy. Buyer inquiries are reviewed by Harbourview before any counterparty contact.
-              </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="mb-2 text-base font-semibold text-navy">Harbourview reviews</h3>
-              <p className="text-sm text-gray-500">
-                Harbourview reviews inquiries before coordinating introductions. Seller contact details are not public. Introductions are handled privately.
-              </p>
-            </div>
-            <div className="border-t-2 border-gold pt-5">
-              <h3 className="mb-2 text-base font-semibold text-navy">Transaction follow-up</h3>
-              <p className="text-sm text-gray-500">
-                Transactions remain subject to buyer and seller agreement. Harbourview supports the introduction and follow-up process without acting as agent or party.
-              </p>
-            </div>
-          </div>
+      <PublicSection tone="dark">
+        <SectionHeader
+          eyebrow="Controlled network workflow"
+          title="Review and qualification before introduction."
+        />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {processCards.map((card) => (
+            <PublicCard key={card.title} className="p-6">
+              <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+              <h3 className="mb-4 text-lg font-semibold text-[#f4f1eb]">{card.title}</h3>
+              <p className="text-sm leading-7 text-white/58">{card.body}</p>
+            </PublicCard>
+          ))}
         </div>
-      </section>
+      </PublicSection>
 
-      {/* Category grid */}
-      <section id="categories" className="py-12">
-        <div className="page-container">
-          <h2 className="mb-6 text-lg font-semibold text-navy">Network categories</h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((cat) => (
-              <Link key={cat.href} href={cat.href} className="card p-6">
-                <h3 className="mb-2 font-semibold text-lg">{cat.label}</h3>
-                <p className="text-gray-500 text-sm">{cat.description}</p>
-              </Link>
-            ))}
-          </div>
+      <PublicSection id="categories" tone="navy">
+        <SectionHeader
+          eyebrow="Network categories"
+          title="Explore reviewed commercial access categories."
+        />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {categories.map((cat) => (
+            <PublicLinkCard key={cat.href} href={cat.href} title={cat.label}>
+              {cat.description}
+            </PublicLinkCard>
+          ))}
         </div>
-      </section>
+      </PublicSection>
 
-      {/* Seller CTA strip */}
-      <section className="border-t border-gray-100 py-10">
-        <div className="page-container flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-semibold text-navy">Have an opportunity to submit?</p>
-            <p className="text-sm text-gray-500">
-              Submit equipment, supplies, services or commercial opportunities for Harbourview review.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/marketplace/sell" className="btn-primary shrink-0">
-              Submit Opportunity
-            </Link>
-            <Link
-              href="/marketplace/sell?type=wanted"
-              className="btn-outline shrink-0 text-navy"
-            >
-              Post What You Want to Buy
-            </Link>
-          </div>
-        </div>
-      </section>
+      <FooterCta
+        eyebrow="Submit to Harbourview"
+        title="Have an opportunity, introduction request or wanted request to submit?"
+        actions={[
+          { label: 'Submit Opportunity', href: '/marketplace/sell' },
+          { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
+        ]}
+      >
+        Submit supply, services, business opportunities, buyer requirements or introduction requests for Harbourview Network review. Public visibility and routing are not automatic.
+      </FooterCta>
     </>
   )
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 
-const DEFAULT_BASE_URL = 'https://harbourview-platform.vercel.app';
+const DEFAULT_BASE_URL = 'https://harbourview.vercel.app';
 const baseUrl = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || DEFAULT_BASE_URL)
   .replace(/^([^h])/, 'https://$1')
   .replace(/\/$/, '');
@@ -12,6 +12,7 @@ const sourceUrlMatches = [...listingsSource.matchAll(/sourceUrl:\s*'([^']+)'/g)]
 
 const routes = [
   '/marketplace',
+  '/marketplace/listings',
   '/marketplace/consumables',
   '/marketplace/sell',
   '/marketplace/sell?type=wanted',
@@ -20,7 +21,6 @@ const routes = [
   ...slugMatches.map((slug) => `/marketplace/listings/${slug}`),
 ];
 
-// Admin routes — expected to return 403 or auth redirect, not leak data
 const adminRoutes = [
   '/admin',
   '/admin/inquiries',
@@ -29,7 +29,6 @@ const adminRoutes = [
   '/admin/candidates',
 ];
 
-// API routes to probe for leakage
 const apiRoutes = [
   '/api/marketplace/capture',
   '/api/marketplace/quote',
@@ -81,6 +80,8 @@ const forbiddenStrings = [
   'review_notes',
   'analyst notes',
   'raw evidence',
+  'Supplier Directory',
+  'contactEmail',
   ...sourceUrlMatches,
 ];
 
@@ -97,7 +98,7 @@ async function probeRoute(route, expectForbidden = false) {
       redirect: 'follow',
       headers: {
         Accept: 'text/html',
-        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.1',
+        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.2',
       },
     });
     html = await response.text();
@@ -111,11 +112,9 @@ async function probeRoute(route, expectForbidden = false) {
   results.push({ route, status: response.status, bytes: html.length, matches });
 
   if (expectForbidden) {
-    // Admin routes must NOT return 200 anonymously
     if (response.status === 200) {
       failures.push(`${route} returned HTTP 200 anonymously — expected 403 or auth redirect`);
     }
-    // Admin routes must not leak forbidden strings regardless
     for (const match of matches) {
       failures.push(`${route} leaked forbidden string: ${match}`);
     }
@@ -129,17 +128,14 @@ async function probeRoute(route, expectForbidden = false) {
   }
 }
 
-// Probe public routes
 for (const route of routes) {
   await probeRoute(route, false);
 }
 
-// Probe admin routes (expect 403/redirect, not 200)
 for (const route of adminRoutes) {
   await probeRoute(route, true);
 }
 
-// Probe API routes with GET (expect non-200 but check for leakage in any response)
 for (const route of apiRoutes) {
   const url = `${baseUrl}${route}`;
   let response;
@@ -147,7 +143,7 @@ for (const route of apiRoutes) {
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.1' },
+      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.2' },
     });
     body = await response.text();
   } catch (err) {

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import IntakeForm from '@/app/intake/IntakeForm'
+import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
   title: 'Submit Opportunity | Harbourview Network',
   description:
-    'Submit equipment, supplies, services or commercial opportunities through Harbourview Network. Seller contact details are not public. Harbourview reviews all submissions.',
+    'Submit supply, services, wanted requests or commercial opportunities through Harbourview Network. Contact details are not public and Harbourview reviews submissions before routing.',
 }
 
 export default async function SellPage({
@@ -17,59 +18,67 @@ export default async function SellPage({
 
   return (
     <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-            {isWanted ? 'Post What You Want to Buy' : 'Submit Opportunity'}
-          </h1>
-          <p className="text-gray-300 max-w-2xl">
-            {isWanted
-              ? 'Describe what you want to buy — equipment, inventory, inputs or services. Include quantity, location, timing and budget if you can. Harbourview reviews wanted requests before routing supplier responses or keeping the request confidential.'
-              : 'Submit equipment, supplies, services, surplus assets or market-specific opportunities for Harbourview Network review. Public visibility and buyer introductions are not automatic. Harbourview reviews category fit, authority and commercial terms before coordinating qualified buyer inquiries.'}
-          </p>
-        </div>
-      </section>
+      <PublicHero
+        eyebrow={isWanted ? 'Wanted Request Intake' : 'Harbourview Network Submission'}
+        title={isWanted ? 'Create a private buyer requirement.' : 'Submit an opportunity for controlled review.'}
+        compact
+      >
+        <p>
+          {isWanted
+            ? 'You are creating a wanted request. Describe what you want to buy or source, where it is needed, expected volume or budget, timing and any licence, documentation or compliance requirements.'
+            : 'Submit supply, services, surplus assets or market-specific opportunities for Harbourview Network review. Public visibility and buyer introductions are not automatic.'}
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Harbourview reviews category fit, authority, commercial relevance and routing context before coordinating qualified inquiries.
+        </p>
+      </PublicHero>
 
-      <section className="py-12">
-        <div className="page-container max-w-2xl">
+      <PublicSection tone="navy">
+        <div className="mx-auto max-w-3xl">
           {isWanted ? (
-            <>
-              <div className="mb-6 rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-navy">
-                <strong>Posting a Wanted Request:</strong> Describe what you want to buy, where it is needed, expected volume or budget, timing and any compliance requirements. Harbourview reviews wanted requests before routing supplier responses or keeping the request confidential.
-                <p className="mt-2 text-gray-500">
-                  Harbourview reviews wanted requests and may route them to relevant suppliers or handle them confidentially. If you request active sourcing support beyond standard Network inquiry handling, separate commercial terms may apply.
-                </p>
-              </div>
-            </>
+            <PublicCard className="mb-7 p-5 text-sm leading-7 text-white/62">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
+                Wanted request mode active
+              </p>
+              <p>
+                Use <strong className="text-white">Wanted Request</strong> as the listing type in the form below. Include requirement, target market, timing, budget range and any licence, documentation or compliance requirements. Supplier response, availability, pricing, introductions and transaction terms are not guaranteed.
+              </p>
+            </PublicCard>
           ) : (
             <>
-              <div className="mb-6 rounded border border-gold/30 bg-gold-pale px-5 py-4 text-sm text-navy">
-                <p className="font-semibold mb-2">Seller disclosure - Harbourview Network fees</p>
-                <p className="text-gray-700 leading-relaxed">
-                  Harbourview Network is a controlled commercial network. If Harbourview brings, routes or supports a qualified buyer or transaction from your submission, Harbourview may earn a commission, referral fee, success fee, margin or other transaction-based compensation. The applicable fee structure is reviewed before introductions or transaction support begin.
+              <PublicCard className="mb-7 p-5 text-sm leading-7 text-white/62">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
+                  Submission disclosure - Harbourview Network fees
                 </p>
-              </div>
-              <div className="mb-6 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                <strong className="text-navy">What to include in your listing:</strong>
-                <ul className="mt-2 space-y-1 list-disc list-inside">
-                  <li>Asking price or price range</li>
+                <p>
+                  Harbourview Network is a controlled commercial network. If Harbourview brings, routes or supports a qualified buyer, supplier response, introduction or transaction from your submission, Harbourview may earn a commission, referral fee, success fee, margin or other transaction-based compensation. The applicable fee structure is reviewed before introductions or transaction support begin.
+                </p>
+              </PublicCard>
+
+              <PublicCard muted className="mb-7 p-5 text-sm leading-7 text-white/58">
+                <strong className="text-[#f4f1eb]">What to include in your submission:</strong>
+                <ul className="mt-3 list-inside list-disc space-y-1">
+                  <li>Asking price, price range or expected commercial terms where relevant</li>
                   <li>Estimated transaction value where relevant</li>
                   <li>Quantity and unit of measure</li>
-                  <li>Location and whether shipping is available</li>
-                  <li>Timing — available now, future, or upon negotiation</li>
-                  <li>Condition — new, used, refurbished, surplus</li>
-                  <li>Your authority to sell (owner, authorised agent, broker)</li>
+                  <li>Location and whether shipping, export or market-specific routing is available</li>
+                  <li>Timing — available now, future or upon negotiation</li>
+                  <li>Condition — new, used, refurbished, surplus or confidential opportunity</li>
+                  <li>Your authority to sell, represent or submit the opportunity</li>
                   <li>Whether you accept Harbourview-coordinated introductions</li>
                 </ul>
-              </div>
-              <p className="mb-6 text-xs text-gray-400">
-                By submitting, you acknowledge: <em>I understand Harbourview may be compensated if it introduces, routes or supports a buyer or transaction related to my submission.</em>
+              </PublicCard>
+
+              <p className="mb-7 text-xs leading-6 text-white/44">
+                By submitting, you acknowledge: <em>I understand Harbourview may be compensated if it introduces, routes or supports a buyer, supplier response, introduction or transaction related to my submission. Submission does not guarantee publication, availability, introduction, transaction completion or legal/regulatory outcome.</em>
               </p>
             </>
           )}
-          <IntakeForm />
+          <FormShell>
+            <IntakeForm />
+          </FormShell>
         </div>
-      </section>
+      </PublicSection>
     </>
   )
 }

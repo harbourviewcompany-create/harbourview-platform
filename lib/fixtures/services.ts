@@ -12,20 +12,18 @@ export const serviceListings: ServiceListing[] = [
     location: 'Remote / On-site nationwide',
     tags: ['Compliance', 'Regulatory', 'SOP', 'Audit', 'Licensed Operators', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-002',
     category: 'services',
     title: 'Extraction Lab Design & Build — New Projects Open, Licensed Processing Operations',
     description:
-      'Full-service extraction facility design and build-out, accepting new project engagements for licensed extraction operators and processing operations. Services span initial floor plan through equipment selection, electrical and HVAC coordination, and final commissioning. C1D1/C1D2 classified room specialists. Projects completed across CA, OR, CO, and NV. Suitable for licensed processors building new extraction capacity or upgrading existing facilities. Engagement scope and timeline reviewed by inquiry. Available through Harbourview.',
+      'Full-service extraction facility design and build-out, accepting new project engagements for licensed extraction operators and processing operations. Services span initial floor plan through equipment selection, electrical and HVAC coordination, and final commissioning. C1D1/C1D2 classified room specialists. Projects completed across CA, OR, CO, and NV at commercial scale. Suitable for licensed processors building new extraction capacity or upgrading existing facilities. Engagement scope and timeline reviewed by inquiry. Available through Harbourview.',
     serviceType: 'Facility Design & Construction',
     deliveryMethod: 'on-site',
     location: 'Western US',
-    tags: ['Extraction Lab', 'Facility Build', 'C1D1', 'Design', 'New Capacity', '2,000 sq ft', 'Inquiry Required'],
+    tags: ['Extraction Lab', 'Facility Build', 'C1D1', 'Design', 'Commercial Scale', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-003',
@@ -38,7 +36,6 @@ export const serviceListings: ServiceListing[] = [
     location: 'Remote — serving US operators',
     tags: ['Accounting', 'Tax', '280E', 'Finance', 'Multi-State', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-004',
@@ -51,19 +48,17 @@ export const serviceListings: ServiceListing[] = [
     location: 'Nationwide',
     tags: ['Security', 'Camera Systems', 'Access Control', 'Compliance', 'Licensed Operators', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-005',
     category: 'services',
     title: 'Cannabis Licensing & Application Support — New Licence Applications, Expanding Operators',
     description:
-      'Regulatory application writing and licensing support available for new licence applications and expanding licensed cannabis operators. Services cover business plan development, community impact documentation, merit scoring optimisation, and post-award compliance program setup. Suitable for new applicants and licensed operators seeking additional licence types or entering new state markets. Engagement scope and jurisdiction reviewed by inquiry. Available through Harbourview — inquiry required.',
+      'Regulatory application writing and licensing support available for new licence applications and expanding licensed cannabis operators. Services cover business plan development, community impact documentation, merit scoring optimisation, and post-award compliance program setup. Suitable for new applicants and licensed operators seeking additional licence types or entering new state markets at commercial scale. Engagement scope and jurisdiction reviewed by inquiry. Available through Harbourview — inquiry required.',
     serviceType: 'Licensing',
     deliveryMethod: 'both',
     location: 'Remote / On-site',
-    tags: ['Licensing', 'Application', 'Regulatory', 'New License', 'Expanding Operators', '10-page application package', 'Inquiry Required'],
+    tags: ['Licensing', 'Application', 'Regulatory', 'Commercial Scale', 'Expanding Operators', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]
