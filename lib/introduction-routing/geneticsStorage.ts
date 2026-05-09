@@ -1,9 +1,15 @@
 import { GeneticsRoutingRecord } from './geneticsExecution'
 
-type SupabaseLike = {
+export type SupabaseLike = {
   from: (table: string) => {
-    insert: (payload: unknown) => { select?: (cols?: string) => { single?: () => Promise<{ data: unknown; error: unknown }> } }
-    update: (payload: unknown) => { eq: (column: string, value: string) => Promise<{ data: unknown; error: unknown }> }
+    insert: (payload: unknown) => {
+      select?: (cols?: string) => {
+        single?: () => Promise<{ data: unknown; error: unknown }>
+      }
+    }
+    update: (payload: unknown) => {
+      eq: (column: string, value: string) => Promise<{ data: unknown; error: unknown }>
+    }
   }
 }
 
