@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:visibility": "node scripts/test-public-provenance-visibility.mjs",
+    "test:visibility": "node scripts/test-public-provenance-visibility.mjs && node scripts/test-business-opportunities-public-leakage.mjs",
     "test:listing-quality": "node scripts/test-listing-quality.mjs",
     "test:compliance-visibility": "node scripts/test-compliance-visibility.mjs",
     "test:clinical-education": "node scripts/test-clinical-education-guardrails.mjs",
@@ -17,8 +17,14 @@
     "test:regulatory-signals-contract": "node scripts/test-regulatory-signals-contract.mjs",
     "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
+    "test:new-products-equipment-intake": "node scripts/test-new-products-equipment-intake.mjs",
+    "test:services-public-leakage": "node scripts/test-services-public-leakage.mjs",
+    "test:intelligence-fixtures": "node scripts/test-intelligence-fixture-projection.mjs",
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
     "test:used-surplus-public-leakage": "node scripts/test-used-surplus-public-leakage.mjs",
+    "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
+    "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
+    "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
@@ -30,7 +36,8 @@
     "next": "^15.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.174.0"
+    "three": "^0.174.0",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

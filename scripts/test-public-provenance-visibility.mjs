@@ -1,26 +1,24 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs'
 
 const PUBLIC_RENDER_FILES = [
   'app/marketplace/page.tsx',
+  'app/marketplace/listings/page.tsx',
   'app/marketplace/consumables/page.tsx',
   'app/marketplace/wanted/page.tsx',
   'app/marketplace/sell/page.tsx',
   'app/marketplace/listings/[slug]/page.tsx',
+  'app/marketplace/genetics/page.tsx',
+  'app/marketplace/genetics/[slug]/page.tsx',
   'components/marketplace/MarketplaceListingCard.tsx',
   'components/ListingCard.tsx',
-  'lib/fixtures/consumables.ts'
-];
+  'lib/fixtures/consumables.ts',
+]
 
-const ADMIN_FILES = [
-  'app/admin/(protected)/listings/page.tsx'
-];
+const ADMIN_FILES = ['app/admin/(protected)/listings/page.tsx']
 
-const ADMIN_GUARD_FILES = [
-  'app/admin/(protected)/layout.tsx',
-  'lib/auth/adminGuard.ts'
-];
+const ADMIN_GUARD_FILES = ['app/admin/(protected)/layout.tsx', 'lib/auth/adminGuard.ts']
 
-const PUBLIC_PROJECTION_FILE = 'lib/marketplace/publicListings.ts';
+const PUBLIC_PROJECTION_FILE = 'lib/marketplace/publicListings.ts'
 
 const PUBLIC_FORBIDDEN_PATTERNS = [
   /View source listing/i,
@@ -80,15 +78,22 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /Source-backed/i,
   /source page/i,
   /source listing/i,
-  /source lead/i
-];
+  /source lead/i,
+  /equipnet/i,
+  /labx/i,
+  /machinio/i,
+  /thc label solutions/i,
+  /marijuana packaging/i,
+  /Supplier Directory/i,
+  /contactEmail/,
+]
 
 const PUBLIC_PROJECTION_REQUIRED_PATTERNS = [
   /PublicMarketplaceListing/,
   /toPublicMarketplaceListing/,
   /publicMarketplaceListings/,
-  /getPublicMarketplaceListing/
-];
+  /getPublicMarketplaceListing/,
+]
 
 const PUBLIC_PROJECTION_FORBIDDEN_PATTERNS = [
   /sourceUrl:/,
@@ -132,8 +137,8 @@ const PUBLIC_PROJECTION_FORBIDDEN_PATTERNS = [
   /lot_tracking_available:/,
   /requires_license_review:/,
   /restricted_item:/,
-  /review_notes:/
-];
+  /review_notes:/,
+]
 
 const ADMIN_REQUIRED_PATTERNS = [
   /View source listing/i,
@@ -145,8 +150,8 @@ const ADMIN_REQUIRED_PATTERNS = [
   /listing\.sourceType/,
   /listing\.sourceEvidence/,
   /listing\.provenanceSummary/,
-  /listing\.internalReviewNotes/
-];
+  /listing\.internalReviewNotes/,
+]
 
 const ADMIN_GUARD_REQUIRED_PATTERNS = [
   /requireAdminAuth/,
@@ -154,57 +159,66 @@ const ADMIN_GUARD_REQUIRED_PATTERNS = [
   /unauthorized/,
   /forbidden/,
   /admin.*operator/s,
-  /analyst.*viewer/s
-];
+  /analyst.*viewer/s,
+]
 
 function read(path) {
-  return readFileSync(path, 'utf8');
+  return readFileSync(path, 'utf8')
 }
 
-const failures = [];
+const failures = []
 
 for (const path of PUBLIC_RENDER_FILES) {
-  const content = read(path);
+  const content = read(path)
+
   for (const pattern of PUBLIC_FORBIDDEN_PATTERNS) {
     if (pattern.test(content)) {
-      failures.push(`Public leakage: ${path} matched ${pattern}`);
+      failures.push(`Public leakage: ${path} matched ${pattern}`)
     }
   }
 }
 
-const publicProjectionContent = read(PUBLIC_PROJECTION_FILE);
+const publicProjectionContent = read(PUBLIC_PROJECTION_FILE)
+
 for (const pattern of PUBLIC_PROJECTION_REQUIRED_PATTERNS) {
   if (!pattern.test(publicProjectionContent)) {
-    failures.push(`Public projection missing: expected ${pattern}`);
+    failures.push(`Public projection missing: expected ${pattern}`)
   }
 }
+
 for (const pattern of PUBLIC_PROJECTION_FORBIDDEN_PATTERNS) {
   if (pattern.test(publicProjectionContent)) {
-    failures.push(`Public projection exposes internal field: ${PUBLIC_PROJECTION_FILE} matched ${pattern}`);
+    failures.push(`Public projection exposes internal field: ${PUBLIC_PROJECTION_FILE} matched ${pattern}`)
   }
 }
 
-const adminContent = ADMIN_FILES.map(read).join('\n');
+const adminContent = ADMIN_FILES.map(read).join('\n')
+
 for (const pattern of ADMIN_REQUIRED_PATTERNS) {
   if (!pattern.test(adminContent)) {
-    failures.push(`Admin visibility missing: expected ${pattern}`);
+    failures.push(`Admin visibility missing: expected ${pattern}`)
   }
 }
 
-const adminGuardContent = ADMIN_GUARD_FILES.map(read).join('\n');
+const adminGuardContent = ADMIN_GUARD_FILES.map(read).join('\n')
+
 for (const pattern of ADMIN_GUARD_REQUIRED_PATTERNS) {
   if (!pattern.test(adminGuardContent)) {
-    failures.push(`Admin role guard missing: expected ${pattern}`);
+    failures.push(`Admin role guard missing: expected ${pattern}`)
   }
 }
 
 if (failures.length) {
-  console.error('Provenance visibility test failed:');
-  for (const failure of failures) console.error(`- ${failure}`);
-  process.exit(1);
+  console.error('Provenance visibility test failed:')
+
+  for (const failure of failures) {
+    console.error(`- ${failure}`)
+  }
+
+  process.exit(1)
 }
 
-console.log('ok public listing render files do not expose source/provenance fields');
-console.log('ok public listing projection omits internal source/provenance fields');
-console.log('ok admin listing review retains source/provenance/evidence fields');
-console.log('ok admin provenance route uses server-side role guard');
+console.log('ok public listing render files do not expose source/provenance fields')
+console.log('ok public listing projection omits internal source/provenance fields')
+console.log('ok admin listing review retains source/provenance/evidence fields')
+console.log('ok admin provenance route uses server-side role guard')

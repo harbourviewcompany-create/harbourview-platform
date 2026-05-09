@@ -12,7 +12,6 @@ export const serviceListings: ServiceListing[] = [
     location: 'Remote / On-site nationwide',
     tags: ['Compliance', 'Regulatory', 'SOP', 'Audit', 'Licensed Operators', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-002',
@@ -25,7 +24,6 @@ export const serviceListings: ServiceListing[] = [
     location: 'Western US',
     tags: ['Extraction Lab', 'Facility Build', 'C1D1', 'Design', 'Commercial Scale', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-003',
@@ -38,7 +36,6 @@ export const serviceListings: ServiceListing[] = [
     location: 'Remote — serving US operators',
     tags: ['Accounting', 'Tax', '280E', 'Finance', 'Multi-State', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-004',
@@ -51,7 +48,6 @@ export const serviceListings: ServiceListing[] = [
     location: 'Nationwide',
     tags: ['Security', 'Camera Systems', 'Access Control', 'Compliance', 'Licensed Operators', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
   {
     id: 'sv-005',
@@ -64,6 +60,5 @@ export const serviceListings: ServiceListing[] = [
     location: 'Remote / On-site',
     tags: ['Licensing', 'Application', 'Regulatory', 'Commercial Scale', 'Expanding Operators', 'Inquiry Required'],
     postedDate: '2026-05-05',
-    contactEmail: 'harbourviewcompany@gmail.com',
   },
 ]
