@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="staging.harbourview.co"
-APP_USER="harbourview"
-APP_ROOT="/opt/harbourview"
-APP_PORT="3000"
+DOMAIN="${DOMAIN:-staging.harbourview.co}"
+APP_USER="${APP_USER:-harbourview}"
+APP_ROOT="${APP_ROOT:-/opt/harbourview}"
+APP_PORT="${APP_PORT:-3000}"
+SSH_TRUSTED_IP="${SSH_TRUSTED_IP:-}"
 
 echo "== Harbourview VPS provisioning started =="
 
@@ -16,7 +17,7 @@ fi
 echo "== Updating system =="
 apt update
 apt upgrade -y
-apt install -y curl git rsync unzip ca-certificates gnupg ufw debian-keyring debian-archive-keyring apt-transport-https
+apt install -y curl git rsync unzip ca-certificates gnupg ufw debian-keyring debian-archive-keyring apt-transport-https iproute2 util-linux
 
 echo "== Installing Node.js 22 from NodeSource =="
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
@@ -45,6 +46,7 @@ echo "== Creating Harbourview directory structure =="
 mkdir -p "$APP_ROOT/releases"
 mkdir -p "$APP_ROOT/shared"
 mkdir -p "$APP_ROOT/backups"
+mkdir -p "$APP_ROOT/logs"
 chown -R "$APP_USER:$APP_USER" "$APP_ROOT"
 
 echo "== Creating placeholder environment file =="
@@ -110,7 +112,13 @@ systemctl reload caddy || systemctl restart caddy
 echo "== Configuring UFW firewall =="
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow OpenSSH
+if [ -n "$SSH_TRUSTED_IP" ]; then
+  echo "Restricting SSH to trusted IP: $SSH_TRUSTED_IP"
+  ufw allow from "$SSH_TRUSTED_IP" to any port 22 proto tcp
+else
+  echo "SSH_TRUSTED_IP not set. Allowing OpenSSH broadly for staging access. Restrict before production."
+  ufw allow OpenSSH
+fi
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
