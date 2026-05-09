@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ')
 }
 
 type PublicAction = {

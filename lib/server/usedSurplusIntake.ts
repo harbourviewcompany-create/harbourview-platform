@@ -159,7 +159,6 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
     condition: candidate.condition ?? 'used',
     tags: candidate.tags,
     postedDate: (candidate.discovered_at ?? new Date().toISOString()).split('T')[0],
-    contactEmail: PUBLIC_FALLBACK_EMAIL,
     image: imageCanBePublic
       ? {
           src: candidate.image_url,
@@ -277,7 +276,6 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
 function fallbackListings() {
   return usedSurplusListings.map((listing) => ({
     ...listing,
-    contactEmail: PUBLIC_FALLBACK_EMAIL,
   }))
 }
 

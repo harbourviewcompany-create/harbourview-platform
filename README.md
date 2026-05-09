@@ -1,17 +1,20 @@
-# Harbourview Marketplace Reset
+# Harbourview Platform
 
-This repository has been intentionally cleared as the old Harbourview Marketplace build was causing deployment confusion.
+Harbourview is a Next.js App Router platform for the public Harbourview Network experience and protected admin workflows.
 
-Do not continue building from the previous app, routes or deployment state.
+## Platform baseline
 
-Next action: rebuild Harbourview Marketplace v1 from a clean source tree.
-
-Required rebuild direction:
 - Next.js App Router
 - TypeScript
-- Tailwind
-- Public marketplace pages must render without database dependency
-- No old middleware
-- No legacy CTA language
-- No loading-only marketplace pages
-- Production branch must be main
+- Tailwind CSS
+- Public marketplace and network pages render without requiring a database dependency for baseline page delivery
+- Redirects are managed centrally in `middleware.ts` for legacy route compatibility
+- Protected admin paths remain server-guarded and must deny anonymous access
+- Production branch remains `main`
+
+## Governance guardrails
+
+- Do not expose private provenance, source evidence, contactEmail, or internal review fields in public routes.
+- Do not weaken admin role protections or bypass auth checks on `/admin` routes.
+- Keep public positioning consistent with: **"Market access backed by intelligence and relationships."**
+- Keep contact fallback aligned to `harbourviewcompany@gmail.com` unless verified governance docs and implementation are updated together.
