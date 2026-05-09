@@ -10,8 +10,8 @@ type SupabaseInsertResult = {
 
 type SupabaseLike = {
   from: (table: string) => {
-    insert: (payload: Record<string, unknown> | Array<Record<string, unknown>>) => SupabaseInsertResult
-    update: (payload: Record<string, unknown>) => { eq: (column: string, value: string) => SupabaseMutationResult }
+    insert: (payload: any) => SupabaseInsertResult
+    update: (payload: any) => { eq: (column: string, value: string) => SupabaseMutationResult }
   }
 }
 
