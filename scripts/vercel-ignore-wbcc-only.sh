@@ -89,6 +89,12 @@ if [[ -z "$non_wbcc_files" ]]; then
   exit 0
 fi
 
+if printf '%s\n' "$non_wbcc_files" | grep -Eq '^(package\.json|package-lock\.json|app/|components/|lib/|scripts/test-|tests/)'; then
+  echo "Vercel ignore: preview branch changed build/runtime/verification files; continue build."
+  printf '%s\n' "$non_wbcc_files"
+  exit 1
+fi
+
 echo "Vercel ignore: preview branch has Harbourview-relevant changes but no deploy intent; skip build."
 printf '%s\n' "$non_wbcc_files"
 exit 0
