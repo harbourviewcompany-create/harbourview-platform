@@ -1,6 +1,61 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+const entryPoints = [
+  {
+    title: 'Network',
+    href: '/network',
+    body: 'Controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
+  },
+  {
+    title: 'Opportunities',
+    href: '/opportunities',
+    body: 'Reviewed commercial openings, country access opportunities, distribution mandates and strategic partnerships.',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    body: 'Country, pathway, category and public-safe intelligence for disciplined market-access decisions.',
+  },
+  {
+    title: 'Education',
+    href: '/education',
+    body: 'Non-promotional education for clinical, pharmacy, quality, commercial and regulatory stakeholders.',
+  },
+  {
+    title: 'Policy & Standards',
+    href: '/policy-standards',
+    body: 'Regulator-facing policy resources, standards context, public-health safeguards and market conduct principles.',
+  },
+  {
+    title: 'Assessments',
+    href: '/assessments',
+    body: 'Controlled intake pathways for readiness, route feasibility, documentation and due diligence preparedness.',
+  },
+  {
+    title: 'Institutional Partnerships',
+    href: '/institutional-partnerships',
+    body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
+  },
+]
+
+const workflowSteps = [
+  'Discover public context and available pathways.',
+  'Submit a request, listing, opportunity or institutional inquiry.',
+  'Harbourview reviews fit, sensitivity and routing requirements.',
+  'Sensitive commercial, regulatory and counterparty details remain private.',
+  'Qualified introductions, assessments or intelligence requests proceed only after review.',
+]
+
+const audiences = [
+  'Doctors and pharmacists',
+  'Importers and distributors',
+  'Cultivators and operators',
+  'QA, labs and compliance teams',
+  'Procurement and buyers',
+  'Regulators and institutions',
+  'Investors and acquirers',
+]
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
