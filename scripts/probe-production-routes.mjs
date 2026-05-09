@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview-platform.vercel.app').replace(/\/$/, '')
+const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app').replace(/\/$/, '')
 const MAX_ATTEMPTS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS || '30')
 const WAIT_MS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS || '10000')
 
@@ -39,8 +39,8 @@ const routes = [
   {
     path: '/',
     okStatuses: [200],
-    titleIncludes: 'Harbourview | Market Access Intelligence and Commercial Advisory',
-    mustInclude: ['Market access backed by', 'Request a Confidential Discussion'],
+    titleIncludes: 'Harbourview | Opening Soon',
+    mustInclude: ['Full site opening soon', 'Preview Network'],
     mustNotInclude: ['The Cannabis Industry\'s Professional Marketplace', 'view all listings'],
   },
   {

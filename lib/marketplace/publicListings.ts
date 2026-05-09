@@ -13,13 +13,54 @@ const publicSummaries: Record<MarketplaceListing['slug'], string> = {
   'machinio-cannabis-processing-equipment-source':
     'Used cannabis processing equipment opportunity category covering extraction, processing, packaging and handling assets. Harbourview qualifies specific assets before any introduction.',
   'thc-label-solutions-cannabis-packaging-labels':
-    'Cannabis-focused packaging and label supplier candidate for operators seeking label production, brand packaging support and compliance-oriented packaging workflows. Harbourview qualifies service fit and commercial path before introduction.',
+    'Cannabis-focused packaging and label opportunity for operators seeking label production, brand packaging support and compliance-oriented packaging workflows. Harbourview qualifies service fit and commercial path before introduction.',
   'marijuana-packaging-wholesale-cannabis-packaging':
-    'Wholesale cannabis packaging supplier candidate for jars, bags, tubes, labels and packaging consumables. Harbourview qualifies quote path, regional fit and commercial requirements before introduction.'
+    'Wholesale cannabis packaging opportunity for jars, bags, tubes, labels and packaging consumables. Harbourview qualifies quote path, regional fit and commercial requirements before introduction.'
 };
+
+const FORBIDDEN_PUBLIC_PATTERNS = [
+  /supplier directory/i,
+  /source-backed/i,
+  /source listing/i,
+  /supplier direct/i,
+  /listed by source/i,
+  /seller shown as/i,
+  /source page/i,
+  /supplier website/i,
+  /source url/i,
+  /source seller/i,
+  /supplier lead/i,
+  /directory lead/i,
+  /source directory/i,
+  /equipnet/i,
+  /labx/i,
+  /machinio/i,
+  /thc label solutions/i,
+  /marijuana packaging/i,
+];
+
+function publicSafeText(value: string | undefined, fallback: string) {
+  if (!value) return fallback;
+  if (FORBIDDEN_PUBLIC_PATTERNS.some((pattern) => pattern.test(value))) return fallback;
+  return value.replace(/\s+listed by source/i, '').trim();
+}
+
+function publicSafeSection(section: MarketplaceListing['section']) {
+  if (section === 'Supplier Directory') return 'Featured Opportunities';
+  return publicSafeText(section, 'Featured Opportunities');
+}
+
+function publicSafeList(values: string[], fallback: string) {
+  const safeValues = values
+    .map((value) => publicSafeText(value, fallback))
+    .filter((value, index, arr) => value && arr.indexOf(value) === index);
+
+  return safeValues.length ? safeValues : [fallback];
+}
 
 function publicPrice(price?: string) {
   if (!price) return undefined;
+  if (FORBIDDEN_PUBLIC_PATTERNS.some((pattern) => pattern.test(price))) return 'Confirm through Harbourview';
   if (/source request|auction context|auction pricing/i.test(price)) return 'Price on request';
   if (/catalog pricing|quote-based/i.test(price)) return 'Quote-based';
   if (/varies by listing/i.test(price)) return 'Available on request';
@@ -28,40 +69,47 @@ function publicPrice(price?: string) {
 
 function publicLocation(location?: string) {
   if (!location) return undefined;
+  if (FORBIDDEN_PUBLIC_PATTERNS.some((pattern) => pattern.test(location))) return 'Available on request';
   if (/source listing|supplier direct/i.test(location)) return 'Available on request';
   return location;
 }
 
 export type PublicMarketplaceListing = Pick<MarketplaceListing,
   | 'slug'
-  | 'title'
-  | 'section'
-  | 'category'
-  | 'listingType'
   | 'condition'
-  | 'buyerFit'
-  | 'complianceNote'
-  | 'ctaLabel'
 > & {
+  title: string;
+  section: string;
+  category: string;
+  listingType: string;
   price?: string;
   location?: string;
   publicSummary: string;
+  buyerFit: string[];
+  complianceNote: string;
+  ctaLabel: string;
 };
 
 export function toPublicMarketplaceListing(listing: MarketplaceListing): PublicMarketplaceListing {
   return {
     slug: listing.slug,
-    title: listing.title,
-    section: listing.section,
-    category: listing.category,
-    listingType: listing.listingType,
+    title: publicSafeText(listing.title, 'Reviewed commercial opportunity'),
+    section: publicSafeSection(listing.section),
+    category: publicSafeText(listing.category, 'Commercial Opportunity'),
+    listingType: publicSafeText(listing.listingType, 'Reviewed opportunity'),
     condition: listing.condition,
     price: publicPrice(listing.price),
     location: publicLocation(listing.location),
-    publicSummary: publicSummaries[listing.slug],
-    buyerFit: listing.buyerFit,
-    complianceNote: listing.complianceNote,
-    ctaLabel: listing.ctaLabel,
+    publicSummary: publicSafeText(
+      publicSummaries[listing.slug],
+      'Reviewed commercial opportunity. Harbourview qualifies documentation, counterparty fit and commercial path before introduction.'
+    ),
+    buyerFit: publicSafeList(listing.buyerFit, 'Qualified buyers'),
+    complianceNote: publicSafeText(
+      listing.complianceNote,
+      'Harbourview reviews documentation, commercial fit and applicable requirements before any introduction.'
+    ),
+    ctaLabel: publicSafeText(listing.ctaLabel, 'Request introduction'),
   };
 }
 

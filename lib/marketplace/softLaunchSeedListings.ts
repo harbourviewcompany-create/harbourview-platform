@@ -6,28 +6,28 @@ export const softLaunchSeedListings: PublicMarketplaceListing[] = [
     title: 'Used Extraction Chiller Package - Qualification Required',
     section: 'Used & Surplus',
     category: 'Extraction Support Equipment',
-    listingType: 'Soft-launch equipment candidate',
+    listingType: 'Soft-launch equipment opportunity',
     condition: 'Used',
     price: 'Confirm through Harbourview',
     location: 'North America',
     publicSummary:
-      'Soft-launch used chiller package candidate for extraction-support and temperature-control workflows. Harbourview qualifies seller authorization, configuration, service history and current availability before introduction.',
+      'Soft-launch used chiller package opportunity for extraction-support and temperature-control workflows. Harbourview qualifies configuration, service history and current availability before introduction.',
     buyerFit: ['Extraction labs', 'Processors', 'Used equipment buyers', 'Facility operators'],
     complianceNote:
-      'Buyer must verify refrigerant and service status, electrical requirements, operating condition, installation fit and regulated-use suitability before purchase.',
-    ctaLabel: 'Request chiller package screen',
+      'Buyer must verify refrigerant and service status, electrical requirements, operating condition, installation fit and regulated-use suitability before engagement.',
+    ctaLabel: 'Request opportunity review',
   },
   {
     slug: 'soft-launch-bulk-child-resistant-packaging-supply',
-    title: 'Bulk Child-Resistant Packaging Supply - Quote Path',
+    title: 'Bulk Child-Resistant Packaging Opportunity - Quote Path',
     section: 'New Products',
     category: 'Packaging / Consumables',
-    listingType: 'Soft-launch supplier quote candidate',
+    listingType: 'Soft-launch quote-path opportunity',
     condition: 'New',
     price: 'Quote-based',
     location: 'Available on request',
     publicSummary:
-      'Soft-launch packaging supply candidate for operators seeking jars, tubes, pouches or related child-resistant packaging at volume. Harbourview qualifies supplier fit, MOQ, shipping region and quote path before handoff.',
+      'Soft-launch packaging opportunity for operators seeking jars, tubes, pouches or related child-resistant packaging at volume. Harbourview qualifies commercial fit, MOQ and quote path before introduction.',
     buyerFit: ['Brands', 'Processors', 'Retail operators', 'Packaging procurement teams'],
     complianceNote:
       'Buyer must verify jurisdiction-specific packaging, labeling, child-resistant and material compliance requirements before ordering.',
@@ -35,18 +35,18 @@ export const softLaunchSeedListings: PublicMarketplaceListing[] = [
   },
   {
     slug: 'soft-launch-cultivation-facility-equipment-package',
-    title: 'Cultivation Facility Equipment Package - Buyer Screen',
+    title: 'Cultivation Facility Equipment Opportunity - Buyer Screen',
     section: 'Business Opportunities',
     category: 'Facility / Cultivation Equipment',
-    listingType: 'Soft-launch opportunity candidate',
+    listingType: 'Soft-launch commercial opportunity',
     condition: 'Supplier Lead',
     price: 'Available on request',
     location: 'North America',
     publicSummary:
-      'Soft-launch facility equipment package candidate for operators evaluating cultivation expansion, retrofit or asset acquisition. Harbourview screens asset scope, seller authorization, removal logistics and buyer fit before introduction.',
+      'Soft-launch facility equipment opportunity for operators evaluating cultivation expansion, retrofit or asset acquisition. Harbourview screens asset scope, authorization and buyer fit before introduction.',
     buyerFit: ['Cultivators', 'Facility buyers', 'Expansion teams', 'Asset acquisition teams'],
     complianceNote:
       'Buyer must verify equipment ownership, condition, deinstallation requirements, site constraints, transfer logistics and local regulatory fit.',
-    ctaLabel: 'Request facility package review',
+    ctaLabel: 'Request facility opportunity review',
   },
 ];

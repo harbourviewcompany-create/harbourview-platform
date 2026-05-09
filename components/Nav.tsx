@@ -3,12 +3,36 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
+const marketplaceLinks = [
+  { label: 'Network Opportunities', href: '/marketplace/listings' },
+  { label: 'Consumables & Operating Supplies', href: '/marketplace/consumables' },
+  { label: 'New Products', href: '/marketplace/new-products' },
+  { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
+  { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Services', href: '/marketplace/services' },
+  { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
+]
+
+const navLinks = [
+  { label: 'Network', href: '/marketplace', hasDropdown: true },
+  { label: 'Submit Opportunity', href: '/marketplace/sell', hasDropdown: false },
+  { label: 'Wanted Requests', href: '/marketplace/wanted', hasDropdown: false },
+  { label: 'Signals', href: '/signals', hasDropdown: false },
+  { label: 'Intelligence', href: '/intelligence', hasDropdown: false },
+  { label: 'Intake', href: '/intake', hasDropdown: false },
 const navLinks = [
   { label: 'Network', href: '/marketplace' },
+  { label: 'Reviewed Listings', href: '/marketplace/listings' },
+  { label: 'Submit Opportunity', href: '/marketplace/sell' },
+  { label: 'Wanted Requests', href: '/marketplace/wanted' },
+  { label: 'Genetics', href: '/marketplace/genetics' },
+  { label: 'Network Home', href: '/network' },
+  { label: 'Opportunities', href: '/opportunities' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Signals', href: '/signals' },
+  { label: 'Compliance', href: '/compliance' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
-  { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ]
 
@@ -27,24 +51,29 @@ export default function Nav() {
             HARBOURVIEW
           </Link>
 
-          <nav className="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75 xl:gap-9 lg:flex">
+          <nav className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex">
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link-premium">
+              <Link key={`${link.label}-${link.href}`} href={link.href} className="nav-link-premium whitespace-nowrap">
                 {link.label}
               </Link>
             ))}
           </nav>
+
+          <Link href="/contact" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
+            Request Access
+          </Link>
 
           <button
             className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/20 bg-white/[0.02] text-gold transition-colors hover:border-gold/50 hover:bg-gold/10 lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
+            type="button"
           >
-            <span className="relative block h-4 w-5">
-              <span className="absolute left-0 top-0 block h-0.5 w-5 bg-current"></span>
-              <span className="absolute left-0 top-[7px] block h-0.5 w-5 bg-current"></span>
-              <span className="absolute bottom-0 left-0 block h-0.5 w-5 bg-current"></span>
+            <span className="relative block h-4 w-5" aria-hidden="true">
+              <span className="absolute left-0 top-0 block h-0.5 w-5 bg-current" />
+              <span className="absolute left-0 top-[7px] block h-0.5 w-5 bg-current" />
+              <span className="absolute bottom-0 left-0 block h-0.5 w-5 bg-current" />
             </span>
           </button>
         </div>
@@ -55,7 +84,7 @@ export default function Nav() {
           <div className="page-container grid grid-cols-1 gap-2 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.2em] text-white/82 sm:grid-cols-2">
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={`${link.label}-${link.href}`}
                 href={link.href}
                 className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
                 onClick={() => setMobileOpen(false)}
@@ -63,6 +92,14 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+
+            <Link
+              href="/contact"
+              className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light sm:col-span-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              Request Access
+            </Link>
           </div>
         </div>
       )}

@@ -33,6 +33,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Intelligence fixtures projection
+        run: npm run test:intelligence-fixtures
+
       - name: Listing quality
         run: npm run test:listing-quality
 
