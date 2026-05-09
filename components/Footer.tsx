@@ -1,76 +1,17 @@
-const categories = [
-  {
-    label: 'Reviewed Network Listings',
-    href: '/marketplace/listings',
-    description:
-      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
-  },
-  {
-    label: 'Used & Surplus Equipment',
-    href: '/marketplace/used-surplus',
-    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
-  },
-  {
-    label: 'New Products',
-    href: '/marketplace/new-products',
-    description: 'New products, inputs and commercial supply categories for regulated operators.',
-  },
-  {
-    label: 'Cannabis Inventory',
-    href: licensedInventoryHref,
-    description:
-      'Controlled inventory pathways for regulated cannabis products where appropriate review is required.',
-  },
-  {
-    label: 'Wanted Requests',
-    href: '/marketplace/wanted',
-    description:
-      'Buyer-side requirements and demand signals routed through Harbourview review.',
-  },
-  {
-    label: 'Services',
-    href: '/marketplace/services',
-    description:
-      'Commercial, operational, compliance, logistics and specialist services for regulated supply chains.',
-  },
-  {
-    label: 'Business Opportunities',
-    href: '/marketplace/business-opportunities',
-    description:
-      'Structured commercial opportunities, partnerships and market-access pathways.',
-  },
-  {
-    label: 'Genetics, Seeds & Tissue Culture',
-    href: '/marketplace/genetics',
-    description:
-      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
-  },
-]
 import Link from 'next/link'
-
-const platformLinks = [
-  { label: 'Harbourview Network', href: '/marketplace' },
-  { label: 'Intelligence', href: '/intelligence' },
-  { label: 'Signals', href: '/signals' },
-  { label: 'Compliance Pathways', href: '/compliance' },
-  { label: 'Request Introduction', href: '/intake' },
-]
-
-const networkLinks = [
-  { label: 'Explore Network', href: '/marketplace' },
-  { label: 'Reviewed Listings', href: '/marketplace/listings' },
-  { label: 'Wanted Requests', href: '/marketplace/wanted' },
-  { label: 'Submit Opportunity', href: '/marketplace/sell' },
-  { label: 'Clinical Education', href: '/network/clinical-education' },
-]
-
-const companyLinks = [
-  { label: 'About', href: '/about' },
-  { label: 'Contact', href: '/contact' },
-  { label: 'Privacy', href: '/legal/privacy' },
-  { label: 'Terms', href: '/legal/terms' },
-]
 import { footerGroups } from '@/lib/institutional/content'
+
+const publicFooterGroups = footerGroups
+  .map((group) => ({
+    ...group,
+    links: group.links.filter((link) => {
+      const label = link.label.toLowerCase()
+      const href = link.href.toLowerCase()
+
+      return !label.includes('supplier') && !href.includes('supplier')
+    }),
+  }))
+  .filter((group) => group.links.length > 0)
 
 export default function Footer() {
   return (
@@ -78,23 +19,19 @@ export default function Footer() {
       <div className="page-container py-12 sm:py-16">
         <div className="border-b border-gold/10 pb-10">
           <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
-
-          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
-
+          <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light"></div>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-white/58">
             Controlled commercial network access, reviewed intelligence, professional education,
-            policy resources and institutional pathways for serious participants in regulated
-            cannabis markets.
+            policy resources and institutional pathways for serious participants in regulated cannabis markets.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-9 pt-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
-          {footerGroups.map((group) => (
+          {publicFooterGroups.map((group) => (
             <div key={group.title}>
               <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
                 {group.title}
               </p>
-
               <ul className="space-y-3 text-sm text-white/62">
                 {group.links.map((link) => (
                   <li key={`${group.title}-${link.label}-${link.href}`}>
@@ -112,9 +49,8 @@ export default function Footer() {
           <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
 
           <p className="max-w-2xl leading-6 sm:text-right">
-            Harbourview is intentionally not an open-contact directory. Public pages support
-            discovery and context. Sensitive commercial, regulatory, documentary and counterparty
-            information is handled through reviewed private workflows.
+            Harbourview is intentionally not an open-contact directory. Public pages support discovery and context.
+            Sensitive commercial, regulatory, documentary and counterparty information is handled through reviewed private workflows.
           </p>
         </div>
       </div>
