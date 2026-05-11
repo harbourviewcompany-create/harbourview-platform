@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
+import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 const entryPoints = [
   {
@@ -38,14 +40,6 @@ const entryPoints = [
     body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
   },
 ]
-import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
-import {
-  FooterCta,
-  PublicCard,
-  PublicLinkCard,
-  PublicSection,
-  SectionHeader,
-} from '@/components/PublicUi'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
@@ -112,6 +106,21 @@ const secondarySections = [
     description:
       'Use the controlled intake path when a commercial request needs review before routing.',
   },
+] as const
+
+const publicSections = [
+  ...primarySections.map((section) => ({
+    title: section.title,
+    href: section.href,
+    eyebrow: section.eyebrow,
+    body: section.description,
+  })),
+  ...secondarySections.map((section) => ({
+    title: section.title,
+    href: section.href,
+    eyebrow: 'Public section',
+    body: section.description,
+  })),
 ] as const
 
 const guardrails = [
