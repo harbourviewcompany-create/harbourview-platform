@@ -1,0 +1,3 @@
+log_id,date,agent,action,target_record,result,workflow_run_id,evidence_link,next_action
+A-001,2026-05-11,Agent-Codex,Created Tyler Work OS V1 CSV command center,P-001,Success,,ops/tyler-work-os-v1/README.md,Begin daily usage
+A-002,2026-05-11,Agent-QA,Verified required modules + core fields coverage,P-001,Success,,ops/tyler-work-os-v1/README.md,Run weekly verification loop

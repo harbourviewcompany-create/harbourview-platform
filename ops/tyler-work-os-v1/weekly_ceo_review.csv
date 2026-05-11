@@ -1,0 +1,2 @@
+week_start,wins,misses,top_blocker,next_week_commitments,cash_pipeline_total,go_items,hold_items,manual_tyler_actions,evidence_rollup_link
+2026-05-11,"Work OS V1 operational; daily outreach queue established","Some build queue items stale","Need stronger lead throughput","10 outreach/day, one build item to ship, weekly smoke verification",157000,6,2,"Approve source list; decide GO/HOLD on commercial polish","ops/tyler-work-os-v1/projects_master.csv"
