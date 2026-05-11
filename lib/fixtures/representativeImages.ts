@@ -4,18 +4,18 @@ const representativeCaption =
   'Representative category image. Specifications, supplier fit and commercial terms are available upon inquiry.'
 
 const images: Record<string, ListingImage> = {
-  packagingPouches: { src: '/marketplace/images/packaging-pouches.svg', alt: 'Unbranded packaging pouches shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  labQa: { src: '/marketplace/images/lab-qa-consumables.svg', alt: 'Unbranded lab and QA supplies shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  cultivation: { src: '/marketplace/images/cultivation-inputs.svg', alt: 'Unbranded cultivation inputs shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  facility: { src: '/marketplace/images/facility-supplies.svg', alt: 'Unbranded commercial facility supplies shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  warehouse: { src: '/marketplace/images/warehouse-logistics.svg', alt: 'Unbranded warehouse and logistics supplies shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  extraction: { src: '/marketplace/images/extraction-equipment.svg', alt: 'Unbranded extraction equipment shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  growLighting: { src: '/marketplace/images/grow-lighting.svg', alt: 'Unbranded grow lighting shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  packagingLine: { src: '/marketplace/images/packaging-equipment.svg', alt: 'Unbranded packaging equipment shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  productInventory: { src: '/marketplace/images/product-inventory.svg', alt: 'Unbranded product inventory shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  hempBiomass: { src: '/marketplace/images/hemp-biomass.svg', alt: 'Unbranded hemp biomass shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  advisory: { src: '/marketplace/images/advisory-services.svg', alt: 'Unbranded advisory services workspace shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
-  retailFacility: { src: '/marketplace/images/retail-facility.svg', alt: 'Unbranded retail or commercial facility shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  packagingPouches: { src: '/marketplace/images/packaging-pouches.webp', alt: 'Unbranded packaging pouches shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  labQa: { src: '/marketplace/images/lab-qa-consumables.webp', alt: 'Unbranded lab and QA supplies shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  cultivation: { src: '/marketplace/images/cultivation-inputs.webp', alt: 'Unbranded cultivation inputs shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  facility: { src: '/marketplace/images/facility-supplies.webp', alt: 'Unbranded commercial facility supplies shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  warehouse: { src: '/marketplace/images/warehouse-logistics.webp', alt: 'Unbranded warehouse and logistics supplies shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  extraction: { src: '/marketplace/images/extraction-equipment.webp', alt: 'Unbranded extraction equipment shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  growLighting: { src: '/marketplace/images/grow-lighting.webp', alt: 'Unbranded grow lighting shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  packagingLine: { src: '/marketplace/images/packaging-equipment.webp', alt: 'Unbranded packaging equipment shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  productInventory: { src: '/marketplace/images/product-inventory.webp', alt: 'Unbranded product inventory shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  hempBiomass: { src: '/marketplace/images/hemp-biomass.webp', alt: 'Unbranded hemp biomass shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  advisory: { src: '/marketplace/images/advisory-services.webp', alt: 'Unbranded advisory services workspace shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
+  retailFacility: { src: '/marketplace/images/retail-facility.webp', alt: 'Unbranded retail or commercial facility shown as a representative category image', status: 'representative', caption: representativeCaption, assetSource: 'generated' },
 }
 
 export const representativeListingImages: Record<string, ListingImage> = {
