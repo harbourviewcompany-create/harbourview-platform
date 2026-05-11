@@ -1,0 +1,19 @@
+/var/log/caddy/harbourview*.log {
+    daily
+    rotate 30
+    compress
+    missingok
+    notifempty
+    sharedscripts
+    postrotate
+        systemctl reload caddy >/dev/null 2>&1 || true
+    endscript
+}
+
+/opt/harbourview/logs/*.log {
+    daily
+    rotate 14
+    compress
+    missingok
+    notifempty
+}

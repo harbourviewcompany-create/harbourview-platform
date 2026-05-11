@@ -12,6 +12,8 @@ EnvironmentFile=/opt/harbourview/shared/.env.production
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
