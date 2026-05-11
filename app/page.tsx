@@ -1,6 +1,62 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+const entryPoints = [
+  {
+    title: 'Network',
+    href: '/network',
+    body: 'Controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
+  },
+  {
+    title: 'Opportunities',
+    href: '/opportunities',
+    body: 'Reviewed commercial openings, country access opportunities, distribution mandates and strategic partnerships.',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    body: 'Country, pathway, category and public-safe intelligence for disciplined market-access decisions.',
+  },
+  {
+    title: 'Education',
+    href: '/education',
+    body: 'Non-promotional education for clinical, pharmacy, quality, commercial and regulatory stakeholders.',
+  },
+  {
+    title: 'Policy & Standards',
+    href: '/policy-standards',
+    body: 'Regulator-facing policy resources, standards context, public-health safeguards and market conduct principles.',
+  },
+  {
+    title: 'Assessments',
+    href: '/assessments',
+    body: 'Controlled intake pathways for readiness, route feasibility, documentation and due diligence preparedness.',
+  },
+  {
+    title: 'Institutional Partnerships',
+    href: '/institutional-partnerships',
+    body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
+  },
+]
+
+const workflowSteps = [
+  'Discover public context and available pathways.',
+  'Submit a request, listing, opportunity or institutional inquiry.',
+  'Harbourview reviews fit, sensitivity and routing requirements.',
+  'Sensitive commercial, regulatory and counterparty details remain private.',
+  'Qualified introductions, assessments or intelligence requests proceed only after review.',
+]
+
+const audiences = [
+  'Doctors and pharmacists',
+  'Importers and distributors',
+  'Cultivators and operators',
+  'QA, labs and compliance teams',
+  'Procurement and buyers',
+  'Regulators and institutions',
+  'Investors and acquirers',
+]
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -160,8 +216,9 @@ export default function HomePage() {
     <main className="bg-[#01050d] text-white">
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-16 sm:py-20 lg:py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_22%,rgba(198,165,90,0.18),transparent_34%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
+        <HarbourviewGlobeClientLoader />
 
-        <div className="page-container">
+        <div className="page-container relative z-10">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(320px,0.72fr)] lg:items-end">
             <div className="max-w-4xl">
               <p className="hero-eyebrow">Commercial intelligence and controlled market access</p>

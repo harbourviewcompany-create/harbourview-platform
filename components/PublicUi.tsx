@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ')
 }
 
 type PublicAction = {
@@ -55,7 +55,7 @@ export function PublicHero({
     <section className={cx('relative overflow-hidden border-b border-gold/10 bg-[#061120] text-white', compact ? 'py-10 sm:py-12 lg:py-14' : 'py-14 sm:py-16 lg:py-20')}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(198,165,90,0.10),transparent_28%)]" />
       <div className="page-container relative z-10">
-        <div className={cx('grid grid-cols-1 gap-8', Boolean(aside) && 'lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start')}>
+        <div className={cx('grid grid-cols-1 gap-8', aside ? 'lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start' : undefined)}>
           <div className="max-w-5xl">
             <p className="mb-4 text-[11px] font-semibold uppercase leading-6 tracking-[0.28em] text-gold/78">{eyebrow}</p>
             <h1 className="font-serif text-[2.65rem] leading-[1.01] tracking-[-0.05em] text-[#f5f1e8] sm:text-5xl lg:text-6xl">{title}</h1>

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/server/supabaseRestClient'
 import { createGeneticsRoutingRecord } from '@/lib/introduction-routing/geneticsExecution'
-import { persistGeneticsRoutingEvent, persistGeneticsRoutingRecord } from '@/lib/introduction-routing/geneticsStorage'
+import {
+  persistGeneticsRoutingRecord,
+  persistGeneticsRoutingEvent,
+  type SupabaseLike,
+} from '@/lib/introduction-routing/geneticsStorage'
+import { createClient } from '@supabase/supabase-js'
 
-function getServiceClient() {
+function getServiceClient(): SupabaseLike | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return null
-  return createClient(url, key)
+  return createClient(url, key) as unknown as SupabaseLike
 }
 
 export async function POST(req: NextRequest) {

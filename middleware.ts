@@ -17,17 +17,6 @@ function applyNoStoreHeaders(response: NextResponse) {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === '/marketplace/listings') {
-    return applyNoStoreHeaders(
-      new NextResponse('Not found', {
-        status: 404,
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-      }),
-    );
-  }
-
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
     '/marketplace/wanted-requests': '/marketplace/wanted',

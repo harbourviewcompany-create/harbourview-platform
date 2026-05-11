@@ -78,11 +78,7 @@ function WantedBudget({ budget }: { budget?: string }) {
   if (!budget) return null
 
   if (budget === '$3,000–$8,000') {
-    return (
-      <>
-        <span>$</span>3,000–<span>$</span>8,000
-      </>
-    )
+    return <span dangerouslySetInnerHTML={{ __html: '&#36;3,000–&#36;8,000' }} />
   }
 
   return <>{budget}</>
