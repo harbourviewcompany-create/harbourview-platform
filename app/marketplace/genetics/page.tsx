@@ -22,7 +22,7 @@ export default async function GeneticsShowcasePage({
 }: {
   searchParams?: Promise<GeneticsFilterSearchParams>
 }) {
-  const resolvedSearchParams = (await searchParams) || {}
+  const resolvedSearchParams = (await searchParams) ?? {}
   const filters = {
     q: resolvedSearchParams.q || '',
     type: resolvedSearchParams.type || '',

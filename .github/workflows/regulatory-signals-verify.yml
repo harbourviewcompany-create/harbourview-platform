@@ -2,6 +2,7 @@ name: Regulatory Signals Verify
 
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches:
       - regulatory-signals-v1
