@@ -13,6 +13,7 @@ LOCK_FILE="/tmp/harbourview-self-host-deploy.lock"
 ENV_FILE="$APP_ROOT/shared/.env.production"
 LOG_DIR="$APP_ROOT/logs"
 RELEASES_DIR="$APP_ROOT/releases"
+METADATA_DIR="$APP_ROOT/shared/deploy-metadata"
 KEEP_RUNTIME_RELEASES="5"
 PREVIOUS_CURRENT=""
 PREFLIGHT_PID=""
@@ -75,10 +76,12 @@ require_command curl
 require_command caddy
 require_command systemctl
 require_command flock
+require_command ss
 
 mkdir -p "$LOG_DIR"
 mkdir -p "$RELEASES_DIR"
-chown -R "$APP_USER:$APP_USER" "$LOG_DIR" "$RELEASES_DIR"
+mkdir -p "$METADATA_DIR"
+chown -R "$APP_USER:$APP_USER" "$LOG_DIR" "$RELEASES_DIR" "$METADATA_DIR"
 
 FREE_MB="$(df -Pm "$APP_ROOT" | awk 'NR==2 {print $4}')"
 if [ "$FREE_MB" -lt "$MIN_FREE_MB" ]; then
@@ -196,6 +199,18 @@ ln -sfn "$RUNTIME_DIR" "$APP_ROOT/current"
 chown -h "$APP_USER:$APP_USER" "$APP_ROOT/current"
 ACTIVATED="1"
 
+echo "== Persisting deployment metadata =="
+cat > "$METADATA_DIR/latest-deploy.env" <<EOF
+RELEASE_ID=$RELEASE_ID
+CURRENT_RUNTIME=$RUNTIME_DIR
+PREVIOUS_RUNTIME=${PREVIOUS_CURRENT:-}
+DEPLOYED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+DOMAIN=$DOMAIN
+EOF
+
+chown "$APP_USER:$APP_USER" "$METADATA_DIR/latest-deploy.env"
+chmod 600 "$METADATA_DIR/latest-deploy.env"
+
 echo "== Restarting Harbourview systemd service =="
 systemctl restart harbourview
 
@@ -229,6 +244,15 @@ for i in {1..10}; do
   fi
 done
 
+echo "== Verifying public anonymous /admin denial =="
+PUBLIC_ADMIN_STATUS="$(curl -s -o /tmp/harbourview-public-admin-check.html -w "%{http_code}" "https://$DOMAIN/admin")"
+echo "Public anonymous /admin status: $PUBLIC_ADMIN_STATUS"
+
+if [ "$PUBLIC_ADMIN_STATUS" = "200" ]; then
+  echo "HOLD: public anonymous /admin returned 200 after activation"
+  exit 1
+fi
+
 echo "== Running production leakage probe =="
 cd "$SOURCE_DIR"
 sudo -u "$APP_USER" env HARBOURVIEW_PUBLIC_BASE_URL="https://$DOMAIN" npm run probe:production-visibility
@@ -245,6 +269,9 @@ fi
 echo "== Release retention summary =="
 echo "Current release: $RUNTIME_DIR"
 echo "Previous release retained: ${PREVIOUS_CURRENT:-none}"
+
+echo "== Rollback metadata file =="
+echo "$METADATA_DIR/latest-deploy.env"
 
 echo "== Rollback command =="
 if [ -n "$PREVIOUS_CURRENT" ]; then
