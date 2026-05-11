@@ -1,0 +1,34 @@
+[Unit]
+Description=Harbourview Next.js Application Hardened Example
+After=network.target
+
+[Service]
+Type=simple
+User=harbourview
+Group=harbourview
+WorkingDirectory=/opt/harbourview/current
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/opt/harbourview/shared/.env.production
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Non-invasive hardening candidate set.
+# Apply only after the base self-host runtime has passed staging burn-in.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/harbourview /tmp
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

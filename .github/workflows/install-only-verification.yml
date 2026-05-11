@@ -1,0 +1,53 @@
+name: Install Only Verification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/install-only-verification.yml
+      - docs/control/NPM_INSTALL_ENVIRONMENT_HOLD.md
+
+permissions:
+  contents: read
+
+jobs:
+  npm-ci:
+    name: npm ci install-only check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Show npm environment
+        shell: bash
+        run: |
+          node --version
+          npm --version
+          npm config get registry
+          npm config list -l | sed -n '1,180p'
+          env | grep -Ei 'npm|proxy|registry' || true
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci --verbose
+
+      - name: Upload npm debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-install-debug-logs
+          path: |
+            ~/.npm/_logs/*.log
+          if-no-files-found: warn
