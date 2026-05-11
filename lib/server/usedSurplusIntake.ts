@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
-import type { ListingImageStatus, ListingWithReplyAddress, UsedSurplusListing } from '@/lib/fixtures/types'
+import type { ListingImageStatus, UsedSurplusListing } from '@/lib/fixtures/types'
 
 export interface IntakeCandidate {
   id?: string
@@ -143,7 +143,7 @@ export function isCandidateExpired(expiresAt?: string | null) {
   return new Date(expiresAt).getTime() < Date.now()
 }
 
-export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedSurplusListing & ListingWithReplyAddress {
+export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedSurplusListing {
   const imageCanBePublic =
     candidate.image_allowed_use === true && isAllowedPublicImageUrl(candidate.image_url)
 
@@ -277,7 +277,7 @@ function fallbackListings(): UsedSurplusListing[] {
   }))
 }
 
-export async function getApprovedUsedSurplusListings(): Promise<Array<UsedSurplusListing & ListingWithReplyAddress>> {
+export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
   try {
     const approvedCandidates = await getApprovedCandidatesFromSupabase()
 
