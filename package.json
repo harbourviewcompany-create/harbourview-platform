@@ -14,6 +14,7 @@
     "test:compliance-visibility": "node scripts/test-compliance-visibility.mjs",
     "test:clinical-education": "node scripts/test-clinical-education-guardrails.mjs",
     "test:signals-public-leakage": "node scripts/test-signals-public-leakage.mjs",
+    "test:signal-engine-runtime": "node scripts/verify-signal-engine-runtime.mjs",
     "test:regulatory-signals-public-leakage": "node scripts/test-regulatory-signals-public-leakage.mjs",
     "test:regulatory-signals-contract": "node scripts/test-regulatory-signals-contract.mjs",
     "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
