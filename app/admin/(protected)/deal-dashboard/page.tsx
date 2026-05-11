@@ -19,14 +19,14 @@ export default async function Page() {
 
   if (client) {
     const { data: recordData } = await client
-      .from<DealDashboardRecord[]>('genetics_routing_records')
+      .from<unknown>('genetics_routing_records')
       .select('*')
     const { data: eventData } = await client
-      .from<DealDashboardEvent[]>('genetics_routing_events')
+      .from<unknown>('genetics_routing_events')
       .select('*')
 
-    records = recordData || []
-    events = eventData || []
+    records = Array.isArray(recordData) ? (recordData as DealDashboardRecord[]) : []
+    events = Array.isArray(eventData) ? (eventData as DealDashboardEvent[]) : []
   }
 
   return <DealDashboardClient records={records} events={events} />
