@@ -1,0 +1,118 @@
+name: Cleanup Stale Preview Branches
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview deletions without deleting branches'
+        required: true
+        type: boolean
+        default: true
+      max_age_days:
+        description: 'Delete preview branches older than this many days'
+        required: true
+        type: number
+        default: 14
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup-preview-branches:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Cleanup stale preview branches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const isManual = context.eventName === 'workflow_dispatch';
+            const dryRun = isManual ? Boolean(core.getInput('dry_run') === 'true') : false;
+            const maxAgeDaysInput = isManual ? Number(core.getInput('max_age_days')) : 14;
+            const maxAgeDays = Number.isFinite(maxAgeDaysInput) && maxAgeDaysInput > 0 ? maxAgeDaysInput : 14;
+            const cutoffMs = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+
+            core.info(`Cleanup mode: ${dryRun ? 'dry-run' : 'delete'}`);
+            core.info(`Max age days: ${maxAgeDays}`);
+
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const protectedHeads = new Set(openPulls.map((pull) => pull.head.ref));
+            const protectedPreviewBranches = new Set();
+
+            for (const pull of openPulls) {
+              protectedPreviewBranches.add(`preview/${pull.head.ref.replaceAll('/', '-')}`);
+              protectedPreviewBranches.add(`preview/${pull.head.ref}`);
+            }
+
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            const previewBranches = branches.filter((branch) => branch.name.startsWith('preview/'));
+
+            core.info(`Found ${previewBranches.length} preview branches.`);
+
+            const summary = [];
+
+            for (const branch of previewBranches) {
+              if (protectedHeads.has(branch.name) || protectedPreviewBranches.has(branch.name)) {
+                summary.push(`KEEP active/open PR preview branch: ${branch.name}`);
+                continue;
+              }
+
+              const commit = await github.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: branch.commit.sha,
+              });
+
+              const pushedAt = commit.data.commit.committer?.date || commit.data.commit.author?.date;
+
+              if (!pushedAt) {
+                summary.push(`KEEP unknown commit date: ${branch.name}`);
+                continue;
+              }
+
+              const branchAgeMs = Date.now() - new Date(pushedAt).getTime();
+              const branchAgeDays = Math.floor(branchAgeMs / (24 * 60 * 60 * 1000));
+
+              if (new Date(pushedAt).getTime() >= cutoffMs) {
+                summary.push(`KEEP fresh preview branch: ${branch.name} (${branchAgeDays}d old)`);
+                continue;
+              }
+
+              if (dryRun) {
+                summary.push(`DRY RUN delete stale preview branch: ${branch.name} (${branchAgeDays}d old)`);
+                continue;
+              }
+
+              await github.rest.git.deleteRef({
+                owner,
+                repo,
+                ref: `heads/${branch.name}`,
+              });
+
+              summary.push(`DELETED stale preview branch: ${branch.name} (${branchAgeDays}d old)`);
+            }
+
+            await core.summary
+              .addHeading('Cleanup Stale Preview Branches')
+              .addRaw(summary.length ? summary.join('\n') : 'No preview branches found.')
+              .write();
+
+            for (const line of summary) {
+              core.info(line);
+            }
