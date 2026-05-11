@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/server/supabaseRestClient'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   await client.from('genetics_routing_events').insert({
     routing_record_id: recordId,
     event_type: action,
-    event_summary: `Admin action: ${action}`
+    event_summary: `Admin action: ${action}`,
   })
 
   return NextResponse.json({ success: true })

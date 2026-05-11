@@ -1,6 +1,61 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+const entryPoints = [
+  {
+    title: 'Network',
+    href: '/network',
+    body: 'Controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
+  },
+  {
+    title: 'Opportunities',
+    href: '/opportunities',
+    body: 'Reviewed commercial openings, country access opportunities, distribution mandates and strategic partnerships.',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    body: 'Country, pathway, category and public-safe intelligence for disciplined market-access decisions.',
+  },
+  {
+    title: 'Education',
+    href: '/education',
+    body: 'Non-promotional education for clinical, pharmacy, quality, commercial and regulatory stakeholders.',
+  },
+  {
+    title: 'Policy & Standards',
+    href: '/policy-standards',
+    body: 'Regulator-facing policy resources, standards context, public-health safeguards and market conduct principles.',
+  },
+  {
+    title: 'Assessments',
+    href: '/assessments',
+    body: 'Controlled intake pathways for readiness, route feasibility, documentation and due diligence preparedness.',
+  },
+  {
+    title: 'Institutional Partnerships',
+    href: '/institutional-partnerships',
+    body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
+  },
+]
+
+const workflowSteps = [
+  'Discover public context and available pathways.',
+  'Submit a request, listing, opportunity or institutional inquiry.',
+  'Harbourview reviews fit, sensitivity and routing requirements.',
+  'Sensitive commercial, regulatory and counterparty details remain private.',
+  'Qualified introductions, assessments or intelligence requests proceed only after review.',
+]
+
+const audiences = [
+  'Doctors and pharmacists',
+  'Importers and distributors',
+  'Cultivators and operators',
+  'QA, labs and compliance teams',
+  'Procurement and buyers',
+  'Regulators and institutions',
+  'Investors and acquirers',
+]
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 import {
   FooterCta,
@@ -127,9 +182,7 @@ export default function HomePage() {
         <div className="page-container relative z-10">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(320px,0.72fr)] lg:items-end">
             <div className="max-w-4xl">
-              <p className="hero-eyebrow">
-                Commercial intelligence and controlled market access
-              </p>
+              <p className="hero-eyebrow">Commercial intelligence and controlled market access</p>
 
               <h1 className="font-serif text-5xl leading-[0.96] tracking-[-0.055em] text-gold-pale sm:text-6xl lg:text-7xl">
                 Market access backed by intelligence and relationships.
@@ -183,123 +236,200 @@ export default function HomePage() {
         </div>
       </section>
 
-      <PublicSection tone="navy">
-        <SectionHeader eyebrow="Public sections" title="Start from the right Harbourview entry point.">
-          Each section is structured for controlled discovery and reviewed routing.
+      <section className="border-b border-gold/10 py-14 sm:py-18 lg:py-20">
+        <div className="page-container">
+          <div className="mb-9 max-w-3xl">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/72">
+              Public sections
+            </p>
+
+            <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f4f1eb] sm:text-4xl">
+              Core Harbourview areas now visible from the homepage.
+            </h2>
+
+            <p className="mt-5 text-base leading-8 text-white/60">
+              Harbourview is organized around controlled discovery, reviewed intelligence,
+              professional education, compliance orientation, assessment pathways and
+              institutional collaboration.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {primarySections.map((section) => (
+              <Link
+                key={section.href}
+                href={section.href}
+                className="group rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] transition hover:border-gold/30 hover:bg-[#091a30] sm:p-7"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-gold/70">
+                  {section.eyebrow}
+                </p>
+
+                <h3 className="mt-4 font-serif text-3xl leading-tight tracking-[-0.03em] text-[#f4f1eb]">
+                  {section.title}
+                </h3>
+
+                <p className="mt-4 text-sm leading-7 text-white/58 sm:text-base">
+                  {section.description}
+                </p>
+
+                <span className="mt-6 inline-flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-gold/82 transition group-hover:text-gold">
+                  {section.cta}
+                  <span aria-hidden="true">→</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-gold/10 bg-[#030b16] py-14 sm:py-18 lg:py-20">
+        <div className="page-container">
+          <div className="grid gap-5 lg:grid-cols-3">
+            {secondarySections.map((section) => (
+              <Link
+                key={section.href}
+                href={section.href}
+                className="rounded-sm border border-gold/10 bg-[#030b16] p-6 transition hover:border-gold/30 hover:bg-[#071425]"
+              >
+                <h3 className="font-serif text-2xl tracking-[-0.03em] text-[#f4f1eb]">
+                  {section.title}
+                </h3>
+
+                <p className="mt-4 text-sm leading-7 text-white/56">{section.description}</p>
+
+                <span className="mt-6 inline-flex text-xs font-semibold uppercase tracking-[0.2em] text-gold/78">
+                  Open section →
+                </span>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-8 rounded-sm border border-gold/10 bg-[#061120] p-5 text-xs leading-6 text-white/44 sm:text-sm sm:leading-7">
+            Harbourview provides commercial intelligence, controlled network access and reviewed
+            inquiry pathways. Public content is informational and does not constitute legal,
+            regulatory, medical, investment or compliance advice.
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-gold/10 py-14 sm:py-18 lg:py-20">
+        <div className="page-container grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="rounded-sm border border-gold/12 bg-[#071425] p-7 shadow-[0_20px_50px_rgba(0,0,0,0.28)] sm:p-8">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-gold/72">
+              How Harbourview works
+            </p>
+
+            <h2 className="font-serif text-3xl tracking-[-0.04em] text-[#f5f1e8] sm:text-4xl">
+              Reviewed access, not open-contact routing.
+            </h2>
+
+            <ol className="mt-7 space-y-4 text-sm leading-7 text-white/62">
+              {workflowSteps.map((step, index) => (
+                <li key={step} className="flex gap-4">
+                  <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gold/24 text-[11px] text-gold">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="rounded-sm border border-gold/12 bg-[#071425] p-7 shadow-[0_20px_50px_rgba(0,0,0,0.28)] sm:p-8">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-gold/72">
+              Who Harbourview serves
+            </p>
+
+            <h2 className="font-serif text-3xl tracking-[-0.04em] text-[#f5f1e8] sm:text-4xl">
+              Built for serious regulated-market stakeholders.
+            </h2>
+
+            <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {audiences.map((audience) => (
+                <div
+                  key={audience}
+                  className="rounded-sm border border-gold/10 bg-black/20 px-4 py-3 text-sm text-white/66"
+                >
+                  {audience}
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-7 text-sm leading-7 text-white/54">
+              Harbourview does not publish confidential counterparty, source or
+              transaction-sensitive information on public pages. Inquiries are reviewed before
+              routing.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-gold/10 bg-[#01050d] py-12 text-white sm:py-16">
+        <div className="page-container grid gap-4 md:grid-cols-3">
+          {pathwaySteps.map((step) => (
+            <article
+              key={step.title}
+              className="rounded-sm border border-gold/12 bg-white/[0.025] p-5 sm:p-6"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/80">
+                {step.title}
+              </p>
+
+              <p className="mt-4 text-sm leading-7 text-white/60">{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <PublicSection id="public-sections" tone="navy">
+        <SectionHeader
+          eyebrow="Available public sections"
+          title="A controlled gateway to the live Harbourview routes."
+        >
+          The live site now surfaces the public sections clearly while preserving review-first
+          positioning and avoiding overclaims.
         </SectionHeader>
 
-        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
-          {primarySections.map((section) => (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {publicSections.map((section) => (
             <PublicLinkCard
               key={section.href}
               href={section.href}
               eyebrow={section.eyebrow}
               title={section.title}
             >
-              <span className="block">{section.description}</span>
-              <span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold/78">
-                {section.cta}
-                <span aria-hidden="true">→</span>
-              </span>
-            </PublicLinkCard>
-          ))}
-        </div>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-3">
-          {secondarySections.map((section) => (
-            <PublicLinkCard key={section.href} href={section.href} eyebrow="Supporting route" title={section.title}>
-              {section.description}
+              {section.body}
             </PublicLinkCard>
           ))}
         </div>
       </PublicSection>
 
-      <PublicSection tone="dark">
-        <SectionHeader eyebrow="How Harbourview works" title="Discovery stays public. Routing stays controlled.">
-          Harbourview supports discovery without exposing sensitive commercial detail on public pages.
-        </SectionHeader>
+      <section className="py-14 sm:py-18">
+        <div className="page-container">
+          <div className="rounded-sm border border-gold/12 bg-[linear-gradient(135deg,rgba(11,26,47,0.96)_0%,rgba(3,11,22,0.98)_100%)] p-7 text-center shadow-[0_24px_70px_rgba(0,0,0,0.32)] sm:p-10">
+            <h2 className="font-serif text-3xl tracking-[-0.04em] text-[#f5f1e8] sm:text-4xl">
+              Start with the right Harbourview pathway.
+            </h2>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
-          <PublicCard className="p-6 sm:p-7">
-            <ol className="space-y-4">
-              {workflowSteps.map((step, index) => (
-                <li
-                  key={step}
-                  className="grid gap-3 border-b border-gold/10 pb-4 last:border-b-0 last:pb-0 sm:grid-cols-[44px_minmax(0,1fr)]"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/16 bg-gold/10 font-semibold text-gold-light">
-                    {index + 1}
-                  </div>
-                  <p className="pt-1 text-sm leading-7 text-white/68 sm:text-base">{step}</p>
-                </li>
-              ))}
-            </ol>
-          </PublicCard>
-
-          <PublicCard muted className="p-6 sm:p-7">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/74">
-              Operating boundary
+            <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">
+              Request access, ask for intelligence, review public compliance orientation or begin a
+              confidential commercial conversation. Harbourview reviews fit and handles sensitive
+              information through controlled private workflows.
             </p>
-            <h3 className="mt-4 font-serif text-2xl leading-tight tracking-[-0.03em] text-[#f5f1e8]">
-              Public-safe by default.
-            </h3>
-            <div className="mt-6 space-y-3">
-              {guardrails.map((guardrail) => (
-                <div
-                  key={guardrail}
-                  className="rounded-sm border border-gold/10 bg-white/[0.035] px-4 py-3 text-sm text-white/66"
-                >
-                  {guardrail}
-                </div>
-              ))}
+
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/contact" className="btn-marketplace justify-center px-6 py-3 text-sm">
+                Contact Harbourview
+              </Link>
+
+              <Link href="/intake" className="btn-intelligence justify-center px-6 py-3 text-sm">
+                Request Introduction
+              </Link>
             </div>
-          </PublicCard>
-        </div>
-      </PublicSection>
-
-      <PublicSection tone="navy">
-        <SectionHeader eyebrow="Qualified audiences" title="Built for serious participants across regulated-market pathways.">
-          Harbourview supports disciplined commercial discovery for operators, institutions and market-access stakeholders.
-        </SectionHeader>
-
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          <PublicCard className="p-6 sm:p-7">
-            <div className="flex flex-wrap gap-3">
-              {audiences.map((audience) => (
-                <span
-                  key={audience}
-                  className="inline-flex rounded-full border border-gold/12 bg-white/[0.03] px-4 py-2 text-sm text-white/68"
-                >
-                  {audience}
-                </span>
-              ))}
-            </div>
-          </PublicCard>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            {pathwaySteps.map((step) => (
-              <PublicCard key={step.title} className="p-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/72">
-                  {step.title}
-                </p>
-                <p className="mt-4 text-sm leading-7 text-white/62">{step.body}</p>
-              </PublicCard>
-            ))}
           </div>
         </div>
-      </PublicSection>
-
-      <FooterCta
-        eyebrow="Confidential next step"
-        title="Use Harbourview through the correct route from the start."
-        actions={[
-          { label: 'Enter Network', href: '/marketplace' },
-          { label: 'Request Introduction', href: '/intake', variant: 'secondary' },
-        ]}
-      >
-        Begin with the public section that matches your objective, then move into reviewed
-        intake or intelligence workflows when the request becomes commercially sensitive.
-      </FooterCta>
+      </section>
     </main>
   )
 }
