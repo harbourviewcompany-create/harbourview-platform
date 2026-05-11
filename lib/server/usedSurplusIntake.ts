@@ -2,8 +2,6 @@ import crypto from 'node:crypto'
 import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
 import type { ListingImageStatus, UsedSurplusListing } from '@/lib/fixtures/types'
 
-const PUBLIC_FALLBACK_EMAIL = 'harbourviewcompany@gmail.com'
-
 export interface IntakeCandidate {
   id?: string
   title: string
@@ -159,7 +157,6 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
     condition: candidate.condition ?? 'used',
     tags: candidate.tags,
     postedDate: (candidate.discovered_at ?? new Date().toISOString()).split('T')[0],
-    contactEmail: PUBLIC_FALLBACK_EMAIL,
     image: imageCanBePublic
       ? {
           src: candidate.image_url,
@@ -275,10 +272,7 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
 }
 
 function fallbackListings() {
-  return usedSurplusListings.map((listing) => ({
-    ...listing,
-    contactEmail: PUBLIC_FALLBACK_EMAIL,
-  }))
+  return usedSurplusListings.map((listing) => ({ ...listing }))
 }
 
 export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
