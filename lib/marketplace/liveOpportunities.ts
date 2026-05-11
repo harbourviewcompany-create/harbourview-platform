@@ -26,13 +26,9 @@ export interface LiveOpportunityRecord {
 export interface LiveBusinessOpportunityResult {
   listings: BusinessOpportunity[]
   source: 'live' | 'fixture' | 'empty' | 'error'
-  sourceUrl?: unknown
-  sourceName?: unknown
   supplierEmail?: unknown
   contactEmail?: unknown
-  provenance?: unknown
   rawSupplierMetadata?: unknown
-  internalNotes?: unknown
 }
 
 const allowedImageProtocols = new Set(['https:'])
