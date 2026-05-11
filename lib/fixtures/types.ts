@@ -27,6 +27,8 @@ export interface Listing {
   image?: ListingImage
 }
 
+export type ListingWithReplyAddress = Listing
+
 export interface NewProductListing extends Listing {
   category: 'new-products'
   vendor: string
