@@ -28,7 +28,6 @@ export default function Footer() {
         </div>
 
         <div className="grid grid-cols-1 gap-9 pt-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
-          {footerGroups.map((group) => (
           {publicFooterGroups.map((group) => (
             <div key={group.title}>
               <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/78">
