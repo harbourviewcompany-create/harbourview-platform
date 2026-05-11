@@ -54,10 +54,10 @@ Netlify reads `netlify.toml`:
   ignore = "bash scripts/netlify-ignore-branch-policy.sh"
 ```
 
-Netlify ignore-command semantics are inverse of Vercel:
+Netlify build-ignore semantics match the script in `scripts/netlify-ignore-branch-policy.sh`:
 
-- exit `0` continues the build
-- exit `1` cancels/ignores the build
+- exit `1` continues the build
+- exit `0` cancels/ignores the build
 
 Allowed builds:
 
