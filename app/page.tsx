@@ -38,24 +38,6 @@ const entryPoints = [
     body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
   },
 ]
-
-const workflowSteps = [
-  'Discover public context and available pathways.',
-  'Submit a request, listing, opportunity or institutional inquiry.',
-  'Harbourview reviews fit, sensitivity and routing requirements.',
-  'Sensitive commercial, regulatory and counterparty details remain private.',
-  'Qualified introductions, assessments or intelligence requests proceed only after review.',
-]
-
-const audiences = [
-  'Doctors and pharmacists',
-  'Importers and distributors',
-  'Cultivators and operators',
-  'QA, labs and compliance teams',
-  'Procurement and buyers',
-  'Regulators and institutions',
-  'Investors and acquirers',
-]
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
 import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
