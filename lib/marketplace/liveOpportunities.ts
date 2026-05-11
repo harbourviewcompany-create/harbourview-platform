@@ -1,4 +1,9 @@
-import type { BusinessOpportunity, Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
+import type {
+  BusinessOpportunity,
+  Listing,
+  ListingImage,
+  ListingImageStatus,
+} from '@/lib/fixtures/types'
 
 export interface LiveOpportunityRecord {
   id?: unknown
@@ -26,16 +31,8 @@ export interface LiveOpportunityRecord {
 export interface LiveBusinessOpportunityResult {
   listings: BusinessOpportunity[]
   source: 'live' | 'fixture' | 'empty' | 'error'
-  sourceUrl?: unknown
-  sourceName?: unknown
-  supplierEmail?: unknown
-  contactEmail?: unknown
-  provenance?: unknown
-  rawSupplierMetadata?: unknown
-  internalNotes?: unknown
 }
 
-const fallbackContactEmail = 'harbourviewcompany@gmail.com'
 const allowedImageProtocols = new Set(['https:'])
 const blockedImageHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
 
@@ -224,7 +221,7 @@ export async function getLiveBusinessOpportunities(
   }
 }
 
-export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing | null {
+export function normalizeLiveOpportunity(record: LiveOpportunityRecord): ListingWithReplyAddress | null {
   const id = asText(record.id)
   const title = asText(record.title)
   const description = asText(record.description)
@@ -240,7 +237,6 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
     location: asText(record.location) || 'Region confirmed by inquiry',
     tags: asTags(record.tags),
     postedDate: asText(record.postedDate) || new Date().toISOString().slice(0, 10),
-    contactEmail: fallbackContactEmail,
     image: imageSrc
       ? {
           src: imageSrc,
@@ -253,7 +249,7 @@ export function normalizeLiveOpportunity(record: LiveOpportunityRecord): Listing
   }
 }
 
-export async function getLiveConsumableOpportunities(fallbackListings: Listing[]): Promise<Listing[]> {
+export async function getLiveConsumableOpportunities(fallbackListings: Listing[]): Promise<ListingWithReplyAddress[]> {
   const feedUrl = getFeedUrl('HARBOURVIEW_CONSUMABLES_FEED_URL')
   if (!feedUrl) return fallbackListings
 
@@ -268,7 +264,7 @@ export async function getLiveConsumableOpportunities(fallbackListings: Listing[]
     const payload: unknown = await response.json()
     const liveListings = extractRecords(payload)
       .map((record) => normalizeLiveOpportunity(record as LiveOpportunityRecord))
-      .filter((listing): listing is Listing => Boolean(listing))
+      .filter((listing): listing is ListingWithReplyAddress => Boolean(listing))
 
     return liveListings.length > 0 ? liveListings : fallbackListings
   } catch {

@@ -1,0 +1,22 @@
+# Harbourview production Caddy configuration
+# Replace harbourview.co with the final production domain.
+
+harbourview.co {
+    encode gzip zstd
+
+    header {
+        X-Frame-Options DENY
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    reverse_proxy 127.0.0.1:3000
+
+    log {
+        output file /var/log/caddy/harbourview-access.log
+    }
+}
+
+www.harbourview.co {
+    redir https://harbourview.co{uri} permanent
+}

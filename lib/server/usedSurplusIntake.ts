@@ -1,8 +1,6 @@
 import crypto from 'node:crypto'
 import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
-import type { ListingImageStatus, UsedSurplusListing } from '@/lib/fixtures/types'
-
-const PUBLIC_FALLBACK_EMAIL = 'harbourviewcompany@gmail.com'
+import type { ListingImageStatus, ListingWithReplyAddress, UsedSurplusListing } from '@/lib/fixtures/types'
 
 export interface IntakeCandidate {
   id?: string
@@ -145,7 +143,7 @@ export function isCandidateExpired(expiresAt?: string | null) {
   return new Date(expiresAt).getTime() < Date.now()
 }
 
-export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedSurplusListing {
+export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedSurplusListing & ListingWithReplyAddress {
   const imageCanBePublic =
     candidate.image_allowed_use === true && isAllowedPublicImageUrl(candidate.image_url)
 
@@ -159,7 +157,6 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
     condition: candidate.condition ?? 'used',
     tags: candidate.tags,
     postedDate: (candidate.discovered_at ?? new Date().toISOString()).split('T')[0],
-    contactEmail: PUBLIC_FALLBACK_EMAIL,
     image: imageCanBePublic
       ? {
           src: candidate.image_url,
@@ -274,14 +271,13 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
   return rows
 }
 
-function fallbackListings() {
+function fallbackListings(): UsedSurplusListing[] {
   return usedSurplusListings.map((listing) => ({
     ...listing,
-    contactEmail: PUBLIC_FALLBACK_EMAIL,
   }))
 }
 
-export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
+export async function getApprovedUsedSurplusListings(): Promise<Array<UsedSurplusListing & ListingWithReplyAddress>> {
   try {
     const approvedCandidates = await getApprovedCandidatesFromSupabase()
 

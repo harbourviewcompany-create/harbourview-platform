@@ -17,17 +17,18 @@ export const metadata: Metadata = {
     'A controlled Harbourview Network showcase for genetics, seed lines, tissue-culture programs, clean-stock services and licensing opportunities.',
 }
 
-export default function GeneticsShowcasePage({
+export default async function GeneticsShowcasePage({
   searchParams,
 }: {
-  searchParams?: GeneticsFilterSearchParams
+  searchParams?: Promise<GeneticsFilterSearchParams>
 }) {
+  const resolvedSearchParams = (await searchParams) ?? {}
   const filters = {
-    q: searchParams?.q || '',
-    type: searchParams?.type || '',
-    pathway: searchParams?.pathway || '',
-    region: searchParams?.region || '',
-    access: searchParams?.access || '',
+    q: resolvedSearchParams.q || '',
+    type: resolvedSearchParams.type || '',
+    pathway: resolvedSearchParams.pathway || '',
+    region: resolvedSearchParams.region || '',
+    access: resolvedSearchParams.access || '',
   }
 
   const profiles = filterPublicGeneticsProfiles(getPublicGeneticsProfileCards(), filters)
