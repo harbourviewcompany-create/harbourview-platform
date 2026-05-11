@@ -1,61 +1,41 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
-const primarySections = [
+const entryPoints = [
   {
-    title: 'Harbourview Network',
-    href: '/marketplace',
-    eyebrow: 'Network access',
-    description:
-      'Explore controlled commercial discovery across listings, wanted requests, reviewed categories and inquiry pathways.',
-    cta: 'Enter Network',
+    title: 'Network',
+    href: '/network',
+    body: 'Controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry pathways.',
+  },
+  {
+    title: 'Opportunities',
+    href: '/opportunities',
+    body: 'Reviewed commercial openings, country access opportunities, distribution mandates and strategic partnerships.',
   },
   {
     title: 'Intelligence',
     href: '/intelligence',
-    eyebrow: 'Country and pathway review',
-    description:
-      'Review country-level commercial intelligence, route viability summaries and publication-controlled market-access context.',
-    cta: 'Open Intelligence',
+    body: 'Country, pathway, category and public-safe intelligence for disciplined market-access decisions.',
   },
   {
-    title: 'Signals',
-    href: '/signals',
-    eyebrow: 'Policy movement',
-    description:
-      'Request source-backed review of regulatory, policy and commercial timing signals across controlled-market pathways.',
-    cta: 'Review Signals',
+    title: 'Education',
+    href: '/education',
+    body: 'Non-promotional education for clinical, pharmacy, quality, commercial and regulatory stakeholders.',
   },
   {
-    title: 'Compliance Pathways',
-    href: '/compliance',
-    eyebrow: 'Orientation only',
-    description:
-      'Browse public-safe regional compliance orientation for regulated cannabis operators before jurisdiction-specific review.',
-    cta: 'View Pathways',
-  },
-]
-
-const secondarySections = [
-  {
-    title: 'Clinical Education',
-    href: '/network/clinical-education',
-    description:
-      'Access the public clinical education entry point for controlled cannabis-market context and stakeholder education.',
+    title: 'Policy & Standards',
+    href: '/policy-standards',
+    body: 'Regulator-facing policy resources, standards context, public-health safeguards and market conduct principles.',
   },
   {
-    title: 'Contact Harbourview',
-    href: '/contact',
-    description:
-      'Start a confidential Harbourview conversation for commercial intelligence, network access or market-entry support.',
+    title: 'Assessments',
+    href: '/assessments',
+    body: 'Controlled intake pathways for readiness, route feasibility, documentation and due diligence preparedness.',
   },
   {
-    title: 'Request Introduction',
-    href: '/intake',
-    description:
-      'Use the controlled intake path when a commercial request needs review before any routing or introduction.',
+    title: 'Institutional Partnerships',
+    href: '/institutional-partnerships',
+    body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
   },
 ]
 
@@ -76,12 +56,99 @@ const audiences = [
   'Regulators and institutions',
   'Investors and acquirers',
 ]
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
+import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
+  description:
+    'Harbourview provides controlled network access, reviewed intelligence, professional education and institutional pathways for serious participants in regulated cannabis markets.',
+  openGraph: {
+    title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
+    description:
+      'Controlled network access, reviewed intelligence, education and institutional pathways for regulated cannabis markets.',
+  },
+}
+
+const primarySections = [
+  {
+    title: 'Harbourview Network',
+    href: '/marketplace',
+    eyebrow: 'Network access',
+    description:
+      'Explore controlled commercial discovery across listings, wanted requests, reviewed categories and inquiry pathways.',
+    cta: 'Enter Network',
+  },
+  {
+    title: 'Intelligence',
+    href: '/intelligence',
+    eyebrow: 'Market review',
+    description:
+      'Review country-level commercial intelligence and publication-controlled pathway context.',
+    cta: 'Open Intelligence',
+  },
+  {
+    title: 'Signals',
+    href: '/signals',
+    eyebrow: 'Policy movement',
+    description:
+      'Review source-backed regulatory, policy and timing signals across controlled-market pathways.',
+    cta: 'Review Signals',
+  },
+  {
+    title: 'Compliance Pathways',
+    href: '/compliance',
+    eyebrow: 'Orientation only',
+    description:
+      'Browse public-safe compliance orientation before jurisdiction-specific review.',
+    cta: 'View Pathways',
+  },
+]
+
+const secondarySections = [
+  {
+    title: 'Clinical Education',
+    href: '/network/clinical-education',
+    description:
+      'Access the public clinical education entry point for controlled-market context.',
+  },
+  {
+    title: 'Contact Harbourview',
+    href: '/contact',
+    description:
+      'Start a confidential Harbourview conversation for commercial intelligence or network access.',
+  },
+  {
+    title: 'Request Introduction',
+    href: '/intake',
+    description:
+      'Use the controlled intake path when a commercial request needs review before routing.',
+  },
+]
 
 const guardrails = [
   'No public counterparty exposure',
   'No guaranteed access claims',
   'No live commercial-route claims',
   'Reviewed inquiry routing only',
+]
+
+const workflowSteps = [
+  'Discover public context and available pathways.',
+  'Submit a request, listing, opportunity or institutional inquiry.',
+  'Harbourview reviews fit, sensitivity and routing requirements.',
+  'Sensitive commercial, regulatory and counterparty details remain private.',
+  'Qualified introductions, assessments or intelligence requests proceed only after review.',
+]
+
+const audiences = [
+  'Doctors and pharmacists',
+  'Importers and distributors',
+  'Cultivators and operators',
+  'QA, labs and compliance teams',
+  'Procurement and buyers',
+  'Regulators and institutions',
+  'Investors and acquirers',
 ]
 
 const pathwaySteps = [
@@ -104,25 +171,25 @@ const publicSections = [
     title: 'Harbourview Network',
     href: '/marketplace',
     eyebrow: 'Commercial network',
-    body: 'Explore reviewed categories for products, inputs, services, wanted requests and commercial access pathways.',
+    body: 'Explore reviewed opportunities, wanted requests and controlled inquiry pathways.',
   },
   {
     title: 'Intelligence',
     href: '/intelligence',
     eyebrow: 'Country pathway review',
-    body: 'Review public-safe intelligence panels, market pathway context and controlled country-level summaries.',
+    body: 'Review public-safe country, route and access-pathway context.',
   },
   {
     title: 'Signals',
     href: '/signals',
     eyebrow: 'Policy monitoring',
-    body: 'Track source-backed regulatory and policy movement without fake live-claim positioning.',
+    body: 'Review source-backed regulatory and commercial timing signals.',
   },
   {
     title: 'Compliance Pathways',
     href: '/compliance',
     eyebrow: 'Orientation only',
-    body: 'Use public compliance orientation pages for pathway context, not legal advice or guaranteed eligibility.',
+    body: 'Use public orientation pages for pathway context, not legal advice.',
   },
   {
     title: 'Clinical Education',
@@ -144,33 +211,14 @@ const publicSections = [
   },
 ]
 
-export const metadata: Metadata = {
-  title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
-  description:
-    'Harbourview provides controlled network access, reviewed intelligence, professional education and institutional pathways for serious participants in regulated cannabis markets.',
-  openGraph: {
-    title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
-    description:
-      'Controlled network access, reviewed intelligence, education and institutional pathways for regulated cannabis markets.',
-  },
-}
-
 export default function HomePage() {
   return (
     <main className="bg-[#01050d] text-white">
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-16 sm:py-20 lg:py-24">
-        <Image
-          src="/assets/harbourview-globe-hero-v2.svg"
-          alt="Harbourview gold globe and lighthouse visual"
-          fill
-          priority
-          sizes="100vw"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
-        />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_22%,rgba(198,165,90,0.18),transparent_34%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
+        <HarbourviewGlobeClientLoader />
 
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(1,5,13,0.96)_0%,rgba(1,5,13,0.84)_44%,rgba(1,5,13,0.44)_72%,rgba(1,5,13,0.86)_100%),linear-gradient(180deg,rgba(1,5,13,0.22)_0%,rgba(1,5,13,0.82)_100%)]" />
-
-        <div className="page-container">
+        <div className="page-container relative z-10">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(320px,0.72fr)] lg:items-end">
             <div className="max-w-4xl">
               <p className="hero-eyebrow">Commercial intelligence and controlled market access</p>
@@ -180,11 +228,15 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-white/72 sm:text-lg">
-                Harbourview connects controlled network access, reviewed intelligence, regulatory signals, compliance pathways, clinical education and confidential inquiry routes for serious participants in regulated cannabis markets.
+                Harbourview connects controlled network access, reviewed intelligence,
+                regulatory signals, compliance pathways, clinical education and confidential
+                inquiry routes for serious participants in regulated cannabis markets.
               </p>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/52 sm:text-base">
-                Public pages support discovery and context. Contact details, counterparties, route assessments and transaction-sensitive information are handled through reviewed private workflows.
+                Public pages support discovery and context. Contact details, counterparties,
+                route assessments and transaction-sensitive information are handled through
+                reviewed private workflows.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -236,7 +288,9 @@ export default function HomePage() {
             </h2>
 
             <p className="mt-5 text-base leading-8 text-white/60">
-              Harbourview is organized around controlled discovery, reviewed intelligence, professional education, compliance orientation, assessment pathways and institutional collaboration.
+              Harbourview is organized around controlled discovery, reviewed intelligence,
+              professional education, compliance orientation, assessment pathways and
+              institutional collaboration.
             </p>
           </div>
 
@@ -292,7 +346,9 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 rounded-sm border border-gold/10 bg-[#061120] p-5 text-xs leading-6 text-white/44 sm:text-sm sm:leading-7">
-            Harbourview provides commercial intelligence, controlled network access and reviewed inquiry pathways. Public content is informational and does not constitute legal, regulatory, medical, investment or compliance advice.
+            Harbourview provides commercial intelligence, controlled network access and reviewed
+            inquiry pathways. Public content is informational and does not constitute legal,
+            regulatory, medical, investment or compliance advice.
           </div>
         </div>
       </section>
@@ -341,7 +397,9 @@ export default function HomePage() {
             </div>
 
             <p className="mt-7 text-sm leading-7 text-white/54">
-              Harbourview does not publish confidential counterparty, source or transaction-sensitive information on public pages. Inquiries are reviewed before routing.
+              Harbourview does not publish confidential counterparty, source or
+              transaction-sensitive information on public pages. Inquiries are reviewed before
+              routing.
             </p>
           </div>
         </div>
@@ -369,7 +427,8 @@ export default function HomePage() {
           eyebrow="Available public sections"
           title="A controlled gateway to the live Harbourview routes."
         >
-          The live site now surfaces the public sections clearly while preserving review-first positioning and avoiding overclaims.
+          The live site now surfaces the public sections clearly while preserving review-first
+          positioning and avoiding overclaims.
         </SectionHeader>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -394,7 +453,9 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">
-              Request access, ask for intelligence, review public compliance orientation or begin a confidential commercial conversation. Harbourview reviews fit and handles sensitive information through controlled private workflows.
+              Request access, ask for intelligence, review public compliance orientation or begin a
+              confidential commercial conversation. Harbourview reviews fit and handles sensitive
+              information through controlled private workflows.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">

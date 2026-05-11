@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import {
   conversionByDrop,
   conversionByMarket,
@@ -6,9 +8,16 @@ import {
   stageSummary,
   stalledHeatmap,
   topOpportunities,
+  type DealIntelligenceEvent,
+  type DealIntelligenceRecord,
 } from '@/lib/introduction-routing/dealIntelligence'
 
-export function DealIntelligencePanel({ records, events }: { records: any[]; events: any[] }) {
+type DealIntelligencePanelProps = {
+  records: DealIntelligenceRecord[]
+  events: DealIntelligenceEvent[]
+}
+
+export function DealIntelligencePanel({ records, events }: DealIntelligencePanelProps) {
   const marketMetrics = conversionByMarket(records)
   const dropMetrics = conversionByDrop(records)
   const stages = stageSummary(records)
@@ -88,7 +97,7 @@ export function DealIntelligencePanel({ records, events }: { records: any[]; eve
   )
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#C6A55A]">{title}</h3>

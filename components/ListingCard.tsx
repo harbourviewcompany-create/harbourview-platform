@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
+import { representativeListingImages } from '@/lib/fixtures/representativeImages'
 import { validateDealListing } from '@/lib/fixtures/listingQuality'
 import InquiryLink from './InquiryLink'
 
@@ -95,15 +96,17 @@ function RepresentativeFallback({ listing, badge }: { listing: ListingCardProps[
 
 function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
   const [hasImageError, setHasImageError] = useState(false)
-  const badge = getBadge(listing.image?.status)
-  const imageSrc = listing.image?.src
+  const representativeImage = representativeListingImages[listing.id]
+  const listingImage = listing.image || representativeImage
+  const badge = getBadge(listingImage?.status)
+  const imageSrc = listingImage?.src
 
   if (imageSrc && !hasImageError) {
     return (
       <figure className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
         <img
           src={imageSrc}
-          alt={listing.image?.alt || listing.title}
+          alt={listingImage?.alt || listing.title}
           className="h-36 w-full object-cover"
           loading="lazy"
           onError={() => setHasImageError(true)}
@@ -111,8 +114,8 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
         <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
           {badge}
         </span>
-        {listing.image?.caption && (
-          <figcaption className="sr-only">{listing.image.caption}</figcaption>
+        {listingImage?.caption && (
+          <figcaption className="sr-only">{listingImage.caption}</figcaption>
         )}
       </figure>
     )

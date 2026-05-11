@@ -1,158 +1,108 @@
+import Link from 'next/link'
 import type { Metadata } from 'next'
 
-import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
-import { getPublicRegulatorySignals, getPublicRegulatorySignalCountries } from '@/lib/regulatory-signals/public'
+import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
+import { CountryIntelligenceMap } from '@/components/intelligence/CountryIntelligenceMap'
+import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
+import { projectPublicCountryMapRecords } from '@/lib/intelligence/public-country-map'
+import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 
 export const metadata: Metadata = {
-  title: 'Intelligence Globe',
+  title: 'Intelligence | Harbourview',
   description:
-    'Country-reviewed commercial intelligence, regulatory monitoring and controlled-access market pathway analysis.',
+    'Map-based country intelligence for reviewed commercial pathways, opportunity categories and controlled market access requests.',
 }
 
 export default async function IntelligencePage() {
-  const [signals, countries] = await Promise.all([
-    getPublicRegulatorySignals(),
-    getPublicRegulatorySignalCountries(),
-  ])
-
-  const featuredSignals = signals.slice(0, 6)
-  const featuredCountries = countries.slice(0, 12)
+  const [signals] = await Promise.all([getPublicRegulatorySignals()])
+  const countryMapRecords = projectPublicCountryMapRecords(publicCountryIntelligenceFixtures)
+  const featuredSignals = signals.slice(0, 3)
 
   return (
     <main className="bg-[#020814] text-white">
-      <section className="hero-shell relative overflow-hidden border-b border-gold/10 py-16 sm:py-20">
-        <div className="hero-gradient-shield" />
-
-        <HarbourviewGlobeClientLoader />
-
-        <div className="page-container relative z-10">
-          <div className="max-w-3xl">
-            <p className="hero-eyebrow">Harbourview Intelligence Globe</p>
-
-            <h1 className="hero-title max-w-4xl">
-              <span className="hero-title-gold">Country-reviewed</span>
-              <br />
-              <span className="hero-title-white">commercial intelligence</span>
-              <br />
-              <span className="hero-title-gold">without fake live claims.</span>
-            </h1>
-
-            <p className="hero-body max-w-2xl">
-              Review country-specific regulatory movement, commercial-access signals,
-              route viability considerations and public-safe intelligence summaries
-              prepared for controlled market engagement.
+      <PublicHero
+        eyebrow="Harbourview Intelligence"
+        title="Country intelligence built around reviewed market pathways."
+        actions={[
+          { label: 'Explore Country Map', href: '#country-map' },
+          { label: 'View Signals', href: '/signals', variant: 'secondary' },
+        ]}
+        aside={
+          <PublicCard className="p-5 text-sm leading-7 text-white/58 backdrop-blur-sm">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">
+              Public intelligence controls
             </p>
+            <p>
+              Public panels use typed fixtures and a public projection layer. They exclude raw evidence, private contacts, unpublished analyst notes and direct counterparty information.
+            </p>
+          </PublicCard>
+        }
+      >
+        <p>
+          Explore public-safe country panels for market pathway context, review status, opportunity categories and controlled next actions.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Intelligence is presented as reviewed commercial context, not as legal advice, guaranteed access, confirmed counterparties, guaranteed route certainty or live buyer demand.
+        </p>
+      </PublicHero>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#reviewed-signals" className="btn-marketplace">
-                <span>Recent Reviewed Signals</span>
-                <span>→</span>
-              </a>
+      <div id="country-map">
+        <CountryIntelligenceMap countries={countryMapRecords} />
+      </div>
 
-              <a href="#country-panels" className="btn-intelligence">
-                <span>Explore Countries</span>
-                <span>→</span>
-              </a>
-            </div>
-
-            <div className="mt-10 max-w-3xl rounded-sm border border-gold/10 bg-[rgba(3,10,20,0.72)] p-5 text-sm leading-7 text-white/58 backdrop-blur-sm">
-              Intelligence content is reviewed and publication-controlled. Public
-              panels do not represent real-time monitoring, legal advice,
-              guaranteed access, confirmed counterparties or live transaction flow.
-            </div>
-          </div>
+      <PublicSection tone="navy">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.72fr)_minmax(320px,0.4fr)] lg:items-end">
+          <SectionHeader
+            eyebrow="Signals inside Intelligence"
+            title="Regulatory signals remain available as a focused subcategory."
+            className="mb-0"
+          />
+          <p className="text-sm leading-7 text-white/56">
+            The existing Signals route stays intact. Intelligence now uses the country map as the front-facing navigation layer while Signals continues to handle policy and regulatory change monitoring.
+          </p>
         </div>
-      </section>
 
-      <section id="reviewed-signals" className="border-b border-gold/10 py-14 sm:py-18">
-        <div className="page-container">
-          <div className="mb-10 flex items-end justify-between gap-6">
-            <div>
-              <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-gold/72">
-                Recent Reviewed Signals
-              </p>
-              <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#f4f1eb]">
-                Published intelligence summaries
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {featuredSignals.length > 0 ? (
+          <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
             {featuredSignals.map((signal) => (
-              <article
-                key={signal.id}
-                className="rounded-sm border border-gold/12 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6"
-              >
+              <PublicCard key={signal.id} className="p-6">
                 <div className="mb-4 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.24em] text-gold/72">
                   <span>{signal.country_name}</span>
                   <span>•</span>
                   <span>{signal.signal_type.replace(/_/g, ' ')}</span>
                 </div>
 
-                <h3 className="text-xl font-semibold text-[#f4f1eb]">
-                  {signal.headline}
-                </h3>
+                <h3 className="text-xl font-semibold text-[#f4f1eb]">{signal.headline}</h3>
 
-                <p className="mt-4 text-sm leading-7 text-white/62">
-                  {signal.public_summary}
-                </p>
+                <p className="mt-4 text-sm leading-7 text-white/62">{signal.public_summary}</p>
 
                 <div className="mt-5 rounded-sm border border-gold/10 bg-black/20 p-4 text-xs leading-6 text-white/52">
                   {signal.public_implication}
                 </div>
-              </article>
+              </PublicCard>
             ))}
           </div>
+        ) : (
+          <PublicCard muted className="mt-8 p-6 text-sm leading-7 text-white/58">
+            No public intelligence summaries are currently published. Harbourview can review country-specific regulatory movement, route viability and commercial-access signals on request before anything is made public.
+          </PublicCard>
+        )}
+
+        <div className="mt-8">
+          <Link href="/signals" className="btn-intelligence min-h-[56px] justify-center">
+            <span>Open Signals</span>
+            <span>→</span>
+          </Link>
         </div>
-      </section>
+      </PublicSection>
 
-      <section id="country-panels" className="py-14 sm:py-18">
-        <div className="page-container">
-          <div className="mb-10">
-            <p className="mb-3 text-[11px] uppercase tracking-[0.3em] text-gold/72">
-              Country Intelligence Panels
-            </p>
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#f4f1eb]">
-              Reviewed market pathways by country
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {featuredCountries.map((country) => (
-              <div
-                key={country.countryName}
-                className="rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-[#f4f1eb]">
-                    {country.countryName}
-                  </h3>
-
-                  <span className="rounded-full border border-gold/20 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-gold/70">
-                    Reviewed
-                  </span>
-                </div>
-
-                <div className="space-y-3 text-sm leading-7 text-white/58">
-                  <p>
-                    Public-safe country overview and reviewed commercial pathway
-                    context.
-                  </p>
-
-                  <p>Region: {country.region || 'International'}</p>
-
-                  <p>Published signals: {country.count}</p>
-                </div>
-
-                <div className="mt-6 border-t border-gold/10 pt-4 text-xs leading-6 text-white/44">
-                  Country intelligence visibility is controlled and may not reflect
-                  unpublished reviews, private assessments or pending analyst work.
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <FooterCta
+        eyebrow="Controlled country assessment"
+        title="Need a country brief before entering a market?"
+        actions={[{ label: 'Request Intelligence', href: '/contact' }]}
+      >
+        Harbourview can assess route viability, counterparty fit, opportunity categories and country-specific commercial access constraints before public listing, buyer outreach or wanted-request activation.
+      </FooterCta>
     </main>
   )
 }

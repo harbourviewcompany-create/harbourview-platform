@@ -9,9 +9,24 @@ const PUBLIC_RENDER_FILES = [
   'app/marketplace/listings/[slug]/page.tsx',
   'app/marketplace/genetics/page.tsx',
   'app/marketplace/genetics/[slug]/page.tsx',
+  'app/marketplace/business-opportunities/page.tsx',
+  'app/marketplace/cannabis-inventory/page.tsx',
+  'app/marketplace/new-products/page.tsx',
+  'app/marketplace/services/page.tsx',
+  'app/marketplace/used-surplus/page.tsx',
+  'app/supplier-directory/page.tsx',
   'components/marketplace/MarketplaceListingCard.tsx',
   'components/ListingCard.tsx',
+  'components/SupplierCard.tsx',
+  'lib/fixtures/business-opportunities.ts',
+  'lib/fixtures/cannabis-inventory.ts',
   'lib/fixtures/consumables.ts',
+  'lib/fixtures/new-products.ts',
+  'lib/fixtures/services.ts',
+  'lib/fixtures/suppliers.ts',
+  'lib/fixtures/used-surplus.ts',
+  'lib/fixtures/wanted-requests.ts',
+  'lib/fixtures/types.ts',
 ]
 
 const ADMIN_FILES = ['app/admin/(protected)/listings/page.tsx']
@@ -86,6 +101,7 @@ const PUBLIC_FORBIDDEN_PATTERNS = [
   /marijuana packaging/i,
   /Supplier Directory/i,
   /contactEmail/,
+  /privateContactEmail/,
 ]
 
 const PUBLIC_PROJECTION_REQUIRED_PATTERNS = [
@@ -138,6 +154,8 @@ const PUBLIC_PROJECTION_FORBIDDEN_PATTERNS = [
   /requires_license_review:/,
   /restricted_item:/,
   /review_notes:/,
+  /contactEmail:/,
+  /privateContactEmail:/,
 ]
 
 const ADMIN_REQUIRED_PATTERNS = [
@@ -218,7 +236,7 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('ok public listing render files do not expose source/provenance fields')
-console.log('ok public listing projection omits internal source/provenance fields')
+console.log('ok public listing render files and fixtures do not expose source/provenance/contactEmail fields')
+console.log('ok public listing projection omits internal source/provenance/contactEmail fields')
 console.log('ok admin listing review retains source/provenance/evidence fields')
 console.log('ok admin provenance route uses server-side role guard')
