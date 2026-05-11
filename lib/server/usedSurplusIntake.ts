@@ -2,9 +2,6 @@ import crypto from 'node:crypto'
 import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
 import type { ListingImageStatus, ListingWithReplyAddress, UsedSurplusListing } from '@/lib/fixtures/types'
 
-const PUBLIC_FALLBACK_EMAIL = 'harbourviewcompany@gmail.com'
-const replyAddressKey = `contact${'Email'}` as const
-
 export interface IntakeCandidate {
   id?: string
   title: string
@@ -146,11 +143,11 @@ export function isCandidateExpired(expiresAt?: string | null) {
   return new Date(expiresAt).getTime() < Date.now()
 }
 
-export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedSurplusListing {
+export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedSurplusListing & ListingWithReplyAddress {
   const imageCanBePublic =
     candidate.image_allowed_use === true && isAllowedPublicImageUrl(candidate.image_url)
 
-  const listing: UsedSurplusListing & ListingWithReplyAddress = {
+  return {
     id: candidate.id ?? createSnapshotHash(candidate.title).slice(0, 12),
     category: 'used-surplus',
     title: candidate.title,
@@ -160,7 +157,6 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
     condition: candidate.condition ?? 'used',
     tags: candidate.tags,
     postedDate: (candidate.discovered_at ?? new Date().toISOString()).split('T')[0],
-    [replyAddressKey]: PUBLIC_FALLBACK_EMAIL,
     image: imageCanBePublic
       ? {
           src: candidate.image_url,
@@ -169,8 +165,6 @@ export function toPublicUsedSurplusProjection(candidate: IntakeCandidate): UsedS
         }
       : undefined,
   }
-
-  return listing
 }
 
 export async function upsertSourceRegistry(source: SourceRegistryInput) {
@@ -278,17 +272,12 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
 }
 
 function fallbackListings(): UsedSurplusListing[] {
-  return usedSurplusListings.map((listing) => {
-    const projectedListing: UsedSurplusListing & ListingWithReplyAddress = {
-      ...listing,
-      [replyAddressKey]: PUBLIC_FALLBACK_EMAIL,
-    }
-
-    return projectedListing
-  })
+  return usedSurplusListings.map((listing) => ({
+    ...listing,
+  }))
 }
 
-export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
+export async function getApprovedUsedSurplusListings(): Promise<Array<UsedSurplusListing & ListingWithReplyAddress>> {
   try {
     const approvedCandidates = await getApprovedCandidatesFromSupabase()
 

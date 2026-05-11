@@ -9,7 +9,7 @@ type SupabaseInsertResult = {
   }
 }
 
-type SupabaseLike = {
+export type SupabaseLike = {
   from: (table: string) => {
     insert: (payload: SupabasePayload) => SupabaseInsertResult
     update: (payload: SupabasePayload) => { eq: (column: string, value: string) => SupabaseMutationResult }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/server/supabaseRestClient'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     event_type: 'operations_update',
     event_summary: 'Deal operations updated',
     communication_channel: 'internal',
-    direction: 'internal'
+    direction: 'internal',
   })
 
   return NextResponse.json({ success: true })
