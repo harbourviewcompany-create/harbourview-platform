@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/server/supabaseRestClient'
 import { DealDashboardClient } from '@/components/admin/deal-dashboard/DealDashboardClient'
 
 function getClient() {

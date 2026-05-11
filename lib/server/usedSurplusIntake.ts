@@ -2,8 +2,6 @@ import crypto from 'node:crypto'
 import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
 import type { ListingImageStatus, UsedSurplusListing } from '@/lib/fixtures/types'
 
-const PUBLIC_FALLBACK_EMAIL = 'harbourviewcompany@gmail.com'
-
 export interface IntakeCandidate {
   id?: string
   title: string
@@ -273,7 +271,7 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
   return rows
 }
 
-function fallbackListings() {
+function fallbackListings(): UsedSurplusListing[] {
   return usedSurplusListings.map((listing) => ({
     ...listing,
   }))

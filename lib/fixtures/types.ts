@@ -7,7 +7,6 @@ export type ListingCategory =
   | 'business-opportunities'
 
 export type ListingImageStatus = 'representative' | 'supplier-provided' | 'verified'
-export type ListingReplyAddressKey = `contact${'Email'}`
 
 export interface ListingImage {
   src?: string
@@ -27,8 +26,6 @@ export interface Listing {
   postedDate: string
   image?: ListingImage
 }
-
-export type ListingWithReplyAddress = Listing & { [K in ListingReplyAddressKey]?: string }
 
 export interface NewProductListing extends Listing {
   category: 'new-products'

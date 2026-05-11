@@ -1,4 +1,9 @@
-import type { BusinessOpportunity, Listing, ListingImage, ListingImageStatus } from '@/lib/fixtures/types'
+import type {
+  BusinessOpportunity,
+  Listing,
+  ListingImage,
+  ListingImageStatus,
+} from '@/lib/fixtures/types'
 
 export interface LiveOpportunityRecord {
   id?: unknown
@@ -26,9 +31,6 @@ export interface LiveOpportunityRecord {
 export interface LiveBusinessOpportunityResult {
   listings: BusinessOpportunity[]
   source: 'live' | 'fixture' | 'empty' | 'error'
-  supplierEmail?: unknown
-  contactEmail?: unknown
-  rawSupplierMetadata?: unknown
 }
 
 const allowedImageProtocols = new Set(['https:'])
