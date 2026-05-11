@@ -6,7 +6,6 @@ import {
   persistGeneticsRoutingEvent,
   type SupabaseLike,
 } from '@/lib/introduction-routing/geneticsStorage'
-import { createClient } from '@supabase/supabase-js'
 
 function getServiceClient(): SupabaseLike | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

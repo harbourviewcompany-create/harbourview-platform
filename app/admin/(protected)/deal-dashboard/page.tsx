@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/server/supabaseRestClient'
 import { DealDashboardClient } from '@/components/admin/deal-dashboard/DealDashboardClient'
+import type {
+  DealDashboardEvent,
+  DealDashboardRecord,
+} from '@/lib/introduction-routing/dealDashboard'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -10,12 +14,16 @@ function getClient() {
 
 export default async function Page() {
   const client = getClient()
-  let records = []
-  let events = []
+  let records: DealDashboardRecord[] = []
+  let events: DealDashboardEvent[] = []
 
   if (client) {
-    const { data: recordData } = await client.from('genetics_routing_records').select('*')
-    const { data: eventData } = await client.from('genetics_routing_events').select('*')
+    const { data: recordData } = await client
+      .from<DealDashboardRecord[]>('genetics_routing_records')
+      .select('*')
+    const { data: eventData } = await client
+      .from<DealDashboardEvent[]>('genetics_routing_events')
+      .select('*')
 
     records = recordData || []
     events = eventData || []
