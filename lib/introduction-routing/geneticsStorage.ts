@@ -7,7 +7,7 @@ type SupabaseInsertResult = {
   select?: (cols?: string) => {
     single?: () => SupabaseMutationResult
   }
-}
+} & SupabaseMutationResult
 
 export type SupabaseLike = {
   from: (table: string) => {
@@ -66,7 +66,7 @@ export async function persistGeneticsRoutingRecord(args: {
     if (selected.single) return selected.single()
   }
 
-  return { data: null, error: null }
+  return insertResult
 }
 
 export async function persistGeneticsRoutingEvent(args: {
@@ -86,5 +86,5 @@ export async function persistGeneticsRoutingEvent(args: {
     if (selected.single) return selected.single()
   }
 
-  return { data: null, error: null }
+  return insertResult
 }
