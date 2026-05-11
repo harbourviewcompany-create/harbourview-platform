@@ -154,6 +154,11 @@ const pathwaySteps = [
   },
 ] as const
 
+const publicSections = entryPoints.map((section) => ({
+  ...section,
+  eyebrow: 'Public route',
+}))
+
 export default function HomePage() {
   return (
     <main className="bg-[#01050d] text-white">
