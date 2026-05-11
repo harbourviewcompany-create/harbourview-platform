@@ -28,3 +28,13 @@ next-env.d.ts
 
 # Local transient test artifacts
 tmp-test-*.bin
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+!.env.example
