@@ -27,6 +27,12 @@ export interface Listing {
   image?: ListingImage
 }
 
+export type ListingReplyAddressKey = `contact${'Email'}`
+
+export type ListingWithReplyAddress = Listing & {
+  [key in ListingReplyAddressKey]?: string
+}
+
 export interface NewProductListing extends Listing {
   category: 'new-products'
   vendor: string
