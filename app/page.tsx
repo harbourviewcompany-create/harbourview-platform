@@ -57,7 +57,13 @@ const audiences = [
   'Investors and acquirers',
 ]
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
-import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+import {
+  FooterCta,
+  PublicCard,
+  PublicLinkCard,
+  PublicSection,
+  SectionHeader,
+} from '@/components/PublicUi'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
@@ -103,7 +109,7 @@ const primarySections = [
       'Browse public-safe compliance orientation before jurisdiction-specific review.',
     cta: 'View Pathways',
   },
-]
+] as const
 
 const secondarySections = [
   {
@@ -124,14 +130,14 @@ const secondarySections = [
     description:
       'Use the controlled intake path when a commercial request needs review before routing.',
   },
-]
+] as const
 
 const guardrails = [
   'No public counterparty exposure',
   'No guaranteed access claims',
   'No live commercial-route claims',
   'Reviewed inquiry routing only',
-]
+] as const
 
 const workflowSteps = [
   'Discover public context and available pathways.',
@@ -139,7 +145,7 @@ const workflowSteps = [
   'Harbourview reviews fit, sensitivity and routing requirements.',
   'Sensitive commercial, regulatory and counterparty details remain private.',
   'Qualified introductions, assessments or intelligence requests proceed only after review.',
-]
+] as const
 
 const audiences = [
   'Doctors and pharmacists',
@@ -149,67 +155,22 @@ const audiences = [
   'Procurement and buyers',
   'Regulators and institutions',
   'Investors and acquirers',
-]
+] as const
 
 const pathwaySteps = [
   {
     title: 'Discover',
-    body: 'Identify relevant access signals, reviewed opportunity categories and country-specific commercial pathways.',
+    body: 'Identify relevant access signals, reviewed opportunity categories and country-specific pathways.',
   },
   {
     title: 'Screen',
-    body: 'Assess category fit, counterparty context, licence-sensitive requirements and route viability before engagement.',
+    body: 'Assess fit, counterparty context, licence-sensitive requirements and route viability before engagement.',
   },
   {
     title: 'Connect',
-    body: 'Route qualified inquiries, wanted requests and introductions through controlled Harbourview review without public contact disclosure.',
+    body: 'Route qualified inquiries and introductions through controlled Harbourview review.',
   },
-]
-
-const publicSections = [
-  {
-    title: 'Harbourview Network',
-    href: '/marketplace',
-    eyebrow: 'Commercial network',
-    body: 'Explore reviewed opportunities, wanted requests and controlled inquiry pathways.',
-  },
-  {
-    title: 'Intelligence',
-    href: '/intelligence',
-    eyebrow: 'Country pathway review',
-    body: 'Review public-safe country, route and access-pathway context.',
-  },
-  {
-    title: 'Signals',
-    href: '/signals',
-    eyebrow: 'Policy monitoring',
-    body: 'Review source-backed regulatory and commercial timing signals.',
-  },
-  {
-    title: 'Compliance Pathways',
-    href: '/compliance',
-    eyebrow: 'Orientation only',
-    body: 'Use public orientation pages for pathway context, not legal advice.',
-  },
-  {
-    title: 'Clinical Education',
-    href: '/network/clinical-education',
-    eyebrow: 'Education pathway',
-    body: 'Access controlled clinical education positioning for regulated commercial audiences.',
-  },
-  {
-    title: 'Contact Harbourview',
-    href: '/contact',
-    eyebrow: 'Confidential contact',
-    body: 'Start a controlled Harbourview conversation for commercial intelligence, network access or market-entry support.',
-  },
-  {
-    title: 'Request Introduction',
-    href: '/intake',
-    eyebrow: 'Reviewed intake',
-    body: 'Submit a confidential request for Harbourview review before any private routing or counterparty contact.',
-  },
-]
+] as const
 
 export default function HomePage() {
   return (
@@ -234,9 +195,8 @@ export default function HomePage() {
               </p>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/52 sm:text-base">
-                Public pages support discovery and context. Contact details, counterparties,
-                route assessments and transaction-sensitive information are handled through
-                reviewed private workflows.
+                Public pages support discovery and context. Sensitive commercial detail stays
+                inside reviewed workflows. The globe is a brand signal, not a live-data claim.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
