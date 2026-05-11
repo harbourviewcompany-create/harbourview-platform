@@ -3,6 +3,7 @@ import type {
   Listing,
   ListingImage,
   ListingImageStatus,
+  ListingWithReplyAddress,
 } from '@/lib/fixtures/types'
 
 export interface LiveOpportunityRecord {
