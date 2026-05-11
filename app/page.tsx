@@ -1,7 +1,5 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
-import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 const entryPoints = [
   {
@@ -40,6 +38,14 @@ const entryPoints = [
     body: 'Collaboration paths for regulators, associations, universities, pharmacy groups, labs and standards bodies.',
   },
 ]
+import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
+import {
+  FooterCta,
+  PublicCard,
+  PublicLinkCard,
+  PublicSection,
+  SectionHeader,
+} from '@/components/PublicUi'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Market Access Backed by Intelligence and Relationships',
@@ -145,39 +151,6 @@ const pathwaySteps = [
   {
     title: 'Connect',
     body: 'Route qualified inquiries and introductions through controlled Harbourview review.',
-  },
-] as const
-
-const publicSections = [
-  ...entryPoints.map((section) => ({
-    title: section.title,
-    href: section.href,
-    eyebrow: 'Public section',
-    body: section.body,
-  })),
-  {
-    title: 'Harbourview Network',
-    href: '/marketplace',
-    eyebrow: 'Commercial network',
-    body: 'Explore reviewed opportunities, wanted requests and controlled inquiry pathways.',
-  },
-  {
-    title: 'Signals',
-    href: '/signals',
-    eyebrow: 'Policy monitoring',
-    body: 'Review source-backed regulatory and commercial timing signals.',
-  },
-  {
-    title: 'Contact Harbourview',
-    href: '/contact',
-    eyebrow: 'Confidential contact',
-    body: 'Start a controlled Harbourview conversation for commercial intelligence, network access or market-entry support.',
-  },
-  {
-    title: 'Request Introduction',
-    href: '/intake',
-    eyebrow: 'Reviewed intake',
-    body: 'Submit a confidential request for Harbourview review before any private routing or counterparty contact.',
   },
 ] as const
 

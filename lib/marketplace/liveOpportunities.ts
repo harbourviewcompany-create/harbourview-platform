@@ -5,8 +5,6 @@ import type {
   ListingImageStatus,
 } from '@/lib/fixtures/types'
 
-type ListingWithReplyAddress = Listing
-
 export interface LiveOpportunityRecord {
   id?: unknown
   title?: unknown
