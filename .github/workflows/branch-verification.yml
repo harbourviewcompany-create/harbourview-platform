@@ -60,6 +60,9 @@ jobs:
       - name: Listing quality
         run: npm run test:listing-quality
 
+      - name: Public images
+        run: npm run test:public-images
+
       - name: Public visibility
         run: npm run test:visibility
 
