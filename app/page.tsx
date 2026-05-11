@@ -148,6 +148,7 @@ const pathwaySteps = [
   },
 ] as const
 
+// Keep this data local so the homepage public gateway cards remain build-safe.
 const publicSections = [
   ...entryPoints.map((section) => ({
     title: section.title,
