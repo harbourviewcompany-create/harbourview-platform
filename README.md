@@ -2,6 +2,12 @@
 
 Harbourview is a Next.js App Router platform for the public Harbourview Network experience and protected admin workflows.
 
+## Project registry
+
+The canonical project map is maintained in [`docs/control/PROJECT_REGISTRY.md`](docs/control/PROJECT_REGISTRY.md).
+
+Before opening or merging a Harbourview PR, deployment task, Supabase task, Vercel task, cleanup action or agent handoff, identify the affected registry row and state whether the registry must change. Cleanup execution is tracked in [`docs/control/HARBOURVIEW_CLEANUP_CHECKLIST.md`](docs/control/HARBOURVIEW_CLEANUP_CHECKLIST.md).
+
 ## Platform baseline
 
 - Next.js App Router
