@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data } = await client
-    .from<DealflowRecord[]>('genetics_routing_records')
+    .from<DealflowRecord>('genetics_routing_records')
     .select('*')
     .eq('id', recordId)
     .single()
