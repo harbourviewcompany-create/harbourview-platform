@@ -1,0 +1,47 @@
+name: AI Gateway Route Verify
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/api/ai-gateway/**'
+      - 'app/ai-gateway/**'
+      - 'components/ai-gateway-client.tsx'
+      - 'scripts/test-ai-gateway-route.mjs'
+      - 'supabase/migrations/20260512_002_ai_gateway_rate_limits.sql'
+      - 'docs/control/AI_GATEWAY_ROUTE_VERIFICATION.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ai-gateway-route-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: npm ci, typecheck, build, AI Gateway route test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify AI Gateway route controls
+        run: npm run test:ai-gateway-route
