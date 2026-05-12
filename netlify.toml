@@ -1,2 +1,2 @@
 [build]
-  ignore = "scripts/netlify-ignore-branch-policy.sh"
+  ignore = "node scripts/netlify-ignore-branch-policy.mjs"
