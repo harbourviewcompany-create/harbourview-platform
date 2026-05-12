@@ -27,6 +27,7 @@
     "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
+    "test:ai-gateway-route": "node scripts/test-ai-gateway-route.mjs",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
