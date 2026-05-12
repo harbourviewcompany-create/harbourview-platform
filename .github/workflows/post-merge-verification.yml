@@ -1,0 +1,51 @@
+name: Post-Merge Verification
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  post-merge-verification:
+    name: Post-merge verification / no writes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine comparison base
+        id: base
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            echo "base=$BEFORE" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=HEAD~1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: List merged changed files
+        run: git diff --name-only "${{ steps.base.outputs.base }}..HEAD"
+
+      - name: Scan merged diff for committed secret-looking values
+        run: node scripts/check-no-secret-strings.mjs --base "${{ steps.base.outputs.base }}" --head HEAD
+
+      - name: Run production public visibility probe
+        if: ${{ vars.HARBOURVIEW_PUBLIC_BASE_URL != '' }}
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: ${{ vars.HARBOURVIEW_PUBLIC_BASE_URL }}
+        run: node scripts/probe-production-provenance-visibility.mjs
+
+      - name: Record skipped production public visibility probe
+        if: ${{ vars.HARBOURVIEW_PUBLIC_BASE_URL == '' }}
+        run: echo "HOLD: production public visibility probe skipped because HARBOURVIEW_PUBLIC_BASE_URL repository variable is not configured."
+
+      - name: Record post-merge posture
+        run: |
+          echo "GO: post-merge verification performed no production writes."
+          echo "GO: Supabase service-role secret was not used in this workflow."
