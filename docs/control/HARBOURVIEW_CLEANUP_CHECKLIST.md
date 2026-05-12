@@ -14,7 +14,7 @@ Change policy: This checklist is not approval to delete, pause, merge, deploy or
 | 2 | #273 | Old build-import blocker superseded by current main | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main resolves the build path and branch is not mergeable |
 | 3 | #52 | Old admin role-guard repair superseded by current admin/auth implementation | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main contains the user_roles admin/operator guard and migration |
 | 4 | #278 | Temporary Signal Engine runtime verification | Labeled `control/temporary-verification` on 2026-05-12 and kept open as draft | Remains draft-only until proof is run once and closed, or closed obsolete |
-| 5 | #275 | Vercel branch policy | Labeled `decision/HOLD` and `control/vercel-scope` on 2026-05-12; kept open pending Vercel scope resolution | Must not merge until canonical Harbourview Vercel project/team/account mapping is resolved |
+| 5 | #275 | Vercel branch policy; not mergeable; Branch Verification failed; changed `package.json`, `vercel.json` and `scripts/vercel-ignore-branch-policy.sh`; canonical Harbourview Vercel target remains unresolved from accessible inventory | Closed unmerged on 2026-05-12 after deployment-scope audit | Replaced only after the canonical Harbourview Vercel project/team/account is confirmed and documented in `PROJECT_REGISTRY.md` |
 | 6 | #279 | Homepage build fix superseded by current main | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main already contains the `publicSections` fix |
 | 7 | #280 | Network static foundation | Already closed/merged before this cleanup pass | No active PR action required |
 
@@ -134,4 +134,5 @@ Actions:
 - [x] Label temporary verification PR #278 with `control/temporary-verification` and keep it open as draft.
 - [x] Label Vercel policy PR #275 with `decision/HOLD` and `control/vercel-scope` and keep it open pending Vercel scope resolution.
 - [x] Merge PR #294 recording stale PR cleanup actions.
+- [x] Merge PR #297 documenting stale external preview integrations.
 - [ ] Convert this checklist into Linear issues after the registry is merged.
