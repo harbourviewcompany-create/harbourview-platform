@@ -46,13 +46,34 @@ Changed file categories:
 Explicit non-goals:
 - 
 
+Control-only guardrail:
+- [ ] If this is a control-only PR, changed files are limited to docs/control, .github metadata/workflows, and non-runtime verification scripts.
+- [ ] No runtime code, app routes, Supabase migrations/RLS/schema, middleware, auth logic, dependencies, package files, or Vercel config changed.
+
+## Low-Friction Execution Boundary
+
+Use this section when the PR reduces repeated tool-confirmation prompts by moving verification into auditable branch-only automation.
+
+Required posture:
+- [ ] All agent work happened on a non-default branch.
+- [ ] Secrets were not pasted into chat, committed to the repo, printed in workflow logs, or exposed to public/browser code.
+- [ ] Supabase service-role access, if used, was isolated to server-side scripts or protected GitHub Actions jobs only.
+- [ ] Production smoke writes, if used, were enabled only through explicit manual workflow-dispatch gates.
+- [ ] Merge remains a final human-controlled gate.
+
 ## Verification
 
 Required checks:
 - [ ] Registry discipline check
+- [ ] Changed-file scope check, if control-only
+- [ ] Secret-string scan
+- [ ] Branch verification / dry run
+- [ ] Preview verification, if a preview URL exists
 - [ ] Typecheck, if runtime code changed
 - [ ] Build, if runtime code changed
 - [ ] Leakage/public-boundary checks, if public/admin/data surfaces changed
+- [ ] Manual protected production smoke, only when production write gates are intentionally enabled
+- [ ] Post-merge verification, after merge to main
 
 ## GO/HOLD
 
