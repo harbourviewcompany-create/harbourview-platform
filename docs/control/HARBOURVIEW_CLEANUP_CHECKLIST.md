@@ -10,7 +10,7 @@ Change policy: This checklist is not approval to delete, pause, merge, deploy or
 
 | Priority | PR | Current Read | Action | Acceptance Criteria |
 |---:|---:|---|---|---|
-| 1 | #277 | Superseded by main; body says do not merge | Close stale | PR closed with comment referencing superseding main commit |
+| 1 | #277 | Superseded by main; body says do not merge | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment referencing superseding main commit |
 | 2 | #273 | Old build-import blocker | Compare against current main, then close if superseded | No unique required patch remains |
 | 3 | #52 | Old admin role-guard repair | Compare against current admin/auth files | Either closed as superseded or converted into a current issue |
 | 4 | #278 | Temporary Signal Engine runtime verification | Run once and close, or close obsolete | No temporary verification PR remains open indefinitely |
@@ -110,10 +110,10 @@ Actions:
 
 ## D. Launch-Control Adoption
 
-- [ ] Merge the registry adoption PR.
-- [ ] Confirm PR template appears for new PRs.
-- [ ] Confirm issue template appears for new Harbourview tasks.
-- [ ] Confirm registry discipline workflow runs on PRs.
-- [ ] Label stale PRs with `control/stale-pr` if labels exist.
+- [x] Merge the registry adoption PR (#287).
+- [x] Confirm PR template appears for new PRs.
+- [x] Confirm issue template appears for new Harbourview tasks.
+- [x] Confirm registry discipline workflow runs on PRs.
+- [x] Label stale PR #277 with `control/stale-pr` and close it unmerged.
 - [ ] Label temporary verification PRs with `control/temporary-verification` if labels exist.
 - [ ] Convert this checklist into Linear issues after the registry is merged.
