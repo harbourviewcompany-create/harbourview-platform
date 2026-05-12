@@ -1,0 +1,94 @@
+name: Harbourview controlled task
+description: Create a Harbourview task with explicit registry ownership and GO/HOLD boundaries
+title: "[Control] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before creating this task, check `docs/control/PROJECT_REGISTRY.md` and name the affected registry row.
+  - type: dropdown
+    id: registry_row
+    attributes:
+      label: Affected registry row
+      description: Select the primary row from `docs/control/PROJECT_REGISTRY.md`.
+      options:
+        - Harbourview Platform
+        - Harbourview Network
+        - Chatbot
+        - Contractor Demos
+        - Local AI Chatbot
+        - HV Telnyx Webhook
+        - Harbourview Marketplace Supabase
+        - Legacy Signal Supabase
+        - Harbourview Vercel Target
+        - Other / new row required
+    validations:
+      required: true
+  - type: dropdown
+    id: canonical_status
+    attributes:
+      label: Canonical status
+      options:
+        - Provisional canonical
+        - Incubation
+        - Separate active product
+        - Demo/sales asset
+        - Legacy/prototype
+        - Unknown / HOLD
+        - New row required
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: GitHub repo
+      placeholder: harbourviewcompany-create/harbourview-platform
+    validations:
+      required: true
+  - type: input
+    id: vercel_project
+    attributes:
+      label: Vercel project
+      placeholder: chatbot, Harbourview Vercel Target, or HOLD/unresolved
+    validations:
+      required: true
+  - type: input
+    id: supabase_ref
+    attributes:
+      label: Supabase project ref
+      placeholder: zvxdgdkukjrrwamdpqrg, fgdrvqqezdiraqyuofte, none, or HOLD/unresolved
+    validations:
+      required: true
+  - type: dropdown
+    id: registry_update_required
+    attributes:
+      label: Registry update required?
+      options:
+        - No registry change required
+        - Yes, update PROJECT_REGISTRY.md in the PR
+        - HOLD until registry ambiguity is resolved
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State the concrete outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: scope_boundaries
+    attributes:
+      label: Scope boundaries
+      description: List what must not change.
+      placeholder: No runtime routes, package files, Supabase migrations, Vercel config, auth/admin logic or marketplace behavior unless explicitly in scope.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification / acceptance criteria
+      description: State exact GO/HOLD gates.
+    validations:
+      required: true
