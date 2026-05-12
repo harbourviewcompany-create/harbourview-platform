@@ -11,12 +11,12 @@ Change policy: This checklist is not approval to delete, pause, merge, deploy or
 | Priority | PR | Current Read | Action | Acceptance Criteria |
 |---:|---:|---|---|---|
 | 1 | #277 | Superseded by main; body says do not merge | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment referencing superseding main commit |
-| 2 | #273 | Old build-import blocker | Compare against current main, then close if superseded | No unique required patch remains |
-| 3 | #52 | Old admin role-guard repair | Compare against current admin/auth files | Either closed as superseded or converted into a current issue |
-| 4 | #278 | Temporary Signal Engine runtime verification | Run once and close, or close obsolete | No temporary verification PR remains open indefinitely |
-| 5 | #275 | Vercel branch policy | Reassess after Vercel project scope is known | Kept only if it targets the confirmed canonical Vercel project |
-| 6 | #279 | Homepage build fix | Check if current main already contains fix | Closed or rebased cleanly |
-| 7 | #280 | Network static foundation | Keep draft only if canonical strategy supports it | Not treated as production release PR until strategy decided |
+| 2 | #273 | Old build-import blocker superseded by current main | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main resolves the build path and branch is not mergeable |
+| 3 | #52 | Old admin role-guard repair superseded by current admin/auth implementation | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main contains the user_roles admin/operator guard and migration |
+| 4 | #278 | Temporary Signal Engine runtime verification | Labeled `control/temporary-verification` on 2026-05-12 and kept open as draft | Remains draft-only until proof is run once and closed, or closed obsolete |
+| 5 | #275 | Vercel branch policy | Labeled `decision/HOLD` and `control/vercel-scope` on 2026-05-12; kept open pending Vercel scope resolution | Must not merge until canonical Harbourview Vercel project/team/account mapping is resolved |
+| 6 | #279 | Homepage build fix superseded by current main | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main already contains the `publicSections` fix |
+| 7 | #280 | Network static foundation | Already closed/merged before this cleanup pass | No active PR action required |
 
 ### Repo metadata cleanup
 
@@ -115,5 +115,7 @@ Actions:
 - [x] Confirm issue template appears for new Harbourview tasks.
 - [x] Confirm registry discipline workflow runs on PRs.
 - [x] Label stale PR #277 with `control/stale-pr` and close it unmerged.
-- [ ] Label temporary verification PRs with `control/temporary-verification` if labels exist.
+- [x] Label stale PRs #273, #52 and #279 with `control/stale-pr` and close them unmerged.
+- [x] Label temporary verification PR #278 with `control/temporary-verification` and keep it open as draft.
+- [x] Label Vercel policy PR #275 with `decision/HOLD` and `control/vercel-scope` and keep it open pending Vercel scope resolution.
 - [ ] Convert this checklist into Linear issues after the registry is merged.
