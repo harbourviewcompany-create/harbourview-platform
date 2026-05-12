@@ -1,0 +1,90 @@
+name: Signal Engine Runtime Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: 'Commit, branch, or tag to verify. Defaults to PR #278 head.'
+        required: true
+        default: 'e750c766ef61eb18230be0406aa97a69e6bf686c'
+      verification_token:
+        description: 'Operator-owned one-time verification token. Must be non-empty.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  HV_SIGNAL_RUNTIME_VERIFY: '1'
+  NEXT_PUBLIC_SUPABASE_URL: https://zvxdgdkukjrrwamdpqrg.supabase.co
+  HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+  HV_SIGNAL_VERIFY_OUTPUT: docs/control/evidence/signal-engine-runtime-verification.latest.json
+
+jobs:
+  signal-engine-runtime-verification:
+    name: Run Signal Engine production runtime verifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout requested verification ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright no-save
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Check required production secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo "Missing SUPABASE_SERVICE_ROLE_KEY" && exit 1)
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && [ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - name: Run Signal Engine runtime verification
+        env:
+          HV_SIGNAL_VERIFY_TOKEN: ${{ inputs.verification_token }}
+          HV_SIGNAL_VERIFY_TOKEN_CONFIRM: ${{ inputs.verification_token }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run test:signal-engine-runtime -- --token="$HV_SIGNAL_VERIFY_TOKEN"
+
+      - name: Assert proof decision is GO
+        if: always()
+        run: |
+          test -f "$HV_SIGNAL_VERIFY_OUTPUT" || (echo "Missing proof artifact" && exit 1)
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.env.HV_SIGNAL_VERIFY_OUTPUT,'utf8')); if(p.decision !== 'GO'){ console.error(JSON.stringify({decision:p.decision, failures:p.failures}, null, 2)); process.exit(1); } console.log(JSON.stringify({decision:p.decision, cleanup:p.cleanup}, null, 2));"
+
+      - name: Upload Signal Engine runtime proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-engine-runtime-verification-proof
+          path: docs/control/evidence/signal-engine-runtime-verification.latest.json
+          if-no-files-found: warn
+          retention-days: 30
