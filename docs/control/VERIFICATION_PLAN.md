@@ -161,3 +161,161 @@ Required checks:
 - restricted/excluded consumables and licence-review candidates cannot reach `approved_draft`
 - public consumables UI uses only safe inquiry-first labels
 - public leakage probes include private source/candidate table and field names
+
+## Safer Low-Friction Execution Workflow
+
+This workflow reduces repeated tool-confirmation friction by moving repeatable verification into GitHub Actions while preserving branch isolation, dry-run defaults, secret isolation and a final human merge gate.
+
+### Execution model
+
+1. Agent or human creates a non-default branch.
+2. Pull request is opened against `main`.
+3. Branch-only verification runs with repository read permissions.
+4. Preview verification is manually run against an explicit preview URL and uses no secrets.
+5. Production smoke is disabled by default and can run only through `workflow_dispatch` with explicit write, cleanup and production confirmations.
+6. Supabase service-role credentials are available only inside the protected production smoke job environment.
+7. Main receives changes only through a final human merge.
+8. Post-merge verification runs after the merge to confirm public visibility and no accidental committed secret strings.
+
+### Confirmation-minimizing design
+
+Repeated ChatGPT confirmations should be reduced by batching low-risk operations into branch-only commits and letting workflows produce evidence.
+
+Confirmations remain required for:
+
+- committing or merging to protected branches
+- enabling production smoke writes
+- using Supabase service-role credentials
+- changing runtime code, public routes, auth, middleware, Supabase schema/RLS, dependencies or Vercel config
+- deleting data, changing production configuration or exposing private data
+
+### Branch-only dry-run verification
+
+Workflow: `.github/workflows/low-friction-branch-verification.yml`
+
+Required behavior:
+
+- runs on pull requests
+- uses read-only repository permissions
+- checks changed-file scope for control-only PRs
+- scans changed files and diffs for committed secret-looking values
+- confirms dry-run posture
+- does not use Supabase secrets
+- does not perform production writes
+- does not deploy
+
+Expected evidence:
+
+- workflow conclusion
+- changed-file list
+- secret scan result
+- scope check result
+- explicit dry-run statement
+
+### Preview verification
+
+Workflow: `.github/workflows/preview-verification.yml`
+
+Required behavior:
+
+- runs manually against an explicit preview URL
+- uses no repository secrets
+- treats preview verification as read-only
+- runs public leakage probes when a preview URL is supplied
+- records when preview verification is skipped because no preview URL exists
+
+Expected evidence:
+
+- target preview URL
+- workflow conclusion
+- public leakage/provenance probe result, if executed
+- no secret exposure in logs
+
+### Manual protected production smoke
+
+Workflow: `.github/workflows/protected-production-smoke.yml`
+
+Required behavior:
+
+- runs only through `workflow_dispatch`
+- requires exact typed confirmations for production target, write gate and cleanup gate
+- uses GitHub environment protection where configured
+- keeps `SUPABASE_SERVICE_ROLE_KEY` available only inside the job environment
+- passes service-role access only to server-side Node smoke scripts
+- never exposes service-role values to browser code or public output
+- requires smoke cleanup or safe closed-state handling
+- fails closed when any gate is missing
+
+Required gates:
+
+- `HARBOURVIEW_SMOKE_WRITE=1`
+- `HARBOURVIEW_SMOKE_CLEANUP=1`
+- `HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1`
+- typed confirmation: `RUN_PRODUCTION_SMOKE`
+
+Expected evidence:
+
+- production URL
+- branch/ref
+- workflow run ID
+- smoke command results
+- cleanup result
+- no logged secret values
+- GO/HOLD decision
+
+### Post-merge verification
+
+Workflow: `.github/workflows/post-merge-verification.yml`
+
+Required behavior:
+
+- runs on push to `main`
+- checks merged diff for committed secret-looking values
+- optionally runs production public-visibility probe when `HARBOURVIEW_PUBLIC_BASE_URL` is configured
+- performs no production writes
+- records skipped checks with reasons
+
+Expected evidence:
+
+- merge commit
+- changed-file list
+- secret scan result
+- production public-visibility result or skip reason
+- final post-merge GO/HOLD recommendation
+
+### Supabase service-role isolation
+
+Service-role access is allowed only when all of the following are true:
+
+- the job is manually triggered or protected by a GitHub environment
+- the job is not running on untrusted fork code
+- the service-role value is read from GitHub Secrets
+- the value is not printed, uploaded as an artifact or passed into client-side code
+- the script using it is server-side Node only
+- the workflow has explicit production write gates
+- cleanup is enabled or the workflow has an approved no-cleanup exception
+
+### Control-only PR rule
+
+A low-friction workflow-control PR must not modify:
+
+- runtime app code
+- app routes
+- Supabase migrations, schema or RLS
+- middleware
+- auth logic
+- dependencies or package files
+- Vercel config
+- public marketplace behavior
+- admin runtime behavior
+
+Allowed files for this control PR are limited to:
+
+- `.github/pull_request_template.md`
+- `docs/control/VERIFICATION_PLAN.md`
+- `scripts/check-no-secret-strings.mjs`
+- `scripts/check-changed-files-scope.mjs`
+- `.github/workflows/low-friction-branch-verification.yml`
+- `.github/workflows/preview-verification.yml`
+- `.github/workflows/protected-production-smoke.yml`
+- `.github/workflows/post-merge-verification.yml`
