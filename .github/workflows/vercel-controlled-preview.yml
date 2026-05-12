@@ -1,0 +1,76 @@
+name: Vercel Controlled Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        description: Branch, tag, or SHA to deploy. Defaults to the workflow ref.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  controlled-preview:
+    name: Verify and deploy controlled Vercel preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref_name || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Public visibility and leakage checks
+        run: npm run test:visibility
+
+      - name: Regulatory signals public leakage
+        run: npm run test:regulatory-signals-public-leakage
+
+      - name: Regulatory signals contract
+        run: npm run test:regulatory-signals-contract
+
+      - name: Public image asset verification
+        run: npm run test:public-images
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel preview environment
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Vercel prebuilt output
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Vercel prebuilt preview
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Preview deployment: $DEPLOYMENT_URL"
+
+      - name: Deployment summary
+        run: |
+          echo "## Vercel controlled preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment URL: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
