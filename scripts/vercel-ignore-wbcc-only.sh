@@ -5,14 +5,16 @@ set -euo pipefail
 #   exit 0 = ignore/skip this Vercel build
 #   exit 1 = continue this Vercel build
 #
-# Immediate deployment-control policy:
-#   - Build only production/main, preview/* and deploy/*.
+# Deployment-control policy:
+#   - Never suppress production deployments from the canonical project.
+#   - Build production/main, preview/* and deploy/*.
 #   - Skip ordinary feature/*, fix/*, cloudflare/*, vercel/* and bot-generated branches.
 #   - Skip all other unrecognized non-production branches by default.
 #
-# This file intentionally does not inspect changed files. The previous changed-file
-# policy still allowed ordinary fix/feature branches to create full preview builds,
-# which caused uncontrolled failed deployments and noisy external status checks.
+# Critical ordering rule:
+#   VERCEL_ENV=production must be checked before URL duplicate detection. Vercel
+#   deployment URLs commonly include the team slug, so URL-based duplicate checks
+#   can otherwise suppress the real production deployment.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
 vercel_env="${VERCEL_ENV:-}"
@@ -20,6 +22,13 @@ project_id="${VERCEL_PROJECT_ID:-}"
 project_production_url="${VERCEL_PROJECT_PRODUCTION_URL:-}"
 deployment_url="${VERCEL_URL:-}"
 branch_url="${VERCEL_BRANCH_URL:-}"
+
+# Production deploys are authoritative. Do not let duplicate URL heuristics skip
+# a production build for the canonical Harbourview project.
+if [[ "$vercel_env" == "production" ]]; then
+  echo "Vercel ignore: production environment detected; continue build."
+  exit 1
+fi
 
 is_known_duplicate_project_id() {
   local candidate="${1:-}"
@@ -40,7 +49,7 @@ is_known_duplicate_url() {
   [[ -z "$candidate" ]] && return 1
 
   case "$candidate" in
-    harbourview-network-*|*.harbourview-network-*|*harbourview-network-*|harbourview-platform-*|*.harbourview-platform-*|*harbourview-platform-*|*-harbourviewnetwork.vercel.app|*.harbourviewnetwork.vercel.app|*harbourviewnetwork.vercel.app)
+    harbourview-network-*|*.harbourview-network-*|*harbourview-network-*|harbourview-platform-*|*.harbourview-platform-*|*harbourview-platform-*)
       return 0
       ;;
     *)
@@ -50,19 +59,14 @@ is_known_duplicate_url() {
 }
 
 if [[ -n "$project_id" ]] && is_known_duplicate_project_id "$project_id"; then
-  echo "Vercel ignore: known duplicate Harbourview project id '$project_id' detected; skip build."
+  echo "Vercel ignore: known duplicate Harbourview project id '$project_id' detected; skip non-production build."
   exit 0
 fi
 
 if is_known_duplicate_url "$project_production_url" || is_known_duplicate_url "$deployment_url" || is_known_duplicate_url "$branch_url"; then
-  echo "Vercel ignore: known duplicate Harbourview deployment URL detected; skip build."
+  echo "Vercel ignore: known duplicate Harbourview deployment URL detected; skip non-production build."
   echo "production_url=${project_production_url:-<unset>} deployment_url=${deployment_url:-<unset>} branch_url=${branch_url:-<unset>}"
   exit 0
-fi
-
-if [[ "$vercel_env" == "production" ]]; then
-  echo "Vercel ignore: production environment detected; continue build."
-  exit 1
 fi
 
 if [[ -z "$branch" ]]; then
