@@ -40,6 +40,45 @@ Change policy: This checklist is not approval to delete, pause, merge, deploy or
 
 Find the actual Harbourview production Vercel project and make deployment ownership unambiguous.
 
+### Latest inspection result — 2026-05-12
+
+Deployment-scope decision remains **HOLD**.
+
+Accessible Vercel inventory:
+
+| Item | Result |
+|---|---|
+| Accessible team name | `Harbourview` |
+| Accessible team slug | `harbourviewnetwork` |
+| Accessible team ID | `team_zFcrpEaH7xxVPfFlj9yAKMZf` |
+| Visible projects | `chatbot` only |
+| Visible project ID | `prj_HpshzHIL2ZH0JJarU50gDDUAGUy3` |
+| `harbourview` project under accessible team | Not found |
+| `harbourview-platform` project under accessible team | Not found |
+
+GitHub/Vercel status evidence:
+
+| Context | Result | Control read |
+|---|---|---|
+| `Vercel – harbourview` | GitHub status context exists and points to `https://vercel.com/harbourviewcannabis-3379s-projects/harbourview/...` | Active external integration exists, but backing workspace/project is not accessible through the connected Vercel tool |
+| `harbourviewcannabis-3379s-projects/harbourview` | Direct connector inspection returned `403 Forbidden` | Required Vercel workspace/project access is missing |
+| `https://harbourview.vercel.app` | Not confirmed through accessible Vercel tooling | Intended/claimed production URL remains unverified |
+| `https://harbourview-platform.vercel.app` | Not confirmed through accessible Vercel tooling | Alternate historical/generated URL remains unverified |
+
+Required resolution before any deployment-policy change:
+
+- [ ] Get access to the Vercel workspace/project behind `harbourviewcannabis-3379s-projects/harbourview`.
+- [ ] Record the canonical Vercel project ID.
+- [ ] Record the canonical Vercel team/workspace name and slug.
+- [ ] Record the linked GitHub repo.
+- [ ] Record the production branch.
+- [ ] Record production domains.
+- [ ] Record preview domains.
+- [ ] Record whether Git auto-deploy is enabled.
+- [ ] Confirm whether repo `vercel.json` is active for the canonical project.
+- [ ] Confirm whether `https://harbourview.vercel.app` is the canonical production URL.
+- [ ] Confirm whether `https://harbourview-platform.vercel.app` is stale, duplicate, inactive or canonical.
+
 ### Checklist
 
 - [ ] Confirm all Vercel teams/accounts Tyler controls.
@@ -67,7 +106,7 @@ Observed on PR #294 after all requested GitHub verification workflows passed:
 | `netlify/harbourviewns/deploy-preview` | Passed/canceled | Netlify bot reported canceled deploy preview with successful status | Indicates another attached Netlify integration | Classify and disconnect if not canonical |
 | `netlify/harbourview-international/deploy-preview` | Passed/canceled | Netlify bot reported canceled deploy preview with successful status | Indicates another attached Netlify integration | Classify and disconnect if not canonical |
 
-Control rule: documentation-only PRs should not burn production preview quota or be blocked by stale preview integrations. The registry must identify exactly one canonical Harbourview deployment target before deployment-policy PR #275 is revived.
+Control rule: documentation-only PRs should not burn production preview quota or be blocked by stale preview integrations. The registry must identify exactly one canonical Harbourview deployment target before deployment-policy PRs are revived.
 
 ### Acceptance Criteria
 
@@ -132,7 +171,7 @@ Actions:
 - [x] Label stale PR #277 with `control/stale-pr` and close it unmerged.
 - [x] Label stale PRs #273, #52 and #279 with `control/stale-pr` and close them unmerged.
 - [x] Label temporary verification PR #278 with `control/temporary-verification` and keep it open as draft.
-- [x] Label Vercel policy PR #275 with `decision/HOLD` and `control/vercel-scope` and keep it open pending Vercel scope resolution.
+- [x] Close Vercel policy PR #275 unmerged after deployment-scope audit confirmed the canonical Vercel project remains unresolved.
 - [x] Merge PR #294 recording stale PR cleanup actions.
 - [x] Merge PR #297 documenting stale external preview integrations.
 - [ ] Convert this checklist into Linear issues after the registry is merged.
