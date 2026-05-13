@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+if (process.env.NODE_ENV === 'development' && process.env.CF_PAGES === '1') {
+  void import('@opennextjs/cloudflare').then((m) => m.initOpenNextCloudflareForDev())
+}
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+export default nextConfig
