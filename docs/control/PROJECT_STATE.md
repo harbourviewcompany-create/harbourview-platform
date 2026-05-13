@@ -2,6 +2,29 @@
 
 This file tracks durable project readiness state for Harbourview Marketplace.
 
+## Current production recovery state
+
+**Status:** HOLD — production build and verification-source-of-truth recovery in progress.
+
+**Canonical source of truth:** `docs/control/PROJECT_REGISTRY.md`
+
+**Canonical repo:** `harbourviewcompany-create/harbourview-platform`
+
+**Canonical production domain:** `https://harbourview.vercel.app`
+
+**Canonical Vercel project:** `harbourview` under Vercel team/account `harbourviewcompany`
+
+**Current narrow recovery scope:** remove the unconditional Cloudflare dev initializer from `next.config.ts`, point production verification defaults at the canonical production domain, expand production public leakage probe coverage to the current public marketplace category routes, and keep this state file aligned with the registry.
+
+**Current HOLD gates after this recovery patch:**
+
+- Fresh canonical Vercel production deployment proof from current `main` is still required after merge.
+- Production public leakage probe must pass against `https://harbourview.vercel.app`.
+- Anonymous `/admin` and nested `/admin/*` denial must be re-proven against canonical production.
+- Marketplace browser smoke must be run against the canonical production domain with explicit write/cleanup gates.
+- Vercel Project ID, Vercel Org ID and GitHub secret mapping for the canonical Vercel project remain unresolved registry HOLD gates.
+- Stale Vercel/Netlify branch-protection contexts and open PR debt remain unresolved registry HOLD gates.
+
 <!-- Trigger commit: Branch Verification re-run -->
 
 ## Marketplace buy/sell conversion
@@ -18,7 +41,7 @@ No schema, RLS, admin auth, adminGuard or capture route changes.
 
 ## Marketplace capture verification
 
-**Status:** PASS
+**Status:** SUPERSEDED BY CURRENT PRODUCTION RECOVERY HOLD
 
 **Last verified:** 2026-05-03
 
@@ -45,11 +68,11 @@ All three smoke rows were marked `closed` after verification.
 
 **Operational impact**
 
-Manual browser testing by Tyler is no longer required for the marketplace quote, standard listing submission or wanted request submission capture path. The automated production smoke workflow verifies browser submission, database row creation and smoke-row cleanup.
+This evidence is retained as historical proof only. Current production verification must target `https://harbourview.vercel.app`.
 
 ## Vercel/Supabase environment hygiene
 
-**Status:** PASS
+**Status:** SUPERSEDED BY CURRENT PRODUCTION RECOVERY HOLD
 
 **Last verified:** 2026-05-03
 
@@ -104,7 +127,7 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 
 ## Current readiness label
 
-`MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
+`PRODUCTION_BUILD_AND_CANONICAL_VERIFICATION_RECOVERY_HOLD`
 
 ## Marketplace Commercial Polish V1
 
