@@ -10,22 +10,25 @@ interface ListingCardProps {
   listing: Listing & {
     category?: string
     budget?: string
+    weightAvailable?: string
   }
 }
 
 const visualRules = [
-  { terms: ['pre-roll tubes', 'tube'], label: 'Pre-roll tubes', shape: 'rounded tubes' },
-  { terms: ['mylar', 'pouch', 'exit bags'], label: 'Mylar pouches', shape: 'pouches' },
-  { terms: ['glass jars', 'jar'], label: 'Glass jars', shape: 'jars' },
-  { terms: ['concentrate'], label: 'Concentrate jars', shape: 'small jars' },
-  { terms: ['tincture', 'bottle'], label: 'Tincture bottles', shape: 'bottles' },
-  { terms: ['cones', 'pre-rolled cones'], label: 'Pre-rolled cones', shape: 'cones' },
-  { terms: ['humidity'], label: 'Humidity packs', shape: 'packets' },
-  { terms: ['labels', 'tamper', 'shrink'], label: 'Labels & seals', shape: 'labels' },
-  { terms: ['vape', 'cartridge'], label: 'Vape packaging', shape: 'cartridge packaging' },
-  { terms: ['gloves', 'sanitation', 'parchment'], label: 'Facility supplies', shape: 'supply boxes' },
-  { terms: ['cartons', 'shipping'], label: 'Shipping cartons', shape: 'cartons' },
-  { terms: ['bundle', 'bulk procurement'], label: 'Consumables bundle', shape: 'assorted supplies' },
+  { terms: ['pre-roll tubes', 'tube'], label: 'Pre-roll tubes', shape: 'packaging supply' },
+  { terms: ['mylar', 'pouch', 'exit bags'], label: 'Mylar pouches', shape: 'packaging supply' },
+  { terms: ['glass jars', 'jar'], label: 'Glass jars', shape: 'packaging supply' },
+  { terms: ['flower', 'mixed hybrid'], label: 'Bulk flower', shape: 'inventory lot' },
+  { terms: ['biomass', 'hemp'], label: 'CBD biomass', shape: 'extraction input' },
+  { terms: ['live resin', 'concentrate'], label: 'Concentrate lot', shape: 'wholesale inventory' },
+  { terms: ['tincture', 'bottle'], label: 'Tincture bottles', shape: 'packaging supply' },
+  { terms: ['cones', 'pre-rolled cones'], label: 'Pre-rolled cones', shape: 'packaging supply' },
+  { terms: ['humidity'], label: 'Humidity packs', shape: 'facility supply' },
+  { terms: ['labels', 'tamper', 'shrink'], label: 'Labels & seals', shape: 'compliance packaging' },
+  { terms: ['vape', 'cartridge'], label: 'Vape packaging', shape: 'hardware packaging' },
+  { terms: ['gloves', 'sanitation', 'parchment'], label: 'Facility supplies', shape: 'operating supply' },
+  { terms: ['cartons', 'shipping'], label: 'Shipping cartons', shape: 'logistics supply' },
+  { terms: ['bundle', 'bulk procurement'], label: 'Consumables bundle', shape: 'supply package' },
   { terms: ['extraction', 'co2', 'ethanol', 'processing equipment'], label: 'Extraction equipment', shape: 'processing system' },
   { terms: ['pos', 'technology', 'retail', 'metrc', 'biotrack'], label: 'Retail POS system', shape: 'retail technology' },
   { terms: ['facility', 'real estate', 'cultivation', 'lease', 'warehouse'], label: 'Commercial facility', shape: 'facility request' },
@@ -67,28 +70,39 @@ function getVisual(listing: ListingCardProps['listing']) {
 function getBadge(status?: ListingImageStatus) {
   if (status === 'verified') return 'Image reviewed'
   if (status === 'supplier-provided') return 'Supplier image'
-  return 'Representative image'
+  return 'Public summary'
+}
+
+function getProductClass(listing: ListingCardProps['listing']) {
+  return getVisual(listing).label
+}
+
+function getOrderLabel(listing: ListingCardProps['listing'], isWantedRequest: boolean) {
+  if (isWantedRequest && listing.budget) return listing.budget
+  if (listing.weightAvailable) return listing.weightAvailable
+  if (listing.price) return listing.price
+  return 'Terms on request'
 }
 
 function RepresentativeFallback({ listing, badge }: { listing: ListingCardProps['listing']; badge: string }) {
   const visual = getVisual(listing)
 
   return (
-    <div className="relative h-36 overflow-hidden rounded-lg border border-gray-100 bg-gradient-to-br from-gold-pale via-white to-gray-100 p-4">
-      <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
-        {badge}
-      </span>
-      <div className="flex h-full items-end justify-between gap-3 pt-8">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gold">Harbourview</p>
-          <p className="mt-1 text-sm font-semibold text-navy">{visual.label}</p>
-          <p className="text-xs text-gray-500">{visual.shape}</p>
-        </div>
-        <div className="flex items-end gap-1.5 opacity-80" aria-hidden="true">
-          <div className="h-10 w-5 rounded-t-full rounded-b-sm border border-gold/50 bg-white/80" />
-          <div className="h-14 w-7 rounded-t-full rounded-b-sm border border-gold/50 bg-white/90" />
-          <div className="h-8 w-5 rounded-t-full rounded-b-sm border border-gold/50 bg-white/75" />
-        </div>
+    <div className="relative h-28 overflow-hidden rounded-sm border border-gold/12 bg-[linear-gradient(135deg,rgba(7,20,36,0.98)_0%,rgba(13,25,42,0.96)_55%,rgba(198,165,90,0.16)_100%)] p-4">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/48 to-transparent" />
+      <div className="absolute -right-12 -top-12 h-28 w-28 rounded-full border border-gold/10" aria-hidden="true" />
+      <div className="absolute bottom-3 right-4 flex items-end gap-1.5 opacity-80" aria-hidden="true">
+        <div className="h-8 w-7 rounded-sm border border-gold/35 bg-white/[0.04]" />
+        <div className="h-12 w-7 rounded-sm border border-gold/45 bg-white/[0.055]" />
+        <div className="h-6 w-7 rounded-sm border border-gold/30 bg-white/[0.035]" />
+      </div>
+      <div className="relative z-10 max-w-[70%]">
+        <span className="inline-flex rounded-full border border-gold/18 bg-black/22 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-gold-pale">
+          {badge}
+        </span>
+        <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/72">Harbourview</p>
+        <p className="mt-1 text-sm font-semibold leading-snug text-[#f4f1eb]">{visual.label}</p>
+        <p className="text-xs text-white/46">{visual.shape}</p>
       </div>
     </div>
   )
@@ -103,15 +117,16 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
 
   if (imageSrc && !hasImageError) {
     return (
-      <figure className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+      <figure className="relative h-28 overflow-hidden rounded-sm border border-gold/12 bg-[#071425]">
         <img
           src={imageSrc}
           alt={listingImage?.alt || listing.title}
-          className="h-36 w-full object-cover"
+          className="h-full w-full object-cover opacity-88 saturate-[0.82]"
           loading="lazy"
           onError={() => setHasImageError(true)}
         />
-        <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#010711]/72 via-transparent to-transparent" />
+        <span className="absolute left-3 top-3 rounded-full border border-gold/18 bg-[#010711]/78 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-gold-pale shadow-sm backdrop-blur">
           {badge}
         </span>
         {listingImage?.caption && (
@@ -136,54 +151,72 @@ export default function ListingCard({ listing }: ListingCardProps) {
   }
 
   const isWantedRequest = listing.category === 'wanted-requests'
-  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request Routed Inquiry'
+  const inquiryLabel = isWantedRequest ? 'Respond to Request' : 'Request introduction'
   const inquirySubject = isWantedRequest
     ? `Harbourview Wanted Request Response: ${listing.title}`
     : `Harbourview Network Inquiry: ${listing.title}`
+  const productClass = getProductClass(listing)
+  const orderLabel = getOrderLabel(listing, isWantedRequest)
 
   return (
-    <article className="flex h-full flex-col gap-4 rounded-2xl border border-white/80 bg-[#f8f4ea] p-5 text-navy shadow-[0_22px_60px_rgba(0,0,0,0.24)]">
-      <ListingVisual listing={listing} />
-
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="mb-1 text-base font-semibold leading-snug text-navy">
-            {listing.title}
-          </h3>
-          <p className="text-xs text-gray-500">{listing.location || 'Location available on request'}</p>
-        </div>
-        {(listing.price || (isWantedRequest && listing.budget)) && (
-          <p className="shrink-0 rounded-full bg-gold-pale px-3 py-1 text-xs font-semibold text-navy shadow-sm">
-            {isWantedRequest && listing.budget ? listing.budget : listing.price}
-          </p>
-        )}
+    <article className="group flex h-full flex-col overflow-hidden rounded-sm border border-gold/12 bg-[#f4efe3] text-navy shadow-[0_18px_54px_rgba(0,0,0,0.3)] transition duration-200 hover:-translate-y-0.5 hover:border-gold/35 hover:shadow-[0_26px_70px_rgba(0,0,0,0.38)]">
+      <div className="p-4 pb-0">
+        <ListingVisual listing={listing} />
       </div>
 
-      <p className="line-clamp-4 text-sm leading-6 text-gray-700">{listing.description}</p>
-
-      {listing.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {listing.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700"
-            >
-              {tag}
-            </span>
-          ))}
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold">{productClass}</p>
+            <h3 className="mt-2 text-[1.02rem] font-semibold leading-snug tracking-[-0.012em] text-[#061120]">
+              {listing.title}
+            </h3>
+          </div>
+          <p className="shrink-0 rounded-full border border-gold/16 bg-white/70 px-3 py-1 text-[11px] font-semibold text-[#071425] shadow-sm">
+            {orderLabel}
+          </p>
         </div>
-      )}
 
-      <p className="text-xs leading-5 text-gray-600">
-        Public summary only. Contact details are private and inquiries are reviewed before routing.
-      </p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-sm border border-[#d8cda9]/55 bg-white/45 px-3 py-2">
+            <p className="font-semibold uppercase tracking-[0.16em] text-[#9b7b2d]">Region</p>
+            <p className="mt-1 text-[#384354]">{listing.location || 'On request'}</p>
+          </div>
+          <div className="rounded-sm border border-[#d8cda9]/55 bg-white/45 px-3 py-2">
+            <p className="font-semibold uppercase tracking-[0.16em] text-[#9b7b2d]">Access</p>
+            <p className="mt-1 text-[#384354]">Licensed only</p>
+          </div>
+        </div>
 
-      <div className="mt-auto border-t border-gold/25 pt-4">
-        <InquiryLink
-          subject={inquirySubject}
-          listingTitle={listing.title}
-          label={inquiryLabel}
-        />
+        <p className="line-clamp-3 text-sm leading-6 text-[#384354]">{listing.description}</p>
+
+        {listing.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {listing.tags.slice(0, 4).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-[#d8cda9]/70 bg-white/55 px-2.5 py-1 text-[11px] font-medium text-[#384354]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-auto border-t border-[#d6c99f]/65 pt-4">
+          <div className="mb-3 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6b7280]">
+            <span>Reviewed summary</span>
+            <span>Private routing</span>
+          </div>
+          <InquiryLink
+            subject={inquirySubject}
+            listingTitle={listing.title}
+            label={inquiryLabel}
+          />
+          <p className="mt-3 text-xs leading-5 text-[#5f6876]">
+            Public summary only. Contact details and transaction-specific materials are handled through reviewed Harbourview intake.
+          </p>
+        </div>
       </div>
     </article>
   )
