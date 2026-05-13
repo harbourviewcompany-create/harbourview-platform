@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
 import { representativeListingImages } from '@/lib/fixtures/representativeImages'
@@ -118,11 +119,12 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
   if (imageSrc && !hasImageError) {
     return (
       <figure className="relative h-28 overflow-hidden rounded-sm border border-gold/12 bg-[#071425]">
-        <img
+        <Image
           src={imageSrc}
           alt={listingImage?.alt || listing.title}
-          className="h-full w-full object-cover opacity-[0.88] saturate-[0.82]"
-          loading="lazy"
+          className="object-cover opacity-[0.88] saturate-[0.82]"
+          fill
+          sizes="(min-width: 1280px) 30vw, (min-width: 768px) 45vw, 100vw"
           onError={() => setHasImageError(true)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#010711]/72 via-transparent to-transparent" />
