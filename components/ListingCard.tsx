@@ -121,7 +121,7 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
         <img
           src={imageSrc}
           alt={listingImage?.alt || listing.title}
-          className="h-full w-full object-cover opacity-88 saturate-[0.82]"
+          className="h-full w-full object-cover opacity-[0.88] saturate-[0.82]"
           loading="lazy"
           onError={() => setHasImageError(true)}
         />
