@@ -9,11 +9,19 @@ const baseUrl = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_P
 const listingsSource = readFileSync('lib/marketplace/listings.ts', 'utf8');
 const slugMatches = [...listingsSource.matchAll(/slug:\s*'([^']+)'/g)].map((match) => match[1]);
 const sourceUrlMatches = [...listingsSource.matchAll(/sourceUrl:\s*'([^']+)'/g)].map((match) => match[1]);
+const categoryRoutes = [
+  'consumables',
+  'cannabis-inventory',
+  'new-products',
+  'used-surplus',
+  'services',
+  'business-opportunities',
+].map((slug) => `/marketplace/${slug}`);
 
 const routes = [
   '/marketplace',
   '/marketplace/listings',
-  '/marketplace/consumables',
+  ...categoryRoutes,
   '/marketplace/sell',
   '/marketplace/sell?type=wanted',
   '/marketplace/wanted',
