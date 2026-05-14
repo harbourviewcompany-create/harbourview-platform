@@ -161,3 +161,30 @@ Required checks:
 - restricted/excluded consumables and licence-review candidates cannot reach `approved_draft`
 - public consumables UI uses only safe inquiry-first labels
 - public leakage probes include private source/candidate table and field names
+
+## Verification command map (control-plane)
+
+- `npm run typecheck` — TypeScript gate.
+- `npm run lint` — lint gate (warnings currently allowed, failures block).
+- `npm run test:intelligence-os` — unit extraction contract.
+- `npm run verify:leakage` — public leakage gate for forbidden admin/provenance strings.
+- `npm run verify:admin-auth` — admin authorization gate (anonymous/missing role/viewer/analyst denied; operator/admin allowed via role logic checks).
+- `npm run verify:marketplace-smoke` — safe workflow and route guard checks; does not perform production writes.
+- `npm run verify:production-visibility` — production visibility probe (read-only probe, env-dependent).
+- `npm run build` — production build gate.
+- `npm run verify:all-safe` — aggregate safe local/CI verification command.
+
+### Smoke write gate semantics
+
+`scripts/smoke-marketplace.mjs` now emits explicit status labels:
+- `NOT RUN`
+- `GATED`
+- `BLOCKED`
+- `RUN`
+- `PASS`
+- `FAIL` (process exit non-zero)
+
+Required env controls for write-capable smoke:
+- `HARBOURVIEW_SMOKE_WRITE=1`
+- `HARBOURVIEW_SMOKE_CLEANUP=1` (cleanup optional but recommended)
+- `HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1` (required when `VERCEL_ENV=production`)
