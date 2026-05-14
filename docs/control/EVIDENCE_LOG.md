@@ -2,6 +2,24 @@
 
 This file records release evidence for Harbourview Marketplace production gates.
 
+## 2026-05-14: Draft read-only admin operations hub integration
+
+**Evidence ID:** `HV-ADMIN-HUB-READONLY-DRAFT-20260514`
+
+**Branch:** `codex/admin-hub-readonly-20260514`
+
+**Base commit:** `2ee3105e236122083d3fb86a16ca3c8811cce440`
+
+**Purpose:** Draft integration of the uploaded Harbourview Intelligence Operations Hub as a protected, read-only `/admin/hub` module.
+
+**Scope included:** existing admin/operator guard reuse, server-only Notion and Linear read services, protected `/api/admin/hub/context` endpoint, internal admin UI, hub environment documentation, and static boundary probe.
+
+**Scope intentionally disabled:** AI chat proxying, Anthropic/OpenAI provider dependencies, Notion writes, Linear mutation, session logging, proposal queue creation, active-context replacement, confirmed-decision promotion, production data writes, and Airtable canonical cockpit synchronization.
+
+**Required checks before merge:** `npm run test:admin-hub`, `npm run test:admin-guard`, `npm run typecheck`, and `npm run build`.
+
+**Current status:** HOLD until GitHub Actions or an equivalent branch verification run proves the checks above are green.
+
 ## 2026-05-09: Production deployment trigger after listings route restore
 
 **Evidence ID:** `HV-PRODUCTION-LISTINGS-ROUTE-DEPLOY-20260509`
@@ -29,4 +47,3 @@ This file records release evidence for Harbourview Marketplace production gates.
 **Expected checks:** `npm ci`, `npm run typecheck`, `npm run build`, `npm run test:services-public-leakage`, and `npm run test:regulatory-signals-public-leakage`.
 
 **Merge policy:** Do not merge this trigger PR unless both workflows pass.
-
