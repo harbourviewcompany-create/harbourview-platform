@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { CONTACT_EMAIL, CONTACT_MAILTO_HREF } from '@/lib/contact'
 import ConfidentialIntakeForm from './ConfidentialIntakeForm'
+import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -14,37 +15,44 @@ export const metadata: Metadata = {
 export default function IntakePage() {
   return (
     <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Confidential Intake</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Share qualified opportunities, commercial requirements, or confidential market-access inquiries. Harbourview reviews submissions before follow-up.
-          </p>
-        </div>
-      </section>
+      <PublicHero
+        eyebrow="Harbourview Intake"
+        title="Confidential intake for introductions, intelligence and controlled market access requests."
+        actions={[
+          { label: 'Submit Intake', href: '#intake-form' },
+          { label: 'Explore Marketplace', href: '/marketplace', variant: 'secondary' },
+        ]}
+      >
+        <p>
+          Use this route to submit commercial requirements, market-entry mandates, opportunity briefs, and institutional requests requiring discreet Harbourview review.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Public pages provide orientation only. Contact details and request specifics remain private unless routing is approved.
+        </p>
+      </PublicHero>
 
-      <section className="py-12 bg-gray-50">
-        <div className="page-container grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
-          <div className="card p-6 sm:p-8">
+      <PublicSection tone="panel" id="intake-form">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <PublicCard className="p-6 sm:p-8">
             <ConfidentialIntakeForm />
-          </div>
+          </PublicCard>
 
           <aside className="space-y-6">
-            <div className="card p-6">
-              <h2 className="text-navy font-semibold text-base mb-3">Direct Contact</h2>
-              <p className="text-sm text-gray-500 mb-3">
-                For confidential inquiries and qualified opportunities:
+            <PublicCard className="p-6">
+              <h2 className="mb-3 text-base font-semibold text-[#f4f1eb]">Direct Contact</h2>
+              <p className="mb-3 text-sm text-white/60">
+                For confidential institutional inquiries and qualified opportunities:
               </p>
               <a
                 href={CONTACT_MAILTO_HREF}
-                className="text-navy underline hover:text-gold text-sm"
+                className="text-sm text-gold underline hover:text-gold-light"
               >
                 {CONTACT_EMAIL}
               </a>
-            </div>
+            </PublicCard>
           </aside>
         </div>
-      </section>
+      </PublicSection>
     </>
   )
 }

@@ -17,6 +17,9 @@ const navGroups: NavGroup[] = [
   {
     label: 'Network',
     items: [
+      { label: 'Marketplace Hub', href: '/marketplace' },
+      { label: 'Sell / Submit Listing', href: '/marketplace/sell' },
+      { label: 'Wanted Requests', href: '/marketplace/wanted' },
       { label: 'Network', href: '/network' },
       { label: 'Opportunities', href: '/opportunities' },
     ],
@@ -31,6 +34,8 @@ const navGroups: NavGroup[] = [
 ]
 
 const navLinks: NavItem[] = [
+  { label: 'Intake', href: '/intake' },
+  { label: 'Admin', href: '/admin/login' },
   { label: 'Compliance', href: '/compliance' },
   { label: 'Clinical Education', href: '/network/clinical-education' },
   { label: 'Contact', href: '/contact' },
