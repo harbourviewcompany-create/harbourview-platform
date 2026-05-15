@@ -1,161 +1,129 @@
 import type { Metadata } from 'next'
 import {
-  FooterCta,
-  PublicCard,
-  PublicHero,
-  PublicLinkCard,
-  PublicSection,
+  AccessLaneCard,
+  ButtonLink,
+  PageHero,
+  SectionFrame,
   SectionHeader,
-} from '@/components/PublicUi'
-
-const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
+  Surface,
+  TrustBoundaryPanel,
+} from '@/components/design-system/Institutional'
 
 export const metadata: Metadata = {
   title: 'Network | Harbourview',
   description:
-    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
+    'Harbourview Network is a controlled access layer for reviewed listings, wanted requests, opportunity submissions and regulated-market commercial routing.',
   openGraph: {
     title: 'Harbourview Network',
     description:
-      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
+      'Controlled network access for public-safe commercial summaries, wanted requests and confidential regulated-market review.',
   },
 }
 
-const categories = [
+const accessLanes = [
   {
-    label: 'Reviewed Network Listings',
+    eyebrow: 'Reviewed listings',
+    title: 'Public-safe opportunity summaries',
     href: '/marketplace/listings',
-    description:
-      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
+    cta: 'Review public summaries',
+    body: 'Listings are presented as controlled commercial summaries. Private counterparty details, source material and terms remain out of public routes.',
   },
   {
-    label: 'Used & Surplus Equipment',
-    href: '/marketplace/used-surplus',
-    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
-  },
-  {
-    label: 'Business Opportunities',
-    href: '/marketplace/business-opportunities',
-    description: 'Facilities, partnerships and structured commercial routes subject to diligence.',
-  },
-  {
-    label: 'Consumables & Operating Supplies',
-    href: '/marketplace/consumables',
-    description: 'Packaging, lab, cultivation, logistics and operating supply categories.',
-  },
-  {
-    label: 'New Products',
-    href: '/marketplace/new-products',
-    description: 'New equipment, automation, packaging and operating supplies.',
-  },
-  {
-    label: 'Cann' + 'abis Inventory',
-    href: licensedInventoryHref,
-    description: 'Licensed-only inventory review and private routing.',
-  },
-  {
-    label: 'Services',
-    href: '/marketplace/services',
-    description: 'Compliance, logistics, QA, advisory and operational service providers.',
-  },
-  {
-    label: 'Wanted Requests',
+    eyebrow: 'Buyer demand',
+    title: 'Wanted requests as demand briefs',
     href: '/marketplace/wanted',
-    description: 'Buyer and operator demand routed through Harbourview review.',
+    cta: 'View wanted requests',
+    body: 'Demand-side requirements are framed as reviewed briefs so suppliers can respond through Harbourview rather than expose sensitive details publicly.',
   },
   {
-    label: 'Genetics, Seeds & Tissue Culture',
-    href: '/marketplace/genetics',
-    description:
-      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
+    eyebrow: 'Seller path',
+    title: 'Submit an opportunity for review',
+    href: '/marketplace/sell',
+    cta: 'Submit opportunity',
+    body: 'Supply, services, assets and access opportunities enter a qualification path before any publication or introduction decision.',
   },
   {
-    label: 'Request Introduction',
-    href: '/intake',
-    description:
-      'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
+    eyebrow: 'Routed inquiry',
+    title: 'Request commercial follow-up',
+    href: '/marketplace/quote',
+    cta: 'Request routing',
+    body: 'Qualified buyers, sellers and participants can request review for a listing, category or commercial pathway without public disclosure.',
   },
 ]
 
-const processCards = [
-  {
-    title: 'Operators submit',
-    body: 'Operators submit products, assets, services, wanted requests or commercial opportunities for Harbourview review. Publication and introductions are not automatic.',
-  },
-  {
-    title: 'Buyers and suppliers inquire',
-    body: 'Participants browse public summaries and submit inquiries through Harbourview. Public pages do not expose private contact details or sensitive commercial context.',
-  },
-  {
-    title: 'Harbourview reviews',
-    body: 'Harbourview reviews category fit, commercial relevance and routing context before any counterparty contact, response or introduction is coordinated.',
-  },
-  {
-    title: 'Private routing follows',
-    body: 'Introductions, availability, pricing, transaction terms and legal or regulatory requirements remain subject to separate review and agreement by the relevant parties.',
-  },
+const reviewSteps = [
+  ['Classify', 'Harbourview separates listings, wanted requests, market access opportunities and confidential situations before routing.'],
+  ['Sanitize', 'Public routes show summaries and categories only. Private evidence, counterparty material and commercial terms remain controlled.'],
+  ['Route', 'Introductions and follow-up happen only after fit, jurisdiction, seriousness and disclosure level are reviewed.'],
 ]
 
 export default function MarketplacePage() {
   return (
     <>
-      <PublicHero
+      <PageHero
         eyebrow="Harbourview Network"
-        title="Controlled commercial access for reviewed opportunities and requests."
-        actions={[
-          { label: 'Submit Opportunity', href: '/marketplace/sell' },
-          { label: 'Explore Categories', href: '#categories', variant: 'secondary' },
-          { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
-        ]}
+        title="Controlled commercial access for reviewed regulated-market opportunities."
+        primary={{ label: 'Submit Opportunity', href: '/marketplace/sell' }}
+        secondary={{ label: 'View Wanted Requests', href: '/marketplace/wanted' }}
+        tertiary={{ label: 'Request Routing', href: '/marketplace/quote' }}
+        aside={<TrustBoundaryPanel />}
       >
         <p>
-          Harbourview Network connects qualified participants through reviewed opportunities, wanted requests, qualified introductions, commercial intelligence and relationship-led market access.
+          The Network is not an open listing board. It is a public-safe entry layer for opportunity summaries, buyer demand and confidential commercial review.
         </p>
-        <p className="mt-4 text-sm leading-7 text-white/54">
-          Contact details are private, inquiries are reviewed before routing and submissions do not guarantee introductions, availability, transaction terms or regulatory outcomes.
-        </p>
-      </PublicHero>
+      </PageHero>
 
-      <PublicSection tone="dark">
-        <SectionHeader
-          eyebrow="Controlled network workflow"
-          title="Review and qualification before introduction."
-        />
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {processCards.map((card) => (
-            <PublicCard key={card.title} className="p-6">
-              <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
-              <h3 className="mb-4 text-lg font-semibold text-[#f4f1eb]">{card.title}</h3>
-              <p className="text-sm leading-7 text-white/58">{card.body}</p>
-            </PublicCard>
+      <SectionFrame tone="deep">
+        <SectionHeader eyebrow="Network lanes" title="Choose the pathway that matches the commercial situation.">
+          <p>
+            Each lane keeps public discovery separate from private qualification. Users should understand what they are authorizing before submitting or responding.
+          </p>
+        </SectionHeader>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {accessLanes.map((lane) => (
+            <AccessLaneCard key={lane.href} eyebrow={lane.eyebrow} title={lane.title} href={lane.href} cta={lane.cta}>
+              {lane.body}
+            </AccessLaneCard>
           ))}
         </div>
-      </PublicSection>
+      </SectionFrame>
 
-      <PublicSection id="categories" tone="navy">
-        <SectionHeader
-          eyebrow="Network categories"
-          title="Explore reviewed commercial access categories."
-        />
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {categories.map((cat) => (
-            <PublicLinkCard key={cat.href} href={cat.href} title={cat.label}>
-              {cat.description}
-            </PublicLinkCard>
-          ))}
+      <SectionFrame tone="editorial">
+        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+          <SectionHeader eyebrow="Review model" title="The network earns trust by limiting what is public." className="mb-0">
+            <p>
+              Public summaries should help qualified participants identify relevance. They should not publish private evidence, counterparties, commercial terms or analyst review context.
+            </p>
+          </SectionHeader>
+          <div className="grid gap-4">
+            {reviewSteps.map(([title, body], index) => (
+              <Surface key={title} tone="form" className="rounded-[1.4rem] p-5">
+                <div className="flex gap-4">
+                  <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#a9873c]/35 text-xs font-semibold text-[#8f7130]">0{index + 1}</span>
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-[#061527]">{title}</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#435066]">{body}</p>
+                  </div>
+                </div>
+              </Surface>
+            ))}
+          </div>
         </div>
-      </PublicSection>
+      </SectionFrame>
 
-      <FooterCta
-        eyebrow="Submit to Harbourview"
-        title="Have an opportunity, introduction request or wanted request to submit?"
-        actions={[
-          { label: 'Submit Opportunity', href: '/marketplace/sell' },
-          { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
-        ]}
-      >
-        Submit supply, services, business opportunities, buyer requirements or introduction requests for Harbourview Network review. Public visibility and routing are not automatic.
-      </FooterCta>
+      <SectionFrame tone="deep">
+        <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center">
+          <SectionHeader eyebrow="Confidential path" title="Sensitive commercial situations should start in private review." className="mb-0">
+            <p>
+              If the opportunity includes sensitive counterparties, documents, source material, pricing, exclusivity or jurisdictional exposure, use the confidential intake route instead of public submission language.
+            </p>
+          </SectionHeader>
+          <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
+            <ButtonLink href="/intake">Start Confidential Review</ButtonLink>
+            <ButtonLink href="/intelligence" variant="secondary">View Intelligence</ButtonLink>
+          </div>
+        </div>
+      </SectionFrame>
     </>
   )
 }
