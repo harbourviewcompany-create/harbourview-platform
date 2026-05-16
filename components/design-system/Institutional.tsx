@@ -312,7 +312,7 @@ export function Field({
         {...props}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cn('mt-2 w-full rounded-xl border border-[#d8ceb7] bg-white px-4 py-3 text-sm text-[#061527] outline-none transition placeholder:text-[#8b94a3] focus:border-[#a9873c] focus:ring-2 focus:ring-[#c7a65c]/24', props.className)}
+        className="mt-2 w-full rounded-xl border border-[#d8ceb7] bg-white px-4 py-3 text-sm text-[#061527] outline-none transition placeholder:text-[#8b94a3] focus:border-[#a9873c] focus:ring-2 focus:ring-[#c7a65c]/24"
       />
       {error ? <p id={`${props.id}-error`} className="mt-2 text-xs font-medium text-[#9f2f2f]">{error}</p> : null}
     </div>
@@ -343,7 +343,7 @@ export function TextareaField({
         {...props}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cn('mt-2 w-full rounded-xl border border-[#d8ceb7] bg-white px-4 py-3 text-sm text-[#061527] outline-none transition placeholder:text-[#8b94a3] focus:border-[#a9873c] focus:ring-2 focus:ring-[#c7a65c]/24', props.className)}
+        className="mt-2 w-full rounded-xl border border-[#d8ceb7] bg-white px-4 py-3 text-sm text-[#061527] outline-none transition placeholder:text-[#8b94a3] focus:border-[#a9873c] focus:ring-2 focus:ring-[#c7a65c]/24"
       />
       {error ? <p id={`${props.id}-error`} className="mt-2 text-xs font-medium text-[#9f2f2f]">{error}</p> : null}
     </div>
@@ -375,7 +375,7 @@ export function SelectField({
         {...props}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cn('mt-2 w-full rounded-xl border border-[#d8ceb7] bg-white px-4 py-3 text-sm text-[#061527] outline-none transition focus:border-[#a9873c] focus:ring-2 focus:ring-[#c7a65c]/24', props.className)}
+        className="mt-2 w-full rounded-xl border border-[#d8ceb7] bg-white px-4 py-3 text-sm text-[#061527] outline-none transition focus:border-[#a9873c] focus:ring-2 focus:ring-[#c7a65c]/24"
       >
         {children}
       </select>
