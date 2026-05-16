@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
+import {
+  Button,
+  Field,
+  FormErrorSummary,
+  FormSection,
+  SelectField,
+  TextareaField,
+} from '@/components/design-system/Institutional'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormErrors = Record<string, string>
@@ -131,139 +139,84 @@ export default function QuoteRequestForm() {
 
   if (state.status === 'success') {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Inquiry Received</h2>
-        <p data-testid="quote-diagnostic-message" className="text-gray-500 text-sm mb-6">{state.message}</p>
-        <button onClick={() => window.location.reload()} className="btn-outline text-sm">
+      <div className="rounded-[1.75rem] border border-[#d7caa9]/55 bg-[#fbf7ed] p-8 text-center text-[#061527]">
+        <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#a9873c]/35 text-2xl text-[#8f7130]">✓</p>
+        <h2 className="mt-5 font-serif text-2xl tracking-[-0.03em]">Inquiry received for review</h2>
+        <p data-testid="quote-diagnostic-message" className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[#435066]">{state.message}</p>
+        <Button type="button" variant="secondary" className="mt-6 border-[#a9873c]/45 text-[#8f7130] hover:bg-[#c7a65c]/10" onClick={() => window.location.reload()}>
           Submit another inquiry
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate>
-      <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">What are you looking to access?</h2>
+      <FormErrorSummary errors={errors} />
 
-        <div>
-          <label htmlFor="listingTitle" className="block text-sm font-medium text-gray-700 mb-1">
-            Listing or category of interest
-          </label>
-          <input
-            id="listingTitle"
-            name="listingTitle"
-            type="text"
-            defaultValue={listingTitle}
-            placeholder="Listing title, supplier, wanted request or category"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
-          />
+      <FormSection
+        eyebrow="Inquiry"
+        title="Commercial routing context"
+        note="Describe the public summary, category or demand brief of interest. Keep sensitive documents, raw evidence and private counterparty details out of this form unless requested later."
+      >
+        <Field id="listingTitle" name="listingTitle" type="text" defaultValue={listingTitle} label="Listing, request or category of interest" placeholder="Listing title, wanted request, supplier, country or category" />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field id="volume" name="volume" type="text" label="Quantity / order size" required error={errors.volume} placeholder="e.g. 10,000 units, one lot, service scope" />
+          <SelectField id="timeline" name="timeline" label="Timeline" required error={errors.timeline}>
+            <option value="">Select timeline</option>
+            <option value="ASAP">ASAP</option>
+            <option value="Within 30 days">Within 30 days</option>
+            <option value="30–90 days">30–90 days</option>
+            <option value="Future planning">Future planning</option>
+          </SelectField>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="volume" className="block text-sm font-medium text-gray-700 mb-1">
-              Quantity / Order Size <span className="text-red-500">*</span>
-            </label>
-            <input id="volume" name="volume" type="text" placeholder="e.g. 10,000 units, one lot, or service scope" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-            {errors.volume && <p className="text-red-500 text-xs mt-1">{errors.volume}</p>}
-          </div>
-          <div>
-            <label htmlFor="timeline" className="block text-sm font-medium text-gray-700 mb-1">
-              Timeline <span className="text-red-500">*</span>
-            </label>
-            <select id="timeline" name="timeline" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white">
-              <option value="">Select timeline</option>
-              <option value="ASAP">ASAP</option>
-              <option value="Within 30 days">Within 30 days</option>
-              <option value="30–90 days">30–90 days</option>
-              <option value="Future planning">Future planning</option>
-            </select>
-            {errors.timeline && <p className="text-red-500 text-xs mt-1">{errors.timeline}</p>}
-          </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field id="budget" name="budget" type="text" label="Budget / target price" placeholder="Optional — share if comfortable" />
+          <Field id="intendedUse" name="intendedUse" type="text" label="Intended use" placeholder="Licensed cultivation, processing, export, retail" />
         </div>
+        <TextareaField id="requirements" name="requirements" rows={5} label="Requirements or compliance notes" placeholder="Specs, certifications, licence context, delivery, condition or documentation requirements." />
+      </FormSection>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">Budget / Target Price</label>
-            <input id="budget" name="budget" type="text" placeholder="Optional — share if comfortable" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-          </div>
-          <div>
-            <label htmlFor="intendedUse" className="block text-sm font-medium text-gray-700 mb-1">Intended Use</label>
-            <input id="intendedUse" name="intendedUse" type="text" placeholder="e.g. licensed cultivation, processing, export, retail" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-          </div>
+      <FormSection
+        eyebrow="Participant"
+        title="Qualified contact details"
+        note="Contact details are not public. They are used to qualify the inquiry before any introduction or transaction follow-up."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field id="name" name="name" type="text" autoComplete="name" label="Full name" required error={errors.name} />
+          <Field id="email" name="email" type="email" autoComplete="email" label="Email" required error={errors.email} />
         </div>
-
-        <div>
-          <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">Requirements or compliance notes</label>
-          <textarea id="requirements" name="requirements" rows={4} placeholder="Specs, certifications, licence context, compliance requirements, delivery, condition or documentation requirements." className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none" />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field id="phone" name="phone" type="text" autoComplete="tel" label="Phone" />
+          <Field id="company" name="company" type="text" label="Company" required error={errors.company} />
         </div>
-      </div>
-
-      <div className="card p-6 space-y-5">
-        <h2 className="text-navy font-semibold text-lg border-b pb-3">Participant Details</h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
-            <input id="name" name="name" type="text" autoComplete="name" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
-            <input id="email" name="email" type="email" autoComplete="email" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-          </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <SelectField id="buyerType" name="buyerType" label="Participant type" required error={errors.buyerType}>
+            <option value="">Select participant type</option>
+            <option value="Licensed Producer / Operator">Licensed Producer / Operator</option>
+            <option value="Supplier">Supplier</option>
+            <option value="Brand">Brand</option>
+            <option value="Distributor">Distributor</option>
+            <option value="Retailer">Retailer</option>
+            <option value="Investor / Advisor">Investor / Advisor</option>
+            <option value="Startup / New Operator">Startup / New Operator</option>
+            <option value="Other">Other</option>
+          </SelectField>
+          <Field id="targetMarket" name="targetMarket" type="text" label="Location / target market" required error={errors.targetMarket} placeholder="e.g. Canada, Germany, California" />
         </div>
+      </FormSection>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input id="phone" name="phone" type="text" autoComplete="tel" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-          </div>
-          <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">Company <span className="text-red-500">*</span></label>
-            <input id="company" name="company" type="text" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-            {errors.company && <p className="text-red-500 text-xs mt-1">{errors.company}</p>}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="buyerType" className="block text-sm font-medium text-gray-700 mb-1">Participant Type <span className="text-red-500">*</span></label>
-            <select id="buyerType" name="buyerType" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white">
-              <option value="">Select participant type</option>
-              <option value="Licensed Producer / Operator">Licensed Producer / Operator</option>
-              <option value="Supplier">Supplier</option>
-              <option value="Brand">Brand</option>
-              <option value="Distributor">Distributor</option>
-              <option value="Retailer">Retailer</option>
-              <option value="Investor / Advisor">Investor / Advisor</option>
-              <option value="Startup / New Operator">Startup / New Operator</option>
-              <option value="Other">Other</option>
-            </select>
-            {errors.buyerType && <p className="text-red-500 text-xs mt-1">{errors.buyerType}</p>}
-          </div>
-          <div>
-            <label htmlFor="targetMarket" className="block text-sm font-medium text-gray-700 mb-1">Location / Target Market <span className="text-red-500">*</span></label>
-            <input id="targetMarket" name="targetMarket" type="text" placeholder="e.g. Canada, Germany, California" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
-            {errors.targetMarket && <p className="text-red-500 text-xs mt-1">{errors.targetMarket}</p>}
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-gray-400">
+      <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-xs leading-6 text-white/54">
         Contact details are not public. Harbourview reviews inquiries before routing. Submission does not guarantee introduction, availability, transaction terms or legal/regulatory outcome.
       </p>
 
-      {state.status === 'error' && (
-        <p data-testid="quote-diagnostic-message" className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
-      )}
+      {state.status === 'error' ? (
+        <p data-testid="quote-diagnostic-message" role="alert" className="rounded-2xl border border-[#9f2f2f]/30 bg-[#fff4f0] px-4 py-3 text-sm text-[#7f2626]">{state.message}</p>
+      ) : null}
 
-      <button type="submit" disabled={isPending} className="btn-primary w-full py-3 text-base disabled:opacity-60">
+      <Button type="submit" disabled={isPending} className="w-full disabled:opacity-60">
         {isPending ? 'Submitting…' : 'Submit Routed Inquiry'}
-      </button>
+      </Button>
     </form>
   )
 }
