@@ -1,7 +1,14 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 
-import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
+import {
+  ButtonLink,
+  IntelligenceSignalCard,
+  PageHero,
+  SectionFrame,
+  SectionHeader,
+  Surface,
+  TrustBoundaryPanel,
+} from '@/components/design-system/Institutional'
 import { CountryIntelligenceMap } from '@/components/intelligence/CountryIntelligenceMap'
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 import { projectPublicCountryMapRecords } from '@/lib/intelligence/public-country-map'
@@ -10,7 +17,7 @@ import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 export const metadata: Metadata = {
   title: 'Intelligence | Harbourview',
   description:
-    'Map-based country intelligence for reviewed commercial pathways, opportunity categories and controlled market access requests.',
+    'Public-safe country intelligence for reviewed commercial pathways, opportunity categories and controlled market access requests.',
 }
 
 export default async function IntelligencePage() {
@@ -20,89 +27,71 @@ export default async function IntelligencePage() {
 
   return (
     <main className="bg-[#020814] text-white">
-      <PublicHero
+      <PageHero
         eyebrow="Harbourview Intelligence"
-        title="Country intelligence built around reviewed market pathways."
-        actions={[
-          { label: 'Explore Country Map', href: '#country-map' },
-          { label: 'View Signals', href: '/signals', variant: 'secondary' },
-        ]}
-        aside={
-          <PublicCard className="p-5 text-sm leading-7 text-white/58 backdrop-blur-sm">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">
-              Public intelligence controls
-            </p>
-            <p>
-              Public panels use typed fixtures and a public projection layer. They exclude raw evidence, private contacts, unpublished analyst notes and direct counterparty information.
-            </p>
-          </PublicCard>
-        }
+        title="Country intelligence for reviewed market-access decisions."
+        primary={{ label: 'Explore Country Map', href: '#country-map' }}
+        secondary={{ label: 'View Signals', href: '/signals' }}
+        tertiary={{ label: 'Request Intelligence', href: '/intake' }}
+        aside={<TrustBoundaryPanel />}
+        compact
       >
         <p>
-          Explore public-safe country panels for market pathway context, review status, opportunity categories and controlled next actions.
+          Intelligence is public-safe commercial context for jurisdiction, pathway and opportunity interpretation. It is not legal advice, guaranteed access or a public feed of private evidence.
         </p>
-        <p className="mt-4 text-sm leading-7 text-white/54">
-          Intelligence is presented as reviewed commercial context, not as legal advice, guaranteed access, confirmed counterparties, guaranteed route certainty or live buyer demand.
-        </p>
-      </PublicHero>
+      </PageHero>
 
-      <div id="country-map">
+      <div id="country-map" className="border-y border-gold/10 bg-[#020814]">
         <CountryIntelligenceMap countries={countryMapRecords} />
       </div>
 
-      <PublicSection tone="navy">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.72fr)_minmax(320px,0.4fr)] lg:items-end">
-          <SectionHeader
-            eyebrow="Signals inside Intelligence"
-            title="Regulatory signals remain available as a focused subcategory."
-            className="mb-0"
-          />
-          <p className="text-sm leading-7 text-white/56">
-            The existing Signals route stays intact. Intelligence now uses the country map as the front-facing navigation layer while Signals continues to handle policy and regulatory change monitoring.
+      <SectionFrame tone="deep">
+        <SectionHeader eyebrow="Signals inside intelligence" title="Regulatory movement is presented as implication, not noise.">
+          <p>
+            Public signals should help operators understand what changed and what it may mean commercially, while source material, analyst notes and private counterparty context remain controlled.
           </p>
-        </div>
+        </SectionHeader>
 
         {featuredSignals.length > 0 ? (
-          <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             {featuredSignals.map((signal) => (
-              <PublicCard key={signal.id} className="p-6">
-                <div className="mb-4 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.24em] text-gold/72">
-                  <span>{signal.country_name}</span>
-                  <span>•</span>
-                  <span>{signal.signal_type.replace(/_/g, ' ')}</span>
-                </div>
-
-                <h3 className="text-xl font-semibold text-[#f4f1eb]">{signal.headline}</h3>
-
-                <p className="mt-4 text-sm leading-7 text-white/62">{signal.public_summary}</p>
-
-                <div className="mt-5 rounded-sm border border-gold/10 bg-black/20 p-4 text-xs leading-6 text-white/52">
+              <IntelligenceSignalCard
+                key={signal.id}
+                eyebrow={`${signal.country_name} / ${signal.signal_type.replace(/_/g, ' ')}`}
+                title={signal.headline}
+                meta="Public-safe"
+                href="/signals"
+              >
+                <p>{signal.public_summary}</p>
+                <div className="mt-4 rounded-2xl border border-gold/12 bg-black/20 p-4 text-xs leading-6 text-white/52">
                   {signal.public_implication}
                 </div>
-              </PublicCard>
+              </IntelligenceSignalCard>
             ))}
           </div>
         ) : (
-          <PublicCard muted className="mt-8 p-6 text-sm leading-7 text-white/58">
-            No public intelligence summaries are currently published. Harbourview can review country-specific regulatory movement, route viability and commercial-access signals on request before anything is made public.
-          </PublicCard>
+          <Surface tone="panel" className="rounded-[1.75rem] p-8 text-center">
+            <h2 className="font-serif text-2xl tracking-[-0.03em] text-white">No public intelligence summaries are currently published.</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-white/58">
+              Harbourview can review country-specific regulatory movement, route viability and commercial-access signals privately before anything is made public.
+            </p>
+          </Surface>
         )}
+      </SectionFrame>
 
-        <div className="mt-8">
-          <Link href="/signals" className="btn-intelligence min-h-[56px] justify-center">
-            <span>Open Signals</span>
-            <span>→</span>
-          </Link>
+      <SectionFrame tone="editorial">
+        <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center">
+          <SectionHeader eyebrow="Controlled assessment" title="Need a country brief before entering a market?" className="mb-0">
+            <p>
+              Harbourview can assess route viability, counterparty fit, opportunity categories and country-specific access constraints before public listing, buyer outreach or wanted-request activation.
+            </p>
+          </SectionHeader>
+          <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
+            <ButtonLink href="/intake">Request Intelligence</ButtonLink>
+            <ButtonLink href="/marketplace" variant="secondary">View Network</ButtonLink>
+          </div>
         </div>
-      </PublicSection>
-
-      <FooterCta
-        eyebrow="Controlled country assessment"
-        title="Need a country brief before entering a market?"
-        actions={[{ label: 'Request Intelligence', href: '/contact' }]}
-      >
-        Harbourview can assess route viability, counterparty fit, opportunity categories and country-specific commercial access constraints before public listing, buyer outreach or wanted-request activation.
-      </FooterCta>
+      </SectionFrame>
     </main>
   )
 }
