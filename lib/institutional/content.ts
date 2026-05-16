@@ -61,15 +61,15 @@ export const intelligenceModules: ModuleItem[] = [
 
 export const educationTracks: ModuleItem[] = [
   { title: 'Clinical Education', description: 'Non-promotional resources for clinicians, care teams and medical-market stakeholders.', href: '/network/clinical-education' },
-  { title: 'Pharmacy Education', description: 'Dispensing workflows, controlled handling concepts, patient counseling context and product-format education.' },
-  { title: 'Quality & Compliance', description: 'GMP, GACP, GDP, batch documentation, CoA review, qualification and audit readiness.' },
-  { title: 'Importer & Distributor', description: 'Route feasibility, intake documentation review, product onboarding and distribution readiness.' },
+  { title: 'Pharmacy Education', description: 'Dispensing workflows, controlled handling concepts, patient counseling context and product-format education.', href: '/education/pharmacy-education' },
+  { title: 'Quality & Compliance', description: 'GMP, GACP, GDP, batch documentation, CoA review, qualification and audit readiness.', href: '/education/quality-compliance' },
+  { title: 'Importer & Distributor', description: 'Route feasibility, intake documentation review, product onboarding and distribution readiness.', href: '/education/importer-distributor' },
   { title: 'Cultivation & Production', description: 'Production controls, post-harvest discipline, genetics integrity, batch consistency and export readiness.' },
-  { title: 'Procurement', description: 'Documentation review, product evaluation, substitution risk and buyer readiness.' },
-  { title: 'Regulatory & Policy', description: 'Access model comparisons, quality safeguards, diversion prevention and market conduct education.' },
-  { title: 'Investor Due Diligence', description: 'License quality, compliance exposure, operating maturity, market viability and defensibility.' },
-  { title: 'Laboratory & Testing', description: 'CoA integrity, contaminant testing, method reliability, stability and lab due diligence concepts.' },
-  { title: 'Pharmacovigilance & Safety', description: 'Product complaints, adverse event concepts, recall readiness, post-market surveillance and safety signals.' },
+  { title: 'Procurement', description: 'Documentation review, product evaluation, substitution risk and buyer readiness.', href: '/education/procurement' },
+  { title: 'Regulatory & Policy', description: 'Access model comparisons, quality safeguards, diversion prevention and market conduct education.', href: '/policy-standards' },
+  { title: 'Investor Due Diligence', description: 'License quality, compliance exposure, operating maturity, market viability and defensibility.', href: '/education/investor-due-diligence' },
+  { title: 'Laboratory & Testing', description: 'CoA integrity, contaminant testing, method reliability, stability and lab due diligence concepts.', href: '/education/laboratory-testing' },
+  { title: 'Pharmacovigilance & Safety', description: 'Product complaints, adverse event concepts, recall readiness, post-market surveillance and safety signals.', href: '/education/pharmacovigilance-safety' },
 ]
 
 export const policyModules: ModuleItem[] = [
