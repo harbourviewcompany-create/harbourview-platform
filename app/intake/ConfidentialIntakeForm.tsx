@@ -1,6 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import {
+  Button,
+  Field,
+  FormErrorSummary,
+  FormSection,
+  SelectField,
+  TextareaField,
+} from '@/components/design-system/Institutional'
 import { CONTACT_EMAIL } from '@/lib/contact'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
@@ -15,6 +23,11 @@ const discussionTypes = [
   'Market Intelligence Request',
   'General Enquiry',
 ]
+
+function readFormString(data: FormData, key: string) {
+  const value = data.get(key)
+  return typeof value === 'string' ? value.trim() : ''
+}
 
 function buildIntakeMessage(fields: {
   discussionType: string
@@ -37,9 +50,9 @@ export default function ConfidentialIntakeForm() {
 
   function validate(data: FormData) {
     const errs: Record<string, string> = {}
-    if (!data.get('name')) errs.name = 'Name is required.'
-    if (!data.get('email')) errs.email = 'Email is required.'
-    if (!data.get('message')) errs.message = 'Please describe the nature of your enquiry.'
+    if (!readFormString(data, 'name')) errs.name = 'Name is required.'
+    if (!readFormString(data, 'email')) errs.email = 'Email is required.'
+    if (!readFormString(data, 'message')) errs.message = 'Please describe the nature of your enquiry.'
     return errs
   }
 
@@ -56,11 +69,11 @@ export default function ConfidentialIntakeForm() {
     setState('submitting')
     setErrorMessage('')
 
-    const name = (data.get('name') as string).trim()
-    const email = (data.get('email') as string).trim().toLowerCase()
-    const company = ((data.get('company') as string) || '').trim() || null
-    const discussionType = ((data.get('discussionType') as string) || '').trim()
-    const message = (data.get('message') as string).trim()
+    const name = readFormString(data, 'name')
+    const email = readFormString(data, 'email').toLowerCase()
+    const company = readFormString(data, 'company') || null
+    const discussionType = readFormString(data, 'discussionType')
+    const message = readFormString(data, 'message')
 
     const result = await submitMarketplaceInquiryDirect(
       {
@@ -90,117 +103,71 @@ export default function ConfidentialIntakeForm() {
 
   if (state === 'success') {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Intake Received</h2>
-        <p className="text-gray-500 text-sm">
-          Your enquiry has been submitted securely to Harbourview. We review all
-          intake requests and respond directly. All submissions are handled in
-          confidence.
+      <div className="rounded-[1.75rem] border border-[#d7caa9]/55 bg-[#fbf7ed] p-8 text-center text-[#061527]">
+        <p className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#a9873c]/35 text-2xl text-[#8f7130]">✓</p>
+        <h2 className="mt-5 font-serif text-2xl tracking-[-0.03em]">Intake received for confidential review</h2>
+        <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[#435066]">
+          Harbourview will review the inquiry and respond directly. Submission details are handled in confidence and are not published to public routes.
         </p>
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-5" noValidate>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Full Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
-          />
-          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      <FormErrorSummary errors={errors} />
+
+      <FormSection
+        eyebrow="Contact"
+        title="Responsible contact"
+        note="Use the person Harbourview should contact for review. Contact details are not public."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field id="name" name="name" type="text" autoComplete="name" label="Full name" required error={errors.name} />
+          <Field id="email" name="email" type="email" autoComplete="email" label="Email address" required error={errors.email} />
         </div>
+        <Field id="company" name="company" type="text" label="Company / organisation" />
+      </FormSection>
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email Address <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
-          />
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
-          Company / Organisation
-        </label>
-        <input
-          id="company"
-          name="company"
-          type="text"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="discussionType" className="block text-sm font-medium text-gray-700 mb-1">
-          Purpose of Discussion
-        </label>
-        <select
-          id="discussionType"
-          name="discussionType"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white"
-        >
+      <FormSection
+        eyebrow="Situation"
+        title="Confidential review context"
+        note="Provide enough context for review. Avoid uploading or pasting raw confidential documents, privileged legal material or uncontrolled source evidence here."
+      >
+        <SelectField id="discussionType" name="discussionType" label="Purpose of discussion">
           <option value="">— Select if applicable —</option>
-          {discussionTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
+          {discussionTypes.map((type) => (
+            <option key={type} value={type}>{type}</option>
           ))}
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-          Details <span className="text-red-500">*</span>
-        </label>
-        <textarea
+        </SelectField>
+        <TextareaField
           id="message"
           name="message"
-          rows={6}
-          placeholder="Describe the nature of your enquiry. All submissions are handled in confidence."
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none"
+          rows={7}
+          label="Review details"
+          required
+          error={errors.message}
+          placeholder="Describe the commercial situation, jurisdiction, relevant parties at a high level, timing, and what Harbourview should review before any follow-up."
         />
-        {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
-      </div>
+      </FormSection>
 
-      <p className="text-xs text-gray-400">
-        All submissions are reviewed and handled in confidence. We do not share
-        intake details without explicit consent.
+      <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-xs leading-6 text-white/54">
+        Submissions are reviewed and handled in confidence. Harbourview does not share intake details or publish submitted context without explicit review and consent.
       </p>
 
-      {state === 'error' && (
-        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {state === 'error' ? (
+        <p role="alert" className="rounded-2xl border border-[#9f2f2f]/30 bg-[#fff4f0] px-4 py-3 text-sm text-[#7f2626]">
           {errorMessage}{' '}
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="underline"
-          >
+          <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline">
             Contact Harbourview directly
           </a>{' '}
           if the issue persists.
         </p>
-      )}
+      ) : null}
 
-      <button
-        type="submit"
-        disabled={state === 'submitting'}
-        className="btn-primary w-full py-3 text-base disabled:opacity-60"
-      >
-        {state === 'submitting' ? 'Submitting…' : 'Submit Intake'}
-      </button>
+      <Button type="submit" disabled={state === 'submitting'} className="w-full disabled:opacity-60">
+        {state === 'submitting' ? 'Submitting…' : 'Submit Confidential Intake'}
+      </Button>
     </form>
   )
 }
