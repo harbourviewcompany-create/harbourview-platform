@@ -18,7 +18,10 @@ const navGroups: NavGroup[] = [
     label: 'Network',
     items: [
       { label: 'Network', href: '/network' },
+      { label: 'Marketplace', href: '/marketplace' },
+      { label: 'Wanted Requests', href: '/marketplace/wanted' },
       { label: 'Opportunities', href: '/opportunities' },
+      { label: 'Submit Listing', href: '/marketplace/sell' },
     ],
   },
   {
@@ -26,15 +29,31 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Intelligence', href: '/intelligence' },
       { label: 'Signals', href: '/signals' },
+      { label: 'Country Briefs', href: '/intelligence/country-briefs' },
+      { label: 'Licensing Pathways', href: '/intelligence/licensing-pathways' },
+      { label: 'Counterparty Intelligence', href: '/intelligence/counterparty-intelligence' },
+    ],
+  },
+  {
+    label: 'Standards',
+    items: [
+      { label: 'Compliance Pathways', href: '/compliance' },
+      { label: 'Policy & Standards', href: '/policy-standards' },
+      { label: 'Assessments', href: '/assessments' },
+      { label: 'Trust & Governance', href: '/trust-governance' },
+    ],
+  },
+  {
+    label: 'Education',
+    items: [
+      { label: 'Education', href: '/education' },
+      { label: 'Clinical Education', href: '/network/clinical-education' },
+      { label: 'Institutional Partnerships', href: '/institutional-partnerships' },
     ],
   },
 ]
 
-const navLinks: NavItem[] = [
-  { label: 'Compliance', href: '/compliance' },
-  { label: 'Clinical Education', href: '/network/clinical-education' },
-  { label: 'Contact', href: '/contact' },
-]
+const navLinks: NavItem[] = [{ label: 'Contact', href: '/contact' }]
 
 export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -42,6 +61,8 @@ export default function Nav() {
   const [openMobileGroups, setOpenMobileGroups] = useState<Record<string, boolean>>({
     Network: true,
     Intelligence: true,
+    Standards: true,
+    Education: true,
   })
 
   const closeMenus = () => {
@@ -70,11 +91,11 @@ export default function Nav() {
           </Link>
 
           <nav
-            className="hidden items-center gap-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75 xl:gap-7 xl:text-[11px] lg:flex"
+            className="hidden items-center gap-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 xl:gap-6 xl:text-[11px] lg:flex"
             aria-label="Primary navigation"
           >
             {navGroups.map((group) => {
-              const menuId = `desktop-nav-${group.label.toLowerCase()}`
+              const menuId = `desktop-nav-${group.label.toLowerCase().replace(/\s+/g, '-')}`
               const isOpen = openDesktopGroup === group.label
 
               return (
@@ -107,7 +128,7 @@ export default function Nav() {
                   <div
                     id={menuId}
                     role="menu"
-                    className={`absolute left-0 top-full min-w-[220px] pt-4 ${
+                    className={`absolute left-0 top-full min-w-[240px] pt-4 ${
                       isOpen ? 'block' : 'hidden'
                     }`}
                   >
@@ -169,7 +190,7 @@ export default function Nav() {
             aria-label="Mobile navigation"
           >
             {navGroups.map((group) => {
-              const groupId = `mobile-nav-${group.label.toLowerCase()}`
+              const groupId = `mobile-nav-${group.label.toLowerCase().replace(/\s+/g, '-')}`
               const isOpen = Boolean(openMobileGroups[group.label])
 
               return (
