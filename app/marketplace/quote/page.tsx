@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { Suspense } from 'react'
+import { PageHero, SectionFrame, Surface, TrustBoundaryPanel } from '@/components/design-system/Institutional'
 import QuoteRequestForm from './QuoteRequestForm'
 
 export const metadata: Metadata = {
@@ -11,28 +11,31 @@ export const metadata: Metadata = {
 export default function QuoteRequestPage() {
   return (
     <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Network</Link> /
-          </p>
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Request Routed Inquiry</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Contact details are not public. Harbourview reviews buyer, supplier and counterparty inquiries before coordinating any introduction or transaction follow-up. Provide the listing or category of interest, budget or target price, quantity, location, timing and intended use.
-          </p>
-        </div>
-      </section>
+      <PageHero
+        eyebrow="Routed inquiry"
+        title="Request follow-up without exposing private commercial context publicly."
+        primary={{ label: 'Complete Inquiry', href: '#routed-inquiry' }}
+        secondary={{ label: 'Confidential Intake', href: '/intake' }}
+        aside={<TrustBoundaryPanel />}
+        compact
+      >
+        <p>
+          Use this route for buyer, supplier and counterparty inquiries tied to public summaries, categories or demand briefs. Harbourview reviews before any introduction or transaction follow-up.
+        </p>
+      </PageHero>
 
-      <section className="py-12">
-        <div className="page-container max-w-3xl">
-          <div className="mb-6 rounded border border-gold/30 bg-gold-pale px-4 py-3 text-sm text-navy">
-            Public summaries do not guarantee availability, pricing, introduction, transaction terms or legal/regulatory outcomes. Harbourview reviews inquiries before routing.
-          </div>
-          <Suspense fallback={<div className="card p-6 text-sm text-gray-500">Loading inquiry form…</div>}>
+      <SectionFrame tone="editorial" id="routed-inquiry">
+        <div className="mx-auto max-w-4xl">
+          <Surface tone="form" className="mb-6 rounded-[1.5rem] p-5">
+            <p className="text-sm leading-7 text-[#435066]">
+              Public summaries do not guarantee availability, pricing, introduction, transaction terms or legal/regulatory outcomes. Harbourview reviews inquiries before routing.
+            </p>
+          </Surface>
+          <Suspense fallback={<Surface tone="form" className="rounded-[1.75rem] p-6 text-sm text-[#435066]">Loading inquiry form…</Surface>}>
             <QuoteRequestForm />
           </Suspense>
         </div>
-      </section>
+      </SectionFrame>
     </>
   )
 }
