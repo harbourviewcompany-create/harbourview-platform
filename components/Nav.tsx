@@ -31,7 +31,9 @@ const navGroups: NavGroup[] = [
       { label: 'Signals', href: '/signals' },
       { label: 'Country Briefs', href: '/intelligence/country-briefs' },
       { label: 'Licensing Pathways', href: '/intelligence/licensing-pathways' },
+      { label: 'Regulatory Pathways', href: '/intelligence/regulatory-pathways' },
       { label: 'Counterparty Intelligence', href: '/intelligence/counterparty-intelligence' },
+      { label: 'Logistics & Trade Routes', href: '/intelligence/logistics-trade-routes' },
     ],
   },
   {
@@ -48,6 +50,9 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Education', href: '/education' },
       { label: 'Clinical Education', href: '/network/clinical-education' },
+      { label: 'Pharmacy Education', href: '/education/pharmacy-education' },
+      { label: 'Quality & Compliance', href: '/education/quality-compliance' },
+      { label: 'Importer & Distributor', href: '/education/importer-distributor' },
       { label: 'Institutional Partnerships', href: '/institutional-partnerships' },
     ],
   },
