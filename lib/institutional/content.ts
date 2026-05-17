@@ -35,27 +35,22 @@ export const intelligenceModules: ModuleItem[] = [
   {
     title: 'Country Briefs',
     description: 'High-level country context for access models, commercial maturity, pathway considerations and reviewed opportunity categories.',
-    href: '/intelligence/country-briefs',
   },
   {
     title: 'Licensing Pathways',
     description: 'Country-level explainers on licensing structures, importer and distributor roles, dispensing models and documentation expectations.',
-    href: '/intelligence/licensing-pathways',
   },
   {
     title: 'Regulatory Pathways',
     description: 'Structured pathway context for regulated market access, public-health safeguards and authority-facing considerations.',
-    href: '/intelligence/regulatory-pathways',
   },
   {
     title: 'Counterparty Intelligence',
     description: 'Public-safe framing for reviewed counterparty discovery, confidential routing and private source-material handling.',
-    href: '/intelligence/counterparty-intelligence',
   },
   {
     title: 'Logistics & Trade Routes',
     description: 'Education on controlled logistics, chain of custody, route feasibility, documentation and shipment risk considerations.',
-    href: '/intelligence/logistics-trade-routes',
   },
 ]
 
@@ -149,7 +144,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     description:
       'Reviewed country, licensing, regulatory, category, counterparty and trade-route context for disciplined market access.',
     primaryCta: { label: 'Request Intelligence Brief', href: '/contact' },
-    secondaryCta: { label: 'Explore Country Briefs', href: '/intelligence/country-briefs' },
+    secondaryCta: { label: 'View Signals', href: '/signals' },
     boundary: 'Public intelligence is high-level and reviewed as available. Harbourview does not publish sensitive source materials, private counterparty details or confidential commercial route information publicly.',
     sections: [
       {
