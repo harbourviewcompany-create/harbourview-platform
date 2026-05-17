@@ -17,6 +17,12 @@ export type ComplianceMaturityLevel =
 
 export type ComplianceReviewStatus = 'draft' | 'reviewed' | 'needs_update' | 'jurisdiction_changing'
 export type ComplianceSourceConfidence = 'low' | 'moderate' | 'high'
+export type ComplianceCountryPublicStatus =
+  | 'draft_orientation'
+  | 'source_review_required'
+  | 'source_backed_public_summary'
+  | 'specialist_reviewed_public_summary'
+  | 'case_by_case_restricted'
 
 export type ComplianceRegion = {
   slug: ComplianceRegionSlug
@@ -32,7 +38,13 @@ export type ComplianceCountry = {
   maturityLevel: ComplianceMaturityLevel
   reviewStatus: ComplianceReviewStatus
   sourceConfidence: ComplianceSourceConfidence
+  publicStatus: ComplianceCountryPublicStatus
+  publicStatusLabel: string
+  publicStatusExplanation: string
   lastReviewed: string
+  nextReviewDue: string
+  sourceBasis: string
+  reviewOwner: string
   regulatoryBodies: string[]
   pathwaySummary: string
   importExportRelevance: string
