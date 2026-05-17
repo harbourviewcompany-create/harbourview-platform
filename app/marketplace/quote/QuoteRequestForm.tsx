@@ -144,6 +144,11 @@ export default function QuoteRequestForm() {
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate>
+      <div className="hidden" aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <div className="card p-6 space-y-5">
         <h2 className="text-navy font-semibold text-lg border-b pb-3">What are you looking to access?</h2>
 
@@ -177,7 +182,7 @@ export default function QuoteRequestForm() {
               <option value="">Select timeline</option>
               <option value="ASAP">ASAP</option>
               <option value="Within 30 days">Within 30 days</option>
-              <option value="30–90 days">30–90 days</option>
+              <option value="30-90 days">30-90 days</option>
               <option value="Future planning">Future planning</option>
             </select>
             {errors.timeline && <p className="text-red-500 text-xs mt-1">{errors.timeline}</p>}
@@ -235,11 +240,11 @@ export default function QuoteRequestForm() {
             <select id="buyerType" name="buyerType" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white">
               <option value="">Select participant type</option>
               <option value="Licensed Producer / Operator">Licensed Producer / Operator</option>
-              <option value="Supplier">Supplier</option>
+              
               <option value="Brand">Brand</option>
               <option value="Distributor">Distributor</option>
               <option value="Retailer">Retailer</option>
-              <option value="Investor / Advisor">Investor / Advisor</option>
+              
               <option value="Startup / New Operator">Startup / New Operator</option>
               <option value="Other">Other</option>
             </select>

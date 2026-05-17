@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
+import { MAX_MESSAGE_LENGTH, evaluateIntakeAbuse, isValidEmail, readField } from '@/lib/marketplace/intakeSafety'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const MAX_MESSAGE_LENGTH = 3500
-const MAX_TEXT_LENGTH = 220
 
 const VALID_LISTING_TYPES = new Set([
   'New Product',
@@ -24,6 +23,7 @@ type ListingSubmissionDiagnosticCode =
   | 'LISTING_SUBMISSION_VALIDATION_FIELD_LENGTH'
   | 'LISTING_SUBMISSION_VALIDATION_MESSAGE_LENGTH'
   | 'LISTING_SUBMISSION_VALIDATION_TYPE'
+  | 'LISTING_SUBMISSION_VALIDATION_UNSAFE_PAYLOAD'
   | 'LISTING_SUBMISSION_CONFIG_MISSING'
   | 'LISTING_SUBMISSION_SUPABASE_REQUEST_FAILED'
   | 'LISTING_SUBMISSION_SUPABASE_INSERT_FAILED'
@@ -46,18 +46,6 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
   )
 }
 
-function readField(body: Record<string, unknown>, key: string) {
-  const value = body[key]
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength
-}
 
 function getSupabaseConfig() {
   const anonKey =
@@ -144,6 +132,7 @@ export async function POST(request: Request) {
     const price = readField(body, 'price')
     const location = readField(body, 'location')
     const description = readField(body, 'description')
+    const website = readField(body, 'website')
 
     if (!name || !email || !listingType || !title || !description) {
       logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS', {
@@ -170,14 +159,25 @@ export async function POST(request: Request) {
       return json('error', withCode('Please select a valid listing type.', 'LISTING_SUBMISSION_VALIDATION_TYPE'), 400)
     }
 
-    const textFields = [name, email, company, listingType, title, price, location]
-    if (textFields.some((field) => isOversized(field))) {
+    const textFields = [name, email, company, listingType, title, price, location, description]
+    const abuseCheck = evaluateIntakeAbuse(textFields)
+    if (website) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_UNSAFE_PAYLOAD', { reason: 'honeypot_filled' })
+      return json('error', withCode('Submission could not be accepted.', 'LISTING_SUBMISSION_VALIDATION_UNSAFE_PAYLOAD'), 400)
+    }
+
+    if (abuseCheck === 'oversized') {
       logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_FIELD_LENGTH')
       return json(
         'error',
         withCode('One or more fields is longer than allowed.', 'LISTING_SUBMISSION_VALIDATION_FIELD_LENGTH'),
         400
       )
+    }
+
+    if (abuseCheck === 'unsafe_payload') {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_UNSAFE_PAYLOAD', { reason: 'unsafe_content' })
+      return json('error', withCode('Submission includes unsupported content.', 'LISTING_SUBMISSION_VALIDATION_UNSAFE_PAYLOAD'), 400)
     }
 
     const message = buildSubmissionMessage({ listingType, title, price, location, description })

@@ -139,6 +139,11 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      <div className="hidden" aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <div className="card p-6 space-y-5">
         <h2 className="text-navy font-semibold text-lg border-b pb-3">Contact Details</h2>
 

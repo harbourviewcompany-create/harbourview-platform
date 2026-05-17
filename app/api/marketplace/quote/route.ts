@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
+import { evaluateIntakeAbuse, isValidEmail, readField } from '@/lib/marketplace/intakeSafety'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const MAX_MESSAGE_LENGTH = 2500
-const MAX_TEXT_LENGTH = 180
 
 const VALID_BUYER_TYPES = new Set([
   'Licensed Producer / Operator',
@@ -26,6 +25,7 @@ type QuoteDiagnosticCode =
   | 'QUOTE_VALIDATION_MESSAGE_LENGTH'
   | 'QUOTE_VALIDATION_BUYER_TYPE'
   | 'QUOTE_VALIDATION_TIMELINE'
+  | 'QUOTE_VALIDATION_UNSAFE_PAYLOAD'
   | 'QUOTE_CONFIG_MISSING'
   | 'QUOTE_SUPABASE_REQUEST_FAILED'
   | 'QUOTE_SUPABASE_INSERT_FAILED'
@@ -48,18 +48,6 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
   )
 }
 
-function readField(body: Record<string, unknown>, key: string) {
-  const value = body[key]
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength
-}
 
 function getSupabaseConfig() {
   const anonKey =
@@ -149,6 +137,7 @@ export async function POST(request: Request) {
     const budget = readField(body, 'budget')
     const supplierPreference = readField(body, 'supplierPreference')
     const requirements = readField(body, 'requirements')
+    const website = readField(body, 'website')
 
     if (!name || !email || !company || !buyerType || !targetMarket || !volume || !timeline) {
       logQuoteDiagnostic('QUOTE_VALIDATION_REQUIRED_FIELDS', {
@@ -192,9 +181,20 @@ export async function POST(request: Request) {
       supplierPreference,
     ]
 
-    if (textFields.some((field) => isOversized(field))) {
+    const abuseCheck = evaluateIntakeAbuse([...textFields, requirements])
+    if (website) {
+      logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_PAYLOAD', { reason: 'honeypot_filled' })
+      return json('error', withCode('Submission could not be accepted.', 'QUOTE_VALIDATION_UNSAFE_PAYLOAD'), 400)
+    }
+
+    if (abuseCheck === 'oversized') {
       logQuoteDiagnostic('QUOTE_VALIDATION_FIELD_LENGTH')
       return json('error', withCode('One or more fields is longer than allowed.', 'QUOTE_VALIDATION_FIELD_LENGTH'), 400)
+    }
+
+    if (abuseCheck === 'unsafe_payload') {
+      logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_PAYLOAD', { reason: 'unsafe_content' })
+      return json('error', withCode('Submission includes unsupported content.', 'QUOTE_VALIDATION_UNSAFE_PAYLOAD'), 400)
     }
 
     const message = buildQuoteMessage({
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
       requirements,
     })
 
-    if (message.length > MAX_MESSAGE_LENGTH) {
+    if (message.length > 2500) {
       logQuoteDiagnostic('QUOTE_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length })
       return json('error', withCode('Please keep the quote request under 2,500 characters.', 'QUOTE_VALIDATION_MESSAGE_LENGTH'), 400)
     }
