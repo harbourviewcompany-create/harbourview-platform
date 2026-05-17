@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import ListingCard from '@/components/ListingCard'
 import EmptyState from '@/components/EmptyState'
+import { ContentStatusNotice } from '@/components/ContentStatusNotice'
 import { getLiveServiceListings } from '@/lib/marketplace/liveServices'
 
 export const metadata: Metadata = {
@@ -30,7 +31,8 @@ const serviceSegments = [
 ]
 
 export default async function ServicesPage() {
-  const serviceListings = await getLiveServiceListings()
+  const serviceFeed = await getLiveServiceListings()
+  const serviceListings = serviceFeed.listings
 
   return (
     <>
@@ -61,6 +63,12 @@ export default async function ServicesPage() {
 
       <section className="py-12">
         <div className="page-container">
+          <div className="mb-8">
+            <ContentStatusNotice title={serviceFeed.publicLabel} status={serviceFeed.source === 'live-approved' ? 'admin-backed' : 'fallback-backed'} origin={serviceFeed.source}>
+              {serviceFeed.reviewBoundary}
+            </ContentStatusNotice>
+          </div>
+
           <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
             <h2 className="text-navy font-semibold text-lg mb-2">Reviewed introductions only</h2>
             <p className="text-gray-600 text-sm max-w-3xl">
