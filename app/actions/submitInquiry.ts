@@ -3,6 +3,7 @@
 import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { assertNoHoneypot, baseIntakeSchema, messageWithinLimit, normalizeFreeText } from '@/lib/server/intakeSafety';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
@@ -10,7 +11,6 @@ export type InquiryActionState = {
 };
 
 const MAX_MESSAGE_LENGTH = 2500;
-const MAX_TEXT_LENGTH = 180;
 const ALLOWED_INQUIRY_TYPES = new Set([
   'listing_verification',
   'seller_contact',
@@ -40,13 +40,6 @@ function readField(formData: FormData, key: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength;
-}
 
 function buildMessageWithListingContext(
   message: string,
@@ -107,9 +100,16 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const name = readField(formData, 'name');
-  const email = readField(formData, 'email').toLowerCase();
-  const company = readField(formData, 'company');
+  const parsedIntake = baseIntakeSchema.safeParse({
+    name: readField(formData, 'name'),
+    email: readField(formData, 'email').toLowerCase(),
+    company: readField(formData, 'company'),
+    honeypot: readField(formData, 'website'),
+  });
+  if (!parsedIntake.success) {
+    return { status: 'error', message: withCode('Please complete name, email, company, country and message.', 'INQUIRY_VALIDATION_REQUIRED_FIELDS') };
+  }
+  const { name, email, company, honeypot } = parsedIntake.data;
   const country = readField(formData, 'country');
   const phone = readField(formData, 'phone');
   const requestedInquiryType = readField(formData, 'inquiry_type') || 'listing_verification';
@@ -133,7 +133,11 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  if (!isValidEmail(email)) {
+  if (!assertNoHoneypot(honeypot)) {
+    return { status: 'success', message: withCode('Inquiry received. Harbourview will review the request before any introduction or seller contact.', 'INQUIRY_OK') };
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_EMAIL');
     return {
       status: 'error',
@@ -141,13 +145,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  if (
-    isOversized(name) ||
-    isOversized(email) ||
-    isOversized(company) ||
-    isOversized(country) ||
-    isOversized(phone)
-  ) {
+  if ([name, email, company, country, phone].some((field) => normalizeFreeText(field).length >= 180)) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_FIELD_LENGTH');
     return {
       status: 'error',
@@ -157,7 +155,7 @@ export async function submitMarketplaceInquiry(
 
   const messageWithListingContext = buildMessageWithListingContext(message, country, listing);
 
-  if (messageWithListingContext.length > MAX_MESSAGE_LENGTH) {
+  if (!messageWithinLimit(messageWithListingContext, MAX_MESSAGE_LENGTH)) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_MESSAGE_LENGTH', {
       messageLength: messageWithListingContext.length,
     });

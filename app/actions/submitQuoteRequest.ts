@@ -1,6 +1,7 @@
 'use server';
 
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { assertNoHoneypot, baseIntakeSchema, messageWithinLimit, normalizeFreeText } from '@/lib/server/intakeSafety';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
@@ -8,7 +9,6 @@ export type QuoteRequestActionState = {
 };
 
 const MAX_MESSAGE_LENGTH = 2500;
-const MAX_TEXT_LENGTH = 180;
 
 const VALID_BUYER_TYPES = new Set([
   'Licensed Producer / Operator',
@@ -41,13 +41,6 @@ function readField(formData: FormData, key: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength;
-}
 
 function getSupabaseConfig() {
   const anonKey =
@@ -99,10 +92,17 @@ export async function submitQuoteRequest(
   formData: FormData,
 ): Promise<QuoteRequestActionState> {
   const listingTitle = readField(formData, 'listingTitle');
-  const name = readField(formData, 'name');
-  const email = readField(formData, 'email').toLowerCase();
+  const parsedIntake = baseIntakeSchema.safeParse({
+    name: readField(formData, 'name'),
+    email: readField(formData, 'email').toLowerCase(),
+    company: readField(formData, 'company'),
+    honeypot: readField(formData, 'website'),
+  });
+  if (!parsedIntake.success) {
+    return { status: 'error', message: withCode('Please complete all required quote request fields.', 'QUOTE_VALIDATION_REQUIRED_FIELDS') };
+  }
+  const { name, email, company, honeypot } = parsedIntake.data;
   const phone = readField(formData, 'phone');
-  const company = readField(formData, 'company');
   const buyerType = readField(formData, 'buyerType');
   const targetMarket = readField(formData, 'targetMarket');
   const volume = readField(formData, 'volume');
@@ -127,7 +127,11 @@ export async function submitQuoteRequest(
     };
   }
 
-  if (!isValidEmail(email)) {
+  if (!assertNoHoneypot(honeypot)) {
+    return { status: 'success', message: withCode('Quote request received. Harbourview will review the request before supplier introduction or quote routing.', 'QUOTE_OK') };
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_EMAIL');
     return {
       status: 'error',
@@ -165,7 +169,7 @@ export async function submitQuoteRequest(
     supplierPreference,
   ];
 
-  if (textFields.some((field) => isOversized(field))) {
+  if (textFields.some((field) => normalizeFreeText(field).length >= 180)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_FIELD_LENGTH');
     return {
       status: 'error',
@@ -184,7 +188,7 @@ export async function submitQuoteRequest(
     requirements,
   });
 
-  if (message.length > MAX_MESSAGE_LENGTH) {
+  if (!messageWithinLimit(message, MAX_MESSAGE_LENGTH)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length });
     return {
       status: 'error',
