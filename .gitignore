@@ -38,3 +38,8 @@ tmp-test-*.bin
 !.dev.vars.example
 
 !.env.example
+
+.env.local
+.env.*.local
+*.key
+secrets/
