@@ -55,14 +55,14 @@ export function PublicHero({
     <section className={cx('relative overflow-hidden border-b border-gold/10 bg-[#061120] text-white', compact ? 'py-10 sm:py-12 lg:py-14' : 'py-14 sm:py-16 lg:py-20')}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(198,165,90,0.10),transparent_28%)]" />
       <div className="page-container relative z-10">
-        <div className={cx('grid grid-cols-1 gap-8', aside ? 'lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start' : undefined)}>
-          <div className="max-w-5xl">
+        <div className={cx('grid min-w-0 grid-cols-1 gap-8', aside ? 'lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start' : undefined)}>
+          <div className="min-w-0 max-w-5xl">
             <p className="mb-4 text-[11px] font-semibold uppercase leading-6 tracking-[0.28em] text-gold/78">{eyebrow}</p>
-            <h1 className="font-serif text-[2.65rem] leading-[1.01] tracking-[-0.05em] text-[#f5f1e8] sm:text-5xl lg:text-6xl">{title}</h1>
-            <div className="mt-7 max-w-3xl text-base leading-8 text-white/64 sm:text-lg">{children}</div>
+            <h1 className="max-w-full break-words font-serif text-[2.2rem] leading-[1.06] tracking-normal text-[#f5f1e8] sm:text-5xl lg:text-6xl">{title}</h1>
+            <div className="mt-7 max-w-3xl break-words text-base leading-8 text-white/64 sm:text-lg">{children}</div>
             <PublicCtaGroup actions={actions} className="mt-9" />
           </div>
-          {aside ? <div className="lg:pt-1">{aside}</div> : null}
+          {aside ? <div className="min-w-0 lg:pt-1">{aside}</div> : null}
         </div>
       </div>
     </section>
