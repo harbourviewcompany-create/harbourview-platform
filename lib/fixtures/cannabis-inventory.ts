@@ -2,60 +2,6 @@ import type { CannabisInventoryListing } from './types'
 
 export const cannabisInventoryListings: CannabisInventoryListing[] = [
   {
-    id: 'ci-001',
-    category: 'cannabis-inventory',
-    title: 'Premium Indoor Flower — 200lb Mixed Hybrid Lot Available, Licensed Dispensaries & Processors',
-    description:
-      'Indoor-grown premium mixed hybrid flower, 200lb available now in 10lb and 25lb lots. Bulk supply available for immediate order. Consistent cannabinoid profile, COA on file for every lot. Suitable for licensed dispensaries sourcing retail inventory and licensed processors sourcing extraction input. Minimum 10lb order. Inquiry required through Harbourview — licence verification required before introduction.',
-    price: 'POA — minimum 10lb order',
-    strain: 'Mixed hybrid',
-    weightAvailable: '200lb available',
-    licenseRequired: true,
-    location: 'Michigan',
-    tags: ['Flower', 'Indoor', 'Wholesale', 'Hybrid', 'Bulk Available', 'Inquiry Required'],
-    postedDate: '2026-05-05',
-  },
-  {
-    id: 'ci-002',
-    category: 'cannabis-inventory',
-    title: 'CBD Hemp Biomass — 2,000lb USDA Organic, Bulk Supply for Licensed Extraction Operators',
-    description:
-      'USDA-certified organic hemp biomass, 2,000lb available for bulk supply. 14–18% CBD, <0.3% THC. Available in 100lb drums or bulk totes. Bulk supply available for ongoing extraction programs and standing-order supply relationships. COA provided for every lot. Suitable for licensed extraction operators and processors with active hemp extract programs. Priced per pound on volume. Inquiry required through Harbourview — licence verification required before introduction.',
-    price: 'Price on request',
-    strain: 'Cherry Wine / Suver Haze',
-    weightAvailable: '2,000lb available',
-    licenseRequired: true,
-    location: 'Colorado',
-    tags: ['Hemp', 'CBD', 'Biomass', 'Organic', 'Bulk Supply', 'Inquiry Required'],
-    postedDate: '2026-05-05',
-  },
-  {
-    id: 'ci-003',
-    category: 'cannabis-inventory',
-    title: 'Live Resin Concentrate — 50lb Equivalent, Wholesale Lot Available for Licensed Retailers',
-    description:
-      'High-terpene live resin produced from fresh-frozen input material, wholesale lot available now. 50lb equivalent available in 1g jars and bulk gram quantities. Lab-tested, packaged in compliant containers. Surplus lot available for licensed retailers sourcing concentrate inventory and licensed distributors managing wholesale accounts. Case pricing available. Inquiry required through Harbourview — licensed operator verification required before introduction.',
-    price: 'POA — case pricing available',
-    weightAvailable: '50lb equivalent',
-    licenseRequired: true,
-    location: 'California',
-    tags: ['Concentrate', 'Live Resin', 'Wholesale', 'Lot Available', 'Licensed Retailers', 'Inquiry Required'],
-    postedDate: '2026-05-05',
-  },
-  {
-    id: 'ci-004',
-    category: 'cannabis-inventory',
-    title: 'Feminised Hemp Seed — 50,000 Seeds Available, State-Certified Genetics for Licensed Cultivators',
-    description:
-      'Feminised hemp seed from a state-certified genetics program, 50,000 seeds available now. Stabilised variety with documented phenotype consistency. New seed stock available for immediate order in lots of 1,000 seeds minimum. Suitable for licensed cultivators sourcing genetics for outdoor, greenhouse, and indoor production. Minimum 1,000 seeds per order. Inquiry required through Harbourview — cultivator licence verification required before introduction.',
-    price: '$1.20 / seed (1k minimum)',
-    weightAvailable: '50,000 seeds available',
-    licenseRequired: true,
-    location: 'Oregon',
-    tags: ['Seed', 'Genetics', 'Hemp', 'Feminised', 'New Stock', 'Inquiry Required'],
-    postedDate: '2026-05-05',
-  },
-  {
     id: 'ci-005',
     category: 'cannabis-inventory',
     title: 'GMP Bulk Cannabis Extract — Canadian LP, 10–50kg Per Lot, Licensed Importers',
@@ -80,5 +26,31 @@ export const cannabisInventoryListings: CannabisInventoryListing[] = [
     location: 'Germany',
     tags: ['Flower', 'GMP', 'EU-GMP', 'Import', 'Licensed Producer', 'Licensed Importers', 'Inquiry Required'],
     postedDate: '2026-05-05',
+  },
+  {
+    id: 'ci-007',
+    category: 'cannabis-inventory',
+    title: 'Medical Cannabis Flower Review Lot — EU Market Pathway, Licensed Importers Only',
+    description:
+      'Public-safe review summary for a medical cannabis flower lot intended for licensed importer review in eligible regulated medical markets. Cultivar, COA, batch documentation, GMP scope and permit-support materials are disclosed only after Harbourview review. Suitable for licensed importers assessing compliant supply options. Introductions managed through Harbourview — licence and jurisdiction review required before any counterparty routing.',
+    price: 'POA',
+    weightAvailable: 'Batch volume disclosed after review',
+    licenseRequired: true,
+    location: 'EU pathway — location disclosed after review',
+    tags: ['Flower', 'Medical Market', 'Importer Review', 'Batch Documents', 'Inquiry Required'],
+    postedDate: '2026-05-17',
+  },
+  {
+    id: 'ci-008',
+    category: 'cannabis-inventory',
+    title: 'GMP Extract Input Review — International Medical Market, Licensed Operators',
+    description:
+      'Controlled public summary for extract input review by licensed medical-market operators. Documentation scope, batch identifiers, release evidence and supplier details are held for private review only. Suitable for operators assessing regulated extract inputs for eligible jurisdictions. Introductions managed through Harbourview — licence verification and route review required before any commercial discussion.',
+    price: 'POA',
+    weightAvailable: 'Lot volume disclosed after review',
+    licenseRequired: true,
+    location: 'International medical market — reviewed routing',
+    tags: ['Extract', 'GMP Review', 'Medical Market', 'Licensed Operators', 'Inquiry Required'],
+    postedDate: '2026-05-17',
   },
 ]
