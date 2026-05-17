@@ -1,6 +1,17 @@
 # HAR-37 Public IA Evidence
 
 Date: 2026-05-16
+Updated: 2026-05-17
+
+## Track 2 reset status
+
+PR: https://github.com/harbourviewcompany-create/harbourview-platform/pull/317
+
+This PR is the active Track 2 / DSP-8 implementation path for HAR-37, HAR-39 and HAR-40.
+
+The stale ChatGPT plan-transfer blocker was superseded in Notion and Linear. Active execution is controlled by Shared Memory, DSP-8, HAR-37/HAR-39/HAR-40, HAR-49 and PR #317.
+
+Registry discipline note: this PR affects the Harbourview Platform registry row and does not require a PROJECT_REGISTRY.md row change because it does not change canonical project ownership, deployment ownership, database ownership, public/private boundaries or cleanup disposition.
 
 ## Changed files
 
@@ -37,7 +48,7 @@ HAR-37 visible role coverage passed for 27 role-path terms.
 
 `npm run typecheck`
 
-Result: passed.
+Result: passed in Branch Verification run 25964975082.
 
 `npm run test:visibility`
 
@@ -76,7 +87,7 @@ Result: passed admin role, workflow, conversion and smoke-route guard checks.
 
 `npm run build`
 
-Result: passed. Existing warnings remained limited to `<img>` usage, unused private-field destructures in marketplace genetics/server helpers, and the existing multiple-lockfile workspace-root warning.
+Result: passed in Branch Verification run 25964975082. Existing warnings remained limited to `<img>` usage, unused private-field destructures in marketplace genetics/server helpers, and the existing multiple-lockfile workspace-root warning.
 
 `npm test`
 
@@ -99,3 +110,5 @@ Observed outcome: desktop and tablet home preserve the full-platform hero, platf
 Implementation and available verification gates passed.
 
 Overall HAR-37 remains HOLD only because the ticket explicitly lists `npm test`, but the current package manifest has no `test` script and package manager files are forbidden for this ticket.
+
+After the 2026-05-17 Track 2 reset, HAR-39 and HAR-40 are considered included in this PR only for public IA, public-safe route surface and public content architecture. They remain HOLD for completion until issue-specific evidence is posted and reviewed.
