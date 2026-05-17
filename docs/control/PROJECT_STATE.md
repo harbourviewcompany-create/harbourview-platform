@@ -4,6 +4,44 @@ This file tracks durable project readiness state for Harbourview Marketplace.
 
 <!-- Trigger commit: Branch Verification re-run -->
 
+## Source-of-truth verification pass — 2026-05-16
+
+**Status:** HOLD for complete source-of-truth closure. GO only for this documentation-only record.
+
+**Scope:** Read-only repository/control verification using the locked Harbourview control frame. No runtime code, Supabase schema, migrations, RLS, auth logic, middleware, marketplace DTOs, routes, UI, workflows, dependencies, package files, Vercel config or deployment settings were changed.
+
+**Verified facts recorded from the read-only inspection:**
+
+- `docs/control/DESIGN_SYSTEM.md` is the documented Harbourview design-system authority.
+- Tailwind/global CSS evidence supports the Harbourview navy/gold/off-white institutional design direction.
+- Playfair Display is not verified as an implemented/imported runtime font. Treat it as design direction only until repo evidence proves implementation.
+- Next.js App Router structure is present through `app/layout.tsx`, app route files, protected admin route groups and API route files.
+- Admin roles are `admin`, `operator`, `analyst` and `viewer`.
+- Admin authorization evidence supports database-backed `user_roles` lookup and a custom `hv-admin-session` cookie path. Custom JWT claims remain unverified.
+- Protected admin pages use server-side `requireAdminAuth()` before rendering private admin surfaces.
+- Public marketplace DTO allowlisting exists in `lib/marketplace/publicListings.ts`.
+- Production leakage probe and marketplace smoke scripts exist, but script existence is not current production pass evidence.
+- Smoke-write gates exist for write-based verification paths.
+
+**Contradictions / drift:**
+
+- Locked canonical production domain is `https://harbourview.vercel.app`.
+- Earlier durable marketplace smoke and environment-hygiene evidence in this file used `https://harbourview-platform.vercel.app`.
+- `.github/workflows/marketplace-browser-smoke.yml` still defaults to `https://harbourview-platform.vercel.app` based on the read-only inspection, but this documentation-only update does not change workflow or runtime behavior.
+
+**Remaining HOLD items:**
+
+- Vercel Project ID and Org ID for the canonical `harbourview` project/account.
+- GitHub secret mapping for `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
+- Branch protection and stale status contexts.
+- Preview/staging safety and Supabase environment separation.
+- Live Supabase RLS verification.
+- Current production public leakage pass against `https://harbourview.vercel.app`.
+- Current anonymous admin denial proof and full role matrix.
+- Current canonical-domain route map and smoke evidence.
+
+**Completion rule:** Do not convert these HOLD items into GO until verified from repo, GitHub, Vercel or Supabase evidence and recorded with commands, workflow runs, logs or equivalent artifacts.
+
 ## Marketplace buy/sell conversion
 
 **Status:** BRANCH — `marketplace-buy-sell-conversion-v1`
@@ -18,7 +56,7 @@ No schema, RLS, admin auth, adminGuard or capture route changes.
 
 ## Marketplace capture verification
 
-**Status:** PASS
+**Status:** PASS — historical evidence only for the stated target URL, branch, commit and workflow run.
 
 **Last verified:** 2026-05-03
 
@@ -33,6 +71,8 @@ No schema, RLS, admin auth, adminGuard or capture route changes.
 - Production URL: `https://harbourview-platform.vercel.app`
 - Job conclusion: `success`
 
+**Current domain-drift note:** The production URL above is historical evidence for `https://harbourview-platform.vercel.app`. The locked canonical production domain is now `https://harbourview.vercel.app`; do not reuse this historical pass as current canonical-domain proof without rerunning and recording verification against the canonical domain.
+
 **Inquiry types verified**
 
 - `quote_routing`
@@ -45,11 +85,11 @@ All three smoke rows were marked `closed` after verification.
 
 **Operational impact**
 
-Manual browser testing by Tyler is no longer required for the marketplace quote, standard listing submission or wanted request submission capture path. The automated production smoke workflow verifies browser submission, database row creation and smoke-row cleanup.
+Manual browser testing by Tyler is no longer required for the marketplace quote, standard listing submission or wanted request submission capture path for the historical evidence target above. Current canonical-domain closure remains HOLD until fresh evidence is recorded for `https://harbourview.vercel.app`.
 
 ## Vercel/Supabase environment hygiene
 
-**Status:** PASS
+**Status:** PASS — historical evidence only for the stated target URL, branch, commit and workflow run.
 
 **Last verified:** 2026-05-03
 
@@ -64,6 +104,8 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 - Production URL: `https://harbourview-platform.vercel.app`
 - Result artifact status: `passed`
 - Result artifact exit code: `0`
+
+**Current domain-drift note:** The production URL above predates the locked canonical domain `https://harbourview.vercel.app`. Treat the environment-hygiene result as durable historical evidence only for the recorded workflow, branch, commit and URL.
 
 **Canonical environment conclusion**
 
@@ -104,7 +146,7 @@ Manual browser testing by Tyler is no longer required for the marketplace quote,
 
 ## Current readiness label
 
-`MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING`
+`MARKETPLACE_CAPTURE_AND_ENV_HYGIENE_PASSING_HISTORICAL_HOLD_FOR_CANONICAL_DOMAIN_REVERIFY`
 
 ## Marketplace Commercial Polish V1
 
