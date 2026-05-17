@@ -1,29 +1,13 @@
 import { NextResponse } from 'next/server';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { marketplaceCaptureSchema } from '@/lib/marketplace/intakeValidation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_MESSAGE_LENGTH = 3500;
-const MAX_TEXT_LENGTH = 220;
-const ALLOWED_INQUIRY_TYPES = new Set([
-  'listing_submission',
-  'wanted_request_submission',
-  'quote_routing',
-  'quote_request',
-  'listing_verification',
-  'seller_contact',
-  'similar_equipment',
-  'sourcing_mandate',
-]);
-
 type CaptureDiagnosticCode =
-  | 'CAPTURE_VALIDATION_REQUIRED_FIELDS'
-  | 'CAPTURE_VALIDATION_EMAIL'
-  | 'CAPTURE_VALIDATION_FIELD_LENGTH'
-  | 'CAPTURE_VALIDATION_MESSAGE_LENGTH'
-  | 'CAPTURE_VALIDATION_TYPE'
+  | 'CAPTURE_VALIDATION_PAYLOAD'
   | 'CAPTURE_CONFIG_MISSING'
   | 'CAPTURE_SUPABASE_REQUEST_FAILED'
   | 'CAPTURE_SUPABASE_INSERT_FAILED'
@@ -43,24 +27,6 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
       },
     },
   );
-}
-
-function readField(body: Record<string, unknown>, key: string) {
-  const value = body[key];
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function readNullableField(body: Record<string, unknown>, key: string) {
-  const value = readField(body, key);
-  return value || null;
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength;
 }
 
 function getSupabaseConfig() {
@@ -84,46 +50,26 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return json('error', withCode('Invalid marketplace capture payload.', 'CAPTURE_VALIDATION_REQUIRED_FIELDS'), 400);
+    return json('error', withCode('Invalid marketplace capture payload.', 'CAPTURE_VALIDATION_PAYLOAD'), 400);
   }
 
-  const contactName = readField(body, 'contact_name');
-  const contactEmail = readField(body, 'contact_email').toLowerCase();
-  const contactCompany = readNullableField(body, 'contact_company');
-  const contactPhone = readNullableField(body, 'contact_phone');
-  const inquiryType = readField(body, 'inquiry_type');
-  const message = readField(body, 'message');
-  const successMessage = readField(body, 'success_message') || 'Marketplace inquiry received. Harbourview will review it before response or routing. [CAPTURE_OK]';
-
-  if (!contactName || !contactEmail || !inquiryType || !message) {
-    logCaptureDiagnostic('CAPTURE_VALIDATION_REQUIRED_FIELDS', {
-      hasContactName: Boolean(contactName),
-      hasContactEmail: Boolean(contactEmail),
-      hasInquiryType: Boolean(inquiryType),
-      hasMessage: Boolean(message),
+  const parsed = marketplaceCaptureSchema.safeParse(body);
+  if (!parsed.success) {
+    logCaptureDiagnostic('CAPTURE_VALIDATION_PAYLOAD', {
+      issues: parsed.error.issues.length,
     });
-    return json('error', withCode('Please complete all required inquiry fields.', 'CAPTURE_VALIDATION_REQUIRED_FIELDS'), 400);
+    return NextResponse.json(
+      {
+        status: 'error',
+        message: withCode('Invalid inquiry payload.', 'CAPTURE_VALIDATION_PAYLOAD'),
+        errors: parsed.error.flatten(),
+      },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
-  if (!isValidEmail(contactEmail)) {
-    logCaptureDiagnostic('CAPTURE_VALIDATION_EMAIL');
-    return json('error', withCode('Please use a valid business email address.', 'CAPTURE_VALIDATION_EMAIL'), 400);
-  }
-
-  if (!ALLOWED_INQUIRY_TYPES.has(inquiryType)) {
-    logCaptureDiagnostic('CAPTURE_VALIDATION_TYPE', { inquiryType });
-    return json('error', withCode('Please select a valid inquiry type.', 'CAPTURE_VALIDATION_TYPE'), 400);
-  }
-
-  if ([contactName, contactEmail, contactCompany || '', contactPhone || '', inquiryType].some((field) => isOversized(field))) {
-    logCaptureDiagnostic('CAPTURE_VALIDATION_FIELD_LENGTH');
-    return json('error', withCode('One or more fields is longer than allowed.', 'CAPTURE_VALIDATION_FIELD_LENGTH'), 400);
-  }
-
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    logCaptureDiagnostic('CAPTURE_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length });
-    return json('error', withCode('Please keep the inquiry under 3,500 characters.', 'CAPTURE_VALIDATION_MESSAGE_LENGTH'), 400);
-  }
+  const { contact_name: contactName, contact_email: contactEmail, contact_company: contactCompany, contact_phone: contactPhone, inquiry_type: inquiryType, message } = parsed.data;
+  const successMessage = parsed.data.success_message || 'Marketplace inquiry received. Harbourview will review it before response or routing. [CAPTURE_OK]';
 
   const supabase = getSupabaseConfig();
   if (!supabase) {

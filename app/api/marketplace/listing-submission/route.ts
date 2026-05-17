@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
+import { listingSubmissionSchema } from '@/lib/marketplace/intakeValidation'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -44,11 +45,6 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
       },
     }
   )
-}
-
-function readField(body: Record<string, unknown>, key: string) {
-  const value = body[key]
-  return typeof value === 'string' ? value.trim() : ''
 }
 
 function isValidEmail(email: string) {
@@ -136,14 +132,23 @@ export async function POST(request: Request) {
       )
     }
 
-    const name = readField(body, 'name')
-    const email = readField(body, 'email').toLowerCase()
-    const company = readField(body, 'company')
-    const listingType = readField(body, 'listingType')
-    const title = readField(body, 'title')
-    const price = readField(body, 'price')
-    const location = readField(body, 'location')
-    const description = readField(body, 'description')
+    const parsed = listingSubmissionSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({
+        status: 'error',
+        message: withCode('Invalid payload.', 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'),
+        errors: parsed.error.flatten(),
+      }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    const name = parsed.data.name
+    const email = parsed.data.email
+    const company = parsed.data.company
+    const listingType = parsed.data.listingType
+    const title = parsed.data.title
+    const price = parsed.data.price
+    const location = parsed.data.location
+    const description = parsed.data.description
 
     if (!name || !email || !listingType || !title || !description) {
       logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS', {

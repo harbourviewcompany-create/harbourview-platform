@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
+import { quoteSubmissionSchema } from '@/lib/marketplace/intakeValidation'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -46,11 +47,6 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
       },
     }
   )
-}
-
-function readField(body: Record<string, unknown>, key: string) {
-  const value = body[key]
-  return typeof value === 'string' ? value.trim() : ''
 }
 
 function isValidEmail(email: string) {
@@ -137,18 +133,27 @@ export async function POST(request: Request) {
       return json('error', withCode('Invalid quote request payload.', 'QUOTE_VALIDATION_REQUIRED_FIELDS'), 400)
     }
 
-    const listingTitle = readField(body, 'listingTitle')
-    const name = readField(body, 'name')
-    const email = readField(body, 'email').toLowerCase()
-    const phone = readField(body, 'phone')
-    const company = readField(body, 'company')
-    const buyerType = readField(body, 'buyerType')
-    const targetMarket = readField(body, 'targetMarket')
-    const volume = readField(body, 'volume')
-    const timeline = readField(body, 'timeline')
-    const budget = readField(body, 'budget')
-    const supplierPreference = readField(body, 'supplierPreference')
-    const requirements = readField(body, 'requirements')
+    const parsed = quoteSubmissionSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({
+        status: 'error',
+        message: withCode('Invalid payload.', 'QUOTE_VALIDATION_REQUIRED_FIELDS'),
+        errors: parsed.error.flatten(),
+      }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    const listingTitle = parsed.data.listingTitle
+    const name = parsed.data.name
+    const email = parsed.data.email
+    const phone = parsed.data.phone
+    const company = parsed.data.company
+    const buyerType = parsed.data.buyerType
+    const targetMarket = parsed.data.targetMarket
+    const volume = parsed.data.volume
+    const timeline = parsed.data.timeline
+    const budget = parsed.data.budget
+    const supplierPreference = parsed.data.supplierPreference
+    const requirements = parsed.data.requirements
 
     if (!name || !email || !company || !buyerType || !targetMarket || !volume || !timeline) {
       logQuoteDiagnostic('QUOTE_VALIDATION_REQUIRED_FIELDS', {

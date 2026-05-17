@@ -40,16 +40,9 @@ export async function submitMarketplaceInquiryDirect(
   }
 
   if (!response.ok) {
-    let detail = ''
-    try {
-      detail = await response.text()
-    } catch {
-      detail = ''
-    }
-
     return {
       ok: false,
-      message: `${successMessage.replace(/received\..*$/i, 'could not be saved.')} Supabase returned ${response.status}. ${detail.slice(0, 120)} [${diagnosticPrefix}_SUPABASE_DIRECT_INSERT_FAILED]`,
+      message: `${successMessage.replace(/received\..*$/i, 'could not be saved.')} Capture service returned ${response.status}. [${diagnosticPrefix}_SUPABASE_DIRECT_INSERT_FAILED]`,
     }
   }
 
