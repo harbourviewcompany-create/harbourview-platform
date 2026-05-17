@@ -66,10 +66,27 @@ const DEFAULT_DOMAINS = [
   'https://harbourview-14bdr4iuk-harbourviewnetwork.vercel.app',
 ];
 
+function normalizeOrigin(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  try {
+    return new URL(trimmed).origin.replace(/\/$/, '');
+  } catch {
+    return trimmed.replace(/\/$/, '');
+  }
+}
+
 const domains = (process.env.HARBOURVIEW_SCAN_DOMAINS || DEFAULT_DOMAINS.join(','))
   .split(',')
-  .map((value) => value.trim().replace(/\/$/, ''))
+  .map((value) => normalizeOrigin(value))
   .filter(Boolean);
+
+const protectedDomains = new Set(
+  (process.env.HARBOURVIEW_PROTECTED_DOMAINS || DEFAULT_DOMAINS[1])
+    .split(',')
+    .map((value) => normalizeOrigin(value))
+    .filter(Boolean),
+);
 
 const expectedCommit = process.env.HARBOURVIEW_EXPECTED_COMMIT || '2ee3105e236122083d3fb86a16ca3c8811cce440';
 const deploymentId = process.env.HARBOURVIEW_DEPLOYMENT_ID || 'FRHiKm5k7';
@@ -104,7 +121,7 @@ function extractInternalLinks(baseUrl, text) {
         if (url.origin !== origin) continue;
         if (url.pathname.startsWith('/_next/')) continue;
         if (url.pathname.includes('/api/')) continue;
-        links.add(url.pathname === '' ? '/' : url.pathname);
+        links.add(url.pathname === '' ? '/' : url.pathname.replace(/\/$/, '') || '/');
       } catch {
         // Ignore malformed links; this is a verifier, not a parser.
       }
@@ -144,8 +161,8 @@ async function fetchText(url) {
       method: 'GET',
       redirect: 'follow',
       headers: {
-        'user-agent': 'harbourview-production-artifact-scan/1.0 verification-only',
-        'accept': 'text/html,application/json,text/plain,application/javascript,*/*;q=0.8',
+        'user-agent': 'harbourview-production-artifact-scan/1.1 verification-only',
+        accept: 'text/html,application/json,text/plain,application/javascript,*/*;q=0.8',
       },
     });
     const text = await response.text();
@@ -182,16 +199,52 @@ async function fetchText(url) {
 
 function classifyAdminDenial(route, text, status) {
   if (route !== '/admin') return '';
-  const hasUnauthorized = text.includes('Admin sign-in required');
-  const hasForbidden = text.includes('Admin access restricted');
-  const hasDashboard = text.includes('Admin dashboard') || text.includes('Internal review') || text.includes('Operator console');
-  if ((hasUnauthorized || hasForbidden) && !hasDashboard) return 'PASS_DENIED';
-  if (status === 401 || status === 403) return 'PASS_HTTP_DENIED';
-  if (hasDashboard) return 'FAIL_ADMIN_CONTENT_VISIBLE';
+  const hasDeniedCopy = text.includes('Admin sign-in required') || text.includes('Admin access restricted');
+  const hasProtectedAdminContent = text.includes('Admin dashboard')
+    || text.includes('Operator console')
+    || text.includes('Review queue')
+    || text.includes('Approve listing')
+    || text.includes('Reject listing');
+  if ((status === 401 || status === 403) && !hasProtectedAdminContent) return 'PASS_HTTP_DENIED';
+  if (hasDeniedCopy && !hasProtectedAdminContent) return 'PASS_DENIED_COPY';
+  if (hasProtectedAdminContent) return 'FAIL_ADMIN_CONTENT_VISIBLE';
   return 'UNKNOWN_NO_DENIAL_COPY';
 }
 
-function recordFor({ kind, domain, route, result, forbiddenMatches, chunkMatches = [], adminDenial = '' }) {
+function classifyExpectedStatus({ kind, domain, route, result, adminDenial }) {
+  if (result.status === 0) {
+    return ['FAIL_FETCH_ERROR', false, result.error || 'fetch failed before HTTP response'];
+  }
+
+  if (protectedDomains.has(normalizeOrigin(domain)) && (result.status === 401 || result.status === 403)) {
+    return ['EXPECTED_PROTECTED_DOMAIN_401_403', true, '401/403 allowed only for the configured protected secondary deployment domain'];
+  }
+
+  if ((kind === 'page' || kind === 'rsc') && route === '/admin') {
+    if (adminDenial.startsWith('PASS')) {
+      return ['EXPECTED_ADMIN_DENIAL', true, 'anonymous /admin denied without protected admin content'];
+    }
+    return ['FAIL_ADMIN_DENIAL_NOT_CONFIRMED', false, 'anonymous /admin did not produce a clear denial signal'];
+  }
+
+  if (result.status >= 200 && result.status < 400) {
+    return ['EXPECTED_PUBLIC_2XX_3XX', true, 'public artifact returned an accessible non-error response'];
+  }
+
+  if (result.status >= 400 && result.status < 500) {
+    return ['FAIL_UNEXPECTED_PUBLIC_4XX', false, '4xx is allowed only for protected secondary domain records or anonymous /admin denial'];
+  }
+
+  if (result.status >= 500) {
+    return ['FAIL_UNEXPECTED_PUBLIC_5XX', false, '5xx is never acceptable for this production artifact scan'];
+  }
+
+  return ['FAIL_UNCLASSIFIED_STATUS', false, `unclassified HTTP status ${result.status}`];
+}
+
+function recordFor({ kind, domain, route, result, forbiddenMatches, chunkMatches = [] }) {
+  const adminDenial = classifyAdminDenial(route, result.text, result.status);
+  const [statusClass, statusExpected, statusReason] = classifyExpectedStatus({ kind, domain, route, result, adminDenial });
   return {
     kind,
     domain,
@@ -199,9 +252,13 @@ function recordFor({ kind, domain, route, result, forbiddenMatches, chunkMatches
     requestedUrl: result.requestedUrl,
     finalUrl: result.finalUrl,
     status: result.status,
+    statusText: result.statusText,
     contentType: result.contentType,
     byteCount: result.byteCount,
     sha256: result.sha256,
+    statusExpected,
+    statusClass,
+    statusReason,
     forbiddenMatches,
     chunkMatches,
     adminDenial,
@@ -217,37 +274,33 @@ async function scanDomain(domain) {
   const apiRecords = [];
   const chunkRecords = [];
   const chunkUrls = new Set();
+  const pendingPageRoutes = Array.from(pageRoutes);
 
-  for (const route of Array.from(pageRoutes)) {
+  for (let index = 0; index < pendingPageRoutes.length; index += 1) {
+    const route = pendingPageRoutes[index];
     const result = await fetchText(`${domain}${route}`);
     const forbiddenMatches = findForbidden(result.text);
     for (const link of extractInternalLinks(`${domain}${route}`, result.text)) {
-      if (pageRoutes.size < maxDiscoveredRoutes) pageRoutes.add(link);
+      if (!pageRoutes.has(link) && pageRoutes.size < maxDiscoveredRoutes) {
+        pageRoutes.add(link);
+        pendingPageRoutes.push(link);
+      }
     }
     for (const chunk of extractScriptChunks(`${domain}${route}`, result.text)) chunkUrls.add(chunk);
-    pageRecords.push(recordFor({
-      kind: 'page',
-      domain,
-      route,
-      result,
-      forbiddenMatches,
-      adminDenial: classifyAdminDenial(route, result.text, result.status),
-    }));
+    pageRecords.push(recordFor({ kind: 'page', domain, route, result, forbiddenMatches }));
 
-    const rscUrl = `${domain}${route}${route.includes('?') ? '&' : '?'}_rsc=1`;
-    const rscResult = await fetchText(rscUrl);
-    const rscForbiddenMatches = findForbidden(rscResult.text);
+    const rscResult = await fetchText(`${domain}${route}?_rsc=1`);
     for (const chunk of extractScriptChunks(`${domain}${route}`, rscResult.text)) chunkUrls.add(chunk);
     rscRecords.push(recordFor({
       kind: 'rsc',
       domain,
       route,
       result: rscResult,
-      forbiddenMatches: rscForbiddenMatches,
+      forbiddenMatches: findForbidden(rscResult.text),
     }));
   }
 
-  for (const route of apiRoutes) {
+  for (const route of Array.from(apiRoutes).sort()) {
     const result = await fetchText(`${domain}${route}`);
     apiRecords.push(recordFor({
       kind: 'api-get',
@@ -278,7 +331,7 @@ function escapeCell(value) {
 }
 
 function table(records) {
-  const headers = ['kind', 'domain', 'route', 'status', 'byteCount', 'sha256', 'forbiddenMatches', 'chunkMatches', 'adminDenial', 'error'];
+  const headers = ['kind', 'domain', 'route', 'status', 'statusExpected', 'statusClass', 'byteCount', 'sha256', 'forbiddenMatches', 'chunkMatches', 'adminDenial', 'statusReason', 'error'];
   return [
     `| ${headers.join(' | ')} |`,
     `| ${headers.map(() => '---').join(' | ')} |`,
@@ -299,21 +352,34 @@ const allRecords = results.flatMap((result) => [
 ]);
 
 const forbiddenFailures = allRecords.filter((record) => record.forbiddenMatches.length > 0);
-const fetchFailures = allRecords.filter((record) => record.status === 0 || record.status >= 500);
-const adminRecords = allRecords.filter((record) => record.route === '/admin' && record.kind === 'page');
+const statusFailures = allRecords.filter((record) => !record.statusExpected);
+const adminRecords = allRecords.filter((record) => record.route === '/admin' && (record.kind === 'page' || record.kind === 'rsc'));
 const adminFailures = adminRecords.filter((record) => !record.adminDenial.startsWith('PASS'));
-const inaccessibleDomains = results
-  .filter((result) => result.pageRecords.every((record) => record.status === 401 || record.status === 403 || record.status === 0))
-  .map((result) => result.domain);
-const verdict = forbiddenFailures.length === 0 && fetchFailures.length === 0 && adminFailures.length === 0 ? 'GO' : 'HOLD';
+const inaccessibleDomainNotes = results.map((result) => {
+  const protectedDomain = protectedDomains.has(normalizeOrigin(result.domain));
+  const records = [...result.pageRecords, ...result.rscRecords, ...result.apiRecords];
+  const protectedDenials = records.filter((record) => record.statusClass === 'EXPECTED_PROTECTED_DOMAIN_401_403').length;
+  return {
+    domain: result.domain,
+    protectedDomain,
+    protectedDenials,
+    totalNonChunkRecords: records.length,
+    note: protectedDomain && protectedDenials > 0
+      ? 'protected secondary deployment domain returned allowed 401/403 records'
+      : 'domain scanned without protected-domain allowance',
+  };
+});
+const verdict = forbiddenFailures.length === 0 && statusFailures.length === 0 && adminFailures.length === 0 ? 'GO' : 'HOLD';
 
 const summary = {
   scanName: 'Harbourview production artifact scan',
+  scannerVersion: '1.1-status-classification',
   deploymentId,
   expectedCommit,
   startedAt,
   completedAt: new Date().toISOString(),
   domains,
+  protectedDomains: Array.from(protectedDomains),
   forbiddenList: FORBIDDEN,
   counts: {
     totalRecords: allRecords.length,
@@ -322,15 +388,15 @@ const summary = {
     apiGet: allRecords.filter((r) => r.kind === 'api-get').length,
     jsChunks: allRecords.filter((r) => r.kind === 'js-chunk').length,
     forbiddenFailures: forbiddenFailures.length,
-    fetchFailures: fetchFailures.length,
+    statusFailures: statusFailures.length,
     adminFailures: adminFailures.length,
   },
-  inaccessibleDomains,
+  inaccessibleDomainNotes,
   verdict,
 };
 
 const markdown = [
-  `# Harbourview Production Artifact Scan`,
+  '# Harbourview Production Artifact Scan',
   '',
   `Deployment: \`${deploymentId}\``,
   `Expected commit: \`${expectedCommit}\``,
@@ -338,23 +404,23 @@ const markdown = [
   `Completed: \`${summary.completedAt}\``,
   `Verdict: **${verdict}**`,
   '',
-  `## Summary`,
+  '## Summary',
   '',
   '```json',
   JSON.stringify(summary, null, 2),
   '```',
   '',
-  `## Evidence Table`,
+  '## Evidence Table',
   '',
   table(allRecords),
   '',
-  `## Forbidden Match Failures`,
+  '## Forbidden Match Failures',
   '',
   forbiddenFailures.length ? table(forbiddenFailures) : 'None.',
   '',
-  `## Fetch/Admin Failures`,
+  '## Status/Admin Failures',
   '',
-  [...fetchFailures, ...adminFailures].length ? table([...fetchFailures, ...adminFailures]) : 'None.',
+  [...statusFailures, ...adminFailures].length ? table([...statusFailures, ...adminFailures]) : 'None.',
 ].join('\n');
 
 await mkdir(outDir, { recursive: true });
