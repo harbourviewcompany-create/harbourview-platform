@@ -29,11 +29,6 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Intelligence', href: '/intelligence' },
       { label: 'Signals', href: '/signals' },
-      { label: 'Country Briefs', href: '/intelligence/country-briefs' },
-      { label: 'Licensing Pathways', href: '/intelligence/licensing-pathways' },
-      { label: 'Regulatory Pathways', href: '/intelligence/regulatory-pathways' },
-      { label: 'Counterparty Intelligence', href: '/intelligence/counterparty-intelligence' },
-      { label: 'Logistics & Trade Routes', href: '/intelligence/logistics-trade-routes' },
     ],
   },
   {
