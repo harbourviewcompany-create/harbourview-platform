@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const FORBIDDEN = [
   'View source listing',
@@ -47,20 +48,6 @@ const SEED_PAGE_ROUTES = [
   '/admin',
 ];
 
-const SEED_API_GET_ROUTES = [
-  '/api/health/supabase',
-  '/api/marketplace/quote',
-  '/api/marketplace/listing-submission',
-  '/api/marketplace/capture',
-  '/api/used-surplus-preview',
-  '/api/chat',
-  '/api/genetics-routing/requests',
-  '/api/genetics-routing/actions',
-  '/api/genetics-routing/dealflow',
-  '/api/genetics-routing/operations',
-  '/api/smoke/marketplace',
-];
-
 const DEFAULT_DOMAINS = [
   'https://harbourview-nu.vercel.app',
   'https://harbourview-14bdr4iuk-harbourviewnetwork.vercel.app',
@@ -76,6 +63,13 @@ function normalizeOrigin(value) {
   }
 }
 
+function normalizeRoute(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === '/') return '/';
+  const withSlash = raw.startsWith('/') ? raw : `/${raw}`;
+  return withSlash.length > 1 ? withSlash.replace(/\/$/, '') : withSlash;
+}
+
 const domains = (process.env.HARBOURVIEW_SCAN_DOMAINS || DEFAULT_DOMAINS.join(','))
   .split(',')
   .map((value) => normalizeOrigin(value))
@@ -88,9 +82,15 @@ const protectedDomains = new Set(
     .filter(Boolean),
 );
 
+const extraApiGetRoutes = (process.env.HARBOURVIEW_EXTRA_API_GET_ROUTES || '')
+  .split(',')
+  .map((value) => normalizeRoute(value))
+  .filter((value) => value.startsWith('/api'));
+
 const expectedCommit = process.env.HARBOURVIEW_EXPECTED_COMMIT || '2ee3105e236122083d3fb86a16ca3c8811cce440';
 const deploymentId = process.env.HARBOURVIEW_DEPLOYMENT_ID || 'FRHiKm5k7';
-const maxDiscoveredRoutes = Number(process.env.HARBOURVIEW_SCAN_MAX_DISCOVERED_ROUTES || 80);
+const maxDiscoveredRoutes = Number(process.env.HARBOURVIEW_SCAN_MAX_DISCOVERED_ROUTES || 120);
+const fetchTimeoutMs = Number(process.env.HARBOURVIEW_SCAN_FETCH_TIMEOUT_MS || 15_000);
 const outDir = process.env.HARBOURVIEW_SCAN_OUT_DIR || 'artifacts/production-artifact-scan';
 
 function sha256(text) {
@@ -99,6 +99,96 @@ function sha256(text) {
 
 function findForbidden(text) {
   return FORBIDDEN.filter((needle) => text.includes(needle));
+}
+
+async function walkFiles(dir) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
+
+  const files = [];
+  for (const entry of entries) {
+    const absolute = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await walkFiles(absolute)));
+    } else if (entry.isFile()) {
+      files.push(absolute);
+    }
+  }
+  return files;
+}
+
+function routeFromAppFile(file, appDir) {
+  const relativeDir = path.relative(appDir, path.dirname(file));
+  if (!relativeDir || relativeDir === '.') return '/';
+
+  const routeParts = [];
+  for (const part of relativeDir.split(path.sep).filter(Boolean)) {
+    if (part.startsWith('@')) continue;
+    if (part.startsWith('(') && part.endsWith(')')) continue;
+    if (part.startsWith('[') || part.includes(']')) return null;
+    routeParts.push(part);
+  }
+
+  return normalizeRoute(routeParts.join('/'));
+}
+
+function hasGetExport(source) {
+  return /export\s+(?:async\s+)?function\s+GET\s*\(/.test(source)
+    || /export\s+const\s+GET\s*=/.test(source)
+    || /export\s*\{[^}]*\bGET\b[^}]*\}/.test(source);
+}
+
+async function discoverSourceManifest() {
+  const appDir = path.join(process.cwd(), 'app');
+  const files = await walkFiles(appDir);
+  const sourcePageRoutes = new Set();
+  const sourceApiGetRoutes = new Set();
+  const skippedDynamicRoutes = [];
+
+  for (const file of files) {
+    const name = path.basename(file);
+    if (/^page\.(?:js|jsx|ts|tsx|mdx)$/.test(name)) {
+      const route = routeFromAppFile(file, appDir);
+      if (route) sourcePageRoutes.add(route);
+      else skippedDynamicRoutes.push(path.relative(process.cwd(), file));
+      continue;
+    }
+
+    if (/^route\.(?:js|ts)$/.test(name)) {
+      const route = routeFromAppFile(file, appDir);
+      if (!route || !route.startsWith('/api')) {
+        if (!route) skippedDynamicRoutes.push(path.relative(process.cwd(), file));
+        continue;
+      }
+      const source = await readFile(file, 'utf8');
+      if (hasGetExport(source)) sourceApiGetRoutes.add(route);
+    }
+  }
+
+  for (const route of extraApiGetRoutes) sourceApiGetRoutes.add(route);
+
+  return {
+    seedPageRoutes: [...SEED_PAGE_ROUTES].sort(),
+    sourcePageRoutes: Array.from(sourcePageRoutes).sort(),
+    sourceApiGetRoutes: Array.from(sourceApiGetRoutes).sort(),
+    extraApiGetRoutes: Array.from(new Set(extraApiGetRoutes)).sort(),
+    skippedDynamicRoutes: skippedDynamicRoutes.sort(),
+  };
+}
+
+function addRouteOrigin(origins, route, origin) {
+  const normalized = normalizeRoute(route);
+  if (!origins.has(normalized)) origins.set(normalized, new Set());
+  origins.get(normalized).add(origin);
+}
+
+function routeOriginString(origins, route) {
+  return Array.from(origins.get(normalizeRoute(route)) || []).sort().join(',');
 }
 
 function extractInternalLinks(baseUrl, text) {
@@ -121,7 +211,7 @@ function extractInternalLinks(baseUrl, text) {
         if (url.origin !== origin) continue;
         if (url.pathname.startsWith('/_next/')) continue;
         if (url.pathname.includes('/api/')) continue;
-        links.add(url.pathname === '' ? '/' : url.pathname.replace(/\/$/, '') || '/');
+        links.add(normalizeRoute(url.pathname));
       } catch {
         // Ignore malformed links; this is a verifier, not a parser.
       }
@@ -156,12 +246,16 @@ function extractScriptChunks(baseUrl, text) {
 
 async function fetchText(url) {
   const startedAt = new Date().toISOString();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
+
   try {
     const response = await fetch(url, {
       method: 'GET',
       redirect: 'follow',
+      signal: controller.signal,
       headers: {
-        'user-agent': 'harbourview-production-artifact-scan/1.1 verification-only',
+        'user-agent': 'harbourview-production-artifact-scan/1.2 verification-only',
         accept: 'text/html,application/json,text/plain,application/javascript,*/*;q=0.8',
       },
     });
@@ -194,6 +288,8 @@ async function fetchText(url) {
       startedAt,
       completedAt: new Date().toISOString(),
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -242,13 +338,14 @@ function classifyExpectedStatus({ kind, domain, route, result, adminDenial }) {
   return ['FAIL_UNCLASSIFIED_STATUS', false, `unclassified HTTP status ${result.status}`];
 }
 
-function recordFor({ kind, domain, route, result, forbiddenMatches, chunkMatches = [] }) {
+function recordFor({ kind, domain, route, routeOrigin = '', result, forbiddenMatches, chunkMatches = [] }) {
   const adminDenial = classifyAdminDenial(route, result.text, result.status);
   const [statusClass, statusExpected, statusReason] = classifyExpectedStatus({ kind, domain, route, result, adminDenial });
   return {
     kind,
     domain,
     route,
+    routeOrigin,
     requestedUrl: result.requestedUrl,
     finalUrl: result.finalUrl,
     status: result.status,
@@ -266,15 +363,22 @@ function recordFor({ kind, domain, route, result, forbiddenMatches, chunkMatches
   };
 }
 
-async function scanDomain(domain) {
-  const pageRoutes = new Set(SEED_PAGE_ROUTES);
-  const apiRoutes = new Set(SEED_API_GET_ROUTES);
+async function scanDomain(domain, sourceManifest) {
+  const pageOrigins = new Map();
+  const apiOrigins = new Map();
+  for (const route of SEED_PAGE_ROUTES) addRouteOrigin(pageOrigins, route, 'seed');
+  for (const route of sourceManifest.sourcePageRoutes) addRouteOrigin(pageOrigins, route, 'source');
+  for (const route of sourceManifest.sourceApiGetRoutes) addRouteOrigin(apiOrigins, route, 'source-get');
+  for (const route of sourceManifest.extraApiGetRoutes) addRouteOrigin(apiOrigins, route, 'extra-get');
+
+  const pageRoutes = new Set(Array.from(pageOrigins.keys()).sort());
+  const apiRoutes = new Set(Array.from(apiOrigins.keys()).sort());
   const pageRecords = [];
   const rscRecords = [];
   const apiRecords = [];
   const chunkRecords = [];
   const chunkUrls = new Set();
-  const pendingPageRoutes = Array.from(pageRoutes);
+  const pendingPageRoutes = Array.from(pageRoutes).sort();
 
   for (let index = 0; index < pendingPageRoutes.length; index += 1) {
     const route = pendingPageRoutes[index];
@@ -283,11 +387,21 @@ async function scanDomain(domain) {
     for (const link of extractInternalLinks(`${domain}${route}`, result.text)) {
       if (!pageRoutes.has(link) && pageRoutes.size < maxDiscoveredRoutes) {
         pageRoutes.add(link);
+        addRouteOrigin(pageOrigins, link, `rendered:${route}`);
         pendingPageRoutes.push(link);
+      } else if (pageRoutes.has(link)) {
+        addRouteOrigin(pageOrigins, link, `rendered:${route}`);
       }
     }
     for (const chunk of extractScriptChunks(`${domain}${route}`, result.text)) chunkUrls.add(chunk);
-    pageRecords.push(recordFor({ kind: 'page', domain, route, result, forbiddenMatches }));
+    pageRecords.push(recordFor({
+      kind: 'page',
+      domain,
+      route,
+      routeOrigin: routeOriginString(pageOrigins, route),
+      result,
+      forbiddenMatches,
+    }));
 
     const rscResult = await fetchText(`${domain}${route}?_rsc=1`);
     for (const chunk of extractScriptChunks(`${domain}${route}`, rscResult.text)) chunkUrls.add(chunk);
@@ -295,6 +409,7 @@ async function scanDomain(domain) {
       kind: 'rsc',
       domain,
       route,
+      routeOrigin: routeOriginString(pageOrigins, route),
       result: rscResult,
       forbiddenMatches: findForbidden(rscResult.text),
     }));
@@ -306,6 +421,7 @@ async function scanDomain(domain) {
       kind: 'api-get',
       domain,
       route,
+      routeOrigin: routeOriginString(apiOrigins, route),
       result,
       forbiddenMatches: findForbidden(result.text),
     }));
@@ -317,12 +433,20 @@ async function scanDomain(domain) {
       kind: 'js-chunk',
       domain,
       route: new URL(chunkUrl).pathname,
+      routeOrigin: 'referenced-chunk',
       result,
       forbiddenMatches: findForbidden(result.text),
     }));
   }
 
-  return { pageRoutes: Array.from(pageRoutes).sort(), apiRoutes: Array.from(apiRoutes).sort(), pageRecords, rscRecords, apiRecords, chunkRecords };
+  return {
+    pageRoutes: Array.from(pageRoutes).sort(),
+    apiRoutes: Array.from(apiRoutes).sort(),
+    pageRecords,
+    rscRecords,
+    apiRecords,
+    chunkRecords,
+  };
 }
 
 function escapeCell(value) {
@@ -331,7 +455,22 @@ function escapeCell(value) {
 }
 
 function table(records) {
-  const headers = ['kind', 'domain', 'route', 'status', 'statusExpected', 'statusClass', 'byteCount', 'sha256', 'forbiddenMatches', 'chunkMatches', 'adminDenial', 'statusReason', 'error'];
+  const headers = [
+    'kind',
+    'domain',
+    'route',
+    'routeOrigin',
+    'status',
+    'statusExpected',
+    'statusClass',
+    'byteCount',
+    'sha256',
+    'forbiddenMatches',
+    'chunkMatches',
+    'adminDenial',
+    'statusReason',
+    'error',
+  ];
   return [
     `| ${headers.join(' | ')} |`,
     `| ${headers.map(() => '---').join(' | ')} |`,
@@ -340,9 +479,10 @@ function table(records) {
 }
 
 const startedAt = new Date().toISOString();
+const sourceManifest = await discoverSourceManifest();
 const results = [];
 for (const domain of domains) {
-  results.push({ domain, ...(await scanDomain(domain)) });
+  results.push({ domain, ...(await scanDomain(domain, sourceManifest)) });
 }
 const allRecords = results.flatMap((result) => [
   ...result.pageRecords,
@@ -373,14 +513,17 @@ const verdict = forbiddenFailures.length === 0 && statusFailures.length === 0 &&
 
 const summary = {
   scanName: 'Harbourview production artifact scan',
-  scannerVersion: '1.1-status-classification',
+  scannerVersion: '1.2-source-rendered-status-classification',
   deploymentId,
   expectedCommit,
   startedAt,
   completedAt: new Date().toISOString(),
   domains,
   protectedDomains: Array.from(protectedDomains),
+  maxDiscoveredRoutes,
+  fetchTimeoutMs,
   forbiddenList: FORBIDDEN,
+  sourceManifest,
   counts: {
     totalRecords: allRecords.length,
     pages: allRecords.filter((r) => r.kind === 'page').length,
