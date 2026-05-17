@@ -1,0 +1,62 @@
+name: Verify Production Artifact Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: Expected deployed commit SHA to record in evidence
+        required: true
+        default: 2ee3105e236122083d3fb86a16ca3c8811cce440
+      deployment_id:
+        description: Vercel deployment ID to record in evidence
+        required: true
+        default: FRHiKm5k7
+      domains:
+        description: Comma-separated production domains to scan
+        required: true
+        default: https://harbourview-nu.vercel.app,https://harbourview-14bdr4iuk-harbourviewnetwork.vercel.app
+      max_discovered_routes:
+        description: Maximum rendered internal page routes to add after seed routes
+        required: true
+        default: '80'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  scan:
+    name: Verification-only deployed artifact scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run production artifact scan
+        env:
+          HARBOURVIEW_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          HARBOURVIEW_DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          HARBOURVIEW_SCAN_DOMAINS: ${{ inputs.domains }}
+          HARBOURVIEW_SCAN_MAX_DISCOVERED_ROUTES: ${{ inputs.max_discovered_routes }}
+        run: node scripts/verify-production-artifact-scan.mjs
+
+      - name: Upload production artifact scan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-production-artifact-scan-${{ inputs.deployment_id }}-${{ github.run_id }}
+          path: artifacts/production-artifact-scan/
+          if-no-files-found: error
+          retention-days: 30
