@@ -145,6 +145,11 @@ export default function QuoteRequestForm() {
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="card p-6 space-y-5">
+      <div className="hidden" aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
+
         <h2 className="text-navy font-semibold text-lg border-b pb-3">What are you looking to access?</h2>
 
         <div>

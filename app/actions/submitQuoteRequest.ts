@@ -1,14 +1,12 @@
 'use server';
 
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { getMaxMessageLength, isOversized, isUnsafeFreeText, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
   message: string;
 };
-
-const MAX_MESSAGE_LENGTH = 2500;
-const MAX_TEXT_LENGTH = 180;
 
 const VALID_BUYER_TYPES = new Set([
   'Licensed Producer / Operator',
@@ -28,6 +26,8 @@ type QuoteDiagnosticCode =
   | 'QUOTE_VALIDATION_MESSAGE_LENGTH'
   | 'QUOTE_VALIDATION_BUYER_TYPE'
   | 'QUOTE_VALIDATION_TIMELINE'
+  | 'QUOTE_VALIDATION_UNSAFE_CONTENT'
+  | 'QUOTE_VALIDATION_SPAM_TRAP'
   | 'QUOTE_CONFIG_MISSING'
   | 'QUOTE_SUPABASE_INSERT_FAILED'
   | 'QUOTE_OK';
@@ -36,18 +36,6 @@ function withCode(message: string, code: QuoteDiagnosticCode) {
   return `${message} [${code}]`;
 }
 
-function readField(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength;
-}
 
 function getSupabaseConfig() {
   const anonKey =
@@ -110,6 +98,12 @@ export async function submitQuoteRequest(
   const budget = readField(formData, 'budget');
   const supplierPreference = readField(formData, 'supplierPreference');
   const requirements = readField(formData, 'requirements');
+  const website = readField(formData, 'website');
+
+  if (website) {
+    logQuoteDiagnostic('QUOTE_VALIDATION_SPAM_TRAP');
+    return { status: 'error', message: withCode('Quote request could not be processed.', 'QUOTE_VALIDATION_SPAM_TRAP') };
+  }
 
   if (!name || !email || !company || !buyerType || !targetMarket || !volume || !timeline) {
     logQuoteDiagnostic('QUOTE_VALIDATION_REQUIRED_FIELDS', {
@@ -173,6 +167,14 @@ export async function submitQuoteRequest(
     };
   }
 
+  if ([name, company, buyerType, targetMarket, volume, timeline, budget, supplierPreference, requirements].some(isUnsafeFreeText)) {
+    logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
+    return {
+      status: 'error',
+      message: withCode('Please remove links or markup and submit plain text.', 'QUOTE_VALIDATION_UNSAFE_CONTENT'),
+    };
+  }
+
   const message = buildQuoteMessage({
     listingTitle,
     buyerType,
@@ -184,7 +186,7 @@ export async function submitQuoteRequest(
     requirements,
   });
 
-  if (message.length > MAX_MESSAGE_LENGTH) {
+  if (message.length > getMaxMessageLength()) {
     logQuoteDiagnostic('QUOTE_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length });
     return {
       status: 'error',
