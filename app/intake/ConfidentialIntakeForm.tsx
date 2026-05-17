@@ -1,7 +1,7 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
-import { CONTACT_EMAIL } from '@/lib/contact'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
@@ -15,6 +15,11 @@ const discussionTypes = [
   'Market Intelligence Request',
   'General Enquiry',
 ]
+
+const labelClass = 'mb-2 block text-sm font-semibold text-[#f4f1eb]'
+const fieldClass =
+  'w-full rounded-sm border border-gold/14 bg-[#020814] px-3 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/32 focus:border-gold/55 focus:ring-2 focus:ring-gold/15'
+const errorClass = 'mt-2 text-xs text-red-300'
 
 function buildIntakeMessage(fields: {
   discussionType: string
@@ -90,10 +95,10 @@ export default function ConfidentialIntakeForm() {
 
   if (state === 'success') {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-gold text-4xl mb-4">✓</p>
-        <h2 className="text-navy font-bold text-xl mb-2">Intake Received</h2>
-        <p className="text-gray-500 text-sm">
+      <div className="rounded-sm border border-gold/12 bg-[#020814] p-8 text-center">
+        <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-gold">Received</p>
+        <h2 className="mb-2 font-serif text-2xl tracking-[-0.03em] text-[#f5f1e8]">Intake received</h2>
+        <p className="text-sm leading-7 text-white/58">
           Your enquiry has been submitted securely to Harbourview. We review all
           intake requests and respond directly. All submissions are handled in
           confidence.
@@ -103,93 +108,90 @@ export default function ConfidentialIntakeForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-5" noValidate>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Full Name <span className="text-red-500">*</span>
+          <label htmlFor="name" className={labelClass}>
+            Full Name <span className="text-red-300">*</span>
           </label>
           <input
             id="name"
             name="name"
             type="text"
             autoComplete="name"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+            className={fieldClass}
           />
-          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+          {errors.name && <p className={errorClass}>{errors.name}</p>}
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email Address <span className="text-red-500">*</span>
+          <label htmlFor="email" className={labelClass}>
+            Email Address <span className="text-red-300">*</span>
           </label>
           <input
             id="email"
             name="email"
             type="email"
             autoComplete="email"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+            className={fieldClass}
           />
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+          {errors.email && <p className={errorClass}>{errors.email}</p>}
         </div>
       </div>
 
       <div>
-        <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="company" className={labelClass}>
           Company / Organisation
         </label>
         <input
           id="company"
           name="company"
           type="text"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+          className={fieldClass}
         />
       </div>
 
       <div>
-        <label htmlFor="discussionType" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="discussionType" className={labelClass}>
           Purpose of Discussion
         </label>
         <select
           id="discussionType"
           name="discussionType"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white"
+          className={fieldClass}
         >
-          <option value="">— Select if applicable —</option>
-          {discussionTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
+          <option value="">Select if applicable</option>
+          {discussionTypes.map((type) => (
+            <option key={type} value={type}>{type}</option>
           ))}
         </select>
       </div>
 
       <div>
-        <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-          Details <span className="text-red-500">*</span>
+        <label htmlFor="message" className={labelClass}>
+          Details <span className="text-red-300">*</span>
         </label>
         <textarea
           id="message"
           name="message"
           rows={6}
           placeholder="Describe the nature of your enquiry. All submissions are handled in confidence."
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none"
+          className={`${fieldClass} resize-none`}
         />
-        {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
+        {errors.message && <p className={errorClass}>{errors.message}</p>}
       </div>
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs leading-6 text-white/42">
         All submissions are reviewed and handled in confidence. We do not share
         intake details without explicit consent.
       </p>
 
       {state === 'error' && (
-        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="rounded-sm border border-red-300/25 bg-red-950/30 px-4 py-3 text-sm leading-6 text-red-100">
           {errorMessage}{' '}
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="underline"
-          >
-            Contact Harbourview directly
-          </a>{' '}
+          <Link href="/contact" className="font-semibold underline">
+            Contact Harbourview
+          </Link>{' '}
           if the issue persists.
         </p>
       )}
@@ -197,9 +199,9 @@ export default function ConfidentialIntakeForm() {
       <button
         type="submit"
         disabled={state === 'submitting'}
-        className="btn-primary w-full py-3 text-base disabled:opacity-60"
+        className="btn-marketplace w-full justify-center py-3 text-base disabled:opacity-60"
       >
-        {state === 'submitting' ? 'Submitting…' : 'Submit Intake'}
+        {state === 'submitting' ? 'Submitting...' : 'Submit Intake'}
       </button>
     </form>
   )

@@ -14,7 +14,7 @@ Change policy: This checklist is not approval to delete, pause, merge, deploy or
 | 2 | #273 | Old build-import blocker superseded by current main | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main resolves the build path and branch is not mergeable |
 | 3 | #52 | Old admin role-guard repair superseded by current admin/auth implementation | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main contains the user_roles admin/operator guard and migration |
 | 4 | #278 | Temporary Signal Engine runtime verification | Labeled `control/temporary-verification` on 2026-05-12 and kept open as draft | Remains draft-only until proof is run once and closed, or closed obsolete |
-| 5 | #275 | Vercel branch policy | Labeled `decision/HOLD` and `control/vercel-scope` on 2026-05-12; kept open pending Vercel scope resolution | Must not merge until canonical Harbourview Vercel project/team/account mapping is resolved |
+| 5 | #275 | Vercel branch policy; not mergeable; Branch Verification failed; changed `package.json`, `vercel.json` and `scripts/vercel-ignore-branch-policy.sh`; canonical Harbourview Vercel target remains unresolved from accessible inventory | Closed unmerged on 2026-05-12 after deployment-scope audit | Replaced only after the canonical Harbourview Vercel project/team/account is confirmed and documented in `PROJECT_REGISTRY.md` |
 | 6 | #279 | Homepage build fix superseded by current main | Closed stale on 2026-05-12 after applying `control/stale-pr` label | Closed unmerged with comment noting current main already contains the `publicSections` fix |
 | 7 | #280 | Network static foundation | Already closed/merged before this cleanup pass | No active PR action required |
 
@@ -40,6 +40,45 @@ Change policy: This checklist is not approval to delete, pause, merge, deploy or
 
 Find the actual Harbourview production Vercel project and make deployment ownership unambiguous.
 
+### Latest inspection result — 2026-05-12
+
+Deployment-scope decision remains **HOLD**.
+
+Accessible Vercel inventory:
+
+| Item | Result |
+|---|---|
+| Accessible team name | `Harbourview` |
+| Accessible team slug | `harbourviewnetwork` |
+| Accessible team ID | `team_zFcrpEaH7xxVPfFlj9yAKMZf` |
+| Visible projects | `chatbot` only |
+| Visible project ID | `prj_HpshzHIL2ZH0JJarU50gDDUAGUy3` |
+| `harbourview` project under accessible team | Not found |
+| `harbourview-platform` project under accessible team | Not found |
+
+GitHub/Vercel status evidence:
+
+| Context | Result | Control read |
+|---|---|---|
+| `Vercel – harbourview` | GitHub status context exists and points to `https://vercel.com/harbourviewcannabis-3379s-projects/harbourview/...` | Active external integration exists, but backing workspace/project is not accessible through the connected Vercel tool |
+| `harbourviewcannabis-3379s-projects/harbourview` | Direct connector inspection returned `403 Forbidden` | Required Vercel workspace/project access is missing |
+| `https://harbourview.vercel.app` | Not confirmed through accessible Vercel tooling | Intended/claimed production URL remains unverified |
+| `https://harbourview-platform.vercel.app` | Not confirmed through accessible Vercel tooling | Alternate historical/generated URL remains unverified |
+
+Required resolution before any deployment-policy change:
+
+- [ ] Get access to the Vercel workspace/project behind `harbourviewcannabis-3379s-projects/harbourview`.
+- [ ] Record the canonical Vercel project ID.
+- [ ] Record the canonical Vercel team/workspace name and slug.
+- [ ] Record the linked GitHub repo.
+- [ ] Record the production branch.
+- [ ] Record production domains.
+- [ ] Record preview domains.
+- [ ] Record whether Git auto-deploy is enabled.
+- [ ] Confirm whether repo `vercel.json` is active for the canonical project.
+- [ ] Confirm whether `https://harbourview.vercel.app` is the canonical production URL.
+- [ ] Confirm whether `https://harbourview-platform.vercel.app` is stale, duplicate, inactive or canonical.
+
 ### Checklist
 
 - [ ] Confirm all Vercel teams/accounts Tyler controls.
@@ -55,6 +94,20 @@ Find the actual Harbourview production Vercel project and make deployment owners
 - [ ] Update `docs/control/PROJECT_REGISTRY.md` with the confirmed Vercel mapping.
 - [ ] Only then adjust Vercel ignore/branch policy.
 
+### Stale external preview integration evidence
+
+Observed on PR #294 after all requested GitHub verification workflows passed:
+
+| Context | Observed status | Evidence | Control read | Required action |
+|---|---|---|---|---|
+| `Vercel – harbourview` | Failed | Vercel bot reported `Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")` | External preview/status integration is consuming deployment quota and can block or confuse merge decisions even for documentation-only PRs | Resolve canonical Vercel project/team/account mapping, then disable duplicate/stale auto-deploy previews or remove from required status checks if non-canonical |
+| `Vercel – harbourview-platform-rod3` | Passed | Commit status reported success for a separate Vercel project/context | Indicates more than one Vercel context may be attached to this repo | Classify as canonical or stale after Vercel inventory is complete |
+| `netlify/harbourview-platform/deploy-preview` | Failed | Netlify bot reported failed deploy preview for the `harbourview-platform` Netlify project | Likely stale or duplicate preview integration unless intentionally canonical | Confirm whether Netlify is required for any active Harbourview deployment; otherwise disconnect or remove as required context |
+| `netlify/harbourviewns/deploy-preview` | Passed/canceled | Netlify bot reported canceled deploy preview with successful status | Indicates another attached Netlify integration | Classify and disconnect if not canonical |
+| `netlify/harbourview-international/deploy-preview` | Passed/canceled | Netlify bot reported canceled deploy preview with successful status | Indicates another attached Netlify integration | Classify and disconnect if not canonical |
+
+Control rule: documentation-only PRs should not burn production preview quota or be blocked by stale preview integrations. The registry must identify exactly one canonical Harbourview deployment target before deployment-policy PRs are revived.
+
 ### Acceptance Criteria
 
 - Exactly one canonical Harbourview Vercel production project is identified.
@@ -62,6 +115,7 @@ Find the actual Harbourview production Vercel project and make deployment owners
 - No unknown Harbourview-like Vercel project remains unclassified.
 - Branch/deployment policy names the canonical project explicitly.
 - Future agents can identify where Harbourview production deploys without guessing.
+- Non-canonical Vercel/Netlify preview integrations are disconnected, disabled or documented as non-required.
 
 ## C. Supabase Project Consolidation
 
@@ -117,5 +171,7 @@ Actions:
 - [x] Label stale PR #277 with `control/stale-pr` and close it unmerged.
 - [x] Label stale PRs #273, #52 and #279 with `control/stale-pr` and close them unmerged.
 - [x] Label temporary verification PR #278 with `control/temporary-verification` and keep it open as draft.
-- [x] Label Vercel policy PR #275 with `decision/HOLD` and `control/vercel-scope` and keep it open pending Vercel scope resolution.
+- [x] Close Vercel policy PR #275 unmerged after deployment-scope audit confirmed the canonical Vercel project remains unresolved.
+- [x] Merge PR #294 recording stale PR cleanup actions.
+- [x] Merge PR #297 documenting stale external preview integrations.
 - [ ] Convert this checklist into Linear issues after the registry is merged.
