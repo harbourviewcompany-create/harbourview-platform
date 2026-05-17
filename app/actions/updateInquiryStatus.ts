@@ -3,13 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { getAdminDataClient } from '@/lib/supabase/adminDataClient';
-import { isInquiryPriority, isReviewStatus } from '@/lib/marketplace/inquiryWorkflow';
+import { canTransitionReviewStatus, isInquiryPriority, isReviewStatus } from '@/lib/marketplace/inquiryWorkflow';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_NOTES_LENGTH = 4000;
 
 type ExistingWorkflowRow = {
   last_contacted_at: string | null;
+  review_status: string | null;
 };
 
 function readField(formData: FormData, key: string) {
@@ -35,7 +36,7 @@ function normalizeWorkflowFields(formData: FormData) {
 
 async function fetchCurrentWorkflow(id: string, url: string, serviceRoleKey: string) {
   const response = await fetch(
-    `${url}/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}&select=last_contacted_at&limit=1`,
+    `${url}/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}&select=last_contacted_at,review_status&limit=1`,
     {
       headers: {
         apikey: serviceRoleKey,
@@ -75,6 +76,14 @@ export async function applyInquiryWorkflowUpdate(id: string, formData: FormData)
 
   const current = await fetchCurrentWorkflow(id, client.data.url, client.data.serviceRoleKey);
   if (!current) {
+    return false;
+  }
+
+  if (!current.review_status || !isReviewStatus(current.review_status)) {
+    return false;
+  }
+
+  if (!canTransitionReviewStatus(current.review_status, reviewStatus)) {
     return false;
   }
 
