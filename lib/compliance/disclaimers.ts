@@ -8,4 +8,4 @@ export const requestSupportDisclaimer =
   'Submitting this request does not create an advisory, legal, compliance or client relationship with Harbourview or any third-party provider. Harbourview may review the request and, where appropriate, facilitate a qualified introduction.'
 
 export const fallbackCountrySummary =
-  'Country intelligence is not yet fully published. Harbourview can assess this jurisdiction on request, including licensing pathway, import/export requirements, documentation expectations, specialist support needs and commercial route viability.'
+  'Harbourview monitors this jurisdiction for market-entry context, licensing-pathway questions, import/export requirements, documentation expectations, specialist support needs and commercial route viability. Full pathway intelligence is available on request through controlled review.'
