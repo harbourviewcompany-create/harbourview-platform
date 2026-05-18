@@ -11,7 +11,6 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
-import { GlobeFallbackCountrySelector } from './GlobeFallbackCountrySelector'
 
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
@@ -137,14 +136,6 @@ export function GlobeSameScreenRouterLanding() {
           </p>
         </RouterBottomSheet>
       ) : null}
-
-      <div className="sr-only">
-        <GlobeFallbackCountrySelector
-          selectedCountryIso2={state.selectedCountryIso2}
-          onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SELECT', countryIso2 })}
-          onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
-        />
-      </div>
     </main>
   )
 }
