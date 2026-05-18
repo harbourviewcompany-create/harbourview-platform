@@ -13,7 +13,7 @@ export default function ComplianceReadinessPage() {
       eyebrow="HAR-40 compliance education"
       title="Compliance readiness without legal or regulatory advice overclaiming."
       description="This education route gives operators and professional stakeholders a structured way to think about readiness, evidence, documentation and escalation before seeking qualified review."
-      boundary="This page is educational only. It does not provide legal advice, regulatory advice, QP review, audit opinion, medical advice, import clearance, licence confirmation or compliance certification."
+      boundary="This page is educational only. It does not provide legal advice, regulatory advice, QP review, audit opinion, medical advice, import clearance, licence verification or compliance certification."
       primaryAction={{ label: 'Request Readiness Review', href: '/contact' }}
       secondaryAction={{ label: 'Speak Confidentially', href: '/intake', variant: 'secondary' }}
       sections={[
