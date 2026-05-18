@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ContentStatusNotice, InlineStatusBadge } from '@/components/ContentStatusNotice'
 import { getComplianceCountry } from '@/lib/compliance/countries'
 import { maturityLabels } from '@/lib/compliance/safePublicCompliance'
 
@@ -26,11 +27,16 @@ export default async function CountryPage({ params }: { params: Promise<{ countr
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/78">
             Country pathway orientation
           </p>
-          <h1 className="mt-4 font-serif text-4xl tracking-[-0.055em] text-gold-pale sm:text-6xl">
+          <div className="mt-5 flex flex-wrap gap-2">
+            <InlineStatusBadge label={c.publicStatusLabel} />
+            <InlineStatusBadge label={`Review: ${c.reviewStatus.replace(/_/g, ' ')}`} />
+            <InlineStatusBadge label={`Source confidence: ${c.sourceConfidence}`} />
+          </div>
+          <h1 className="mt-5 font-serif text-4xl tracking-[-0.055em] text-gold-pale sm:text-6xl">
             {c.country}
           </h1>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">
-            {regionLabels[c.region] ?? c.region} · {maturityLabels[c.maturityLevel]} · Reviewed May 2026
+            {regionLabels[c.region] ?? c.region} · {maturityLabels[c.maturityLevel]} · {c.lastReviewed}
           </p>
         </div>
       </section>
@@ -43,6 +49,12 @@ export default async function CountryPage({ params }: { params: Promise<{ countr
             </p>
             <p className="mt-5 text-base leading-8 text-white/70">{c.pathwaySummary}</p>
 
+            <div className="mt-8">
+              <ContentStatusNotice title="Country status" status="draft-orientation" origin="draft-orientation">
+                {c.publicStatusExplanation} {c.sourceBasis}
+              </ContentStatusNotice>
+            </div>
+
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Import/export</p>
@@ -52,7 +64,30 @@ export default async function CountryPage({ params }: { params: Promise<{ countr
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Commercial review</p>
                 <p className="mt-3 text-sm leading-7 text-white/58">{c.commercialRelevance}</p>
               </div>
+              <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Source confidence</p>
+                <p className="mt-3 text-sm leading-7 text-white/58">{c.sourceConfidence}</p>
+              </div>
+              <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Review owner</p>
+                <p className="mt-3 text-sm leading-7 text-white/58">{c.reviewOwner}</p>
+              </div>
             </div>
+
+            <dl className="mt-8 grid gap-4 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="font-semibold text-gold/70">Last reviewed</dt>
+                <dd className="mt-1 text-white/54">{c.lastReviewed}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-gold/70">Next review due</dt>
+                <dd className="mt-1 text-white/54">{c.nextReviewDue}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-gold/70">Review status</dt>
+                <dd className="mt-1 text-white/54">{c.reviewStatus.replace(/_/g, ' ')}</dd>
+              </div>
+            </dl>
 
             <p className="mt-8 text-sm leading-7 text-white/48">{c.disclaimer}</p>
           </article>

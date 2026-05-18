@@ -1,6 +1,8 @@
 export type ClinicalEducationModuleStatus = 'Live' | 'Available by request' | 'Research in progress' | 'Professional review required' | 'Future module' | 'Admin-only'
 export type ClinicalEducationRiskLevel = 'low' | 'medium' | 'high'
 export type ClinicalEducationDisclaimerType = 'standard' | 'dosage' | 'patient-boundary'
+export type ClinicalEducationSourceBasis = 'professional-orientation' | 'official-source-required' | 'professional-review-required' | 'research-in-progress'
+export type ClinicalEducationAudienceBoundary = 'professional-only' | 'commercial-professional' | 'not-patient-facing'
 
 export type ClinicalEducationModule = {
   id: string
@@ -16,6 +18,13 @@ export type ClinicalEducationModule = {
   restrictedLanguage: string[]
   researchStatus: string
   professionalReviewRequired: boolean
+  sourceBasis: ClinicalEducationSourceBasis
+  reviewerRoleRequired: string[]
+  audienceBoundary: ClinicalEducationAudienceBoundary
+  lastReviewed: string
+  nextReviewDue: string
+  publicUseApproved: boolean
+  medicalAdviceBoundary: string
   countryRelevance: string[]
   formatRelevance: string[]
   disclaimerType: ClinicalEducationDisclaimerType
@@ -47,6 +56,7 @@ export const patientBoundaryDisclaimer =
   'This resource is intended for licensed professionals and regulated market participants. Harbourview does not provide patient-specific medical advice. Patients should consult a qualified clinician or pharmacist in their jurisdiction.'
 
 const requestHref = '/network/clinical-education/request'
+const standardMedicalAdviceBoundary = 'Professional education only. Not medical advice, prescribing advice, patient-specific guidance, product recommendation or treatment direction.'
 
 export const clinicalEducationModules: ClinicalEducationModule[] = [
   {
@@ -63,6 +73,13 @@ export const clinicalEducationModules: ClinicalEducationModule[] = [
     restrictedLanguage: ['individualized instruction wording', 'treatment-direction wording'],
     researchStatus: 'Live framework',
     professionalReviewRequired: false,
+    sourceBasis: 'professional-orientation',
+    reviewerRoleRequired: ['Harbourview editorial review'],
+    audienceBoundary: 'commercial-professional',
+    lastReviewed: '2026-05-17',
+    nextReviewDue: 'Before jurisdiction-specific publication or patient-facing reuse',
+    publicUseApproved: true,
+    medicalAdviceBoundary: standardMedicalAdviceBoundary,
     countryRelevance: ['global'],
     formatRelevance: ['all formats'],
     disclaimerType: 'standard',
@@ -83,6 +100,13 @@ export const clinicalEducationModules: ClinicalEducationModule[] = [
     restrictedLanguage: ['individualized amount wording', 'prescribing instruction wording'],
     researchStatus: 'Live basic format education',
     professionalReviewRequired: false,
+    sourceBasis: 'professional-orientation',
+    reviewerRoleRequired: ['Harbourview editorial review', 'Clinical/pharmacy reviewer before jurisdiction-specific use'],
+    audienceBoundary: 'professional-only',
+    lastReviewed: '2026-05-17',
+    nextReviewDue: 'Before any dose, condition, country or patient-facing adaptation',
+    publicUseApproved: true,
+    medicalAdviceBoundary: standardMedicalAdviceBoundary,
     countryRelevance: ['global'],
     formatRelevance: ['oils', 'capsules', 'softgels', 'flower', 'extracts'],
     disclaimerType: 'dosage',
@@ -103,6 +127,13 @@ export const clinicalEducationModules: ClinicalEducationModule[] = [
     restrictedLanguage: ['private document wording', 'inventory wording'],
     researchStatus: 'Live basic documentation education',
     professionalReviewRequired: false,
+    sourceBasis: 'professional-orientation',
+    reviewerRoleRequired: ['Harbourview editorial review', 'QA/regulatory reviewer before route-specific reliance'],
+    audienceBoundary: 'commercial-professional',
+    lastReviewed: '2026-05-17',
+    nextReviewDue: 'Before batch-specific, country-specific or QP-facing adaptation',
+    publicUseApproved: true,
+    medicalAdviceBoundary: standardMedicalAdviceBoundary,
     countryRelevance: ['global'],
     formatRelevance: ['all formats'],
     disclaimerType: 'standard',
@@ -123,6 +154,13 @@ export const clinicalEducationModules: ClinicalEducationModule[] = [
     restrictedLanguage: ['patient-matching wording', 'condition-selection wording'],
     researchStatus: 'Research in progress',
     professionalReviewRequired: true,
+    sourceBasis: 'research-in-progress',
+    reviewerRoleRequired: ['Qualified clinical reviewer', 'Regulatory/promotional review before external use'],
+    audienceBoundary: 'professional-only',
+    lastReviewed: '2026-05-17',
+    nextReviewDue: 'Before public detail expansion or external reuse',
+    publicUseApproved: false,
+    medicalAdviceBoundary: standardMedicalAdviceBoundary,
     countryRelevance: ['global'],
     formatRelevance: ['all formulas'],
     disclaimerType: 'dosage',
@@ -143,6 +181,13 @@ export const clinicalEducationModules: ClinicalEducationModule[] = [
     restrictedLanguage: ['effect-promise wording', 'outcome-claim wording'],
     researchStatus: 'Professional review required',
     professionalReviewRequired: true,
+    sourceBasis: 'professional-review-required',
+    reviewerRoleRequired: ['Qualified clinical reviewer', 'Medical/legal/promotional review before external use'],
+    audienceBoundary: 'professional-only',
+    lastReviewed: '2026-05-17',
+    nextReviewDue: 'Before any public detail expansion or clinical-use adaptation',
+    publicUseApproved: false,
+    medicalAdviceBoundary: standardMedicalAdviceBoundary,
     countryRelevance: ['global'],
     formatRelevance: ['multiple formats'],
     disclaimerType: 'dosage',
@@ -163,6 +208,13 @@ export const clinicalEducationModules: ClinicalEducationModule[] = [
     restrictedLanguage: ['feeling-promise wording', 'suitability-claim wording'],
     researchStatus: 'Professional review required',
     professionalReviewRequired: true,
+    sourceBasis: 'professional-review-required',
+    reviewerRoleRequired: ['Qualified clinical reviewer', 'Pharmacovigilance/safety reviewer before external use'],
+    audienceBoundary: 'not-patient-facing',
+    lastReviewed: '2026-05-17',
+    nextReviewDue: 'Before public detail expansion, safety-language reuse or clinical-use adaptation',
+    publicUseApproved: false,
+    medicalAdviceBoundary: standardMedicalAdviceBoundary,
     countryRelevance: ['global'],
     formatRelevance: ['all formats'],
     disclaimerType: 'patient-boundary',

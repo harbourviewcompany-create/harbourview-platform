@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 
+import { ContentStatusNotice } from '@/components/ContentStatusNotice'
 import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
-import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
+import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import { EmptyState, FooterCta, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
 }
 
 export default async function SignalsPage() {
-  const signals = await getPublicRegulatorySignals()
+  const signalFeed = await getPublicRegulatorySignalFeed()
+  const signals = signalFeed.signals
 
   return (
     <main>
@@ -32,6 +34,11 @@ export default async function SignalsPage() {
       </PublicHero>
 
       <PublicSection tone="dark">
+        <div className="mb-6">
+          <ContentStatusNotice title={signalFeed.publicLabel} status={signalFeed.source === 'live-approved' ? 'admin-backed' : 'fallback-backed'} origin={signalFeed.source}>
+            {signalFeed.reviewBoundary}
+          </ContentStatusNotice>
+        </div>
         <div className="space-y-6">
           {signals.length === 0 ? (
             <EmptyState title="No published regulatory signals yet.">
@@ -53,7 +60,7 @@ export default async function SignalsPage() {
                     rel="noreferrer"
                     className="mt-4 inline-block text-xs font-semibold uppercase tracking-[0.16em] text-gold underline decoration-gold/40 underline-offset-4"
                   >
-                    View source
+                    Public source reference
                   </a>
                 )}
               </PublicCard>
