@@ -1,7 +1,41 @@
-import type { ComplianceCountry } from './types'
+import type { ComplianceCountry, ComplianceCountryPublicStatus } from './types'
 import { countryComplianceDisclaimer, fallbackCountrySummary } from './disclaimers'
 
+function getPublicStatusLabel(status: ComplianceCountryPublicStatus) {
+  switch (status) {
+    case 'source_backed_public_summary':
+      return 'Source-backed public summary'
+    case 'specialist_reviewed_public_summary':
+      return 'Specialist-reviewed public summary'
+    case 'case_by_case_restricted':
+      return 'Case-by-case restricted pathway'
+    case 'source_review_required':
+      return 'Source review required'
+    case 'draft_orientation':
+    default:
+      return 'Draft orientation only'
+  }
+}
+
+function getPublicStatusExplanation(status: ComplianceCountryPublicStatus) {
+  switch (status) {
+    case 'source_backed_public_summary':
+      return 'This country page has enough reviewed source basis for a public-safe summary, but route-specific reliance still requires specialist review.'
+    case 'specialist_reviewed_public_summary':
+      return 'This country page has specialist-reviewed public orientation. Transaction, shipment, licensing and product-route decisions still require separate review.'
+    case 'case_by_case_restricted':
+      return 'This country pathway is treated as restricted or case-by-case. Harbourview should review facts privately before any commercial reliance.'
+    case 'source_review_required':
+      return 'This country page requires official-source review before it can be treated as a source-backed public summary.'
+    case 'draft_orientation':
+    default:
+      return 'This country page is a draft orientation scaffold. It is not a verified jurisdiction brief, legal opinion, import/export clearance or regulatory conclusion.'
+  }
+}
+
 function baseCountry(country: string, slug: string, region: ComplianceCountry['region']): ComplianceCountry {
+  const publicStatus: ComplianceCountryPublicStatus = 'draft_orientation'
+
   return {
     slug,
     country,
@@ -9,7 +43,13 @@ function baseCountry(country: string, slug: string, region: ComplianceCountry['r
     maturityLevel: 'basic_orientation',
     reviewStatus: 'draft',
     sourceConfidence: 'low',
+    publicStatus,
+    publicStatusLabel: getPublicStatusLabel(publicStatus),
+    publicStatusExplanation: getPublicStatusExplanation(publicStatus),
     lastReviewed: '2026-05-05',
+    nextReviewDue: 'Before external reliance or launch-country promotion',
+    sourceBasis: 'Official-source review required before country-specific reliance.',
+    reviewOwner: 'Harbourview regulatory review',
     regulatoryBodies: [],
     pathwaySummary: fallbackCountrySummary,
     importExportRelevance: 'Import/export pathways require jurisdiction-specific confirmation and specialist review.',

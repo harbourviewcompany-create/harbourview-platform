@@ -71,6 +71,13 @@ const FALLBACK_PUBLIC_SIGNALS: PublicRegulatorySignal[] = [
   },
 ]
 
+export type PublicRegulatorySignalFeed = {
+  signals: PublicRegulatorySignal[]
+  source: 'live-approved' | 'fallback-fixture'
+  publicLabel: string
+  reviewBoundary: string
+}
+
 async function readPublishedRecords(): Promise<RegulatorySignalRecord[]> {
   const result = await fetchAdminSupabaseJson<RegulatorySignalRecord[]>(PUBLIC_SIGNALS_PATH)
   if (!result.ok) return []
@@ -83,9 +90,29 @@ function project(records: RegulatorySignalRecord[]): PublicRegulatorySignal[] {
     .filter((signal): signal is PublicRegulatorySignal => Boolean(signal))
 }
 
-export async function getPublicRegulatorySignals(): Promise<PublicRegulatorySignal[]> {
+export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatorySignalFeed> {
   const published = project(await readPublishedRecords())
-  return published.length ? published : FALLBACK_PUBLIC_SIGNALS
+
+  if (published.length) {
+    return {
+      signals: published,
+      source: 'live-approved',
+      publicLabel: 'Published public-safe signals',
+      reviewBoundary: 'These signals were projected from published, public-safe regulatory signal records. Private source captures, analyst notes and internal review material remain excluded from public pages.',
+    }
+  }
+
+  return {
+    signals: FALLBACK_PUBLIC_SIGNALS,
+    source: 'fallback-fixture',
+    publicLabel: 'Fallback signal orientation',
+    reviewBoundary: 'No published public-safe regulatory signal records are currently being displayed. These entries are fallback orientation only and should not be treated as live intelligence, official guidance or current route clearance.',
+  }
+}
+
+export async function getPublicRegulatorySignals(): Promise<PublicRegulatorySignal[]> {
+  const feed = await getPublicRegulatorySignalFeed()
+  return feed.signals
 }
 
 export async function getPublicRegulatorySignalBySlug(slug: string): Promise<PublicRegulatorySignal | null> {

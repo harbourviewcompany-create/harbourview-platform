@@ -21,7 +21,7 @@
     "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
     "test:new-products-equipment-intake": "node scripts/test-new-products-equipment-intake.mjs",
-    "test:intake-workflow-safety": "node scripts/test-live-source-intake.mjs && node scripts/test-new-products-equipment-intake.mjs",
+    "test:intake-workflow-safety": "node scripts/test-live-source-intake.mjs && node scripts/test-new-products-equipment-intake.mjs && node scripts/test-intake-workflow-safety.mjs",
     "test:services-public-leakage": "node scripts/test-services-public-leakage.mjs",
     "test:intelligence-fixtures": "node scripts/test-intelligence-fixture-projection.mjs",
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
@@ -29,6 +29,14 @@
     "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
+    "test:full-scope:script-uniqueness": "node scripts/test-package-script-uniqueness.mjs",
+    "test:full-scope:routes": "node scripts/test-route-capability-registry.mjs",
+    "test:full-scope:content": "node scripts/test-content-inventory.mjs",
+    "test:full-scope:education": "node scripts/test-clinical-education-review-metadata.mjs",
+    "test:full-scope:compliance": "node scripts/test-compliance-country-status-labels.mjs",
+    "test:full-scope:marketplace": "node scripts/test-marketplace-category-capability-map.mjs",
+    "test:full-scope:fallbacks": "node scripts/test-fallback-live-indicators.mjs",
+    "test:full-scope-launch-readiness": "node scripts/test-full-scope-launch-readiness.mjs",
     "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
@@ -36,8 +44,7 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "test:intake-workflow-safety": "node scripts/test-intake-workflow-safety.mjs"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",

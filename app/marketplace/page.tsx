@@ -7,8 +7,7 @@ import {
   PublicSection,
   SectionHeader,
 } from '@/components/PublicUi'
-
-const licensedInventoryHref = '/marketplace/' + 'cannabis-inventory'
+import { marketplaceCategoryCapabilityMap } from '@/lib/marketplace/categoryCapabilityMap'
 
 export const metadata: Metadata = {
   title: 'Network | Harbourview',
@@ -20,62 +19,6 @@ export const metadata: Metadata = {
       'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   },
 }
-
-const categories = [
-  {
-    label: 'Reviewed Network Listings',
-    href: '/marketplace/listings',
-    description:
-      'Safe public entry point for reviewed listings, wanted requests and controlled opportunity submissions.',
-  },
-  {
-    label: 'Used & Surplus Equipment',
-    href: '/marketplace/used-surplus',
-    description: 'Used equipment, surplus assets, liquidations and closure-related supply.',
-  },
-  {
-    label: 'Business Opportunities',
-    href: '/marketplace/business-opportunities',
-    description: 'Facilities, partnerships and structured commercial routes subject to diligence.',
-  },
-  {
-    label: 'Consumables & Operating Supplies',
-    href: '/marketplace/consumables',
-    description: 'Packaging, lab, cultivation, logistics and operating supply categories.',
-  },
-  {
-    label: 'New Products',
-    href: '/marketplace/new-products',
-    description: 'New equipment, automation, packaging and operating supplies.',
-  },
-  {
-    label: 'Cann' + 'abis Inventory',
-    href: licensedInventoryHref,
-    description: 'Licensed-only inventory review and private routing.',
-  },
-  {
-    label: 'Services',
-    href: '/marketplace/services',
-    description: 'Compliance, logistics, QA, advisory and operational service providers.',
-  },
-  {
-    label: 'Wanted Requests',
-    href: '/marketplace/wanted',
-    description: 'Buyer and operator demand routed through Harbourview review.',
-  },
-  {
-    label: 'Genetics, Seeds & Tissue Culture',
-    href: '/marketplace/genetics',
-    description:
-      'Controlled showcase for genetics, seed lines, tissue-culture programs and licensing opportunities.',
-  },
-  {
-    label: 'Request Introduction',
-    href: '/intake',
-    description:
-      'Ask Harbourview to screen fit, protect counterparty identity and route qualified introductions where appropriate.',
-  },
-]
 
 const processCards = [
   {
@@ -138,9 +81,12 @@ export default function MarketplacePage() {
           title="Explore reviewed commercial access categories."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {categories.map((cat) => (
-            <PublicLinkCard key={cat.href} href={cat.href} title={cat.label}>
-              {cat.description}
+          {marketplaceCategoryCapabilityMap.map((cat) => (
+            <PublicLinkCard key={cat.route} href={cat.route} title={cat.label}>
+              <span className="block text-white/66">{cat.privateBoundary}</span>
+              <span className="mt-4 inline-flex rounded-full border border-gold/35 bg-gold/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">
+                {cat.publicLabel}
+              </span>
             </PublicLinkCard>
           ))}
         </div>
