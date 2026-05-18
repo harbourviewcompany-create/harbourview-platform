@@ -3,7 +3,11 @@
 import { getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
 import { roleProfileMap, roleProfiles } from '@/config/globe/role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
-import type { RoleId } from '@/types/globe-router'
+import type { RoleId, RoleProfile } from '@/types/globe-router'
+
+function isRoleProfile(role: RoleProfile | undefined): role is RoleProfile {
+  return Boolean(role)
+}
 
 export function RoleChipSelector({
   countryIso2,
@@ -29,7 +33,9 @@ export function RoleChipSelector({
   const searchedRoles = roleProfiles.filter((role) =>
     tokenMatchesSearch(searchQuery, [role.label, role.shortLabel, role.description, ...role.aliases]),
   )
-  const rolesToRender = searchQuery ? searchedRoles : visibleRoleIds.map((roleId) => roleProfileMap[roleId]).filter(Boolean)
+  const rolesToRender = searchQuery
+    ? searchedRoles
+    : visibleRoleIds.map((roleId) => roleProfileMap[roleId]).filter(isRoleProfile)
 
   return (
     <div>
