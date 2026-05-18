@@ -39,6 +39,10 @@ The first PR intentionally does not enable:
 
 This hub is a read-only context viewer until Airtable/Command OS source-of-truth rules are resolved. It must not be treated as the canonical operations cockpit without a follow-up PR that explicitly defines Airtable interaction, write approval gates, audit events and rollback behavior.
 
+## Registry discipline note
+
+PR #322 is scoped to the existing Harbourview Platform registry row. It does not introduce a new deploy target, Supabase project, external service owner, production domain, or standalone system.
+
 ## Verification
 
 Run:
