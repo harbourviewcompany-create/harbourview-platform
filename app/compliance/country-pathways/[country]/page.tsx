@@ -1,7 +1,18 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ContentStatusNotice, InlineStatusBadge } from '@/components/ContentStatusNotice'
 import { getComplianceCountry } from '@/lib/compliance/countries'
 import { maturityLabels } from '@/lib/compliance/safePublicCompliance'
+
+const regionLabels: Record<string, string> = {
+  europe: 'Europe',
+  'north-america': 'North America',
+  caribbean: 'Caribbean',
+  'latin-america': 'Latin America',
+  africa: 'Africa',
+  'middle-east': 'Middle East',
+  'asia-pacific': 'Asia-Pacific',
+}
 
 export default async function CountryPage({ params }: { params: Promise<{ country: string }> }) {
   const { country: slug } = await params
@@ -10,71 +21,94 @@ export default async function CountryPage({ params }: { params: Promise<{ countr
   if (!c) notFound()
 
   return (
-    <main className="bg-[#f5f1e8] py-12 text-navy">
-      <div className="page-container max-w-5xl space-y-8">
-        <section className="rounded-3xl border border-navy/10 bg-white p-6 shadow-[0_18px_55px_rgba(11,26,47,0.06)] sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold">Compliance country pathway</p>
-          <div className="mt-4 flex flex-wrap gap-2">
+    <main className="bg-[#020814] text-white">
+      <section className="border-b border-gold/10 bg-[radial-gradient(circle_at_74%_18%,rgba(198,165,90,0.16),transparent_32%),linear-gradient(135deg,rgba(11,26,47,0.95)_0%,rgba(2,8,20,1)_74%)] py-14 sm:py-18">
+        <div className="page-container max-w-5xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/78">
+            Country pathway orientation
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
             <InlineStatusBadge label={c.publicStatusLabel} />
             <InlineStatusBadge label={`Review: ${c.reviewStatus.replace(/_/g, ' ')}`} />
             <InlineStatusBadge label={`Source confidence: ${c.sourceConfidence}`} />
           </div>
-          <h1 className="mt-6 text-3xl font-semibold tracking-[-0.025em] sm:text-5xl">{c.country}</h1>
-          <p className="mt-4 text-base leading-8 text-gray-600">{c.pathwaySummary}</p>
-        </section>
+          <h1 className="mt-5 font-serif text-4xl tracking-[-0.055em] text-gold-pale sm:text-6xl">
+            {c.country}
+          </h1>
+          <p className="mt-5 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">
+            {regionLabels[c.region] ?? c.region} · {maturityLabels[c.maturityLevel]} · {c.lastReviewed}
+          </p>
+        </div>
+      </section>
 
-        <ContentStatusNotice title="Country status" status="draft-orientation" origin="draft-orientation">
-          {c.publicStatusExplanation} {c.sourceBasis}
-        </ContentStatusNotice>
+      <section className="py-12 sm:py-16">
+        <div className="page-container grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,0.68fr)_minmax(300px,0.32fr)]">
+          <article className="rounded-sm border border-gold/12 bg-[#071426]/82 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-8">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/70">
+              Public-safe pathway summary
+            </p>
+            <p className="mt-5 text-base leading-8 text-white/70">{c.pathwaySummary}</p>
 
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {[
-            ['Maturity', maturityLabels[c.maturityLevel]],
-            ['Import/export relevance', c.importExportRelevance],
-            ['Cultivation/manufacturing relevance', c.cultivationManufacturingRelevance],
-            ['GMP/GACP/GDP relevance', c.gmpGacpGdpRelevance],
-            ['Testing and COA relevance', c.testingCoaRelevance],
-            ['Packaging and labelling relevance', c.packagingLabellingRelevance],
-            ['Facility, environment and security relevance', c.facilityEnvironmentSecurityRelevance],
-            ['Commercial relevance', c.commercialRelevance],
-          ].map(([title, copy]) => (
-            <article key={title} className="rounded-2xl border border-navy/10 bg-white p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-gold">{title}</h2>
-              <p className="mt-3 text-sm leading-7 text-gray-600">{copy}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="rounded-3xl border border-navy/10 bg-white p-6 sm:p-8">
-          <h2 className="text-xl font-semibold text-navy">Known review bottlenecks</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {c.knownBottlenecks.map((item) => (
-              <span key={item} className="rounded-full border border-navy/10 bg-navy/5 px-3 py-1 text-xs text-navy/60">
-                {item}
-              </span>
-            ))}
-          </div>
-          <dl className="mt-6 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="font-semibold text-navy">Last reviewed</dt>
-              <dd className="mt-1 text-gray-500">{c.lastReviewed}</dd>
+            <div className="mt-8">
+              <ContentStatusNotice title="Country status" status="draft-orientation" origin="draft-orientation">
+                {c.publicStatusExplanation} {c.sourceBasis}
+              </ContentStatusNotice>
             </div>
-            <div>
-              <dt className="font-semibold text-navy">Next review due</dt>
-              <dd className="mt-1 text-gray-500">{c.nextReviewDue}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-navy">Review owner</dt>
-              <dd className="mt-1 text-gray-500">{c.reviewOwner}</dd>
-            </div>
-          </dl>
-        </section>
 
-        <section className="rounded-2xl border border-gold/30 bg-gold-pale p-5 text-sm leading-7 text-navy">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Compliance boundary</p>
-          <p className="mt-3">{c.disclaimer}</p>
-        </section>
-      </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Import/export</p>
+                <p className="mt-3 text-sm leading-7 text-white/58">{c.importExportRelevance}</p>
+              </div>
+              <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Commercial review</p>
+                <p className="mt-3 text-sm leading-7 text-white/58">{c.commercialRelevance}</p>
+              </div>
+              <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Source confidence</p>
+                <p className="mt-3 text-sm leading-7 text-white/58">{c.sourceConfidence}</p>
+              </div>
+              <div className="rounded-sm border border-gold/10 bg-black/18 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/68">Review owner</p>
+                <p className="mt-3 text-sm leading-7 text-white/58">{c.reviewOwner}</p>
+              </div>
+            </div>
+
+            <dl className="mt-8 grid gap-4 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="font-semibold text-gold/70">Last reviewed</dt>
+                <dd className="mt-1 text-white/54">{c.lastReviewed}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-gold/70">Next review due</dt>
+                <dd className="mt-1 text-white/54">{c.nextReviewDue}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-gold/70">Review status</dt>
+                <dd className="mt-1 text-white/54">{c.reviewStatus.replace(/_/g, ' ')}</dd>
+              </div>
+            </dl>
+
+            <p className="mt-8 text-sm leading-7 text-white/48">{c.disclaimer}</p>
+          </article>
+
+          <aside className="rounded-sm border border-gold/12 bg-black/20 p-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/70">
+              Controlled request path
+            </p>
+            <h2 className="mt-4 font-serif text-2xl tracking-[-0.035em] text-[#f5f1e8]">
+              Request country intelligence
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-white/58">
+              Full pathway intelligence is available on request, including licensing pathway, import/export requirements, documentation expectations and commercial route viability.
+            </p>
+            <Link href="/contact" className="btn-intelligence mt-6 min-h-[52px] justify-center">
+              <span>Request Country Intelligence</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </aside>
+        </div>
+      </section>
     </main>
   )
 }
