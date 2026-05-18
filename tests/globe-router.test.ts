@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
 import { getIntentIdsForRole } from '@/config/globe/intent-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
-import { resolveGlobeRoute } from '@/components/globe/useRouteResolver'
+import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { globeRouterReducer, initialGlobeRouterState } from '@/components/globe/useGlobeRouterState'
 
 describe('Harbourview globe same-screen router', () => {
