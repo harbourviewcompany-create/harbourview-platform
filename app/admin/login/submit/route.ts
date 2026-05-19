@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const email = String(formData.get('email') || '');
   const credential = String(formData.get('pass' + 'word') || '');
+  const secure = process.env.NODE_ENV === 'production';
 
   const result = await signInAdminOperator(email, credential);
   if (!result.ok) {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     const response = redirectTo(request, `/admin/login?error=${error}`);
     response.cookies.set(ADMIN_SESSION_COOKIE_NAME, '', {
       httpOnly: true,
-      secure: true,
+      secure,
       sameSite: 'lax',
       path: '/',
       maxAge: 0,
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const response = redirectTo(request, '/admin/inquiries');
   response.cookies.set(ADMIN_SESSION_COOKIE_NAME, createAdminSessionCookieValue(result.session), {
     httpOnly: true,
-    secure: true,
+    secure,
     sameSite: 'lax',
     path: '/',
     maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
