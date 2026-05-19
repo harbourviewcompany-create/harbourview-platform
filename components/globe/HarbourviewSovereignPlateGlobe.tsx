@@ -36,7 +36,15 @@ export function HarbourviewSovereignPlateGlobe({
   onSelectCountry: (countryIso2: string) => void
 }) {
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[#01050d]" aria-hidden="false">
+    <div
+      className="absolute inset-0 overflow-hidden bg-[#01050d]"
+      aria-hidden="true"
+      data-globe-renderer="css-fallback-prototype"
+    >
+      <div className="absolute left-4 top-4 z-20 rounded-full border border-[#c6a55a]/20 bg-black/28 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/68 backdrop-blur-xl">
+        Prototype fallback renderer
+      </div>
+
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(16,58,95,0.72),transparent_42%),radial-gradient(circle_at_56%_48%,rgba(198,165,90,0.12),transparent_58%),linear-gradient(180deg,#020814_0%,#01050d_100%)]" />
 
       <div
@@ -60,13 +68,12 @@ export function HarbourviewSovereignPlateGlobe({
             <button
               key={spot.iso2}
               type="button"
-              aria-label={`Select ${country?.name ?? spot.iso2}`}
+              tabIndex={-1}
+              aria-hidden="true"
               data-country={spot.iso2}
               data-state={plateState}
               onPointerEnter={() => onFocusCountry(spot.iso2)}
               onPointerLeave={() => onFocusCountry(undefined)}
-              onFocus={() => onFocusCountry(spot.iso2)}
-              onBlur={() => onFocusCountry(undefined)}
               onClick={() => onSelectCountry(spot.iso2)}
               className={`absolute isolate grid place-items-center rounded-[44%] border text-[10px] font-semibold uppercase tracking-[0.14em] transition duration-200 ${
                 plateState === 'selected'
@@ -83,7 +90,7 @@ export function HarbourviewSovereignPlateGlobe({
                 transform: 'translate(-50%, -50%) rotate(-10deg)',
               }}
             >
-              <span className="relative z-10">{spot.iso2}</span>
+              <span className="relative z-10">{country?.iso2 ?? spot.iso2}</span>
             </button>
           )
         })}
