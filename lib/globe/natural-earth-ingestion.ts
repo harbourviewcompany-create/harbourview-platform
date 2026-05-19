@@ -19,15 +19,23 @@ function extractName(feature: NaturalEarthCountryFeature) {
   return feature.properties.NAME_LONG ?? feature.properties.NAME ?? feature.properties.ADMIN ?? 'Unknown'
 }
 
+function isPolygonCoordinates(
+  coordinates: GeoJsonPolygonCoordinates | GeoJsonMultiPolygonCoordinates,
+): coordinates is GeoJsonPolygonCoordinates {
+  return typeof coordinates[0]?.[0]?.[0] === 'number'
+}
+
 function flattenPolygonCoordinates(coordinates: GeoJsonPolygonCoordinates | GeoJsonMultiPolygonCoordinates) {
-  if (typeof coordinates[0][0][0] === 'number') {
-    return [coordinates as GeoJsonPolygonCoordinates]
+  if (isPolygonCoordinates(coordinates)) {
+    return [coordinates]
   }
 
-  return coordinates as GeoJsonMultiPolygonCoordinates
+  return coordinates
 }
 
 function calculateBoundingBox(points: [number, number][]) {
+  if (points.length === 0) return [0, 0, 0, 0] as [number, number, number, number]
+
   const lons = points.map((point) => point[0])
   const lats = points.map((point) => point[1])
 
@@ -40,6 +48,8 @@ function calculateBoundingBox(points: [number, number][]) {
 }
 
 function calculateCentroid(points: [number, number][]) {
+  if (points.length === 0) return [0, 0] as [number, number]
+
   const sum = points.reduce(
     (accumulator, point) => {
       accumulator.lon += point[0]
@@ -89,4 +99,10 @@ export function transformNaturalEarthCountries(
     },
     countries,
   }
+}
+
+export const naturalEarthIngestionInternals = {
+  flattenPolygonCoordinates,
+  calculateBoundingBox,
+  calculateCentroid,
 }
