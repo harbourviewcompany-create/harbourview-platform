@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
+import GlobeRouteController from '@/components/harbourview/globe/GlobeRouteController'
 import { PublicCard, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -117,6 +119,9 @@ export default function HomePage() {
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-16 sm:py-20 lg:py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_22%,rgba(198,165,90,0.18),transparent_34%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
         <HarbourviewGlobeClientLoader />
+        <Suspense fallback={null}>
+          <GlobeRouteController />
+        </Suspense>
 
         <div className="page-container relative z-10">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)] lg:items-end">
