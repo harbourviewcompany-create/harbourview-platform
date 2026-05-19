@@ -35,7 +35,7 @@ export function CountryPolygonMeshLayer({
   )
 
   return (
-    <group data-layer="country-polygon-meshes">
+    <group userData={{ layer: 'country-polygon-meshes' }}>
       {countryGeometries.map(({ country, geometry }) => {
         const visualState = selectedCountryIso2 === country.iso2 || selectedCountryIso2s.includes(country.iso2)
           ? 'selected'
