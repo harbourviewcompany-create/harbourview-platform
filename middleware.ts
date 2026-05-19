@@ -40,6 +40,7 @@ export const config = {
     '/marketplace',
     '/marketplace/:path*',
     '/signals',
+    '/signals/:path*',
     '/intelligence',
     '/intake',
     '/contact',
