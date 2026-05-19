@@ -2,24 +2,14 @@
 
 Date: 2026-05-18
 
-Purpose: create a minimal control/evidence-only `main` commit to trigger a fresh Vercel Git production deployment after repeated Vercel redeploy actions kept rebuilding the old production deployment lineage.
+Recorded result:
 
-Scope:
+- GitHub no-op trigger commit: `eb7cf89d312e15306f40acd201c628d95778bded`
+- Changed file: `docs/control/production-trigger-services-route-2026-05-18.md`
+- Live route: `/marketplace/services`
+- HTTP status: 200
+- PR #328 strings present: `Reviewed introductions only`, `Readiness and support`, `Request Service Introduction`, `Confidential Routing Request`
+- Public leakage scan: clean
+- Vercel deployment-record attribution: HOLD because the connector deployment list still shows old commit `2ee3105e236122083d3fb86a16ca3c8811cce440`
 
-- Documentation/control note only.
-- No runtime code change.
-- No environment variable change.
-- No domain or alias change.
-- No Vercel configuration change.
-- No Supabase, RLS, auth, package, lockfile, marketplace DTO allowlist, production data, private evidence, or source URL change.
-
-Verification target after deployment:
-
-- `https://harbourview-nu.vercel.app/marketplace/services`
-- HTTP 200
-- PR #328 Services route strings visible:
-  - `Reviewed introductions only`
-  - `Readiness and support`
-  - `Request Service Introduction`
-  - `Confidential Routing Request`
-- Forbidden public leakage strings absent.
+Scope confirmation: control-document update only.
