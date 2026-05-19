@@ -170,12 +170,10 @@ export function getMultiMarketRoleIds(countryIso2s: string[]) {
     'not_sure',
   ]
 
-  return [...allRoleIds].sort((a, b) => {
-    const priorityA = crossBorderFirst.indexOf(a)
-    const priorityB = crossBorderFirst.indexOf(b)
-    const weightedA = (roleCount.get(a) ?? 0) * 10 + (priorityA === -1 ? 0 : 9 - priorityA)
-    const weightedB = (roleCount.get(b) ?? 0) * 10 + (priorityB === -1 ? 0 : 9 - priorityB)
+  const prioritizedCrossBorder = crossBorderFirst.filter((roleId) => allRoleIds.includes(roleId))
+  const remainingRoles = allRoleIds
+    .filter((roleId) => !prioritizedCrossBorder.includes(roleId))
+    .sort((a, b) => (roleCount.get(b) ?? 0) - (roleCount.get(a) ?? 0))
 
-    return weightedB - weightedA
-  })
+  return [...prioritizedCrossBorder, ...remainingRoles]
 }

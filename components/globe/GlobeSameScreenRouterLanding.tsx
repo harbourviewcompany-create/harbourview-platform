@@ -30,7 +30,7 @@ export function GlobeSameScreenRouterLanding() {
       intentId: state.selectedIntentId,
       mode: state.mode,
       source: 'globe_router',
-      layerId: state.activeLayerId,
+      layerId: state.activeLayerId ?? 'country_select',
     })
 
     if (result.status === 'fallback') {
@@ -48,14 +48,14 @@ export function GlobeSameScreenRouterLanding() {
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryIso2s={state.selectedCountryIso2s}
         focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId}
+        activeLayerId={state.activeLayerId ?? 'country_select'}
       />
 
       <HarbourviewSovereignPlateGlobe
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryIso2s={state.selectedCountryIso2s}
         focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId}
+        activeLayerId={state.activeLayerId ?? 'country_select'}
         onFocusCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
         onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
       />
