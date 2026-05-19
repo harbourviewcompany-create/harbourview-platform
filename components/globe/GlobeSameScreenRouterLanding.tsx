@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
+import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
 import { HarbourviewSovereignPlateGlobe } from './HarbourviewSovereignPlateGlobe'
@@ -43,6 +44,13 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
+      <GlobeCanvas
+        selectedCountryIso2={state.selectedCountryIso2}
+        selectedCountryIso2s={state.selectedCountryIso2s}
+        focusedCountryIso2={state.focusedCountryIso2}
+        activeLayerId={state.activeLayerId}
+      />
+
       <HarbourviewSovereignPlateGlobe
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryIso2s={state.selectedCountryIso2s}
@@ -74,11 +82,7 @@ export function GlobeSameScreenRouterLanding() {
       </div>
 
       {state.step === 'role' ? (
-        <RouterBottomSheet
-          eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'}
-          title="What role best describes you?"
-          onBack={() => dispatch({ type: 'BACK' })}
-        >
+        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
           <RoleChipSelector
             countryIso2={state.selectedCountryIso2}
             countryIso2s={state.selectedCountryIso2s}
@@ -92,22 +96,7 @@ export function GlobeSameScreenRouterLanding() {
       ) : null}
 
       {state.step === 'intent' ? (
-        <RouterBottomSheet
-          eyebrow={selectedCountryName}
-          title="What are you trying to do?"
-          size="intent"
-          onBack={() => dispatch({ type: 'BACK' })}
-          footer={
-            <button
-              type="button"
-              disabled={!state.selectedIntentId}
-              onClick={() => dispatch({ type: 'CONTINUE' })}
-              className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              Continue
-            </button>
-          }
-        >
+        <RouterBottomSheet eyebrow={selectedCountryName} title="What are you trying to do?" size="intent" onBack={() => dispatch({ type: 'BACK' })} footer={<button type="button" disabled={!state.selectedIntentId} onClick={() => dispatch({ type: 'CONTINUE' })} className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] disabled:cursor-not-allowed disabled:opacity-45">Continue</button>}>
           <IntentCardGrid
             countryName={selectedCountryName}
             countryIso2={state.selectedCountryIso2}
@@ -120,17 +109,7 @@ export function GlobeSameScreenRouterLanding() {
       ) : null}
 
       {state.step === 'fallback' ? (
-        <RouterBottomSheet
-          eyebrow="Route fallback"
-          title="This path needs review."
-          size="confirm"
-          onBack={() => dispatch({ type: 'BACK' })}
-          footer={
-            <Link href={state.resolvedHref ?? '/intake'} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d]">
-              Continue to intake
-            </Link>
-          }
-        >
+        <RouterBottomSheet eyebrow="Route fallback" title="This path needs review." size="confirm" onBack={() => dispatch({ type: 'BACK' })} footer={<Link href={state.resolvedHref ?? '/intake'} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d]">Continue to intake</Link>}>
           <p className="text-sm leading-6 text-white/64">
             The requested page is not public yet. We will carry your country, role and intent into confidential intake.
           </p>
