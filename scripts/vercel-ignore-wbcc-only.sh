@@ -22,11 +22,28 @@ project_id="${VERCEL_PROJECT_ID:-}"
 project_production_url="${VERCEL_PROJECT_PRODUCTION_URL:-}"
 deployment_url="${VERCEL_URL:-}"
 branch_url="${VERCEL_BRANCH_URL:-}"
+commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-}}"
+
+is_skip_message() {
+  local message="${1:-}"
+  [[ "$message" == *"[skip ci]"* || "$message" == *"[docs only]"* ]]
+}
 
 # Production deploys are authoritative. Do not let duplicate URL heuristics skip
 # a production build for the canonical Harbourview project.
 if [[ "$vercel_env" == "production" ]]; then
   echo "Vercel ignore: production environment detected; continue build."
+  exit 1
+fi
+
+# Main branch commits should always build unless explicitly marked to skip.
+if [[ "$branch" == "main" ]]; then
+  if is_skip_message "$commit_message"; then
+    echo "Vercel ignore: main branch commit includes skip marker; skip build."
+    exit 0
+  fi
+
+  echo "Vercel ignore: build allowed for branch 'main'."
   exit 1
 fi
 
@@ -75,7 +92,7 @@ if [[ -z "$branch" ]]; then
 fi
 
 case "$branch" in
-  main|preview/*|deploy/*)
+  preview/*|deploy/*)
     echo "Vercel ignore: build allowed for branch '$branch'."
     exit 1
     ;;
