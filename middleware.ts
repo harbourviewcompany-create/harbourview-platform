@@ -44,6 +44,7 @@ export const config = {
     '/intake',
     '/contact',
     '/admin',
+    '/admin/:path*',
     '/commercial-intelligence',
   ],
 };
