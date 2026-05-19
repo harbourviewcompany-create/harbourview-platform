@@ -1,5 +1,12 @@
 import type { HarbourviewCountryGeometryPayload } from '@/lib/globe/geojson-country-types'
 
+// Boundary note:
+// This fixture is intentionally small and simplified so PR #349 can prove the
+// rendering, raycast and router-overlay architecture without shipping a large
+// global geometry payload in the same patch. It must not be treated as the final
+// Natural Earth dataset. The production follow-up should generate this shape
+// from the pinned Natural Earth Admin 0 source through the ingestion pipeline,
+// with simplification/LOD budgets and complete country/territory coverage.
 export const naturalEarthFixturePayload: HarbourviewCountryGeometryPayload = {
   provenance: {
     source: 'Natural Earth Admin 0 Countries',
