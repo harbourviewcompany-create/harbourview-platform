@@ -25,8 +25,6 @@ export function HarbourviewSovereignPlateGlobe({
   selectedCountryIso2s,
   focusedCountryIso2,
   activeLayerId = 'country_select',
-  onFocusCountry,
-  onSelectCountry,
 }: {
   selectedCountryIso2?: string
   selectedCountryIso2s: string[]
@@ -37,9 +35,10 @@ export function HarbourviewSovereignPlateGlobe({
 }) {
   return (
     <div
-      className="absolute inset-0 overflow-hidden bg-[#01050d]"
+      className="pointer-events-none absolute inset-0 overflow-hidden bg-[#01050d] opacity-95"
       aria-hidden="true"
       data-globe-renderer="css-fallback-prototype"
+      data-fallback-mode="passive-background"
     >
       <div className="absolute left-4 top-4 z-20 rounded-full border border-[#c6a55a]/20 bg-black/28 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/68 backdrop-blur-xl">
         Prototype fallback renderer
@@ -65,16 +64,11 @@ export function HarbourviewSovereignPlateGlobe({
           const size = 48 * (spot.scale ?? 1)
 
           return (
-            <button
+            <span
               key={spot.iso2}
-              type="button"
-              tabIndex={-1}
               aria-hidden="true"
               data-country={spot.iso2}
               data-state={plateState}
-              onPointerEnter={() => onFocusCountry(spot.iso2)}
-              onPointerLeave={() => onFocusCountry(undefined)}
-              onClick={() => onSelectCountry(spot.iso2)}
               className={`absolute isolate grid place-items-center rounded-[44%] border text-[10px] font-semibold uppercase tracking-[0.14em] transition duration-200 ${
                 plateState === 'selected'
                   ? 'border-[#f1d27a] bg-[#d8be76]/24 text-[#fff8df] shadow-[0_0_26px_rgba(216,190,118,0.56),inset_0_1px_12px_rgba(245,241,232,0.18)]'
@@ -91,7 +85,7 @@ export function HarbourviewSovereignPlateGlobe({
               }}
             >
               <span className="relative z-10">{country?.iso2 ?? spot.iso2}</span>
-            </button>
+            </span>
           )
         })}
       </div>
