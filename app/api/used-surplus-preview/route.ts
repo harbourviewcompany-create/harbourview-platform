@@ -73,7 +73,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     reviewRequired: true,
-    totalSources: filteredFeed.length,
+    totalSources: feed.length,
+    totalMatchingSources: filteredFeed.length,
     returnedSources: truncatedFeed.length,
     filters: {
       status: parsedStatus,
