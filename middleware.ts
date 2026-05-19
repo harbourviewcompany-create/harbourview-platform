@@ -16,6 +16,8 @@ function applyNoStoreHeaders(response: NextResponse) {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Normalize a single trailing slash so legacy links with slash variants redirect consistently.
+  const normalizedPathname = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
@@ -23,7 +25,7 @@ export function middleware(request: NextRequest) {
     '/commercial-intelligence': '/intelligence',
   };
 
-  const redirectTo = legacyRedirects[pathname];
+  const redirectTo = legacyRedirects[normalizedPathname];
   if (redirectTo) {
     const url = request.nextUrl.clone();
     url.pathname = redirectTo;
