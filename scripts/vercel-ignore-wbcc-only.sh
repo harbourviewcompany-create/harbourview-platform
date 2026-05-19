@@ -17,11 +17,24 @@ set -euo pipefail
 #   can otherwise suppress the real production deployment.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
+commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-}}"
 vercel_env="${VERCEL_ENV:-}"
 project_id="${VERCEL_PROJECT_ID:-}"
 project_production_url="${VERCEL_PROJECT_PRODUCTION_URL:-}"
 deployment_url="${VERCEL_URL:-}"
 branch_url="${VERCEL_BRANCH_URL:-}"
+
+
+# Main branch policy: always build unless commit message explicitly requests skip.
+if [[ "$branch" == "main" ]]; then
+  if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
+    echo "Vercel ignore: main branch commit message requested skip; skip build."
+    exit 0
+  fi
+
+  echo "Vercel ignore: build allowed for main branch."
+  exit 1
+fi
 
 # Production deploys are authoritative. Do not let duplicate URL heuristics skip
 # a production build for the canonical Harbourview project.
