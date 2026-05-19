@@ -111,13 +111,6 @@ const accessStates = [
   ['Admin/operator/analyst', 'Private evidence, provenance, internal review, audit events, sensitive intelligence and moderation controls.'],
 ] as const
 
-const boundaryControls = [
-  'Public pages are discovery and orientation surfaces only.',
-  'Sensitive source, evidence, provenance, review and counterparty information stays private.',
-  'Commercial introductions, asset access and intelligence requests are reviewed before routing.',
-  'Education is informational and non-promotional; it is not legal, medical, investment or compliance advice.',
-] as const
-
 export default function HomePage() {
   return (
     <main className="bg-[#01050d] text-white">
@@ -154,24 +147,6 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-
-            <aside className="rounded-sm border border-gold/14 bg-[#04101e]/78 p-6 shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur-md sm:p-7">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold/78">
-                Platform spine
-              </p>
-
-              <h2 className="mt-4 font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f4f1eb]">
-                One system for commerce, intelligence, education and qualified routing.
-              </h2>
-
-              <div className="mt-6 grid gap-3">
-                {boundaryControls.map((control) => (
-                  <div key={control} className="rounded-sm border border-gold/10 bg-white/[0.035] px-4 py-3 text-sm text-white/66">
-                    {control}
-                  </div>
-                ))}
-              </div>
-            </aside>
           </div>
         </div>
       </section>

@@ -1,33 +1,38 @@
 import type { Metadata } from 'next'
-import IntelligenceModulePage from '../IntelligenceModulePage'
+import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Regulatory Pathways',
-  description:
-    'Public-safe regulatory pathway orientation for market access, public-health safeguards and authority-facing considerations.',
+  title: 'Regulatory Pathways | Harbourview Intelligence',
+  description: 'Regulatory access pathway mapping across medical, pharmaceutical, research and adult-use frameworks.',
 }
 
 export default function RegulatoryPathwaysPage() {
   return (
-    <IntelligenceModulePage
-      content={{
-        eyebrow: 'Regulatory intelligence',
-        title: 'Regulatory Pathways',
-        description:
-          'Regulatory pathway pages orient readers around access models, public-health safeguards, market conduct and authority-facing questions without presenting official guidance.',
-        requestLabel: 'Request Regulatory Brief',
-        reviewItems: [
-          'Public orientation can cover medical access, adult-use transition, product-safety controls, quality expectations and market-conduct principles.',
-          'Policy movement and regulatory signals are framed as reviewed public context rather than claims of confirmed deal flow or guaranteed access.',
-          'Authority-facing resources can be routed toward policy and standards pages or institutional collaboration requests.',
-          'Commercial teams can use confidential intake when regulatory questions involve specific products, documents, markets or counterparties.',
-        ],
-        boundaryItems: [
-          'No government endorsement is implied.',
-          'Signals are not published as confirmed legal outcomes.',
-          'Sensitive route analysis remains private.',
-        ],
-      }}
-    />
+    <main className="bg-[#020814] text-white">
+      <PublicHero
+        eyebrow="Intelligence"
+        title="Regulatory Pathways"
+        actions={[{ label: 'Request Regulatory Pathway Intelligence', href: '/contact' }]}
+        aside={
+          <PublicCard className="p-6 text-sm leading-7 text-white/62">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
+            <p>Regulatory pathway content is orientation and context only. Not legal advice.</p>
+          </PublicCard>
+        }
+      >
+        Regulatory access pathway mapping across medical, pharmaceutical, research and adult-use frameworks in priority markets.
+      </PublicHero>
+
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="Framework mapping" title="Public-safe orientation across regulated access models.">
+          Harbourview organizes regulatory pathway context so operators can understand medical, pharmaceutical, research and adult-use framework questions before deeper review.
+        </SectionHeader>
+        <PublicCard muted className="p-6 text-sm leading-7 text-white/62">
+          Public pathway summaries do not represent approvals, route guarantees, legal opinions, commercial clearance or regulatory authorization.
+        </PublicCard>
+      </PublicSection>
+
+      <FooterCta eyebrow="Regulatory intelligence" title="Need regulatory pathway context before entering a market?" actions={[{ label: 'Request Regulatory Pathway Intelligence', href: '/contact' }]}>Harbourview can review pathway questions through controlled workflows and keep sensitive route analysis private.</FooterCta>
+    </main>
   )
 }
