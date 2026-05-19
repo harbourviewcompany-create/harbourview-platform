@@ -1,28 +1,46 @@
 .shell {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.globeStage {
-  position: absolute;
   right: -8%;
   top: 52%;
   width: min(50vw, 860px);
   aspect-ratio: 1 / 1;
   transform: translateY(-50%);
   pointer-events: none;
+  z-index: 0;
 }
 
-.fallback {
+.fallback,
+.canvasLayer,
+.webglCanvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.94;
+}
+
+.fallback {
+  opacity: 0.96;
   object-fit: contain;
   filter: drop-shadow(0 0 80px rgba(0, 0, 0, 0.88));
+  transition: opacity 700ms ease;
+}
+
+.canvasLayer {
+  opacity: 0;
+  filter: drop-shadow(0 0 92px rgba(0, 0, 0, 0.9));
+  transition: opacity 900ms ease;
+}
+
+.shellReady .fallback { opacity: 0.18; }
+.shellReady .canvasLayer { opacity: 0.98; }
+.webglCanvas { display: block; }
+
+.routeShell {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .routePanel {
@@ -40,10 +58,9 @@
   pointer-events: auto;
 }
 
-.routePanelHeader { display: grid; gap: 0.32rem; }
 .routeEyebrow, .controlLabel { margin: 0; color: rgba(198, 165, 90, 0.76); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
-.routeTitle { margin: 0; color: #f5f1e8; font-family: var(--font-serif, Georgia, serif); font-size: clamp(1.35rem, 2vw, 1.8rem); letter-spacing: -0.04em; }
-.routeDescription { margin: 0; color: rgba(255, 255, 255, 0.66); font-size: 0.82rem; line-height: 1.65; }
+.routeTitle { margin: 0.2rem 0 0; color: #f5f1e8; font-family: var(--font-serif, Georgia, serif); font-size: clamp(1.35rem, 2vw, 1.8rem); letter-spacing: -0.04em; }
+.routeDescription { margin: 0.25rem 0 0; color: rgba(255, 255, 255, 0.66); font-size: 0.82rem; line-height: 1.65; }
 .routeNotice { margin-top: 0.8rem; border: 1px solid rgba(198, 165, 90, 0.24); background: rgba(198, 165, 90, 0.1); color: rgba(245, 241, 232, 0.88); padding: 0.58rem 0.7rem; font-size: 0.74rem; line-height: 1.5; }
 .selectedContext { display: flex; flex-wrap: wrap; gap: 0.42rem; margin-top: 0.85rem; }
 .selectedContext span { border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.055); color: rgba(255, 255, 255, 0.72); padding: 0.3rem 0.45rem; font-size: 0.68rem; }
@@ -55,14 +72,26 @@
 .routeActionButton { flex: 1 1 130px; }
 .routeLink { display: inline-flex; align-items: center; }
 
+@media (prefers-reduced-motion: reduce) {
+  .canvasLayer { display: none; }
+  .fallback { opacity: 0.96; }
+}
+
 @media (max-width: 1024px) {
-  .globeStage { right: -44%; top: 42%; width: min(92vw, 520px); }
-  .fallback { opacity: 0.5; filter: drop-shadow(0 0 52px rgba(0, 0, 0, 0.92)); }
+  .shell { right: -50%; top: 50%; width: min(88vw, 420px); }
+  .fallback { opacity: 0.42; filter: drop-shadow(0 0 52px rgba(0, 0, 0, 0.92)); }
+  .shellReady .fallback { opacity: 0.12; }
+  .shellReady .canvasLayer { opacity: 0.52; }
   .routePanel { left: 1rem; right: 1rem; bottom: 1rem; width: auto; max-height: 54%; }
 }
 
 @media (max-width: 640px) {
-  .globeStage { right: -58%; top: 35%; width: 112vw; }
   .controlGrid { grid-template-columns: 1fr; }
   .routePanel { max-height: 58%; padding: 0.85rem; }
+}
+
+@media (max-width: 420px) {
+  .shell { right: -58%; top: 49%; width: 98vw; }
+  .fallback { opacity: 0.38; }
+  .shellReady .canvasLayer { opacity: 0.48; }
 }
