@@ -35,15 +35,21 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Wildcard matchers are required so cache-bypass headers apply to nested pages, not just section roots.
   matcher: [
     '/',
     '/marketplace',
     '/marketplace/:path*',
     '/signals',
+    '/signals/:path*',
     '/intelligence',
+    '/intelligence/:path*',
     '/intake',
+    '/intake/:path*',
     '/contact',
+    '/contact/:path*',
     '/admin',
+    '/admin/:path*',
     '/commercial-intelligence',
   ],
 };
