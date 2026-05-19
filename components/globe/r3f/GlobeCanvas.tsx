@@ -14,11 +14,15 @@ export function GlobeCanvas({
   selectedCountryIso2s,
   focusedCountryIso2,
   activeLayerId,
+  onHoverCountry,
+  onSelectCountry,
 }: {
   selectedCountryIso2?: string
   selectedCountryIso2s: string[]
   focusedCountryIso2?: string
   activeLayerId: GlobeLayerId
+  onHoverCountry?: (countryIso2?: string) => void
+  onSelectCountry?: (countryIso2: string) => void
 }) {
   return (
     <div className="absolute inset-0">
@@ -45,6 +49,8 @@ export function GlobeCanvas({
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={focusedCountryIso2}
               activeLayerId={activeLayerId}
+              onHoverCountry={onHoverCountry}
+              onSelectCountry={onSelectCountry}
             />
           </group>
         </Suspense>
