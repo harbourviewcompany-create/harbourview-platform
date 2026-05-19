@@ -97,12 +97,20 @@ function readAccessTokenFromCookieValue(value: string): string | null {
   return null;
 }
 
+function isAllowedSessionCookie(name: string): boolean {
+  if (name === ADMIN_SESSION_COOKIE_NAME) return true;
+
+  // Supabase SSR session cookie names follow the sb-<project-ref>-auth-token pattern.
+  return /^sb-[a-z0-9-]+-auth-token$/i.test(name);
+}
+
 async function resolveAccessToken() {
   const headerToken = extractBearerToken((await headers()).get('authorization'));
   if (headerToken) return headerToken;
 
   const cookieStore = await cookies();
   const cookieEntries = cookieStore.getAll();
+  const allowedCookieEntries = cookieEntries.filter((cookie) => isAllowedSessionCookie(cookie.name));
   const namedSessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE_NAME);
 
   if (namedSessionCookie) {
@@ -110,7 +118,9 @@ async function resolveAccessToken() {
     if (token) return token;
   }
 
-  for (const cookie of cookieEntries) {
+  // Admin auth must only consider known session cookies; broad scanning can accidentally
+  // accept unrelated cookie payloads as tokens and incorrectly grant admin access.
+  for (const cookie of allowedCookieEntries) {
     const token = readAccessTokenFromCookieValue(cookie.value);
     if (token) return token;
   }
@@ -120,6 +130,7 @@ async function resolveAccessToken() {
     const match = cookie.name.match(/^(.*)\.(\d+)$/);
     if (!match) continue;
     const [, prefix, index] = match;
+    if (!isAllowedSessionCookie(prefix)) continue;
     if (!chunksByPrefix.has(prefix)) chunksByPrefix.set(prefix, []);
     chunksByPrefix.get(prefix)?.push({ index: Number(index), value: cookie.value });
   }
