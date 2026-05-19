@@ -14,17 +14,29 @@ const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   extrusionHeight: 0.06,
 }
 
+function pointsEqual(first: [number, number], second: [number, number]) {
+  return first[0] === second[0] && first[1] === second[1]
+}
+
 function removeClosingDuplicate(points: [number, number][]) {
   if (points.length < 2) return points
 
   const first = points[0]
   const last = points[points.length - 1]
 
-  if (first[0] === last[0] && first[1] === last[1]) {
+  if (pointsEqual(first, last)) {
     return points.slice(0, -1)
   }
 
   return points
+}
+
+function removeSequentialDuplicates(points: [number, number][]) {
+  return points.filter((point, index) => index === 0 || !pointsEqual(point, points[index - 1]))
+}
+
+function normalizeOuterRing(points: [number, number][]) {
+  return removeClosingDuplicate(removeSequentialDuplicates(points))
 }
 
 function projectRingVertices(points: [number, number][], radius: number) {
@@ -71,12 +83,16 @@ export function createCountryBufferGeometry(
   const outerRing = country.polygons[0]?.rings.find((ring) => ring.kind === 'outer')
 
   if (!outerRing || outerRing.points.length < 3) {
+    geometry.userData = { iso2: country.iso2, iso3: country.iso3, empty: true }
     return geometry
   }
 
-  const points = removeClosingDuplicate(outerRing.points)
+  const points = normalizeOuterRing(outerRing.points)
 
-  if (points.length < 3) return geometry
+  if (points.length < 3) {
+    geometry.userData = { iso2: country.iso2, iso3: country.iso3, empty: true }
+    return geometry
+  }
 
   const topRadius = mergedConfig.radius + mergedConfig.plateLift + mergedConfig.extrusionHeight
   const bottomRadius = mergedConfig.radius + mergedConfig.plateLift
@@ -106,7 +122,13 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
   const outerRing = country.polygons[0]?.rings.find((ring) => ring.kind === 'outer')
   if (!outerRing) return 0
 
-  const vertexCount = removeClosingDuplicate(outerRing.points).length
+  const vertexCount = normalizeOuterRing(outerRing.points).length
+
+  if (vertexCount < 3) return 0
 
   return Math.max(0, vertexCount - 2) + vertexCount * 2
+}
+
+export const polygonGeometryInternals = {
+  normalizeOuterRing,
 }
