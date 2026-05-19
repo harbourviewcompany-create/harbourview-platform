@@ -17,15 +17,25 @@ describe('GET /api/used-surplus-preview', () => {
     expect(body.returnedSources).toBeLessThanOrEqual(body.filters.limit)
     expect(body.returnedSources).toBe(body.sources.length)
     expect(body.totalSources).toBeGreaterThanOrEqual(body.returnedSources)
+    expect(body.totalMatchingSources).toBe(body.totalSources)
   })
 
-  it('filters by valid status', async () => {
+  it('filters by valid status without changing total source count', async () => {
+    const unfiltered = await callRoute()
     const { response, body } = await callRoute('?status=fetched')
     expect(response.status).toBe(200)
     expect(body.filters.status).toBe('fetched')
+    expect(body.totalSources).toBe(unfiltered.body.totalSources)
+    expect(body.totalMatchingSources).toBeGreaterThanOrEqual(body.returnedSources)
     for (const source of body.sources) {
       expect(source.status).toBe('fetched')
     }
+  })
+
+  it('normalizes case and whitespace in valid status filters', async () => {
+    const { response, body } = await callRoute('?status=%20FETCHED%20')
+    expect(response.status).toBe(200)
+    expect(body.filters.status).toBe('fetched')
   })
 
   it('returns 400 for invalid status', async () => {
@@ -41,8 +51,8 @@ describe('GET /api/used-surplus-preview', () => {
     expect(body.returnedSources).toBeLessThanOrEqual(1)
   })
 
-  it.each(['0', '-1', '101', '1.5', 'abc'])('rejects invalid limit: %s', async (limit) => {
-    const { response, body } = await callRoute(`?limit=${limit}`)
+  it.each(['0', '-1', '101', '1.5', 'abc', '', ' 1'])('rejects invalid limit: %s', async (limit) => {
+    const { response, body } = await callRoute(`?limit=${encodeURIComponent(limit)}`)
     expect(response.status).toBe(400)
     expect(body.error).toContain('Invalid limit')
   })
@@ -80,7 +90,16 @@ describe('GET /api/used-surplus-preview', () => {
     const { response, body } = await callRoute('?includeCandidates=true&status=fetched&limit=1')
     expect(response.status).toBe(200)
     const serialized = JSON.stringify(body).toLowerCase()
-    for (const forbidden of ['provenance', 'raw_scraped_text', 'internal_notes', 'evidence']) {
+    for (const forbidden of [
+      'sourceid',
+      'sourcename',
+      'sourceurl',
+      'confidence',
+      'provenance',
+      'raw_scraped_text',
+      'internal_notes',
+      'evidence',
+    ]) {
       expect(serialized.includes(forbidden)).toBe(false)
     }
   })
