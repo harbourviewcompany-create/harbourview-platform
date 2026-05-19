@@ -39,7 +39,7 @@ export function GlobeSameScreenRouterLanding() {
 
     dispatch({ type: 'ROUTE_RESOLVED', href: result.href })
     router.push(result.href)
-  }, [router, state])
+  }, [dispatch, router, state])
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
