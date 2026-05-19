@@ -6,7 +6,8 @@ import { Environment, OrbitControls } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { CountryBorderLayer } from './CountryBorderLayer'
-import { CountryPlateLayer } from './CountryPlateLayer'
+import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
+import { CameraFlyToController } from './CameraFlyToController'
 import type { GlobeLayerId } from '@/types/globe-router'
 
 export function GlobeCanvas({
@@ -44,7 +45,7 @@ export function GlobeCanvas({
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />
             <CountryBorderLayer />
-            <CountryPlateLayer
+            <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={focusedCountryIso2}
@@ -53,6 +54,7 @@ export function GlobeCanvas({
               onSelectCountry={onSelectCountry}
             />
           </group>
+          <CameraFlyToController selectedCountryIso2={selectedCountryIso2} />
         </Suspense>
 
         <OrbitControls
