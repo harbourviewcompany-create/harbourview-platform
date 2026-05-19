@@ -2,6 +2,7 @@
 
 import { Cylinder } from '@react-three/drei'
 import { buildFixtureCountryFeatures, getCountryFocusVector, vector3ToArray } from '@/lib/globe/globe-geometry'
+import { extractCountryHit } from '@/lib/globe/country-hit-testing'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
 
@@ -10,11 +11,15 @@ export function CountryPlateLayer({
   focusedCountryIso2,
   selectedCountryIso2s,
   activeLayerId,
+  onHoverCountry,
+  onSelectCountry,
 }: {
   selectedCountryIso2?: string
   focusedCountryIso2?: string
   selectedCountryIso2s: string[]
   activeLayerId: GlobeLayerId
+  onHoverCountry?: (countryIso2?: string) => void
+  onSelectCountry?: (countryIso2: string) => void
 }) {
   const features = buildFixtureCountryFeatures()
 
@@ -43,7 +48,18 @@ export function CountryPlateLayer({
               z: vector.z * 2.44,
             })}
           >
-            <Cylinder args={[0.09, 0.12, state === 'selected' ? 0.1 : 0.06, 6]}>
+            <Cylinder
+              args={[0.09, 0.12, state === 'selected' ? 0.1 : 0.06, 6]}
+              userData={{ iso2: feature.iso2, iso3: feature.iso2 }}
+              onPointerEnter={(event) => {
+                const hit = extractCountryHit(event)
+                if (hit) onHoverCountry?.(hit.iso2)
+              }}
+              onClick={(event) => {
+                const hit = extractCountryHit(event)
+                if (hit) onSelectCountry?.(hit.iso2)
+              }}
+            >
               <meshPhysicalMaterial
                 color={material.plateBase}
                 emissive={material.emissive}
