@@ -83,7 +83,7 @@ describe('Harbourview globe polygon rendering stage', () => {
           properties: { ISO_A2: 'AA', ISO_A3: 'AAA', NAME: 'Polygonland' },
           geometry: {
             type: 'Polygon',
-            coordinates: [[[[0, 0], [1, 0], [1, 1], [0, 0]]]],
+            coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]],
           },
         },
         {
@@ -91,7 +91,7 @@ describe('Harbourview globe polygon rendering stage', () => {
           properties: { ISO_A2: 'BB', ISO_A3: 'BBB', NAME: 'Multipolygonland' },
           geometry: {
             type: 'MultiPolygon',
-            coordinates: [[[[[2, 2], [3, 2], [3, 3], [2, 2]]]]],
+            coordinates: [[[[2, 2], [3, 2], [3, 3], [2, 2]]]],
           },
         },
       ],
