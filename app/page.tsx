@@ -154,9 +154,9 @@ export default function HomePage() {
       <PublicSection id="platform-map" tone="navy">
         <SectionHeader
           eyebrow="Full-platform map"
-          title="The public site now routes into every major Harbourview pillar."
+          title="The public site routes into every major Harbourview pillar."
         >
-          HAR-37 establishes the visible skeleton. Later tickets deepen marketplace categories, intelligence surfaces, education, governance, visual polish and deployment proof without shrinking the platform universe.
+          Explore Harbourview by role, market, commercial intent, source methodology, education, governance and reviewed connection pathways while sensitive evidence and counterparty detail remain protected.
         </SectionHeader>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
