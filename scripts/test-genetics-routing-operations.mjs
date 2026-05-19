@@ -8,7 +8,7 @@ if (!apiFile.includes('createGeneticsRoutingRecord')) {
   failures.push('API route not wired to routing execution')
 }
 
-const migration = fs.readFileSync('supabase/migrations/007_genetics_routing_operations_v1.sql','utf-8')
+const migration = fs.readFileSync('supabase/migrations/20260306000000_genetics_routing_operations_v1.sql','utf-8')
 
 if (!migration.includes('genetics_routing_records')) {
   failures.push('Routing records table missing')
