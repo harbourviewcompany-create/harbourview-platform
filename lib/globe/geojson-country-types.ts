@@ -49,19 +49,22 @@ export interface HarbourviewCountryGeometry {
   centroid: [number, number]
   bbox: [number, number, number, number]
   polygons: HarbourviewCountryPolygon[]
-  source: 'natural-earth-admin-0'
+  source: 'natural-earth-admin-0' | 'natural-earth-compatible-fixture'
 }
 
 export interface HarbourviewCountryGeometryPayload {
   provenance: {
-    source: 'Natural Earth Admin 0 Countries'
-    sourceScale: '1:110m' | '1:50m' | '1:10m'
+    source: 'Natural Earth Admin 0 Countries' | 'Natural Earth-compatible fixture'
+    sourceScale: '1:110m' | '1:50m' | '1:10m' | 'fixture'
     sourceVersion: string
-    sourceLicense: 'Public domain'
-    boundaryModel: 'Natural Earth de facto boundaries'
+    sourceLicense: 'Public domain' | 'Internal fixture only'
+    boundaryModel: 'Natural Earth de facto boundaries' | 'Non-authoritative simplified fixture boundaries'
     generatedAt: string
     generatedBy: string
     harbourviewTransformVersion: string
+    fixtureOnly?: boolean
+    productionDataRequired?: boolean
+    notes?: string
   }
   countries: HarbourviewCountryGeometry[]
 }
