@@ -30,6 +30,7 @@
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:globe-router": "node scripts/test-globe-router-mounted.mjs",
+    "test:e2e": "playwright test",
     "test:full-scope:script-uniqueness": "node scripts/test-package-script-uniqueness.mjs",
     "test:full-scope:routes": "node scripts/test-route-capability-registry.mjs",
     "test:full-scope:content": "node scripts/test-content-inventory.mjs",
@@ -58,6 +59,7 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
