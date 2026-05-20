@@ -1,10 +1,10 @@
-# Harbourview Marketplace Build-First Activation
+# Harbourview Marketplace + Market Access Build-First Codex Task
 
 ## Mission
-Build the Harbourview marketplace into a live-feeling, premium B2B commercial network now. Start with the main marketplace, then extend the same pattern across consumables, services, wanted requests, cannabis inventory, packaging, equipment, supplier categories, and related marketplace category pages.
+Build Harbourview into a live-feeling, premium B2B commercial network now. Start with the marketplace, then expand into consumables, services, wanted requests, cannabis inventory, packaging, equipment, supplier categories, market access pathways, and intelligence-backed route-to-market pages.
 
 ## Build Mode
-This is a full build-mode task. Prioritize visible product implementation, commercial usability, and polished buyer/seller experience. Verification and repair come after the build is in place.
+This is a full build-mode task for Codex. Prioritize visible product implementation, commercial usability, polished buyer/seller experience, mobile polish, and desktop polish. Verification and repair come after the build is in place.
 
 Build the product experience first:
 - active cards
@@ -13,12 +13,14 @@ Build the product experience first:
 - category pages
 - buyer and seller CTAs
 - public listing DTOs
+- market access pages
+- pathway cards
 - mobile polish
 - desktop polish
 - post-build verification report
 
 ## Outcome
-The marketplace should feel active, credible, and commercially useful. A visitor should immediately understand that Harbourview can route qualified buyers and sellers across cannabis inventory, consumables, equipment, packaging, services, wanted requests, and supplier opportunities.
+The marketplace should feel active, credible, and commercially useful. A visitor should immediately understand that Harbourview can route qualified buyers and sellers across cannabis inventory, consumables, equipment, packaging, services, wanted requests, supplier opportunities, market access pathways, and regulated-market intelligence.
 
 ## Inspect First
 Inspect and reuse the existing repo structure:
@@ -28,10 +30,14 @@ Inspect and reuse the existing repo structure:
 - app/marketplace/sell/**
 - app/marketplace/wanted/**
 - app/intake/**
+- app/intelligence/**
+- app/signals/**
+- app/page.tsx
 - components/marketplace/**
 - components/**
 - lib/marketplace/**
 - lib/data/**
+- lib/**
 - public/**
 - tests/**
 - scripts/**
@@ -231,6 +237,192 @@ Add a mobile-friendly sticky CTA or compact bottom action bar where it fits exis
 - Submit Supply
 - Buyer Wanted
 
+## Phase 5 — Market Access Intelligence Layer
+After the marketplace activation is built, add the Market Access Intelligence Layer so Harbourview feels like a true intelligence + market-access network, not only a marketplace.
+
+Preferred route:
+- /market-access
+
+### Market Access Landing Page
+Build sections:
+- Hero
+- Featured Market Pathways
+- Global Pathway Grid
+- Country Pathway Cards
+- Regulated-Market Readiness
+- Buyer/Seller Pathway Split
+- Importer / Distributor Introductions
+- Documentation & Compliance Readiness
+- Featured Market Access Opportunities
+- Signals / Intelligence Cross-Links
+- Request Market Access Review CTA
+
+Hero headline:
+Market access intelligence for regulated cannabis channels.
+
+Hero subcopy:
+Explore country pathways, importer/distributor routes, documentation readiness, EU-GMP support, buyer/seller fit, and confidential commercial introductions across regulated cannabis markets.
+
+Primary CTA:
+Request Market Access Review
+
+Secondary CTA:
+Explore Pathways
+
+### Route Integration
+Add clear links into `/market-access` from:
+- homepage
+- `/marketplace`
+- marketplace category pages
+- marketplace inventory cards where relevant
+- `/signals`
+- `/intelligence`
+
+Use labels such as:
+- Market Access
+- Review Route to Market
+- Explore Market Pathway
+- Request Pathway Review
+- Connect Inventory to Market Access
+
+### Expanded Pathway Coverage
+Create public pathway cards/pages for:
+- Germany Medical Cannabis Import Pathway
+- United Kingdom Specials / Medical Pathway
+- Portugal Export / EU Supply Pathway
+- Canada Domestic Wholesale Pathway
+- Australia Medical Cannabis Pathway
+- Poland Medical Cannabis Pathway
+- Czech Republic Medical Cannabis Pathway
+- LATAM Market Entry Review
+- EU-GMP Route Support
+- Importer / Distributor Introductions
+- International Route-to-Market Review
+
+### Country / Pathway Page Depth
+Each country/pathway page or detail section should include:
+- Market overview
+- Commercial entry routes
+- Product formats
+- Required documents
+- Buyer/seller fit
+- Import/export relevance
+- Readiness badges
+- Related marketplace cards
+- Signals/intelligence links
+- CTA panel
+
+### Buyer-Side and Seller-Side Pathway Split
+Add sections for:
+- I have supply for this market
+- I need access to this market
+- I need an importer/distributor
+- I need documentation review
+- I need buyer demand visibility
+- I need route-to-market support
+
+### Commercial-Readiness Scoring
+Add visible badges/readiness labels:
+- Documentation Ready
+- Importer Review Needed
+- EU-GMP Pathway
+- EU-GMP Certified
+- GACP Documentation
+- COA Package Available
+- Export Package Available
+- Buyer Match Potential
+- Route Review Required
+- Distributor Fit Review
+- Market Access Review
+
+### Intelligence Layer Connection
+Cross-link the market access layer with:
+- `/signals`
+- `/intelligence`
+- marketplace cards
+- country/pathway pages
+- buyer demand cards
+
+Add copy:
+Market pathways are supported by Harbourview intelligence, route review, buyer/seller matching, and confidential counterparty access.
+
+### Marketplace-to-Market-Access Connection
+Connect relevant marketplace inventory cards to pathway pages.
+
+Examples:
+- EU-GMP Medical Flower Pathway -> `/market-access/eu-gmp-route-support`
+- Germany-facing flower opportunity -> `/market-access/germany-medical-cannabis-import`
+- Portugal export pathway -> `/market-access/portugal-export-eu-supply`
+- Canada domestic wholesale cards -> `/market-access/canada-domestic-wholesale`
+- Buyer Wanted: Premium Canadian Craft Flower -> `/market-access/international-route-to-market`
+
+Each relevant marketplace card should be able to show:
+- Related pathway
+- Route review available
+- Documentation review available
+- Market access CTA
+
+### Market Access CTA Matrix
+Use these CTA routes where possible:
+- Request Pathway Review -> `/intake?intent=pathway-review`
+- Submit Supply for Market Review -> `/marketplace/sell?intent=market-review`
+- Request Importer Introduction -> `/intake?intent=importer-introduction`
+- Request Distributor Review -> `/intake?intent=distributor-review`
+- Post Buyer Requirement -> `/marketplace/wanted`
+- Request Documentation Review -> `/intake?intent=documentation-review`
+- Request Market Access Review -> `/intake?intent=market-access-review`
+
+### Market Access Visual Modules
+Build premium modules:
+- global pathway grid
+- country cards
+- readiness badge strip
+- importer/distributor introduction module
+- documentation packet module
+- featured market access opportunities
+- related marketplace inventory strip
+- signals/intelligence cross-link panel
+- mobile sticky CTA
+
+Visual style:
+- deep navy
+- charcoal
+- restrained gold
+- map/pathway lines
+- document badges
+- institutional intelligence aesthetic
+- mobile-first CTA access
+
+### Public Pathway DTO
+Create or reuse a public pathway DTO:
+
+```ts
+export type PublicMarketAccessPathway = {
+  id: string;
+  slug: string;
+  title: string;
+  market: string;
+  region: string;
+  pathwayType: string;
+  commercialStage: string;
+  documentationReadiness: string;
+  importExportRelevance: string;
+  partnerType: string;
+  accessLevel: string;
+  buyerSellerFit: string[];
+  productFormats: string[];
+  requiredDocuments: string[];
+  readinessBadges: string[];
+  relatedMarketplaceSlugs: string[];
+  relatedSignalRoutes: string[];
+  summary: string;
+  ctaLabel: string;
+  ctaHref: string;
+  imageKey: string;
+  publicBadges: string[];
+};
+```
+
 ## Minimum Category Card Counts
 Build enough visible depth that the network feels major and active.
 
@@ -244,9 +436,9 @@ Minimum public card targets:
 - Supplier Network: 8 cards
 - Market Access: 6 cards
 
-If implementation time requires sequencing, complete the marketplace hub and first 12 active cards first, then add the category depth in the same pattern and report what was completed.
+If implementation time requires sequencing, complete the marketplace hub and first 12 active cards first, then add the category depth and market access layer in the same pattern and report what was completed.
 
-## Public DTO
+## Public Marketplace DTO
 Use or create a clean public marketplace DTO for public card rendering.
 
 Recommended shape:
@@ -348,6 +540,8 @@ Suggested image keys:
 - documentation-readiness
 - newest-opportunities
 - recently-updated
+- country-pathway-grid
+- importer-distributor-introductions
 
 ## Post-Build Verification and Repair
 After implementation, run verification and report anything that needs a follow-up repair patch.
@@ -363,7 +557,7 @@ Also run if available:
 - npm run verify:leakage
 - npm run probe:production-visibility
 
-Use verification to identify repair items after the marketplace build exists.
+Use verification to identify repair items after the marketplace and market access build exists.
 
 ## Visual QA
 Report:
@@ -377,12 +571,15 @@ Report:
 - Market access pathways
 - Live demand signals
 - Supplier network verticals
+- Market access landing page
+- Country/pathway pages
+- Readiness modules
 - Mobile sticky CTA
 
 ## Final Output
 Return:
 
-# MARKETPLACE BUILD RESULT
+# HARBOURVIEW MARKETPLACE + MARKET ACCESS BUILD RESULT
 
 ## Inspected
 - Routes
@@ -403,6 +600,10 @@ Return:
 - Live demand signals
 - Documentation/readiness tiles
 - Region/pathway browse
+- Market access landing page
+- Country/pathway pages
+- Marketplace-to-market-access connections
+- Signals/intelligence cross-links
 - Mobile sticky CTA
 
 ## Changed Files
@@ -411,6 +612,9 @@ Return:
 
 ## Listings / Cards
 slug | title | category | CTA route
+
+## Market Access Pathways
+slug | title | CTA route | related marketplace cards
 
 ## Category Depth
 - Cannabis Inventory
@@ -423,9 +627,10 @@ slug | title | category | CTA route
 - Market Access
 
 ## DTO / Data Model
-- DTO
+- Marketplace DTO
+- Pathway DTO
 - Data source
-- Public components consuming DTO
+- Public components consuming DTOs
 
 ## Filters
 
@@ -439,6 +644,7 @@ slug | title | category | CTA route
 - Filters
 - CTA above fold
 - Category pages
+- Market access pages
 - Mobile sticky CTA
 
 ## Verification
@@ -453,5 +659,5 @@ slug | title | category | CTA route
 - revert instructions
 
 ## GO
-- marketplace build ready for review: yes/no
+- build ready for review: yes/no
 - next repair/build step
