@@ -76,11 +76,28 @@ export const FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS = [
   'availabilityStatus',
 ] as const
 
+function buildForbiddenRegulatorySignalTermPattern(term: string): RegExp {
+  const withCamelBoundaries = term.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+  const parts = withCamelBoundaries
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+
+  if (parts.length === 0) {
+    return /(?!)/
+  }
+
+  const body = parts.join('[\\s_-]*')
+  return new RegExp(`(?:^|[^a-z0-9])${body}(?:[^a-z0-9]|$)`, 'i')
+}
+
+const FORBIDDEN_REGULATORY_SIGNAL_TERM_PATTERNS = [
+  ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS,
+  ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS,
+].map(buildForbiddenRegulatorySignalTermPattern)
+
 export function containsForbiddenRegulatorySignalLeakage(value: string) {
-  const normalized = value.toLowerCase()
-  return [...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS, ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS].some((term) =>
-    normalized.includes(term.toLowerCase()),
-  )
+  return FORBIDDEN_REGULATORY_SIGNAL_TERM_PATTERNS.some((pattern) => pattern.test(value))
 }
 
 export function assertPublicRegulatorySignalSafe(signal: PublicRegulatorySignal) {
