@@ -78,9 +78,12 @@ export const FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS = [
 
 export function containsForbiddenRegulatorySignalLeakage(value: string) {
   const normalized = value.toLowerCase()
-  return [...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS, ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS].some((term) =>
-    normalized.includes(term.toLowerCase()),
-  )
+  const collapsed = normalized.replace(/[\s_-]+/g, '')
+  return [...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS, ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS].some((term) => {
+    const lowered = term.toLowerCase()
+    const collapsedTerm = lowered.replace(/[\s_-]+/g, '')
+    return normalized.includes(lowered) || collapsed.includes(collapsedTerm)
+  })
 }
 
 export function assertPublicRegulatorySignalSafe(signal: PublicRegulatorySignal) {
