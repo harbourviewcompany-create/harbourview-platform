@@ -60,12 +60,13 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
   });
 
   const text = await response.text();
+  const bodyPreview = text.slice(0, 240);
   if (!response.ok) {
     console.error('harbourview_admin_data_request_failed', {
       status: response.status,
       statusText: response.statusText,
       path,
-      body: text.slice(0, 240),
+      body: bodyPreview,
     });
 
     return {
@@ -77,7 +78,8 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
     };
   }
 
-  // Intentionally preserve prior behavior: empty 2xx response bodies are treated as `null` payloads.
+  // Intentionally preserve prior behavior: empty 2xx response bodies are treated as `null` payloads
+  // so callers relying on PostgREST 204/empty responses continue to work without shape changes.
   if (!text) {
     return {
       ok: true,
@@ -95,7 +97,7 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
       status: response.status,
       statusText: response.statusText,
       path,
-      body: text.slice(0, 240),
+      body: bodyPreview,
       parseError: 'invalid_json',
     });
 
