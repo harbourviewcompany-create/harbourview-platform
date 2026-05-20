@@ -181,7 +181,7 @@ npm run probe:production-visibility
 
 Required checks:
 
-- migration `007_live_source_intake_v0_consumables.sql` creates only private intake/candidate tables
+- migration `20260305000000_live_source_intake_v0_consumables.sql` creates only private intake/candidate tables
 - RLS is enabled and deny-by-default for anonymous users
 - admin/operator-only access uses existing `public.user_roles`
 - `/admin/sources` and `/admin/candidates` are directly guarded with `requireAdminAuth()`

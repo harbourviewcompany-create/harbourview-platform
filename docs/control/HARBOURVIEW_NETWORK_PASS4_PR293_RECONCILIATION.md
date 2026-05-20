@@ -32,7 +32,7 @@ No runtime/UI/API/admin/auth/deployment behavior was introduced.
 
 Added migration:
 
-- `supabase/migrations/20260512_001_network_persistence_v1.sql`
+- `supabase/migrations/20260512000001_network_persistence_v1.sql`
 
 Added tables:
 
