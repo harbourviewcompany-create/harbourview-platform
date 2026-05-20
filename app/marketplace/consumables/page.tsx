@@ -48,7 +48,7 @@ export default async function ConsumablesPage() {
               href="/marketplace/sell"
               className="btn-outline border-white/40 text-center text-white hover:bg-white hover:text-navy"
             >
-              Submit Supply
+              Offer Supply for Review
             </Link>
           </div>
         </div>

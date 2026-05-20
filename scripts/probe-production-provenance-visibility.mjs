@@ -1,31 +1,27 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 
-const explicitBaseUrl = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL;
-
-if (!explicitBaseUrl) {
-  console.log(JSON.stringify({
-    status: 'BLOCKED',
-    reason: 'Production visibility probe requires an explicit HARBOURVIEW_PUBLIC_BASE_URL or VERCEL_PROJECT_PRODUCTION_URL. Branch verification does not default to a hardcoded production domain.',
-    checkedAt: new Date().toISOString(),
-  }, null, 2));
-  console.log('BLOCKED production visibility probe: no explicit production base URL provided; no network probe was run.');
-  process.exit(0);
-}
-
-const baseUrl = explicitBaseUrl
-  .trim()
+const DEFAULT_BASE_URL = 'https://harbourview-nu.vercel.app';
+const baseUrl = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || DEFAULT_BASE_URL)
   .replace(/^([^h])/, 'https://$1')
   .replace(/\/$/, '');
 
 const listingsSource = readFileSync('lib/marketplace/listings.ts', 'utf8');
 const slugMatches = [...listingsSource.matchAll(/slug:\s*'([^']+)'/g)].map((match) => match[1]);
 const sourceUrlMatches = [...listingsSource.matchAll(/sourceUrl:\s*'([^']+)'/g)].map((match) => match[1]);
+const categoryRoutes = [
+  'consumables',
+  'cannabis-inventory',
+  'new-products',
+  'used-surplus',
+  'services',
+  'business-opportunities',
+].map((slug) => `/marketplace/${slug}`);
 
 const routes = [
   '/marketplace',
   '/marketplace/listings',
-  '/marketplace/consumables',
+  ...categoryRoutes,
   '/marketplace/sell',
   '/marketplace/sell?type=wanted',
   '/marketplace/wanted',

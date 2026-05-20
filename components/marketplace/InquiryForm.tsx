@@ -30,6 +30,11 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
         <input type="hidden" name="listing_slug" value={listingSlug} />
         <input type="hidden" name="listing_title" value={listingTitle} />
 
+        <div className="hidden" aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+        </div>
+
         <label className="text-sm text-[#F5F1E8]/75">
           Name
           <input required name="name" maxLength={180} className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2" />

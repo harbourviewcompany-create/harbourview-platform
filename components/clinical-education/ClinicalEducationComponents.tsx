@@ -7,7 +7,7 @@ import {
 } from '@/lib/fixtures/clinical-education'
 
 function isGated(item: ClinicalEducationModule) {
-  return item.moduleStatus === 'Research in progress' || item.moduleStatus === 'Professional review required'
+  return item.moduleStatus === 'Research in progress' || item.moduleStatus === 'Professional review required' || !item.publicUseApproved
 }
 
 export function ClinicalEducationStatusBadge({
@@ -57,6 +57,7 @@ export function ClinicalEducationHero({ item }: { item: ClinicalEducationModule 
         <ClinicalEducationStatusBadge status={item.moduleStatus} riskLevel={item.riskLevel} />
         <h1 className="mt-6 text-4xl font-bold leading-tight sm:text-5xl">{item.title}</h1>
         <p className="mt-6 max-w-3xl text-lg leading-relaxed text-gray-300">{item.publicSummary}</p>
+        <p className="mt-5 max-w-3xl text-sm leading-7 text-gray-400">{item.medicalAdviceBoundary}</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link href={item.ctaHref} className="btn-primary px-6 py-3 text-sm">
             {item.ctaLabel}
@@ -105,6 +106,8 @@ export function ClinicalEducationModuleDetail({ item }: { item: ClinicalEducatio
               <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <Panel title="Audience" items={item.audience} />
                 <Panel title="Controlled themes" items={item.educationThemes.slice(0, 5)} />
+                <Panel title="Review required" items={item.reviewerRoleRequired} />
+                <Panel title="Restricted language" items={item.restrictedLanguage} />
               </div>
               <Link href="/network/clinical-education/request" className="mt-6 inline-flex btn-primary px-6 py-3 text-sm">
                 Request Education Support
@@ -134,8 +137,24 @@ export function ClinicalEducationModuleDetail({ item }: { item: ClinicalEducatio
                 <dd className="text-gray-500">{item.researchStatus}</dd>
               </div>
               <div>
+                <dt className="font-semibold text-navy">Source basis</dt>
+                <dd className="text-gray-500">{item.sourceBasis.replace(/-/g, ' ')}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-navy">Audience boundary</dt>
+                <dd className="text-gray-500">{item.audienceBoundary.replace(/-/g, ' ')}</dd>
+              </div>
+              <div>
                 <dt className="font-semibold text-navy">Public availability</dt>
                 <dd className="text-gray-500">{gated ? 'Available by request until review is complete' : 'Public overview available'}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-navy">Last reviewed</dt>
+                <dd className="text-gray-500">{item.lastReviewed}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-navy">Next review due</dt>
+                <dd className="text-gray-500">{item.nextReviewDue}</dd>
               </div>
             </dl>
           </div>
