@@ -2,20 +2,55 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
-import { CountryIntelligenceMap } from '@/components/intelligence/CountryIntelligenceMap'
-import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
-import { projectPublicCountryMapRecords } from '@/lib/intelligence/public-country-map'
 import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 
 export const metadata: Metadata = {
   title: 'Intelligence | Harbourview',
   description:
-    'Map-based country intelligence for reviewed commercial pathways, opportunity categories and controlled market access requests.',
+    'Country and regional intelligence for reviewed commercial pathways, opportunity categories and controlled market access requests.',
 }
+
+const intelligenceRegions = [
+  {
+    name: 'Europe',
+    description:
+      'Priority medical and pharmaceutical markets including Germany, the United Kingdom, the Netherlands, Portugal and Malta.',
+    href: '/intelligence/markets',
+  },
+  {
+    name: 'APAC',
+    description:
+      'Import, pharmacy, cultivation and clinical-access pathways across Australia, New Zealand, Thailand, Japan and adjacent markets.',
+    href: '/intelligence/markets',
+  },
+  {
+    name: 'MENA',
+    description:
+      'Controlled-market monitoring for medical access, import controls, policy movement and institutional pathway review.',
+    href: '/intelligence/markets',
+  },
+  {
+    name: 'Americas',
+    description:
+      'North American, Latin American and Caribbean jurisdiction context for supply, policy, licensing and commercial route review.',
+    href: '/intelligence/markets',
+  },
+  {
+    name: 'Africa',
+    description:
+      'Export, cultivation, medical access and regulatory-development monitoring across priority African jurisdictions.',
+    href: '/intelligence/markets',
+  },
+  {
+    name: 'Rest of World',
+    description:
+      'Jurisdiction watch coverage for emerging, restricted or low-visibility markets requiring controlled analyst review.',
+    href: '/contact',
+  },
+] as const
 
 export default async function IntelligencePage() {
   const [signals] = await Promise.all([getPublicRegulatorySignals()])
-  const countryMapRecords = projectPublicCountryMapRecords(publicCountryIntelligenceFixtures)
   const featuredSignals = signals.slice(0, 3)
 
   return (
@@ -24,7 +59,7 @@ export default async function IntelligencePage() {
         eyebrow="Harbourview Intelligence"
         title="Country intelligence built around reviewed market pathways."
         actions={[
-          { label: 'Explore Country Map', href: '#country-map' },
+          { label: 'Explore Regions', href: '#country-map' },
           { label: 'View Signals', href: '/signals', variant: 'secondary' },
         ]}
         aside={
@@ -33,22 +68,49 @@ export default async function IntelligencePage() {
               Public intelligence controls
             </p>
             <p>
-              Public panels use typed fixtures and a public projection layer. They exclude raw evidence, private contacts, unpublished analyst notes and direct counterparty information.
+              Public panels use controlled summaries and public-safe projection. They exclude raw evidence, private contacts, unpublished analyst notes and direct counterparty information.
             </p>
           </PublicCard>
         }
       >
         <p>
-          Explore public-safe country panels for market pathway context, review status, opportunity categories and controlled next actions.
+          Explore public-safe regional pathways for market context, review status, opportunity categories and controlled next actions.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
           Intelligence is presented as reviewed commercial context, not as legal advice, guaranteed access, confirmed counterparties, guaranteed route certainty or live buyer demand.
         </p>
       </PublicHero>
 
-      <div id="country-map">
-        <CountryIntelligenceMap countries={countryMapRecords} />
-      </div>
+      <PublicSection id="country-map" tone="dark">
+        <SectionHeader
+          eyebrow="Jurisdiction coverage"
+          title="A controlled regional view replaces unfinished map presentation."
+        >
+          Harbourview organizes country intelligence by region and pathway maturity. Public cards provide orientation only; deeper country, counterparty, route and evidence reviews are handled through controlled requests.
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {intelligenceRegions.map((region) => (
+            <PublicCard key={region.name} className="group flex min-h-[220px] flex-col justify-between overflow-hidden p-6">
+              <div>
+                <div className="mb-5 h-px w-16 bg-gold/60 transition-all group-hover:w-24" />
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/72">
+                  Region
+                </p>
+                <h2 className="mt-3 font-serif text-3xl tracking-[-0.04em] text-[#f5f1e8]">
+                  {region.name}
+                </h2>
+                <p className="mt-4 text-sm leading-7 text-white/60">{region.description}</p>
+              </div>
+
+              <Link href={region.href} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-gold hover:text-gold-pale">
+                <span>Request regional review</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+            </PublicCard>
+          ))}
+        </div>
+      </PublicSection>
 
       <PublicSection tone="navy">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.72fr)_minmax(320px,0.4fr)] lg:items-end">
@@ -58,7 +120,7 @@ export default async function IntelligencePage() {
             className="mb-0"
           />
           <p className="text-sm leading-7 text-white/56">
-            The existing Signals route stays intact. Intelligence now uses the country map as the front-facing navigation layer while Signals continues to handle policy and regulatory change monitoring.
+            The existing Signals route stays intact. Intelligence now uses a regional jurisdiction grid as the front-facing navigation layer while Signals continues to handle policy and regulatory change monitoring.
           </p>
         </div>
 

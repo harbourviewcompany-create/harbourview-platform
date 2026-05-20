@@ -3,14 +3,13 @@
 import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { getMaxMessageLength, isOversized, isUnsafeFreeText, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
   message: string;
 };
 
-const MAX_MESSAGE_LENGTH = 2500;
-const MAX_TEXT_LENGTH = 180;
 const ALLOWED_INQUIRY_TYPES = new Set([
   'listing_verification',
   'seller_contact',
@@ -27,6 +26,8 @@ type InquiryDiagnosticCode =
   | 'INQUIRY_VALIDATION_FIELD_LENGTH'
   | 'INQUIRY_VALIDATION_MESSAGE_LENGTH'
   | 'INQUIRY_VALIDATION_CONSENT'
+  | 'INQUIRY_VALIDATION_UNSAFE_CONTENT'
+  | 'INQUIRY_VALIDATION_SPAM_TRAP'
   | 'INQUIRY_CONFIG_MISSING'
   | 'INQUIRY_SUPABASE_INSERT_FAILED'
   | 'INQUIRY_OK';
@@ -35,18 +36,6 @@ function withCode(message: string, code: InquiryDiagnosticCode) {
   return `${message} [${code}]`;
 }
 
-function readField(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength;
-}
 
 function buildMessageWithListingContext(
   message: string,
@@ -118,6 +107,12 @@ export async function submitMarketplaceInquiry(
     : 'listing_verification';
   const message = readField(formData, 'message');
   const consent = formData.get('consent') === 'on';
+  const website = readField(formData, 'website');
+
+  if (website) {
+    logInquiryDiagnostic('INQUIRY_VALIDATION_SPAM_TRAP');
+    return { status: 'error', message: withCode('Inquiry could not be processed.', 'INQUIRY_VALIDATION_SPAM_TRAP') };
+  }
 
   if (!name || !email || !company || !country || !message) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_REQUIRED_FIELDS', {
@@ -155,9 +150,17 @@ export async function submitMarketplaceInquiry(
     };
   }
 
+  if ([name, company, country, phone, message].some(isUnsafeFreeText)) {
+    logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
+    return {
+      status: 'error',
+      message: withCode('Please remove links or markup and submit plain text.', 'INQUIRY_VALIDATION_UNSAFE_CONTENT'),
+    };
+  }
+
   const messageWithListingContext = buildMessageWithListingContext(message, country, listing);
 
-  if (messageWithListingContext.length > MAX_MESSAGE_LENGTH) {
+  if (messageWithListingContext.length > getMaxMessageLength()) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_MESSAGE_LENGTH', {
       messageLength: messageWithListingContext.length,
     });

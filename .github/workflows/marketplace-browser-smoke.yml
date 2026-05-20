@@ -6,7 +6,7 @@ on:
       base_url:
         description: 'Target base URL to test'
         required: true
-        default: 'https://harbourview-platform.vercel.app'
+        default: 'https://harbourview-nu.vercel.app'
       allow_production_writes:
         description: 'Type ALLOW_PRODUCTION_SMOKE_WRITES to permit production smoke writes'
         required: true
@@ -31,7 +31,7 @@ jobs:
     env:
       IS_CONTROLLED_SMOKE_BRANCH: ${{ startsWith(github.ref_name, 'smoke/marketplace-browser-') }}
       IS_CONFIRMED_MANUAL_DISPATCH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.allow_production_writes == 'ALLOW_PRODUCTION_SMOKE_WRITES' }}
-      RESOLVED_SMOKE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_url || 'https://harbourview-platform.vercel.app' }}
+      RESOLVED_SMOKE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_url || 'https://harbourview-nu.vercel.app' }}
     steps:
       - name: Validate production write confirmation
         run: |

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 
-const DEFAULT_BASE_URL = 'https://harbourview.vercel.app';
+const DEFAULT_BASE_URL = 'https://harbourview-nu.vercel.app';
 const baseUrl = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || DEFAULT_BASE_URL)
   .replace(/^([^h])/, 'https://$1')
   .replace(/\/$/, '');
@@ -9,11 +9,19 @@ const baseUrl = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_P
 const listingsSource = readFileSync('lib/marketplace/listings.ts', 'utf8');
 const slugMatches = [...listingsSource.matchAll(/slug:\s*'([^']+)'/g)].map((match) => match[1]);
 const sourceUrlMatches = [...listingsSource.matchAll(/sourceUrl:\s*'([^']+)'/g)].map((match) => match[1]);
+const categoryRoutes = [
+  'consumables',
+  'cannabis-inventory',
+  'new-products',
+  'used-surplus',
+  'services',
+  'business-opportunities',
+].map((slug) => `/marketplace/${slug}`);
 
 const routes = [
   '/marketplace',
   '/marketplace/listings',
-  '/marketplace/consumables',
+  ...categoryRoutes,
   '/marketplace/sell',
   '/marketplace/sell?type=wanted',
   '/marketplace/wanted',
@@ -98,7 +106,7 @@ async function probeRoute(route, expectForbidden = false) {
       redirect: 'follow',
       headers: {
         Accept: 'text/html',
-        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.2',
+        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3',
       },
     });
     html = await response.text();
@@ -143,7 +151,7 @@ for (const route of apiRoutes) {
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.2' },
+      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3' },
     });
     body = await response.text();
   } catch (err) {

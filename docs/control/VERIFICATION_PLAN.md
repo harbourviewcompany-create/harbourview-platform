@@ -98,6 +98,35 @@ Required for production deployment, env changes, workflow changes or public doma
 - Rollback path
 - Evidence update
 
+## Source-of-truth verification pass — 2026-05-16
+
+A read-only Harbourview source-of-truth verification pass inspected repository files and connected evidence without changing runtime code, workflows, package files, migrations, schemas, RLS, Vercel settings, or Supabase settings.
+
+Verified as repo/control evidence:
+
+- App Router structure is present through `app/layout.tsx`, app route files, protected admin route groups, and API route files.
+- `docs/control/DESIGN_SYSTEM.md` is the current documented design-system authority.
+- Tailwind and global CSS define Harbourview navy/gold/off-white style tokens.
+- Playfair Display is not verified as an implemented/imported runtime font. It remains design-direction only until a font import, Tailwind font mapping, global CSS rule, or asset source proves implementation.
+- Admin role names are `admin`, `operator`, `analyst`, and `viewer`.
+- Admin authorization evidence supports `user_roles` table lookup and the custom `hv-admin-session` cookie path. It does not prove custom JWT claims.
+- Protected admin pages use server-side `requireAdminAuth()` before rendering private admin surfaces.
+- Public marketplace DTO allowlisting exists in `lib/marketplace/publicListings.ts`.
+- Production public-leakage probe script exists and checks forbidden provenance/evidence/internal-review/source strings, but existence of the script is not current pass evidence.
+- Smoke-write gates exist in scripts and server smoke verifier paths.
+
+Still-HOLD verification items:
+
+- Current production public leakage pass against `https://harbourview.vercel.app`.
+- Current anonymous admin denial proof against `https://harbourview.vercel.app`.
+- Full admin role matrix: anonymous, no-role, viewer, analyst, operator, and admin.
+- Live Supabase RLS verification for the canonical project.
+- Branch protection and required GitHub status contexts.
+- Vercel Project ID, Vercel Org ID, and GitHub secret mapping.
+- Preview/staging safety and Supabase environment separation.
+- Current route map verification for canonical production.
+- Resolution of `harbourview-platform.vercel.app` default/reference drift.
+
 ## Public leakage checklist
 
 Public pages must not show source URLs, evidence captured, provenance logs, internal notes, admin status history, raw contact fields or service-role diagnostics.
@@ -161,3 +190,30 @@ Required checks:
 - restricted/excluded consumables and licence-review candidates cannot reach `approved_draft`
 - public consumables UI uses only safe inquiry-first labels
 - public leakage probes include private source/candidate table and field names
+
+## Verification command map (control-plane)
+
+- `npm run typecheck` — TypeScript gate.
+- `npm run lint` — lint gate (warnings currently allowed, failures block).
+- `npm run test:intelligence-os` — unit extraction contract.
+- `npm run verify:leakage` — public leakage gate for forbidden admin/provenance strings.
+- `npm run verify:admin-auth` — admin authorization gate (anonymous/missing role/viewer/analyst denied; operator/admin allowed via role logic checks).
+- `npm run verify:marketplace-smoke` — safe workflow and route guard checks; does not perform production writes.
+- `npm run verify:production-visibility` — production visibility probe (read-only probe, env-dependent).
+- `npm run build` — production build gate.
+- `npm run verify:all-safe` — aggregate safe local/CI verification command.
+
+### Smoke write gate semantics
+
+`scripts/smoke-marketplace.mjs` now emits explicit status labels:
+- `NOT RUN`
+- `GATED`
+- `BLOCKED`
+- `RUN`
+- `PASS`
+- `FAIL` (process exit non-zero)
+
+Required env controls for write-capable smoke:
+- `HARBOURVIEW_SMOKE_WRITE=1`
+- `HARBOURVIEW_SMOKE_CLEANUP=1` (cleanup optional but recommended)
+- `HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1` (required when `VERCEL_ENV=production`)

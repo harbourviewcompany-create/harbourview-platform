@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { CONTACT_EMAIL, CONTACT_MAILTO_HREF } from '@/lib/contact'
+import Link from 'next/link'
+import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 import ConfidentialIntakeForm from './ConfidentialIntakeForm'
 
 export const dynamic = 'force-dynamic'
@@ -14,37 +15,62 @@ export const metadata: Metadata = {
 export default function IntakePage() {
   return (
     <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Confidential Intake</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Share qualified opportunities, commercial requirements, or confidential market-access inquiries. Harbourview reviews submissions before follow-up.
-          </p>
-        </div>
-      </section>
+      <PublicHero
+        eyebrow="Confidential intake"
+        title="Route sensitive commercial and market-access requests for review."
+        compact
+        aside={
+          <PublicCard className="p-6">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
+              Reviewed handling
+            </p>
+            <p className="text-sm leading-7 text-white/58">
+              Intake submissions are reviewed before follow-up, counterparty routing, commercial disclosure or any protected access discussion.
+            </p>
+          </PublicCard>
+        }
+      >
+        <p>
+          Share qualified opportunities, commercial requirements, intelligence questions or confidential market-access inquiries without exposing sensitive details on public pages.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Harbourview does not publish intake details, private counterparties, document materials or route-sensitive context.
+        </p>
+      </PublicHero>
 
-      <section className="py-12 bg-gray-50">
-        <div className="page-container grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
-          <div className="card p-6 sm:p-8">
+      <PublicSection tone="navy">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+          <FormShell>
             <ConfidentialIntakeForm />
-          </div>
+          </FormShell>
 
           <aside className="space-y-6">
-            <div className="card p-6">
-              <h2 className="text-navy font-semibold text-base mb-3">Direct Contact</h2>
-              <p className="text-sm text-gray-500 mb-3">
-                For confidential inquiries and qualified opportunities:
+            <PublicCard className="p-6">
+              <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
+                Routing paths
               </p>
-              <a
-                href={CONTACT_MAILTO_HREF}
-                className="text-navy underline hover:text-gold text-sm"
-              >
-                {CONTACT_EMAIL}
-              </a>
-            </div>
+              <ul className="space-y-3 text-sm leading-6 text-white/60">
+                <li className="border-l border-gold/30 pl-4">Buyer demand, wanted requests and qualified supply discovery.</li>
+                <li className="border-l border-gold/30 pl-4">Seller, exporter, equipment, services or distressed-asset submissions.</li>
+                <li className="border-l border-gold/30 pl-4">Market, company, route, policy or counterparty intelligence requests.</li>
+                <li className="border-l border-gold/30 pl-4">Institutional, professional, education or association collaboration.</li>
+              </ul>
+            </PublicCard>
+
+            <PublicCard muted className="p-6">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
+                Public boundary
+              </p>
+              <p className="text-sm leading-7 text-white/56">
+                Submission does not guarantee a response, buyer, seller, route, transaction or introduction. For non-sensitive questions, use the contact page.
+              </p>
+              <Link href="/contact" className="mt-5 inline-flex text-xs font-semibold uppercase tracking-[0.18em] text-gold hover:text-gold-light">
+                Contact Harbourview
+              </Link>
+            </PublicCard>
           </aside>
         </div>
-      </section>
+      </PublicSection>
     </>
   )
 }

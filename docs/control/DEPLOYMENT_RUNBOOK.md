@@ -24,6 +24,23 @@ This runbook controls deployment-related work for Harbourview and prevents accid
 
 `docs/control/PROJECT_STATE.md` records the current durable marketplace capture and Vercel/Supabase environment hygiene evidence. That evidence applies only to the stated workflow runs, branches, commits and production URL recorded there.
 
+## Source-of-truth verification note — 2026-05-16
+
+A read-only Harbourview source-of-truth verification pass confirmed that the locked canonical production domain is `https://harbourview.vercel.app`, while older durable smoke evidence and the current marketplace browser smoke workflow default still reference `https://harbourview-platform.vercel.app`.
+
+This is control-plane drift, not runtime proof of a current failure. Do not change workflows, runtime code, Vercel settings, or environment variables from this note alone. Treat the drift as a HOLD item requiring a separate scoped workflow/runtime verification PR if the smoke default is to be changed.
+
+Deployment evidence using `https://harbourview-platform.vercel.app` remains valid only for the stated historical workflow runs, branches, commits, and timestamps. It must not be reused as current proof for the locked canonical production domain unless rerun against `https://harbourview.vercel.app` and recorded with fresh evidence.
+
+Still-HOLD deployment controls:
+
+- Vercel Project ID for canonical project `harbourview`.
+- Vercel Org ID for account/team `harbourviewcompany`.
+- GitHub secret mapping for `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
+- Branch protection and stale deployment/status contexts.
+- Preview/staging safety and Supabase environment separation.
+- Current canonical-domain route map, admin denial, public leakage probe, and smoke evidence.
+
 ## Environment variable names referenced by current marketplace controls
 
 Do not record secret values.

@@ -49,6 +49,20 @@ export function getPriorityRank(priority: string) {
   return 2;
 }
 
+const REVIEW_STATUS_TRANSITIONS: Record<ReviewStatus, ReviewStatus[]> = {
+  received: ['reviewing', 'closed'],
+  reviewing: ['contacted', 'qualified', 'not_fit', 'closed'],
+  contacted: ['qualified', 'not_fit', 'closed'],
+  qualified: ['closed'],
+  not_fit: ['closed'],
+  closed: ['reviewing'],
+};
+
+export function canTransitionReviewStatus(fromStatus: ReviewStatus, toStatus: ReviewStatus) {
+  if (fromStatus === toStatus) return true;
+  return REVIEW_STATUS_TRANSITIONS[fromStatus]?.includes(toStatus) ?? false;
+}
+
 export function getRecommendedTemplateKey(inquiryType: string): InquiryTemplateKey {
   if (inquiryType === 'listing_submission') return 'listing_submission';
   if (inquiryType === 'wanted_request_submission') return 'wanted_request_submission';
