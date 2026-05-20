@@ -1,20 +1,22 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useRef } from 'react'
+import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
-import { CameraFlyToController } from './CameraFlyToController'
-import type { GlobeLayerId } from '@/types/globe-router'
+import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
+import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
 export function GlobeCanvas({
   selectedCountryIso2,
   selectedCountryIso2s,
   focusedCountryIso2,
   activeLayerId,
+  routerStep,
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -22,9 +24,12 @@ export function GlobeCanvas({
   selectedCountryIso2s: string[]
   focusedCountryIso2?: string
   activeLayerId: GlobeLayerId
+  routerStep?: GlobeRouterStep
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
+  const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+
   return (
     <div className="absolute inset-0">
       <Canvas
@@ -54,10 +59,15 @@ export function GlobeCanvas({
               onSelectCountry={onSelectCountry}
             />
           </group>
-          <CameraFlyToController selectedCountryIso2={selectedCountryIso2} />
+          <CameraFlyToController
+            selectedCountryIso2={selectedCountryIso2}
+            routerStep={routerStep}
+            controlsRef={controlsRef as RefObject<CameraFlyOrbitControlsLike | null>}
+          />
         </Suspense>
 
         <OrbitControls
+          ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
           enableDamping
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}

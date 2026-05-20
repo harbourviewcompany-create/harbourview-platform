@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { naturalEarthFixturePayload } from '@/data/globe/natural-earth-fixture'
-import { createCountryFocusPose } from '@/lib/globe/camera-focus'
+import { bboxFocusDistance, createCountryFocusPose, easeInOutCubic, getInitialCameraPose } from '@/lib/globe/camera-focus'
+import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { HarbourviewCountryGeometry } from '@/lib/globe/geojson-country-types'
 import { naturalEarthIngestionInternals, transformNaturalEarthCountries } from '@/lib/globe/natural-earth-ingestion'
 import { createCountryBufferGeometry, estimateCountryTriangleCount, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
@@ -39,6 +40,34 @@ describe('Harbourview globe polygon rendering stage', () => {
     expect(pose.position).toHaveLength(3)
     expect(pose.target).toHaveLength(3)
     expect(Math.abs(pose.position[0]) + Math.abs(pose.position[1]) + Math.abs(pose.position[2])).toBeGreaterThan(4)
+  })
+
+  it('derives a tighter focus distance for small bboxes than large ones', () => {
+    const smallIslandDistance = bboxFocusDistance([0, 0, 1.5, 1.5])
+    const continentalDistance = bboxFocusDistance([-12, 35, 30, 60])
+    const giantDistance = bboxFocusDistance([20, 41, 180, 81])
+
+    expect(smallIslandDistance).toBeLessThan(continentalDistance)
+    expect(continentalDistance).toBeLessThan(giantDistance)
+    expect(smallIslandDistance).toBeGreaterThanOrEqual(4.4)
+    expect(giantDistance).toBeLessThanOrEqual(6.8)
+  })
+
+  it('returns the initial camera pose for return-to-globe behavior', () => {
+    const pose = getInitialCameraPose()
+
+    expect(pose.position).toEqual([...GLOBE_CAMERA_CONFIG.initialPosition])
+    expect(pose.target).toEqual([...GLOBE_CAMERA_CONFIG.initialTarget])
+  })
+
+  it('produces an ease-in-out curve that is symmetric and clamped', () => {
+    expect(easeInOutCubic(0)).toBe(0)
+    expect(easeInOutCubic(1)).toBe(1)
+    expect(easeInOutCubic(-0.5)).toBe(0)
+    expect(easeInOutCubic(1.5)).toBe(1)
+    expect(easeInOutCubic(0.5)).toBeCloseTo(0.5, 5)
+    expect(easeInOutCubic(0.25)).toBeLessThan(0.25)
+    expect(easeInOutCubic(0.75)).toBeGreaterThan(0.75)
   })
 
   it('normalizes closing and sequential duplicate polygon vertices', () => {
