@@ -26,5 +26,21 @@ export async function networkAdminRequest<T>(path: string, init: RequestInit = {
 
   const text = await response.text()
   if (!response.ok) return { ok: false, error: requestFailed(`Supabase returned ${response.status}: ${text.slice(0, 240)}`) }
-  return { ok: true, data: (text ? JSON.parse(text) : null) as T }
+
+  const contentType = response.headers.get('content-type') ?? ''
+  if (contentType.toLowerCase().includes('application/json')) {
+    try {
+      return { ok: true, data: (text ? JSON.parse(text) : null) as T }
+    } catch {
+      return {
+        ok: false,
+        error: requestFailed(
+          `Failed to parse JSON response (HTTP ${response.status}). Content-Type: ${contentType}. Body snippet: ${text.slice(0, 240)}`
+        ),
+      }
+    }
+  }
+
+  // Non-JSON success bodies are returned as text for string-typed call sites; otherwise callers should expect null.
+  return { ok: true, data: ((text ? text : null) as T) }
 }
