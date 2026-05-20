@@ -1,7 +1,7 @@
 'use client'
 
 import { Line } from '@react-three/drei'
-import { naturalEarthFixturePayload } from '@/data/globe/natural-earth-fixture'
+import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { lonLatToVector3, vector3ToArray, BORDER_OFFSET } from '@/lib/globe/globe-geometry'
 
 function projectBorderRing(points: [number, number][]) {
@@ -11,7 +11,7 @@ function projectBorderRing(points: [number, number][]) {
 export function CountryBorderLayer() {
   return (
     <group>
-      {naturalEarthFixturePayload.countries.map((country) =>
+      {naturalEarthCountriesPayload.countries.map((country) =>
         country.polygons.flatMap((polygon, polygonIndex) =>
           polygon.rings.map((ring, ringIndex) => (
             <Line

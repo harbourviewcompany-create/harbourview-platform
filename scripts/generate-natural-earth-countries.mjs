@@ -1,0 +1,330 @@
+#!/usr/bin/env node
+import { readFile, writeFile } from 'node:fs/promises'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(here, '..')
+
+const SOURCE_PATH = resolve(repoRoot, 'data/globe/source/ne_110m_admin_0_countries.geojson')
+const OUTPUT_PATH = resolve(repoRoot, 'data/globe/natural-earth-countries.ts')
+
+const SIMPLIFY_TOLERANCE_DEG = 0.25
+const SKIP_ISO2 = new Set(['AQ'])
+
+function perpendicularDistanceDeg(point, lineStart, lineEnd) {
+  const [x, y] = point
+  const [x1, y1] = lineStart
+  const [x2, y2] = lineEnd
+  const dx = x2 - x1
+  const dy = y2 - y1
+
+  if (dx === 0 && dy === 0) {
+    const ddx = x - x1
+    const ddy = y - y1
+    return Math.sqrt(ddx * ddx + ddy * ddy)
+  }
+
+  const t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)
+  const tClamped = Math.max(0, Math.min(1, t))
+  const projX = x1 + tClamped * dx
+  const projY = y1 + tClamped * dy
+  const ddx = x - projX
+  const ddy = y - projY
+
+  return Math.sqrt(ddx * ddx + ddy * ddy)
+}
+
+function douglasPeucker(points, tolerance) {
+  if (points.length < 3) return points.slice()
+
+  const keep = new Array(points.length).fill(false)
+  keep[0] = true
+  keep[points.length - 1] = true
+
+  const stack = [[0, points.length - 1]]
+
+  while (stack.length > 0) {
+    const [startIndex, endIndex] = stack.pop()
+    let maxDistance = 0
+    let maxIndex = startIndex
+
+    for (let i = startIndex + 1; i < endIndex; i += 1) {
+      const distance = perpendicularDistanceDeg(points[i], points[startIndex], points[endIndex])
+
+      if (distance > maxDistance) {
+        maxDistance = distance
+        maxIndex = i
+      }
+    }
+
+    if (maxDistance > tolerance) {
+      keep[maxIndex] = true
+      stack.push([startIndex, maxIndex])
+      stack.push([maxIndex, endIndex])
+    }
+  }
+
+  return points.filter((_, index) => keep[index])
+}
+
+function roundCoordinate(value) {
+  return Math.round(value * 1000) / 1000
+}
+
+function simplifyRing(points, tolerance) {
+  if (!Array.isArray(points) || points.length < 3) return null
+
+  const cleaned = points.map((point) => [roundCoordinate(point[0]), roundCoordinate(point[1])])
+  const simplified = douglasPeucker(cleaned, tolerance)
+
+  if (simplified.length < 4) return null
+
+  const first = simplified[0]
+  const last = simplified[simplified.length - 1]
+
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    simplified.push([first[0], first[1]])
+  }
+
+  return simplified
+}
+
+function selectPreferredPolygon(polygonCoordinates) {
+  let bestPolygon = null
+  let bestArea = -Infinity
+
+  for (const polygon of polygonCoordinates) {
+    const outerRing = polygon[0]
+    if (!outerRing) continue
+
+    let area = 0
+    for (let i = 0; i < outerRing.length - 1; i += 1) {
+      const [x1, y1] = outerRing[i]
+      const [x2, y2] = outerRing[i + 1]
+      area += x1 * y2 - x2 * y1
+    }
+
+    const absArea = Math.abs(area / 2)
+
+    if (absArea > bestArea) {
+      bestArea = absArea
+      bestPolygon = polygon
+    }
+  }
+
+  return bestPolygon
+}
+
+function normalizePolygons(geometry, tolerance) {
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
+  const preferred = selectPreferredPolygon(polygons)
+
+  if (!preferred) return []
+
+  const rings = []
+  preferred.forEach((ring, index) => {
+    const simplified = simplifyRing(ring, tolerance)
+    if (!simplified) return
+    rings.push({
+      kind: index === 0 ? 'outer' : 'hole',
+      points: simplified,
+    })
+  })
+
+  if (!rings.some((ring) => ring.kind === 'outer')) return []
+
+  return [{ rings }]
+}
+
+function computeBoundingBox(polygons) {
+  let minLon = Infinity
+  let minLat = Infinity
+  let maxLon = -Infinity
+  let maxLat = -Infinity
+
+  for (const polygon of polygons) {
+    for (const ring of polygon.rings) {
+      for (const point of ring.points) {
+        if (point[0] < minLon) minLon = point[0]
+        if (point[1] < minLat) minLat = point[1]
+        if (point[0] > maxLon) maxLon = point[0]
+        if (point[1] > maxLat) maxLat = point[1]
+      }
+    }
+  }
+
+  if (!isFinite(minLon)) return [0, 0, 0, 0]
+
+  return [
+    roundCoordinate(minLon),
+    roundCoordinate(minLat),
+    roundCoordinate(maxLon),
+    roundCoordinate(maxLat),
+  ]
+}
+
+function computeCentroid(polygons, fallback) {
+  const outer = polygons[0]?.rings.find((ring) => ring.kind === 'outer')
+
+  if (!outer || outer.points.length === 0) {
+    return [roundCoordinate(fallback[0]), roundCoordinate(fallback[1])]
+  }
+
+  let sumLon = 0
+  let sumLat = 0
+  let count = 0
+
+  for (const point of outer.points.slice(0, -1)) {
+    sumLon += point[0]
+    sumLat += point[1]
+    count += 1
+  }
+
+  if (count === 0) return [roundCoordinate(fallback[0]), roundCoordinate(fallback[1])]
+
+  return [roundCoordinate(sumLon / count), roundCoordinate(sumLat / count)]
+}
+
+function extractIso2(properties) {
+  const value = properties.ISO_A2_EH ?? properties.ISO_A2 ?? properties.WB_A2
+  if (!value || value === '-99') return null
+  return String(value).toUpperCase()
+}
+
+function extractIso3(properties) {
+  const value = properties.ADM0_A3 ?? properties.ISO_A3 ?? properties.ISO_A3_EH ?? properties.WB_A3
+  if (!value || value === '-99') return null
+  return String(value).toUpperCase()
+}
+
+function extractName(properties) {
+  return (
+    properties.NAME_LONG ??
+    properties.NAME ??
+    properties.ADMIN ??
+    properties.FORMAL_EN ??
+    'Unknown'
+  )
+}
+
+function transformFeature(feature) {
+  const properties = feature.properties ?? {}
+  const iso2 = extractIso2(properties)
+  const iso3 = extractIso3(properties)
+
+  if (!iso2 || !iso3) return null
+  if (SKIP_ISO2.has(iso2)) return null
+
+  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  if (polygons.length === 0) return null
+
+  const labelLon = typeof properties.LABEL_X === 'number' ? properties.LABEL_X : null
+  const labelLat = typeof properties.LABEL_Y === 'number' ? properties.LABEL_Y : null
+  const labelFallback = [labelLon ?? 0, labelLat ?? 0]
+  const centroid =
+    labelLon !== null && labelLat !== null
+      ? [roundCoordinate(labelLon), roundCoordinate(labelLat)]
+      : computeCentroid(polygons, labelFallback)
+
+  return {
+    iso2,
+    iso3,
+    name: extractName(properties),
+    centroid,
+    bbox: computeBoundingBox(polygons),
+    polygons,
+    source: 'natural-earth-admin-0',
+  }
+}
+
+function serializePoints(points) {
+  return `[${points.map((point) => `[${point[0]},${point[1]}]`).join(',')}]`
+}
+
+function serializeCountry(country) {
+  const polygons = country.polygons
+    .map(
+      (polygon) => `      {
+        rings: [
+${polygon.rings
+  .map(
+    (ring) => `          {
+            kind: '${ring.kind}',
+            points: ${serializePoints(ring.points)},
+          },`,
+  )
+  .join('\n')}
+        ],
+      },`,
+    )
+    .join('\n')
+
+  return `    {
+      iso2: '${country.iso2}',
+      iso3: '${country.iso3}',
+      name: ${JSON.stringify(country.name)},
+      centroid: [${country.centroid[0]}, ${country.centroid[1]}],
+      bbox: [${country.bbox[0]}, ${country.bbox[1]}, ${country.bbox[2]}, ${country.bbox[3]}],
+      source: 'natural-earth-admin-0',
+      polygons: [
+${polygons}
+      ],
+    },`
+}
+
+async function main() {
+  const sourceRaw = await readFile(SOURCE_PATH, 'utf8')
+  const source = JSON.parse(sourceRaw)
+  const countries = []
+
+  for (const feature of source.features ?? []) {
+    const country = transformFeature(feature)
+    if (country) countries.push(country)
+  }
+
+  countries.sort((a, b) => a.iso2.localeCompare(b.iso2))
+
+  const body = `import type { HarbourviewCountryGeometryPayload } from '@/lib/globe/geojson-country-types'
+
+// Generated by scripts/generate-natural-earth-countries.mjs.
+// Source: data/globe/source/ne_110m_admin_0_countries.geojson (Natural Earth Admin 0, 1:110m).
+// Do not edit by hand. Re-run the script to regenerate after updating the source data.
+export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
+  provenance: {
+    source: 'Natural Earth Admin 0 Countries',
+    sourceScale: '1:110m',
+    sourceVersion: 'ne_110m_admin_0_countries (vendored)',
+    sourceLicense: 'Public domain',
+    boundaryModel: 'Natural Earth de facto boundaries',
+    generatedAt: '${new Date().toISOString()}',
+    generatedBy: 'scripts/generate-natural-earth-countries.mjs',
+    harbourviewTransformVersion: '1.0.0-natural-earth-110m',
+    notes: 'Outer polygon per country selected by largest signed area; Douglas-Peucker simplified at ${SIMPLIFY_TOLERANCE_DEG}\u00b0 tolerance; coordinates rounded to 3 decimal places.',
+  },
+  countries: [
+${countries.map(serializeCountry).join('\n')}
+  ],
+}
+`
+
+  await writeFile(OUTPUT_PATH, body, 'utf8')
+
+  const totalPoints = countries.reduce(
+    (accumulator, country) =>
+      accumulator + country.polygons.reduce(
+        (innerAccumulator, polygon) => innerAccumulator + polygon.rings.reduce((c, ring) => c + ring.points.length, 0),
+        0,
+      ),
+    0,
+  )
+
+  console.log(`Wrote ${OUTPUT_PATH}`)
+  console.log(`Countries: ${countries.length}`)
+  console.log(`Total vertex points: ${totalPoints}`)
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})
