@@ -30,7 +30,7 @@
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:globe-router": "node scripts/test-globe-router-mounted.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "npx -y -p @playwright/test@1.54.0 playwright test",
     "test:full-scope:script-uniqueness": "node scripts/test-package-script-uniqueness.mjs",
     "test:full-scope:routes": "node scripts/test-route-capability-registry.mjs",
     "test:full-scope:content": "node scripts/test-content-inventory.mjs",
@@ -39,7 +39,7 @@
     "test:full-scope:marketplace": "node scripts/test-marketplace-category-capability-map.mjs",
     "test:full-scope:fallbacks": "node scripts/test-fallback-live-indicators.mjs",
     "test:full-scope-launch-readiness": "node scripts/test-full-scope-launch-readiness.mjs",
-    "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
+    "probe:production-visibility": "node scripts/probe-production-provenance-visibility.mjs && node scripts/probe-production-client-bundles.mjs",
     "smoke:marketplace": "node scripts/smoke-marketplace.mjs",
     "smoke:marketplace:rls": "node scripts/smoke-marketplace-rls.mjs",
     "smoke:marketplace:browser": "node scripts/smoke-marketplace-browser.mjs",
@@ -59,7 +59,6 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
