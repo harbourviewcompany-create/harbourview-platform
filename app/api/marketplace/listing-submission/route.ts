@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 import { listingSubmissionSchema } from '@/lib/marketplace/intakeValidation'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const MAX_MESSAGE_LENGTH = 3500
+const ROUTE_ID = '/api/marketplace/listing-submission'
+const ABUSE_REJECTION_CODE = 'ABUSE_REJECTED'
 const MAX_TEXT_LENGTH = 220
 
 const VALID_LISTING_TYPES = new Set([
@@ -29,13 +32,15 @@ type ListingSubmissionDiagnosticCode =
   | 'LISTING_SUBMISSION_SUPABASE_REQUEST_FAILED'
   | 'LISTING_SUBMISSION_SUPABASE_INSERT_FAILED'
   | 'LISTING_SUBMISSION_INTERNAL_ERROR'
+  | 'LISTING_SUBMISSION_RATE_LIMITED'
+  | 'LISTING_SUBMISSION_BOT_REJECTED'
   | 'LISTING_SUBMISSION_OK'
 
-function withCode(message: string, code: ListingSubmissionDiagnosticCode) {
+function withCode(message: string, code: ListingSubmissionDiagnosticCode | typeof ABUSE_REJECTION_CODE) {
   return `${message} [${code}]`
 }
 
-function json(status: 'success' | 'error', message: string, httpStatus = 200) {
+function json(status: 'success' | 'error', message: string, httpStatus = 200, retryAfterSeconds?: number) {
   return NextResponse.json(
     { status, message },
     {
@@ -119,6 +124,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request)
+  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  if (!ipLimit.allowed) {
+    logListingSubmissionDiagnostic('LISTING_SUBMISSION_RATE_LIMITED', { ip, retryAfterSeconds: ipLimit.retryAfterSeconds })
+    return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, ipLimit.retryAfterSeconds)
+  }
+
   try {
     let body: Record<string, unknown>
 
@@ -139,6 +151,17 @@ export async function POST(request: Request) {
         message: withCode('Invalid payload.', 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'),
         errors: parsed.error.flatten(),
       }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    if (parsed.data.hp_field?.trim()) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_BOT_REJECTED', { reason: 'honeypot', ip })
+      return json('error', withCode('Request rejected.', ABUSE_REJECTION_CODE), 429)
+    }
+
+    const expectedToken = process.env.MARKETPLACE_FORM_CHALLENGE_TOKEN
+    if (expectedToken && parsed.data.challenge_token !== expectedToken) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_BOT_REJECTED', { reason: 'challenge', ip })
+      return json('error', withCode('Request rejected.', ABUSE_REJECTION_CODE), 429)
     }
 
     const name = parsed.data.name
@@ -194,6 +217,12 @@ export async function POST(request: Request) {
         withCode('Please keep the listing submission under 3,500 characters.', 'LISTING_SUBMISSION_VALIDATION_MESSAGE_LENGTH'),
         400
       )
+    }
+
+    const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
+    if (!identityLimit.allowed) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_RATE_LIMITED', { ip, retryAfterSeconds: identityLimit.retryAfterSeconds, hasEmail: true })
+      return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, identityLimit.retryAfterSeconds)
     }
 
     const supabase = getSupabaseConfig()
