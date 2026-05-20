@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { ADMIN_SESSION_COOKIE, ADMIN_SESSION_TTL_SECONDS, createAdminSessionToken } from '@/lib/marketplace/auth'
+
 export async function POST(req: NextRequest) {
   let body: unknown
   try { body = await req.json() } catch {
@@ -17,12 +19,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
   }
 
+  const sessionToken = await createAdminSessionToken()
+  if (!sessionToken) {
+    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
+  }
+
   const res = NextResponse.json({ ok: true })
-  res.cookies.set('hv_admin_session', ADMIN_SECRET, {
+  res.cookies.set(ADMIN_SESSION_COOKIE, sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 8, // 8 hours
+    maxAge: ADMIN_SESSION_TTL_SECONDS,
     path: '/',
   })
   return res
@@ -30,6 +37,6 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true })
-  res.cookies.delete('hv_admin_session')
+  res.cookies.delete(ADMIN_SESSION_COOKIE)
   return res
 }
