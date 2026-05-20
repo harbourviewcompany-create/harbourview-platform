@@ -112,3 +112,5 @@ export function HarbourviewGlobeRouteController() {
     </div>
   )
 }
+
+export default HarbourviewGlobeRouteController
