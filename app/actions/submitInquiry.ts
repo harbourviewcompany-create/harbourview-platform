@@ -3,7 +3,7 @@
 import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, isOversized, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { getMaxMessageLength, isOversized, readField, validateClassifiedField } from '@/lib/marketplace/intakeSafety';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
@@ -142,7 +142,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const emailValidation = validateFieldAgainstPolicy(email, FIELD_CLASSIFICATION_MATRIX.email);
+  const emailValidation = validateClassifiedField('email', email);
   if (!emailValidation.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_EMAIL');
     return {
@@ -151,7 +151,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const phoneValidation = validateFieldAgainstPolicy(phone, FIELD_CLASSIFICATION_MATRIX.phone);
+  const phoneValidation = validateClassifiedField('phone', phone);
   if (!phoneValidation.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
     return {
@@ -160,8 +160,8 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const companyValidation = validateFieldAgainstPolicy(company, FIELD_CLASSIFICATION_MATRIX.company);
-  const messageValidation = validateFieldAgainstPolicy(message, FIELD_CLASSIFICATION_MATRIX.message);
+  const companyValidation = validateClassifiedField('company', company);
+  const messageValidation = validateClassifiedField('message', message);
 
   if (!companyValidation.valid || !messageValidation.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');

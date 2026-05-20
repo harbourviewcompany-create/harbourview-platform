@@ -1,7 +1,7 @@
 'use server';
 
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, isOversized, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { getMaxMessageLength, isOversized, readField, validateClassifiedField } from '@/lib/marketplace/intakeSafety';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
@@ -159,7 +159,7 @@ export async function submitQuoteRequest(
     };
   }
 
-  const emailValidation = validateFieldAgainstPolicy(email, FIELD_CLASSIFICATION_MATRIX.email);
+  const emailValidation = validateClassifiedField('email', email);
   if (!emailValidation.valid) {
     logQuoteDiagnostic('QUOTE_VALIDATION_EMAIL');
     return {
@@ -168,7 +168,7 @@ export async function submitQuoteRequest(
     };
   }
 
-  const phoneValidation = validateFieldAgainstPolicy(phone, FIELD_CLASSIFICATION_MATRIX.phone);
+  const phoneValidation = validateClassifiedField('phone', phone);
   if (!phoneValidation.valid) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
@@ -177,18 +177,10 @@ export async function submitQuoteRequest(
     };
   }
 
-  const companyValidation = validateFieldAgainstPolicy(company, FIELD_CLASSIFICATION_MATRIX.company);
-  const requirementsValidation = validateFieldAgainstPolicy(requirements, FIELD_CLASSIFICATION_MATRIX.requirements);
+  const companyValidation = validateClassifiedField('company', company);
+  const requirementsValidation = validateClassifiedField('requirements', requirements);
 
   if (!companyValidation.valid || !requirementsValidation.valid) {
-    logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
-    return {
-      status: 'error',
-      message: withCode('Please remove links or markup and submit plain text.', 'QUOTE_VALIDATION_UNSAFE_CONTENT'),
-    };
-  }
-
-  if ([name, buyerType, targetMarket, volume, timeline, budget, supplierPreference].some((field) => field && /(<\/?[a-z]|https?:\/\/|www\.)/i.test(field))) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',

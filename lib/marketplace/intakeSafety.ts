@@ -13,6 +13,8 @@ type IntakeFieldClassification = {
   maxLength?: number;
 };
 
+export type IntakeFieldName = keyof typeof FIELD_CLASSIFICATION_MATRIX;
+
 export const FIELD_CLASSIFICATION_MATRIX = {
   email: { policy: 'strict_format', format: 'email', maxLength: MAX_TEXT_LENGTH },
   phone: { policy: 'strict_format', format: 'phone', maxLength: MAX_TEXT_LENGTH },
@@ -64,6 +66,13 @@ export function validateFieldAgainstPolicy(
   }
 
   return isUnsafeFreeText(value) ? { valid: false, reason: 'unsafe_tokens' } : { valid: true };
+}
+
+export function validateClassifiedField(
+  field: IntakeFieldName,
+  value: string,
+): { valid: boolean; reason?: 'invalid_format' | 'oversized' | 'unsafe_tokens' } {
+  return validateFieldAgainstPolicy(value, FIELD_CLASSIFICATION_MATRIX[field]);
 }
 
 export function getMaxMessageLength() {

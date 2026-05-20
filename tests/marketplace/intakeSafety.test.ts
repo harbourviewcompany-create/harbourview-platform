@@ -1,44 +1,52 @@
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_CLASSIFICATION_MATRIX, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { FIELD_CLASSIFICATION_MATRIX, validateClassifiedField } from '@/lib/marketplace/intakeSafety';
 
 describe('FIELD_CLASSIFICATION_MATRIX policies', () => {
+  it('documents expected policy classification per field', () => {
+    expect(FIELD_CLASSIFICATION_MATRIX.email.policy).toBe('strict_format');
+    expect(FIELD_CLASSIFICATION_MATRIX.phone.policy).toBe('strict_format');
+    expect(FIELD_CLASSIFICATION_MATRIX.company.policy).toBe('plain_text_unsafe_token_rejection');
+    expect(FIELD_CLASSIFICATION_MATRIX.message.policy).toBe('plain_text_unsafe_token_rejection');
+    expect(FIELD_CLASSIFICATION_MATRIX.requirements.policy).toBe('optional_plain_text');
+  });
+
   it('accepts and rejects email under strict format policy', () => {
-    expect(validateFieldAgainstPolicy('ops@harbourview.com', FIELD_CLASSIFICATION_MATRIX.email)).toEqual({ valid: true });
-    expect(validateFieldAgainstPolicy('ops-at-harbourview.com', FIELD_CLASSIFICATION_MATRIX.email)).toEqual({
+    expect(validateClassifiedField('email', 'ops@harbourview.com')).toEqual({ valid: true });
+    expect(validateClassifiedField('email', 'ops-at-harbourview.com')).toEqual({
       valid: false,
       reason: 'invalid_format',
     });
   });
 
   it('accepts and rejects phone under strict format policy', () => {
-    expect(validateFieldAgainstPolicy('+1 (613) 555-1234', FIELD_CLASSIFICATION_MATRIX.phone)).toEqual({ valid: true });
-    expect(validateFieldAgainstPolicy('call-me-maybe', FIELD_CLASSIFICATION_MATRIX.phone)).toEqual({
+    expect(validateClassifiedField('phone', '+1 (613) 555-1234')).toEqual({ valid: true });
+    expect(validateClassifiedField('phone', 'call-me-maybe')).toEqual({
       valid: false,
       reason: 'invalid_format',
     });
   });
 
   it('rejects unsafe tokens for company plain text policy', () => {
-    expect(validateFieldAgainstPolicy('Harbourview Capital', FIELD_CLASSIFICATION_MATRIX.company)).toEqual({ valid: true });
-    expect(validateFieldAgainstPolicy('Harbourview <b>Capital</b>', FIELD_CLASSIFICATION_MATRIX.company)).toEqual({
+    expect(validateClassifiedField('company', 'Harbourview Capital')).toEqual({ valid: true });
+    expect(validateClassifiedField('company', 'Harbourview <b>Capital</b>')).toEqual({
       valid: false,
       reason: 'unsafe_tokens',
     });
   });
 
   it('rejects unsafe tokens for message plain text policy', () => {
-    expect(validateFieldAgainstPolicy('Please verify this listing and advise next steps.', FIELD_CLASSIFICATION_MATRIX.message)).toEqual({ valid: true });
-    expect(validateFieldAgainstPolicy('Please review https://example.com now.', FIELD_CLASSIFICATION_MATRIX.message)).toEqual({
+    expect(validateClassifiedField('message', 'Please verify this listing and advise next steps.')).toEqual({ valid: true });
+    expect(validateClassifiedField('message', 'Please review https://example.com now.')).toEqual({
       valid: false,
       reason: 'unsafe_tokens',
     });
   });
 
   it('supports optional plain text policy for requirements', () => {
-    expect(validateFieldAgainstPolicy('', FIELD_CLASSIFICATION_MATRIX.requirements)).toEqual({ valid: true });
-    expect(validateFieldAgainstPolicy('Need GMP-capable supplier in Ontario.', FIELD_CLASSIFICATION_MATRIX.requirements)).toEqual({ valid: true });
-    expect(validateFieldAgainstPolicy('Need details at www.example.com', FIELD_CLASSIFICATION_MATRIX.requirements)).toEqual({
+    expect(validateClassifiedField('requirements', '')).toEqual({ valid: true });
+    expect(validateClassifiedField('requirements', 'Need GMP-capable supplier in Ontario.')).toEqual({ valid: true });
+    expect(validateClassifiedField('requirements', 'Need details at www.example.com')).toEqual({
       valid: false,
       reason: 'unsafe_tokens',
     });
