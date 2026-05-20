@@ -46,7 +46,8 @@
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "test:globe-router": "vitest run tests/globe-router/routeState.test.ts",
-    "test:globe-router:browser": "BASE_URL=http://127.0.0.1:3000 node scripts/test-globe-router-browser.mjs"
+    "test:globe-router:browser": "BASE_URL=http://127.0.0.1:3000 node scripts/test-globe-router-browser.mjs",
+    "test:public-copy-dedup": "node scripts/test-public-copy-dedup.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",

@@ -1,3 +1,5 @@
+import { MARKETPLACE_CONFIDENTIALITY_INTRO_CAVEAT } from '@/lib/content/complianceCopy'
+
 export type ListingStatus =
   | 'draft'
   | 'submitted'
@@ -115,7 +117,7 @@ export const marketplaceListings: MarketplaceListing[] = [
     description: 'Unbranded stand-up pouch formats for regulated retail packaging programs. Suitable for buyers evaluating neutral pouch supply, exit-bag style requirements or packaging continuity options.',
     tags: ['Mylar', 'Pouches', 'Retail packaging', 'Unbranded'],
     reviewStatus: 'Published for supplier-discovery and buyer-interest validation.',
-    confidentialityNote: 'Harbourview may manage introductions and qualification before any supplier identity or commercial terms are disclosed.',
+    confidentialityNote: `${MARKETPLACE_CONFIDENTIALITY_INTRO_CAVEAT} Supplier identity or commercial terms are disclosed only after review.`,
   },
   {
     id: 'lst-cartons-001',
@@ -149,7 +151,7 @@ export const marketplaceListings: MarketplaceListing[] = [
     description: 'Generic facility consumables for clean production settings, including gloves, wipes and handling materials. Intended for qualified commercial procurement discussions only.',
     tags: ['Consumables', 'Production', 'Sanitation', 'Procurement'],
     reviewStatus: 'Demo-published marketplace record for intake and supplier-response testing.',
-    confidentialityNote: 'Harbourview reviews buyer context before facilitating any introduction or supply discussion.',
+    confidentialityNote: `${MARKETPLACE_CONFIDENTIALITY_INTRO_CAVEAT} Buyer context is reviewed before any supply discussion.`,
   },
   {
     id: 'lst-vape-packaging-001',

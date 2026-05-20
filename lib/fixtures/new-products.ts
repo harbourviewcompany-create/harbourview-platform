@@ -1,3 +1,4 @@
+import { GENERIC_PUBLIC_DISCLAIMER } from '@/lib/content/complianceCopy'
 import type { NewProductListing } from './types'
 
 export const newProducts: NewProductListing[] = [
@@ -19,7 +20,7 @@ export const newProducts: NewProductListing[] = [
     category: 'new-products',
     title: 'Full-Spectrum LED Cultivation Fixtures — 100-Unit Commercial Facility Review',
     description:
-      'New full-spectrum LED cultivation fixtures available for licensed cultivators and controlled-environment facility operators reviewing a 100-unit minimum order. Fixture specification, certification documentation, installation requirements and commercial volume pricing are confirmed through Harbourview inquiry. Public summary is for orientation only and does not guarantee availability or supplier acceptance.',
+      `New full-spectrum LED cultivation fixtures available for licensed cultivators and controlled-environment facility operators reviewing a 100-unit minimum order. Fixture specification, certification documentation, installation requirements and commercial volume pricing are confirmed through Harbourview inquiry. ${GENERIC_PUBLIC_DISCLAIMER} Supplier acceptance remains subject to review.`,
     price: 'Price on request',
     vendor: 'Available on inquiry',
     condition: 'new',

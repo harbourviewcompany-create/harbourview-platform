@@ -128,3 +128,10 @@ Preserve keyboard navigation, visible focus states, contrast, descriptive button
 ## Completion criteria
 
 A design change is complete only when it follows this palette/tone/hierarchy, names components changed, records screenshots or precise visual evidence, preserves accessibility basics and does not invent market intelligence.
+
+
+## Canonical Compliance Copy Ownership
+
+- Canonical public compliance/disclaimer/gating copy is owned in `lib/content/complianceCopy.ts`.
+- Route modules should import these constants and only add thin route-specific wrappers (for example short prefixes/suffixes via template literals).
+- Do not reintroduce raw canonical phrases in route or fixture files; use `npm run test:public-copy-dedup` to enforce this rule.

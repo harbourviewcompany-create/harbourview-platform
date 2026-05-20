@@ -8,6 +8,7 @@ import {
   SectionHeader,
 } from '@/components/PublicUi'
 import { marketplaceCategoryCapabilityMap } from '@/lib/marketplace/categoryCapabilityMap'
+import { MARKETPLACE_CONFIDENTIALITY_INTRO_CAVEAT } from '@/lib/content/complianceCopy'
 
 export const metadata: Metadata = {
   title: 'Network | Harbourview',
@@ -55,7 +56,7 @@ export default function MarketplacePage() {
           Harbourview Network connects qualified participants through reviewed opportunities, wanted requests, qualified introductions, commercial intelligence and relationship-led market access.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
-          Contact details are private, inquiries are reviewed before routing and submissions do not guarantee introductions, availability, transaction terms or regulatory outcomes.
+          {`${MARKETPLACE_CONFIDENTIALITY_INTRO_CAVEAT} Submissions do not guarantee availability, transaction terms or regulatory outcomes.`}
         </p>
       </PublicHero>
 

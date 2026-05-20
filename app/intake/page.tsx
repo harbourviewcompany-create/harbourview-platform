@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
+import { GENERIC_PUBLIC_DISCLAIMER, INTAKE_REVIEW_GATING_COPY } from '@/lib/content/complianceCopy'
 import ConfidentialIntakeForm from './ConfidentialIntakeForm'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,7 @@ export default function IntakePage() {
               Reviewed handling
             </p>
             <p className="text-sm leading-7 text-white/58">
-              Intake submissions are reviewed before follow-up, counterparty routing, commercial disclosure or any protected access discussion.
+              {INTAKE_REVIEW_GATING_COPY}
             </p>
           </PublicCard>
         }
@@ -62,7 +63,7 @@ export default function IntakePage() {
                 Public boundary
               </p>
               <p className="text-sm leading-7 text-white/56">
-                Submission does not guarantee a response, buyer, seller, route, transaction or introduction. For non-sensitive questions, use the contact page.
+                {`Submission does not guarantee a response, buyer, seller, route, transaction or introduction. ${GENERIC_PUBLIC_DISCLAIMER} For non-sensitive questions, use the contact page.`}
               </p>
               <Link href="/contact" className="mt-5 inline-flex text-xs font-semibold uppercase tracking-[0.18em] text-gold hover:text-gold-light">
                 Contact Harbourview

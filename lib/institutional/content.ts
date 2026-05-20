@@ -1,3 +1,5 @@
+import { PUBLIC_PRIVATE_BOUNDARY_COPY } from '@/lib/content/complianceCopy'
+
 export type ModuleItem = {
   title: string
   description: string
@@ -19,8 +21,7 @@ export type InstitutionalPageContent = {
   boundary?: string
 }
 
-export const PUBLIC_PRIVATE_BOUNDARY =
-  'Harbourview is intentionally not an open-contact directory. Public pages support discovery and context. Sensitive commercial, regulatory, documentary and counterparty information is handled through reviewed private workflows.'
+export const PUBLIC_PRIVATE_BOUNDARY = PUBLIC_PRIVATE_BOUNDARY_COPY
 
 export const EDUCATION_DISCLAIMER =
   'Harbourview education is informational and non-promotional. It does not provide medical advice, prescribing instructions or treatment recommendations. Unless expressly stated, Harbourview education is not accredited continuing education.'
