@@ -3,14 +3,14 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
-import { naturalEarthFixturePayload } from '@/data/globe/natural-earth-fixture'
+import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryFocusPose, type GlobeCameraPose } from '@/lib/globe/camera-focus'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 
 function findCountryPose(countryIso2?: string): GlobeCameraPose | null {
   if (!countryIso2) return null
 
-  const country = naturalEarthFixturePayload.countries.find((candidate) => candidate.iso2 === countryIso2)
+  const country = naturalEarthCountriesPayload.countries.find((candidate) => candidate.iso2 === countryIso2)
 
   if (!country) return null
 
