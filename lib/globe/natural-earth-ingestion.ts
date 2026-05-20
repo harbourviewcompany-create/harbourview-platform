@@ -68,7 +68,7 @@ export function transformNaturalEarthCountries(
   const countries: HarbourviewCountryGeometry[] = collection.features.map((feature) => {
     const polygons = flattenPolygonCoordinates(feature.geometry.coordinates).map((polygon) => ({
       rings: polygon.map((ring, index) => ({
-        kind: index === 0 ? 'outer' : 'hole',
+        kind: index === 0 ? ('outer' as const) : ('hole' as const),
         points: ring.map((point) => [point[0], point[1]] as [number, number]),
       })),
     }))
