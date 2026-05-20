@@ -6,73 +6,73 @@ const qaRegistry = [
     id: 'test:visibility',
     purpose: 'Verify public provenance visibility and business opportunities leakage protections.',
     category: 'public-surface',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:services-public-leakage',
     purpose: 'Ensure service listings do not leak non-public fields.',
     category: 'public-surface',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:used-surplus-public-leakage',
     purpose: 'Verify used/surplus pages only expose allowlisted public fields.',
     category: 'public-surface',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:intelligence-globe-leakage',
     purpose: 'Prevent intelligence globe data leaks to public routes.',
     category: 'public-surface',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:compliance-visibility',
     purpose: 'Check compliance pages show expected public content labels and guards.',
     category: 'compliance',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:regulatory-signals-contract',
     purpose: 'Validate regulatory signals contract shape and stability.',
     category: 'compliance',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:regulatory-signals-public-leakage',
     purpose: 'Verify regulatory signals public responses do not leak sensitive fields.',
     category: 'compliance',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:admin-guard',
     purpose: 'Confirm admin route and role guards enforce access control boundaries.',
     category: 'security',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:intake-workflow-safety',
     purpose: 'Validate intake workflow safety and non-public workflow protections.',
     category: 'security',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'test:full-scope-launch-readiness',
     purpose: 'Run consolidated marketplace/full-scope readiness checks.',
     category: 'marketplace',
-    requiredContext: 'Node.js runtime and local repository checkout.',
+    requiredEnvContext: 'Node.js runtime and local repository checkout.',
   },
   {
     id: 'smoke:marketplace',
     purpose: 'Run marketplace smoke tests for inquiry entry points.',
     category: 'marketplace',
-    requiredContext: 'Requires marketplace smoke environment variables and Supabase connectivity.',
+    requiredEnvContext: 'Requires marketplace smoke environment variables and Supabase connectivity.',
   },
   {
     id: 'smoke:marketplace:rls',
     purpose: 'Verify marketplace RLS constraints under smoke conditions.',
     category: 'marketplace',
-    requiredContext: 'Requires marketplace smoke environment variables and Supabase connectivity.',
+    requiredEnvContext: 'Requires marketplace smoke environment variables and Supabase connectivity.',
   },
 ]
 
@@ -83,9 +83,14 @@ const bundleDefinitions = {
   smoke: () => qaRegistry.filter((entry) => ['marketplace', 'security'].includes(entry.category)),
 }
 
-function selectEntries(argv) {
+function parseSelection(argv) {
   const bundleFlag = argv.find((arg) => arg.startsWith('--bundle='))
   const idsFlag = argv.find((arg) => arg.startsWith('--ids='))
+
+  if (bundleFlag && idsFlag) {
+    console.error('Use either --bundle or --ids, not both.')
+    process.exit(2)
+  }
 
   if (bundleFlag) {
     const bundle = bundleFlag.split('=')[1]
@@ -94,7 +99,7 @@ function selectEntries(argv) {
       console.error(`Unknown bundle: ${bundle}`)
       process.exit(2)
     }
-    return selector()
+    return selector().slice().sort((a, b) => a.id.localeCompare(b.id))
   }
 
   if (idsFlag) {
@@ -106,19 +111,20 @@ function selectEntries(argv) {
 
     const selected = ids.map((id) => qaRegistry.find((entry) => entry.id === id)).filter(Boolean)
     if (selected.length !== ids.length) {
-      const knownIds = qaRegistry.map((entry) => entry.id).join(', ')
+      const knownIds = qaRegistry.map((entry) => entry.id).sort().join(', ')
       console.error(`Unknown id in --ids list. Known ids: ${knownIds}`)
       process.exit(2)
     }
-    return selected
+    return selected.slice().sort((a, b) => a.id.localeCompare(b.id))
   }
 
-  return qaRegistry
+  return qaRegistry.slice().sort((a, b) => a.id.localeCompare(b.id))
 }
 
 function runEntries(entries) {
   const results = []
   for (const entry of entries) {
+    console.log(`\n=== RUN ${entry.id} [${entry.category}] ===`)
     const result = spawnSync('npm', ['run', entry.id], {
       stdio: 'inherit',
       shell: process.platform === 'win32',
@@ -127,13 +133,9 @@ function runEntries(entries) {
     results.push({ id: entry.id, category: entry.category, status: result.status === 0 ? 'PASS' : 'FAIL' })
   }
 
-  const summary = results
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map((result) => `${result.status} ${result.id} [${result.category}]`)
-
   console.log('\nQA SUMMARY')
-  for (const line of summary) {
-    console.log(line)
+  for (const result of results) {
+    console.log(`${result.status} ${result.id} [${result.category}]`)
   }
 
   const failureCount = results.filter((result) => result.status === 'FAIL').length
@@ -145,9 +147,9 @@ function runEntries(entries) {
 }
 
 if (process.argv.includes('--list')) {
-  console.log(JSON.stringify(qaRegistry, null, 2))
+  console.log(JSON.stringify(qaRegistry.slice().sort((a, b) => a.id.localeCompare(b.id)), null, 2))
   process.exit(0)
 }
 
-const selectedEntries = selectEntries(process.argv.slice(2))
+const selectedEntries = parseSelection(process.argv.slice(2))
 runEntries(selectedEntries)
