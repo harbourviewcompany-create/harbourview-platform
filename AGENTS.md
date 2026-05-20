@@ -135,3 +135,11 @@ Related controls:
 - `docs/control/AGENT_PERMISSIONS.md`
 - `docs/control/AI_CHAT_ROUTE_ENV.md`
 - `docs/control/DEPLOYMENT_INTEGRATION_CONTROL.md`
+
+
+## Additional Operational Cross-Links
+- `docs/control/VERIFICATION_PLAN.md`
+- `docs/control/PRODUCTION_RUNTIME_VERIFICATION.md`
+- `docs/control/DEPLOYMENT_RUNBOOK.md`
+- `docs/control/PRODUCTION_PROMOTION_RUNBOOK.md`
+
