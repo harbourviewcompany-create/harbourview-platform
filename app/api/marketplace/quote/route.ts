@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 import { quoteSubmissionSchema } from '@/lib/marketplace/intakeValidation'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const MAX_MESSAGE_LENGTH = 2500
+const ROUTE_ID = '/api/marketplace/quote'
+const ABUSE_REJECTION_CODE = 'ABUSE_REJECTED'
 const MAX_TEXT_LENGTH = 180
 
 const VALID_BUYER_TYPES = new Set([
@@ -31,13 +34,15 @@ type QuoteDiagnosticCode =
   | 'QUOTE_SUPABASE_REQUEST_FAILED'
   | 'QUOTE_SUPABASE_INSERT_FAILED'
   | 'QUOTE_INTERNAL_ERROR'
+  | 'QUOTE_RATE_LIMITED'
+  | 'QUOTE_BOT_REJECTED'
   | 'QUOTE_OK'
 
-function withCode(message: string, code: QuoteDiagnosticCode) {
+function withCode(message: string, code: QuoteDiagnosticCode | typeof ABUSE_REJECTION_CODE) {
   return `${message} [${code}]`
 }
 
-function json(status: 'success' | 'error', message: string, httpStatus = 200) {
+function json(status: 'success' | 'error', message: string, httpStatus = 200, retryAfterSeconds?: number) {
   return NextResponse.json(
     { status, message },
     {
@@ -118,6 +123,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request)
+  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  if (!ipLimit.allowed) {
+    logQuoteDiagnostic('QUOTE_RATE_LIMITED', { ip, retryAfterSeconds: ipLimit.retryAfterSeconds })
+    return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, ipLimit.retryAfterSeconds)
+  }
+
   try {
     let body: Record<string, unknown>
 
@@ -137,6 +149,17 @@ export async function POST(request: Request) {
     }
 
     const listingTitle = parsed.data.listingTitle
+    if (parsed.data.hp_field?.trim()) {
+      logQuoteDiagnostic('QUOTE_BOT_REJECTED', { reason: 'honeypot', ip })
+      return json('error', withCode('Request rejected.', ABUSE_REJECTION_CODE), 429)
+    }
+
+    const expectedToken = process.env.MARKETPLACE_FORM_CHALLENGE_TOKEN
+    if (expectedToken && parsed.data.challenge_token !== expectedToken) {
+      logQuoteDiagnostic('QUOTE_BOT_REJECTED', { reason: 'challenge', ip })
+      return json('error', withCode('Request rejected.', ABUSE_REJECTION_CODE), 429)
+    }
+
     const name = parsed.data.name
     const email = parsed.data.email
     const phone = parsed.data.phone
@@ -210,6 +233,12 @@ export async function POST(request: Request) {
     if (message.length > MAX_MESSAGE_LENGTH) {
       logQuoteDiagnostic('QUOTE_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length })
       return json('error', withCode('Please keep the quote request under 2,500 characters.', 'QUOTE_VALIDATION_MESSAGE_LENGTH'), 400)
+    }
+
+    const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
+    if (!identityLimit.allowed) {
+      logQuoteDiagnostic('QUOTE_RATE_LIMITED', { ip, retryAfterSeconds: identityLimit.retryAfterSeconds, hasEmail: true })
+      return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, identityLimit.retryAfterSeconds)
     }
 
     const supabase = getSupabaseConfig()

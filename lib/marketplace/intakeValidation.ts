@@ -14,6 +14,11 @@ export const captureInquiryTypeSchema = z.enum([
   'sourcing_mandate',
 ])
 
+const botFrictionFields = {
+  hp_field: z.string().optional().default(''),
+  challenge_token: z.string().optional().default(''),
+}
+
 export const marketplaceCaptureSchema = z.object({
   contact_name: shortText(220).min(1),
   contact_email: emailSchema,
@@ -22,6 +27,7 @@ export const marketplaceCaptureSchema = z.object({
   inquiry_type: captureInquiryTypeSchema,
   message: z.string().trim().min(1).max(3500),
   success_message: z.string().trim().max(220).optional(),
+  ...botFrictionFields,
 })
 
 export const listingSubmissionSchema = z.object({
@@ -41,6 +47,7 @@ export const listingSubmissionSchema = z.object({
   price: shortText(220).optional().default(''),
   location: shortText(220).optional().default(''),
   description: z.string().trim().min(1).max(2600),
+  ...botFrictionFields,
 })
 
 export const quoteSubmissionSchema = z.object({
@@ -56,6 +63,7 @@ export const quoteSubmissionSchema = z.object({
   budget: shortText(180).optional().default(''),
   supplierPreference: shortText(180).optional().default(''),
   requirements: z.string().trim().max(1800).optional().default(''),
+  ...botFrictionFields,
 })
 
 export type MarketplaceCaptureInput = z.infer<typeof marketplaceCaptureSchema>
