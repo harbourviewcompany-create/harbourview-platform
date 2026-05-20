@@ -8,11 +8,25 @@ export interface ScraperSource {
   id: string
   name: string
   url: string
-  category: 'used-surplus'
+  category: 'used-surplus' | 'processing-inputs'
   parserType: ScraperParserType
   status: ScraperSourceStatus
   cadenceHours: number
   notes?: string
+}
+
+export interface ScrapedProcessingInputCandidate {
+  sourceId: string
+  sourceName: string
+  sourceUrl: string
+  title: string
+  summary: string
+  category: 'packaging' | 'lab' | 'cultivation' | 'logistics'
+  pricingModel?: 'quote-based' | 'catalog' | 'market-indexed'
+  region?: string
+  tags: string[]
+  discoveredAt: string
+  confidence: number
 }
 
 export interface ScrapedListingCandidate {
@@ -39,3 +53,14 @@ export interface ScrapeResult {
 }
 
 export type PublicUsedSurplusProjection = Omit<UsedSurplusListing, 'contactEmail'>
+
+export interface PublicProcessingInputProjection {
+  id: string
+  title: string
+  summary: string
+  category: 'packaging' | 'lab' | 'cultivation' | 'logistics'
+  pricingModel: 'quote-based' | 'catalog' | 'market-indexed'
+  region: string
+  tags: string[]
+  postedDate: string
+}

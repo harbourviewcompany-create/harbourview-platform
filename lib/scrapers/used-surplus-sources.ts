@@ -32,3 +32,26 @@ export const usedSurplusSources: ScraperSource[] = [
     notes: 'Marketplace aggregation source requiring parser validation.',
   },
 ]
+
+export const processingInputSources: ScraperSource[] = [
+  {
+    id: 'packaging-index-network',
+    name: 'Packaging Index Network',
+    url: 'https://example.com/packaging-index-network',
+    category: 'processing-inputs',
+    parserType: 'manual-html',
+    status: 'needs-review',
+    cadenceHours: 24,
+    notes: 'Aggregated packaging input opportunities and quote-based supplier programs.',
+  },
+  {
+    id: 'lab-consumables-exchange',
+    name: 'Lab Consumables Exchange',
+    url: 'https://example.com/lab-consumables-exchange',
+    category: 'processing-inputs',
+    parserType: 'html-card',
+    status: 'needs-review',
+    cadenceHours: 24,
+    notes: 'Quality-control and lab consumables availability snapshots.',
+  },
+]
