@@ -21,4 +21,23 @@ describe('getSupabaseEnvStatus', () => {
       hasPublishableKey: false,
     })
   })
+
+  it('keeps missing/configured deterministic for malformed URL with no keys', () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = '://bad-url'
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+    expect(() => getSupabaseEnvStatus()).not.toThrow()
+
+    const status = getSupabaseEnvStatus()
+    expect(status).toMatchObject({
+      configured: false,
+      missing: ['NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'],
+      host: null,
+      urlUsesExpectedProject: false,
+      hasUrl: true,
+      hasAnonKey: false,
+      hasPublishableKey: false,
+    })
+  })
 })
