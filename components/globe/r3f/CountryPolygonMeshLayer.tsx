@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { naturalEarthFixturePayload } from '@/data/globe/natural-earth-fixture'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
@@ -33,6 +33,12 @@ export function CountryPolygonMeshLayer({
       })),
     [selectedCountryIso2, selectedCountryIso2s],
   )
+
+  useEffect(() => {
+    return () => {
+      countryGeometries.forEach(({ geometry }) => geometry.dispose())
+    }
+  }, [countryGeometries])
 
   return (
     <group userData={{ layer: 'country-polygon-meshes' }}>

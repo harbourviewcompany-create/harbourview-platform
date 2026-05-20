@@ -30,8 +30,8 @@ export function HarbourviewSovereignPlateGlobe({
   selectedCountryIso2s: string[]
   focusedCountryIso2?: string
   activeLayerId?: GlobeLayerId
-  onFocusCountry: (countryIso2?: string) => void
-  onSelectCountry: (countryIso2: string) => void
+  onFocusCountry?: (countryIso2?: string) => void
+  onSelectCountry?: (countryIso2: string) => void
 }) {
   return (
     <div

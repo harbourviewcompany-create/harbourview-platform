@@ -21,6 +21,8 @@ export function CameraFlyToController({ selectedCountryIso2 }: { selectedCountry
   const { camera } = useThree()
   const targetRef = useRef(new Vector3(...GLOBE_CAMERA_CONFIG.initialTarget))
   const poseRef = useRef<GlobeCameraPose | null>(null)
+  const nextPositionRef = useRef(new Vector3())
+  const nextTargetRef = useRef(new Vector3())
 
   useEffect(() => {
     poseRef.current = findCountryPose(selectedCountryIso2)
@@ -31,11 +33,11 @@ export function CameraFlyToController({ selectedCountryIso2 }: { selectedCountry
 
     if (!pose) return
 
-    const nextPosition = new Vector3(...pose.position)
-    const nextTarget = new Vector3(...pose.target)
+    nextPositionRef.current.set(pose.position[0], pose.position[1], pose.position[2])
+    nextTargetRef.current.set(pose.target[0], pose.target[1], pose.target[2])
 
-    camera.position.lerp(nextPosition, 0.035)
-    targetRef.current.lerp(nextTarget, 0.035)
+    camera.position.lerp(nextPositionRef.current, 0.035)
+    targetRef.current.lerp(nextTargetRef.current, 0.035)
     camera.lookAt(targetRef.current)
     camera.updateProjectionMatrix()
   })
