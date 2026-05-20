@@ -93,6 +93,11 @@ jobs:
       - name: Visibility
         run: npm run test:visibility
 
+      - name: Production visibility probe safe no writes
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+        run: npm run probe:production-visibility
+
   contact-production-visual:
     name: Contact production visual verification
     if: github.event_name == 'workflow_dispatch'
