@@ -38,3 +38,8 @@ Include a short note in your PR validation results indicating whether `docs/cont
 - Do not weaken admin role protections or bypass auth checks on `/admin` routes.
 - Keep public positioning consistent with: **"Market access backed by intelligence and relationships."**
 - Keep contact fallback aligned to `harbourviewcompany@gmail.com` unless verified governance docs and implementation are updated together.
+
+## Build Targets
+
+- **Local / Node build path:** Use `npm run build` for standard local Next.js/Node build validation.
+- **Cloudflare / OpenNext build path:** Use `npm run preview`, `npm run deploy`, and `npm run upload` for the Cloudflare runtime packaging, preview, and deployment pipeline.
