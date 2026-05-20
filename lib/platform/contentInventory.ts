@@ -1,0 +1,340 @@
+import type { CapabilityCriticality, CapabilityStatus, CapabilityVisibility, ReviewSensitivity } from './contentStatus'
+
+export type ContentInventoryPillar =
+  | 'brand'
+  | 'education'
+  | 'medical'
+  | 'regulatory'
+  | 'quality'
+  | 'marketplace'
+  | 'services'
+  | 'intelligence'
+  | 'signals'
+  | 'trust'
+  | 'legal'
+  | 'admin'
+
+export type ContentInventorySourceBasis =
+  | 'official-source-required'
+  | 'counterparty-claimed'
+  | 'admin-reviewed'
+  | 'static-orientation'
+  | 'fixture-backed'
+  | 'not-source-backed'
+  | 'not-applicable'
+
+export type ContentInventoryItem = {
+  id: string
+  route: string
+  title: string
+  pillar: ContentInventoryPillar
+  sensitivity: ReviewSensitivity
+  visibility: CapabilityVisibility
+  criticality: CapabilityCriticality
+  status: CapabilityStatus
+  sourceBasis: ContentInventorySourceBasis
+  reviewerRequired: boolean
+  lastReviewed?: string
+  nextReviewDue?: string
+  relatedCapabilityIds: string[]
+  falseGoRisk: string
+}
+
+export const contentInventory: ContentInventoryItem[] = [
+  {
+    id: 'homepage',
+    route: '/',
+    title: 'Harbourview homepage',
+    pillar: 'brand',
+    sensitivity: 'standard',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'not-applicable',
+    reviewerRequired: false,
+    relatedCapabilityIds: ['home-platform-spine', 'public-private-dto-boundary'],
+    falseGoRisk: 'Homepage can imply complete platform launch without downstream capability evidence.',
+  },
+  {
+    id: 'platform-map',
+    route: '/platform',
+    title: 'Platform map',
+    pillar: 'brand',
+    sensitivity: 'standard',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'static-orientation',
+    sourceBasis: 'static-orientation',
+    reviewerRequired: false,
+    relatedCapabilityIds: ['home-platform-spine'],
+    falseGoRisk: 'Platform map can imply all modules are operational instead of staged/static/request-routed.',
+  },
+  {
+    id: 'marketplace-hub',
+    route: '/marketplace',
+    title: 'Marketplace hub',
+    pillar: 'marketplace',
+    sensitivity: 'commercial',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'admin-reviewed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['marketplace-hub'],
+    falseGoRisk: 'Categories can be mistaken for live inventory or automatic transaction marketplace.',
+  },
+  {
+    id: 'marketplace-services',
+    route: '/marketplace/services',
+    title: 'Services',
+    pillar: 'services',
+    sensitivity: 'commercial',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'fallback-backed',
+    sourceBasis: 'fixture-backed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['marketplace-services', 'public-private-dto-boundary'],
+    falseGoRisk: 'Fallback service listings can be read as approved live providers.',
+  },
+  {
+    id: 'marketplace-listings',
+    route: '/marketplace/listings',
+    title: 'Reviewed listings',
+    pillar: 'marketplace',
+    sensitivity: 'commercial',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'admin-reviewed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['marketplace-listings', 'public-private-dto-boundary'],
+    falseGoRisk: 'Listings can leak private provenance, evidence, source, review or seller authorization fields.',
+  },
+  {
+    id: 'marketplace-wanted',
+    route: '/marketplace/wanted',
+    title: 'Wanted requests',
+    pillar: 'marketplace',
+    sensitivity: 'commercial',
+    visibility: 'mixed',
+    criticality: 'launch-critical',
+    status: 'request-only',
+    sourceBasis: 'counterparty-claimed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['marketplace-wanted'],
+    falseGoRisk: 'Wanted request route can imply public buyer board or automatic matching.',
+  },
+  {
+    id: 'marketplace-sell',
+    route: '/marketplace/sell',
+    title: 'Submit listing or opportunity',
+    pillar: 'marketplace',
+    sensitivity: 'commercial',
+    visibility: 'mixed',
+    criticality: 'launch-critical',
+    status: 'request-only',
+    sourceBasis: 'counterparty-claimed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['marketplace-sell'],
+    falseGoRisk: 'Submission can be interpreted as automatic publication or commercial acceptance.',
+  },
+  {
+    id: 'business-opportunities',
+    route: '/marketplace/business-opportunities',
+    title: 'Business opportunities',
+    pillar: 'marketplace',
+    sensitivity: 'counterparty',
+    visibility: 'mixed',
+    criticality: 'launch-critical',
+    status: 'request-only',
+    sourceBasis: 'counterparty-claimed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['marketplace-business-opportunities'],
+    falseGoRisk: 'Business opportunity route can imply public dealroom or public distressed-asset details.',
+  },
+  {
+    id: 'signals',
+    route: '/signals',
+    title: 'Regulatory signals',
+    pillar: 'signals',
+    sensitivity: 'intelligence',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'fallback-backed',
+    sourceBasis: 'fixture-backed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['signals-public', 'public-private-dto-boundary'],
+    falseGoRisk: 'Fallback signals can appear to be current live regulatory intelligence.',
+  },
+  {
+    id: 'compliance-hub',
+    route: '/compliance',
+    title: 'Compliance hub',
+    pillar: 'regulatory',
+    sensitivity: 'regulatory',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'official-source-required',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['compliance-hub'],
+    falseGoRisk: 'Compliance copy can be read as legal or regulator guidance without source-status labels.',
+  },
+  {
+    id: 'country-pathways',
+    route: '/compliance/country-pathways/[country]',
+    title: 'Compliance country pathways',
+    pillar: 'regulatory',
+    sensitivity: 'regulatory',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'draft-orientation',
+    sourceBasis: 'official-source-required',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['compliance-country-pathways'],
+    falseGoRisk: 'Generated country pages can appear jurisdiction-specific despite generic draft content.',
+  },
+  {
+    id: 'education-hub',
+    route: '/education',
+    title: 'Education hub',
+    pillar: 'education',
+    sensitivity: 'medical',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'static-orientation',
+    sourceBasis: 'static-orientation',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['education-hub', 'medical-cannabis-education', 'eu-gmp-education'],
+    falseGoRisk: 'Education hub can imply complete, accredited or professionally reviewed education system.',
+  },
+  {
+    id: 'clinical-education-hub',
+    route: '/network/clinical-education',
+    title: 'Clinical education hub',
+    pillar: 'medical',
+    sensitivity: 'clinical',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'official-source-required',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['clinical-education', 'medical-cannabis-education'],
+    falseGoRisk: 'Clinical education can be mistaken for medical advice, prescribing guidance or patient education.',
+  },
+  {
+    id: 'clinical-education-detail',
+    route: '/network/clinical-education/[slug]',
+    title: 'Clinical education module detail',
+    pillar: 'medical',
+    sensitivity: 'clinical',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'official-source-required',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['clinical-education'],
+    falseGoRisk: 'High-risk modules can appear published before professional review and source basis are available.',
+  },
+  {
+    id: 'intelligence-hub',
+    route: '/intelligence',
+    title: 'Intelligence hub',
+    pillar: 'intelligence',
+    sensitivity: 'intelligence',
+    visibility: 'mixed',
+    criticality: 'launch-critical',
+    status: 'static-orientation',
+    sourceBasis: 'static-orientation',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['intelligence-hub', 'source-methodology'],
+    falseGoRisk: 'Public intelligence copy can imply live analyst products and private evidence access.',
+  },
+  {
+    id: 'source-methodology',
+    route: '/source-methodology',
+    title: 'Source methodology',
+    pillar: 'trust',
+    sensitivity: 'intelligence',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'static-orientation',
+    sourceBasis: 'static-orientation',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['source-methodology'],
+    falseGoRisk: 'Source methodology can accidentally imply or expose raw source/evidence publication.',
+  },
+  {
+    id: 'trust-governance',
+    route: '/trust-governance',
+    title: 'Trust and governance',
+    pillar: 'trust',
+    sensitivity: 'legal',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'static-orientation',
+    sourceBasis: 'static-orientation',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['trust-governance', 'public-private-dto-boundary'],
+    falseGoRisk: 'Governance claims can be treated as proven controls without verification evidence.',
+  },
+  {
+    id: 'reviewed-connections',
+    route: '/reviewed-connections',
+    title: 'Reviewed connections',
+    pillar: 'marketplace',
+    sensitivity: 'counterparty',
+    visibility: 'mixed',
+    criticality: 'launch-critical',
+    status: 'request-only',
+    sourceBasis: 'counterparty-claimed',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['reviewed-connections'],
+    falseGoRisk: 'Reviewed connections can imply automatic introductions or live dealroom access.',
+  },
+  {
+    id: 'admin-dashboard',
+    route: '/admin',
+    title: 'Admin dashboard',
+    pillar: 'admin',
+    sensitivity: 'counterparty',
+    visibility: 'admin-only',
+    criticality: 'launch-critical',
+    status: 'admin-backed',
+    sourceBasis: 'not-applicable',
+    reviewerRequired: false,
+    relatedCapabilityIds: ['admin-dashboard', 'admin-role-guard'],
+    falseGoRisk: 'Admin route may be reachable or leak content without verified role guard.',
+  },
+  {
+    id: 'legal-privacy',
+    route: '/legal/privacy',
+    title: 'Privacy policy',
+    pillar: 'legal',
+    sensitivity: 'legal',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'not-applicable',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['legal-privacy'],
+    falseGoRisk: 'Public forms can collect submissions without adequate privacy context.',
+  },
+  {
+    id: 'legal-terms',
+    route: '/legal/terms',
+    title: 'Terms of use',
+    pillar: 'legal',
+    sensitivity: 'legal',
+    visibility: 'public',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'not-applicable',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['legal-terms'],
+    falseGoRisk: 'Marketplace and education use can proceed without clear platform-use boundaries.',
+  },
+]
+
+export const launchCriticalContentInventory = contentInventory.filter((item) => item.criticality === 'launch-critical')
