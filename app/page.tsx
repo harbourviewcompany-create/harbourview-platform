@@ -1,8 +1,9 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
-import GlobeRouteController from '@/components/harbourview/globe/GlobeRouteController'
+import HarbourviewGlobeRouteController from '@/components/harbourview/globe/HarbourviewGlobeRouteController'
 import { PublicCard, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -120,7 +121,7 @@ export default function HomePage() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_22%,rgba(198,165,90,0.18),transparent_34%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
         <HarbourviewGlobeClientLoader />
         <Suspense fallback={null}>
-          <GlobeRouteController />
+          <HarbourviewGlobeRouteController />
         </Suspense>
 
         <div className="page-container relative z-10">
@@ -159,9 +160,9 @@ export default function HomePage() {
       <PublicSection id="platform-map" tone="navy">
         <SectionHeader
           eyebrow="Full-platform map"
-          title="The public site now routes into every major Harbourview pillar."
+          title="The public site routes into every major Harbourview pillar."
         >
-          HAR-37 establishes the visible skeleton. Later tickets deepen marketplace categories, intelligence surfaces, education, governance, visual polish and deployment proof without shrinking the platform universe.
+          Explore Harbourview by role, market, commercial intent, source methodology, education, governance and reviewed connection pathways while sensitive evidence and counterparty detail remain protected.
         </SectionHeader>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">

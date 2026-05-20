@@ -31,61 +31,67 @@
   transition: opacity 900ms ease;
 }
 
-.shellReady .fallback {
-  opacity: 0.18;
+.shellReady .fallback { opacity: 0.18; }
+.shellReady .canvasLayer { opacity: 0.98; }
+.webglCanvas { display: block; }
+
+.routeShell {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-.shellReady .canvasLayer {
-  opacity: 0.98;
+.routePanel {
+  position: absolute;
+  right: clamp(1rem, 4vw, 4rem);
+  bottom: clamp(1rem, 4vw, 3rem);
+  width: min(430px, calc(100vw - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+  border: 1px solid rgba(198, 165, 90, 0.22);
+  background: linear-gradient(145deg, rgba(2, 8, 18, 0.86), rgba(11, 26, 47, 0.72));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.44);
+  backdrop-filter: blur(18px);
+  padding: 1rem;
+  pointer-events: auto;
 }
 
-.webglCanvas {
-  display: block;
-}
+.routeEyebrow, .controlLabel { margin: 0; color: rgba(198, 165, 90, 0.76); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
+.routeTitle { margin: 0.2rem 0 0; color: #f5f1e8; font-family: var(--font-serif, Georgia, serif); font-size: clamp(1.35rem, 2vw, 1.8rem); letter-spacing: -0.04em; }
+.routeDescription { margin: 0.25rem 0 0; color: rgba(255, 255, 255, 0.66); font-size: 0.82rem; line-height: 1.65; }
+.routeNotice { margin-top: 0.8rem; border: 1px solid rgba(198, 165, 90, 0.24); background: rgba(198, 165, 90, 0.1); color: rgba(245, 241, 232, 0.88); padding: 0.58rem 0.7rem; font-size: 0.74rem; line-height: 1.5; }
+.selectedContext { display: flex; flex-wrap: wrap; gap: 0.42rem; margin-top: 0.85rem; }
+.selectedContext span { border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.055); color: rgba(255, 255, 255, 0.72); padding: 0.3rem 0.45rem; font-size: 0.68rem; }
+.controlGroup, .routeActions, .routeLinkRow { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.9rem; }
+.controlGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 0.9rem; }
+.controlColumn { display: grid; gap: 0.4rem; align-content: start; }
+.routeButton, .routeButtonSecondary, .routeActionButton, .routeLink { min-height: 2.2rem; border: 1px solid rgba(198, 165, 90, 0.24); background: rgba(255, 255, 255, 0.045); color: rgba(255, 255, 255, 0.78); cursor: pointer; font-size: 0.72rem; line-height: 1.2; padding: 0.52rem 0.68rem; text-align: left; text-decoration: none; transition: border-color 160ms ease, background 160ms ease, color 160ms ease; }
+.routeButton:hover, .routeButtonSecondary:hover, .routeActionButton:hover, .routeLink:hover, .routeButton:focus-visible, .routeButtonSecondary:focus-visible, .routeActionButton:focus-visible, .routeLink:focus-visible, .routeButton[aria-pressed='true'], .routeButtonSecondary[aria-pressed='true'] { border-color: rgba(244, 214, 148, 0.68); background: rgba(198, 165, 90, 0.16); color: #f5f1e8; outline: none; }
+.routeActionButton { flex: 1 1 130px; }
+.routeLink { display: inline-flex; align-items: center; }
 
 @media (prefers-reduced-motion: reduce) {
-  .canvasLayer {
-    display: none;
-  }
-
-  .fallback {
-    opacity: 0.96;
-  }
+  .canvasLayer { display: none; }
+  .fallback { opacity: 0.96; }
 }
 
 @media (max-width: 1024px) {
-  .shell {
-    right: -50%;
-    top: 50%;
-    width: min(88vw, 420px);
-  }
+  .shell { right: -50%; top: 50%; width: min(88vw, 420px); }
+  .fallback { opacity: 0.42; filter: drop-shadow(0 0 52px rgba(0, 0, 0, 0.92)); }
+  .shellReady .fallback { opacity: 0.12; }
+  .shellReady .canvasLayer { opacity: 0.52; }
+  .routePanel { left: 1rem; right: 1rem; bottom: 1rem; width: auto; max-height: 54%; }
+}
 
-  .fallback {
-    opacity: 0.42;
-    filter: drop-shadow(0 0 52px rgba(0, 0, 0, 0.92));
-  }
-
-  .shellReady .fallback {
-    opacity: 0.12;
-  }
-
-  .shellReady .canvasLayer {
-    opacity: 0.52;
-  }
+@media (max-width: 640px) {
+  .controlGrid { grid-template-columns: 1fr; }
+  .routePanel { max-height: 58%; padding: 0.85rem; }
 }
 
 @media (max-width: 420px) {
-  .shell {
-    right: -58%;
-    top: 49%;
-    width: 98vw;
-  }
-
-  .fallback {
-    opacity: 0.38;
-  }
-
-  .shellReady .canvasLayer {
-    opacity: 0.48;
-  }
+  .shell { right: -58%; top: 49%; width: 98vw; }
+  .fallback { opacity: 0.38; }
+  .shellReady .canvasLayer { opacity: 0.48; }
 }

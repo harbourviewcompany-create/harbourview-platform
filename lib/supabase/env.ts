@@ -106,6 +106,15 @@ export function getSupabaseEnvStatus() {
       : '',
   ].filter(Boolean)
 
+
+  if (normalizedUrl && rawHost && rawHost !== EXPECTED_SUPABASE_HOST) {
+    console.warn('harbourview_supabase_host_mismatch', {
+      expectedHost: EXPECTED_SUPABASE_HOST,
+      providedHost: rawHost,
+      resolvedHost,
+    })
+  }
+
   if (url) {
     assertLockedSupabaseUrl(resolveLockedSupabaseUrl(url))
   }
