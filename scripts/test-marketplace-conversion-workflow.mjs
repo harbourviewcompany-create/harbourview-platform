@@ -6,7 +6,7 @@ const updateAction = readFileSync('app/actions/updateInquiryStatus.ts', 'utf8');
 const listPage = readFileSync('app/admin/(protected)/inquiries/page.tsx', 'utf8');
 const detailPage = readFileSync('app/admin/(protected)/inquiries/[id]/page.tsx', 'utf8');
 const workflowRoute = readFileSync('app/admin/(protected)/inquiries/[id]/workflow/route.ts', 'utf8');
-const migration = readFileSync('supabase/migrations/006_marketplace_conversion_v1.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20260304000000_marketplace_conversion_v1.sql', 'utf8');
 const notification = readFileSync('lib/marketplace/notification.ts', 'utf8');
 const captureRoute = readFileSync('app/api/marketplace/capture/route.ts', 'utf8');
 

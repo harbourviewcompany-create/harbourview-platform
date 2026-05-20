@@ -1,0 +1,150 @@
+import type { RoleId, RoleProfile } from '@/types/globe-router'
+
+export const roleProfiles: RoleProfile[] = [
+  {
+    id: 'doctor_prescriber',
+    label: 'Doctor / prescriber',
+    shortLabel: 'Doctor',
+    description: 'Clinical or prescribing professional looking for country-specific education or routing.',
+    aliases: ['doctor', 'prescriber', 'physician', 'clinician', 'medical', 'clinic'],
+  },
+  {
+    id: 'pharmacist',
+    label: 'Pharmacist',
+    shortLabel: 'Pharmacist',
+    description: 'Pharmacy professional reviewing dispensing, supply, product or channel rules.',
+    aliases: ['pharmacist', 'pharmacy', 'apotheke', 'dispensing', 'chemist'],
+  },
+  {
+    id: 'budtender',
+    label: 'Dispensary / budtender',
+    shortLabel: 'Budtender',
+    description: 'Retail or dispensary staff looking for public education and local retail context.',
+    aliases: ['budtender', 'dispensary', 'retail associate', 'retail staff', 'store staff'],
+  },
+  {
+    id: 'cultivator_producer',
+    label: 'Cultivator / licensed producer',
+    shortLabel: 'Cultivator',
+    description: 'Producer, grower or licensed operator exploring market access, buyers or readiness.',
+    aliases: ['cultivator', 'grower', 'producer', 'licensed producer', 'cultivation', 'grow'],
+  },
+  {
+    id: 'geneticist_breeder',
+    label: 'Geneticist / breeder',
+    shortLabel: 'Geneticist',
+    description: 'Genetics, seed, tissue culture or breeding participant reviewing market constraints.',
+    aliases: ['geneticist', 'genetics', 'breeder', 'seed', 'strain', 'tissue culture'],
+  },
+  {
+    id: 'processor_extractor',
+    label: 'Processor / extractor',
+    shortLabel: 'Processor',
+    description: 'Processing, extraction or post-harvest operator reviewing routes and requirements.',
+    aliases: ['processor', 'extractor', 'processing', 'extraction', 'post harvest'],
+  },
+  {
+    id: 'lab_qa',
+    label: 'Lab technician / QA',
+    shortLabel: 'Lab / QA',
+    description: 'Testing, quality assurance, documentation or release professional.',
+    aliases: ['lab', 'testing', 'qa', 'quality', 'qp', 'quality assurance', 'quality control'],
+  },
+  {
+    id: 'importer',
+    label: 'Importer',
+    shortLabel: 'Importer',
+    description: 'Buyer, importer or demand-side participant exploring supply and import pathways.',
+    aliases: ['importer', 'import', 'buyer', 'demand', 'buy'],
+  },
+  {
+    id: 'exporter',
+    label: 'Exporter',
+    shortLabel: 'Exporter',
+    description: 'Seller or exporter reviewing target markets, readiness and introductions.',
+    aliases: ['exporter', 'export', 'seller', 'sell', 'supply'],
+  },
+  {
+    id: 'distributor_wholesaler',
+    label: 'Distributor / wholesaler',
+    shortLabel: 'Distributor',
+    description: 'Wholesale, distribution or channel operator reviewing commercial routing.',
+    aliases: ['wholesaler', 'distributor', 'distribution', 'wholesale', 'channel'],
+  },
+  {
+    id: 'clinic_healthcare_operator',
+    label: 'Clinic / healthcare operator',
+    shortLabel: 'Clinic operator',
+    description: 'Clinic or healthcare business seeking professional routing and market context.',
+    aliases: ['clinic', 'healthcare', 'health care', 'operator', 'medical clinic'],
+  },
+  {
+    id: 'retail_operator',
+    label: 'Retail operator',
+    shortLabel: 'Retail operator',
+    description: 'Retail owner or operator reviewing local rules, supply and education paths.',
+    aliases: ['retail', 'store', 'dispensary owner', 'retailer'],
+  },
+  {
+    id: 'regulatory_compliance',
+    label: 'Regulatory / compliance',
+    shortLabel: 'Compliance',
+    description: 'Compliance, licensing, standards or regulated-market professional.',
+    aliases: ['compliance', 'regulatory', 'licence', 'license', 'standard', 'regulation'],
+  },
+  {
+    id: 'legal_advisory',
+    label: 'Legal / advisory',
+    shortLabel: 'Advisor',
+    description: 'Law, policy or advisory professional reviewing route context.',
+    aliases: ['lawyer', 'legal', 'advisor', 'advisory', 'consultant', 'counsel'],
+  },
+  {
+    id: 'investor_operator',
+    label: 'Investor / operator',
+    shortLabel: 'Investor',
+    description: 'Investor, acquirer, founder or operator reviewing markets and opportunities.',
+    aliases: ['investor', 'operator', 'founder', 'acquirer', 'capital', 'private equity'],
+  },
+  {
+    id: 'government_regulator',
+    label: 'Government / regulator',
+    shortLabel: 'Regulator',
+    description: 'Institutional, government, regulator or policy participant.',
+    aliases: ['government', 'regulator', 'policy', 'public sector', 'institution'],
+  },
+  {
+    id: 'patient_caregiver_education',
+    label: 'Patient / caregiver education',
+    shortLabel: 'Patient education',
+    description: 'Public education route with professional and medical-advice boundaries.',
+    aliases: ['patient', 'caregiver', 'education', 'learn', 'family'],
+  },
+  {
+    id: 'gmp_quality',
+    label: 'GMP / quality',
+    shortLabel: 'GMP / quality',
+    description: 'GMP, GDP, GACP, QP, quality and documentation participant.',
+    aliases: ['gmp', 'gdp', 'gacp', 'qp', 'quality', 'documentation'],
+  },
+  {
+    id: 'logistics_customs',
+    label: 'Logistics / customs',
+    shortLabel: 'Logistics',
+    description: 'Logistics, warehousing, customs or cross-border support participant.',
+    aliases: ['logistics', 'customs', 'warehouse', 'shipping', 'freight', 'border'],
+  },
+  {
+    id: 'not_sure',
+    label: 'Not sure',
+    shortLabel: 'Not sure',
+    description: 'Let Harbourview route the request without forcing a role selection.',
+    aliases: ['not sure', 'unknown', 'help me choose', 'other'],
+  },
+]
+
+export const roleProfileMap = Object.fromEntries(
+  roleProfiles.map((role) => [role.id, role]),
+) as Record<RoleId, RoleProfile>
+
+export const allRoleIds = roleProfiles.map((role) => role.id) as RoleId[]

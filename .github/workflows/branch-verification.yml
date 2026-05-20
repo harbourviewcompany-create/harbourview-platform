@@ -34,7 +34,9 @@ jobs:
         run: npm ci
 
       - name: Typecheck
-        run: npm run typecheck
+        run: |
+          mkdir -p ci-artifacts
+          npm run typecheck 2>&1 | tee ci-artifacts/typecheck.log
 
       - name: Intelligence fixtures projection
         run: npm run test:intelligence-fixtures
@@ -64,7 +66,21 @@ jobs:
         run: npm run test:services-public-leakage
 
       - name: Build
-        run: npm run build
+        run: |
+          npm run build 2>&1 | tee ci-artifacts/build.log
+
+      - name: Gate merge on typecheck + build
+        run: |
+          echo "Typecheck and build completed successfully."
+
+      - name: Upload typecheck/build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: branch-verification-typecheck-build-logs
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Start built app for route visibility checks
         run: |

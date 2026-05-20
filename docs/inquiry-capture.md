@@ -53,10 +53,10 @@ The admin scaffold also fails closed unless `HARBOURVIEW_ADMIN_REVIEW_ENABLED=tr
 
 Apply the marketplace inquiry migrations before testing live submissions:
 
-- `supabase/migrations/20260430_marketplace_inquiries.sql`
-- `supabase/migrations/20260501_001_harden_marketplace_inquiries.sql`
+- `supabase/migrations/20260430000000_marketplace_inquiries.sql`
+- `supabase/migrations/20260501000001_harden_marketplace_inquiries.sql`
 
-`20260430_marketplace_inquiries.sql` is aligned to the existing production schema. `20260501_001_harden_marketplace_inquiries.sql` does not create or reshape the table; it only enforces RLS, grants and indexes against the production columns.
+`20260430000000_marketplace_inquiries.sql` is aligned to the existing production schema. `20260501000001_harden_marketplace_inquiries.sql` does not create or reshape the table; it only enforces RLS, grants and indexes against the production columns.
 
 The hardening behavior grants public insert only. Public and authenticated users do not receive select, update or delete table privileges until Harbourview introduces a finalized admin/reviewer role model. The temporary admin scaffold reads and updates through the server-only service role key when the explicit admin-review flag is enabled.
 

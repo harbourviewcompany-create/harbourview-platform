@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 import { listingSubmissionSchema } from '@/lib/marketplace/intakeValidation'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 import { validateListingSubmission, withListingSubmissionCode } from '@/lib/marketplace/listingSubmissionValidation'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+const ROUTE_ID = '/api/marketplace/listing-submission'
+const ABUSE_REJECTION_CODE = 'ABUSE_REJECTED'
 
 const VALID_LISTING_TYPES = new Set([
   'New Product',
@@ -27,15 +31,22 @@ type ListingSubmissionDiagnosticCode =
   | 'LISTING_SUBMISSION_SUPABASE_REQUEST_FAILED'
   | 'LISTING_SUBMISSION_SUPABASE_INSERT_FAILED'
   | 'LISTING_SUBMISSION_INTERNAL_ERROR'
+  | 'LISTING_SUBMISSION_RATE_LIMITED'
+  | 'LISTING_SUBMISSION_BOT_REJECTED'
   | 'LISTING_SUBMISSION_OK'
 
-function json(status: 'success' | 'error', message: string, httpStatus = 200) {
+function withCode(message: string, code: ListingSubmissionDiagnosticCode | typeof ABUSE_REJECTION_CODE) {
+  return `${message} [${code}]`
+}
+
+function json(status: 'success' | 'error', message: string, httpStatus = 200, retryAfterSeconds?: number) {
   return NextResponse.json(
     { status, message },
     {
       status: httpStatus,
       headers: {
         'Cache-Control': 'no-store',
+        ...(retryAfterSeconds ? { 'Retry-After': String(retryAfterSeconds) } : {}),
       },
     }
   )
@@ -61,17 +72,11 @@ function logListingSubmissionDiagnostic(
 }
 
 export async function GET() {
-  const supabase = getSupabaseConfig()
-
   return NextResponse.json(
     {
       ok: true,
       route: '/api/marketplace/listing-submission',
       method: 'POST',
-      hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      hasPublishableKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-      configured: Boolean(supabase),
     },
     {
       headers: {
@@ -82,6 +87,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request)
+  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  if (!ipLimit.allowed) {
+    logListingSubmissionDiagnostic('LISTING_SUBMISSION_RATE_LIMITED', { ip, retryAfterSeconds: ipLimit.retryAfterSeconds })
+    return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, ipLimit.retryAfterSeconds)
+  }
+
   try {
     let body: Record<string, unknown>
 
@@ -104,6 +116,17 @@ export async function POST(request: Request) {
       }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
     }
 
+    if (parsed.data.hp_field?.trim()) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_BOT_REJECTED', { reason: 'honeypot', ip })
+      return json('error', withCode('Request rejected.', ABUSE_REJECTION_CODE), 429)
+    }
+
+    const expectedToken = process.env.MARKETPLACE_FORM_CHALLENGE_TOKEN
+    if (expectedToken && parsed.data.challenge_token !== expectedToken) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_BOT_REJECTED', { reason: 'challenge', ip })
+      return json('error', withCode('Request rejected.', ABUSE_REJECTION_CODE), 429)
+    }
+
     const name = parsed.data.name
     const email = parsed.data.email
     const company = parsed.data.company
@@ -124,6 +147,12 @@ export async function POST(request: Request) {
     }
 
     const message = validation.message
+
+    const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
+    if (!identityLimit.allowed) {
+      logListingSubmissionDiagnostic('LISTING_SUBMISSION_RATE_LIMITED', { ip, retryAfterSeconds: identityLimit.retryAfterSeconds, hasEmail: true })
+      return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, identityLimit.retryAfterSeconds)
+    }
 
     const supabase = getSupabaseConfig()
     if (!supabase) {
