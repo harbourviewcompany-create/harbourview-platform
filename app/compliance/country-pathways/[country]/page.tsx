@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation'
 import { getComplianceCountry } from '@/lib/compliance/countries'
-import { maturityLabels } from '@/lib/compliance/safePublicCompliance'
+import { maturityLabels, toSafeCountry } from '@/lib/compliance/safePublicCompliance'
 
 export default async function CountryPage({ params }: { params: Promise<{ country: string }> }) {
   const { country: slug } = await params
-  const c = getComplianceCountry(slug)
+  const country = getComplianceCountry(slug)
 
-  if (!c) notFound()
+  if (!country) notFound()
+
+  const c = toSafeCountry(country)
 
   return (
     <div className="p-6 space-y-4">
