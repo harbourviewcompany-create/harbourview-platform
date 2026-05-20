@@ -243,3 +243,19 @@ Marketplace commercial polish was added to improve supplier acquisition, wanted-
 6. Existing repository code, tests and production evidence
 
 **Operating rule:** Use the control pack as a guardrail, not bureaucracy. Minor docs or copy changes should not require every control file to be updated. State-changing work must update this file and `docs/control/EVIDENCE_LOG.md`.
+
+## Verification and control plane readiness (Agent 3)
+
+**Status:** IMPLEMENTED (local/CI-safe), PRODUCTION HOLD (env-dependent probes pending)
+
+**Date:** 2026-05-14
+
+### Added control gates
+- Package verification command map (`verify:leakage`, `verify:admin-auth`, `verify:marketplace-smoke`, `verify:production-visibility`, `verify:all-safe`).
+- Public leakage probe includes required forbidden token set and optional runtime HTML route checks via `HARBOURVIEW_PUBLIC_BASE_URL`.
+- Marketplace smoke script emits explicit operational states: `NOT RUN`, `GATED`, `BLOCKED`, `RUN`, `PASS`, `FAIL`.
+- Branch verification workflow runs leakage, admin authorization, and marketplace guard gates in CI.
+
+### GO/HOLD
+- GO for branch-level safe verification repeatability.
+- HOLD for production-write smoke and env-backed runtime probes until protected secrets and base URL are supplied in controlled workflow execution.

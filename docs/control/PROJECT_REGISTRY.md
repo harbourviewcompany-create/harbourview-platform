@@ -74,6 +74,7 @@ Evidence source: 2026-05-17 verified Vercel connector state recorded in Notion d
 | Vercel team slug | `harbourviewnetwork` | GO |
 | Vercel team ID | `team_zFcrpEaH7xxVPfFlj9yAKMZf` | GO |
 | GitHub source | `harbourviewcompany-create/harbourview-platform` | GO |
+| GitHub repo ID | `1214598473` | GO |
 | Source branch | `main` | GO |
 | Deployment status | Latest production deployment recorded from connector state | GO |
 | Deployment ID | `dpl_4k2qicqtkwXKQD6CZkgKSDoZ9qoG` | GO |

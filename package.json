@@ -45,7 +45,12 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "verify:leakage": "node scripts/probe-public-leakage.mjs",
+    "verify:admin-auth": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs",
+    "verify:marketplace-smoke": "node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
+    "verify:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
+    "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
