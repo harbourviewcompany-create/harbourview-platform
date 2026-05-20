@@ -176,7 +176,13 @@ export function toPublicGeneticsProfile(profile: GeneticsProfile) {
     }
   }
 
-  const { contactName, email, phone, privatePricing, sourceName, internalReviewNotes, ...safe } = profile
+  const safe = { ...profile }
+  delete safe.contactName
+  delete safe.email
+  delete safe.phone
+  delete safe.privatePricing
+  delete safe.sourceName
+  delete safe.internalReviewNotes
 
   return safe
 }
