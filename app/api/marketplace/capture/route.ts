@@ -5,7 +5,7 @@ import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_MESSAGE_LENGTH = 3500;
+const MAX_MESSAGE_LENGTH = 2500;
 const MAX_TEXT_LENGTH = 220;
 const ALLOWED_INQUIRY_TYPES = new Set([
   'listing_submission',
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
   if (message.length > MAX_MESSAGE_LENGTH) {
     logCaptureDiagnostic('CAPTURE_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length });
-    return json('error', withCode('Please keep the inquiry under 3,500 characters.', 'CAPTURE_VALIDATION_MESSAGE_LENGTH'), 400);
+    return json('error', withCode('Please keep the inquiry under 2,500 characters.', 'CAPTURE_VALIDATION_MESSAGE_LENGTH'), 400);
   }
 
   const supabase = getSupabaseConfig();

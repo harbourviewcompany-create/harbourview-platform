@@ -5,7 +5,7 @@ import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const MAX_MESSAGE_LENGTH = 3500
+const MAX_MESSAGE_LENGTH = 2500
 const MAX_TEXT_LENGTH = 220
 
 const VALID_LISTING_TYPES = new Set([
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
       logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_MESSAGE_LENGTH', { messageLength: message.length })
       return json(
         'error',
-        withCode('Please keep the listing submission under 3,500 characters.', 'LISTING_SUBMISSION_VALIDATION_MESSAGE_LENGTH'),
+        withCode('Please keep the listing submission under 2,500 characters.', 'LISTING_SUBMISSION_VALIDATION_MESSAGE_LENGTH'),
         400
       )
     }
