@@ -98,17 +98,11 @@ function buildSubmissionMessage(fields: {
 }
 
 export async function GET() {
-  const supabase = getSupabaseConfig()
-
   return NextResponse.json(
     {
       ok: true,
       route: '/api/marketplace/listing-submission',
       method: 'POST',
-      hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      hasPublishableKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-      configured: Boolean(supabase),
     },
     {
       headers: {
