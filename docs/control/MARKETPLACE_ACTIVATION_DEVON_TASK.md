@@ -1,14 +1,28 @@
-# Harbourview Marketplace Activation
+# Harbourview Marketplace Build-First Activation
 
 ## Mission
-Activate the Harbourview marketplace as a polished, live-feeling confidential B2B cannabis marketplace with active inventory, premium visuals, buyer-critical fields, filters, and qualified-access CTAs.
+Build the Harbourview marketplace into a live-feeling, premium B2B commercial network now. Start with the main marketplace, then extend the same pattern across consumables, services, wanted requests, cannabis inventory, packaging, equipment, supplier categories, and related marketplace category pages.
 
-## Core Outcome
-The public marketplace should feel commercially active and operational.
+## Build Mode
+This is a full build-mode task. Prioritize visible product implementation, commercial usability, and polished buyer/seller experience. Verification and repair come after the build is in place.
 
-Public listings should render active confidential inventory while confidential seller identity, licence details, pricing, quantities, COAs, and transaction terms remain inside private/admin flows.
+Build the product experience first:
+- active cards
+- premium visual panels
+- filters
+- category pages
+- buyer and seller CTAs
+- public listing DTOs
+- mobile polish
+- desktop polish
+- post-build verification report
+
+## Outcome
+The marketplace should feel active, credible, and commercially useful. A visitor should immediately understand that Harbourview can route qualified buyers and sellers across cannabis inventory, consumables, equipment, packaging, services, wanted requests, and supplier opportunities.
 
 ## Inspect First
+Inspect and reuse the existing repo structure:
+
 - app/marketplace/**
 - app/marketplace/page.tsx
 - app/marketplace/sell/**
@@ -23,22 +37,24 @@ Public listings should render active confidential inventory while confidential s
 - scripts/**
 - package.json
 
-## Build
+## Phase 1 — Marketplace Hub Activation
+Update `/marketplace` into a premium active marketplace hub.
 
-### Marketplace Structure
-Implement or update:
+Sections:
 - Hero
 - Featured Active Opportunities
+- Browse by Category
 - Browse by Format
 - Confidential Marketplace Workflow
 - Submit Supply
 - Buyer Wanted
+- Supplier / Service Categories
 
 Hero headline:
 Confidential cannabis market access for qualified buyers and sellers.
 
 Hero subcopy:
-Explore active supply opportunities, buyer demand signals, and regulated-market pathways across Canadian and international cannabis markets.
+Explore active supply opportunities, buyer demand signals, supplier categories, consumables, equipment, services, and regulated-market pathways across Canadian and international cannabis markets.
 
 Primary CTA:
 Request Qualified Access
@@ -46,43 +62,11 @@ Request Qualified Access
 Secondary CTA:
 Submit Supply Opportunity
 
-## Public DTO
-Use an allowlisted public marketplace DTO.
+Tertiary CTA:
+Post Buyer Requirement
 
-Public marketplace components should consume only the public DTO.
-
-Recommended DTO:
-
-```ts
-export type PublicMarketplaceCard = {
-  id: string;
-  slug: string;
-  title: string;
-  category: string;
-  region: string;
-  format: string;
-  opportunityStatus: string;
-  sellerType?: string;
-  buyerType?: string;
-  sellerIdentity?: string;
-  buyerIdentity?: string;
-  coaStatus: string;
-  euGmpStatus: string;
-  gacpStatus?: string;
-  exportReadiness: string;
-  importReadiness: string;
-  documentationPackage: string;
-  access: string;
-  summary: string;
-  ctaLabel: string;
-  ctaHref: string;
-  imageKey: string;
-  publicBadges: string[];
-};
-```
-
-## Listings
-Implement these 12 listings:
+## Phase 2 — Active Confidential Inventory Cards
+Implement 12 initial active confidential marketplace cards:
 
 1. Alberta Licensed Craft Flower
 2. British Columbia Licensed Indoor Flower
@@ -97,10 +81,10 @@ Implement these 12 listings:
 11. Licensed Packaging / Ancillary Partner
 12. Buyer Wanted: Premium Canadian Craft Flower
 
-Each card should visibly render:
+Each card should show:
 - Opportunity Status
 - Seller Type or Buyer Type
-- Seller Identity or Buyer Identity: Confidential
+- Counterparty Visibility
 - COA Status
 - Documentation Package
 - EU-GMP Status
@@ -112,49 +96,115 @@ Each card should visibly render:
 - Format
 - CTA
 
+Use active commercial language such as:
+- Licensed Alberta craft flower opportunity available through confidential buyer review.
+- COA and seller documentation are available to qualified counterparties after access approval.
+- Seller introduction and commercial terms are handled through Harbourview's private review process.
+
+## Phase 3 — Expand Category Coverage
+Build the same active-card/category-page pattern across these marketplace drivers:
+
+### Cannabis Inventory
+Focus: flower, bulk flower, biomass, pre-rolls, extracts, solventless, vape/distillate inputs, EU-GMP medical pathway, private label.
+
+### Consumables
+Focus: cultivation consumables, facility inputs, sanitation supplies, lab consumables, packaging consumables, operating supplies, compliance supplies.
+
+### Packaging
+Focus: jars, bags, tubes, cartons, labels, child-resistant packaging, medical packaging, white-label packaging programs.
+
+### Equipment
+Focus: used/surplus equipment, extraction equipment, packaging equipment, cultivation equipment, lab/testing equipment, processing equipment.
+
+### Services
+Focus: GMP support, QA/compliance, extraction services, packaging services, distribution support, market access support, logistics support.
+
+### Wanted Requests
+Focus: buyer demand signals, supplier requests, route-to-market requests, EU-facing supply needs, packaging/equipment procurement needs.
+
+### Supplier Categories
+Focus: licensed sellers, commercial suppliers, service providers, packaging suppliers, equipment suppliers, logistics providers, market-access partners.
+
+For each category page touched, create a premium category header, useful card grid, CTA panel, and mobile-friendly browsing experience.
+
+## Public DTO
+Use or create a clean public marketplace DTO for public card rendering.
+
+Recommended shape:
+
+```ts
+export type PublicMarketplaceCard = {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  region: string;
+  format: string;
+  opportunityStatus: string;
+  counterpartyType?: string;
+  counterpartyVisibility: string;
+  coaStatus?: string;
+  documentationPackage: string;
+  euGmpStatus?: string;
+  gacpStatus?: string;
+  exportReadiness?: string;
+  importReadiness?: string;
+  access: string;
+  summary: string;
+  ctaLabel: string;
+  ctaHref: string;
+  imageKey: string;
+  publicBadges: string[];
+};
+```
+
+Public marketplace components should consume the public DTO. Use existing data/component patterns where possible.
+
 ## Filters
-Implement filters for:
+Implement or improve filters for:
 
 Format:
-Flower, Bulk Flower, Biomass, Pre-Roll, Extract, Solventless, Vape, White Label, Packaging, Buyer Demand
+Flower, Bulk Flower, Biomass, Pre-Roll, Extract, Solventless, Vape, White Label, Packaging, Equipment, Consumables, Services, Buyer Demand
 
 Region:
-Alberta, British Columbia, Quebec, Canada, Europe, International
+Alberta, British Columbia, Quebec, Ontario, Canada, Europe, International
 
 Documentation:
-COA Available, Licensed Seller, Export Documentation, EU-GMP Certified, EU-GMP Pathway, GACP Available
+COA Available, Licensed Seller, Export Documentation, EU-GMP Certified, EU-GMP Pathway, GACP Available, Documentation Available
 
 Access:
 Qualified Buyers Only, Qualified Sellers Only, Seller Introduction Available, Documentation Review, Confidential Opportunity
 
 Commercial Stage:
-Active Opportunity, Intake Open, Buyer Matching, Seller Review, Documentation Review
+Active Opportunity, Intake Open, Buyer Matching, Seller Review, Documentation Review, Supplier Review
 
 Empty state:
 No public results match this filter. Request private marketplace access for confidential opportunities.
 
 ## CTA Routing
-Use existing routes where possible.
+Use existing routes where possible:
 
-Preferred:
-- /intake?intent=buyer-access
-- /marketplace/sell
-- /submit-listing
-- /marketplace/wanted
-- /intake?intent=seller-introduction
-- /intake?intent=documentation-review
+- Request Qualified Access -> /intake?intent=buyer-access
+- Submit Supply Opportunity -> /marketplace/sell or /submit-listing
+- Post Buyer Requirement -> /marketplace/wanted
+- Request Seller Introduction -> /intake?intent=seller-introduction
+- Request Documentation Review -> /intake?intent=documentation-review
+- Submit Supply for Review -> /marketplace/sell or /submit-listing
 
 ## Visual Direction
-Premium institutional marketplace.
+Build a premium institutional marketplace aesthetic:
 
-Use:
 - deep navy
 - charcoal
 - restrained gold
 - glass and stone materiality
-- confidential B2B intelligence aesthetic
+- active B2B marketplace feel
+- polished product/category visual panels
+- strong desktop grid
+- strong mobile stack
+- buyer/seller CTAs visible without hunting
 
-Use existing assets, generated-style placeholders, or styled visual panels.
+Use existing assets, safe generated-style placeholders, or styled visual panels.
 
 Suggested image keys:
 - alberta-craft-flower
@@ -169,19 +219,15 @@ Suggested image keys:
 - canadian-private-label
 - packaging-ancillary
 - buyer-wanted-craft-flower
+- consumables-operating-supplies
+- packaging-programs
+- used-surplus-equipment
+- commercial-services
+- supplier-network
 
-## Public/Private Proof
-Add or extend a marketplace visibility proof.
+## Post-Build Verification and Repair
+After implementation, run verification and report anything that needs a follow-up repair patch.
 
-Check:
-- /marketplace
-- /marketplace/sell if public
-- /marketplace/wanted if public
-- listing detail routes if present
-
-Confirm public output excludes confidential/admin field names and values.
-
-## Verify
 Run:
 - npm run typecheck
 - npm run build
@@ -189,21 +235,26 @@ Run:
 Also run if available:
 - npm run lint
 - npm test
+- npm run test:visibility
+- npm run verify:leakage
 - npm run probe:production-visibility
+
+Use verification to identify repair items after the marketplace build exists.
 
 ## Visual QA
 Report:
-- Desktop marketplace grid
-- Mobile marketplace grid
-- Filters
-- Featured opportunities
+- Desktop marketplace hub
+- Mobile marketplace hub
+- Category pages touched
+- Filters desktop/mobile
+- Featured opportunity cards
 - CTA visibility above fold
-- Listing detail page if present
+- Empty filter state
 
 ## Final Output
 Return:
 
-# MARKETPLACE ACTIVATION RESULT
+# MARKETPLACE BUILD RESULT
 
 ## Inspected
 - Routes
@@ -211,44 +262,52 @@ Return:
 - Data/DTO
 - Tests/probes
 
+## Built
+- Marketplace hub
+- Cannabis inventory cards
+- Consumables
+- Packaging
+- Equipment
+- Services
+- Wanted requests
+- Supplier categories
+
 ## Changed Files
 
 ## Routes Updated
 
-## Listings
-slug | title | CTA route
+## Listings / Cards
+slug | title | category | CTA route
 
-## DTO Proof
+## DTO / Data Model
 - DTO
-- Mapper if used
+- Data source
 - Public components consuming DTO
 
 ## Filters
 
 ## CTA Map
 
-## Image Handling
-
-## Public/Private Proof
-- Routes checked
-- Method
-- Result
+## Image / Visual Handling
 
 ## Visual QA
 - Desktop
 - Mobile
 - Filters
 - CTA above fold
-- Detail page
+- Category pages
 
-## Commands
+## Verification
 - command
 - result
 - relevant output
+
+## Repair Items
+- post-build issues to fix next
 
 ## Rollback
 - revert instructions
 
 ## GO
-- marketplace activation ready: yes/no
-- remaining implementation notes
+- marketplace build ready for review: yes/no
+- next repair/build step
