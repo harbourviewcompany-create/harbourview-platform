@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { getCategoryImage, type MarketplaceListing, type WantedRequestRecord } from '@/lib/marketplace-data'
 
@@ -17,7 +18,7 @@ export default function MarketplaceCard({ record, href }: { record: CardRecord; 
     <article className="card flex h-full flex-col overflow-hidden">
       {image ? (
         <div className="h-44 overflow-hidden bg-gold-pale">
-          <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <Image src={image} alt="" className="h-full w-full object-cover" width={704} height={352} />
         </div>
       ) : (
         <div className="h-44 bg-gradient-to-br from-gold-pale via-white to-gray-100" aria-hidden="true" />
