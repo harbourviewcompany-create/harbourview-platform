@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { ZodIssue } from 'zod'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 import { quoteSubmissionSchema } from '@/lib/marketplace/intakeValidation'
@@ -7,19 +8,6 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const MAX_MESSAGE_LENGTH = 2500
-const MAX_TEXT_LENGTH = 180
-
-const VALID_BUYER_TYPES = new Set([
-  'Licensed Producer / Operator',
-  'Brand',
-  'Distributor',
-  'Retailer',
-  'Startup / New Operator',
-  'Other',
-])
-
-const VALID_TIMELINES = new Set(['ASAP', 'Within 30 days', '30-90 days', 'Future planning'])
-
 type QuoteDiagnosticCode =
   | 'QUOTE_VALIDATION_REQUIRED_FIELDS'
   | 'QUOTE_VALIDATION_EMAIL'
@@ -49,12 +37,12 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
   )
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength
+function mapValidationIssueToCode(issue: ZodIssue): QuoteDiagnosticCode {
+  if (issue.path.includes('email')) return 'QUOTE_VALIDATION_EMAIL'
+  if (issue.path.includes('buyerType')) return 'QUOTE_VALIDATION_BUYER_TYPE'
+  if (issue.path.includes('timeline')) return 'QUOTE_VALIDATION_TIMELINE'
+  if (issue.code === 'too_big') return 'QUOTE_VALIDATION_FIELD_LENGTH'
+  return 'QUOTE_VALIDATION_REQUIRED_FIELDS'
 }
 
 function getSupabaseConfig() {
@@ -135,9 +123,14 @@ export async function POST(request: Request) {
 
     const parsed = quoteSubmissionSchema.safeParse(body)
     if (!parsed.success) {
+      const code = mapValidationIssueToCode(parsed.error.issues[0])
+      logQuoteDiagnostic(code, {
+        issueCode: parsed.error.issues[0]?.code ?? null,
+        issuePath: parsed.error.issues[0]?.path?.join('.') ?? null,
+      })
       return NextResponse.json({
         status: 'error',
-        message: withCode('Invalid payload.', 'QUOTE_VALIDATION_REQUIRED_FIELDS'),
+        message: withCode('Invalid payload.', code),
         errors: parsed.error.flatten(),
       }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
     }
@@ -154,53 +147,6 @@ export async function POST(request: Request) {
     const budget = parsed.data.budget
     const supplierPreference = parsed.data.supplierPreference
     const requirements = parsed.data.requirements
-
-    if (!name || !email || !company || !buyerType || !targetMarket || !volume || !timeline) {
-      logQuoteDiagnostic('QUOTE_VALIDATION_REQUIRED_FIELDS', {
-        hasName: Boolean(name),
-        hasEmail: Boolean(email),
-        hasCompany: Boolean(company),
-        hasBuyerType: Boolean(buyerType),
-        hasTargetMarket: Boolean(targetMarket),
-        hasVolume: Boolean(volume),
-        hasTimeline: Boolean(timeline),
-      })
-      return json('error', withCode('Please complete all required quote request fields.', 'QUOTE_VALIDATION_REQUIRED_FIELDS'), 400)
-    }
-
-    if (!isValidEmail(email)) {
-      logQuoteDiagnostic('QUOTE_VALIDATION_EMAIL')
-      return json('error', withCode('Please use a valid business email address.', 'QUOTE_VALIDATION_EMAIL'), 400)
-    }
-
-    if (!VALID_BUYER_TYPES.has(buyerType)) {
-      logQuoteDiagnostic('QUOTE_VALIDATION_BUYER_TYPE')
-      return json('error', withCode('Please select a valid buyer type.', 'QUOTE_VALIDATION_BUYER_TYPE'), 400)
-    }
-
-    if (!VALID_TIMELINES.has(timeline)) {
-      logQuoteDiagnostic('QUOTE_VALIDATION_TIMELINE')
-      return json('error', withCode('Please select a valid timeline.', 'QUOTE_VALIDATION_TIMELINE'), 400)
-    }
-
-    const textFields = [
-      listingTitle,
-      name,
-      email,
-      phone,
-      company,
-      buyerType,
-      targetMarket,
-      volume,
-      timeline,
-      budget,
-      supplierPreference,
-    ]
-
-    if (textFields.some((field) => isOversized(field))) {
-      logQuoteDiagnostic('QUOTE_VALIDATION_FIELD_LENGTH')
-      return json('error', withCode('One or more fields is longer than allowed.', 'QUOTE_VALIDATION_FIELD_LENGTH'), 400)
-    }
 
     const message = buildQuoteMessage({
       listingTitle,

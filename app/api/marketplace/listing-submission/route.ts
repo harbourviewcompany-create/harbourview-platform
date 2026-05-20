@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { ZodIssue } from 'zod'
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification'
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env'
 import { listingSubmissionSchema } from '@/lib/marketplace/intakeValidation'
@@ -7,18 +8,6 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const MAX_MESSAGE_LENGTH = 3500
-const MAX_TEXT_LENGTH = 220
-
-const VALID_LISTING_TYPES = new Set([
-  'New Product',
-  'Used / Surplus Equipment',
-  'Cannabis Inventory',
-  'Wanted Request',
-  'Service',
-  'Business Opportunity',
-  'Supplier Directory Listing',
-])
-
 type ListingSubmissionDiagnosticCode =
   | 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'
   | 'LISTING_SUBMISSION_VALIDATION_EMAIL'
@@ -47,12 +36,11 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200) {
   )
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function isOversized(value: string, maxLength = MAX_TEXT_LENGTH) {
-  return value.length > maxLength
+function mapValidationIssueToCode(issue: ZodIssue): ListingSubmissionDiagnosticCode {
+  if (issue.path.includes('email')) return 'LISTING_SUBMISSION_VALIDATION_EMAIL'
+  if (issue.path.includes('listingType')) return 'LISTING_SUBMISSION_VALIDATION_TYPE'
+  if (issue.code === 'too_big') return 'LISTING_SUBMISSION_VALIDATION_FIELD_LENGTH'
+  return 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'
 }
 
 function getSupabaseConfig() {
@@ -134,9 +122,14 @@ export async function POST(request: Request) {
 
     const parsed = listingSubmissionSchema.safeParse(body)
     if (!parsed.success) {
+      const code = mapValidationIssueToCode(parsed.error.issues[0])
+      logListingSubmissionDiagnostic(code, {
+        issueCode: parsed.error.issues[0]?.code ?? null,
+        issuePath: parsed.error.issues[0]?.path?.join('.') ?? null,
+      })
       return NextResponse.json({
         status: 'error',
-        message: withCode('Invalid payload.', 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'),
+        message: withCode('Invalid payload.', code),
         errors: parsed.error.flatten(),
       }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
     }
@@ -149,41 +142,6 @@ export async function POST(request: Request) {
     const price = parsed.data.price
     const location = parsed.data.location
     const description = parsed.data.description
-
-    if (!name || !email || !listingType || !title || !description) {
-      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS', {
-        hasName: Boolean(name),
-        hasEmail: Boolean(email),
-        hasListingType: Boolean(listingType),
-        hasTitle: Boolean(title),
-        hasDescription: Boolean(description),
-      })
-      return json(
-        'error',
-        withCode('Please complete all required listing submission fields.', 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'),
-        400
-      )
-    }
-
-    if (!isValidEmail(email)) {
-      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_EMAIL')
-      return json('error', withCode('Please use a valid business email address.', 'LISTING_SUBMISSION_VALIDATION_EMAIL'), 400)
-    }
-
-    if (!VALID_LISTING_TYPES.has(listingType)) {
-      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_TYPE')
-      return json('error', withCode('Please select a valid listing type.', 'LISTING_SUBMISSION_VALIDATION_TYPE'), 400)
-    }
-
-    const textFields = [name, email, company, listingType, title, price, location]
-    if (textFields.some((field) => isOversized(field))) {
-      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_FIELD_LENGTH')
-      return json(
-        'error',
-        withCode('One or more fields is longer than allowed.', 'LISTING_SUBMISSION_VALIDATION_FIELD_LENGTH'),
-        400
-      )
-    }
 
     const message = buildSubmissionMessage({ listingType, title, price, location, description })
 
