@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyAdminSessionToken } from './adminSession'
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 
@@ -33,5 +34,5 @@ export function validateAdminRequest(req: NextRequest): NextResponse | null {
 export function hasAdminCookie(req: NextRequest): boolean {
   const cookie = req.cookies.get('hv_admin_session')
   if (!ADMIN_SECRET || !cookie) return false
-  return cookie.value === ADMIN_SECRET
+  return verifyAdminSessionToken(cookie.value, ADMIN_SECRET)
 }

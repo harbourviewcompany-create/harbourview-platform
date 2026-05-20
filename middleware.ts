@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyAdminSessionToken } from '@/lib/marketplace/adminSession'
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 const ADMIN_LOGIN_PATH = '/admin/login'
@@ -18,7 +19,7 @@ export function middleware(req: NextRequest) {
 
   // Check session cookie
   const session = req.cookies.get('hv_admin_session')
-  if (session?.value === ADMIN_SECRET) {
+  if (verifyAdminSessionToken(session?.value, ADMIN_SECRET)) {
     return NextResponse.next()
   }
 
