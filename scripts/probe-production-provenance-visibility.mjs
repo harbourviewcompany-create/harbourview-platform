@@ -106,7 +106,7 @@ async function probeRoute(route, expectForbidden = false) {
       redirect: 'follow',
       headers: {
         Accept: 'text/html',
-        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.2',
+        'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3',
       },
     });
     html = await response.text();
@@ -151,7 +151,7 @@ for (const route of apiRoutes) {
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.2' },
+      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3' },
     });
     body = await response.text();
   } catch (err) {

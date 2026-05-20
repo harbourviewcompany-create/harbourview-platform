@@ -30,3 +30,28 @@ This file records release evidence for Harbourview Marketplace production gates.
 
 **Merge policy:** Do not merge this trigger PR unless both workflows pass.
 
+
+## 2026-05-14: Verification/control-plane readiness pass (Agent 3 lane)
+
+**Evidence ID:** `HV-VERIFY-CONTROL-PLANE-20260514`
+
+**Branch:** `codex/harbourview-verification-control-plane`
+
+**Scope:** CI/tests/probes/docs/control (no UI implementation changes, no backend/auth behavioral changes).
+
+**Commands and results (UTC):**
+- `npm run typecheck` — PASS
+- `npm run lint` — PASS (warnings only)
+- `npm run test:intelligence-os` — PASS (8/8 tests)
+- `npm run verify:leakage` — PASS (static forbidden-token leakage gate)
+- `npm run verify:admin-auth` — PASS (anonymous/missing/viewer/analyst denied; operator/admin allowed)
+- `npm run verify:marketplace-smoke` — PASS (route/workflow guards + production write fail-closed controls)
+- `npm run build` — PASS
+
+**Blocked/not run:**
+- Production write smoke execution: NOT RUN/GATED by required env gates and credentials.
+- Runtime public leakage HTML probe: BLOCKED unless `HARBOURVIEW_PUBLIC_BASE_URL` is provided.
+
+**Operational conclusion:**
+- Local/CI-safe verification gates are materially stronger and explicit.
+- Production readiness remains HOLD until production/env-backed probes are executed with controlled credentials and evidence artifacts.

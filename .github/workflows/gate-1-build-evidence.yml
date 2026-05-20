@@ -1,0 +1,132 @@
+name: Gate 1 Build Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref, branch, tag, or commit SHA to verify'
+        required: true
+        default: 'main'
+
+permissions:
+  contents: read
+
+jobs:
+  gate-1-build-evidence:
+    name: Verify install, typecheck, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Run Gate 1 verification
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          mkdir -p verification-results/gate-1-build-evidence
+          EVIDENCE="verification-results/gate-1-build-evidence/evidence.md"
+          SUMMARY="verification-results/gate-1-build-evidence/summary.env"
+
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          FAIL=0
+
+          {
+            echo "# Gate 1 Build Evidence"
+            echo
+            echo "- Requested ref: ${{ inputs.ref }}"
+            echo "- Checked-out commit: ${COMMIT_SHA}"
+            echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- Node: $(node --version)"
+            echo "- npm: $(npm --version)"
+            echo
+          } | tee "$EVIDENCE"
+
+          if grep -R "@opennextjs/cloudflare\|initOpenNextCloudflareForDev" next.config.* >/tmp/gate1-cloudflare-grep.txt 2>&1; then
+            {
+              echo "## Cloudflare initializer check"
+              echo
+              echo "Status: FAIL"
+              echo
+              echo '```text'
+              cat /tmp/gate1-cloudflare-grep.txt
+              echo '```'
+              echo
+            } | tee -a "$EVIDENCE"
+            FAIL=1
+          else
+            {
+              echo "## Cloudflare initializer check"
+              echo
+              echo "Status: PASS — no @opennextjs/cloudflare initializer found in next.config.*"
+              echo
+            } | tee -a "$EVIDENCE"
+          fi
+
+          run_check() {
+            local name="$1"
+            shift
+            local slug
+            slug="$(echo "$name" | tr '[:upper:] ' '[:lower:]-')"
+            local log_file="verification-results/gate-1-build-evidence/${slug}.log"
+
+            {
+              echo "## ${name}"
+              echo
+              echo "Command: \`$*\`"
+              echo
+              echo '```text'
+            } | tee -a "$EVIDENCE"
+
+            set +e
+            "$@" 2>&1 | tee "$log_file" | tee -a "$EVIDENCE"
+            local status=${PIPESTATUS[0]}
+            set -e
+
+            {
+              echo '```'
+              echo
+              echo "Exit status: ${status}"
+              echo
+            } | tee -a "$EVIDENCE"
+
+            if [ "$status" -ne 0 ]; then
+              FAIL=1
+            fi
+          }
+
+          run_check "npm ci" npm ci
+          run_check "npm run typecheck" npm run typecheck
+          run_check "npm run build" npm run build
+
+          {
+            echo "commit_sha=${COMMIT_SHA}"
+            echo "gate_1_status=$([ "$FAIL" -eq 0 ] && echo GO || echo HOLD)"
+          } > "$SUMMARY"
+
+          if [ "$FAIL" -eq 0 ]; then
+            echo "Gate 1 status: GO" | tee -a "$EVIDENCE"
+          else
+            echo "Gate 1 status: HOLD" | tee -a "$EVIDENCE"
+          fi
+
+          exit "$FAIL"
+
+      - name: Upload Gate 1 evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-1-build-evidence
+          path: verification-results/gate-1-build-evidence/
+          if-no-files-found: error
+          retention-days: 30

@@ -26,7 +26,8 @@ for (const [name, payload] of checks) {
 }
 
 if (!writeEnabled) {
-  console.log('dry-run only: set HARBOURVIEW_SMOKE_WRITE=1 to insert smoke rows.');
+  console.log('STATUS: NOT RUN');
+  console.log('STATUS: GATED HARBOURVIEW_SMOKE_WRITE=1 required for write checks');
   process.exit(0);
 }
 
@@ -34,6 +35,7 @@ if (
   process.env.VERCEL_ENV === 'production' &&
   process.env.HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES !== '1'
 ) {
+  console.log('STATUS: BLOCKED production environment without HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1');
   throw new Error('Refusing production write smoke. Set HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1 to override.');
 }
 
@@ -47,7 +49,7 @@ for (const [name, payload] of checks) {
   }
 
   insertedIds.push(payload.id);
-  console.log(`ok insert:${name}:${payload.inquiry_type}:${payload.id}`);
+  console.log(`STATUS: RUN insert:${name}:${payload.inquiry_type}:${payload.id}`);
 }
 
 if (cleanupEnabled) {
@@ -62,3 +64,5 @@ if (cleanupEnabled) {
 } else {
   console.log('cleanup not requested: smoke rows remain with status=received.');
 }
+
+console.log('STATUS: PASS marketplace smoke completed');
