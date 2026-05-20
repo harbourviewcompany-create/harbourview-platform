@@ -1,7 +1,7 @@
 'use server';
 
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { getMaxMessageLength, isOversized, isUnsafeFreeText, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
+import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, isOversized, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
@@ -121,14 +121,6 @@ export async function submitQuoteRequest(
     };
   }
 
-  if (!isValidEmail(email)) {
-    logQuoteDiagnostic('QUOTE_VALIDATION_EMAIL');
-    return {
-      status: 'error',
-      message: withCode('Please use a valid business email address.', 'QUOTE_VALIDATION_EMAIL'),
-    };
-  }
-
   if (!VALID_BUYER_TYPES.has(buyerType)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_BUYER_TYPE');
     return {
@@ -167,7 +159,36 @@ export async function submitQuoteRequest(
     };
   }
 
-  if ([name, company, buyerType, targetMarket, volume, timeline, budget, supplierPreference, requirements].some(isUnsafeFreeText)) {
+  const emailValidation = validateFieldAgainstPolicy(email, FIELD_CLASSIFICATION_MATRIX.email);
+  if (!emailValidation.valid) {
+    logQuoteDiagnostic('QUOTE_VALIDATION_EMAIL');
+    return {
+      status: 'error',
+      message: withCode('Please use a valid business email address.', 'QUOTE_VALIDATION_EMAIL'),
+    };
+  }
+
+  const phoneValidation = validateFieldAgainstPolicy(phone, FIELD_CLASSIFICATION_MATRIX.phone);
+  if (!phoneValidation.valid) {
+    logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
+    return {
+      status: 'error',
+      message: withCode('Please use a valid phone number format.', 'QUOTE_VALIDATION_UNSAFE_CONTENT'),
+    };
+  }
+
+  const companyValidation = validateFieldAgainstPolicy(company, FIELD_CLASSIFICATION_MATRIX.company);
+  const requirementsValidation = validateFieldAgainstPolicy(requirements, FIELD_CLASSIFICATION_MATRIX.requirements);
+
+  if (!companyValidation.valid || !requirementsValidation.valid) {
+    logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
+    return {
+      status: 'error',
+      message: withCode('Please remove links or markup and submit plain text.', 'QUOTE_VALIDATION_UNSAFE_CONTENT'),
+    };
+  }
+
+  if ([name, buyerType, targetMarket, volume, timeline, budget, supplierPreference].some((field) => field && /(<\/?[a-z]|https?:\/\/|www\.)/i.test(field))) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
