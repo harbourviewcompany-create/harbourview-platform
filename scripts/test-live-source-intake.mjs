@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 
-const migration = readFileSync('supabase/migrations/007_live_source_intake_v0_consumables.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20260305000000_live_source_intake_v0_consumables.sql', 'utf8');
 const consumables = readFileSync('lib/marketplace/consumables.ts', 'utf8');
 const liveSources = readFileSync('lib/marketplace/liveSources.ts', 'utf8');
 const candidates = readFileSync('lib/marketplace/candidates.ts', 'utf8');

@@ -24,13 +24,31 @@ const files = [
   'types/globe-router.ts',
 ]
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function buildDisallowedTokenPattern(token) {
+  const escaped = escapeRegex(token)
+  const startsWithWord = /^\w/.test(token)
+  const endsWithWord = /\w$/.test(token)
+  const prefix = startsWithWord ? '\\b' : ''
+  const suffix = endsWithWord ? '\\b' : ''
+  return new RegExp(`${prefix}${escaped}${suffix}`)
+}
+
+const disallowedPatterns = disallowedTokens.map((token) => ({
+  token,
+  pattern: buildDisallowedTokenPattern(token),
+}))
+
 const violations = []
 
 for (const file of files) {
   const content = readFileSync(file, 'utf8')
 
-  for (const token of disallowedTokens) {
-    if (content.includes(token)) {
+  for (const { token, pattern } of disallowedPatterns) {
+    if (pattern.test(content)) {
       violations.push(`${file}: contains disallowed token ${token}`)
     }
   }

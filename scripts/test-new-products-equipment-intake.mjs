@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 
-const migration = readFileSync('supabase/migrations/008_new_products_equipment_intake.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20260308000000_new_products_equipment_intake.sql', 'utf8');
 const projection = readFileSync('lib/marketplace/newProductsPublic.ts', 'utf8');
 const page = readFileSync('app/marketplace/new-products/page.tsx', 'utf8');
 const packageJson = readFileSync('package.json', 'utf8');

@@ -153,7 +153,7 @@ This evidence is retained as historical proof only. Current production verificat
 **Source of truth**
 
 - PR #36 merged admin/operator role gate and production public provenance visibility probe.
-- Migration `005_user_roles_admin_gate.sql` applied to production Supabase.
+- Migration `20260301000000_user_roles_admin_gate.sql` applied to production Supabase.
 - PR #44 added a direct page-level `requireAdminAuth()` guard to `/admin/listings` after production verification found denied anonymous HTML still contained admin-only provenance labels.
 - This update exists only to trigger production deployment of the PR #44 main-branch closure commit.
 
@@ -193,7 +193,7 @@ Marketplace commercial polish was added to improve supplier acquisition, wanted-
 
 **Branch:** `feature/live-source-intake-v0-consumables`
 
-**Migration:** `supabase/migrations/007_live_source_intake_v0_consumables.sql`
+**Migration:** `supabase/migrations/20260305000000_live_source_intake_v0_consumables.sql`
 
 **Purpose:** Add private admin/operator-only live source intake and candidate review foundations while keeping public publication manual, controlled and out of scope for V0.
 

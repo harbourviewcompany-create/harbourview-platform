@@ -8,6 +8,20 @@ The canonical project map is maintained in [`docs/control/PROJECT_REGISTRY.md`](
 
 Before opening or merging a Harbourview PR, deployment task, Supabase task, Vercel task, cleanup action or agent handoff, identify the affected registry row and state whether the registry must change. Cleanup execution is tracked in [`docs/control/HARBOURVIEW_CLEANUP_CHECKLIST.md`](docs/control/HARBOURVIEW_CLEANUP_CHECKLIST.md).
 
+## Local validation
+
+Run local validation in this order:
+
+1. Install dependencies: `npm ci`
+2. Typecheck: `npm run typecheck`
+3. Lint: `npm run lint`
+4. Build: `npm run build`
+5. Optional targeted suites (when your changes touch these areas): `npm run test:globe-router`, `npm run test:visibility`
+
+Before opening a PR, the install, typecheck, lint, and build checks are required, while targeted suites are optional unless your changes directly affect those domains.
+
+Include a short note in your PR validation results indicating whether `docs/control/PROJECT_REGISTRY.md` is impacted and what row(s) were reviewed or updated.
+
 ## Platform baseline
 
 - Next.js App Router
@@ -24,3 +38,8 @@ Before opening or merging a Harbourview PR, deployment task, Supabase task, Verc
 - Do not weaken admin role protections or bypass auth checks on `/admin` routes.
 - Keep public positioning consistent with: **"Market access backed by intelligence and relationships."**
 - Keep contact fallback aligned to `harbourviewcompany@gmail.com` unless verified governance docs and implementation are updated together.
+
+## Build Targets
+
+- **Local / Node build path:** Use `npm run build` for standard local Next.js/Node build validation.
+- **Cloudflare / OpenNext build path:** Use `npm run preview`, `npm run deploy`, and `npm run upload` for the Cloudflare runtime packaging, preview, and deployment pipeline.

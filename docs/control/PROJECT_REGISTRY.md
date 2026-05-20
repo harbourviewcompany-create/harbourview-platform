@@ -159,6 +159,7 @@ The earlier Vercel dashboard review showed active preview branches tied to `harb
 6. External deployment/status contexts must not be treated as complete canonical proof unless the registry identifies the backing project, workspace/team, linked repo, branch, domains, Project ID, Team ID and required GitHub secret mapping.
 7. Operator-pasted dashboard evidence may establish a registry mapping, but unresolved machine-verifiable controls must remain listed as HOLD gates until independently checked.
 8. Historical evidence tied to older Harbourview domains must not be reused as current canonical-domain evidence for `https://harbourview-nu.vercel.app` without a fresh verification run.
+9. **Production artifact source of truth:** production release artifacts are the outputs produced by the canonical Vercel production pipeline for `harbourviewcompany-create/harbourview-platform` on `main` (project `harbourview`, team `harbourviewnetwork`, domain `https://harbourview-nu.vercel.app`); local Node builds (`npm run build`) and Cloudflare/OpenNext commands (`npm run preview`, `npm run deploy`, `npm run upload`) are validation or alternate-runtime workflows and must not be treated as canonical production evidence unless this registry is explicitly updated.
 
 ## Supabase Control Notes
 

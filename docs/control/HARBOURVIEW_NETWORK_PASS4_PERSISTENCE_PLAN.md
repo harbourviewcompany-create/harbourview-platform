@@ -6,7 +6,7 @@ This plan expands Harbourview Network Pass 4 persistence into a **repo-specific 
 Hard constraints applied:
 - Reuse existing `user_roles` `admin`/`operator` authorization model.
 - Reuse deny-by-default RLS posture (no anon/private table access).
-- Reuse review-first conventions established in migration `007_live_source_intake_v0_consumables.sql`.
+- Reuse review-first conventions established in migration `20260305000000_live_source_intake_v0_consumables.sql`.
 - No public reads from private review tables.
 - No client-side service-role usage.
 - No automatic publishing.
@@ -15,10 +15,10 @@ Hard constraints applied:
 
 ## Exact Existing Files Inspected
 ### Supabase migrations and RLS/grant posture
-- `supabase/migrations/005_user_roles_admin_gate.sql`
-- `supabase/migrations/006_harden_user_roles_grants.sql`
-- `supabase/migrations/007_live_source_intake_v0_consumables.sql`
-- `supabase/migrations/008_new_products_equipment_intake.sql`
+- `supabase/migrations/20260301000000_user_roles_admin_gate.sql`
+- `supabase/migrations/20260301001000_harden_user_roles_grants.sql`
+- `supabase/migrations/20260305000000_live_source_intake_v0_consumables.sql`
+- `supabase/migrations/20260308000000_new_products_equipment_intake.sql`
 
 ### Auth helpers, admin guard, service-role boundaries
 - `lib/auth/adminRoles.ts`

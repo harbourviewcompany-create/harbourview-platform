@@ -1,33 +1,38 @@
 import type { Metadata } from 'next'
-import IntelligenceModulePage from '../IntelligenceModulePage'
+import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Licensing Pathways',
-  description:
-    'Public-safe licensing pathway orientation for regulated cannabis market access, importer and distributor roles and documentation expectations.',
+  title: 'Licensing Pathways | Harbourview Intelligence',
+  description: 'Regulatory licensing pathway context for import, export, cultivation, processing and distribution.',
 }
 
 export default function LicensingPathwaysPage() {
   return (
-    <IntelligenceModulePage
-      content={{
-        eyebrow: 'Licensing pathways',
-        title: 'Licensing Pathways',
-        description:
-          'Licensing pathway pages explain market-entry roles, documentation themes and review questions without implying eligibility, approval or legal advice.',
-        requestLabel: 'Request Pathway Review',
-        reviewItems: [
-          'Importer, distributor, pharmacy, cultivation, processing, product registration and operator-role pathways can be mapped at a public-safe level.',
-          'Harbourview separates general pathway orientation from jurisdiction-specific legal, regulatory or compliance determinations.',
-          'Documentation expectations can be framed for review readiness without publishing private document packs or counterparty materials.',
-          'Operators can route licensing-pathway questions into confidential intake when the request involves sensitive markets or commercial strategy.',
-        ],
-        boundaryItems: [
-          'No public page confirms license eligibility.',
-          'No legal or regulatory advice is created by this route.',
-          'Private documentation review requires controlled intake.',
-        ],
-      }}
-    />
+    <main className="bg-[#020814] text-white">
+      <PublicHero
+        eyebrow="Intelligence"
+        title="Licensing Pathways"
+        actions={[{ label: 'Request Licensing Pathway Intelligence', href: '/contact' }]}
+        aside={
+          <PublicCard className="p-6 text-sm leading-7 text-white/62">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
+            <p>Licensing pathway information is orientation-level. Harbourview does not provide legal advice. Operators should verify requirements with qualified local advisors.</p>
+          </PublicCard>
+        }
+      >
+        Regulatory licensing pathway context for import, export, cultivation, processing and distribution across priority jurisdictions.
+      </PublicHero>
+
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="Pathway context" title="Licensing orientation for regulated-market planning.">
+          This page orients users around licence categories, pathway questions, route readiness and jurisdiction-specific review needs without publishing private route analysis.
+        </SectionHeader>
+        <PublicCard muted className="p-6 text-sm leading-7 text-white/62">
+          Licensing content is a starting point for structured review. It does not confirm eligibility, authorization, approval, route viability or legal sufficiency.
+        </PublicCard>
+      </PublicSection>
+
+      <FooterCta eyebrow="Licensing intelligence" title="Need licensing pathway context for a priority market?" actions={[{ label: 'Request Licensing Pathway Intelligence', href: '/contact' }]}>Harbourview can route licensing questions into reviewed workflows before commercial action or counterparty engagement.</FooterCta>
+    </main>
   )
 }

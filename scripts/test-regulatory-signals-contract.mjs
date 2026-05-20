@@ -6,7 +6,7 @@ if (!publicLayer.includes('toPublicRegulatorySignal')) {
   process.exit(1)
 }
 
-const schema = fs.readFileSync('./supabase/migrations/0099_regulatory_signals_v1.sql','utf-8')
+const schema = fs.readFileSync('./supabase/migrations/20260312000000_regulatory_signals_v1.sql','utf-8')
 if (!schema.includes('regulatory_signals.signals')) {
   console.error('Schema missing')
   process.exit(1)
