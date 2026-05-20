@@ -7,6 +7,9 @@ type LimitWindow = {
 
 const windows = new Map<string, LimitWindow>()
 
+const EVICTION_INTERVAL_MS = 60_000
+let lastEvictionAt = 0
+
 export type RateLimitResult = {
   allowed: boolean
   retryAfterSeconds: number
@@ -25,6 +28,16 @@ function hashIdentity(value: string) {
   return createHash('sha256').update(value).digest('hex').slice(0, 16)
 }
 
+function evictExpired(now: number) {
+  if (now - lastEvictionAt < EVICTION_INTERVAL_MS) return
+  lastEvictionAt = now
+  for (const [key, window] of windows) {
+    if (now >= window.resetAt) {
+      windows.delete(key)
+    }
+  }
+}
+
 export function getClientIp(request: Request) {
   const forwardedFor = request.headers.get('x-forwarded-for')
   if (forwardedFor) {
@@ -41,6 +54,7 @@ export function enforceRateLimit(options: RateLimitOptions): RateLimitResult {
   const identityKey = options.identity ? `:${hashIdentity(options.identity.toLowerCase())}` : ''
   const key = `${options.route}:${options.ip}${identityKey}`
   const now = Date.now()
+  evictExpired(now)
   const current = windows.get(key)
 
   if (!current || now >= current.resetAt) {

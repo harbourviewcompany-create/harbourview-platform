@@ -49,6 +49,7 @@ function json(status: 'success' | 'error', message: string, httpStatus = 200, re
       status: httpStatus,
       headers: {
         'Cache-Control': 'no-store',
+        ...(retryAfterSeconds ? { 'Retry-After': String(retryAfterSeconds) } : {}),
       },
     }
   )
