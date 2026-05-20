@@ -20,14 +20,12 @@
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.59.0",
     "@vercel/analytics": "^2.0.1",
-    "@vitest/coverage-v8": "^4.1.5",
     "autoprefixer": "^10.5.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.74.0",
     "resend": "^6.12.2",
-    "vitest": "^4.1.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -39,7 +37,8 @@
     "eslint-config-next": "^16.2.4",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^2.0.0"
+    "vitest": "^4.1.5",
+    "@vitest/coverage-v8": "^4.1.5"
   },
   "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).",
   "main": "index.js",
