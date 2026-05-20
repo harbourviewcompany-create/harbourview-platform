@@ -1,7 +1,7 @@
 'use server';
 
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, isOversized, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, hasOversizedFields, hasSpamTrapValue, hasUnsafePlainText, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { postMarketplaceInquiry } from '@/lib/marketplace/inquirySubmission';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
@@ -37,14 +37,6 @@ function withCode(message: string, code: QuoteDiagnosticCode) {
 }
 
 
-function getSupabaseConfig() {
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!anonKey) return null;
-  return { url: resolveLockedSupabaseUrl(), anonKey };
-}
 
 function logQuoteDiagnostic(code: QuoteDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
   console.info('harbourview_marketplace_quote_request', {
@@ -100,7 +92,7 @@ export async function submitQuoteRequest(
   const requirements = readField(formData, 'requirements');
   const website = readField(formData, 'website');
 
-  if (website) {
+  if (hasSpamTrapValue(website)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_SPAM_TRAP');
     return { status: 'error', message: withCode('Quote request could not be processed.', 'QUOTE_VALIDATION_SPAM_TRAP') };
   }
@@ -151,7 +143,7 @@ export async function submitQuoteRequest(
     supplierPreference,
   ];
 
-  if (textFields.some((field) => isOversized(field))) {
+  if (hasOversizedFields(textFields)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_FIELD_LENGTH');
     return {
       status: 'error',
@@ -188,7 +180,7 @@ export async function submitQuoteRequest(
     };
   }
 
-  if ([name, buyerType, targetMarket, volume, timeline, budget, supplierPreference].some((field) => field && /(<\/?[a-z]|https?:\/\/|www\.)/i.test(field))) {
+  if (hasUnsafePlainText([name, buyerType, targetMarket, volume, timeline, budget, supplierPreference])) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
@@ -215,18 +207,6 @@ export async function submitQuoteRequest(
     };
   }
 
-  const supabase = getSupabaseConfig();
-  if (!supabase) {
-    logQuoteDiagnostic('QUOTE_CONFIG_MISSING', {
-      hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      hasPublishableKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-    });
-    return {
-      status: 'error',
-      message: withCode('Quote capture is not configured yet. Please contact Harbourview directly.', 'QUOTE_CONFIG_MISSING'),
-    };
-  }
 
   const payload = {
     listing_id: null,
@@ -236,26 +216,22 @@ export async function submitQuoteRequest(
     contact_company: company,
     contact_phone: phone || null,
     inquiry_type: 'quote_routing',
-    message,
-    status: 'received',
+    message: message,
+    status: 'received' as const,
   };
 
-  const response = await fetch(`${supabase.url}/rest/v1/marketplace_inquiries`, {
-    method: 'POST',
-    headers: {
-      apikey: supabase.anonKey,
-      Authorization: `Bearer ${supabase.anonKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: JSON.stringify(payload),
-  });
+  const submissionResult = await postMarketplaceInquiry(payload);
 
-  if (!response.ok) {
-    logQuoteDiagnostic('QUOTE_SUPABASE_INSERT_FAILED', {
-      status: response.status,
-      statusText: response.statusText,
-    });
+  if (!submissionResult.ok) {
+    if (submissionResult.kind === 'config_missing') {
+      logQuoteDiagnostic('QUOTE_CONFIG_MISSING', submissionResult.context);
+      return {
+        status: 'error',
+        message: withCode('Quote capture is not configured yet. Please contact Harbourview directly.', 'QUOTE_CONFIG_MISSING'),
+      };
+    }
+
+    logQuoteDiagnostic('QUOTE_SUPABASE_INSERT_FAILED', submissionResult.context);
     return {
       status: 'error',
       message: withCode('The quote request could not be saved. Please try again or contact Harbourview directly.', 'QUOTE_SUPABASE_INSERT_FAILED'),
