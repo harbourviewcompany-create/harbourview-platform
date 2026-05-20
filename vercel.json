@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": true
   },
   "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh"
 }
