@@ -94,10 +94,15 @@ export const geneticsProfiles: GeneticsProfile[] = [
 ]
 
 export function toPublicGeneticsProfile(profile: GeneticsProfile): PublicGeneticsProfile {
-  const { privateFields, ...publicProfile } = profile
-
   return {
-    ...publicProfile,
+    slug: profile.slug,
+    name: profile.name,
+    type: profile.type,
+    region: profile.region,
+    summary: profile.summary,
+    publicFocus: profile.publicFocus,
+    publicFields: profile.publicFields,
+    drops: profile.drops,
     privateFieldPolicy:
       'Direct contact details, pricing, sensitive breeding information, unpublished genetics, private documents and negotiation terms are controlled through Harbourview review.',
   }
