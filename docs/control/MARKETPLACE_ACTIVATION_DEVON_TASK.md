@@ -127,6 +127,125 @@ Focus: licensed sellers, commercial suppliers, service providers, packaging supp
 
 For each category page touched, create a premium category header, useful card grid, CTA panel, and mobile-friendly browsing experience.
 
+## Phase 4 — Major-Network Expansion Modules
+Add high-visibility modules so Harbourview feels like a broad active commercial network rather than a small early marketplace.
+
+### Market Access Pathways
+Create visible pathway modules/cards for:
+- Germany import pathway
+- UK specials pathway
+- Portugal export pathway
+- Canada domestic wholesale
+- EU-GMP route support
+- LATAM market entry
+- Distributor / importer introductions
+
+### Live Demand Signals
+Create a buyer-demand section that makes active demand visible:
+- Buyer seeking Canadian craft flower
+- EU buyer reviewing GMP-oriented flower
+- Processor seeking biomass
+- Distributor seeking white-label SKUs
+- Operator seeking compliant packaging
+- Facility seeking surplus equipment
+- Supplier wanted for consumables
+- Service provider wanted for QA/GMP support
+
+### Supplier Network Verticals
+Create supplier-network tiles/cards for:
+- Licensed producers
+- Processors
+- Extractors
+- Packagers
+- GMP consultants
+- QA/compliance firms
+- Packaging suppliers
+- Equipment suppliers
+- Logistics providers
+- Import/export advisors
+- Distribution partners
+- Market-access partners
+
+### Documentation & Readiness Tiles
+Add readiness tiles that show what buyers care about:
+- COA available
+- Licence documentation
+- GACP documentation
+- EU-GMP pathway
+- Export package
+- Import review
+- QA package
+- Stability / spec package
+- Documentation available after qualification
+
+### Featured Commercial Modules
+Add large marketplace modules for:
+- Active Supply
+- Buyer Demand
+- Consumables
+- Packaging
+- Equipment
+- Services
+- Market Access
+- Supplier Network
+
+### Newest Opportunities
+Add a section for recently added marketplace items, using active card styling and timestamp-style labels such as Recently Added, New Intake, or New Buyer Demand.
+
+### Recently Updated
+Add a section that creates activity density with labels such as:
+- Documentation updated
+- Buyer demand active
+- Supplier intake open
+- Category expanded
+- New pathway added
+
+### Submit to Network by User Type
+Add a user-type CTA section with clear paths:
+- I have supply
+- I am looking to buy
+- I offer services
+- I sell equipment
+- I sell packaging
+- I supply consumables
+- I need market access
+- I want a confidential introduction
+
+### Region / Pathway Browse
+Add a region/pathway browsing module for:
+- Canada
+- Alberta
+- British Columbia
+- Quebec
+- Ontario
+- Europe
+- Germany
+- United Kingdom
+- Portugal
+- LATAM
+- International
+
+### Mobile Sticky CTA
+Add a mobile-friendly sticky CTA or compact bottom action bar where it fits existing UI patterns:
+- Request Access
+- Submit Supply
+- Buyer Wanted
+
+## Minimum Category Card Counts
+Build enough visible depth that the network feels major and active.
+
+Minimum public card targets:
+- Cannabis Inventory: 12 cards
+- Consumables: 8 cards
+- Packaging: 8 cards
+- Equipment: 8 cards
+- Services: 8 cards
+- Wanted Requests: 8 cards
+- Supplier Network: 8 cards
+- Market Access: 6 cards
+
+If implementation time requires sequencing, complete the marketplace hub and first 12 active cards first, then add the category depth in the same pattern and report what was completed.
+
 ## Public DTO
 Use or create a clean public marketplace DTO for public card rendering.
 
@@ -224,6 +343,11 @@ Suggested image keys:
 - used-surplus-equipment
 - commercial-services
 - supplier-network
+- market-access-pathways
+- live-demand-signals
+- documentation-readiness
+- newest-opportunities
+- recently-updated
 
 ## Post-Build Verification and Repair
 After implementation, run verification and report anything that needs a follow-up repair patch.
@@ -250,6 +374,10 @@ Report:
 - Featured opportunity cards
 - CTA visibility above fold
 - Empty filter state
+- Market access pathways
+- Live demand signals
+- Supplier network verticals
+- Mobile sticky CTA
 
 ## Final Output
 Return:
@@ -271,6 +399,11 @@ Return:
 - Services
 - Wanted requests
 - Supplier categories
+- Market access pathways
+- Live demand signals
+- Documentation/readiness tiles
+- Region/pathway browse
+- Mobile sticky CTA
 
 ## Changed Files
 
@@ -278,6 +411,16 @@ Return:
 
 ## Listings / Cards
 slug | title | category | CTA route
+
+## Category Depth
+- Cannabis Inventory
+- Consumables
+- Packaging
+- Equipment
+- Services
+- Wanted Requests
+- Supplier Network
+- Market Access
 
 ## DTO / Data Model
 - DTO
@@ -296,6 +439,7 @@ slug | title | category | CTA route
 - Filters
 - CTA above fold
 - Category pages
+- Mobile sticky CTA
 
 ## Verification
 - command
