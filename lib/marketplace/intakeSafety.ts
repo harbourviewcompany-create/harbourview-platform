@@ -21,6 +21,18 @@ export function isUnsafeFreeText(value: string) {
   return URL_PATTERN.test(value) || MARKUP_PATTERN.test(value);
 }
 
+export function isSpamTrapFilled(value: string) {
+  return value.trim().length > 0;
+}
+
+export function hasOversizedField(values: string[], maxLength = MAX_TEXT_LENGTH) {
+  return values.some((value) => isOversized(value, maxLength));
+}
+
+export function hasUnsafeFreeText(values: string[]) {
+  return values.some((value) => isUnsafeFreeText(value));
+}
+
 export function getMaxMessageLength() {
   return MAX_MESSAGE_LENGTH;
 }
@@ -28,4 +40,3 @@ export function getMaxMessageLength() {
 export function getMaxTextLength() {
   return MAX_TEXT_LENGTH;
 }
-

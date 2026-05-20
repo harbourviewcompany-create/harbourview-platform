@@ -1,7 +1,7 @@
 'use server';
 
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { getMaxMessageLength, isOversized, isUnsafeFreeText, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
+import { formatSubmissionDiagnosticContext, getInquirySubmissionConfig, postMarketplaceInquiry } from '@/lib/marketplace/inquirySubmission';
+import { getMaxMessageLength, hasOversizedField, hasUnsafeFreeText, isSpamTrapFilled, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
@@ -36,15 +36,6 @@ function withCode(message: string, code: QuoteDiagnosticCode) {
   return `${message} [${code}]`;
 }
 
-
-function getSupabaseConfig() {
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!anonKey) return null;
-  return { url: resolveLockedSupabaseUrl(), anonKey };
-}
 
 function logQuoteDiagnostic(code: QuoteDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
   console.info('harbourview_marketplace_quote_request', {
@@ -100,7 +91,7 @@ export async function submitQuoteRequest(
   const requirements = readField(formData, 'requirements');
   const website = readField(formData, 'website');
 
-  if (website) {
+  if (isSpamTrapFilled(website)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_SPAM_TRAP');
     return { status: 'error', message: withCode('Quote request could not be processed.', 'QUOTE_VALIDATION_SPAM_TRAP') };
   }
@@ -159,7 +150,7 @@ export async function submitQuoteRequest(
     supplierPreference,
   ];
 
-  if (textFields.some((field) => isOversized(field))) {
+  if (hasOversizedField(textFields)) {
     logQuoteDiagnostic('QUOTE_VALIDATION_FIELD_LENGTH');
     return {
       status: 'error',
@@ -167,7 +158,7 @@ export async function submitQuoteRequest(
     };
   }
 
-  if ([name, company, buyerType, targetMarket, volume, timeline, budget, supplierPreference, requirements].some(isUnsafeFreeText)) {
+  if (hasUnsafeFreeText([name, company, buyerType, targetMarket, volume, timeline, budget, supplierPreference, requirements])) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
@@ -194,7 +185,7 @@ export async function submitQuoteRequest(
     };
   }
 
-  const supabase = getSupabaseConfig();
+  const supabase = getInquirySubmissionConfig();
   if (!supabase) {
     logQuoteDiagnostic('QUOTE_CONFIG_MISSING', {
       hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
@@ -219,21 +210,11 @@ export async function submitQuoteRequest(
     status: 'received',
   };
 
-  const response = await fetch(`${supabase.url}/rest/v1/marketplace_inquiries`, {
-    method: 'POST',
-    headers: {
-      apikey: supabase.anonKey,
-      Authorization: `Bearer ${supabase.anonKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await postMarketplaceInquiry(payload, supabase);
 
   if (!response.ok) {
     logQuoteDiagnostic('QUOTE_SUPABASE_INSERT_FAILED', {
-      status: response.status,
-      statusText: response.statusText,
+      ...formatSubmissionDiagnosticContext(response),
     });
     return {
       status: 'error',

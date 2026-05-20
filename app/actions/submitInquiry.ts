@@ -2,8 +2,8 @@
 
 import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { getMaxMessageLength, isOversized, isUnsafeFreeText, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
+import { formatSubmissionDiagnosticContext, getInquirySubmissionConfig, postMarketplaceInquiry } from '@/lib/marketplace/inquirySubmission';
+import { getMaxMessageLength, hasOversizedField, hasUnsafeFreeText, isSpamTrapFilled, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
@@ -54,15 +54,6 @@ function buildMessageWithListingContext(
   ].join('\n');
 }
 
-function getSupabaseConfig() {
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!anonKey) return null;
-  return { url: resolveLockedSupabaseUrl(), anonKey };
-}
-
 function logInquiryDiagnostic(code: InquiryDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
   console.info('harbourview_marketplace_inquiry', {
     code,
@@ -109,7 +100,7 @@ export async function submitMarketplaceInquiry(
   const consent = formData.get('consent') === 'on';
   const website = readField(formData, 'website');
 
-  if (website) {
+  if (isSpamTrapFilled(website)) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_SPAM_TRAP');
     return { status: 'error', message: withCode('Inquiry could not be processed.', 'INQUIRY_VALIDATION_SPAM_TRAP') };
   }
@@ -136,13 +127,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  if (
-    isOversized(name) ||
-    isOversized(email) ||
-    isOversized(company) ||
-    isOversized(country) ||
-    isOversized(phone)
-  ) {
+  if (hasOversizedField([name, email, company, country, phone])) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_FIELD_LENGTH');
     return {
       status: 'error',
@@ -150,7 +135,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  if ([name, company, country, phone, message].some(isUnsafeFreeText)) {
+  if (hasUnsafeFreeText([name, company, country, phone, message])) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
@@ -178,7 +163,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const supabase = getSupabaseConfig();
+  const supabase = getInquirySubmissionConfig();
   if (!supabase) {
     logInquiryDiagnostic('INQUIRY_CONFIG_MISSING', {
       hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
@@ -203,21 +188,11 @@ export async function submitMarketplaceInquiry(
     status: 'received',
   };
 
-  const response = await fetch(`${supabase.url}/rest/v1/marketplace_inquiries`, {
-    method: 'POST',
-    headers: {
-      apikey: supabase.anonKey,
-      Authorization: `Bearer ${supabase.anonKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: JSON.stringify(payload),
-  });
+  const response = await postMarketplaceInquiry(payload, supabase);
 
   if (!response.ok) {
     logInquiryDiagnostic('INQUIRY_SUPABASE_INSERT_FAILED', {
-      status: response.status,
-      statusText: response.statusText,
+      ...formatSubmissionDiagnosticContext(response),
     });
     return {
       status: 'error',
