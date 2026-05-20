@@ -3,10 +3,11 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import QuoteRequestForm from './QuoteRequestForm'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
+import { GENERIC_PUBLIC_DISCLAIMER, MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
 
 export const metadata: Metadata = {
   title: 'Request Routed Inquiry | Harbourview Network',
-  description: 'Submit a buyer or supplier inquiry for Harbourview Network opportunities. Contact details are not public and Harbourview reviews inquiries before coordinating any introduction.',
+  description: `Submit a buyer or supplier inquiry for Harbourview Network opportunities. ${MARKETPLACE_CONFIDENTIALITY_CAVEAT}`,
 }
 
 export default function QuoteRequestPage() {
@@ -34,7 +35,7 @@ export default function QuoteRequestPage() {
       <PublicSection tone="panel">
         <div className="page-container max-w-3xl">
           <PublicCard className="mb-6 border-gold/20 bg-[#0d1e32] px-4 py-3 text-sm text-white/78">
-            Public summaries do not guarantee availability, pricing, introduction, transaction terms or legal/regulatory outcomes. Harbourview reviews inquiries before routing.
+            {GENERIC_PUBLIC_DISCLAIMER} Harbourview reviews inquiries before routing.
           </PublicCard>
           <Suspense fallback={<PublicCard className="p-6 text-sm text-white/58">Loading inquiry form…</PublicCard>}>
             <QuoteRequestForm />

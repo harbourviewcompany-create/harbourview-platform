@@ -1,3 +1,5 @@
+import { INTAKE_REVIEW_GATING_TEXT, MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
+
 export type ModuleItem = {
   title: string
   description: string
@@ -338,11 +340,11 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
       'A protected-routing layer for qualified introductions, buyer/seller matching, exporter/importer review, equipment sourcing, distressed asset access and confidential dealroom orientation.',
     primaryCta: { label: 'Request Introduction', href: '/intake' },
     secondaryCta: { label: 'Contact Harbourview', href: '/contact' },
-    boundary: 'Introductions, dealroom access, asset disclosure and counterparty routing are never automatic. Harbourview reviews fit, sensitivity, role, category and access requirements before any private routing.',
+    boundary: `Introductions, dealroom access, asset disclosure and counterparty routing are never automatic. ${INTAKE_REVIEW_GATING_TEXT}`,
     sections: [
       {
         title: 'Connection workflows',
-        description: 'Public pages explain available pathways without exposing confidential counterparties, assets or terms.',
+        description: `Public pages explain available pathways without exposing confidential counterparties, assets or terms. ${MARKETPLACE_CONFIDENTIALITY_CAVEAT}`,
         items: [
           { title: 'Buyer/Seller Matching', description: 'Supply and demand are reviewed before any introduction or private detail is shared.', href: '/marketplace/wanted' },
           { title: 'Exporter/Importer Review', description: 'Route feasibility, jurisdiction context and participant fit are reviewed before routing.', href: '/markets' },

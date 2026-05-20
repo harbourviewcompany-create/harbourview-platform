@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 import ConfidentialIntakeForm from './ConfidentialIntakeForm'
+import { GENERIC_PUBLIC_DISCLAIMER, INTAKE_REVIEW_GATING_TEXT } from '@/lib/content/complianceCopy'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -25,7 +26,7 @@ export default function IntakePage() {
               Reviewed handling
             </p>
             <p className="text-sm leading-7 text-white/58">
-              Intake submissions are reviewed before follow-up, counterparty routing, commercial disclosure or any protected access discussion.
+              {INTAKE_REVIEW_GATING_TEXT}
             </p>
           </PublicCard>
         }
@@ -34,7 +35,7 @@ export default function IntakePage() {
           Share qualified opportunities, commercial requirements, intelligence questions or confidential market-access inquiries without exposing sensitive details on public pages.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
-          Harbourview does not publish intake details, private counterparties, document materials or route-sensitive context.
+          Harbourview does not publish intake details, private counterparties, document materials or route-sensitive context. {GENERIC_PUBLIC_DISCLAIMER}
         </p>
       </PublicHero>
 

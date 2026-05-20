@@ -29,7 +29,7 @@
     "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
-    "test:globe-router": "node scripts/test-globe-router-mounted.mjs",
+    "test:globe-router": "vitest run tests/globe-router/routeState.test.ts",
     "test:full-scope:script-uniqueness": "node scripts/test-package-script-uniqueness.mjs",
     "test:full-scope:routes": "node scripts/test-route-capability-registry.mjs",
     "test:full-scope:content": "node scripts/test-content-inventory.mjs",
@@ -46,12 +46,12 @@
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "test:globe-router": "vitest run tests/globe-router/routeState.test.ts",
     "test:globe-router:browser": "BASE_URL=http://127.0.0.1:3000 node scripts/test-globe-router-browser.mjs",
     "qa:all": "node scripts/qa-registry.mjs --bundle=all",
     "qa:public-surface": "node scripts/qa-registry.mjs --bundle=public-surface",
     "qa:compliance": "node scripts/qa-registry.mjs --bundle=compliance",
-    "qa:smoke": "node scripts/qa-registry.mjs --bundle=smoke"
+    "qa:smoke": "node scripts/qa-registry.mjs --bundle=smoke",
+    "test:public-copy-dedup": "node scripts/test-public-copy-dedup.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
