@@ -15,6 +15,19 @@ describe('public safety fuzz', () => {
     }
   })
 
+  it('does not flag legitimate content that merely contains forbidden tokens as substrings', () => {
+    const benign = [
+      'visit our resource URL for more info',
+      'a resource_url reference',
+      'datastoragepathway notes',
+      'outsource evidence intake',
+      'psychoanalyst notes are unrelated',
+    ]
+    for (const value of benign) {
+      expect(containsForbiddenRegulatorySignalLeakage(value)).toBe(false)
+    }
+  })
+
   it('sanitizes marketplace listing source hints', () => {
     const projected = toPublicMarketplaceListing(mkListing({
       title: 'Machinio extractor listing',
