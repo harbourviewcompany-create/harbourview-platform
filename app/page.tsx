@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
-import { PublicCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+import HarbourviewGlobeRouteController from '@/components/harbourview/globe/HarbourviewGlobeRouteController'
+import { PublicCard, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Controlled Market Access Intelligence',
@@ -106,35 +108,15 @@ const reviewModel = [
   },
 ] as const
 
-const availableRoutes = [
-  {
-    title: 'Network',
-    href: '/network',
-    body: 'Controlled commercial discovery across listings, wanted requests, suppliers and reviewed inquiry categories.',
-  },
-  {
-    title: 'Intelligence',
-    href: '/intelligence',
-    body: 'Public-safe market context for country, policy, pathway and timing review.',
-  },
-  {
-    title: 'Signals',
-    href: '/signals',
-    body: 'Source-backed regulatory and commercial movement without claiming live route availability.',
-  },
-  {
-    title: 'Intake',
-    href: '/intake',
-    body: 'Confidential request routing for sensitive market-access, counterparty or commercial questions.',
-  },
-] as const
-
 export default function HomePage() {
   return (
     <main className="bg-[#01050d] text-white">
       <section className="relative isolate overflow-hidden border-b border-gold/10 bg-[#01050d] py-10 sm:py-16 lg:py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_22%,rgba(198,165,90,0.16),transparent_30%),linear-gradient(135deg,rgba(11,26,47,0.92)_0%,rgba(1,5,13,1)_72%)]" />
         <HarbourviewGlobeClientLoader />
+        <Suspense fallback={null}>
+          <HarbourviewGlobeRouteController />
+        </Suspense>
 
         <div className="page-container relative z-10">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.58fr)] lg:items-end">
@@ -169,34 +151,16 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-
-            <aside className="rounded-sm border border-white/72 bg-[#020814]/72 p-5 shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur-md sm:border-gold/14 sm:p-7">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/86">
-                Public gateway
-              </p>
-
-              <h2 className="mt-4 font-serif text-[2.35rem] leading-[1.04] tracking-[-0.045em] text-[#f4f1eb] sm:text-4xl">
-                Available sections are open for review.
-              </h2>
-
-              <div className="mt-6 grid gap-3">
-                {gatewayControls.map((control) => (
-                  <div key={control} className="rounded-sm border border-gold/10 bg-white/[0.035] px-4 py-3 text-sm leading-6 text-white/70">
-                    {control}
-                  </div>
-                ))}
-              </div>
-            </aside>
           </div>
         </div>
       </section>
 
       <PublicSection id="public-sections" tone="dark" className="py-12 sm:py-16">
         <SectionHeader
-          eyebrow="Public sections"
-          title="Core Harbourview areas now visible from the homepage."
+          eyebrow="Full-platform map"
+          title="The public site routes into every major Harbourview pillar."
         >
-          Harbourview is organized around controlled discovery, reviewed intelligence, professional education, compliance orientation, assessment pathways and institutional collaboration.
+          Explore Harbourview by role, market, commercial intent, source methodology, education, governance and reviewed connection pathways while sensitive evidence and counterparty detail remain protected.
         </SectionHeader>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

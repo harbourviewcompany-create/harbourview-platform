@@ -17,6 +17,7 @@ set -euo pipefail
 #   can otherwise suppress the real production deployment.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
+commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-${COMMIT_MESSAGE:-}}}"
 vercel_env="${VERCEL_ENV:-}"
 project_id="${VERCEL_PROJECT_ID:-}"
 project_production_url="${VERCEL_PROJECT_PRODUCTION_URL:-}"
@@ -75,7 +76,15 @@ if [[ -z "$branch" ]]; then
 fi
 
 case "$branch" in
-  main|preview/*|deploy/*)
+  main)
+    if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
+      echo "Vercel ignore: main commit message requests skip ('$commit_message'); skip build."
+      exit 0
+    fi
+    echo "Vercel ignore: build allowed for branch '$branch'."
+    exit 1
+    ;;
+  preview/*|deploy/*)
     echo "Vercel ignore: build allowed for branch '$branch'."
     exit 1
     ;;
