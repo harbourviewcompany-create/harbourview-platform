@@ -190,3 +190,20 @@ Required checks:
 - restricted/excluded consumables and licence-review candidates cannot reach `approved_draft`
 - public consumables UI uses only safe inquiry-first labels
 - public leakage probes include private source/candidate table and field names
+
+## QA registry bundles
+
+Use `scripts/qa-registry.mjs` for deterministic bundle execution and summaries. The runner exits non-zero when any check fails.
+
+Recommended bundle usage:
+
+- `npm run qa:public-surface` for route copy/content, listing DTO, and public leakage changes.
+- `npm run qa:compliance` for compliance/regulatory copy, schema-contract, or regulatory signal changes.
+- `npm run qa:smoke` for admin guard, intake safety, and marketplace smoke/regression verification before merge.
+- `npm run qa:all` before release candidates, production-trigger PRs, or when scope spans multiple categories.
+
+For script metadata (purpose/category/required context), run:
+
+```bash
+node scripts/qa-registry.mjs --list
+```
