@@ -73,3 +73,16 @@ export function getMaxMessageLength() {
 export function getMaxTextLength() {
   return MAX_TEXT_LENGTH;
 }
+
+
+export function hasSpamTrapValue(value: string) {
+  return Boolean(value);
+}
+
+export function hasOversizedFields(values: string[], maxLength = MAX_TEXT_LENGTH) {
+  return values.some((value) => isOversized(value, maxLength));
+}
+
+export function hasUnsafePlainText(values: string[]) {
+  return values.some((value) => Boolean(value) && isUnsafeFreeText(value));
+}
