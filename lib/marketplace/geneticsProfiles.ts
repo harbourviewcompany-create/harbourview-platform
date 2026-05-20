@@ -176,7 +176,19 @@ export function toPublicGeneticsProfile(profile: GeneticsProfile) {
     }
   }
 
-  const { contactName, email, phone, privatePricing, sourceName, internalReviewNotes, ...safe } = profile
+  return omitGeneticsPrivateFields(profile)
+}
 
-  return safe
+function omitGeneticsPrivateFields(profile: GeneticsProfile) {
+  return {
+    slug: profile.slug,
+    profileName: profile.profileName,
+    profileType: profile.profileType,
+    region: profile.region,
+    positioningLine: profile.positioningLine,
+    profileSummary: profile.profileSummary,
+    currentDrops: profile.currentDrops,
+    primaryCta: profile.primaryCta,
+    secondaryCta: profile.secondaryCta,
+  }
 }
