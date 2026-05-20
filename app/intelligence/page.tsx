@@ -33,7 +33,7 @@ export default async function IntelligencePage() {
               Public intelligence controls
             </p>
             <p>
-              Public panels use typed fixtures and a public projection layer. They exclude raw evidence, private contacts, unpublished analyst notes and direct counterparty information.
+              Public panels use typed fixtures and a public projection layer. They exclude raw evidence, private contact details, unpublished analyst notes and direct counterparty information.
             </p>
           </PublicCard>
         }

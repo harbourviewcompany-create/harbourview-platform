@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import type { Listing, ListingImageStatus } from '@/lib/fixtures/types'
 import { representativeListingImages } from '@/lib/fixtures/representativeImages'
 import { validateDealListing } from '@/lib/fixtures/listingQuality'
@@ -104,11 +105,12 @@ function ListingVisual({ listing }: { listing: ListingCardProps['listing'] }) {
   if (imageSrc && !hasImageError) {
     return (
       <figure className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
-        <img
+        <Image
           src={imageSrc}
           alt={listingImage?.alt || listing.title}
           className="h-36 w-full object-cover"
-          loading="lazy"
+          width={640}
+          height={360}
           onError={() => setHasImageError(true)}
         />
         <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">

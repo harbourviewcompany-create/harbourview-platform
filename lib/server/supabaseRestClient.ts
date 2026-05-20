@@ -9,10 +9,6 @@ function trimUrl(value: string) {
   return value.replace(/\/$/, '')
 }
 
-function encodeFilterValue(value: string) {
-  return encodeURIComponent(`eq.${value}`)
-}
-
 class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>> {
   private method = 'GET'
   private body: unknown
