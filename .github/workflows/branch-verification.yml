@@ -16,7 +16,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout head branch for package lock commit
         uses: actions/checkout@v4
@@ -92,6 +92,25 @@ jobs:
 
       - name: Visibility
         run: npm run test:visibility
+
+      - name: Install Playwright Chromium
+        run: npx -y -p @playwright/test@1.54.0 playwright install --with-deps chromium
+
+      - name: Production e2e route and mobile probes safe no writes
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+        run: npm run test:e2e
+
+      - name: Upload Playwright production probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-production-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Production visibility probe safe no writes
         env:
