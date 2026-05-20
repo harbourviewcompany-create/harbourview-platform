@@ -1,7 +1,7 @@
 'use server';
 
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, isOversized, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { getMaxMessageLength, isOversized, readField, validateFieldsByClassification } from '@/lib/marketplace/intakeSafety';
 
 export type QuoteRequestActionState = {
   status: 'idle' | 'success' | 'error';
@@ -159,8 +159,15 @@ export async function submitQuoteRequest(
     };
   }
 
-  const emailValidation = validateFieldAgainstPolicy(email, FIELD_CLASSIFICATION_MATRIX.email);
-  if (!emailValidation.valid) {
+  const classifiedFieldResults = validateFieldsByClassification({
+    email,
+    phone,
+    company,
+    requirements,
+  });
+
+  const emailValidation = classifiedFieldResults.find((result) => result.field === 'email')?.result;
+  if (!emailValidation?.valid) {
     logQuoteDiagnostic('QUOTE_VALIDATION_EMAIL');
     return {
       status: 'error',
@@ -168,8 +175,8 @@ export async function submitQuoteRequest(
     };
   }
 
-  const phoneValidation = validateFieldAgainstPolicy(phone, FIELD_CLASSIFICATION_MATRIX.phone);
-  if (!phoneValidation.valid) {
+  const phoneValidation = classifiedFieldResults.find((result) => result.field === 'phone')?.result;
+  if (!phoneValidation?.valid) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
@@ -177,10 +184,10 @@ export async function submitQuoteRequest(
     };
   }
 
-  const companyValidation = validateFieldAgainstPolicy(company, FIELD_CLASSIFICATION_MATRIX.company);
-  const requirementsValidation = validateFieldAgainstPolicy(requirements, FIELD_CLASSIFICATION_MATRIX.requirements);
+  const companyValidation = classifiedFieldResults.find((result) => result.field === 'company')?.result;
+  const requirementsValidation = classifiedFieldResults.find((result) => result.field === 'requirements')?.result;
 
-  if (!companyValidation.valid || !requirementsValidation.valid) {
+  if (!companyValidation?.valid || !requirementsValidation?.valid) {
     logQuoteDiagnostic('QUOTE_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',

@@ -13,6 +13,12 @@ type IntakeFieldClassification = {
   maxLength?: number;
 };
 
+/**
+ * Field classification matrix:
+ * - strict_format: canonical format validation (email/phone)
+ * - plain_text_unsafe_token_rejection: plain text required, rejects URLs/markup
+ * - optional_plain_text: plain text optional, rejects URLs/markup when provided
+ */
 export const FIELD_CLASSIFICATION_MATRIX = {
   email: { policy: 'strict_format', format: 'email', maxLength: MAX_TEXT_LENGTH },
   phone: { policy: 'strict_format', format: 'phone', maxLength: MAX_TEXT_LENGTH },
@@ -20,6 +26,17 @@ export const FIELD_CLASSIFICATION_MATRIX = {
   message: { policy: 'plain_text_unsafe_token_rejection', maxLength: MAX_MESSAGE_LENGTH },
   requirements: { policy: 'optional_plain_text', maxLength: MAX_MESSAGE_LENGTH },
 } as const satisfies Record<string, IntakeFieldClassification>;
+
+export type ClassifiedField = keyof typeof FIELD_CLASSIFICATION_MATRIX;
+
+export function validateFieldsByClassification(
+  values: Partial<Record<ClassifiedField, string>>,
+) {
+  return (Object.keys(values) as ClassifiedField[]).map((field) => ({
+    field,
+    result: validateFieldAgainstPolicy(values[field] ?? '', FIELD_CLASSIFICATION_MATRIX[field]),
+  }));
+}
 
 export function readField(formData: FormData, key: string) {
   const value = formData.get(key);

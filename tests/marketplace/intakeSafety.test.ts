@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_CLASSIFICATION_MATRIX, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { FIELD_CLASSIFICATION_MATRIX, validateFieldAgainstPolicy, validateFieldsByClassification } from '@/lib/marketplace/intakeSafety';
 
 describe('FIELD_CLASSIFICATION_MATRIX policies', () => {
   it('accepts and rejects email under strict format policy', () => {
@@ -42,5 +42,23 @@ describe('FIELD_CLASSIFICATION_MATRIX policies', () => {
       valid: false,
       reason: 'unsafe_tokens',
     });
+  });
+
+  it('applies a single classification path per mapped field in bulk validation', () => {
+    const results = validateFieldsByClassification({
+      email: 'not-an-email',
+      phone: '+1 (613) 555-1234',
+      company: 'Acme <script>alert(1)</script>',
+      message: 'Need quote for extractor package',
+      requirements: 'Visit www.example.com',
+    });
+
+    expect(results).toEqual([
+      { field: 'email', result: { valid: false, reason: 'invalid_format' } },
+      { field: 'phone', result: { valid: true } },
+      { field: 'company', result: { valid: false, reason: 'unsafe_tokens' } },
+      { field: 'message', result: { valid: true } },
+      { field: 'requirements', result: { valid: false, reason: 'unsafe_tokens' } },
+    ]);
   });
 });

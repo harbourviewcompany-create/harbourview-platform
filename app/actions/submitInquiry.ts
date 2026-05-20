@@ -3,7 +3,12 @@
 import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, isOversized, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import {
+  getMaxMessageLength,
+  isOversized,
+  readField,
+  validateFieldsByClassification,
+} from '@/lib/marketplace/intakeSafety';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
@@ -142,8 +147,15 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const emailValidation = validateFieldAgainstPolicy(email, FIELD_CLASSIFICATION_MATRIX.email);
-  if (!emailValidation.valid) {
+  const classifiedFieldResults = validateFieldsByClassification({
+    email,
+    phone,
+    company,
+    message,
+  });
+
+  const emailValidation = classifiedFieldResults.find((result) => result.field === 'email')?.result;
+  if (!emailValidation?.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_EMAIL');
     return {
       status: 'error',
@@ -151,8 +163,8 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const phoneValidation = validateFieldAgainstPolicy(phone, FIELD_CLASSIFICATION_MATRIX.phone);
-  if (!phoneValidation.valid) {
+  const phoneValidation = classifiedFieldResults.find((result) => result.field === 'phone')?.result;
+  if (!phoneValidation?.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
@@ -160,10 +172,10 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const companyValidation = validateFieldAgainstPolicy(company, FIELD_CLASSIFICATION_MATRIX.company);
-  const messageValidation = validateFieldAgainstPolicy(message, FIELD_CLASSIFICATION_MATRIX.message);
+  const companyValidation = classifiedFieldResults.find((result) => result.field === 'company')?.result;
+  const messageValidation = classifiedFieldResults.find((result) => result.field === 'message')?.result;
 
-  if (!companyValidation.valid || !messageValidation.valid) {
+  if (!companyValidation?.valid || !messageValidation?.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
