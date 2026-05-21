@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -29,11 +29,33 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setPrefersReducedMotion(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  const isInteractiveGlobeEnabled = process.env.NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE === 'true'
+  const cameraConfig = useMemo(
+    () => ({
+      minDistance: prefersReducedMotion ? GLOBE_CAMERA_CONFIG.reducedMotionDistance : GLOBE_CAMERA_CONFIG.minDistance,
+      maxDistance: prefersReducedMotion ? GLOBE_CAMERA_CONFIG.reducedMotionDistance : GLOBE_CAMERA_CONFIG.maxDistance,
+      enableRotate: !prefersReducedMotion,
+      autoRotate: !prefersReducedMotion,
+    }),
+    [prefersReducedMotion],
+  )
+
+  if (!isInteractiveGlobeEnabled) return null
 
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 -z-0" aria-hidden="true">
       <Canvas
         dpr={[1, 1.75]}
+        aria-label="Harbourview country globe"
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
           near: GLOBE_CAMERA_CONFIG.near,
@@ -72,9 +94,13 @@ export function GlobeCanvas({
           enableDamping
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
-          zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
-          minDistance={GLOBE_CAMERA_CONFIG.minDistance}
-          maxDistance={GLOBE_CAMERA_CONFIG.maxDistance}
+          zoomSpeed={prefersReducedMotion ? 0 : GLOBE_CAMERA_CONFIG.zoomSpeed}
+          enableZoom={!prefersReducedMotion}
+          enableRotate={cameraConfig.enableRotate}
+          autoRotate={cameraConfig.autoRotate}
+          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
+          minDistance={cameraConfig.minDistance}
+          maxDistance={cameraConfig.maxDistance}
           minPolarAngle={GLOBE_CAMERA_CONFIG.minPolarAngle}
           maxPolarAngle={GLOBE_CAMERA_CONFIG.maxPolarAngle}
         />
