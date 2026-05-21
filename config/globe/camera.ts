@@ -16,7 +16,8 @@ export const GLOBE_CAMERA_CONFIG = {
   dampingFactor: 0.085,
   rotateSpeed: 0.52,
   zoomSpeed: 0.7,
-  autoRotateSpeed: 0.5,
+  autoRotateSpeed: 0.12,
+  reducedMotionDistance: 7.6,
   flyDurationMs: 880,
 }
 

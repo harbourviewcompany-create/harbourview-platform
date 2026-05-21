@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -52,25 +52,34 @@ export function GlobeCanvas({
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const update = () => setPrefersReducedMotion(mediaQuery.matches)
+    if (typeof window === 'undefined') return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setPrefersReducedMotion(media.matches)
     update()
-    mediaQuery.addEventListener('change', update)
-    return () => mediaQuery.removeEventListener('change', update)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
   }, [])
+  const isInteractiveGlobeEnabled = process.env.NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE === 'true'
+  const cameraConfig = useMemo(
+    () => ({
+      minDistance: prefersReducedMotion ? GLOBE_CAMERA_CONFIG.reducedMotionDistance : GLOBE_CAMERA_CONFIG.minDistance,
+      maxDistance: prefersReducedMotion ? GLOBE_CAMERA_CONFIG.reducedMotionDistance : GLOBE_CAMERA_CONFIG.maxDistance,
+      enableRotate: !prefersReducedMotion,
+      autoRotate: !prefersReducedMotion,
+    }),
+    [prefersReducedMotion],
+  )
 
-  const motionConfig = getOrbitControlsMotionConfig(prefersReducedMotion)
+  if (!isInteractiveGlobeEnabled) return null
 
   return (
-    <div className="absolute inset-0" data-testid="globe-canvas-shell">
+    <div className="absolute inset-0 -z-0" aria-hidden="true">
       <Canvas
         data-testid="globe-canvas"
         className={enablePointerCapture ? 'pointer-events-auto' : 'pointer-events-none'}
         dpr={[1, 1.75]}
+        aria-label="Harbourview country globe"
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
           near: GLOBE_CAMERA_CONFIG.near,
@@ -106,14 +115,16 @@ export function GlobeCanvas({
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
-          enableDamping={motionConfig.enableDamping}
-          dampingFactor={motionConfig.dampingFactor}
-          rotateSpeed={motionConfig.rotateSpeed}
-          autoRotate={motionConfig.autoRotate}
-          autoRotateSpeed={motionConfig.autoRotateSpeed}
-          zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
-          minDistance={GLOBE_CAMERA_CONFIG.minDistance}
-          maxDistance={GLOBE_CAMERA_CONFIG.maxDistance}
+          enableDamping
+          dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
+          rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
+          zoomSpeed={prefersReducedMotion ? 0 : GLOBE_CAMERA_CONFIG.zoomSpeed}
+          enableZoom={!prefersReducedMotion}
+          enableRotate={cameraConfig.enableRotate}
+          autoRotate={cameraConfig.autoRotate}
+          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
+          minDistance={cameraConfig.minDistance}
+          maxDistance={cameraConfig.maxDistance}
           minPolarAngle={GLOBE_CAMERA_CONFIG.minPolarAngle}
           maxPolarAngle={GLOBE_CAMERA_CONFIG.maxPolarAngle}
         />

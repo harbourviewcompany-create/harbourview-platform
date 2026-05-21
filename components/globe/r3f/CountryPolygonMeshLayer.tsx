@@ -7,9 +7,9 @@ import { extractCountryHit } from '@/lib/globe/country-hit-testing'
 import { resolveCountryMaterialState, resolveCountryStandardMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
 
-const PLATE_LIFT = 0.026
-const IDLE_EXTRUSION = 0.058
-const SELECTED_EXTRUSION = 0.094
+const PLATE_LIFT = 0.008
+const IDLE_EXTRUSION = 0.01
+const SELECTED_EXTRUSION = 0.018
 
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,

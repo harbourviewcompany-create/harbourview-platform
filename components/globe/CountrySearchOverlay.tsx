@@ -94,30 +94,30 @@ export function CountrySearchOverlay({
           aria-autocomplete="list"
           aria-activedescendant={hasQuery && activeCountry ? `country-search-option-${activeCountry.iso2}` : undefined}
           placeholder="Search countries"
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76]/70"
+          aria-label="Search countries or markets"
+          role="combobox"
+          aria-expanded={Boolean(query)}
+          aria-controls="country-search-results"
+          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76]"
         />
       </label>
 
-      {hasQuery ? (
-        <div id="country-search-results" role="listbox" aria-label="Country results" className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1">
-          {matches.map((country, index) => (
+      {query ? (
+        <div id="country-search-results" className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1" role="listbox" aria-label="Matching countries">
+          {matches.length ? matches.map((country) => (
             <button
               id={`country-search-option-${country.iso2}`}
               key={country.iso2}
               type="button"
+              onClick={() => onSelectCountry(country.iso2)}
               role="option"
-              aria-selected={index === activeIndex}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => {
-                selectCountry(country.iso2)
-                onAnnouncement?.(`Selected ${country.name}.`)
-              }}
-              className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:ring-2 focus-visible:ring-[#d8be76]/70 ${index === activeIndex ? 'bg-white/[0.08] text-white' : ''}`}
+              aria-selected="false"
+              className="flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07]"
             >
               <span>{country.name}</span>
               <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
             </button>
-          ))}
+          )) : <p className="px-3 py-2 text-sm text-white/60">No markets found.</p>}
         </div>
       ) : null}
     </div>
