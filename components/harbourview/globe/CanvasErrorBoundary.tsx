@@ -1,11 +1,13 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Component } from 'react'
+import { Component, createRef } from 'react'
+import React from 'react'
 import StaticGlobeFallback from './StaticGlobeFallback'
 
 type Props = {
   children: ReactNode
+  onError?: (error: unknown) => void
 }
 
 type State = {
@@ -15,17 +17,40 @@ type State = {
 export default class CanvasErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false }
 
+  private fallbackRef = createRef<HTMLDivElement>()
+
   static getDerivedStateFromError(): State {
     return { hasError: true }
   }
 
   componentDidCatch(error: unknown) {
-    console.error('Harbourview globe render failed', error)
+    this.props.onError?.(error)
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Harbourview globe render failed', error)
+    }
+  }
+
+  componentDidUpdate(_prevProps: Props, prevState: State) {
+    if (!prevState.hasError && this.state.hasError) {
+      this.fallbackRef.current?.focus()
+    }
   }
 
   render() {
     if (this.state.hasError) {
-      return <StaticGlobeFallback />
+      return (
+        <div
+          ref={this.fallbackRef}
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          tabIndex={-1}
+          aria-label="3D globe preview unavailable. Showing static globe fallback."
+        >
+          <StaticGlobeFallback />
+        </div>
+      )
     }
 
     return this.props.children
