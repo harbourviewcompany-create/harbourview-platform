@@ -12,6 +12,8 @@ import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
 
+const INTERACTIVE_GLOBE_FLAG_HINT = process.env.NEXT_PUBLIC_INTERACTIVE_GLOBE ?? ''
+
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
@@ -43,15 +45,17 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-      />
+      <div data-globe-interactive-flag={INTERACTIVE_GLOBE_FLAG_HINT || 'unset'}>
+        <GlobeCanvas
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+          routerStep={state.step}
+          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        />
+      </div>
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}

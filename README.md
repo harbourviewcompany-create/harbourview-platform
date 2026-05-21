@@ -43,3 +43,22 @@ Include a short note in your PR validation results indicating whether `docs/cont
 
 - **Local / Node build path:** Use `npm run build` for standard local Next.js/Node build validation.
 - **Cloudflare / OpenNext build path:** Use `npm run preview`, `npm run deploy`, and `npm run upload` for the Cloudflare runtime packaging, preview, and deployment pipeline.
+
+## Interactive globe feature flag rollback
+
+The globe renderer on the same-screen router landing is controlled by environment flags so operations can disable it without code edits:
+
+- `NEXT_PUBLIC_INTERACTIVE_GLOBE` (required to enable interactive rendering):
+  - enabled values: `1`, `true`, `on`, `enabled`
+  - unset, empty, or any other value keeps the stable static premium fallback panel active
+- `NEXT_PUBLIC_GLOBE_REDUCED_MOTION_MODE`:
+  - default: `strict`
+  - when `strict`, users with `prefers-reduced-motion: reduce` are forced to the static fallback
+
+The static fallback also auto-activates when WebGL is unavailable or low-performance device thresholds are detected, preserving the same layout footprint.
+
+### Fast disable procedure (no code change)
+
+1. Set `NEXT_PUBLIC_INTERACTIVE_GLOBE=0` (or remove the variable) in the deployment environment.
+2. Redeploy.
+3. Verify the router landing renders with `data-globe-render-mode="static-fallback"` in the DOM.

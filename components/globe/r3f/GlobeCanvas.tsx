@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useRef } from 'react'
+import { Suspense, useMemo, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -10,6 +10,68 @@ import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
+
+type GlobeInteractiveEligibility = {
+  interactive: boolean
+  reason: 'enabled' | 'flag_disabled' | 'reduced_motion_strict' | 'low_perf' | 'webgl_unavailable'
+}
+
+const INTERACTIVE_GLOBE_FLAG = process.env.NEXT_PUBLIC_INTERACTIVE_GLOBE ?? ''
+const REDUCED_MOTION_MODE = process.env.NEXT_PUBLIC_GLOBE_REDUCED_MOTION_MODE ?? 'strict'
+
+function isInteractiveGlobeFlagEnabled() {
+  const normalized = INTERACTIVE_GLOBE_FLAG.trim().toLowerCase()
+  return normalized === '1' || normalized === 'true' || normalized === 'on' || normalized === 'enabled'
+}
+
+function prefersReducedMotionStrictly() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+function isLowPerformanceDevice() {
+  const threads = navigator.hardwareConcurrency ?? 0
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0
+  return (threads > 0 && threads <= 4) || (memory > 0 && memory <= 4)
+}
+
+function supportsWebGL() {
+  try {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    return Boolean(window.WebGLRenderingContext && context)
+  } catch {
+    return false
+  }
+}
+
+function resolveInteractiveGlobeEligibility(): GlobeInteractiveEligibility {
+  if (!isInteractiveGlobeFlagEnabled()) {
+    return { interactive: false, reason: 'flag_disabled' }
+  }
+
+  if (REDUCED_MOTION_MODE === 'strict' && prefersReducedMotionStrictly()) {
+    return { interactive: false, reason: 'reduced_motion_strict' }
+  }
+
+  if (isLowPerformanceDevice()) {
+    return { interactive: false, reason: 'low_perf' }
+  }
+
+  if (!supportsWebGL()) {
+    return { interactive: false, reason: 'webgl_unavailable' }
+  }
+
+  return { interactive: true, reason: 'enabled' }
+}
+
+function GlobeStaticFallbackPanel({ reason }: { reason: GlobeInteractiveEligibility['reason'] }) {
+  return (
+    <div className="absolute inset-0" data-globe-render-mode="static-fallback" data-globe-fallback-reason={reason}>
+      <div className="h-full w-full bg-[radial-gradient(120%_100%_at_50%_40%,rgba(28,57,97,0.34)_0%,rgba(2,11,22,0.96)_64%,#01050d_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(198,165,90,0.08)_0%,transparent_38%,transparent_62%,rgba(198,165,90,0.06)_100%)]" />
+    </div>
+  )
+}
 
 export function GlobeCanvas({
   selectedCountryIso2,
@@ -29,6 +91,11 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const eligibility = useMemo(resolveInteractiveGlobeEligibility, [])
+
+  if (!eligibility.interactive) {
+    return <GlobeStaticFallbackPanel reason={eligibility.reason} />
+  }
 
   return (
     <div className="absolute inset-0">
