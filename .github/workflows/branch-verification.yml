@@ -16,7 +16,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - name: Checkout head branch for package lock commit
         uses: actions/checkout@v4
@@ -37,6 +37,9 @@ jobs:
         run: |
           mkdir -p ci-artifacts
           npm run typecheck 2>&1 | tee ci-artifacts/typecheck.log
+
+      - name: Globe router contract
+        run: npm run test:globe-router
 
       - name: Intelligence fixtures projection
         run: npm run test:intelligence-fixtures
@@ -99,6 +102,29 @@ jobs:
         env:
           HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
         run: npm run test:compliance-visibility
+
+      - name: Install Playwright Chromium for globe router fallback proof
+        run: |
+          mkdir -p .tmp/globe-router-fallback
+          cd .tmp/globe-router-fallback
+          npm init -y
+          npm install --no-audit --no-fund playwright@1.52.0
+          npx playwright install --with-deps chromium
+
+      - name: Globe router fallback browser proof
+        env:
+          BASE_URL: http://127.0.0.1:3000
+          ARTIFACT_DIR: verification-results/globe-router-fallback
+        run: npm run verify:globe-router-fallback-browser
+
+      - name: Upload globe router fallback proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-globe-router-fallback-proof
+          path: verification-results/globe-router-fallback/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Visibility
         run: npm run test:visibility
