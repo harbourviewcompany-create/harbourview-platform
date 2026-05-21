@@ -31,6 +31,12 @@ function poseFromVectors(position: Vector3, target: Vector3): GlobeCameraPose {
   }
 }
 
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
 function posesEqual(a: GlobeCameraPose, b: GlobeCameraPose, epsilon = 0.001): boolean {
   return (
     Math.abs(a.position[0] - b.position[0]) < epsilon &&
@@ -65,9 +71,20 @@ export function CameraFlyToController({
 
   const positionVecRef = useRef(new Vector3())
   const targetVecRef = useRef(new Vector3())
+  const flightDirectionRef = useRef(new Vector3())
+  const lastTransitionCountryIso2Ref = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
+    if (routerStep === 'country') {
+      lastTransitionCountryIso2Ref.current = selectedCountryIso2
+      return
+    }
+
+    if (lastTransitionCountryIso2Ref.current === selectedCountryIso2 && isAnimatingRef.current) {
+      return
+    }
+
+    const wantsCountryFocus = !!selectedCountryIso2
     const countryPose = wantsCountryFocus ? findCountryPose(selectedCountryIso2) : null
     const desired = countryPose ?? getInitialCameraPose()
 
@@ -80,6 +97,7 @@ export function CameraFlyToController({
     toPoseRef.current = desired
     startTimeRef.current = null
     isAnimatingRef.current = true
+    lastTransitionCountryIso2Ref.current = selectedCountryIso2
   }, [camera, controlsRef, routerStep, selectedCountryIso2])
 
   useFrame(() => {
@@ -109,6 +127,14 @@ export function CameraFlyToController({
       from.target[1] + (to.target[1] - from.target[1]) * eased,
       from.target[2] + (to.target[2] - from.target[2]) * eased,
     )
+
+    flightDirectionRef.current.copy(positionVecRef.current).sub(targetVecRef.current)
+    const separation = flightDirectionRef.current.length()
+    if (separation > 0) {
+      const clampedSeparation = clamp(separation, 2.8, 8.2)
+      flightDirectionRef.current.normalize().multiplyScalar(clampedSeparation)
+      positionVecRef.current.copy(targetVecRef.current).add(flightDirectionRef.current)
+    }
 
     camera.position.copy(positionVecRef.current)
     camera.lookAt(targetVecRef.current)

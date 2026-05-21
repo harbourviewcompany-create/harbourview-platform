@@ -7,12 +7,14 @@ export interface GlobeCameraPose {
   target: [number, number, number]
 }
 
-const DEFAULT_FOCUS_DISTANCE = 6.2
-const DEFAULT_TARGET_DISTANCE = 2.1
+const DEFAULT_FOCUS_DISTANCE = 5.6
+const DEFAULT_TARGET_DISTANCE_RATIO = 0.34
 
-const MIN_FOCUS_DISTANCE = 4.4
-const MAX_FOCUS_DISTANCE = 6.8
-const BBOX_DISTANCE_SLOPE = 0.018
+const MIN_FOCUS_DISTANCE = 5.2
+const MAX_FOCUS_DISTANCE = 5.9
+const BBOX_DISTANCE_SLOPE = 0.009
+const MIN_CAMERA_TARGET_SEPARATION = 2.8
+const MAX_TARGET_DISTANCE_RATIO = 0.45
 
 function clamp(value: number, min: number, max: number) {
   if (value < min) return min
@@ -41,7 +43,14 @@ export function createCountryFocusPose(country: HarbourviewCountryGeometry): Glo
   })
 
   const focusDistance = country.bbox ? bboxFocusDistance(country.bbox) : DEFAULT_FOCUS_DISTANCE
-  const targetDistance = DEFAULT_TARGET_DISTANCE
+  const unclampedTargetDistance = focusDistance * DEFAULT_TARGET_DISTANCE_RATIO
+  const maxTargetDistanceFromSeparation = focusDistance - MIN_CAMERA_TARGET_SEPARATION
+  const maxTargetDistanceFromRatio = focusDistance * MAX_TARGET_DISTANCE_RATIO
+  const targetDistance = clamp(
+    unclampedTargetDistance,
+    0,
+    Math.min(maxTargetDistanceFromSeparation, maxTargetDistanceFromRatio),
+  )
 
   return {
     position: [vector.x * focusDistance, vector.y * focusDistance, vector.z * focusDistance],

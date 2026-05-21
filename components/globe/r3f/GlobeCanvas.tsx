@@ -29,6 +29,8 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const isPrimaryHomepageMode = routerStep === 'country'
+  const enableZoom = GLOBE_CAMERA_CONFIG.disableZoomOnPrimaryHomepageMode ? !isPrimaryHomepageMode : true
 
   return (
     <div className="absolute inset-0">
@@ -69,6 +71,7 @@ export function GlobeCanvas({
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
+          enableZoom={enableZoom}
           enableDamping
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
