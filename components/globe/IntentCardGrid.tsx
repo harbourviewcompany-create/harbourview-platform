@@ -31,14 +31,16 @@ export function IntentCardGrid({
       <div className="mt-4 grid gap-3">
         {intentIds.map((intentId) => {
           const intent = intentProfileMap[intentId]
+          const isFirstIntent = intentId === intentIds[0]
 
           return (
             <button
               key={intent.id}
               type="button"
+              data-first-actionable={isFirstIntent ? 'true' : undefined}
               aria-pressed={selectedIntentId === intent.id}
               onClick={() => onSelectIntent(intent.id)}
-              className={`rounded-2xl border p-4 text-left transition ${
+              className={`rounded-2xl border p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[#f3d37a]/70 ${
                 selectedIntentId === intent.id
                   ? 'border-[#f3d37a] bg-[#c6a55a]/18 shadow-[0_0_28px_rgba(198,165,90,0.16)]'
                   : 'border-[#c6a55a]/18 bg-white/[0.045] hover:border-[#c6a55a]/42'

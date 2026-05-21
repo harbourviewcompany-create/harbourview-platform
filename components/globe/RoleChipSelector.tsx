@@ -46,10 +46,11 @@ export function RoleChipSelector({
       <label className="mt-4 block">
         <span className="sr-only">Search roles</span>
         <input
+          data-first-actionable="true"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search roles"
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/24 bg-white/[0.06] px-4 text-sm text-white outline-none placeholder:text-white/42 focus:border-[#d8be76]"
+          className="min-h-11 w-full rounded-full border border-[#c6a55a]/24 bg-white/[0.06] px-4 text-sm text-white outline-none placeholder:text-white/42 focus-visible:border-[#f3d37a] focus-visible:ring-2 focus-visible:ring-[#f3d37a]/70"
         />
       </label>
 
@@ -60,7 +61,7 @@ export function RoleChipSelector({
             type="button"
             aria-pressed={selectedRoleId === role.id}
             onClick={() => onSelectRole(role.id)}
-            className={`min-h-11 rounded-full border px-4 text-left text-xs font-semibold tracking-[0.03em] transition ${
+            className={`min-h-11 rounded-full border px-4 text-left text-xs font-semibold tracking-[0.03em] outline-none transition focus-visible:ring-2 focus-visible:ring-[#f3d37a]/70 ${
               selectedRoleId === role.id
                 ? 'border-[#f3d37a] bg-[#c6a55a]/20 text-[#fff7df]'
                 : 'border-[#c6a55a]/20 bg-white/[0.045] text-white/74 hover:border-[#c6a55a]/48 hover:text-white'
@@ -74,7 +75,7 @@ export function RoleChipSelector({
             <button
               type="button"
               onClick={() => onSelectRole('not_sure')}
-              className="mt-3 min-h-11 rounded-full border border-[#c6a55a]/28 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5f1e8]"
+              className="mt-3 min-h-11 rounded-full border border-[#c6a55a]/28 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5f1e8] outline-none focus-visible:ring-2 focus-visible:ring-[#f3d37a]/70"
             >
               Not sure
             </button>

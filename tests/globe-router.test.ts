@@ -112,4 +112,33 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterBack.step).toBe('country')
     expect(afterBack.selectedRoleId).toBeUndefined()
   })
+
+  it('supports keyboard-only completion through resolved routing flow', () => {
+    const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'CA' })
+    const afterRole = globeRouterReducer(afterCountry, { type: 'ROLE_SELECT', roleId: 'cultivator_producer' })
+    const afterIntent = globeRouterReducer(afterRole, { type: 'INTENT_SELECT', intentId: 'view_market_signals' })
+    const afterContinue = globeRouterReducer(afterIntent, { type: 'CONTINUE' })
+    const afterResolved = globeRouterReducer(afterContinue, { type: 'ROUTE_RESOLVED', href: '/signals?country=CA' })
+
+    expect(afterCountry.step).toBe('role')
+    expect(afterRole.step).toBe('intent')
+    expect(afterIntent.selectedIntentId).toBe('view_market_signals')
+    expect(afterContinue.step).toBe('routing')
+    expect(afterContinue.routeStatus).toBe('resolving')
+    expect(afterResolved.step).toBe('routing')
+    expect(afterResolved.resolvedHref).toBe('/signals?country=CA')
+  })
+
+  it('supports keyboard-only completion through fallback routing flow', () => {
+    const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
+    const afterRole = globeRouterReducer(afterCountry, { type: 'ROLE_SELECT', roleId: 'doctor_prescriber' })
+    const afterIntent = globeRouterReducer(afterRole, { type: 'INTENT_SELECT', intentId: 'understand_medical_rules' })
+    const afterContinue = globeRouterReducer(afterIntent, { type: 'CONTINUE' })
+    const afterMissing = globeRouterReducer(afterContinue, { type: 'ROUTE_MISSING', href: '/intake?country=DE', requestedPath: '/education/medical' })
+
+    expect(afterContinue.step).toBe('routing')
+    expect(afterMissing.step).toBe('fallback')
+    expect(afterMissing.routeStatus).toBe('missing')
+    expect(afterMissing.resolvedHref).toContain('/intake?country=DE')
+  })
 })
