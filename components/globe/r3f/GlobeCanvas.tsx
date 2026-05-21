@@ -39,6 +39,7 @@ export function GlobeCanvas({
   routerStep,
   onHoverCountry,
   onSelectCountry,
+  enablePointerCapture = true,
 }: {
   selectedCountryIso2?: string
   selectedCountryIso2s: string[]
@@ -47,6 +48,7 @@ export function GlobeCanvas({
   routerStep?: GlobeRouterStep
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
+  enablePointerCapture?: boolean
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
@@ -64,8 +66,10 @@ export function GlobeCanvas({
   const motionConfig = getOrbitControlsMotionConfig(prefersReducedMotion)
 
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0" data-testid="globe-canvas-shell">
       <Canvas
+        data-testid="globe-canvas"
+        className={enablePointerCapture ? 'pointer-events-auto' : 'pointer-events-none'}
         dpr={[1, 1.75]}
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,

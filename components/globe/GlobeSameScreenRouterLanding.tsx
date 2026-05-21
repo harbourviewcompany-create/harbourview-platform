@@ -52,6 +52,7 @@ export function GlobeSameScreenRouterLanding() {
         routerStep={state.step}
         onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
         onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        enablePointerCapture={state.step === 'country'}
       />
 
       <CountrySearchOverlay
