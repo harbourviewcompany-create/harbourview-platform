@@ -22,7 +22,7 @@ export function CountrySearchOverlay({
     <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-6 sm:right-auto sm:w-[380px]">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#d8be76]">Harbourview</p>
-        <button type="button" onClick={onNotSure} className="min-h-10 rounded-full border border-[#c6a55a]/20 px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-white/70">
+        <button type="button" onClick={onNotSure} className="min-h-10 rounded-full border border-[#c6a55a]/20 px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]">
           I’m not sure yet
         </button>
       </div>
@@ -33,25 +33,23 @@ export function CountrySearchOverlay({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search countries"
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76]"
+          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
         />
       </label>
 
-      {query ? (
-        <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1">
-          {matches.map((country) => (
-            <button
-              key={country.iso2}
-              type="button"
-              onClick={() => onSelectCountry(country.iso2)}
-              className="flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07]"
-            >
-              <span>{country.name}</span>
-              <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1" aria-label="Market list">
+        {(query ? matches : countryOptions.slice(0, 16)).map((country) => (
+          <button
+            key={country.iso2}
+            type="button"
+            onClick={() => onSelectCountry(country.iso2)}
+            className="flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-1 focus-visible:ring-offset-[#030b16]"
+          >
+            <span>{country.name}</span>
+            <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

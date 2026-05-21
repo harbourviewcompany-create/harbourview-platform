@@ -68,7 +68,7 @@ export function GlobeSameScreenRouterLanding() {
         <button
           type="button"
           onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}
-          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl"
+          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#01050d]"
         >
           Multi-market
         </button>
@@ -89,7 +89,7 @@ export function GlobeSameScreenRouterLanding() {
       ) : null}
 
       {state.step === 'intent' ? (
-        <RouterBottomSheet eyebrow={selectedCountryName} title="What are you trying to do?" size="intent" onBack={() => dispatch({ type: 'BACK' })} footer={<button type="button" disabled={!state.selectedIntentId} onClick={() => dispatch({ type: 'CONTINUE' })} className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] disabled:cursor-not-allowed disabled:opacity-45">Continue</button>}>
+        <RouterBottomSheet eyebrow={selectedCountryName} title="What are you trying to do?" size="intent" onBack={() => dispatch({ type: 'BACK' })} footer={<button type="button" disabled={!state.selectedIntentId} onClick={() => dispatch({ type: 'CONTINUE' })} className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5e7c0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16] disabled:cursor-not-allowed disabled:opacity-45">Continue</button>}>
           <IntentCardGrid
             countryName={selectedCountryName}
             countryIso2={state.selectedCountryIso2}
@@ -102,7 +102,7 @@ export function GlobeSameScreenRouterLanding() {
       ) : null}
 
       {state.step === 'fallback' ? (
-        <RouterBottomSheet eyebrow="Route fallback" title="This path needs review." size="confirm" onBack={() => dispatch({ type: 'BACK' })} footer={<Link href={state.resolvedHref ?? '/intake'} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d]">Continue to intake</Link>}>
+        <RouterBottomSheet eyebrow="Route fallback" title="This path needs review." size="confirm" onBack={() => dispatch({ type: 'BACK' })} footer={<Link href={state.resolvedHref ?? '/intake'} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5e7c0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]">Continue to intake</Link>}>
           <p className="text-sm leading-6 text-white/64">
             The requested page is not public yet. We will carry your country, role and intent into confidential intake.
           </p>

@@ -42,7 +42,7 @@ export function RouterBottomSheet({
           <button
             type="button"
             onClick={onBack}
-            className="min-h-11 rounded-full border border-[#c6a55a]/25 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5f1e8]/72"
+            className="min-h-11 rounded-full border border-[#c6a55a]/25 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5f1e8]/72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
           >
             Back
           </button>

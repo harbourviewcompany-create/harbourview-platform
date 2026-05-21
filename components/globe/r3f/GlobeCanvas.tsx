@@ -31,7 +31,15 @@ export function GlobeCanvas({
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
 
   return (
-    <div className="absolute inset-0">
+    <div
+      className="absolute inset-0"
+      role="region"
+      aria-label="Interactive globe market selector"
+      aria-describedby="globe-region-description"
+    >
+      <p id="globe-region-description" className="sr-only">
+        Use the search and market list controls before this region for equivalent non-canvas market selection.
+      </p>
       <Canvas
         dpr={[1, 1.75]}
         camera={{
