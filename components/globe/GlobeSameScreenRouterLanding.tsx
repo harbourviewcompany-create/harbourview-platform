@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
@@ -15,6 +15,7 @@ import { IntentCardGrid } from './IntentCardGrid'
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
+  const [srAnnouncement, setSrAnnouncement] = useState('')
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
@@ -54,9 +55,15 @@ export function GlobeSameScreenRouterLanding() {
       />
 
       <CountrySearchOverlay
-        onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}
+        onSelectCountry={(countryIso2) => {
+          dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })
+          setSrAnnouncement(`Country selected: ${getCountryName(countryIso2)}.`)
+        }}
         onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
+        onAnnouncement={setSrAnnouncement}
       />
+
+      <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
 
       <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
