@@ -7,9 +7,9 @@ import { extractCountryHit } from '@/lib/globe/country-hit-testing'
 import { resolveCountryMaterialState, resolveCountryStandardMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
 
-const PLATE_LIFT = 0.008
-const IDLE_EXTRUSION = 0.01
-const SELECTED_EXTRUSION = 0.018
+const PLATE_LIFT = 0.02
+const IDLE_EXTRUSION = 0
+const SELECTED_EXTRUSION = 0.008
 
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,
@@ -33,6 +33,7 @@ export function CountryPolygonMeshLayer({
         geometry: createCountryBufferGeometry(country, {
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
+          geometryMode: 'surface',
         }),
       })),
     [],
@@ -59,8 +60,9 @@ export function CountryPolygonMeshLayer({
       map.set(
         country.iso2,
         createCountryBufferGeometry(country, {
-          plateLift: PLATE_LIFT,
+          plateLift: PLATE_LIFT + 0.002,
           extrusionHeight: SELECTED_EXTRUSION,
+          geometryMode: 'surface',
         }),
       )
     }
@@ -108,25 +110,17 @@ export function CountryPolygonMeshLayer({
               if (hit) onSelectCountry?.(hit.iso2)
             }}
           >
-            {useStandardFallback ? (
-              <meshStandardMaterial
-                color={fallbackMaterial.color}
-                emissive={fallbackMaterial.emissive}
-                emissiveIntensity={fallbackMaterial.emissiveIntensity}
-                roughness={fallbackMaterial.roughness}
-                metalness={fallbackMaterial.metalness}
-              />
-            ) : (
-              <meshPhysicalMaterial
-                color={material.plateBase}
-                emissive={material.emissive}
-                emissiveIntensity={material.emissiveIntensity}
-                roughness={material.roughness}
-                metalness={material.metalness}
-                clearcoat={material.clearcoat}
-                clearcoatRoughness={material.clearcoatRoughness}
-              />
-            )}
+            <meshPhysicalMaterial
+              color={material.plateBase}
+              emissive={material.emissive}
+              emissiveIntensity={material.emissiveIntensity}
+              roughness={material.roughness}
+              metalness={material.metalness}
+              clearcoat={visualState === 'selected' ? 0.75 : 0.35}
+              clearcoatRoughness={visualState === 'selected' ? 0.2 : 0.26}
+              opacity={visualState === 'selected' ? 0.92 : 0.78}
+              transparent
+            />
           </mesh>
         )
       })}
