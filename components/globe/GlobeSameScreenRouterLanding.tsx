@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
@@ -11,6 +11,22 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
+import { HarbourviewSovereignPlateGlobe } from './HarbourviewSovereignPlateGlobe'
+
+function supportsInteractiveGlobe() {
+  if (typeof window === 'undefined') return false
+  const interactiveEnabled = process.env.NEXT_PUBLIC_HV_GLOBE_INTERACTIVE !== '0'
+  if (!interactiveEnabled) return false
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false
+
+  try {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    return Boolean(window.WebGLRenderingContext && context)
+  } catch {
+    return false
+  }
+}
 
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
@@ -18,6 +34,7 @@ export function GlobeSameScreenRouterLanding() {
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
+  const shouldUseInteractiveGlobe = useMemo(() => supportsInteractiveGlobe(), [])
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
@@ -43,15 +60,24 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-      />
+      {shouldUseInteractiveGlobe ? (
+        <GlobeCanvas
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+          routerStep={state.step}
+          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        />
+      ) : (
+        <HarbourviewSovereignPlateGlobe
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+        />
+      )}
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}

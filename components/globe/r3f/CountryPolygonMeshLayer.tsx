@@ -11,6 +11,10 @@ const PLATE_LIFT = 0.026
 const IDLE_EXTRUSION = 0.058
 const SELECTED_EXTRUSION = 0.094
 
+function hasRenderableGeometry(country: (typeof naturalEarthCountriesPayload.countries)[number]) {
+  return country.polygons.some((polygon) => polygon.rings.some((ring) => ring.kind === 'outer' && ring.points.length >= 3))
+}
+
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,
   focusedCountryIso2,
@@ -28,7 +32,7 @@ export function CountryPolygonMeshLayer({
 }) {
   const idleGeometries = useMemo(
     () =>
-      naturalEarthCountriesPayload.countries.map((country) => ({
+      naturalEarthCountriesPayload.countries.filter(hasRenderableGeometry).map((country) => ({
         country,
         geometry: createCountryBufferGeometry(country, {
           plateLift: PLATE_LIFT,
@@ -55,6 +59,7 @@ export function CountryPolygonMeshLayer({
 
     const map = new Map<string, ReturnType<typeof createCountryBufferGeometry>>()
     for (const country of naturalEarthCountriesPayload.countries) {
+      if (!hasRenderableGeometry(country)) continue
       if (!selectedSet.has(country.iso2)) continue
       map.set(
         country.iso2,
