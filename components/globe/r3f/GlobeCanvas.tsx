@@ -69,6 +69,7 @@ export function GlobeCanvas({
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
+          enableZoom={false}
           enableDamping
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}

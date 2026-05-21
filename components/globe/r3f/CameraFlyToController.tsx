@@ -42,6 +42,26 @@ function posesEqual(a: GlobeCameraPose, b: GlobeCameraPose, epsilon = 0.001): bo
   )
 }
 
+function clamp(value: number, min: number, max: number) {
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
+function clampPoseDistance(pose: GlobeCameraPose): GlobeCameraPose {
+  const position = new Vector3(...pose.position)
+  const target = new Vector3(...pose.target)
+  const offset = position.clone().sub(target)
+  const safeOffset = offset.lengthSq() > 0.000001 ? offset : new Vector3(0, 0, 1)
+  const clampedDistance = clamp(safeOffset.length(), GLOBE_CAMERA_CONFIG.minDistance, GLOBE_CAMERA_CONFIG.maxDistance)
+  const nextPosition = target.clone().add(safeOffset.normalize().multiplyScalar(clampedDistance))
+
+  return {
+    position: [nextPosition.x, nextPosition.y, nextPosition.z],
+    target: pose.target,
+  }
+}
+
 export interface CameraFlyOrbitControlsLike {
   target: Vector3
   update: () => void
@@ -69,14 +89,14 @@ export function CameraFlyToController({
   useEffect(() => {
     const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
     const countryPose = wantsCountryFocus ? findCountryPose(selectedCountryIso2) : null
-    const desired = countryPose ?? getInitialCameraPose()
+    const desired = clampPoseDistance(countryPose ?? getInitialCameraPose())
 
     if (posesEqual(desired, toPoseRef.current) && !isAnimatingRef.current) {
       return
     }
 
     const currentTarget = controlsRef?.current?.target ?? targetVecRef.current
-    fromPoseRef.current = poseFromVectors(camera.position, currentTarget)
+    fromPoseRef.current = clampPoseDistance(poseFromVectors(camera.position, currentTarget))
     toPoseRef.current = desired
     startTimeRef.current = null
     isAnimatingRef.current = true
