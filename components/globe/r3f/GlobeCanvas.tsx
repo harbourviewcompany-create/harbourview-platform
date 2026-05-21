@@ -12,6 +12,7 @@ import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './Camera
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
 export function GlobeCanvas({
+  className,
   selectedCountryIso2,
   selectedCountryIso2s,
   focusedCountryIso2,
@@ -20,6 +21,7 @@ export function GlobeCanvas({
   onHoverCountry,
   onSelectCountry,
 }: {
+  className?: string
   selectedCountryIso2?: string
   selectedCountryIso2s: string[]
   focusedCountryIso2?: string
@@ -31,8 +33,9 @@ export function GlobeCanvas({
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
 
   return (
-    <div className="absolute inset-0">
+    <div className={className ?? 'absolute inset-0 pointer-events-none'}>
       <Canvas
+        className="h-full w-full pointer-events-auto"
         dpr={[1, 1.75]}
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
