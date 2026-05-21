@@ -93,6 +93,7 @@ export interface CountryOption {
   iso2: string
   name: string
   region: string
+  aliases?: string[]
 }
 
 export interface CountryRoleProfile {

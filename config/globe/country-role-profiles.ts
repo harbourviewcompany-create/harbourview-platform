@@ -2,17 +2,17 @@ import type { CountryOption, CountryRoleProfile, RoleId } from '@/types/globe-ro
 import { allRoleIds } from './role-profiles'
 
 export const countryOptions: CountryOption[] = [
-  { iso2: 'DE', name: 'Germany', region: 'Europe' },
-  { iso2: 'CA', name: 'Canada', region: 'North America' },
+  { iso2: 'DE', name: 'Germany', region: 'Europe', aliases: ['Deutschland'] },
+  { iso2: 'CA', name: 'Canada', region: 'North America', aliases: ['CA'] },
   { iso2: 'PT', name: 'Portugal', region: 'Europe' },
-  { iso2: 'NL', name: 'Netherlands', region: 'Europe' },
+  { iso2: 'NL', name: 'Netherlands', region: 'Europe', aliases: ['Holland'] },
   { iso2: 'AU', name: 'Australia', region: 'Oceania' },
-  { iso2: 'GB', name: 'United Kingdom', region: 'Europe' },
-  { iso2: 'US', name: 'United States', region: 'North America' },
+  { iso2: 'GB', name: 'United Kingdom', region: 'Europe', aliases: ['UK', 'Britain', 'Great Britain'] },
+  { iso2: 'US', name: 'United States', region: 'North America', aliases: ['USA', 'United States of America', 'America'] },
   { iso2: 'CO', name: 'Colombia', region: 'South America' },
   { iso2: 'UY', name: 'Uruguay', region: 'South America' },
   { iso2: 'IL', name: 'Israel', region: 'Middle East' },
-  { iso2: 'ZA', name: 'South Africa', region: 'Africa' },
+  { iso2: 'ZA', name: 'South Africa', region: 'Africa', aliases: ['SA'] },
 ]
 
 export const countryOptionMap = Object.fromEntries(
