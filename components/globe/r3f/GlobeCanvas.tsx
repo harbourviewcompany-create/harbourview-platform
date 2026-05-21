@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useRef } from 'react'
+import { Suspense, useMemo, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -9,6 +9,7 @@ import { OceanSphere } from './OceanSphere'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
+import { downgradeQuality, getInitialQuality, getQualityBudget } from '@/lib/harbourview/globe/quality'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
 export function GlobeCanvas({
@@ -29,11 +30,15 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const initialQuality = useMemo(() => getInitialQuality(), [])
+  const selectedCount = selectedCountryIso2s.length + (selectedCountryIso2 ? 1 : 0)
+  const quality = selectedCount > 180 ? downgradeQuality(initialQuality) : initialQuality
+  const budget = getQualityBudget(quality)
 
   return (
     <div className="absolute inset-0">
       <Canvas
-        dpr={[1, 1.75]}
+        dpr={[1, budget.maxDpr]}
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
           near: GLOBE_CAMERA_CONFIG.near,
@@ -46,9 +51,9 @@ export function GlobeCanvas({
         <directionalLight position={[4, 3, 5]} intensity={1.1} color="#fff6df" />
 
         <Suspense fallback={null}>
-          <Environment preset="night" />
+          {budget.environmentEnabled ? <Environment preset="night" /> : null}
           <group rotation={[0.12, -0.8, 0]}>
-            <OceanSphere />
+            <OceanSphere segments={budget.oceanSegments} materialComplexity={budget.materialComplexity} />
             <CountryBorderLayer />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
