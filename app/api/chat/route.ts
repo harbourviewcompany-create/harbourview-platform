@@ -25,7 +25,12 @@ export async function POST(request: Request) {
     return jsonError('Prompt is required and must be a non-empty string', 400)
   }
 
-  return Response.json({
-    finalAnswer: 'This public route is not enabled. Use the contact or intake route for reviewed requests.',
-  })
+  // Intentionally disabled: we validate request shape for predictable client errors,
+  // but no prompt content is processed in this public route.
+  return Response.json(
+    {
+      error: 'This public chat route is disabled. Use the contact or intake route for reviewed requests.',
+    },
+    { status: 501 },
+  )
 }
