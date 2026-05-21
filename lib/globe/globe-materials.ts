@@ -1,9 +1,21 @@
 import type { GlobeLayerId } from '@/types/globe-router'
+import { hvTokens } from '@/lib/harbourview/design-tokens'
 
 export interface GlobeMaterialState {
   oceanBase: string
   plateBase: string
   borderColor: string
+  emissive: string
+  emissiveIntensity: number
+  roughness: number
+  metalness: number
+  clearcoat: number
+  clearcoatRoughness: number
+  sidewallColor: string
+}
+
+export interface GlobeMaterialFallbackState {
+  color: string
   emissive: string
   emissiveIntensity: number
   roughness: number
@@ -20,13 +32,16 @@ export function resolveCountryMaterialState({
   layerId: GlobeLayerId
 }): GlobeMaterialState {
   const base: GlobeMaterialState = {
-    oceanBase: '#040d18',
-    plateBase: '#071a2c',
-    borderColor: '#c6a55a',
+    oceanBase: hvTokens.globe.oceanBase,
+    plateBase: hvTokens.globe.plateBase,
+    borderColor: hvTokens.globe.borderMutedGold,
     emissive: '#0f2942',
     emissiveIntensity: 0.16,
     roughness: 0.72,
-    metalness: 0.48,
+    metalness: 0.34,
+    clearcoat: 0.28,
+    clearcoatRoughness: 0.34,
+    sidewallColor: hvTokens.globe.sidewallDark,
   }
 
   if (layerId === 'opportunity_heat') {
@@ -45,19 +60,21 @@ export function resolveCountryMaterialState({
       return {
         ...base,
         plateBase: '#0d2a42',
-        emissive: '#c6a55a',
+        emissive: hvTokens.globe.borderMutedGold,
         emissiveIntensity: 0.42,
         roughness: 0.58,
       }
     case 'selected':
       return {
         ...base,
-        plateBase: '#16324a',
-        borderColor: '#f0d58a',
-        emissive: '#f0c96a',
-        emissiveIntensity: 0.86,
+        plateBase: hvTokens.globe.plateSelected,
+        borderColor: hvTokens.globe.borderMutedGoldSoft,
+        emissive: hvTokens.globe.selectedAccent,
+        emissiveIntensity: 0.48,
         roughness: 0.42,
-        metalness: 0.64,
+        metalness: 0.42,
+        clearcoat: 0.44,
+        clearcoatRoughness: 0.3,
       }
     case 'multi_market':
       return {
@@ -69,12 +86,23 @@ export function resolveCountryMaterialState({
     case 'disabled':
       return {
         ...base,
-        plateBase: '#121821',
+        plateBase: hvTokens.globe.sidewallDisabled,
         borderColor: '#4b4f57',
         emissive: '#1f2630',
         emissiveIntensity: 0.08,
+        sidewallColor: hvTokens.globe.sidewallDisabled,
       }
     default:
       return base
+  }
+}
+
+export function resolveCountryStandardMaterialState(state: GlobeMaterialState): GlobeMaterialFallbackState {
+  return {
+    color: state.plateBase,
+    emissive: state.emissive,
+    emissiveIntensity: state.emissiveIntensity,
+    roughness: state.roughness,
+    metalness: Math.min(state.metalness, 0.45),
   }
 }
