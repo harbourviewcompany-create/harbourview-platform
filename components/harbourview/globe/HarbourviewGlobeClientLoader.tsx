@@ -1,12 +1,16 @@
 'use client'
 
 import Image from 'next/image'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styles from './HarbourviewGlobeClientLoader.module.css'
+import { featureFlags } from '@/lib/harbourview/feature-flags'
+import { classifyGpuHint, qualityTuning, selectQualityLevel, shouldBailoutToFallback, type GlobeQualityLevel } from '@/lib/harbourview/globe/quality'
 
 type PremiumWebGLGlobeProps = {
+  quality: Exclude<GlobeQualityLevel, 'fallback'>
   onReady?: () => void
   onError?: () => void
+  onBailout?: () => void
 }
 
 type HarbourviewGlobeClientLoaderProps = {
@@ -231,7 +235,7 @@ type IdleWindow = Window & {
   cancelIdleCallback?: (handle: number) => void
 }
 
-function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
+function PremiumWebGLGlobe({ quality, onReady, onError, onBailout }: PremiumWebGLGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -242,6 +246,8 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
     let frame = 0
     let destroyed = false
     let hasReportedReady = false
+    let lastFrameTimestamp: number | null = null
+    const frameTimes: number[] = []
     let program: WebGLProgram | null = null
     let positionBuffer: WebGLBuffer | null = null
     let normalBuffer: WebGLBuffer | null = null
@@ -260,7 +266,8 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
         throw new Error('WebGL is unavailable for the Harbourview globe.')
       }
 
-      const sphere = buildSphere()
+      const tuning = qualityTuning[quality]
+      const sphere = buildSphere(tuning.latitudeBands, tuning.longitudeBands)
       program = createProgram(gl)
       gl.useProgram(program)
 
@@ -285,7 +292,7 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
 
       const resize = () => {
         const rect = canvas.getBoundingClientRect()
-        const dpr = Math.min(window.devicePixelRatio || 1, 1.45)
+        const dpr = Math.min(window.devicePixelRatio || 1, tuning.maxPixelRatio)
         const width = Math.max(1, Math.floor(rect.width * dpr))
         const height = Math.max(1, Math.floor(rect.height * dpr))
 
@@ -299,10 +306,21 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
       const render = (timestamp: number) => {
         if (destroyed) return
 
+        if (lastFrameTimestamp !== null) {
+          frameTimes.push(timestamp - lastFrameTimestamp)
+        }
+
+        lastFrameTimestamp = timestamp
+
+        if (frameTimes.length >= tuning.warmupFrames && shouldBailoutToFallback(frameTimes)) {
+          onBailout?.()
+          return
+        }
+
         resize()
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
         gl.useProgram(program)
-        gl.uniform1f(rotationLocation, timestamp * 0.000045)
+        gl.uniform1f(rotationLocation, timestamp * tuning.rotationSpeed)
         gl.uniform1f(aspectLocation, Math.max(canvas.width / canvas.height, 0.1))
         gl.uniform1f(scaleLocation, 0.84)
         gl.drawElements(gl.TRIANGLES, sphere.indices.length, gl.UNSIGNED_SHORT, 0)
@@ -333,7 +351,7 @@ function PremiumWebGLGlobe({ onReady, onError }: PremiumWebGLGlobeProps) {
       if (indexBuffer) gl.deleteBuffer(indexBuffer)
       if (program) gl.deleteProgram(program)
     }
-  }, [onError, onReady])
+  }, [onBailout, onError, onReady, quality])
 
   return <canvas ref={canvasRef} className={styles.webglCanvas} aria-hidden="true" />
 }
@@ -343,6 +361,27 @@ export function HarbourviewGlobeClientLoader({
 }: HarbourviewGlobeClientLoaderProps) {
   const [shouldRenderCanvas, setShouldRenderCanvas] = useState(false)
   const [canvasReady, setCanvasReady] = useState(false)
+  const [quality, setQuality] = useState<GlobeQualityLevel>('medium')
+
+  const selectedQuality = useMemo(() => {
+    if (featureFlags.globeForceFallback) return 'fallback'
+
+    const nav = navigator as Navigator & { deviceMemory?: number; hardwareConcurrency?: number }
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl')
+    const renderer = gl?.getExtension('WEBGL_debug_renderer_info')
+    const rendererName = renderer
+      ? gl?.getParameter((renderer as { UNMASKED_RENDERER_WEBGL: number }).UNMASKED_RENDERER_WEBGL)
+      : undefined
+
+    return selectQualityLevel({
+      reducedMotion: prefersReducedMotion(),
+      supportsWebGL: browserSupportsWebGL(),
+      deviceMemoryGb: nav.deviceMemory,
+      hardwareConcurrency: nav.hardwareConcurrency,
+      gpuHint: classifyGpuHint(typeof rendererName === 'string' ? rendererName : undefined),
+    })
+  }, [])
 
   const handleReady = useCallback(() => {
     setCanvasReady(true)
@@ -351,10 +390,19 @@ export function HarbourviewGlobeClientLoader({
   const handleError = useCallback(() => {
     setCanvasReady(false)
     setShouldRenderCanvas(false)
+    setQuality('fallback')
+  }, [])
+
+  const handleBailout = useCallback(() => {
+    setCanvasReady(false)
+    setShouldRenderCanvas(false)
+    setQuality('fallback')
   }, [])
 
   useEffect(() => {
-    if (prefersReducedMotion() || !browserSupportsWebGL()) {
+    setQuality(selectedQuality)
+
+    if (selectedQuality === 'fallback') {
       return
     }
 
@@ -386,13 +434,13 @@ export function HarbourviewGlobeClientLoader({
         window.clearTimeout(timeoutHandle)
       }
     }
-  }, [])
+  }, [selectedQuality])
 
   return (
     <div
       aria-hidden="true"
       className={`${styles.shell}${canvasReady ? ` ${styles.shellReady}` : ''}`}
-      data-globe-mode={shouldRenderCanvas ? 'webgl' : 'static'}
+      data-globe-mode={shouldRenderCanvas ? `webgl-${quality}` : 'static'}
     >
       <Image
         src={fallbackSrc}
@@ -405,7 +453,7 @@ export function HarbourviewGlobeClientLoader({
 
       {shouldRenderCanvas ? (
         <div className={styles.canvasLayer}>
-          <PremiumWebGLGlobe onReady={handleReady} onError={handleError} />
+          <PremiumWebGLGlobe quality={quality as Exclude<GlobeQualityLevel, 'fallback'>} onReady={handleReady} onError={handleError} onBailout={handleBailout} />
         </div>
       ) : null}
     </div>
