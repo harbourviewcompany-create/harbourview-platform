@@ -24,6 +24,13 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: true
 
+      - name: PR-control universe (mandatory first step)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node --experimental-strip-types scripts/control/list_recent_prs.ts
+          test -s artifacts/pr-universe.json
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -114,6 +121,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: PR-control universe (mandatory first step)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node --experimental-strip-types scripts/control/list_recent_prs.ts
+          test -s artifacts/pr-universe.json
 
       - name: Setup Node
         uses: actions/setup-node@v4

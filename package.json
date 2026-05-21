@@ -52,7 +52,8 @@
     "verify:marketplace-smoke": "node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "verify:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build",
-    "test:globe-layering-interactions": "node scripts/test-globe-layering-interactions.mjs"
+    "test:globe-layering-interactions": "node scripts/test-globe-layering-interactions.mjs",
+    "control:pr-universe": "node --experimental-strip-types scripts/control/list_recent_prs.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
