@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
+import { featureFlags } from '@/lib/harbourview/feature-flags'
+import StaticGlobeFallback from '@/components/harbourview/globe/StaticGlobeFallback'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
@@ -12,9 +14,64 @@ import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
 
+type DeviceNavigator = Navigator & {
+  deviceMemory?: number
+}
+
+class GlobeCanvasErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.error('Same-screen globe canvas crashed.', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <div className="w-full max-w-[560px]">
+            <StaticGlobeFallback />
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+function browserSupportsWebGL() {
+  try {
+    const canvas = document.createElement('canvas')
+    return Boolean(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+  } catch {
+    return false
+  }
+}
+
+function isLowPerformanceDevice() {
+  const nav = navigator as DeviceNavigator
+  const cpuConstrained = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4
+  const memoryConstrained = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4
+  return cpuConstrained || memoryConstrained
+}
+
+function shouldUseStaticFallback() {
+  if (!featureFlags.interactiveGlobe) return true
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true
+  if (!browserSupportsWebGL()) return true
+  if (isLowPerformanceDevice()) return true
+  return false
+}
+
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
+  const useStaticFallback = useMemo(() => shouldUseStaticFallback(), [])
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
@@ -43,15 +100,25 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-      />
+      {useStaticFallback ? (
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <div className="w-full max-w-[560px]">
+            <StaticGlobeFallback />
+          </div>
+        </div>
+      ) : (
+        <GlobeCanvasErrorBoundary>
+          <GlobeCanvas
+            selectedCountryIso2={state.selectedCountryIso2}
+            selectedCountryIso2s={state.selectedCountryIso2s}
+            focusedCountryIso2={state.focusedCountryIso2}
+            activeLayerId={state.activeLayerId ?? 'country_select'}
+            routerStep={state.step}
+            onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+            onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+          />
+        </GlobeCanvasErrorBoundary>
+      )}
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}
