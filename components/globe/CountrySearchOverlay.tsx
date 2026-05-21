@@ -21,12 +21,39 @@ export function CountrySearchOverlay({
     )
   }, [query])
   const hasQuery = query.trim().length > 0
+  const highlightedCountry = matches[highlightedIndex]
 
   useEffect(() => {
     setHighlightedIndex(0)
   }, [query])
 
+  const selectCountry = (countryIso2: string) => {
+    const selected = countryOptions.find((country) => country.iso2 === countryIso2)
+    onSelectCountry(countryIso2)
+    setQuery('')
+    setHighlightedIndex(0)
+    if (selected) onAnnouncement?.(`Selected ${selected.name}.`)
+  }
+
+  const clearAndClose = () => {
+    if (hasQuery) {
+      setQuery('')
+      setHighlightedIndex(0)
+      onAnnouncement?.('Country search cleared.')
+      return
+    }
+
+    onAnnouncement?.('Country search closed.')
+    onNotSure()
+  }
+
   const handleQueryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      clearAndClose()
+      return
+    }
+
     if (!hasQuery || matches.length === 0) return
 
     if (event.key === 'ArrowDown') {
@@ -43,40 +70,8 @@ export function CountrySearchOverlay({
 
     if (event.key === 'Enter') {
       event.preventDefault()
-      const activeMatch = matches[highlightedIndex]
-      if (activeMatch) onSelectCountry(activeMatch.iso2)
-      return
+      if (highlightedCountry) selectCountry(highlightedCountry.iso2)
     }
-
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      setQuery('')
-    }
-  }
-
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [query])
-
-  const hasQuery = query.trim().length > 0
-  const activeCountry = matches[activeIndex]
-
-  const selectCountry = (countryIso2: string) => {
-    onSelectCountry(countryIso2)
-    setQuery('')
-    setActiveIndex(0)
-  }
-
-  const clearAndClose = () => {
-    if (hasQuery) {
-      setQuery('')
-      setActiveIndex(0)
-      onAnnouncement?.('Country search cleared.')
-      return
-    }
-
-    onAnnouncement?.('Country search closed.')
-    onNotSure()
   }
 
   return (
@@ -101,7 +96,7 @@ export function CountrySearchOverlay({
           aria-describedby="country-search-help"
           aria-expanded={hasQuery}
           aria-controls="country-search-results"
-          aria-activedescendant={hasQuery && matches[highlightedIndex] ? `country-option-${matches[highlightedIndex].iso2}` : undefined}
+          aria-activedescendant={hasQuery && highlightedCountry ? `country-option-${highlightedCountry.iso2}` : undefined}
           autoComplete="off"
           placeholder="Search countries"
           className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
@@ -118,7 +113,8 @@ export function CountrySearchOverlay({
               id={`country-option-${country.iso2}`}
               key={country.iso2}
               type="button"
-              onClick={() => onSelectCountry(country.iso2)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              onClick={() => selectCountry(country.iso2)}
               role="option"
               aria-selected={index === highlightedIndex}
               className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-white/[0.1]' : ''}`}
