@@ -19,6 +19,4 @@ export async function POST(request: Request) {
   return signedOutResponse(request);
 }
 
-export async function GET(request: Request) {
-  return signedOutResponse(request);
-}
+// Intentionally POST-only: sign-out must be triggered by explicit form submission.
