@@ -1,0 +1,96 @@
+name: PR Control Access Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+jobs:
+  pr-control-access-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure GitHub CLI is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v gh >/dev/null 2>&1; then
+            gh --version
+            exit 0
+          fi
+
+          echo "gh not found; installing via apt"
+          sudo apt-get update
+          sudo apt-get install -y gh
+          gh --version
+
+      - name: Validate token and enumerate recent PR activity (last 24h)
+        id: enumerate
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN != '' && secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: harbourviewcompany-create/harbourview-platform
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]]; then
+            echo "Neither GH_TOKEN nor GITHUB_TOKEN is available."
+            exit 1
+          fi
+
+          gh auth status
+          gh pr list --repo "$REPO" --state all --limit 5
+
+          CUTOFF="$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Checking PRs updated since: $CUTOFF"
+
+          RECENT_COUNT="$(gh pr list --repo "$REPO" --state all --limit 200 --json number,updatedAt \
+            --jq "[.[] | select(.updatedAt >= \"$CUTOFF\")] | length")"
+
+          echo "recent_pr_count=$RECENT_COUNT" >> "$GITHUB_OUTPUT"
+          echo "PRs updated in last 24 hours: $RECENT_COUNT"
+
+          if [[ "$RECENT_COUNT" -eq 0 ]]; then
+            echo "No PRs updated in the last 24 hours were found."
+          fi
+
+      - name: Fallback REST validation (if CLI policy blocks usage)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN != '' && secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO_OWNER: harbourviewcompany-create
+          REPO_NAME: harbourview-platform
+          CHECK_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "No token available for REST fallback."
+            exit 1
+          fi
+
+          echo "Querying pulls endpoint"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=all&per_page=5" >/tmp/pulls.json
+          jq 'length' /tmp/pulls.json
+
+          echo "Querying check-runs endpoint"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits/${CHECK_SHA}/check-runs" >/tmp/check-runs.json
+          jq '.total_count' /tmp/check-runs.json
+
+      - name: Gate re-run on successful PR enumeration
+        if: ${{ success() }}
+        env:
+          COUNT: ${{ steps.enumerate.outputs.recent_pr_count }}
+        run: |
+          set -euo pipefail
+          echo "PR-control prerequisites validated."
+          echo "Recent PR count (24h): ${COUNT:-unknown}"
