@@ -16,6 +16,22 @@ export type GlobeRouteState = {
   invalidParams: string[]
 }
 
+const iso2ToMarketKey: Partial<Record<string, GlobeMarketKey>> = {
+  DE: 'germany',
+  PT: 'portugal',
+  GB: 'uk',
+  UK: 'uk',
+  CA: 'canada',
+  AU: 'australia',
+  BR: 'latam',
+  CO: 'latam',
+}
+
+export function marketKeyFromIso2(iso2?: string | null): GlobeMarketKey | null {
+  if (!iso2) return null
+  return iso2ToMarketKey[iso2.trim().toUpperCase()] || null
+}
+
 export const globeMarketOptions: GlobeMarketOption[] = [
   { key: 'germany', label: 'Germany', summary: 'EU-GMP import, distribution and pharmacy-access orientation.' },
   { key: 'portugal', label: 'Portugal', summary: 'Cultivation, processing, export and EU pathway context.' },
