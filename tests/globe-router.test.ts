@@ -4,6 +4,7 @@ import { getIntentIdsForRole } from '@/config/globe/intent-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { globeRouterReducer, initialGlobeRouterState } from '@/components/globe/useGlobeRouterState'
+import { parseGlobeRouteState } from '@/components/harbourview/globe/globeRouteState'
 
 describe('Harbourview globe same-screen router', () => {
   it('uses Germany-specific role chips before generic roles', () => {
@@ -111,5 +112,42 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterCountry.step).toBe('role')
     expect(afterBack.step).toBe('country')
     expect(afterBack.selectedRoleId).toBeUndefined()
+  })
+
+
+  it('keeps query parsing aligned with canonical resolver availability for intent destinations', () => {
+    const params = new URLSearchParams('market=germany&role=doctor_prescriber&intent=understand_medical_rules')
+    const state = parseGlobeRouteState(params)
+
+    const resolved = resolveGlobeRoute({
+      source: 'globe_router',
+      mode: 'single_market',
+      countryIso2: 'DE',
+      countryIso2s: ['DE'],
+      roleId: 'doctor_prescriber',
+      intentId: 'understand_medical_rules',
+    })
+
+    expect(resolved.status).toBe('fallback')
+    expect(state.kind).toBe('fallback')
+    expect(state.invalidParams).toEqual([])
+  })
+
+  it('maps available intent destinations without fallback when resolver resolves', () => {
+    const params = new URLSearchParams('market=germany&role=importer&intent=view_market_signals')
+    const state = parseGlobeRouteState(params)
+
+    const resolved = resolveGlobeRoute({
+      source: 'globe_router',
+      mode: 'single_market',
+      countryIso2: 'DE',
+      countryIso2s: ['DE'],
+      roleId: 'importer',
+      intentId: 'view_market_signals',
+    })
+
+    expect(resolved.status).toBe('resolved')
+    expect(state.kind).toBe('intent-sheet')
+    expect(state.invalidParams).toEqual([])
   })
 })
