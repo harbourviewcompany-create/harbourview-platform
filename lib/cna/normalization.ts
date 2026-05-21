@@ -34,15 +34,18 @@ export function normalizeName(value: string): string {
     .toLowerCase();
 }
 
+function normalizeSearchKey(value: string): string {
+  return normalizeName(value)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 export function normalizeCountryName(countryName: string): string {
-  return normalizeName(countryName);
+  return normalizeSearchKey(countryName);
 }
 
 export function normalizeAuthorityName(authorityName: string): string {
-  return normalizeName(authorityName)
-    .replace(/\b(ministry|department|authority|agency|office)\b/g, (match) => match)
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+  return normalizeSearchKey(authorityName);
 }
 
 export function buildCnaDedupeKey(record: Pick<CnaRawAuthorityRecord, 'countryName' | 'authorityName' | 'countryIso2' | 'countryIso3'>): string {
