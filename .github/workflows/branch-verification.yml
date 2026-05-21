@@ -103,8 +103,27 @@ jobs:
       - name: Visibility
         run: npm run test:visibility
 
+      - name: Install Playwright Chromium for globe e2e artifacts
+        run: |
+          npx playwright install --with-deps chromium
+
+      - name: Globe route e2e evidence
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+          HARBOURVIEW_GLOBE_E2E_ARTIFACT_DIR: ci-artifacts/globe-route-e2e
+        run: npm run test:globe-route-e2e 2>&1 | tee ci-artifacts/globe-route-e2e.log
+
       - name: Production visibility probe (safe/no writes)
-        run: npm run verify:production-visibility
+        run: npm run verify:production-visibility 2>&1 | tee ci-artifacts/probe-production-visibility.log
+
+      - name: Upload route evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: branch-verification-route-evidence
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
 
   contact-production-visual:
     name: Contact production visual verification
