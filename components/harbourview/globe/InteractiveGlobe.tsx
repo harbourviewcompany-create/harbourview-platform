@@ -2,8 +2,11 @@
 
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import { useEffect, useState } from 'react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import CountryHitLayer from './CountryHitLayer'
+import StaticGlobeFallback from './StaticGlobeFallback'
+import { evaluateInteractiveReadiness, logInteractiveFallback } from '@/lib/harbourview/globe/interactive-readiness'
 
 function GlobeMesh() {
   return (
@@ -16,6 +19,18 @@ function GlobeMesh() {
 
 export default function InteractiveGlobe() {
   const reducedMotion = useReducedMotion()
+  const [hitLayerMounted, setHitLayerMounted] = useState(false)
+  const readiness = evaluateInteractiveReadiness(hitLayerMounted)
+
+  useEffect(() => {
+    if (!readiness.interactiveReady && readiness.fallbackReason) {
+      logInteractiveFallback(readiness.fallbackReason)
+    }
+  }, [readiness.fallbackReason, readiness.interactiveReady])
+
+  if (!readiness.interactiveReady) {
+    return <StaticGlobeFallback />
+  }
 
   return (
     <div className="w-full max-w-[520px] aspect-square">
@@ -27,7 +42,7 @@ export default function InteractiveGlobe() {
         <directionalLight position={[5, 5, 5]} intensity={1} />
 
         <GlobeMesh />
-        <CountryHitLayer />
+        <CountryHitLayer onReady={setHitLayerMounted} />
 
         <OrbitControls
           enablePan={false}
