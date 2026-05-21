@@ -14,14 +14,14 @@ import {
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { GlobeRouterStep } from '@/types/globe-router'
 
-function findCountryPose(countryIso2?: string): GlobeCameraPose | null {
+function findCountryPose(countryIso2?: string, targetDistanceMax?: number): GlobeCameraPose | null {
   if (!countryIso2) return null
 
   const country = naturalEarthCountriesPayload.countries.find((candidate) => candidate.iso2 === countryIso2)
 
   if (!country) return null
 
-  return createCountryFocusPose(country)
+  return createCountryFocusPose(country, { targetDistanceMax })
 }
 
 function poseFromVectors(position: Vector3, target: Vector3): GlobeCameraPose {
@@ -68,7 +68,13 @@ export function CameraFlyToController({
 
   useEffect(() => {
     const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
-    const countryPose = wantsCountryFocus ? findCountryPose(selectedCountryIso2) : null
+    const shouldCapTarget = routerStep === 'role' || routerStep === 'intent' || routerStep === 'routing'
+    const countryPose = wantsCountryFocus
+      ? findCountryPose(
+          selectedCountryIso2,
+          shouldCapTarget ? GLOBE_CAMERA_CONFIG.selectedTargetDistanceMax : undefined,
+        )
+      : null
     const desired = countryPose ?? getInitialCameraPose()
 
     if (posesEqual(desired, toPoseRef.current) && !isAnimatingRef.current) {

@@ -29,6 +29,13 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const isCountryState = routerStep === 'country' || !selectedCountryIso2
+  const distanceLimits = isCountryState
+    ? GLOBE_CAMERA_CONFIG.distanceByState.country
+    : GLOBE_CAMERA_CONFIG.distanceByState.selected
+  const polarLimits = isCountryState
+    ? GLOBE_CAMERA_CONFIG.polarByState.country
+    : GLOBE_CAMERA_CONFIG.polarByState.selected
 
   return (
     <div className="absolute inset-0">
@@ -73,10 +80,10 @@ export function GlobeCanvas({
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
           zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
-          minDistance={GLOBE_CAMERA_CONFIG.minDistance}
-          maxDistance={GLOBE_CAMERA_CONFIG.maxDistance}
-          minPolarAngle={GLOBE_CAMERA_CONFIG.minPolarAngle}
-          maxPolarAngle={GLOBE_CAMERA_CONFIG.maxPolarAngle}
+          minDistance={distanceLimits.min}
+          maxDistance={distanceLimits.max}
+          minPolarAngle={polarLimits.min}
+          maxPolarAngle={polarLimits.max}
         />
       </Canvas>
     </div>
