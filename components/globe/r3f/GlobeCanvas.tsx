@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useRef } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -10,6 +10,26 @@ import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
+
+export function getOrbitControlsMotionConfig(prefersReducedMotion: boolean) {
+  if (prefersReducedMotion) {
+    return {
+      autoRotate: false,
+      autoRotateSpeed: 0,
+      enableDamping: false,
+      dampingFactor: 1,
+      rotateSpeed: 0.2,
+    }
+  }
+
+  return {
+    autoRotate: true,
+    autoRotateSpeed: 0.2,
+    enableDamping: true,
+    dampingFactor: GLOBE_CAMERA_CONFIG.dampingFactor,
+    rotateSpeed: GLOBE_CAMERA_CONFIG.rotateSpeed,
+  }
+}
 
 export function GlobeCanvas({
   selectedCountryIso2,
@@ -29,6 +49,19 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setPrefersReducedMotion(mediaQuery.matches)
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [])
+
+  const motionConfig = getOrbitControlsMotionConfig(prefersReducedMotion)
 
   return (
     <div className="absolute inset-0">
@@ -69,9 +102,11 @@ export function GlobeCanvas({
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
-          enableDamping
-          dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
-          rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
+          enableDamping={motionConfig.enableDamping}
+          dampingFactor={motionConfig.dampingFactor}
+          rotateSpeed={motionConfig.rotateSpeed}
+          autoRotate={motionConfig.autoRotate}
+          autoRotateSpeed={motionConfig.autoRotateSpeed}
           zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
           minDistance={GLOBE_CAMERA_CONFIG.minDistance}
           maxDistance={GLOBE_CAMERA_CONFIG.maxDistance}

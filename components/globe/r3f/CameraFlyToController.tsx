@@ -14,6 +14,22 @@ import {
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { GlobeRouterStep } from '@/types/globe-router'
 
+export function getFlyToMotionProfile(prefersReducedMotion: boolean) {
+  if (prefersReducedMotion) {
+    return {
+      shouldAnimate: false,
+      flyDurationMs: 0,
+      allowCountryFocus: false,
+    }
+  }
+
+  return {
+    shouldAnimate: true,
+    flyDurationMs: GLOBE_CAMERA_CONFIG.flyDurationMs,
+    allowCountryFocus: true,
+  }
+}
+
 function findCountryPose(countryIso2?: string): GlobeCameraPose | null {
   if (!countryIso2) return null
 
@@ -62,12 +78,26 @@ export function CameraFlyToController({
   const toPoseRef = useRef<GlobeCameraPose>(getInitialCameraPose())
   const startTimeRef = useRef<number | null>(null)
   const isAnimatingRef = useRef(false)
+  const prefersReducedMotionRef = useRef(false)
 
   const positionVecRef = useRef(new Vector3())
   const targetVecRef = useRef(new Vector3())
 
   useEffect(() => {
-    const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => {
+      prefersReducedMotionRef.current = mediaQuery.matches
+    }
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    const motionProfile = getFlyToMotionProfile(prefersReducedMotionRef.current)
+    const wantsCountryFocus = motionProfile.allowCountryFocus && !!selectedCountryIso2 && routerStep !== 'country'
     const countryPose = wantsCountryFocus ? findCountryPose(selectedCountryIso2) : null
     const desired = countryPose ?? getInitialCameraPose()
 
@@ -78,6 +108,24 @@ export function CameraFlyToController({
     const currentTarget = controlsRef?.current?.target ?? targetVecRef.current
     fromPoseRef.current = poseFromVectors(camera.position, currentTarget)
     toPoseRef.current = desired
+    if (!motionProfile.shouldAnimate) {
+      positionVecRef.current.set(desired.position[0], desired.position[1], desired.position[2])
+      targetVecRef.current.set(desired.target[0], desired.target[1], desired.target[2])
+
+      camera.position.copy(positionVecRef.current)
+      camera.lookAt(targetVecRef.current)
+      const controls = controlsRef?.current
+      if (controls) {
+        controls.target.copy(targetVecRef.current)
+        controls.update()
+      } else {
+        camera.updateProjectionMatrix()
+      }
+      isAnimatingRef.current = false
+      startTimeRef.current = null
+      return
+    }
+
     startTimeRef.current = null
     isAnimatingRef.current = true
   }, [camera, controlsRef, routerStep, selectedCountryIso2])
@@ -91,7 +139,7 @@ export function CameraFlyToController({
     }
 
     const elapsed = now - startTimeRef.current
-    const duration = GLOBE_CAMERA_CONFIG.flyDurationMs
+    const duration = getFlyToMotionProfile(prefersReducedMotionRef.current).flyDurationMs
     const rawProgress = duration > 0 ? elapsed / duration : 1
     const progress = rawProgress >= 1 ? 1 : rawProgress
     const eased = easeInOutCubic(progress)
