@@ -23,12 +23,7 @@ type RouteUpdates = {
   route?: 'fallback' | null
 }
 
-export function HarbourviewGlobeRouteController() {
-  const internalControllerEnabled = process.env.HARBOURVIEW_INTERNAL_GLOBE_CONTROLLER === 'true'
-  if (!internalControllerEnabled) {
-    return null
-  }
-
+function HarbourviewGlobeRouteControllerInner() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -98,6 +93,16 @@ export function HarbourviewGlobeRouteController() {
       </section>
     </div>
   )
+}
+
+export function HarbourviewGlobeRouteController() {
+  const internalControllerEnabled = process.env.HARBOURVIEW_INTERNAL_GLOBE_CONTROLLER === 'true'
+
+  if (!internalControllerEnabled) {
+    return null
+  }
+
+  return <HarbourviewGlobeRouteControllerInner />
 }
 
 export default HarbourviewGlobeRouteController
