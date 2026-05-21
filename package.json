@@ -51,7 +51,8 @@
     "verify:admin-auth": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs",
     "verify:marketplace-smoke": "node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "verify:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
-    "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build"
+    "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build",
+    "test:playwright:public-access": "node scripts/test-playwright-public-and-admin-access.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
