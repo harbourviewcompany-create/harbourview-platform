@@ -7,6 +7,10 @@ export interface GlobeCameraPose {
   target: [number, number, number]
 }
 
+interface CountryFocusOptions {
+  targetDistanceMax?: number
+}
+
 const DEFAULT_FOCUS_DISTANCE = 6.2
 const DEFAULT_TARGET_DISTANCE = 2.1
 
@@ -29,7 +33,10 @@ export function bboxFocusDistance(bbox: [number, number, number, number]): numbe
   return clamp(MIN_FOCUS_DISTANCE + extent * BBOX_DISTANCE_SLOPE, MIN_FOCUS_DISTANCE, MAX_FOCUS_DISTANCE)
 }
 
-export function createCountryFocusPose(country: HarbourviewCountryGeometry): GlobeCameraPose {
+export function createCountryFocusPose(
+  country: HarbourviewCountryGeometry,
+  options: CountryFocusOptions = {},
+): GlobeCameraPose {
   const vector = getCountryFocusVector({
     iso2: country.iso2,
     name: country.name,
@@ -41,7 +48,7 @@ export function createCountryFocusPose(country: HarbourviewCountryGeometry): Glo
   })
 
   const focusDistance = country.bbox ? bboxFocusDistance(country.bbox) : DEFAULT_FOCUS_DISTANCE
-  const targetDistance = DEFAULT_TARGET_DISTANCE
+  const targetDistance = clamp(options.targetDistanceMax ?? DEFAULT_TARGET_DISTANCE, 0.5, DEFAULT_TARGET_DISTANCE)
 
   return {
     position: [vector.x * focusDistance, vector.y * focusDistance, vector.z * focusDistance],

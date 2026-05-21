@@ -43,6 +43,35 @@ describe('Harbourview globe polygon rendering stage', () => {
     expect(Math.abs(pose.position[0]) + Math.abs(pose.position[1]) + Math.abs(pose.position[2])).toBeGreaterThan(4)
   })
 
+  it('caps focus target distance for selected/search camera states', () => {
+    const portugal = naturalEarthFixturePayload.countries.find((country) => country.iso2 === 'PT')
+    expect(portugal).toBeTruthy()
+
+    const defaultPose = createCountryFocusPose(portugal!)
+    const cappedPose = createCountryFocusPose(portugal!, {
+      targetDistanceMax: GLOBE_CAMERA_CONFIG.selectedTargetDistanceMax,
+    })
+
+    const vectorLength = (vector: [number, number, number]) =>
+      Math.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
+
+    expect(vectorLength(defaultPose.target)).toBeCloseTo(2.1, 5)
+    expect(vectorLength(cappedPose.target)).toBeCloseTo(GLOBE_CAMERA_CONFIG.selectedTargetDistanceMax, 5)
+    expect(vectorLength(cappedPose.target)).toBeLessThan(vectorLength(defaultPose.target))
+  })
+
+  it('clamps unsafe target distance overrides to the default safe max', () => {
+    const portugal = naturalEarthFixturePayload.countries.find((country) => country.iso2 === 'PT')
+    expect(portugal).toBeTruthy()
+
+    const unsafePose = createCountryFocusPose(portugal!, { targetDistanceMax: 100 })
+
+    const targetDistance = Math.sqrt(
+      unsafePose.target[0] ** 2 + unsafePose.target[1] ** 2 + unsafePose.target[2] ** 2,
+    )
+    expect(targetDistance).toBeCloseTo(2.1, 5)
+  })
+
   it('derives a tighter focus distance for small bboxes than large ones', () => {
     const smallIslandDistance = bboxFocusDistance([0, 0, 1.5, 1.5])
     const continentalDistance = bboxFocusDistance([-12, 35, 30, 60])

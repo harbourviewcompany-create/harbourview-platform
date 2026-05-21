@@ -51,27 +51,13 @@ export function GlobeCanvas({
   enablePointerCapture?: boolean
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const update = () => setPrefersReducedMotion(media.matches)
-    update()
-    media.addEventListener('change', update)
-    return () => media.removeEventListener('change', update)
-  }, [])
-  const isInteractiveGlobeEnabled = process.env.NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE === 'true'
-  const cameraConfig = useMemo(
-    () => ({
-      minDistance: prefersReducedMotion ? GLOBE_CAMERA_CONFIG.reducedMotionDistance : GLOBE_CAMERA_CONFIG.minDistance,
-      maxDistance: prefersReducedMotion ? GLOBE_CAMERA_CONFIG.reducedMotionDistance : GLOBE_CAMERA_CONFIG.maxDistance,
-      enableRotate: !prefersReducedMotion,
-      autoRotate: !prefersReducedMotion,
-    }),
-    [prefersReducedMotion],
-  )
-
-  if (!isInteractiveGlobeEnabled) return null
+  const isCountryState = routerStep === 'country' || !selectedCountryIso2
+  const distanceLimits = isCountryState
+    ? GLOBE_CAMERA_CONFIG.distanceByState.country
+    : GLOBE_CAMERA_CONFIG.distanceByState.selected
+  const polarLimits = isCountryState
+    ? GLOBE_CAMERA_CONFIG.polarByState.country
+    : GLOBE_CAMERA_CONFIG.polarByState.selected
 
   return (
     <div className="absolute inset-0 -z-0" aria-hidden="true">
@@ -118,15 +104,11 @@ export function GlobeCanvas({
           enableDamping
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
-          zoomSpeed={prefersReducedMotion ? 0 : GLOBE_CAMERA_CONFIG.zoomSpeed}
-          enableZoom={!prefersReducedMotion}
-          enableRotate={cameraConfig.enableRotate}
-          autoRotate={cameraConfig.autoRotate}
-          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
-          minDistance={cameraConfig.minDistance}
-          maxDistance={cameraConfig.maxDistance}
-          minPolarAngle={GLOBE_CAMERA_CONFIG.minPolarAngle}
-          maxPolarAngle={GLOBE_CAMERA_CONFIG.maxPolarAngle}
+          zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
+          minDistance={distanceLimits.min}
+          maxDistance={distanceLimits.max}
+          minPolarAngle={polarLimits.min}
+          maxPolarAngle={polarLimits.max}
         />
       </Canvas>
     </div>

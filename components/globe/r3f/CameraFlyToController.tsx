@@ -14,30 +14,14 @@ import {
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { GlobeRouterStep } from '@/types/globe-router'
 
-export function getFlyToMotionProfile(prefersReducedMotion: boolean) {
-  if (prefersReducedMotion) {
-    return {
-      shouldAnimate: false,
-      flyDurationMs: 0,
-      allowCountryFocus: false,
-    }
-  }
-
-  return {
-    shouldAnimate: true,
-    flyDurationMs: GLOBE_CAMERA_CONFIG.flyDurationMs,
-    allowCountryFocus: true,
-  }
-}
-
-function findCountryPose(countryIso2?: string): GlobeCameraPose | null {
+function findCountryPose(countryIso2?: string, targetDistanceMax?: number): GlobeCameraPose | null {
   if (!countryIso2) return null
 
   const country = naturalEarthCountriesPayload.countries.find((candidate) => candidate.iso2 === countryIso2)
 
   if (!country) return null
 
-  return createCountryFocusPose(country)
+  return createCountryFocusPose(country, { targetDistanceMax })
 }
 
 function poseFromVectors(position: Vector3, target: Vector3): GlobeCameraPose {
@@ -84,21 +68,14 @@ export function CameraFlyToController({
   const targetVecRef = useRef(new Vector3())
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const update = () => {
-      prefersReducedMotionRef.current = mediaQuery.matches
-    }
-    update()
-    mediaQuery.addEventListener('change', update)
-    return () => mediaQuery.removeEventListener('change', update)
-  }, [])
-
-  useEffect(() => {
-    const motionProfile = getFlyToMotionProfile(prefersReducedMotionRef.current)
-    const wantsCountryFocus = motionProfile.allowCountryFocus && !!selectedCountryIso2 && routerStep !== 'country'
-    const countryPose = wantsCountryFocus ? findCountryPose(selectedCountryIso2) : null
+    const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
+    const shouldCapTarget = routerStep === 'role' || routerStep === 'intent' || routerStep === 'routing'
+    const countryPose = wantsCountryFocus
+      ? findCountryPose(
+          selectedCountryIso2,
+          shouldCapTarget ? GLOBE_CAMERA_CONFIG.selectedTargetDistanceMax : undefined,
+        )
+      : null
     const desired = countryPose ?? getInitialCameraPose()
 
     if (posesEqual(desired, toPoseRef.current) && !isAnimatingRef.current) {
