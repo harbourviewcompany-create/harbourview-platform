@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
-import { GET } from '@/app/api/used-surplus-preview/route'
+import { GET } from '../../app/api/used-surplus-preview/route'
 
 async function callRoute(query = '') {
   const request = new NextRequest(`http://localhost/api/used-surplus-preview${query}`)
