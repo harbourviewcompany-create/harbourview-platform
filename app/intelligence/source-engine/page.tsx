@@ -23,9 +23,10 @@ export default function SourceEnginePage() {
           description: 'The public page routes requests into a review queue without creating automated claims or publishing sensitive material.',
           items: [
             'Country, licensing, policy, company, category and route questions can be submitted for review before any private brief is prepared.',
+            'Market-access briefing requests should identify the market, role, product category, evidence need and decision deadline without exposing private documents publicly.',
             'Sensitive commercial context should move through confidential intake rather than public comments, public listings or open source pages.',
             'Requests can identify the market, role, product category, evidence need and decision deadline without exposing private documents publicly.',
-            'Harbourview can decide whether a request belongs in public education, private intelligence, reviewed introduction, marketplace routing or no-action handling.',
+            'Harbourview can decide whether a request belongs in public education, private intelligence, reviewed introduction, marketplace routing, request triage or no-action handling.',
           ],
         },
         {
@@ -42,7 +43,7 @@ export default function SourceEnginePage() {
         {
           eyebrow: 'Safety and leakage controls',
           title: 'What the public source engine must not expose',
-          description: 'HAR-39 requires the public surface to explain the engine without leaking the engine.',
+          description: 'HAR-39 copy-safety requires the public surface to explain the engine without leaking the engine.',
           items: [
             'No raw evidence records, unpublished analyst notes, source captures, source URLs or provenance summaries are published here.',
             'No page confirms live buyer demand, seller availability, legal eligibility, shipment clearance, licence validity or counterparty quality.',

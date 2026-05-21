@@ -12,8 +12,8 @@ export default function PharmaceuticalMedicalCannabisPage() {
     <PublicSurfacePage
       eyebrow="HAR-40 medical knowledge spine"
       title="Pharmaceutical and medical cannabis education for professional context."
-      description="This route frames medical cannabis through quality, documentation, patient-safety, pharmacy-channel and professional education concepts without offering treatment recommendations or promotional product claims."
-      boundary="This page is informational and non-promotional. It does not provide medical advice, prescribing instructions, dosage guidance, treatment recommendations, patient-specific guidance or accredited continuing education unless separately stated."
+      description="This route frames medical cannabis through quality, documentation, patient-safety, pharmacy-channel and professional education concepts without offering treatment guidance or promotional product claims."
+      boundary="This page is informational and non-promotional. It does not provide medical advice, prescribing instructions, dosage guidance, patient-specific guidance or accredited continuing education unless separately stated."
       primaryAction={{ label: 'Request Education Partnership', href: '/institutional-partnerships' }}
       secondaryAction={{ label: 'Contact Harbourview', href: '/contact', variant: 'secondary' }}
       sections={[

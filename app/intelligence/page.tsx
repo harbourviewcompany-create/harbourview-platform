@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
-import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
+import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
 import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 
 export const metadata: Metadata = {
@@ -49,6 +49,24 @@ const intelligenceRegions = [
   },
 ] as const
 
+const workflowRoutes = [
+  {
+    title: 'Source Engine',
+    href: '/intelligence/source-engine',
+    body: 'Submit market, company, policy, counterparty and route questions into a reviewed public-safe workflow without exposing private evidence.',
+  },
+  {
+    title: 'Watchlists',
+    href: '/intelligence/watchlists',
+    body: 'Request monitoring for markets, counterparties, categories and routes while keeping operational watch records private.',
+  },
+  {
+    title: 'Source Methodology',
+    href: '/source-methodology',
+    body: 'Review the public source discipline, confidence language, correction posture and private evidence boundaries.',
+  },
+]
+
 export default async function IntelligencePage() {
   const [signals] = await Promise.all([getPublicRegulatorySignals()])
   const featuredSignals = signals.slice(0, 3)
@@ -60,7 +78,7 @@ export default async function IntelligencePage() {
         title="Country intelligence built around reviewed market pathways."
         actions={[
           { label: 'Explore Regions', href: '#country-map' },
-          { label: 'View Signals', href: '/signals', variant: 'secondary' },
+          { label: 'Request Intelligence Workflow', href: '/intelligence/source-engine', variant: 'secondary' },
         ]}
         aside={
           <PublicCard className="p-5 text-sm leading-7 text-white/58 backdrop-blur-sm">
@@ -108,6 +126,20 @@ export default async function IntelligencePage() {
                 <span aria-hidden="true">→</span>
               </Link>
             </PublicCard>
+          ))}
+        </div>
+      </PublicSection>
+
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="HAR-39 workflow layer" title="Source-engine and watchlist requests now have public entry points.">
+          These routes explain how intelligence requests enter review without publishing raw evidence, source URLs, provenance records, private counterparties or analyst notes.
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {workflowRoutes.map((route) => (
+            <PublicLinkCard key={route.href} href={route.href} title={route.title} eyebrow="Public-safe workflow">
+              {route.body}
+            </PublicLinkCard>
           ))}
         </div>
       </PublicSection>
