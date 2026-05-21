@@ -8,10 +8,15 @@ export const GLOBE_CAMERA_CONFIG = {
   maxDistance: 9.4,
   minPolarAngle: Math.PI * 0.22,
   maxPolarAngle: Math.PI * 0.78,
+  minAzimuthAngle: -Math.PI * 0.4,
+  maxAzimuthAngle: Math.PI * 0.4,
   enablePan: false,
+  enableZoom: false,
+  enableDamping: true,
   dampingFactor: 0.085,
   rotateSpeed: 0.52,
   zoomSpeed: 0.7,
+  autoRotateSpeed: 0.5,
   flyDurationMs: 880,
 }
 
