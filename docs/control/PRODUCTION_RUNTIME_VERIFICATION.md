@@ -79,3 +79,32 @@ The workflow exits non-zero and fails CI if any route:
 - exposes forbidden strings
 - renders runtime error markers
 - exposes public admin access
+
+## Globe route visual spec (desktop/mobile)
+
+For PR evidence of globe route-state rendering, run:
+
+- `npx -y -p playwright node scripts/verify-globe-route-visual-spec.mjs`
+
+Default artifact root (stable path):
+
+- `verification-results/globe-route-visual-spec/`
+
+Generated files:
+
+- `verification-results/globe-route-visual-spec/globe-route-visual-spec.json`
+- `verification-results/globe-route-visual-spec/globe-route-visual-spec.md`
+- `verification-results/globe-route-visual-spec/screenshots/default__desktop.png`
+- `verification-results/globe-route-visual-spec/screenshots/default__mobile.png`
+- `verification-results/globe-route-visual-spec/screenshots/selected-market__desktop.png`
+- `verification-results/globe-route-visual-spec/screenshots/selected-market__mobile.png`
+- `verification-results/globe-route-visual-spec/screenshots/role-sheet__desktop.png`
+- `verification-results/globe-route-visual-spec/screenshots/role-sheet__mobile.png`
+- `verification-results/globe-route-visual-spec/screenshots/intent-sheet__desktop.png`
+- `verification-results/globe-route-visual-spec/screenshots/intent-sheet__mobile.png`
+- `verification-results/globe-route-visual-spec/screenshots/multi-market__desktop.png`
+- `verification-results/globe-route-visual-spec/screenshots/multi-market__mobile.png`
+- `verification-results/globe-route-visual-spec/screenshots/fallback__desktop.png`
+- `verification-results/globe-route-visual-spec/screenshots/fallback__mobile.png`
+
+The script prints one `[capture] ... -> ...` line per screenshot and then a `Generated artifacts:` list so command output is PR-readable.
