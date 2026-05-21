@@ -1,4 +1,4 @@
-import { globePlateSpots } from '@/config/globe/country-spots'
+import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 
 export const GLOBE_RADIUS = 2.35
 export const COUNTRY_PLATE_OFFSET = 0.026
@@ -54,33 +54,22 @@ export function vector3ToArray(vector: GlobeVector3): [number, number, number] {
   return [vector.x, vector.y, vector.z]
 }
 
-function pseudoScreenToLonLat(x: number, y: number) {
-  return {
-    lon: (x / 100) * 360 - 180,
-    lat: 86 - (y / 100) * 172,
-  }
-}
-
 export function buildFixtureCountryFeatures(): GlobeCountryGeometryFeature[] {
-  return globePlateSpots.map((spot) => {
-    const centroid = pseudoScreenToLonLat(spot.x, spot.y)
-    const lonSpan = 7.4 * (spot.scale ?? 1)
-    const latSpan = 4.8 * (spot.scale ?? 1)
+  return naturalEarthCountriesPayload.countries.map((country) => {
+    const firstPolygon = country.polygons[0]
 
     return {
-      iso2: spot.iso2,
-      name: spot.iso2,
-      centroid,
-      rings: [
-        {
-          points: [
-            { lon: centroid.lon - lonSpan, lat: centroid.lat - latSpan },
-            { lon: centroid.lon + lonSpan, lat: centroid.lat - latSpan * 0.82 },
-            { lon: centroid.lon + lonSpan * 0.88, lat: centroid.lat + latSpan },
-            { lon: centroid.lon - lonSpan * 0.8, lat: centroid.lat + latSpan * 0.9 },
-          ],
-        },
-      ],
+      iso2: country.iso2,
+      name: country.name,
+      centroid: {
+        lon: country.centroid[0],
+        lat: country.centroid[1],
+      },
+      rings: firstPolygon
+        ? firstPolygon.rings.map((ring) => ({
+            points: ring.points.map((point) => ({ lon: point[0], lat: point[1] })),
+          }))
+        : [],
     }
   })
 }

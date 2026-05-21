@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { buildFixtureCountryFeatures } from '@/lib/globe/globe-geometry'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 
 describe('Natural Earth 110m countries payload', () => {
@@ -67,6 +68,14 @@ describe('Natural Earth 110m countries payload', () => {
 
     expect(totalPoints).toBeGreaterThan(2_000)
     expect(totalPoints).toBeLessThan(12_000)
+  })
+
+  it('buildFixtureCountryFeatures is sourced from Natural Earth production payload, not pseudo fixture coordinates', () => {
+    const features = buildFixtureCountryFeatures()
+
+    expect(features.length).toBe(naturalEarthCountriesPayload.countries.length)
+    const usCountryName = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'US')?.name
+    expect(features.find((feature) => feature.iso2 === 'US')?.name).toBe(usCountryName)
   })
 })
 

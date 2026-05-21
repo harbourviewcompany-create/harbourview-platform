@@ -4,6 +4,7 @@ import { bboxFocusDistance, createCountryFocusPose, easeInOutCubic, getInitialCa
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { HarbourviewCountryGeometry } from '@/lib/globe/geojson-country-types'
 import { naturalEarthIngestionInternals, transformNaturalEarthCountries } from '@/lib/globe/natural-earth-ingestion'
+import { buildCountryMeshDescriptor } from '@/lib/globe/country-mesh-generation'
 import { createCountryBufferGeometry, estimateCountryTriangleCount, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
 
 describe('Harbourview globe polygon rendering stage', () => {
@@ -134,5 +135,44 @@ describe('Harbourview globe polygon rendering stage', () => {
   it('handles empty point arrays in ingestion helpers without Infinity values', () => {
     expect(naturalEarthIngestionInternals.calculateBoundingBox([])).toEqual([0, 0, 0, 0])
     expect(naturalEarthIngestionInternals.calculateCentroid([])).toEqual([0, 0])
+  })
+
+  it('builds projected mesh descriptors for valid countries', () => {
+    const germany = naturalEarthFixturePayload.countries.find((country) => country.iso2 === 'DE')
+    expect(germany).toBeTruthy()
+
+    const descriptor = buildCountryMeshDescriptor(germany!)
+
+    expect(descriptor.fallback.isFallback).toBe(false)
+    expect(descriptor.projectedVertices.length).toBeGreaterThan(0)
+    expect(descriptor.triangleCountEstimate).toBeGreaterThan(0)
+  })
+
+  it('excludes invalid countries with deterministic fallback reasons', () => {
+    const invalidIso: HarbourviewCountryGeometry = {
+      iso2: 'U1',
+      iso3: 'BAD',
+      name: 'Brokenland',
+      centroid: [0, 0],
+      bbox: [0, 0, 1, 1],
+      source: 'natural-earth-admin-0',
+      polygons: [{ rings: [{ kind: 'outer', points: [[0, 0], [1, 0], [0, 1]] }] }],
+    }
+
+    const invalidCoordinates: HarbourviewCountryGeometry = {
+      ...invalidIso,
+      iso2: 'BD',
+      polygons: [{ rings: [{ kind: 'outer', points: [[200, 0], [1, 0], [0, 1]] }] }],
+    }
+
+    expect(buildCountryMeshDescriptor(invalidIso).fallback).toEqual({
+      isFallback: true,
+      reason: 'invalid-iso2',
+    })
+
+    expect(buildCountryMeshDescriptor(invalidCoordinates).fallback).toEqual({
+      isFallback: true,
+      reason: 'invalid-lon-lat',
+    })
   })
 })
