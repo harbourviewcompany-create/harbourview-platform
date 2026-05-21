@@ -1,8 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { countryOptions } from '@/config/globe/country-role-profiles'
-import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
+import { normalizeSearchTerm, tokenMatchesSearch } from '@/lib/globe/search-normalization'
+
+const countrySearchAliases: Record<string, string[]> = {
+  usa: ['US', 'United States'],
+  uk: ['GB', 'United Kingdom'],
+}
+
+export function expandCountrySearchQuery(query: string): string[] {
+  const normalizedQuery = normalizeSearchTerm(query)
+  if (!normalizedQuery) return []
+
+  return countrySearchAliases[normalizedQuery] ?? []
+}
 
 export function CountrySearchOverlay({
   onSelectCountry,
@@ -12,11 +24,31 @@ export function CountrySearchOverlay({
   onNotSure: () => void
 }) {
   const [query, setQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const [announcement, setAnnouncement] = useState('')
+  const inputId = useId()
+  const listboxId = useId()
+
+  const aliasTokens = useMemo(() => expandCountrySearchQuery(query), [query])
+
   const matches = useMemo(() => {
     return countryOptions.filter((country) =>
-      tokenMatchesSearch(query, [country.name, country.iso2, country.region]),
+      tokenMatchesSearch(query, [country.name, country.iso2, country.region, ...aliasTokens]),
     )
-  }, [query])
+  }, [aliasTokens, query])
+
+  const hasQuery = query.trim().length > 0
+  const hasMatches = matches.length > 0
+  const activeCountry = activeIndex >= 0 ? matches[activeIndex] : null
+  const activeOptionId = activeCountry ? `${listboxId}-option-${activeCountry.iso2}` : undefined
+
+  function handleSelectCountry(countryIso2: string) {
+    const selectedCountry = countryOptions.find((country) => country.iso2 === countryIso2)
+    if (selectedCountry) {
+      setAnnouncement(`Selected ${selectedCountry.name} (${selectedCountry.iso2}).`)
+    }
+    onSelectCountry(countryIso2)
+  }
 
   return (
     <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-6 sm:right-auto sm:w-[380px]">
@@ -30,26 +62,82 @@ export function CountrySearchOverlay({
       <label className="mt-3 block">
         <span className="sr-only">Search countries</span>
         <input
+          id={inputId}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setActiveIndex(-1)
+          }}
+          onKeyDown={(event) => {
+            if (!hasQuery) return
+
+            if (event.key === 'ArrowDown') {
+              event.preventDefault()
+              if (!hasMatches) return
+              setActiveIndex((current) => (current < matches.length - 1 ? current + 1 : 0))
+            }
+
+            if (event.key === 'ArrowUp') {
+              event.preventDefault()
+              if (!hasMatches) return
+              setActiveIndex((current) => (current > 0 ? current - 1 : matches.length - 1))
+            }
+
+            if (event.key === 'Enter' && activeCountry) {
+              event.preventDefault()
+              handleSelectCountry(activeCountry.iso2)
+            }
+
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              setQuery('')
+              setActiveIndex(-1)
+            }
+          }}
           placeholder="Search countries"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={hasQuery}
+          aria-controls={listboxId}
+          aria-activedescendant={activeOptionId}
+          aria-describedby={`${inputId}-status`}
           className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76]"
         />
       </label>
 
-      {query ? (
-        <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1">
+      <p id={`${inputId}-status`} className="sr-only" aria-live="polite" data-testid="country-search-status">
+        {!hasQuery
+          ? 'Search for a country name, ISO code, or region.'
+          : hasMatches
+            ? `${matches.length} result${matches.length === 1 ? '' : 's'} available${aliasTokens.length > 0 ? ` (includes alias: ${aliasTokens.join(', ')})` : ''}.`
+            : `No countries match "${query.trim()}".`}
+      </p>
+      <p className="sr-only" aria-live="polite" data-testid="country-selected-status">
+        {announcement}
+      </p>
+
+      {hasQuery ? (
+        <div id={listboxId} role="listbox" aria-label="Country search results" className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1">
           {matches.map((country) => (
             <button
               key={country.iso2}
+              id={`${listboxId}-option-${country.iso2}`}
               type="button"
-              onClick={() => onSelectCountry(country.iso2)}
+              role="option"
+              aria-selected={activeCountry?.iso2 === country.iso2}
+              onMouseEnter={() => setActiveIndex(matches.findIndex((item) => item.iso2 === country.iso2))}
+              onClick={() => handleSelectCountry(country.iso2)}
               className="flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07]"
             >
               <span>{country.name}</span>
               <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
             </button>
           ))}
+          {!hasMatches ? (
+            <p className="px-3 py-2 text-sm text-white/70" data-testid="country-search-no-results">
+              No results for “{query.trim()}”.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
