@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { Component, Suspense, type ReactNode, useEffect } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
@@ -12,7 +12,34 @@ import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
 
-export function GlobeSameScreenRouterLanding() {
+const SHEET_FOOTPRINT_CLASS = 'min-h-[352px] sm:min-h-[380px]'
+
+class GlobeLandingErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6 ${SHEET_FOOTPRINT_CLASS}`}>
+          <div className="h-full w-full rounded-3xl border border-white/12 bg-[#06101d]/88 p-6 backdrop-blur-xl">
+            <p className="text-sm leading-6 text-white/70">We hit a rendering issue. Please refresh to continue.</p>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+function GlobeLandingInteractive() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const selectedCountryName = state.mode === 'multi_market'
@@ -42,7 +69,7 @@ export function GlobeSameScreenRouterLanding() {
   }, [dispatch, router, state])
 
   return (
-    <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
+    <>
       <GlobeCanvas
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryIso2s={state.selectedCountryIso2s}
@@ -74,40 +101,67 @@ export function GlobeSameScreenRouterLanding() {
         </button>
       </div>
 
-      {state.step === 'role' ? (
-        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
-          <RoleChipSelector
-            countryIso2={state.selectedCountryIso2}
-            countryIso2s={state.selectedCountryIso2s}
-            mode={state.mode}
-            searchQuery={state.roleSearchQuery}
-            selectedRoleId={state.selectedRoleId}
-            onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
-            onSelectRole={(roleId) => dispatch({ type: 'ROLE_SELECT', roleId })}
-          />
-        </RouterBottomSheet>
-      ) : null}
+      <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6 ${SHEET_FOOTPRINT_CLASS}`}>
+        <div className="pointer-events-auto h-full">
+          {state.step === 'role' ? (
+            <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
+              <RoleChipSelector
+                countryIso2={state.selectedCountryIso2}
+                countryIso2s={state.selectedCountryIso2s}
+                mode={state.mode}
+                searchQuery={state.roleSearchQuery}
+                selectedRoleId={state.selectedRoleId}
+                onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
+                onSelectRole={(roleId) => dispatch({ type: 'ROLE_SELECT', roleId })}
+              />
+            </RouterBottomSheet>
+          ) : null}
 
-      {state.step === 'intent' ? (
-        <RouterBottomSheet eyebrow={selectedCountryName} title="What are you trying to do?" size="intent" onBack={() => dispatch({ type: 'BACK' })} footer={<button type="button" disabled={!state.selectedIntentId} onClick={() => dispatch({ type: 'CONTINUE' })} className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] disabled:cursor-not-allowed disabled:opacity-45">Continue</button>}>
-          <IntentCardGrid
-            countryName={selectedCountryName}
-            countryIso2={state.selectedCountryIso2}
-            mode={state.mode}
-            roleId={state.selectedRoleId}
-            selectedIntentId={state.selectedIntentId}
-            onSelectIntent={(intentId) => dispatch({ type: 'INTENT_SELECT', intentId })}
-          />
-        </RouterBottomSheet>
-      ) : null}
+          {state.step === 'intent' ? (
+            <RouterBottomSheet eyebrow={selectedCountryName} title="What are you trying to do?" size="intent" onBack={() => dispatch({ type: 'BACK' })} footer={<button type="button" disabled={!state.selectedIntentId} onClick={() => dispatch({ type: 'CONTINUE' })} className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] disabled:cursor-not-allowed disabled:opacity-45">Continue</button>}>
+              <IntentCardGrid
+                countryName={selectedCountryName}
+                countryIso2={state.selectedCountryIso2}
+                mode={state.mode}
+                roleId={state.selectedRoleId}
+                selectedIntentId={state.selectedIntentId}
+                onSelectIntent={(intentId) => dispatch({ type: 'INTENT_SELECT', intentId })}
+              />
+            </RouterBottomSheet>
+          ) : null}
 
-      {state.step === 'fallback' ? (
-        <RouterBottomSheet eyebrow="Route fallback" title="This path needs review." size="confirm" onBack={() => dispatch({ type: 'BACK' })} footer={<Link href={state.resolvedHref ?? '/intake'} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d]">Continue to intake</Link>}>
-          <p className="text-sm leading-6 text-white/64">
-            The requested page is not public yet. We will carry your country, role and intent into confidential intake.
-          </p>
-        </RouterBottomSheet>
-      ) : null}
+          {state.step === 'fallback' ? (
+            <RouterBottomSheet eyebrow="Route fallback" title="This path needs review." size="confirm" onBack={() => dispatch({ type: 'BACK' })} footer={<Link href={state.resolvedHref ?? '/intake'} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d]">Continue to intake</Link>}>
+              <p className="text-sm leading-6 text-white/64">
+                The requested page is not public yet. We will carry your country, role and intent into confidential intake.
+              </p>
+            </RouterBottomSheet>
+          ) : null}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function GlobeLandingLoadingFallback() {
+  return (
+    <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6 ${SHEET_FOOTPRINT_CLASS}`}>
+      <div className="h-full w-full rounded-3xl border border-white/10 bg-[#06101d]/82 p-6 backdrop-blur-xl">
+        <div className="h-4 w-44 rounded-full bg-white/15" />
+        <div className="mt-4 h-3 w-56 rounded-full bg-white/10" />
+      </div>
+    </div>
+  )
+}
+
+export function GlobeSameScreenRouterLanding() {
+  return (
+    <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
+      <GlobeLandingErrorBoundary>
+        <Suspense fallback={<GlobeLandingLoadingFallback />}>
+          <GlobeLandingInteractive />
+        </Suspense>
+      </GlobeLandingErrorBoundary>
     </main>
   )
 }
