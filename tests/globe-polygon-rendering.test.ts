@@ -71,7 +71,7 @@ describe('Harbourview globe polygon rendering stage', () => {
   })
 
   it('normalizes closing and sequential duplicate polygon vertices', () => {
-    const normalized = polygonGeometryInternals.normalizeOuterRing([
+    const normalized = polygonGeometryInternals.normalizeRing([
       [0, 0],
       [1, 0],
       [1, 0],

@@ -69,3 +69,76 @@ describe('Natural Earth 110m countries payload', () => {
     expect(totalPoints).toBeLessThan(12_000)
   })
 })
+
+describe('Natural Earth geometry topology validation', () => {
+  it('supports multipolygon topology and interior holes for complex countries', () => {
+    const france = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'FR')
+    const spain = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'ES')
+    expect(france).toBeTruthy()
+    expect(spain).toBeTruthy()
+
+    const outerA = france!.polygons[0].rings.find((ring) => ring.kind === 'outer')
+    const outerB = spain!.polygons[0].rings.find((ring) => ring.kind === 'outer')
+    expect(outerA).toBeTruthy()
+    expect(outerB).toBeTruthy()
+
+    const hole = outerA!.points.slice(0, 6).reverse()
+    const complexCountry = {
+      ...france!,
+      iso2: 'XZ',
+      iso3: 'XZZ',
+      polygons: [
+        { rings: [{ kind: 'outer', points: outerA!.points }, { kind: 'inner', points: [...hole, hole[0]] }] },
+        { rings: [{ kind: 'outer', points: outerB!.points }] },
+      ],
+    }
+
+    const geometry = createCountryBufferGeometry(complexCountry)
+    const position = geometry.getAttribute('position')
+
+    expect(complexCountry.polygons.length).toBe(2)
+    expect(position.count).toBeGreaterThan(100)
+    expect(geometry.index?.count).toBeGreaterThan(300)
+    expect(geometry.userData.empty).not.toBe(true)
+
+    geometry.computeVertexNormals()
+    const normals = geometry.getAttribute('normal')
+
+    for (let index = 0; index < Math.min(normals.count, 400); index += 1) {
+      const x = normals.getX(index)
+      const y = normals.getY(index)
+      const z = normals.getZ(index)
+      const magnitude = Math.sqrt(x * x + y * y + z * z)
+      expect(Number.isFinite(magnitude)).toBe(true)
+      expect(magnitude).toBeGreaterThan(0.5)
+      expect(magnitude).toBeLessThan(1.5)
+    }
+
+    geometry.dispose()
+  })
+
+  it('produces valid, indexed geometry for small countries without degenerating normals', () => {
+    const smallCountry = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'LU')
+    expect(smallCountry).toBeTruthy()
+
+    const geometry = createCountryBufferGeometry(smallCountry!)
+    const position = geometry.getAttribute('position')
+
+    expect(position.count).toBeGreaterThan(5)
+    expect(geometry.index?.count).toBeGreaterThan(9)
+
+    geometry.computeVertexNormals()
+    const normals = geometry.getAttribute('normal')
+
+    for (let index = 0; index < normals.count; index += 1) {
+      const x = normals.getX(index)
+      const y = normals.getY(index)
+      const z = normals.getZ(index)
+      expect(Number.isFinite(x)).toBe(true)
+      expect(Number.isFinite(y)).toBe(true)
+      expect(Number.isFinite(z)).toBe(true)
+    }
+
+    geometry.dispose()
+  })
+})
