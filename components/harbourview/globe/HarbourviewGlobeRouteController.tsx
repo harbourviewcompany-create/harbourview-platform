@@ -25,14 +25,14 @@ type RouteUpdates = {
 
 export function HarbourviewGlobeRouteController() {
   const internalControllerEnabled = process.env.HARBOURVIEW_INTERNAL_GLOBE_CONTROLLER === 'true'
-  if (!internalControllerEnabled) {
-    return null
-  }
-
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
   const routeState = useMemo(() => parseGlobeRouteState(searchParams), [searchParams])
+
+  if (!internalControllerEnabled) {
+    return null
+  }
 
   const pushState = (updates: RouteUpdates) => {
     const query = buildGlobeQuery(searchParams, updates)

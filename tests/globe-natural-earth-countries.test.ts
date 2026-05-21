@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { buildFixtureCountryFeatures } from '@/lib/globe/globe-geometry'
+import type { HarbourviewCountryGeometry } from '@/lib/globe/geojson-country-types'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 
 describe('Natural Earth 110m countries payload', () => {
@@ -92,12 +93,12 @@ describe('Natural Earth geometry topology validation', () => {
     expect(outerB).toBeTruthy()
 
     const hole = outerA!.points.slice(0, 6).reverse()
-    const complexCountry = {
+    const complexCountry: HarbourviewCountryGeometry = {
       ...france!,
       iso2: 'XZ',
       iso3: 'XZZ',
       polygons: [
-        { rings: [{ kind: 'outer', points: outerA!.points }, { kind: 'inner', points: [...hole, hole[0]] }] },
+        { rings: [{ kind: 'outer', points: outerA!.points }, { kind: 'hole', points: [...hole, hole[0]] }] },
         { rings: [{ kind: 'outer', points: outerB!.points }] },
       ],
     }

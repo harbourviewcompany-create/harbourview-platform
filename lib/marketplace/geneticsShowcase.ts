@@ -94,8 +94,7 @@ export const geneticsProfiles: GeneticsProfile[] = [
 ]
 
 export function toPublicGeneticsProfile(profile: GeneticsProfile): PublicGeneticsProfile {
-  const publicProfile = { ...profile }
-  delete publicProfile.privateFields
+  const { privateFields: _privateFields, ...publicProfile } = profile
 
   return {
     ...publicProfile,

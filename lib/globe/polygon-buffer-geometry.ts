@@ -68,7 +68,7 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
       if (outer.length < 3) return null
 
       const holes = polygon.rings
-        .filter((ring) => ring.kind === 'inner')
+        .filter((ring) => ring.kind === 'hole')
         .map((ring) => ensureWinding(normalizeRing(ring.points), true))
         .filter((ring) => ring.length >= 3)
 
