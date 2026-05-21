@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
@@ -12,12 +12,85 @@ import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
 
+type GlobeFallbackReason = 'flag-disabled' | 'reduced-motion' | 'webgl-unavailable' | 'low-performance'
+
+const INTERACTIVE_GLOBE_ENABLED = process.env.NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE === 'true'
+
+function useGlobeFallbackReason(): GlobeFallbackReason | null {
+  const [reason, setReason] = useState<GlobeFallbackReason | null>(null)
+
+  useEffect(() => {
+    if (!INTERACTIVE_GLOBE_ENABLED) {
+      setReason('flag-disabled')
+      return
+    }
+
+    if (typeof window === 'undefined') return
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setReason('reduced-motion')
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    if (!gl) {
+      setReason('webgl-unavailable')
+      return
+    }
+
+    const cores = navigator.hardwareConcurrency ?? 4
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
+    if (cores <= 2 || memory <= 2) {
+      setReason('low-performance')
+      return
+    }
+
+    setReason(null)
+  }, [])
+
+  return reason
+}
+
+function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
+  const reasonLabel = useMemo(() => {
+    switch (reason) {
+      case 'reduced-motion':
+        return 'Reduced motion mode'
+      case 'webgl-unavailable':
+        return 'WebGL unavailable'
+      case 'low-performance':
+        return 'Performance protection'
+      default:
+        return 'Interactive globe disabled'
+    }
+  }, [reason])
+
+  return (
+    <div className="absolute inset-0 grid place-items-center px-6" data-globe-fallback-reason={reason}>
+      <div className="relative h-[min(66vh,620px)] w-full max-w-[920px] overflow-hidden rounded-[40px] border border-white/12 bg-[radial-gradient(circle_at_30%_35%,rgba(96,144,220,.34),transparent_45%),radial-gradient(circle_at_72%_58%,rgba(198,165,90,.28),transparent_42%),linear-gradient(165deg,#020712_0%,#030b16_45%,#051125_100%)] shadow-[0_28px_90px_rgba(0,0,0,.6)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_42%,rgba(1,5,13,.84)_100%)]" />
+        <div className="absolute left-8 top-8 rounded-full border border-white/16 bg-[#071122]/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/78">
+          {reasonLabel}
+        </div>
+        <div className="absolute bottom-10 left-8 max-w-sm">
+          <h2 className="text-2xl font-semibold tracking-tight text-white">Premium market routing preview</h2>
+          <p className="mt-3 text-sm leading-6 text-white/66">
+            We are showing a static globe shell to preserve stability and keep navigation responsive on this device.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
+  const fallbackReason = useGlobeFallbackReason()
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
@@ -43,15 +116,19 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-      />
+      {fallbackReason ? (
+        <PremiumStaticGlobeFallback reason={fallbackReason} />
+      ) : (
+        <GlobeCanvas
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+          routerStep={state.step}
+          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        />
+      )}
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}
