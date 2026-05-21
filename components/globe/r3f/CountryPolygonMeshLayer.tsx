@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
-import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
+import { resolveCountryMaterialState, shouldUseStandardMaterialFallback } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
 
 const PLATE_LIFT = 0.026
@@ -26,6 +26,8 @@ export function CountryPolygonMeshLayer({
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
+  const useStandardMaterialFallback = shouldUseStandardMaterialFallback()
+
   const idleGeometries = useMemo(
     () =>
       naturalEarthCountriesPayload.countries.map((country) => ({
@@ -105,15 +107,25 @@ export function CountryPolygonMeshLayer({
               if (hit) onSelectCountry?.(hit.iso2)
             }}
           >
-            <meshPhysicalMaterial
-              color={material.plateBase}
-              emissive={material.emissive}
-              emissiveIntensity={material.emissiveIntensity}
-              roughness={material.roughness}
-              metalness={material.metalness}
-              clearcoat={visualState === 'selected' ? 0.75 : 0.35}
-              clearcoatRoughness={0.24}
-            />
+            {useStandardMaterialFallback ? (
+              <meshStandardMaterial
+                color={isSelected ? material.selectionAccent : material.plateBase}
+                emissive={material.emissive}
+                emissiveIntensity={Math.min(material.emissiveIntensity, 0.26)}
+                roughness={Math.max(material.roughness, 0.62)}
+                metalness={Math.min(material.metalness, 0.32)}
+              />
+            ) : (
+              <meshPhysicalMaterial
+                color={isSelected ? material.selectionAccent : material.plateBase}
+                emissive={material.emissive}
+                emissiveIntensity={Math.min(material.emissiveIntensity, 0.3)}
+                roughness={Math.max(material.roughness, 0.62)}
+                metalness={Math.min(material.metalness, 0.34)}
+                clearcoat={material.clearcoat}
+                clearcoatRoughness={material.clearcoatRoughness}
+              />
+            )}
           </mesh>
         )
       })}
