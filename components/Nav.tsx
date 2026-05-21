@@ -19,8 +19,9 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Platform Map', href: '/platform' },
       { label: 'Network', href: '/network' },
-      { label: 'Reviewed Connections', href: '/reviewed-connections' },
       { label: 'Professionals', href: '/professionals' },
+      { label: 'Institutional Partnerships', href: '/institutional-partnerships' },
+      { label: 'Reviewed Connections', href: '/reviewed-connections' },
     ],
   },
   {
@@ -31,23 +32,27 @@ const navGroups: NavGroup[] = [
       { label: 'Wanted Requests', href: '/marketplace/wanted' },
       { label: 'Sell or Export', href: '/marketplace/sell' },
       { label: 'Services & Equipment', href: '/marketplace/services' },
+      { label: 'Consumables', href: '/marketplace/consumables' },
+      { label: 'Genetics', href: '/marketplace/genetics' },
       { label: 'Distressed Assets', href: '/marketplace/business-opportunities' },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { label: 'Intelligence', href: '/intelligence' },
+      { label: 'Intelligence Home', href: '/intelligence' },
       { label: 'Markets', href: '/markets' },
       { label: 'Signals', href: '/signals' },
       { label: 'Source Methodology', href: '/source-methodology' },
+      { label: 'Policy & Standards', href: '/policy-standards' },
+      { label: 'Assessments', href: '/assessments' },
     ],
   },
 ]
 
 const navLinks: NavItem[] = [
   { label: 'Education', href: '/education' },
-  { label: 'Compliance', href: '/compliance' },
+  { label: 'Opportunities', href: '/opportunities' },
   { label: 'Trust', href: '/trust-governance' },
   { label: 'Contact', href: '/contact' },
 ]
@@ -87,7 +92,7 @@ export default function Nav() {
           </Link>
 
           <nav
-            className="hidden items-center gap-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 xl:gap-6 xl:text-[11px] lg:flex"
+            className="hidden items-center gap-4 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 xl:gap-6 xl:text-[11px] lg:flex"
             aria-label="Primary navigation"
           >
             {navGroups.map((group) => {
@@ -119,7 +124,7 @@ export default function Nav() {
                     <span aria-hidden="true" className="text-[9px] text-gold/80">▾</span>
                   </button>
 
-                  <div id={menuId} role="menu" className={`absolute left-0 top-full min-w-[240px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
+                  <div id={menuId} role="menu" className={`absolute left-0 top-full min-w-[280px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
                     <div className="rounded-sm border border-gold/14 bg-[#020814]/98 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                       {group.items.map((item) => (
                         <Link
