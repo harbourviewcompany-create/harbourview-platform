@@ -30,6 +30,7 @@
     "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
     "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
+    "test:cna-ingestion": "vitest run tests/cna-ingestion-foundation.test.ts",
     "test:full-scope:script-uniqueness": "node scripts/test-package-script-uniqueness.mjs",
     "test:full-scope:routes": "node scripts/test-route-capability-registry.mjs",
     "test:full-scope:content": "node scripts/test-content-inventory.mjs",
