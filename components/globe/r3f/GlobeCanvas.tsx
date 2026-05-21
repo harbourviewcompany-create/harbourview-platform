@@ -19,6 +19,7 @@ export function GlobeCanvas({
   routerStep,
   onHoverCountry,
   onSelectCountry,
+  quality = 'high',
 }: {
   selectedCountryIso2?: string
   selectedCountryIso2s: string[]
@@ -27,13 +28,15 @@ export function GlobeCanvas({
   routerStep?: GlobeRouterStep
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
+  quality?: 'high' | 'medium' | 'low'
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
 
   return (
     <div className="absolute inset-0">
       <Canvas
-        dpr={[1, 1.75]}
+        dpr={quality === 'low' ? [1, 1.2] : quality === 'medium' ? [1, 1.5] : [1, 1.75]}
+        gl={{ antialias: quality !== 'low', powerPreference: 'high-performance' }}
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
           near: GLOBE_CAMERA_CONFIG.near,
@@ -77,6 +80,7 @@ export function GlobeCanvas({
           maxDistance={GLOBE_CAMERA_CONFIG.maxDistance}
           minPolarAngle={GLOBE_CAMERA_CONFIG.minPolarAngle}
           maxPolarAngle={GLOBE_CAMERA_CONFIG.maxPolarAngle}
+          enableZoom={false}
         />
       </Canvas>
     </div>

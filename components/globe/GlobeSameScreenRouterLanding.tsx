@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
@@ -11,10 +11,29 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
+import { GlobeFallbackCountrySelector } from './GlobeFallbackCountrySelector'
+
+function browserSupportsWebGL() {
+  if (typeof window === 'undefined') return false
+  try {
+    const canvas = document.createElement('canvas')
+    return Boolean(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+  } catch {
+    return false
+  }
+}
 
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
+  const hasWebGL = useMemo(() => browserSupportsWebGL(), [])
+  const quality: 'high' | 'medium' | 'low' = useMemo(() => {
+    if (typeof navigator === 'undefined') return 'medium'
+    const cores = navigator.hardwareConcurrency ?? 4
+    if (cores <= 4 || !hasWebGL) return 'low'
+    if (cores <= 6) return 'medium'
+    return 'high'
+  }, [hasWebGL])
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
@@ -43,15 +62,28 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-      />
+      <div aria-label="Globe route stage" data-globe-mode={hasWebGL ? 'webgl' : 'fallback'} data-globe-quality={quality}>
+        {hasWebGL ? (
+          <GlobeCanvas
+            selectedCountryIso2={state.selectedCountryIso2}
+            selectedCountryIso2s={state.selectedCountryIso2s}
+            focusedCountryIso2={state.focusedCountryIso2}
+            activeLayerId={state.activeLayerId ?? 'country_select'}
+            routerStep={state.step}
+            onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+            onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+            quality={quality}
+          />
+        ) : (
+          <div className="fixed left-3 right-3 top-[190px] z-20 sm:left-6 sm:w-[380px]">
+            <GlobeFallbackCountrySelector
+              selectedCountryIso2={state.selectedCountryIso2}
+              onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}
+              onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
+            />
+          </div>
+        )}
+      </div>
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}
