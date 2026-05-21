@@ -67,8 +67,11 @@ export function GlobeSameScreenRouterLanding() {
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
-  const fallbackHref = buildFallbackIntakeHref(state)
-  const fallbackContextItems = getFallbackContextItems(state)
+  const selectedMarketA11yText = state.mode === 'multi_market'
+    ? `Multi-market mode. ${state.selectedCountryIso2s.length || 0} markets selected.`
+    : state.selectedCountryIso2
+      ? `Selected market ${getCountryName(state.selectedCountryIso2)}.`
+      : 'No market selected yet.'
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
@@ -94,16 +97,24 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-        enablePointerCapture={state.step === 'country'}
-      />
+      <div
+        role="region"
+        aria-label="Interactive world market selector"
+        aria-description="Select one or multiple markets from the globe. Use the country search above for full keyboard selection."
+      >
+        <GlobeCanvas
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+          routerStep={state.step}
+          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        />
+      </div>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {selectedMarketA11yText}
+      </p>
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => {
@@ -126,7 +137,7 @@ export function GlobeSameScreenRouterLanding() {
         <button
           type="button"
           onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}
-          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl"
+          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#01050d]"
         >
           Multi-market
         </button>

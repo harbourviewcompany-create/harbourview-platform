@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { countryOptions } from '@/config/globe/country-role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 
@@ -14,12 +14,45 @@ export function CountrySearchOverlay({
   onAnnouncement?: (message: string) => void
 }) {
   const [query, setQuery] = useState('')
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
   const matches = useMemo(() => {
     return countryOptions.filter((country) =>
       tokenMatchesSearch(query, [country.name, country.iso2, country.region]),
     )
   }, [query])
+  const hasQuery = query.trim().length > 0
+
+  useEffect(() => {
+    setHighlightedIndex(0)
+  }, [query])
+
+  const handleQueryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!hasQuery || matches.length === 0) return
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setHighlightedIndex((prev) => (prev + 1) % matches.length)
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setHighlightedIndex((prev) => (prev - 1 + matches.length) % matches.length)
+      return
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const activeMatch = matches[highlightedIndex]
+      if (activeMatch) onSelectCountry(activeMatch.iso2)
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setQuery('')
+    }
+  }
 
   useEffect(() => {
     setActiveIndex(0)
@@ -55,69 +88,48 @@ export function CountrySearchOverlay({
         </button>
       </div>
 
-      <label className="mt-3 block">
-        <span className="sr-only">Search countries</span>
+      <label className="mt-3 block" htmlFor="country-search-input">
+        <span id="country-search-label" className="sr-only">Search countries and regions</span>
         <input
+          id="country-search-input"
+          type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              if (!matches.length) return
-              event.preventDefault()
-              setActiveIndex((prev) => (prev + 1) % matches.length)
-              return
-            }
-
-            if (event.key === 'ArrowUp') {
-              if (!matches.length) return
-              event.preventDefault()
-              setActiveIndex((prev) => (prev - 1 + matches.length) % matches.length)
-              return
-            }
-
-            if (event.key === 'Enter') {
-              if (!hasQuery || !activeCountry) return
-              event.preventDefault()
-              selectCountry(activeCountry.iso2)
-              onAnnouncement?.(`Selected ${activeCountry.name}.`)
-              return
-            }
-
-            if (event.key === 'Escape') {
-              event.preventDefault()
-              clearAndClose()
-            }
-          }}
+          onKeyDown={handleQueryKeyDown}
           role="combobox"
+          aria-label="Search countries and regions"
+          aria-describedby="country-search-help"
           aria-expanded={hasQuery}
           aria-controls="country-search-results"
-          aria-autocomplete="list"
-          aria-activedescendant={hasQuery && activeCountry ? `country-search-option-${activeCountry.iso2}` : undefined}
+          aria-activedescendant={hasQuery && matches[highlightedIndex] ? `country-option-${matches[highlightedIndex].iso2}` : undefined}
+          autoComplete="off"
           placeholder="Search countries"
-          aria-label="Search countries or markets"
-          role="combobox"
-          aria-expanded={Boolean(query)}
-          aria-controls="country-search-results"
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76]"
+          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
         />
       </label>
+      <p id="country-search-help" className="sr-only">
+        Type to filter countries. Use up and down arrow keys to choose a result, then press Enter to select.
+      </p>
 
-      {query ? (
-        <div id="country-search-results" className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1" role="listbox" aria-label="Matching countries">
-          {matches.length ? matches.map((country) => (
+      {hasQuery ? (
+        <div id="country-search-results" role="listbox" aria-label="Matching countries" className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1">
+          {matches.map((country, index) => (
             <button
-              id={`country-search-option-${country.iso2}`}
+              id={`country-option-${country.iso2}`}
               key={country.iso2}
               type="button"
               onClick={() => onSelectCountry(country.iso2)}
               role="option"
-              aria-selected="false"
-              className="flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07]"
+              aria-selected={index === highlightedIndex}
+              className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-white/[0.1]' : ''}`}
             >
               <span>{country.name}</span>
               <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
             </button>
-          )) : <p className="px-3 py-2 text-sm text-white/60">No markets found.</p>}
+          ))}
+          {matches.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-white/70">No countries found.</p>
+          ) : null}
         </div>
       ) : null}
     </div>
