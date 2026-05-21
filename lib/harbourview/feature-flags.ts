@@ -6,4 +6,5 @@ export const featureFlags = {
   expandedMode: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_EXPANDED_MODE', true),
   beam: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_BEAM', true),
   water: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_WATER', true),
+  globeForceFallback: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_FORCE_FALLBACK', false),
 }
