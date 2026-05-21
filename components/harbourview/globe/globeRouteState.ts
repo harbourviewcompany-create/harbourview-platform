@@ -16,6 +16,15 @@ export type GlobeRouteState = {
   invalidParams: string[]
 }
 
+export const globeInteractionStateMap: Record<GlobeRouteKind, string> = {
+  default: 'country-selection',
+  'selected-market': 'market-focused',
+  'role-sheet': 'role-focused',
+  'intent-sheet': 'intent-focused',
+  'multi-market': 'cross-market-compare',
+  fallback: 'intake-fallback',
+}
+
 export const globeMarketOptions: GlobeMarketOption[] = [
   { key: 'germany', label: 'Germany', summary: 'EU-GMP import, distribution and pharmacy-access orientation.' },
   { key: 'portugal', label: 'Portugal', summary: 'Cultivation, processing, export and EU pathway context.' },

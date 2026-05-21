@@ -34,6 +34,8 @@ export function GlobeCanvas({
     <div className="absolute inset-0">
       <Canvas
         dpr={[1, 1.75]}
+        performance={{ min: 0.5 }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
           near: GLOBE_CAMERA_CONFIG.near,
@@ -69,6 +71,7 @@ export function GlobeCanvas({
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
+          enableZoom
           enableDamping
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
