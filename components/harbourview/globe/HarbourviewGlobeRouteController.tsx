@@ -24,6 +24,11 @@ type RouteUpdates = {
 }
 
 export function HarbourviewGlobeRouteController() {
+  const internalControllerEnabled = process.env.HARBOURVIEW_INTERNAL_GLOBE_CONTROLLER === 'true'
+  if (!internalControllerEnabled) {
+    return null
+  }
+
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -37,32 +42,17 @@ export function HarbourviewGlobeRouteController() {
   const selectedMarket = routeState.selectedMarket
   const selectedRole = routeState.selectedRole
   const selectedIntent = routeState.selectedIntent
-  const multiMarketLabel = routeState.multiMarkets.map((market) => market.label).join(' + ')
 
   return (
     <div className={styles.routeShell} data-route-state={routeState.kind}>
       <section className={styles.routePanel} aria-label="Interactive Harbourview globe route controller">
         <p className={styles.routeEyebrow}>Globe route</p>
-        <p className={styles.routeTitle}>{selectedMarket?.label || 'Global market access map'}</p>
+        <p className={styles.routeTitle}>{selectedMarket?.label || 'Global market pathways'}</p>
         <p className={styles.routeDescription}>
           {routeState.kind === 'fallback'
-            ? 'The requested globe route could not be matched. Select a supported market, role, intent or multi-market path.'
-            : selectedMarket?.summary || 'Select a market or route the homepage by role, intent, or multi-market pathway.'}
+            ? 'We could not load that route. Please select one of the supported market pathways.'
+            : selectedMarket?.summary || 'Select a market pathway to tailor your Harbourview experience.'}
         </p>
-
-        {routeState.invalidParams.length > 0 ? (
-          <div className={styles.routeNotice} role="status">
-            Invalid parameter fallback: {routeState.invalidParams.join(', ')}
-          </div>
-        ) : null}
-
-        <div className={styles.selectedContext} aria-live="polite">
-          <span>State: {routeState.kind}</span>
-          {selectedMarket ? <span>Market: {selectedMarket.label}</span> : null}
-          {selectedRole ? <span>Role: {selectedRole.label}</span> : null}
-          {selectedIntent ? <span>Intent: {selectedIntent.label}</span> : null}
-          {multiMarketLabel ? <span>Markets: {multiMarketLabel}</span> : null}
-        </div>
 
         <div className={styles.controlGroup} aria-label="Select market">
           {globeMarketOptions.map((market) => (
@@ -95,9 +85,6 @@ export function HarbourviewGlobeRouteController() {
         <div className={styles.routeActions}>
           <button type="button" className={styles.routeActionButton} onClick={() => pushState({ markets: ['germany', 'portugal', 'uk'], route: null })}>
             Compare Germany + Portugal + UK
-          </button>
-          <button type="button" className={styles.routeActionButton} onClick={() => pushState({ route: 'fallback' })}>
-            Test fallback route
           </button>
           <button type="button" className={styles.routeActionButton} onClick={() => pushState({ market: null, role: null, intent: null, markets: null, route: null })}>
             Reset globe
