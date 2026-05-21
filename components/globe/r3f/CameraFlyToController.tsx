@@ -1,11 +1,18 @@
 'use client'
 
+import type { RefObject } from 'react'
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
-import { createCountryFocusPose, type GlobeCameraPose } from '@/lib/globe/camera-focus'
+import {
+  createCountryFocusPose,
+  easeInOutCubic,
+  getInitialCameraPose,
+  type GlobeCameraPose,
+} from '@/lib/globe/camera-focus'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
+import type { GlobeRouterStep } from '@/types/globe-router'
 
 function findCountryPose(countryIso2?: string): GlobeCameraPose | null {
   if (!countryIso2) return null
@@ -17,29 +24,107 @@ function findCountryPose(countryIso2?: string): GlobeCameraPose | null {
   return createCountryFocusPose(country)
 }
 
-export function CameraFlyToController({ selectedCountryIso2 }: { selectedCountryIso2?: string }) {
+function poseFromVectors(position: Vector3, target: Vector3): GlobeCameraPose {
+  return {
+    position: [position.x, position.y, position.z],
+    target: [target.x, target.y, target.z],
+  }
+}
+
+function posesEqual(a: GlobeCameraPose, b: GlobeCameraPose, epsilon = 0.001): boolean {
+  return (
+    Math.abs(a.position[0] - b.position[0]) < epsilon &&
+    Math.abs(a.position[1] - b.position[1]) < epsilon &&
+    Math.abs(a.position[2] - b.position[2]) < epsilon &&
+    Math.abs(a.target[0] - b.target[0]) < epsilon &&
+    Math.abs(a.target[1] - b.target[1]) < epsilon &&
+    Math.abs(a.target[2] - b.target[2]) < epsilon
+  )
+}
+
+export interface CameraFlyOrbitControlsLike {
+  target: Vector3
+  update: () => void
+}
+
+export function CameraFlyToController({
+  selectedCountryIso2,
+  routerStep,
+  controlsRef,
+}: {
+  selectedCountryIso2?: string
+  routerStep?: GlobeRouterStep
+  controlsRef?: RefObject<CameraFlyOrbitControlsLike | null>
+}) {
   const { camera } = useThree()
-  const targetRef = useRef(new Vector3(...GLOBE_CAMERA_CONFIG.initialTarget))
-  const poseRef = useRef<GlobeCameraPose | null>(null)
-  const nextPositionRef = useRef(new Vector3())
-  const nextTargetRef = useRef(new Vector3())
+
+  const fromPoseRef = useRef<GlobeCameraPose>(getInitialCameraPose())
+  const toPoseRef = useRef<GlobeCameraPose>(getInitialCameraPose())
+  const startTimeRef = useRef<number | null>(null)
+  const isAnimatingRef = useRef(false)
+
+  const positionVecRef = useRef(new Vector3())
+  const targetVecRef = useRef(new Vector3())
 
   useEffect(() => {
-    poseRef.current = findCountryPose(selectedCountryIso2)
-  }, [selectedCountryIso2])
+    const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
+    const countryPose = wantsCountryFocus ? findCountryPose(selectedCountryIso2) : null
+    const desired = countryPose ?? getInitialCameraPose()
+
+    if (posesEqual(desired, toPoseRef.current) && !isAnimatingRef.current) {
+      return
+    }
+
+    const currentTarget = controlsRef?.current?.target ?? targetVecRef.current
+    fromPoseRef.current = poseFromVectors(camera.position, currentTarget)
+    toPoseRef.current = desired
+    startTimeRef.current = null
+    isAnimatingRef.current = true
+  }, [camera, controlsRef, routerStep, selectedCountryIso2])
 
   useFrame(() => {
-    const pose = poseRef.current
+    if (!isAnimatingRef.current) return
 
-    if (!pose) return
+    const now = performance.now()
+    if (startTimeRef.current === null) {
+      startTimeRef.current = now
+    }
 
-    nextPositionRef.current.set(pose.position[0], pose.position[1], pose.position[2])
-    nextTargetRef.current.set(pose.target[0], pose.target[1], pose.target[2])
+    const elapsed = now - startTimeRef.current
+    const duration = GLOBE_CAMERA_CONFIG.flyDurationMs
+    const rawProgress = duration > 0 ? elapsed / duration : 1
+    const progress = rawProgress >= 1 ? 1 : rawProgress
+    const eased = easeInOutCubic(progress)
 
-    camera.position.lerp(nextPositionRef.current, 0.035)
-    targetRef.current.lerp(nextTargetRef.current, 0.035)
-    camera.lookAt(targetRef.current)
-    camera.updateProjectionMatrix()
+    const from = fromPoseRef.current
+    const to = toPoseRef.current
+
+    positionVecRef.current.set(
+      from.position[0] + (to.position[0] - from.position[0]) * eased,
+      from.position[1] + (to.position[1] - from.position[1]) * eased,
+      from.position[2] + (to.position[2] - from.position[2]) * eased,
+    )
+    targetVecRef.current.set(
+      from.target[0] + (to.target[0] - from.target[0]) * eased,
+      from.target[1] + (to.target[1] - from.target[1]) * eased,
+      from.target[2] + (to.target[2] - from.target[2]) * eased,
+    )
+
+    camera.position.copy(positionVecRef.current)
+    camera.lookAt(targetVecRef.current)
+
+    const controls = controlsRef?.current
+    if (controls) {
+      controls.target.copy(targetVecRef.current)
+      controls.update()
+    } else {
+      camera.updateProjectionMatrix()
+    }
+
+    if (progress >= 1) {
+      isAnimatingRef.current = false
+      startTimeRef.current = null
+    }
   })
 
   return null

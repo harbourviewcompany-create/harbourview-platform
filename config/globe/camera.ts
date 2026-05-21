@@ -9,9 +9,10 @@ export const GLOBE_CAMERA_CONFIG = {
   minPolarAngle: Math.PI * 0.22,
   maxPolarAngle: Math.PI * 0.78,
   enablePan: false,
-  dampingFactor: 0.08,
-  rotateSpeed: 0.58,
-  zoomSpeed: 0.72,
+  dampingFactor: 0.085,
+  rotateSpeed: 0.52,
+  zoomSpeed: 0.7,
+  flyDurationMs: 880,
 }
 
 export const GLOBE_PERFORMANCE_BUDGET = {

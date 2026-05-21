@@ -103,4 +103,13 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterIntent.step).toBe('intent')
     expect(afterIntent.selectedIntentId).toBe('buyer_or_export_route')
   })
+
+  it('returns to the country step on back from role so the camera can fly back to globe', () => {
+    const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
+    const afterBack = globeRouterReducer(afterCountry, { type: 'BACK' })
+
+    expect(afterCountry.step).toBe('role')
+    expect(afterBack.step).toBe('country')
+    expect(afterBack.selectedRoleId).toBeUndefined()
+  })
 })
