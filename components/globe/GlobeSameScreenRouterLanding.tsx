@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
@@ -11,6 +11,67 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
+
+type GlobeCanvasBoundaryProps = {
+  children: ReactNode
+}
+
+type GlobeCanvasBoundaryState = {
+  hasError: boolean
+}
+
+class GlobeCanvasBoundary extends Component<GlobeCanvasBoundaryProps, GlobeCanvasBoundaryState> {
+  constructor(props: GlobeCanvasBoundaryProps) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Globe canvas render failed', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <GlobeCanvasFallback label="Static globe preview" />
+    }
+
+    return this.props.children
+  }
+}
+
+function GlobeCanvasFallback({ label = 'Loading globe scene' }: { label?: string }) {
+  return (
+    <div
+      aria-label={label}
+      className="absolute inset-0 min-h-[640px] bg-[radial-gradient(circle_at_45%_40%,rgba(68,107,171,0.3),rgba(1,5,13,0.94)_56%,rgba(1,5,13,1)_100%)]"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,rgba(255,255,255,0.12),rgba(255,255,255,0)_38%)]" />
+      <div className="absolute bottom-10 left-1/2 h-[220px] w-[220px] -translate-x-1/2 rounded-full border border-white/20 bg-white/[0.03] shadow-[0_0_80px_rgba(9,54,133,0.35)]" />
+    </div>
+  )
+}
+
+function GlobeCanvasClientGuard(props: React.ComponentProps<typeof GlobeCanvas>) {
+  const [isClientReady, setIsClientReady] = useState(false)
+
+  useEffect(() => {
+    setIsClientReady(true)
+  }, [])
+
+  if (!isClientReady) {
+    return <GlobeCanvasFallback />
+  }
+
+  return (
+    <GlobeCanvasBoundary>
+      <GlobeCanvas {...props} />
+    </GlobeCanvasBoundary>
+  )
+}
 
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
@@ -42,8 +103,8 @@ export function GlobeSameScreenRouterLanding() {
   }, [dispatch, router, state])
 
   return (
-    <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
+    <main className="relative min-h-[640px] overflow-hidden bg-[#01050d] text-white sm:min-h-svh">
+      <GlobeCanvasClientGuard
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryIso2s={state.selectedCountryIso2s}
         focusedCountryIso2={state.focusedCountryIso2}
