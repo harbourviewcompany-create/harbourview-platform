@@ -32,6 +32,7 @@ export function getOrbitControlsMotionConfig(prefersReducedMotion: boolean) {
 }
 
 export function GlobeCanvas({
+  className,
   selectedCountryIso2,
   selectedCountryIso2s,
   focusedCountryIso2,
@@ -41,6 +42,7 @@ export function GlobeCanvas({
   onSelectCountry,
   enablePointerCapture = true,
 }: {
+  className?: string
   selectedCountryIso2?: string
   selectedCountryIso2s: string[]
   focusedCountryIso2?: string
@@ -60,10 +62,9 @@ export function GlobeCanvas({
     : GLOBE_CAMERA_CONFIG.polarByState.selected
 
   return (
-    <div className="absolute inset-0 -z-0" aria-hidden="true">
+    <div className={className ?? 'absolute inset-0 pointer-events-none'}>
       <Canvas
-        data-testid="globe-canvas"
-        className={enablePointerCapture ? 'pointer-events-auto' : 'pointer-events-none'}
+        className="h-full w-full pointer-events-auto"
         dpr={[1, 1.75]}
         aria-label="Harbourview country globe"
         camera={{

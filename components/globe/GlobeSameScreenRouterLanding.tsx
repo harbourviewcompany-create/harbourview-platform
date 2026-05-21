@@ -97,24 +97,16 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <div
-        role="region"
-        aria-label="Interactive world market selector"
-        aria-description="Select one or multiple markets from the globe. Use the country search above for full keyboard selection."
-      >
-        <GlobeCanvas
-          selectedCountryIso2={state.selectedCountryIso2}
-          selectedCountryIso2s={state.selectedCountryIso2s}
-          focusedCountryIso2={state.focusedCountryIso2}
-          activeLayerId={state.activeLayerId ?? 'country_select'}
-          routerStep={state.step}
-          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-        />
-      </div>
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {selectedMarketA11yText}
-      </p>
+      <GlobeCanvas
+        className="fixed left-3 right-3 top-[calc(84px+env(safe-area-inset-top))] bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] pointer-events-none sm:left-[430px] sm:right-6 sm:top-[calc(92px+env(safe-area-inset-top))]"
+        selectedCountryIso2={state.selectedCountryIso2}
+        selectedCountryIso2s={state.selectedCountryIso2s}
+        focusedCountryIso2={state.focusedCountryIso2}
+        activeLayerId={state.activeLayerId ?? 'country_select'}
+        routerStep={state.step}
+        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+      />
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => {
@@ -125,15 +117,13 @@ export function GlobeSameScreenRouterLanding() {
         onAnnouncement={setSrAnnouncement}
       />
 
-      <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
-
-      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
+      <div className="pointer-events-none fixed inset-x-3 top-[calc(168px+env(safe-area-inset-top))] z-30 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
           Start with country. Harbourview will adjust the next choices by market, role and intent.
         </p>
       </div>
 
-      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-20 flex flex-col gap-2 sm:right-6">
+      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 flex flex-col gap-2 sm:right-6">
         <button
           type="button"
           onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}
