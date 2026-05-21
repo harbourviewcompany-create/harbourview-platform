@@ -74,7 +74,7 @@ export default function Nav() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gold/10 bg-[#020814]/95 text-white shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
+    <header className="sticky top-0 z-[120] border-b border-gold/10 bg-[#020814]/95 text-white shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
       <div className="page-container">
         <div className="flex h-[72px] items-center justify-between pt-[max(env(safe-area-inset-top),0px)] sm:h-20">
           <Link
@@ -119,7 +119,7 @@ export default function Nav() {
                     <span aria-hidden="true" className="text-[9px] text-gold/80">▾</span>
                   </button>
 
-                  <div id={menuId} role="menu" className={`absolute left-0 top-full min-w-[240px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
+                  <div id={menuId} role="menu" className={`absolute left-0 top-full z-[130] min-w-[240px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
                     <div className="rounded-sm border border-gold/14 bg-[#020814]/98 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                       {group.items.map((item) => (
                         <Link
@@ -167,7 +167,7 @@ export default function Nav() {
       </div>
 
       {mobileOpen && (
-        <div id="mobile-navigation" className="border-t border-gold/10 bg-[#020814]/98 lg:hidden">
+        <div id="mobile-navigation" className="relative z-[125] border-t border-gold/10 bg-[#020814]/98 lg:hidden">
           <nav
             className="page-container max-h-[calc(100vh-72px)] overflow-y-auto pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/82"
             aria-label="Mobile navigation"

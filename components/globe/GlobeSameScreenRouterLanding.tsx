@@ -42,7 +42,7 @@ export function GlobeSameScreenRouterLanding() {
   }, [dispatch, router, state])
 
   return (
-    <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
+    <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white" style={{ paddingTop: 'var(--hv-header-safe-top)' }}>
       <GlobeCanvas
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryIso2s={state.selectedCountryIso2s}
@@ -53,18 +53,21 @@ export function GlobeSameScreenRouterLanding() {
         onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
       />
 
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[var(--hv-header-safe-top)]" />
+      <div aria-hidden className="pointer-events-none fixed bottom-0 left-0 top-0 z-30 w-[var(--hv-left-safe-zone)]" />
+
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })}
         onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
       />
 
-      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
+      <div className="pointer-events-none fixed inset-x-3 z-40 sm:right-auto sm:w-[380px]" style={{ top: 'calc(var(--hv-header-safe-top) + 1rem)', left: 'max(0.75rem, var(--hv-left-safe-zone))' }}>
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
           Start with country. Harbourview will adjust the next choices by market, role and intent.
         </p>
       </div>
 
-      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-20 flex flex-col gap-2 sm:right-6">
+      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 flex flex-col gap-2 sm:right-6">
         <button
           type="button"
           onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}

@@ -25,6 +25,22 @@
   --hv-gold: #C6A55A;
   --hv-dark-gold: #A8842D;
   --hv-offwhite: #F5F1E8;
+  --hv-header-safe-top: calc(env(safe-area-inset-top) + 76px);
+  --hv-left-safe-zone: clamp(0.75rem, 2.5vw, 2rem);
+  --hv-interactive-z: 80;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --hv-header-safe-top: calc(env(safe-area-inset-top) + 88px);
+    --hv-left-safe-zone: clamp(1.25rem, 4vw, 3rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --hv-left-safe-zone: clamp(1.5rem, 6vw, 4.5rem);
+  }
 }
 
 @layer components {
