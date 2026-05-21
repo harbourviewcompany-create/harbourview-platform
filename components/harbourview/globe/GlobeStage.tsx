@@ -1,15 +1,10 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import StaticGlobeFallback from './StaticGlobeFallback'
-import GlobeLoader from './GlobeLoader'
 import CanvasErrorBoundary from './CanvasErrorBoundary'
-
-const InteractiveGlobe = dynamic(() => import('./InteractiveGlobe'), {
-  ssr: false,
-  loading: () => <GlobeLoader />,
-})
+import { HarbourviewGlobeClientLoader } from './HarbourviewGlobeClientLoader'
+import HarbourviewGlobeRouteController from './HarbourviewGlobeRouteController'
 
 export default function GlobeStage() {
   if (!featureFlags.interactiveGlobe) {
@@ -17,8 +12,11 @@ export default function GlobeStage() {
   }
 
   return (
-    <CanvasErrorBoundary>
-      <InteractiveGlobe />
-    </CanvasErrorBoundary>
+    <div className="relative w-full max-w-[520px] aspect-square" aria-label="Interactive Harbourview globe">
+      <CanvasErrorBoundary>
+        <HarbourviewGlobeClientLoader />
+      </CanvasErrorBoundary>
+      <HarbourviewGlobeRouteController />
+    </div>
   )
 }
