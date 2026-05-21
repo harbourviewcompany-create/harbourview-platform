@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getCountryFocusVector, lonLatToVector3 } from '@/lib/globe/globe-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
+import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 
 describe('Harbourview globe foundation', () => {
   it('projects lon/lat coordinates onto the globe sphere', () => {
@@ -53,5 +54,29 @@ describe('Harbourview globe foundation', () => {
 
     expect(burden.plateBase).not.toBe(opportunity.plateBase)
     expect(burden.emissive).not.toBe(opportunity.emissive)
+  })
+
+  it('defines deterministic globe camera defaults', () => {
+    expect(GLOBE_CAMERA_CONFIG.initialPosition).toEqual([0, 0.6, 7.8])
+    expect(GLOBE_CAMERA_CONFIG.initialTarget).toEqual([0, 0, 0])
+    expect(GLOBE_CAMERA_CONFIG.fov).toBe(26)
+    expect(GLOBE_CAMERA_CONFIG.near).toBe(0.1)
+    expect(GLOBE_CAMERA_CONFIG.far).toBe(100)
+    expect(GLOBE_CAMERA_CONFIG.rotateSpeed).toBe(0.52)
+    expect(GLOBE_CAMERA_CONFIG.dampingFactor).toBe(0.085)
+    expect(GLOBE_CAMERA_CONFIG.enableDamping).toBe(true)
+    expect(GLOBE_CAMERA_CONFIG.enableZoom).toBe(false)
+    expect(GLOBE_CAMERA_CONFIG.enablePan).toBe(false)
+  })
+
+  it('enforces orbit control limits to prevent camera regression', () => {
+    expect(GLOBE_CAMERA_CONFIG.minDistance).toBeLessThanOrEqual(GLOBE_CAMERA_CONFIG.maxDistance)
+    expect(GLOBE_CAMERA_CONFIG.minPolarAngle).toBeLessThan(GLOBE_CAMERA_CONFIG.maxPolarAngle)
+    expect(GLOBE_CAMERA_CONFIG.minAzimuthAngle).toBeLessThan(GLOBE_CAMERA_CONFIG.maxAzimuthAngle)
+
+    expect(GLOBE_CAMERA_CONFIG.minPolarAngle).toBeGreaterThanOrEqual(0)
+    expect(GLOBE_CAMERA_CONFIG.maxPolarAngle).toBeLessThanOrEqual(Math.PI)
+    expect(Math.abs(GLOBE_CAMERA_CONFIG.minAzimuthAngle)).toBeLessThanOrEqual(Math.PI)
+    expect(Math.abs(GLOBE_CAMERA_CONFIG.maxAzimuthAngle)).toBeLessThanOrEqual(Math.PI)
   })
 })
