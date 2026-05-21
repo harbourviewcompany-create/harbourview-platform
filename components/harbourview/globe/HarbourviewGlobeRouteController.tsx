@@ -23,6 +23,12 @@ type RouteUpdates = {
   route?: 'fallback' | null
 }
 
+export const getRouteControlA11yLabel = {
+  market: (label: string) => `Market ${label}`,
+  role: (label: string) => `Role ${label}`,
+  intent: (label: string) => `Intent ${label}`,
+}
+
 export function HarbourviewGlobeRouteController() {
   const pathname = usePathname()
   const router = useRouter()
@@ -66,7 +72,7 @@ export function HarbourviewGlobeRouteController() {
 
         <div className={styles.controlGroup} aria-label="Select market">
           {globeMarketOptions.map((market) => (
-            <button key={market.key} type="button" className={styles.routeButton} aria-pressed={selectedMarket?.key === market.key} onClick={() => pushState({ market: market.key, route: null })}>
+            <button key={market.key} type="button" className={styles.routeButton} aria-label={getRouteControlA11yLabel.market(market.label)} aria-pressed={selectedMarket?.key === market.key} onClick={() => pushState({ market: market.key, route: null })}>
               {market.label}
             </button>
           ))}
@@ -76,7 +82,7 @@ export function HarbourviewGlobeRouteController() {
           <div className={styles.controlColumn}>
             <p className={styles.controlLabel}>Role sheet</p>
             {globeRoleOptions.map((role) => (
-              <button key={role.key} type="button" className={styles.routeButtonSecondary} aria-pressed={selectedRole?.key === role.key} onClick={() => pushState({ role: role.key, route: null })}>
+              <button key={role.key} type="button" className={styles.routeButtonSecondary} aria-label={getRouteControlA11yLabel.role(role.label)} aria-pressed={selectedRole?.key === role.key} onClick={() => pushState({ role: role.key, route: null })}>
                 {role.label}
               </button>
             ))}
@@ -85,7 +91,7 @@ export function HarbourviewGlobeRouteController() {
           <div className={styles.controlColumn}>
             <p className={styles.controlLabel}>Intent sheet</p>
             {globeIntentOptions.map((intent) => (
-              <button key={intent.key} type="button" className={styles.routeButtonSecondary} aria-pressed={selectedIntent?.key === intent.key} onClick={() => pushState({ intent: intent.key, route: null })}>
+              <button key={intent.key} type="button" className={styles.routeButtonSecondary} aria-label={getRouteControlA11yLabel.intent(intent.label)} aria-pressed={selectedIntent?.key === intent.key} onClick={() => pushState({ intent: intent.key, route: null })}>
                 {intent.label}
               </button>
             ))}
@@ -96,7 +102,7 @@ export function HarbourviewGlobeRouteController() {
           <button type="button" className={styles.routeActionButton} onClick={() => pushState({ markets: ['germany', 'portugal', 'uk'], route: null })}>
             Compare Germany + Portugal + UK
           </button>
-          <button type="button" className={styles.routeActionButton} onClick={() => pushState({ route: 'fallback' })}>
+          <button type="button" className={styles.routeActionButton} aria-current={routeState.kind === 'fallback' ? 'page' : undefined} onClick={() => pushState({ route: 'fallback' })}>
             Test fallback route
           </button>
           <button type="button" className={styles.routeActionButton} onClick={() => pushState({ market: null, role: null, intent: null, markets: null, route: null })}>

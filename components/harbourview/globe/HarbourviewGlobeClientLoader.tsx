@@ -390,10 +390,14 @@ export function HarbourviewGlobeClientLoader({
 
   return (
     <div
-      aria-hidden="true"
+      role="img"
+      aria-label="Decorative Harbourview globe background"
       className={`${styles.shell}${canvasReady ? ` ${styles.shellReady}` : ''}`}
       data-globe-mode={shouldRenderCanvas ? 'webgl' : 'static'}
     >
+      <p className="sr-only" aria-live="polite">
+        Globe animation is visual only. Use the route controller controls on this page to choose market, role, intent, or fallback routing without canvas interaction.
+      </p>
       <Image
         src={fallbackSrc}
         alt=""
