@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useMemo } from 'react'
@@ -38,25 +39,37 @@ export function HarbourviewGlobeRouteController() {
   const selectedRole = routeState.selectedRole
   const selectedIntent = routeState.selectedIntent
   const multiMarketLabel = routeState.multiMarkets.map((market) => market.label).join(' + ')
+  const controlsId = 'harbourview-globe-controls'
+  const statusId = 'harbourview-globe-status'
+  const instructionsId = 'harbourview-globe-keyboard-instructions'
+  const fallbackId = 'harbourview-globe-fallback-instructions'
 
   return (
     <div className={styles.routeShell} data-route-state={routeState.kind}>
-      <section className={styles.routePanel} aria-label="Interactive Harbourview globe route controller">
+      <section
+        className={styles.routePanel}
+        role="region"
+        aria-labelledby="harbourview-globe-route-title"
+        aria-describedby={`${instructionsId} ${fallbackId} ${statusId}`}
+      >
         <p className={styles.routeEyebrow}>Globe route</p>
-        <p className={styles.routeTitle}>{selectedMarket?.label || 'Global market access map'}</p>
+        <p id="harbourview-globe-route-title" className={styles.routeTitle}>{selectedMarket?.label || 'Global market access map'}</p>
         <p className={styles.routeDescription}>
           {routeState.kind === 'fallback'
             ? 'The requested globe route could not be matched. Select a supported market, role, intent or multi-market path.'
             : selectedMarket?.summary || 'Select a market or route the homepage by role, intent, or multi-market pathway.'}
         </p>
 
-        {routeState.invalidParams.length > 0 ? (
-          <div className={styles.routeNotice} role="status">
-            Invalid parameter fallback: {routeState.invalidParams.join(', ')}
-          </div>
-        ) : null}
+        <p id={instructionsId} className={styles.srOnly}>
+          Keyboard instructions: use Tab to move between route controls, then press Enter or Space to select a market, role, intent, compare path, fallback route, or reset.
+        </p>
 
-        <div className={styles.selectedContext} aria-live="polite">
+        <p id={fallbackId} className={styles.srOnly}>
+          If WebGL is unavailable or interactions are disabled, these controls provide a complete fallback for market routing.
+        </p>
+
+        <div id={statusId} className={styles.selectedContext} aria-live="polite" role="status" aria-atomic="true">
+          {routeState.invalidParams.length > 0 ? <span>Invalid parameter fallback: {routeState.invalidParams.join(', ')}</span> : null}
           <span>State: {routeState.kind}</span>
           {selectedMarket ? <span>Market: {selectedMarket.label}</span> : null}
           {selectedRole ? <span>Role: {selectedRole.label}</span> : null}
@@ -64,9 +77,9 @@ export function HarbourviewGlobeRouteController() {
           {multiMarketLabel ? <span>Markets: {multiMarketLabel}</span> : null}
         </div>
 
-        <div className={styles.controlGroup} aria-label="Select market">
+        <div id={controlsId} className={styles.controlGroup} aria-label="Select market">
           {globeMarketOptions.map((market) => (
-            <button key={market.key} type="button" className={styles.routeButton} aria-pressed={selectedMarket?.key === market.key} onClick={() => pushState({ market: market.key, route: null })}>
+            <button key={market.key} type="button" className={styles.routeButton} aria-describedby={`${instructionsId} ${statusId}`} aria-pressed={selectedMarket?.key === market.key} onClick={() => pushState({ market: market.key, route: null })}>
               {market.label}
             </button>
           ))}
@@ -76,7 +89,7 @@ export function HarbourviewGlobeRouteController() {
           <div className={styles.controlColumn}>
             <p className={styles.controlLabel}>Role sheet</p>
             {globeRoleOptions.map((role) => (
-              <button key={role.key} type="button" className={styles.routeButtonSecondary} aria-pressed={selectedRole?.key === role.key} onClick={() => pushState({ role: role.key, route: null })}>
+              <button key={role.key} type="button" className={styles.routeButtonSecondary} aria-describedby={`${instructionsId} ${statusId}`} aria-pressed={selectedRole?.key === role.key} onClick={() => pushState({ role: role.key, route: null })}>
                 {role.label}
               </button>
             ))}
@@ -85,7 +98,7 @@ export function HarbourviewGlobeRouteController() {
           <div className={styles.controlColumn}>
             <p className={styles.controlLabel}>Intent sheet</p>
             {globeIntentOptions.map((intent) => (
-              <button key={intent.key} type="button" className={styles.routeButtonSecondary} aria-pressed={selectedIntent?.key === intent.key} onClick={() => pushState({ intent: intent.key, route: null })}>
+              <button key={intent.key} type="button" className={styles.routeButtonSecondary} aria-describedby={`${instructionsId} ${statusId}`} aria-pressed={selectedIntent?.key === intent.key} onClick={() => pushState({ intent: intent.key, route: null })}>
                 {intent.label}
               </button>
             ))}
@@ -93,13 +106,13 @@ export function HarbourviewGlobeRouteController() {
         </div>
 
         <div className={styles.routeActions}>
-          <button type="button" className={styles.routeActionButton} onClick={() => pushState({ markets: ['germany', 'portugal', 'uk'], route: null })}>
+          <button type="button" className={styles.routeActionButton} aria-describedby={`${instructionsId} ${statusId}`} onClick={() => pushState({ markets: ['germany', 'portugal', 'uk'], route: null })}>
             Compare Germany + Portugal + UK
           </button>
-          <button type="button" className={styles.routeActionButton} onClick={() => pushState({ route: 'fallback' })}>
+          <button type="button" className={styles.routeActionButton} aria-describedby={`${instructionsId} ${statusId}`} onClick={() => pushState({ route: 'fallback' })}>
             Test fallback route
           </button>
-          <button type="button" className={styles.routeActionButton} onClick={() => pushState({ market: null, role: null, intent: null, markets: null, route: null })}>
+          <button type="button" className={styles.routeActionButton} aria-describedby={`${instructionsId} ${statusId}`} onClick={() => pushState({ market: null, role: null, intent: null, markets: null, route: null })}>
             Reset globe
           </button>
         </div>

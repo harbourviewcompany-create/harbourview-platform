@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
@@ -18,7 +19,16 @@ export default function InteractiveGlobe() {
   const reducedMotion = useReducedMotion()
 
   return (
-    <div className="w-full max-w-[520px] aspect-square">
+    <div
+      className="w-full max-w-[520px] aspect-square"
+      role="region"
+      aria-labelledby="interactive-globe-title"
+      aria-describedby="interactive-globe-instructions interactive-globe-fallback"
+    >
+      <h3 id="interactive-globe-title" className="sr-only">Interactive Harbourview globe</h3>
+      <p id="interactive-globe-instructions" className="sr-only">
+        Use your mouse, trackpad, or touch to rotate the globe. Use the route controller buttons to navigate markets with keyboard controls.
+      </p>
       <Canvas
         dpr={[1, 1.5]}
         camera={{ position: [0, 0, 2.5], fov: 50 }}
@@ -36,6 +46,9 @@ export default function InteractiveGlobe() {
           autoRotateSpeed={0.5}
         />
       </Canvas>
+      <p id="interactive-globe-fallback" className="sr-only">
+        If WebGL is unavailable or interactions are disabled, use the route controller market, role, and intent buttons to continue.
+      </p>
     </div>
   )
 }

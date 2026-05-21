@@ -71,6 +71,17 @@
 .routeButton:hover, .routeButtonSecondary:hover, .routeActionButton:hover, .routeLink:hover, .routeButton:focus-visible, .routeButtonSecondary:focus-visible, .routeActionButton:focus-visible, .routeLink:focus-visible, .routeButton[aria-pressed='true'], .routeButtonSecondary[aria-pressed='true'] { border-color: rgba(244, 214, 148, 0.68); background: rgba(198, 165, 90, 0.16); color: #f5f1e8; outline: none; }
 .routeActionButton { flex: 1 1 130px; }
 .routeLink { display: inline-flex; align-items: center; }
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .canvasLayer { display: none; }
