@@ -62,7 +62,7 @@ function getFallbackContextItems(state: GlobeRouterState) {
 
 type GlobeFallbackReason = 'flag-disabled' | 'reduced-motion' | 'webgl-unavailable' | 'low-performance'
 
-const INTERACTIVE_GLOBE_ENABLED = process.env.NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE === 'true'
+const INTERACTIVE_GLOBE_ENABLED = true // env gate removed — always enabled
 
 function useGlobeFallbackReason(): GlobeFallbackReason | null {
   const [reason, setReason] = useState<GlobeFallbackReason | null>(null)
