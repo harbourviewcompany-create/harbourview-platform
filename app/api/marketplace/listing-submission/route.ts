@@ -125,11 +125,6 @@ export async function POST(request: Request) {
     const price = parsed.data.price
     const location = parsed.data.location
     const description = parsed.data.description
-    if (!VALID_LISTING_TYPES.has(listingType)) {
-      logListingSubmissionDiagnostic('LISTING_SUBMISSION_VALIDATION_TYPE')
-      return json('error', withListingSubmissionCode('Please select a valid listing type.', 'LISTING_SUBMISSION_VALIDATION_TYPE'), 400)
-    }
-
     const validation = validateListingSubmission(parsed.data)
     if (!validation.ok) {
       logListingSubmissionDiagnostic(validation.code)
