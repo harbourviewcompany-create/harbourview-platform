@@ -48,11 +48,13 @@ describe('fetchAdminSupabaseJson', () => {
   it('returns request_failed when a successful response body is invalid JSON', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
+    const invalidBody = 'x'.repeat(300)
+
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       statusText: 'OK',
-      text: vi.fn().mockResolvedValue('not json'),
+      text: vi.fn().mockResolvedValue(invalidBody),
     }))
 
     const { fetchAdminSupabaseJson } = await import('@/lib/supabase/adminDataClient')
@@ -72,7 +74,7 @@ describe('fetchAdminSupabaseJson', () => {
         status: 200,
         statusText: 'OK',
         path: '/rest/v1/example',
-        body: 'not json',
+        body: invalidBody.slice(0, 240),
         parseError: 'invalid_json',
       })
     )

@@ -8,14 +8,14 @@ export default function ComplianceRequestSupportPage() {
         Submit a structured request so Harbourview can assess your compliance requirements and determine whether specialist routing is appropriate.
       </p>
 
-      <form className="grid gap-4 max-w-xl">
-        <input className="input" placeholder="Name" />
-        <input className="input" placeholder="Company" />
-        <input className="input" placeholder="Email" />
-        <input className="input" placeholder="Target Countries" />
-        <textarea className="input" placeholder="Support needed" />
+      <form className="grid gap-4 max-w-xl" aria-label="Compliance support intake form">
+        <input className="input" name="name" autoComplete="name" placeholder="Name" required />
+        <input className="input" name="company" autoComplete="organization" placeholder="Company" required />
+        <input className="input" type="email" name="email" autoComplete="email" placeholder="Email" required />
+        <input className="input" name="targetCountries" placeholder="Target Countries" required />
+        <textarea className="input" name="supportNeeded" placeholder="Support needed" rows={5} required />
         <label className="text-sm">
-          <input type="checkbox" /> I accept the compliance disclaimer
+          <input type="checkbox" name="disclaimerAccepted" required /> I accept the compliance disclaimer
         </label>
         <button className="btn-primary" disabled>
           Submit (intake not yet active)
