@@ -83,6 +83,14 @@ function createTopFanIndices(vertexCount: number) {
 
 type NormalizedPolygon = { outer: [number, number][]; holes: [number, number][][] }
 
+
+function ensureWinding(points: [number, number][], clockwise: boolean): [number, number][] {
+  const area = ringArea2D(points)
+  const isClockwise = area < 0
+  if (isClockwise === clockwise) return points
+  return [...points].reverse()
+}
+
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
   return country.polygons
     .map((polygon) => {
