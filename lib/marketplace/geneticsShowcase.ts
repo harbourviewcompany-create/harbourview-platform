@@ -94,8 +94,8 @@ export const geneticsProfiles: GeneticsProfile[] = [
 ]
 
 export function toPublicGeneticsProfile(profile: GeneticsProfile): PublicGeneticsProfile {
-  const publicProfile = { ...profile }
-  delete publicProfile.privateFields
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { privateFields: _omit, ...publicProfile } = profile
 
   return {
     ...publicProfile,
