@@ -7,7 +7,12 @@ import { countryOptionMap, getCountryName } from '@/config/globe/country-role-pr
 import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
-import { GlobeCanvas } from './r3f/GlobeCanvas'
+import dynamic from 'next/dynamic'
+
+const GlobeCanvas = dynamic(() => import('./r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })), {
+  ssr: false,
+  loading: () => null,
+})
 import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
