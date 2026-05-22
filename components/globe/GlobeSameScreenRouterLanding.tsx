@@ -95,6 +95,18 @@ export function GlobeSameScreenRouterLanding() {
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
   const fallbackReason = useGlobeFallbackReason()
+  const fallbackHref = state.resolvedHref ?? '/intake'
+  const fallbackContextItems = [
+    state.requestedPath ? { label: 'Requested path', value: state.requestedPath } : null,
+    state.mode ? { label: 'Mode', value: state.mode.replace('_', ' ') } : null,
+    state.mode === 'multi_market'
+      ? { label: 'Markets', value: state.selectedCountryIso2s.map((countryIso2) => getCountryName(countryIso2)).join(', ') }
+      : state.selectedCountryIso2
+        ? { label: 'Country', value: getCountryName(state.selectedCountryIso2) }
+        : null,
+    state.selectedRoleId ? { label: 'Role', value: roleProfileMap[state.selectedRoleId]?.label ?? state.selectedRoleId } : null,
+    state.selectedIntentId ? { label: 'Intent', value: intentProfileMap[state.selectedIntentId]?.label ?? state.selectedIntentId } : null,
+  ].filter((item): item is { label: string; value: string } => Boolean(item))
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
