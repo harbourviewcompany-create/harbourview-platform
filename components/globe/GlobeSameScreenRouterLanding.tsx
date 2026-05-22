@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
+import { intentProfileMap } from '@/config/globe/intent-profiles'
+import { roleProfileMap } from '@/config/globe/role-profiles'
+import type { GlobeRouterState } from '@/types/globe-router'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
@@ -11,6 +14,51 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
+
+function buildFallbackIntakeHref(state: GlobeRouterState) {
+  if (state.resolvedHref) return state.resolvedHref
+
+  const params = new URLSearchParams()
+
+  params.set('source', 'globe_router')
+  params.set('mode', state.mode)
+
+  if (state.selectedCountryIso2) params.set('country', state.selectedCountryIso2)
+  if (state.selectedCountryIso2s.length) params.set('countries', state.selectedCountryIso2s.join(','))
+  if (state.selectedRoleId) params.set('role', state.selectedRoleId)
+  if (state.selectedIntentId) params.set('intent', state.selectedIntentId)
+  if (state.activeLayerId) params.set('layer', state.activeLayerId)
+  if (state.requestedPath) params.set('requestedPath', state.requestedPath)
+
+  return `/intake?${params.toString()}`
+}
+
+function getFallbackContextItems(state: GlobeRouterState) {
+  const items: { label: string; value: string }[] = []
+
+  if (state.mode === 'multi_market' && state.selectedCountryIso2s.length > 0) {
+    items.push({
+      label: 'Markets',
+      value: state.selectedCountryIso2s.map((countryIso2) => getCountryName(countryIso2)).join(', '),
+    })
+  } else if (state.selectedCountryIso2) {
+    items.push({ label: 'Country', value: getCountryName(state.selectedCountryIso2) })
+  }
+
+  if (state.selectedRoleId) {
+    items.push({ label: 'Role', value: roleProfileMap[state.selectedRoleId]?.label ?? state.selectedRoleId })
+  }
+
+  if (state.selectedIntentId) {
+    items.push({ label: 'Intent', value: intentProfileMap[state.selectedIntentId]?.label ?? state.selectedIntentId })
+  }
+
+  if (state.requestedPath) {
+    items.push({ label: 'Requested page', value: state.requestedPath })
+  }
+
+  return items
+}
 
 type GlobeFallbackReason = 'flag-disabled' | 'reduced-motion' | 'webgl-unavailable' | 'low-performance'
 
@@ -87,11 +135,12 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [srAnnouncement, setSrAnnouncement] = useState('')
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
+  const fallbackHref = buildFallbackIntakeHref(state)
+  const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
 
   useEffect(() => {
@@ -118,19 +167,16 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      {fallbackReason ? (
-        <PremiumStaticGlobeFallback reason={fallbackReason} />
-      ) : (
-        <GlobeCanvas
-          selectedCountryIso2={state.selectedCountryIso2}
-          selectedCountryIso2s={state.selectedCountryIso2s}
-          focusedCountryIso2={state.focusedCountryIso2}
-          activeLayerId={state.activeLayerId ?? 'country_select'}
-          routerStep={state.step}
-          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-        />
-      )}
+      <GlobeCanvas
+        selectedCountryIso2={state.selectedCountryIso2}
+        selectedCountryIso2s={state.selectedCountryIso2s}
+        focusedCountryIso2={state.focusedCountryIso2}
+        activeLayerId={state.activeLayerId ?? 'country_select'}
+        routerStep={state.step}
+        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        enablePointerCapture={state.step === 'country'}
+      />
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => {
@@ -141,17 +187,19 @@ export function GlobeSameScreenRouterLanding() {
         onAnnouncement={setSrAnnouncement}
       />
 
-      <div className="pointer-events-none fixed inset-x-3 top-[calc(168px+env(safe-area-inset-top))] z-30 sm:left-6 sm:right-auto sm:w-[380px]">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
+
+      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
           Start with country. Harbourview will adjust the next choices by market, role and intent.
         </p>
       </div>
 
-      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 flex flex-col gap-2 sm:right-6">
+      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-20 flex flex-col gap-2 sm:right-6">
         <button
           type="button"
           onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}
-          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#01050d]"
+          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl"
         >
           Multi-market
         </button>
