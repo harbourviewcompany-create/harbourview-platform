@@ -102,30 +102,6 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
     .filter((polygon): polygon is NormalizedPolygon => polygon !== null)
 }
 
-function _validateTriangleOrientation(
-  a: number,
-  b: number,
-  c: number,
-  vertices: number[],
-  expectedOutward: 1 | -1,
-  validateNormals: boolean,
-) {
-  if (!validateNormals) return [a, b, c]
-
-  const vA = new Vector3(vertices[a * 3], vertices[a * 3 + 1], vertices[a * 3 + 2])
-  const vB = new Vector3(vertices[b * 3], vertices[b * 3 + 1], vertices[b * 3 + 2])
-  const vC = new Vector3(vertices[c * 3], vertices[c * 3 + 1], vertices[c * 3 + 2])
-
-  const normal = vB.clone().sub(vA).cross(vC.clone().sub(vA)).normalize()
-  const centroidDirection = vA.clone().add(vB).add(vC).divideScalar(3).normalize()
-
-  const alignment = normal.dot(centroidDirection)
-  if (alignment * expectedOutward < 0) {
-    return [a, c, b]
-  }
-
-  return [a, b, c]
-}
 
 function createSurfaceIndices(points: [number, number][]) {
   const projected = projectRingToLonLatPlane(points)

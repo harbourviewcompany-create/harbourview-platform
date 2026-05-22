@@ -40,7 +40,6 @@ export function GlobeCanvas({
   routerStep,
   onHoverCountry,
   onSelectCountry,
-  enablePointerCapture: _enablePointerCapture = true,
 }: {
   className?: string
   selectedCountryIso2?: string
@@ -50,7 +49,6 @@ export function GlobeCanvas({
   routerStep?: GlobeRouterStep
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
-  enablePointerCapture?: boolean
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const isCountryState = routerStep === 'country' || !selectedCountryIso2
