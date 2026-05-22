@@ -121,10 +121,6 @@ export async function POST(request: Request) {
     const email = parsed.data.email
     const company = parsed.data.company
     const listingType = parsed.data.listingType
-    const title = parsed.data.title
-    const price = parsed.data.price
-    const location = parsed.data.location
-    const description = parsed.data.description
     const validation = validateListingSubmission(parsed.data)
     if (!validation.ok) {
       logListingSubmissionDiagnostic(validation.code)
