@@ -1,6 +1,5 @@
 import { BufferAttribute, BufferGeometry, ShapeUtils } from 'three'
 import type { HarbourviewCountryGeometry } from './geojson-country-types'
-import { lonLatToVector3 } from './globe-geometry'
 
 export interface GlobeExtrusionConfig {
   radius: number
@@ -103,7 +102,7 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
     .filter((polygon): polygon is NormalizedPolygon => polygon !== null)
 }
 
-function validateTriangleOrientation(
+function _validateTriangleOrientation(
   a: number,
   b: number,
   c: number,

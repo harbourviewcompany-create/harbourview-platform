@@ -99,7 +99,7 @@ export function buildCountryMeshDescriptor(country: HarbourviewCountryGeometry):
   }
 }
 
-export function buildThreeCountryGeometry(_country: HarbourviewCountryGeometry): BufferGeometry | null {
+export function buildThreeCountryGeometry(country: HarbourviewCountryGeometry): BufferGeometry | null { // eslint-disable-line @typescript-eslint/no-unused-vars
   // Scaffold only.
   // Final implementation will convert triangulated polygon data into indexed BufferGeometry
   // with shared vertices, border extrusion support, and raycast-friendly topology.

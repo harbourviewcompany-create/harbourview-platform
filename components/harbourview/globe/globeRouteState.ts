@@ -4,7 +4,7 @@ import { roleProfiles } from '@/config/globe/role-profiles'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import type { IntentId, RoleId } from '@/types/globe-router'
 
-const marketIsoByKey = {
+const _marketIsoByKey = {
   germany: 'DE',
   portugal: 'PT',
   uk: 'GB',

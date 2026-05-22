@@ -91,8 +91,8 @@ export function CountryPolygonMeshLayer({
             ? 'focused'
             : 'idle'
         const material = resolveCountryMaterialState({ visualState, layerId: activeLayerId })
-        const fallbackMaterial = resolveCountryStandardMaterialState(material)
-        const useStandardFallback =
+        const _fallbackMaterial = resolveCountryStandardMaterialState(material)
+        const _useStandardFallback =
           typeof window !== 'undefined' && typeof WebGL2RenderingContext === 'undefined'
 
         return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -40,7 +40,7 @@ export function GlobeCanvas({
   routerStep,
   onHoverCountry,
   onSelectCountry,
-  enablePointerCapture = true,
+  enablePointerCapture: _enablePointerCapture = true,
 }: {
   className?: string
   selectedCountryIso2?: string

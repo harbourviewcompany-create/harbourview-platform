@@ -4,9 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
-import { intentProfileMap } from '@/config/globe/intent-profiles'
-import { roleProfileMap } from '@/config/globe/role-profiles'
-import type { GlobeRouterState } from '@/types/globe-router'
 import { GlobeCanvas } from './r3f/GlobeCanvas'
 import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
@@ -90,7 +87,6 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
-  const [srAnnouncement, setSrAnnouncement] = useState('')
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)

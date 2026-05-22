@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -56,11 +57,7 @@ export default async function ConsumableDetailPage({ params }: Props) {
               {/* Image / representative notice */}
               {listing.image && (
                 <figure className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
-                  <img
-                    src={listing.image.src}
-                    alt={listing.image.alt}
-                    className="w-full h-52 object-cover"
-                  />
+                  <Image src={listing.image.src} alt={listing.image.alt} className="w-full h-52 object-cover" width={800} height={208} unoptimized />
                   <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
                     Representative image
                   </span>
