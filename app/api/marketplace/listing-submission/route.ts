@@ -76,7 +76,7 @@ export async function GET() {
     {
       ok: true,
       route: '/api/marketplace/listing-submission',
-      method: 'POST',
+      method: 'GET',
     },
     {
       headers: {

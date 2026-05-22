@@ -113,7 +113,7 @@ export async function GET() {
     {
       ok: true,
       route: '/api/marketplace/quote',
-      method: 'POST',
+      method: 'GET',
     },
     {
       headers: {
