@@ -11,16 +11,6 @@ export const runtime = 'nodejs'
 const ROUTE_ID = '/api/marketplace/listing-submission'
 const ABUSE_REJECTION_CODE = 'ABUSE_REJECTED'
 
-const VALID_LISTING_TYPES = new Set([
-  'New Product',
-  'Used / Surplus Equipment',
-  'Cannabis Inventory',
-  'Wanted Request',
-  'Service',
-  'Business Opportunity',
-  'Supplier Directory Listing',
-])
-
 type ListingSubmissionDiagnosticCode =
   | 'LISTING_SUBMISSION_VALIDATION_REQUIRED_FIELDS'
   | 'LISTING_SUBMISSION_VALIDATION_EMAIL'
