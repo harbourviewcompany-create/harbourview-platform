@@ -56,15 +56,12 @@ export default function InteractiveGlobe() {
           maxDistance={GLOBE_CAMERA_CONFIG.maxDistance}
           minPolarAngle={GLOBE_CAMERA_CONFIG.minPolarAngle}
           maxPolarAngle={GLOBE_CAMERA_CONFIG.maxPolarAngle}
-          minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
-          maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
           enableZoom={GLOBE_CAMERA_CONFIG.enableZoom}
           enableDamping={GLOBE_CAMERA_CONFIG.enableDamping}
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
           autoRotate={!reducedMotion}
-          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
         />
       </Canvas>
     </div>
