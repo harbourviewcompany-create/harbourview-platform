@@ -149,7 +149,8 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
 
 function createSurfaceIndices(points: [number, number][]) {
   const projected = projectRingToLonLatPlane(points)
-  return ShapeUtils.triangulateShape(projected, []).flatMap((triangle) => [triangle[0], triangle[1], triangle[2]])
+  const v2 = projected.map(([x, y]) => ({ x, y }))
+  return ShapeUtils.triangulateShape(v2, []).flatMap((triangle) => [triangle[0], triangle[1], triangle[2]])
 }
 
 function createTinyCountryMarker(center: [number, number], radius: number, markerRadius: number) {
