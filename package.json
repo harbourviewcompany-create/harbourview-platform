@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "npm run test:globe-router && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-foundation.test.ts tests/globe-polygon-rendering.test.ts tests/globe-natural-earth-countries.test.ts && node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs",
     "test:visibility": "node scripts/test-public-provenance-visibility.mjs && node scripts/test-business-opportunities-public-leakage.mjs",
@@ -52,9 +53,7 @@
     "verify:marketplace-smoke": "node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "verify:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build",
-    "test:globe-layering-interactions": "node scripts/test-globe-layering-interactions.mjs",
-    "verify:globe-router-fallback-browser": "node scripts/verify-globe-router-fallback-playwright.mjs",
-    "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build"
+    "test:playwright:public-access": "node scripts/test-playwright-public-and-admin-access.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",

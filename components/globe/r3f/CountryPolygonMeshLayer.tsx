@@ -10,6 +10,9 @@ import type { GlobeLayerId } from '@/types/globe-router'
 const PLATE_LIFT = 0.026
 const IDLE_EXTRUSION = 0.058
 const SELECTED_EXTRUSION = 0.094
+const BORDER_METAL = '#8b7343'
+const SELECTED_ACCENT = '#b79a5a'
+const SPECULAR_CAP = 0.32
 
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,
@@ -26,6 +29,8 @@ export function CountryPolygonMeshLayer({
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
+  const hasCustomShaderPath = false
+
   const idleGeometries = useMemo(
     () =>
       naturalEarthCountriesPayload.countries.map((country) => ({
@@ -33,6 +38,7 @@ export function CountryPolygonMeshLayer({
         geometry: createCountryBufferGeometry(country, {
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
+          geometryMode: 'surface',
         }),
       })),
     [],
@@ -59,8 +65,9 @@ export function CountryPolygonMeshLayer({
       map.set(
         country.iso2,
         createCountryBufferGeometry(country, {
-          plateLift: PLATE_LIFT,
+          plateLift: PLATE_LIFT + 0.002,
           extrusionHeight: SELECTED_EXTRUSION,
+          geometryMode: 'surface',
         }),
       )
     }
@@ -108,23 +115,24 @@ export function CountryPolygonMeshLayer({
               if (hit) onSelectCountry?.(hit.iso2)
             }}
           >
-            {useStandardFallback ? (
-              <meshStandardMaterial
-                color={fallbackMaterial.color}
-                emissive={fallbackMaterial.emissive}
-                emissiveIntensity={fallbackMaterial.emissiveIntensity}
-                roughness={fallbackMaterial.roughness}
-                metalness={fallbackMaterial.metalness}
+            {hasCustomShaderPath ? (
+              <meshPhysicalMaterial
+                color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
+                emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
+                emissiveIntensity={visualState === 'selected' ? 0.28 : material.emissiveIntensity}
+                roughness={Math.max(material.roughness, 0.62)}
+                metalness={Math.min(material.metalness, SPECULAR_CAP)}
+                clearcoat={visualState === 'selected' ? 0.42 : 0.22}
+                clearcoatRoughness={0.58}
+                reflectivity={SPECULAR_CAP}
               />
             ) : (
-              <meshPhysicalMaterial
-                color={material.plateBase}
-                emissive={material.emissive}
-                emissiveIntensity={material.emissiveIntensity}
-                roughness={material.roughness}
-                metalness={material.metalness}
-                clearcoat={material.clearcoat}
-                clearcoatRoughness={material.clearcoatRoughness}
+              <meshStandardMaterial
+                color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
+                emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
+                emissiveIntensity={visualState === 'selected' ? 0.22 : material.emissiveIntensity}
+                roughness={Math.max(material.roughness, 0.68)}
+                metalness={Math.min(material.metalness, 0.28)}
               />
             )}
           </mesh>

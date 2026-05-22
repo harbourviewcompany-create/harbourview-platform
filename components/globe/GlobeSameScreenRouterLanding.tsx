@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
@@ -15,49 +15,76 @@ import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
 
-function buildFallbackIntakeHref(state: GlobeRouterState) {
-  if (state.resolvedHref) return state.resolvedHref
+type GlobeFallbackReason = 'flag-disabled' | 'reduced-motion' | 'webgl-unavailable' | 'low-performance'
 
-  const params = new URLSearchParams()
+const INTERACTIVE_GLOBE_ENABLED = process.env.NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE === 'true'
 
-  params.set('source', 'globe_router')
-  params.set('mode', state.mode)
+function useGlobeFallbackReason(): GlobeFallbackReason | null {
+  const [reason, setReason] = useState<GlobeFallbackReason | null>(null)
 
-  if (state.selectedCountryIso2) params.set('country', state.selectedCountryIso2)
-  if (state.selectedCountryIso2s.length) params.set('countries', state.selectedCountryIso2s.join(','))
-  if (state.selectedRoleId) params.set('role', state.selectedRoleId)
-  if (state.selectedIntentId) params.set('intent', state.selectedIntentId)
-  if (state.activeLayerId) params.set('layer', state.activeLayerId)
-  if (state.requestedPath) params.set('requestedPath', state.requestedPath)
+  useEffect(() => {
+    if (!INTERACTIVE_GLOBE_ENABLED) {
+      setReason('flag-disabled')
+      return
+    }
 
-  return `/intake?${params.toString()}`
+    if (typeof window === 'undefined') return
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setReason('reduced-motion')
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    if (!gl) {
+      setReason('webgl-unavailable')
+      return
+    }
+
+    const cores = navigator.hardwareConcurrency ?? 4
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
+    if (cores <= 2 || memory <= 2) {
+      setReason('low-performance')
+      return
+    }
+
+    setReason(null)
+  }, [])
+
+  return reason
 }
 
-function getFallbackContextItems(state: GlobeRouterState) {
-  const items: { label: string; value: string }[] = []
+function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
+  const reasonLabel = useMemo(() => {
+    switch (reason) {
+      case 'reduced-motion':
+        return 'Reduced motion mode'
+      case 'webgl-unavailable':
+        return 'WebGL unavailable'
+      case 'low-performance':
+        return 'Performance protection'
+      default:
+        return 'Interactive globe disabled'
+    }
+  }, [reason])
 
-  if (state.mode === 'multi_market' && state.selectedCountryIso2s.length > 0) {
-    items.push({
-      label: 'Markets',
-      value: state.selectedCountryIso2s.map((countryIso2) => getCountryName(countryIso2)).join(', '),
-    })
-  } else if (state.selectedCountryIso2) {
-    items.push({ label: 'Country', value: getCountryName(state.selectedCountryIso2) })
-  }
-
-  if (state.selectedRoleId) {
-    items.push({ label: 'Role', value: roleProfileMap[state.selectedRoleId]?.label ?? state.selectedRoleId })
-  }
-
-  if (state.selectedIntentId) {
-    items.push({ label: 'Intent', value: intentProfileMap[state.selectedIntentId]?.label ?? state.selectedIntentId })
-  }
-
-  if (state.requestedPath) {
-    items.push({ label: 'Requested page', value: state.requestedPath })
-  }
-
-  return items
+  return (
+    <div className="absolute inset-0 grid place-items-center px-6" data-globe-fallback-reason={reason}>
+      <div className="relative h-[min(66vh,620px)] w-full max-w-[920px] overflow-hidden rounded-[40px] border border-white/12 bg-[radial-gradient(circle_at_30%_35%,rgba(96,144,220,.34),transparent_45%),radial-gradient(circle_at_72%_58%,rgba(198,165,90,.28),transparent_42%),linear-gradient(165deg,#020712_0%,#030b16_45%,#051125_100%)] shadow-[0_28px_90px_rgba(0,0,0,.6)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_42%,rgba(1,5,13,.84)_100%)]" />
+        <div className="absolute left-8 top-8 rounded-full border border-white/16 bg-[#071122]/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/78">
+          {reasonLabel}
+        </div>
+        <div className="absolute bottom-10 left-8 max-w-sm">
+          <h2 className="text-2xl font-semibold tracking-tight text-white">Premium market routing preview</h2>
+          <p className="mt-3 text-sm leading-6 text-white/66">
+            We are showing a static globe shell to preserve stability and keep navigation responsive on this device.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function GlobeSameScreenRouterLanding() {
@@ -67,8 +94,7 @@ export function GlobeSameScreenRouterLanding() {
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
-  const fallbackHref = buildFallbackIntakeHref(state)
-  const fallbackContextItems = getFallbackContextItems(state)
+  const fallbackReason = useGlobeFallbackReason()
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
@@ -94,16 +120,19 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
-      <GlobeCanvas
-        selectedCountryIso2={state.selectedCountryIso2}
-        selectedCountryIso2s={state.selectedCountryIso2s}
-        focusedCountryIso2={state.focusedCountryIso2}
-        activeLayerId={state.activeLayerId ?? 'country_select'}
-        routerStep={state.step}
-        onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-        onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-        enablePointerCapture={state.step === 'country'}
-      />
+      {fallbackReason ? (
+        <PremiumStaticGlobeFallback reason={fallbackReason} />
+      ) : (
+        <GlobeCanvas
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+          routerStep={state.step}
+          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        />
+      )}
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => {
@@ -114,19 +143,17 @@ export function GlobeSameScreenRouterLanding() {
         onAnnouncement={setSrAnnouncement}
       />
 
-      <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
-
-      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
+      <div className="pointer-events-none fixed inset-x-3 top-[calc(168px+env(safe-area-inset-top))] z-30 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
           Start with country. Harbourview will adjust the next choices by market, role and intent.
         </p>
       </div>
 
-      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-20 flex flex-col gap-2 sm:right-6">
+      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 flex flex-col gap-2 sm:right-6">
         <button
           type="button"
           onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}
-          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl"
+          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#01050d]"
         >
           Multi-market
         </button>

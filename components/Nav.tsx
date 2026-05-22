@@ -124,7 +124,7 @@ export default function Nav() {
                     <span aria-hidden="true" className="text-[9px] text-gold/80">▾</span>
                   </button>
 
-                  <div id={menuId} role="menu" className={`absolute left-0 top-full min-w-[280px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
+                  <div id={menuId} role="menu" className={`absolute left-0 top-full z-[70] min-w-[240px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
                     <div className="rounded-sm border border-gold/14 bg-[#020814]/98 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                       {group.items.map((item) => (
                         <Link
