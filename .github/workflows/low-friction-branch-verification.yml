@@ -1,0 +1,35 @@
+name: Low-Friction Branch Verification
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dry-run-control-checks:
+    name: Branch-only dry-run control checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}" --depth=50
+
+      - name: Check changed-file scope
+        run: node scripts/check-changed-files-scope.mjs --base "origin/${{ github.base_ref }}" --head HEAD --profile low-friction-control
+
+      - name: Scan for committed secret-looking values
+        run: node scripts/check-no-secret-strings.mjs --base "origin/${{ github.base_ref }}" --head HEAD
+
+      - name: Confirm dry-run posture
+        run: |
+          echo "GO: branch verification is read-only."
+          echo "GO: no Supabase service-role secret is exposed to this job."
+          echo "GO: no production smoke write is attempted from pull_request."
+          echo "GO: merge remains a separate human-controlled action."

@@ -98,35 +98,6 @@ Required for production deployment, env changes, workflow changes or public doma
 - Rollback path
 - Evidence update
 
-## Source-of-truth verification pass — 2026-05-16
-
-A read-only Harbourview source-of-truth verification pass inspected repository files and connected evidence without changing runtime code, workflows, package files, migrations, schemas, RLS, Vercel settings, or Supabase settings.
-
-Verified as repo/control evidence:
-
-- App Router structure is present through `app/layout.tsx`, app route files, protected admin route groups, and API route files.
-- `docs/control/DESIGN_SYSTEM.md` is the current documented design-system authority.
-- Tailwind and global CSS define Harbourview navy/gold/off-white style tokens.
-- Playfair Display is not verified as an implemented/imported runtime font. It remains design-direction only until a font import, Tailwind font mapping, global CSS rule, or asset source proves implementation.
-- Admin role names are `admin`, `operator`, `analyst`, and `viewer`.
-- Admin authorization evidence supports `user_roles` table lookup and the custom `hv-admin-session` cookie path. It does not prove custom JWT claims.
-- Protected admin pages use server-side `requireAdminAuth()` before rendering private admin surfaces.
-- Public marketplace DTO allowlisting exists in `lib/marketplace/publicListings.ts`.
-- Production public-leakage probe script exists and checks forbidden provenance/evidence/internal-review/source strings, but existence of the script is not current pass evidence.
-- Smoke-write gates exist in scripts and server smoke verifier paths.
-
-Still-HOLD verification items:
-
-- Current production public leakage pass against `https://harbourview.vercel.app`.
-- Current anonymous admin denial proof against `https://harbourview.vercel.app`.
-- Full admin role matrix: anonymous, no-role, viewer, analyst, operator, and admin.
-- Live Supabase RLS verification for the canonical project.
-- Branch protection and required GitHub status contexts.
-- Vercel Project ID, Vercel Org ID, and GitHub secret mapping.
-- Preview/staging safety and Supabase environment separation.
-- Current route map verification for canonical production.
-- Resolution of `harbourview-platform.vercel.app` default/reference drift.
-
 ## Public leakage checklist
 
 Public pages must not show source URLs, evidence captured, provenance logs, internal notes, admin status history, raw contact fields or service-role diagnostics.
@@ -191,21 +162,160 @@ Required checks:
 - public consumables UI uses only safe inquiry-first labels
 - public leakage probes include private source/candidate table and field names
 
-## QA registry bundles
+## Safer Low-Friction Execution Workflow
 
-Use `scripts/qa-registry.mjs` for deterministic bundle execution and summaries. The runner exits non-zero when any check fails.
+This workflow reduces repeated tool-confirmation friction by moving repeatable verification into GitHub Actions while preserving branch isolation, dry-run defaults, secret isolation and a final human merge gate.
 
-Recommended bundle usage:
+### Execution model
 
-- `npm run qa:public-surface` for route copy/content, listing DTO, and public leakage changes.
-- `npm run qa:compliance` for compliance/regulatory copy, schema-contract, or regulatory signal changes.
-- `npm run qa:smoke` for admin guard, intake safety, and marketplace smoke/regression verification before merge.
-- `npm run qa:all` before release candidates, production-trigger PRs, or when scope spans multiple categories.
+1. Agent or human creates a non-default branch.
+2. Pull request is opened against `main`.
+3. Branch-only verification runs with repository read permissions.
+4. Preview verification is manually run against an explicit preview URL and uses no secrets.
+5. Production smoke is disabled by default and can run only through `workflow_dispatch` with explicit write, cleanup and production confirmations.
+6. Supabase service-role credentials are available only inside the protected production smoke job environment.
+7. Main receives changes only through a final human merge.
+8. Post-merge verification runs after the merge to confirm public visibility and no accidental committed secret strings.
 
-Standalone scripts remain callable for focused debugging (for example `npm run test:visibility` or `npm run smoke:marketplace`). Use registry bundles for standardized merge/release gates and individual scripts when isolating failures.
+### Confirmation-minimizing design
 
-For script metadata (purpose/category/required context), run:
+Repeated ChatGPT confirmations should be reduced by batching low-risk operations into branch-only commits and letting workflows produce evidence.
 
-```bash
-node scripts/qa-registry.mjs --list
-```
+Confirmations remain required for:
+
+- committing or merging to protected branches
+- enabling production smoke writes
+- using Supabase service-role credentials
+- changing runtime code, public routes, auth, middleware, Supabase schema/RLS, dependencies or Vercel config
+- deleting data, changing production configuration or exposing private data
+
+### Branch-only dry-run verification
+
+Workflow: `.github/workflows/low-friction-branch-verification.yml`
+
+Required behavior:
+
+- runs on pull requests
+- uses read-only repository permissions
+- checks changed-file scope for control-only PRs
+- scans changed files and diffs for committed secret-looking values
+- confirms dry-run posture
+- does not use Supabase secrets
+- does not perform production writes
+- does not deploy
+
+Expected evidence:
+
+- workflow conclusion
+- changed-file list
+- secret scan result
+- scope check result
+- explicit dry-run statement
+
+### Preview verification
+
+Workflow: `.github/workflows/preview-verification.yml`
+
+Required behavior:
+
+- runs manually against an explicit preview URL
+- uses no repository secrets
+- treats preview verification as read-only
+- runs public leakage probes when a preview URL is supplied
+- records when preview verification is skipped because no preview URL exists
+
+Expected evidence:
+
+- target preview URL
+- workflow conclusion
+- public leakage/provenance probe result, if executed
+- no secret exposure in logs
+
+### Manual protected production smoke
+
+Workflow: `.github/workflows/protected-production-smoke.yml`
+
+Required behavior:
+
+- runs only through `workflow_dispatch`
+- requires exact typed confirmations for production target, write gate and cleanup gate
+- uses GitHub environment protection where configured
+- keeps `SUPABASE_SERVICE_ROLE_KEY` available only inside the job environment
+- passes service-role access only to server-side Node smoke scripts
+- never exposes service-role values to browser code or public output
+- requires smoke cleanup or safe closed-state handling
+- fails closed when any gate is missing
+
+Required gates:
+
+- `HARBOURVIEW_SMOKE_WRITE=1`
+- `HARBOURVIEW_SMOKE_CLEANUP=1`
+- `HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1`
+- typed confirmation: `RUN_PRODUCTION_SMOKE`
+
+Expected evidence:
+
+- production URL
+- branch/ref
+- workflow run ID
+- smoke command results
+- cleanup result
+- no logged secret values
+- GO/HOLD decision
+
+### Post-merge verification
+
+Workflow: `.github/workflows/post-merge-verification.yml`
+
+Required behavior:
+
+- runs on push to `main`
+- checks merged diff for committed secret-looking values
+- optionally runs production public-visibility probe when `HARBOURVIEW_PUBLIC_BASE_URL` is configured
+- performs no production writes
+- records skipped checks with reasons
+
+Expected evidence:
+
+- merge commit
+- changed-file list
+- secret scan result
+- production public-visibility result or skip reason
+- final post-merge GO/HOLD recommendation
+
+### Supabase service-role isolation
+
+Service-role access is allowed only when all of the following are true:
+
+- the job is manually triggered or protected by a GitHub environment
+- the job is not running on untrusted fork code
+- the service-role value is read from GitHub Secrets
+- the value is not printed, uploaded as an artifact or passed into client-side code
+- the script using it is server-side Node only
+- the workflow has explicit production write gates
+- cleanup is enabled or the workflow has an approved no-cleanup exception
+
+### Control-only PR rule
+
+A low-friction workflow-control PR must not modify:
+
+- runtime app code
+- app routes
+- Supabase migrations, schema or RLS
+- middleware
+- auth logic
+- dependencies or package files
+- Vercel config
+- public marketplace behavior
+- admin runtime behavior
+
+Allowed files for this control PR are limited to:
+
+- `.github/pull_request_template.md`
+- `docs/control/VERIFICATION_PLAN.md`
+- `scripts/check-no-secret-strings.mjs`
+- `scripts/check-changed-files-scope.mjs`
+- `.github/workflows/low-friction-branch-verification.yml`
+- `.github/workflows/preview-verification.yml`
+- `.github/workflows/protected-production-smoke.yml`
+- `.github/workflows/post-merge-verification.yml`

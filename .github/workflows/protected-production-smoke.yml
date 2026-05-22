@@ -1,0 +1,118 @@
+name: Manual Protected Production Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit SHA to verify.
+        required: false
+        default: main
+      production_url:
+        description: Production URL to verify.
+        required: true
+      confirmation:
+        description: Type RUN_PRODUCTION_SMOKE to allow the job to proceed.
+        required: true
+      write_gate:
+        description: Must be 1 to permit marketplace smoke writes.
+        required: true
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '1'
+      cleanup_gate:
+        description: Must be 1 to require cleanup/closed-state handling.
+        required: true
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '1'
+      allow_production_smoke_writes:
+        description: Must be 1 to acknowledge production smoke writes.
+        required: true
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-production-smoke
+  cancel-in-progress: false
+
+jobs:
+  protected-production-smoke:
+    name: Protected production smoke
+    runs-on: ubuntu-latest
+    environment: production-smoke
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Validate production smoke gates
+        env:
+          PRODUCTION_URL: ${{ inputs.production_url }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          HARBOURVIEW_SMOKE_WRITE: ${{ inputs.write_gate }}
+          HARBOURVIEW_SMOKE_CLEANUP: ${{ inputs.cleanup_gate }}
+          HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES: ${{ inputs.allow_production_smoke_writes }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node -e "const value = process.env.PRODUCTION_URL; const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error('production_url must be http or https'); console.log('GO: production URL parsed.');"
+
+          if [ "$CONFIRMATION" != "RUN_PRODUCTION_SMOKE" ]; then
+            echo "HOLD: confirmation must equal RUN_PRODUCTION_SMOKE."
+            exit 1
+          fi
+
+          if [ "$HARBOURVIEW_SMOKE_WRITE" != "1" ]; then
+            echo "HOLD: HARBOURVIEW_SMOKE_WRITE gate is not enabled."
+            exit 1
+          fi
+
+          if [ "$HARBOURVIEW_SMOKE_CLEANUP" != "1" ]; then
+            echo "HOLD: HARBOURVIEW_SMOKE_CLEANUP gate is not enabled."
+            exit 1
+          fi
+
+          if [ "$HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES" != "1" ]; then
+            echo "HOLD: HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES gate is not enabled."
+            exit 1
+          fi
+
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "HOLD: required Supabase service-role secret is not configured for this protected job."
+            exit 1
+          fi
+
+          echo "GO: production smoke gates are explicitly enabled."
+          echo "GO: Supabase service-role value is present only inside this protected job environment."
+
+      - name: Run protected marketplace smoke
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: ${{ inputs.production_url }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          HARBOURVIEW_SMOKE_WRITE: ${{ inputs.write_gate }}
+          HARBOURVIEW_SMOKE_CLEANUP: ${{ inputs.cleanup_gate }}
+          HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES: ${{ inputs.allow_production_smoke_writes }}
+        run: |
+          npm ci
+          npm run smoke:marketplace
+          npm run smoke:marketplace:rls
+          npm run smoke:marketplace:browser
+
+      - name: Record protected-smoke posture
+        run: |
+          echo "GO: protected production smoke completed."
+          echo "GO: merge remains a separate human-controlled action."

@@ -1,0 +1,58 @@
+name: Preview Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit SHA to verify.
+        required: false
+        default: main
+      preview_url:
+        description: Explicit preview URL to inspect. Leave blank to record a skip.
+        required: false
+        default: ''
+      run_public_probe:
+        description: Run the public provenance visibility probe against preview_url.
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  preview-verification:
+    name: Preview verification / read-only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Validate preview URL input
+        env:
+          PREVIEW_URL: ${{ inputs.preview_url }}
+        run: |
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "HOLD: preview verification skipped because no preview_url was supplied."
+            exit 0
+          fi
+
+          node -e "const value = process.env.PREVIEW_URL; const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error('preview_url must be http or https'); console.log('GO: preview URL parsed without exposing secrets.');"
+
+      - name: Run public preview leakage probe
+        if: ${{ inputs.preview_url != '' && inputs.run_public_probe == 'true' }}
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: ${{ inputs.preview_url }}
+        run: node scripts/probe-production-provenance-visibility.mjs
+
+      - name: Record read-only posture
+        run: |
+          echo "GO: preview verification uses no repository secrets."
+          echo "GO: preview verification is read-only."
+          echo "GO: production smoke is not available in this workflow."
