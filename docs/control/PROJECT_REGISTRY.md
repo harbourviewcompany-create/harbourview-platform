@@ -8,6 +8,12 @@ Change policy: This document is a control register. It is not approval to delete
 
 This registry is the source-of-truth map for Harbourview-related projects across GitHub, Vercel and Supabase. Every PR, issue, deployment task, Supabase task, Vercel task, cleanup action and agent handoff must name the affected registry row and state whether the registry changes.
 
+## Canonical compliance/public copy ownership
+
+- Canonical public compliance copy constants are owned in `lib/content/complianceCopy.ts`.
+- Marketplace and intake routes must compose route-specific wrappers around those constants instead of duplicating inline phrases.
+- Static regression check: `npm run test:public-copy-dedup`.
+
 ## Source-of-truth verification pass — 2026-05-17
 
 **Status:** GO for canonical Vercel production mapping recorded below. HOLD remains for fresh post-merge production deployment proof, production leakage verification, anonymous admin-denial proof, marketplace browser smoke and live Supabase RLS verification.

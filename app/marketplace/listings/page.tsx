@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
 
 export const metadata: Metadata = {
   title: 'Reviewed Network Listings | Harbourview Network',
@@ -35,7 +36,7 @@ const accessCards = [
 
 const guardrails = [
   'Public pages show controlled summaries only.',
-  'Private counterparty details are not published on this route.',
+  `Route-specific boundary: ${MARKETPLACE_CONFIDENTIALITY_CAVEAT}`,
   'Availability, terms and introduction fit remain subject to Harbourview review.',
 ]
 
