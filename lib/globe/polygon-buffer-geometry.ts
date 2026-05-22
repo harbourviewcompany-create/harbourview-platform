@@ -71,6 +71,24 @@ function projectRingToLonLatPlane(points: [number, number][]) {
   return points.map(([lon, lat]) => [lon - meanLon, lat] as [number, number])
 }
 
+/**
+ * Project a 2D lon/lat ring onto a sphere of the given radius.
+ * Returns a flat Float32Array-compatible number[] with x,y,z per vertex.
+ */
+function projectRingVertices(points: [number, number][], radius: number): number[] {
+  const result: number[] = []
+  for (const [lon, lat] of points) {
+    const phi = ((90 - lat) * Math.PI) / 180
+    const theta = ((lon + 180) * Math.PI) / 180
+    result.push(
+      -radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.sin(theta),
+    )
+  }
+  return result
+}
+
 function createTopFanIndices(vertexCount: number) {
   const indices: number[] = []
 
@@ -81,8 +99,27 @@ function createTopFanIndices(vertexCount: number) {
   return indices
 }
 
-type NormalizedPolygon = { outer: [number, number][]; holes: [number, number][][] }
+/**
+ * Generate wall (side face) indices for an extruded polygon.
+ * Top vertices occupy indices 0..vertexCount-1,
+ * Bottom vertices occupy indices vertexCount..2*vertexCount-1.
+ */
+function createWallIndices(vertexCount: number): number[] {
+  const indices: number[] = []
+  for (let i = 0; i < vertexCount; i += 1) {
+    const next = (i + 1) % vertexCount
+    const top0 = i
+    const top1 = next
+    const bot0 = vertexCount + i
+    const bot1 = vertexCount + next
+    // Two triangles per quad
+    indices.push(top0, bot0, top1)
+    indices.push(top1, bot0, bot1)
+  }
+  return indices
+}
 
+type NormalizedPolygon = { outer: [number, number][]; holes: [number, number][][] }
 
 function ensureWinding(points: [number, number][], clockwise: boolean): [number, number][] {
   const area = ringArea2D(points)
@@ -109,7 +146,6 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
     })
     .filter((polygon): polygon is NormalizedPolygon => polygon !== null)
 }
-
 
 function createSurfaceIndices(points: [number, number][]) {
   const projected = projectRingToLonLatPlane(points)
@@ -149,31 +185,44 @@ export function createCountryBufferGeometry(
 
   const topRadius = mergedConfig.radius + mergedConfig.plateLift + mergedConfig.extrusionHeight
   const bottomRadius = mergedConfig.radius + mergedConfig.plateLift
-  const areaDeg2 = calculatePlanarArea(points)
-  const isTinyCountry =
-    mergedConfig.tinyCountryIso2.includes(country.iso2) || areaDeg2 < mergedConfig.minimumAreaDeg2
   const useSurfaceMode = mergedConfig.geometryMode === 'surface'
 
-  const topVertices = isTinyCountry
-    ? createTinyCountryMarker(country.centroid, topRadius, mergedConfig.tinyMarkerRadius)
-    : projectRingVertices(points, topRadius)
-  const vertexCount = topVertices.length / 3
+  const allPositions: number[] = []
+  const allIndices: number[] = []
+  let vertexOffset = 0
 
-  let indices: number[]
-  let positionData: number[]
-  if (useSurfaceMode) {
-    indices = isTinyCountry ? createTopFanIndices(vertexCount) : createSurfaceIndices(points)
-    positionData = topVertices
-  } else {
-    const bottomVertices = isTinyCountry
-      ? createTinyCountryMarker(country.centroid, bottomRadius, mergedConfig.tinyMarkerRadius)
-      : projectRingVertices(points, bottomRadius)
-    indices = [...createTopFanIndices(vertexCount), ...createWallIndices(vertexCount)]
-    positionData = [...topVertices, ...bottomVertices]
+  for (const polygon of polygons) {
+    const points = polygon.outer
+    const areaDeg2 = calculatePlanarArea(points)
+    const isTinyCountry =
+      mergedConfig.tinyCountryIso2.includes(country.iso2) || areaDeg2 < mergedConfig.minimumAreaDeg2
+
+    const topVertices = isTinyCountry
+      ? createTinyCountryMarker(country.centroid, topRadius, mergedConfig.tinyMarkerRadius)
+      : projectRingVertices(points, topRadius)
+    const vertexCount = topVertices.length / 3
+
+    let polyIndices: number[]
+    let polyPositions: number[]
+
+    if (useSurfaceMode) {
+      polyIndices = isTinyCountry ? createTopFanIndices(vertexCount) : createSurfaceIndices(points)
+      polyPositions = topVertices
+    } else {
+      const bottomVertices = isTinyCountry
+        ? createTinyCountryMarker(country.centroid, bottomRadius, mergedConfig.tinyMarkerRadius)
+        : projectRingVertices(points, bottomRadius)
+      polyIndices = [...createTopFanIndices(vertexCount), ...createWallIndices(vertexCount)]
+      polyPositions = [...topVertices, ...bottomVertices]
+    }
+
+    allPositions.push(...polyPositions)
+    allIndices.push(...polyIndices.map((idx) => idx + vertexOffset))
+    vertexOffset += polyPositions.length / 3
   }
 
-  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positionData), 3))
-  geometry.setIndex(indices)
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
+  geometry.setIndex(allIndices)
   geometry.computeVertexNormals()
   geometry.computeBoundingSphere()
 
@@ -185,7 +234,6 @@ export function createCountryBufferGeometry(
     plateLift: mergedConfig.plateLift,
     extrusionHeight: mergedConfig.extrusionHeight,
     geometryMode: mergedConfig.geometryMode,
-    tinyCountryFallback: isTinyCountry,
   }
 
   return geometry
