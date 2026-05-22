@@ -54,7 +54,12 @@
     "verify:marketplace-smoke": "node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
     "verify:production-visibility": "node scripts/probe-production-provenance-visibility.mjs",
     "verify:all-safe": "npm run typecheck && npm run lint && npm run test:intelligence-os && npm run test:visibility && npm run verify:leakage && npm run verify:admin-auth && npm run build",
-    "test:playwright:public-access": "node scripts/test-playwright-public-and-admin-access.mjs"
+    "test:playwright:public-access": "node scripts/test-playwright-public-and-admin-access.mjs",
+    "test:globe-router:browser": "BASE_URL=http://127.0.0.1:3000 node scripts/test-globe-router-browser.mjs",
+    "qa:all": "node scripts/qa-registry.mjs --bundle=all",
+    "qa:public-surface": "node scripts/qa-registry.mjs --bundle=public-surface",
+    "qa:compliance": "node scripts/qa-registry.mjs --bundle=compliance",
+    "qa:smoke": "node scripts/qa-registry.mjs --bundle=smoke"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",

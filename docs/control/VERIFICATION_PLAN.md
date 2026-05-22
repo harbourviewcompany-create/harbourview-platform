@@ -181,7 +181,7 @@ npm run probe:production-visibility
 
 Required checks:
 
-- migration `20260305000000_live_source_intake_v0_consumables.sql` creates only private intake/candidate tables
+- migration `007_live_source_intake_v0_consumables.sql` creates only private intake/candidate tables
 - RLS is enabled and deny-by-default for anonymous users
 - admin/operator-only access uses existing `public.user_roles`
 - `/admin/sources` and `/admin/candidates` are directly guarded with `requireAdminAuth()`
@@ -191,29 +191,19 @@ Required checks:
 - public consumables UI uses only safe inquiry-first labels
 - public leakage probes include private source/candidate table and field names
 
-## Verification command map (control-plane)
+## QA registry bundles
 
-- `npm run typecheck` — TypeScript gate.
-- `npm run lint` — lint gate (warnings currently allowed, failures block).
-- `npm run test:intelligence-os` — unit extraction contract.
-- `npm run verify:leakage` — public leakage gate for forbidden admin/provenance strings.
-- `npm run verify:admin-auth` — admin authorization gate (anonymous/missing role/viewer/analyst denied; operator/admin allowed via role logic checks).
-- `npm run verify:marketplace-smoke` — safe workflow and route guard checks; does not perform production writes.
-- `npm run verify:production-visibility` — production visibility probe (read-only probe, env-dependent).
-- `npm run build` — production build gate.
-- `npm run verify:all-safe` — aggregate safe local/CI verification command.
+Use `scripts/qa-registry.mjs` for deterministic bundle execution and summaries. The runner exits non-zero when any check fails.
 
-### Smoke write gate semantics
+Recommended bundle usage:
 
-`scripts/smoke-marketplace.mjs` now emits explicit status labels:
-- `NOT RUN`
-- `GATED`
-- `BLOCKED`
-- `RUN`
-- `PASS`
-- `FAIL` (process exit non-zero)
+- `npm run qa:public-surface` for route copy/content, listing DTO, and public leakage changes.
+- `npm run qa:compliance` for compliance/regulatory copy, schema-contract, or regulatory signal changes.
+- `npm run qa:smoke` for admin guard, intake safety, and marketplace smoke/regression verification before merge.
+- `npm run qa:all` before release candidates, production-trigger PRs, or when scope spans multiple categories.
 
-Required env controls for write-capable smoke:
-- `HARBOURVIEW_SMOKE_WRITE=1`
-- `HARBOURVIEW_SMOKE_CLEANUP=1` (cleanup optional but recommended)
-- `HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES=1` (required when `VERCEL_ENV=production`)
+For script metadata (purpose/category/required context), run:
+
+```bash
+node scripts/qa-registry.mjs --list
+```

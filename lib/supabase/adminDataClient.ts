@@ -77,8 +77,34 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
     };
   }
 
-  return {
-    ok: true,
-    data: text ? JSON.parse(text) as T : null as T,
-  };
+  // Intentionally preserve prior behavior: empty 2xx response bodies are treated as `null` payloads.
+  if (!text) {
+    return {
+      ok: true,
+      data: null as T,
+    };
+  }
+
+  try {
+    return {
+      ok: true,
+      data: JSON.parse(text) as T,
+    };
+  } catch {
+    console.error('harbourview_admin_data_request_failed', {
+      status: response.status,
+      statusText: response.statusText,
+      path,
+      body: text.slice(0, 240),
+      parseError: 'invalid_json',
+    });
+
+    return {
+      ok: false,
+      error: {
+        code: 'request_failed',
+        message: 'Admin inquiry review received invalid JSON from Supabase upstream.',
+      },
+    };
+  }
 }

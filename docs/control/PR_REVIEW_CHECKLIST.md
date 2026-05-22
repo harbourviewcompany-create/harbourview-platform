@@ -134,3 +134,14 @@ Do not approve with: looks good, nice cleanup, no issues, safe change, seems fin
 ## Completion criteria
 
 A PR review is complete only when the decision is explicit, scope/evidence/data risk are checked, merge blockers are named and remaining risk is either accepted or assigned to a follow-up ticket.
+
+## QA bundle expectations for review
+
+Reviewers should require the smallest relevant QA bundle and escalate to broader bundles for cross-cutting changes.
+
+- Public route/content/data exposure changes: `npm run qa:public-surface`
+- Compliance or regulatory signal changes: `npm run qa:compliance`
+- Marketplace capture, admin access, or smoke-sensitive flows: `npm run qa:smoke`
+- Multi-domain, release, or deployment-risk PRs: `npm run qa:all`
+
+If a bundle is skipped, the PR must include an explicit blocker reason and follow-up verification plan.

@@ -2,8 +2,8 @@
 
 import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
-import { getMaxMessageLength, isOversized, isUnsafeFreeText, isValidEmail, readField } from '@/lib/marketplace/intakeSafety';
+import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, hasOversizedFields, hasSpamTrapValue, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
+import { postMarketplaceInquiry } from '@/lib/marketplace/inquirySubmission';
 
 export type InquiryActionState = {
   status: 'idle' | 'success' | 'error';
@@ -54,14 +54,6 @@ function buildMessageWithListingContext(
   ].join('\n');
 }
 
-function getSupabaseConfig() {
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!anonKey) return null;
-  return { url: resolveLockedSupabaseUrl(), anonKey };
-}
 
 function logInquiryDiagnostic(code: InquiryDiagnosticCode, details?: Record<string, string | number | boolean | null>) {
   console.info('harbourview_marketplace_inquiry', {
@@ -109,7 +101,7 @@ export async function submitMarketplaceInquiry(
   const consent = formData.get('consent') === 'on';
   const website = readField(formData, 'website');
 
-  if (website) {
+  if (hasSpamTrapValue(website)) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_SPAM_TRAP');
     return { status: 'error', message: withCode('Inquiry could not be processed.', 'INQUIRY_VALIDATION_SPAM_TRAP') };
   }
@@ -128,21 +120,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  if (!isValidEmail(email)) {
-    logInquiryDiagnostic('INQUIRY_VALIDATION_EMAIL');
-    return {
-      status: 'error',
-      message: withCode('Please use a valid business email address.', 'INQUIRY_VALIDATION_EMAIL'),
-    };
-  }
-
-  if (
-    isOversized(name) ||
-    isOversized(email) ||
-    isOversized(company) ||
-    isOversized(country) ||
-    isOversized(phone)
-  ) {
+  if (hasOversizedFields([name, email, company, country, phone])) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_FIELD_LENGTH');
     return {
       status: 'error',
@@ -150,7 +128,28 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  if ([name, company, country, phone, message].some(isUnsafeFreeText)) {
+  const emailValidation = validateFieldAgainstPolicy(email, FIELD_CLASSIFICATION_MATRIX.email);
+  if (!emailValidation.valid) {
+    logInquiryDiagnostic('INQUIRY_VALIDATION_EMAIL');
+    return {
+      status: 'error',
+      message: withCode('Please use a valid business email address.', 'INQUIRY_VALIDATION_EMAIL'),
+    };
+  }
+
+  const phoneValidation = validateFieldAgainstPolicy(phone, FIELD_CLASSIFICATION_MATRIX.phone);
+  if (!phoneValidation.valid) {
+    logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
+    return {
+      status: 'error',
+      message: withCode('Please use a valid phone number format.', 'INQUIRY_VALIDATION_UNSAFE_CONTENT'),
+    };
+  }
+
+  const companyValidation = validateFieldAgainstPolicy(company, FIELD_CLASSIFICATION_MATRIX.company);
+  const messageValidation = validateFieldAgainstPolicy(message, FIELD_CLASSIFICATION_MATRIX.message);
+
+  if (!companyValidation.valid || !messageValidation.valid) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_UNSAFE_CONTENT');
     return {
       status: 'error',
@@ -178,18 +177,6 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const supabase = getSupabaseConfig();
-  if (!supabase) {
-    logInquiryDiagnostic('INQUIRY_CONFIG_MISSING', {
-      hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      hasPublishableKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-    });
-    return {
-      status: 'error',
-      message: withCode('Inquiry capture is not configured yet. Please contact Harbourview directly.', 'INQUIRY_CONFIG_MISSING'),
-    };
-  }
 
   const payload = {
     listing_id: null,
@@ -200,25 +187,21 @@ export async function submitMarketplaceInquiry(
     contact_phone: phone || null,
     inquiry_type: inquiryType,
     message: messageWithListingContext,
-    status: 'received',
+    status: 'received' as const,
   };
 
-  const response = await fetch(`${supabase.url}/rest/v1/marketplace_inquiries`, {
-    method: 'POST',
-    headers: {
-      apikey: supabase.anonKey,
-      Authorization: `Bearer ${supabase.anonKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: JSON.stringify(payload),
-  });
+  const submissionResult = await postMarketplaceInquiry(payload);
 
-  if (!response.ok) {
-    logInquiryDiagnostic('INQUIRY_SUPABASE_INSERT_FAILED', {
-      status: response.status,
-      statusText: response.statusText,
-    });
+  if (!submissionResult.ok) {
+    if (submissionResult.kind === 'config_missing') {
+      logInquiryDiagnostic('INQUIRY_CONFIG_MISSING', submissionResult.context);
+      return {
+        status: 'error',
+        message: withCode('Inquiry capture is not configured yet. Please contact Harbourview directly.', 'INQUIRY_CONFIG_MISSING'),
+      };
+    }
+
+    logInquiryDiagnostic('INQUIRY_SUPABASE_INSERT_FAILED', submissionResult.context);
     return {
       status: 'error',
       message: withCode('The inquiry could not be saved. Please try again or contact Harbourview directly.', 'INQUIRY_SUPABASE_INSERT_FAILED'),
