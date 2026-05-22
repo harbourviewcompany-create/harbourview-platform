@@ -4,6 +4,8 @@
 
 This file records Harbourview's deployment-provider authority so build agents, reviewers, and branch-gate decisions do not treat Vercel, Netlify, or Cloudflare/OpenNext checks as ambiguous noise.
 
+> Source of truth note: When deployment/provider metadata conflicts across docs, CI status text, or PR comments, treat this file and `docs/control/PROJECT_REGISTRY.md` as canonical and update them first to prevent configuration drift.
+
 Harbourview uses both Vercel and Netlify. This document does not change runtime code, deployment settings, provider configuration, branch protection, secrets, domains, or CI workflows. It is a control document for interpreting provider status checks and release evidence.
 
 ## Current authority
