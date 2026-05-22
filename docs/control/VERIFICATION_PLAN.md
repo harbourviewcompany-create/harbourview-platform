@@ -202,6 +202,8 @@ Recommended bundle usage:
 - `npm run qa:smoke` for admin guard, intake safety, and marketplace smoke/regression verification before merge.
 - `npm run qa:all` before release candidates, production-trigger PRs, or when scope spans multiple categories.
 
+Standalone scripts remain callable for focused debugging (for example `npm run test:visibility` or `npm run smoke:marketplace`). Use registry bundles for standardized merge/release gates and individual scripts when isolating failures.
+
 For script metadata (purpose/category/required context), run:
 
 ```bash

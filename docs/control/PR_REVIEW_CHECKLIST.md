@@ -145,3 +145,5 @@ Reviewers should require the smallest relevant QA bundle and escalate to broader
 - Multi-domain, release, or deployment-risk PRs: `npm run qa:all`
 
 If a bundle is skipped, the PR must include an explicit blocker reason and follow-up verification plan.
+
+Reviewers may also request a single standalone script (without a bundle) when debugging one failure mode, but merge evidence should still reference the smallest relevant bundle.
