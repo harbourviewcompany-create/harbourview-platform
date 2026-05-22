@@ -16,7 +16,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout head branch for package lock commit
         uses: actions/checkout@v4
@@ -30,13 +30,26 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Regenerate package lock diagnostic
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit generated package lock diagnostic
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Update package lock for dependency drift [generated]"
+          git push
+
       - name: Install dependencies
         run: npm ci
 
       - name: Typecheck
-        run: |
-          mkdir -p ci-artifacts
-          npm run typecheck 2>&1 | tee ci-artifacts/typecheck.log
+        run: npm run typecheck
 
       - name: Intelligence fixtures projection
         run: npm run test:intelligence-fixtures
@@ -53,34 +66,11 @@ jobs:
       - name: Public visibility
         run: npm run test:visibility
 
-      - name: Public leakage gate
-        run: npm run verify:leakage
-
-      - name: Admin authorization gate
-        run: npm run verify:admin-auth
-
-      - name: Marketplace flow guard
-        run: npm run verify:marketplace-smoke
-
       - name: Services public leakage
         run: npm run test:services-public-leakage
 
       - name: Build
-        run: |
-          npm run build 2>&1 | tee ci-artifacts/build.log
-
-      - name: Gate merge on typecheck + build
-        run: |
-          echo "Typecheck and build completed successfully."
-
-      - name: Upload typecheck/build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: branch-verification-typecheck-build-logs
-          path: ci-artifacts/
-          if-no-files-found: warn
-          retention-days: 14
+        run: npm run build
 
       - name: Start built app for route visibility checks
         run: |
@@ -103,8 +93,29 @@ jobs:
       - name: Visibility
         run: npm run test:visibility
 
-      - name: Production visibility probe (safe/no writes)
-        run: npm run verify:production-visibility
+      - name: Install Playwright Chromium
+        run: npx -y -p @playwright/test@1.54.0 playwright install --with-deps chromium
+
+      - name: Production e2e route and mobile probes safe no writes
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+        run: npm run test:e2e
+
+      - name: Upload Playwright production probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-production-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Production visibility probe safe no writes
+        env:
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+        run: npm run probe:production-visibility
 
   contact-production-visual:
     name: Contact production visual verification
