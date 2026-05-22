@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
-import { resolveCountryMaterialState, resolveCountryStandardMaterialState } from '@/lib/globe/globe-materials'
+import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
 
 const PLATE_LIFT = 0.026

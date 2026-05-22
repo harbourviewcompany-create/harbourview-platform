@@ -87,6 +87,8 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [srAnnouncement, setSrAnnouncement] = useState('')
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)

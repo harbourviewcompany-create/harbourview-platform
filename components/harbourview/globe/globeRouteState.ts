@@ -4,6 +4,7 @@ import { roleProfiles } from '@/config/globe/role-profiles'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import type { IntentId, RoleId } from '@/types/globe-router'
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const marketIsoByKey = {
   germany: 'DE',
   portugal: 'PT',
