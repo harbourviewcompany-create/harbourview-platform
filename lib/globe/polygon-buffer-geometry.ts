@@ -148,9 +148,15 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
 }
 
 function createSurfaceIndices(points: [number, number][]) {
+  if (points.length < 3) return createTopFanIndices(points.length)
   const projected = projectRingToLonLatPlane(points)
   const v2 = projected.map(([x, y]) => ({ x, y }))
-  return ShapeUtils.triangulateShape(v2, []).flatMap((triangle) => [triangle[0], triangle[1], triangle[2]])
+  try {
+    return ShapeUtils.triangulateShape(v2, []).flatMap((triangle) => [triangle[0], triangle[1], triangle[2]])
+  } catch {
+    // Degenerate polygon — fall back to fan triangulation
+    return createTopFanIndices(points.length)
+  }
 }
 
 function createTinyCountryMarker(center: [number, number], radius: number, markerRadius: number) {
@@ -168,6 +174,20 @@ function createTinyCountryMarker(center: [number, number], radius: number, marke
 }
 
 export function createCountryBufferGeometry(
+  country: HarbourviewCountryGeometry,
+  config: Partial<GlobeExtrusionConfig> = {},
+) {
+  try {
+    return _createCountryBufferGeometryInner(country, config)
+  } catch (err) {
+    console.warn(`[globe] geometry failed for ${country?.iso2}:`, err)
+    const fallback = new BufferGeometry()
+    fallback.userData = { iso2: country?.iso2, iso3: country?.iso3, empty: true, error: true }
+    return fallback
+  }
+}
+
+function _createCountryBufferGeometryInner(
   country: HarbourviewCountryGeometry,
   config: Partial<GlobeExtrusionConfig> = {},
 ) {
