@@ -14,6 +14,14 @@ import {
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { GlobeRouterStep } from '@/types/globe-router'
 
+
+export function getFlyToMotionProfile(prefersReducedMotion: boolean) {
+  return {
+    shouldAnimate: !prefersReducedMotion,
+    flyDurationMs: prefersReducedMotion ? 0 : 900,
+  }
+}
+
 function findCountryPose(countryIso2?: string, targetDistanceMax?: number): GlobeCameraPose | null {
   if (!countryIso2) return null
 
@@ -85,6 +93,7 @@ export function CameraFlyToController({
     const currentTarget = controlsRef?.current?.target ?? targetVecRef.current
     fromPoseRef.current = poseFromVectors(camera.position, currentTarget)
     toPoseRef.current = desired
+    const motionProfile = getFlyToMotionProfile(prefersReducedMotionRef.current)
     if (!motionProfile.shouldAnimate) {
       positionVecRef.current.set(desired.position[0], desired.position[1], desired.position[2])
       targetVecRef.current.set(desired.target[0], desired.target[1], desired.target[2])
