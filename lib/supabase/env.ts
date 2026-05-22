@@ -46,7 +46,7 @@ function isExpectedSupabaseUrl(url: string) {
   }
 }
 
-function getHostnameOrNull(url: string) {
+function parseHostnameSafely(url: string) {
   try {
     return new URL(url).hostname
   } catch {
@@ -97,7 +97,11 @@ export function getSupabaseEnvStatus() {
   const hasPublishableKey = Boolean(readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'))
   const normalizedUrl = url ? normalizeUrl(url) : ''
   const resolvedUrl = resolveLockedSupabaseUrl(url)
-  const rawHost = normalizedUrl ? getHostnameOrNull(normalizedUrl) : null
+  let rawHost: string | null = null
+
+  if (normalizedUrl) {
+    rawHost = parseHostnameSafely(normalizedUrl)
+  }
   const resolvedHost = new URL(resolvedUrl).hostname
   const urlUsesExpectedProject = Boolean(rawHost && rawHost === EXPECTED_SUPABASE_HOST)
   const missing = [
