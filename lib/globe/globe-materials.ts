@@ -59,10 +59,11 @@ export function resolveCountryMaterialState({
     case 'focused':
       return {
         ...base,
-        plateBase: '#0d2a42',
-        emissive: hvTokens.globe.borderMutedGold,
-        emissiveIntensity: 0.42,
-        roughness: 0.58,
+        plateBase: '#d4b870',
+        emissive: hvTokens.globe.selectedAccent,
+        emissiveIntensity: 0.55,
+        roughness: 0.32,
+        metalness: 0.72,
       }
     case 'selected':
       return {
@@ -103,6 +104,6 @@ export function resolveCountryStandardMaterialState(state: GlobeMaterialState): 
     emissive: state.emissive,
     emissiveIntensity: state.emissiveIntensity,
     roughness: state.roughness,
-    metalness: Math.min(state.metalness, 0.45),
+    metalness: state.metalness,
   }
 }
