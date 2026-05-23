@@ -73,11 +73,12 @@ export function GlobeCanvas({
         }}
       >
         <color attach="background" args={['#01050d']} />
-        <ambientLight intensity={0.38} color="#b8d6ff" />
-        <directionalLight position={[4, 3, 5]} intensity={1.1} color="#fff6df" />
+        <ambientLight intensity={0.16} color="#ffe8c0" />
+        <directionalLight position={[4, 3, 5]} intensity={1.8} color="#fff8e8" />
+        <directionalLight position={[-3, 1, -4]} intensity={0.55} color="#c8a040" />
 
         <Suspense fallback={null}>
-          <Environment preset="night" />
+          <Environment preset="sunset" />
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />
             <CountryBorderLayer />
