@@ -9,8 +9,8 @@ import { HamburgerIcon } from './icons'
 import { CountryLabel } from './CountryLabel'
 import { CountrySelectionSheet } from './CountrySelectionSheet'
 
-const GlobeCanvas = dynamic(
-  () => import('@/components/globe/r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })),
+const CandidateBGlobe = dynamic(
+  () => import('./CandidateBGlobe').then((m) => ({ default: m.CandidateBGlobe })),
   { ssr: false, loading: () => null },
 )
 
@@ -120,16 +120,9 @@ export function MobileCountrySelection({
             zIndex: 1,
           }}
         >
-          <GlobeCanvas
+          <CandidateBGlobe
             selectedCountryIso2={state.selectedCountryIso2 ?? undefined}
-            selectedCountryIso2s={state.selectedCountryIso2 ? [state.selectedCountryIso2] : []}
-            focusedCountryIso2={undefined}
-            activeLayerId="country_select"
-            routerStep="country"
-            onHoverCountry={() => {}}
-            onSelectCountry={(iso2) => {
-              dispatch({ type: 'SELECT_COUNTRY', iso2 })
-            }}
+            onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
           />
         </div>
       )}
