@@ -25,6 +25,31 @@
   --hv-gold: #C6A55A;
   --hv-dark-gold: #A8842D;
   --hv-offwhite: #F5F1E8;
+/* Candidate B country-selection tokens */
+  --hv-bg-950: #03070D;
+  --hv-bg-900: #06101B;
+  --hv-bg-850: #091724;
+  --hv-navy-800: #0C1B2A;
+  --hv-navy-700: #102235;
+  --hv-panel: rgba(6, 15, 25, 0.84);
+  --hv-panel-strong: rgba(7, 17, 28, 0.92);
+  --hv-panel-border: rgba(205, 218, 232, 0.16);
+  --hv-panel-border-warm: rgba(214, 177, 105, 0.22);
+  --hv-text-primary: #F3F0EA;
+  --hv-text-secondary: rgba(243, 240, 234, 0.72);
+  --hv-text-muted: rgba(243, 240, 234, 0.48);
+  --hv-champagne-300: #F0D39A;
+  --hv-champagne-400: #D8AD63;
+  --hv-champagne-500: #BF8E44;
+  --hv-champagne-muted: #B99157;
+  --hv-globe-ocean: #061525;
+  --hv-globe-land: #182735;
+  --hv-globe-land-soft: #223241;
+  --hv-globe-border: rgba(214, 177, 105, 0.42);
+  --hv-globe-border-active: rgba(240, 211, 154, 0.82);
+  --hv-globe-selected-fill: rgba(194, 151, 79, 0.28);
+  --hv-globe-selected-edge: rgba(240, 211, 154, 0.9);
+  --hv-focus-ring: rgba(240, 211, 154, 0.45);
 }
 
 @layer components {
