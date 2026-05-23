@@ -11,8 +11,8 @@ export const hvTokens = {
   globe: {
     oceanBase: '#07121f',
     oceanEmissive: '#10253c',
-    plateBase: '#071a2c',
-    plateSelected: '#123049',
+    plateBase: '#8a6e28',
+    plateSelected: '#6b520f',
     borderMutedGold: '#c6a55a',
     borderMutedGoldSoft: '#bfa36a',
     sidewallDark: '#101722',
