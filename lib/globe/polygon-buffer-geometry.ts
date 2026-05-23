@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, ShapeUtils } from 'three'
+import { BufferAttribute, BufferGeometry, ShapeUtils, Vector2 } from 'three'
 import type { HarbourviewCountryGeometry } from './geojson-country-types'
 
 export interface GlobeExtrusionConfig {
@@ -90,7 +90,7 @@ function createTopFaceWithHoles(
   // Project to a tangent plane centred on the polygon's mean longitude
   // to avoid anti-meridian distortion and make the 2-D coords sensible for earcut.
   const meanLon = outer.reduce((sum, [lon]) => sum + lon, 0) / outer.length
-  const toV2 = ([lon, lat]: [number, number]) => ({ x: lon - meanLon, y: lat })
+  const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
