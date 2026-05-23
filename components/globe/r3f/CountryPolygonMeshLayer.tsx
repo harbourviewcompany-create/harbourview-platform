@@ -30,7 +30,7 @@ export function CountryPolygonMeshLayer({
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
-  const hasCustomShaderPath = false
+  const hasCustomShaderPath = true
 
   const idleGeometries = useMemo(
     () =>
