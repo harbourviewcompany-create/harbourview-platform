@@ -27,8 +27,9 @@ export function OceanSphere() {
           color={OCEAN_BASE}
           emissive={OCEAN_EMISSIVE}
           emissiveIntensity={0.18}
-          roughness={0.66}
-          metalness={0.44}
+          roughness={0.88}
+          metalness={0.06}
+          envMapIntensity={0}
         />
       )}
     </Sphere>
