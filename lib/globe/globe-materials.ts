@@ -35,12 +35,12 @@ export function resolveCountryMaterialState({
     oceanBase: hvTokens.globe.oceanBase,
     plateBase: hvTokens.globe.plateBase,
     borderColor: hvTokens.globe.borderMutedGold,
-    emissive: '#0f2942',
-    emissiveIntensity: 0.16,
-    roughness: 0.72,
-    metalness: 0.34,
-    clearcoat: 0.28,
-    clearcoatRoughness: 0.34,
+    emissive: '#3d2508',
+    emissiveIntensity: 0.28,
+    roughness: 0.26,
+    metalness: 0.82,
+    clearcoat: 0.44,
+    clearcoatRoughness: 0.24,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
