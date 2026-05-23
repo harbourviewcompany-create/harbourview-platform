@@ -251,7 +251,18 @@ function _createCountryBufferGeometryInner(
 
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
   geometry.setIndex(allIndices)
-  geometry.computeVertexNormals()
+  // Sphere-surface geometry: correct normal = normalised position (always radially outward).
+  // computeVertexNormals() produces artefacts where triangle winding varies; this is exact.
+  const posAttr = geometry.getAttribute('position') as BufferAttribute
+  const normalData = new Float32Array(posAttr.count * 3)
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i), y = posAttr.getY(i), z = posAttr.getZ(i)
+    const invLen = 1 / Math.sqrt(x * x + y * y + z * z)
+    normalData[i * 3] = x * invLen
+    normalData[i * 3 + 1] = y * invLen
+    normalData[i * 3 + 2] = z * invLen
+  }
+  geometry.setAttribute('normal', new BufferAttribute(normalData, 3))
   geometry.computeBoundingSphere()
 
   geometry.userData = {
