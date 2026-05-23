@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useReducer, useRef, useState } from 'react'
+import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { getCountryName } from '@/config/globe/country-role-profiles'
 import { HarbourviewWordmark } from './HarbourviewWordmark'
@@ -169,7 +170,7 @@ export function MobileCountrySelection({
           pointerEvents: 'none',
         }}
       >
-        <a
+        <Link
           href="/"
           style={{
             fontSize: 19,
@@ -179,7 +180,7 @@ export function MobileCountrySelection({
           }}
         >
           <HarbourviewWordmark />
-        </a>
+        </Link>
 
         <button
           type="button"
