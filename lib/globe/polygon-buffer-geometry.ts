@@ -27,14 +27,9 @@ function pointsEqual(first: [number, number], second: [number, number]) {
 
 function removeClosingDuplicate(points: [number, number][]) {
   if (points.length < 2) return points
-
   const first = points[0]
   const last = points[points.length - 1]
-
-  if (pointsEqual(first, last)) {
-    return points.slice(0, -1)
-  }
-
+  if (pointsEqual(first, last)) return points.slice(0, -1)
   return points
 }
 
@@ -57,24 +52,9 @@ function ringArea2D(points: [number, number][]) {
 }
 
 function calculatePlanarArea(points: [number, number][]) {
-  let area = 0
-  for (let index = 0; index < points.length; index += 1) {
-    const [x1, y1] = points[index]
-    const [x2, y2] = points[(index + 1) % points.length]
-    area += x1 * y2 - x2 * y1
-  }
-  return Math.abs(area) / 2
+  return Math.abs(ringArea2D(points))
 }
 
-function projectRingToLonLatPlane(points: [number, number][]) {
-  const meanLon = points.reduce((sum, [lon]) => sum + lon, 0) / points.length
-  return points.map(([lon, lat]) => [lon - meanLon, lat] as [number, number])
-}
-
-/**
- * Project a 2D lon/lat ring onto a sphere of the given radius.
- * Returns a flat Float32Array-compatible number[] with x,y,z per vertex.
- */
 function projectRingVertices(points: [number, number][], radius: number): number[] {
   const result: number[] = []
   for (const [lon, lat] of points) {
@@ -91,30 +71,65 @@ function projectRingVertices(points: [number, number][], radius: number): number
 
 function createTopFanIndices(vertexCount: number) {
   const indices: number[] = []
-
   for (let index = 1; index < vertexCount - 1; index += 1) {
     indices.push(0, index, index + 1)
   }
-
   return indices
 }
 
 /**
- * Generate wall (side face) indices for an extruded polygon.
- * Top vertices occupy indices 0..vertexCount-1,
- * Bottom vertices occupy indices vertexCount..2*vertexCount-1.
+ * Triangulate the top face of a polygon with optional holes.
+ * Returns positions (flat x,y,z for [outer..., ...holes flattened]) and indices.
+ * Uses ShapeUtils.triangulateShape (earcut) for correct non-convex + hole support.
  */
-function createWallIndices(vertexCount: number): number[] {
+function createTopFaceWithHoles(
+  outer: [number, number][],
+  holes: [number, number][][],
+  radius: number,
+): { positions: number[]; indices: number[] } {
+  // Project to a tangent plane centred on the polygon's mean longitude
+  // to avoid anti-meridian distortion and make the 2-D coords sensible for earcut.
+  const meanLon = outer.reduce((sum, [lon]) => sum + lon, 0) / outer.length
+  const toV2 = ([lon, lat]: [number, number]) => ({ x: lon - meanLon, y: lat })
+
+  const v2Outer = outer.map(toV2)
+  const v2Holes = holes.map((h) => h.map(toV2))
+
+  // Vertex layout expected by triangulateShape:
+  //   [outer[0], outer[1], ..., hole0[0], hole0[1], ..., hole1[0], ...]
+  const allPoints: [number, number][] = [...outer, ...holes.flat()]
+  const positions = projectRingVertices(allPoints, radius)
+
+  let indices: number[]
+  try {
+    const triangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
+    indices = triangles.flatMap((t) => [t[0], t[1], t[2]])
+  } catch {
+    // Degenerate polygon — earcut failed, fall back to fan (no holes)
+    indices = createTopFanIndices(outer.length)
+  }
+
+  return { positions, indices }
+}
+
+/**
+ * Generate wall (side face) indices connecting top outer ring to bottom outer ring.
+ * Top vertices: indices 0 .. outerCount-1 (within the top-face position block)
+ * Bottom vertices: immediately after top-face block.
+ */
+function createWallIndices(
+  outerCount: number,
+  topBase: number,
+  bottomBase: number,
+): number[] {
   const indices: number[] = []
-  for (let i = 0; i < vertexCount; i += 1) {
-    const next = (i + 1) % vertexCount
-    const top0 = i
-    const top1 = next
-    const bot0 = vertexCount + i
-    const bot1 = vertexCount + next
-    // Two triangles per quad
-    indices.push(top0, bot0, top1)
-    indices.push(top1, bot0, bot1)
+  for (let i = 0; i < outerCount; i += 1) {
+    const next = (i + 1) % outerCount
+    const t0 = topBase + i
+    const t1 = topBase + next
+    const b0 = bottomBase + i
+    const b1 = bottomBase + next
+    indices.push(t0, b0, t1, t1, b0, b1)
   }
   return indices
 }
@@ -147,18 +162,6 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
     .filter((polygon): polygon is NormalizedPolygon => polygon !== null)
 }
 
-function createSurfaceIndices(points: [number, number][]) {
-  if (points.length < 3) return createTopFanIndices(points.length)
-  const projected = projectRingToLonLatPlane(points)
-  const v2 = projected.map(([x, y]) => ({ x, y }))
-  try {
-    return ShapeUtils.triangulateShape(v2, []).flatMap((triangle) => [triangle[0], triangle[1], triangle[2]])
-  } catch {
-    // Degenerate polygon — fall back to fan triangulation
-    return createTopFanIndices(points.length)
-  }
-}
-
 function createTinyCountryMarker(center: [number, number], radius: number, markerRadius: number) {
   const [lon, lat] = center
   const ring: [number, number][] = []
@@ -166,9 +169,7 @@ function createTinyCountryMarker(center: [number, number], radius: number, marke
   const angularScale = markerRadius * 57.2958
   for (let degree = 0; degree < 360; degree += radialStep) {
     const rad = (degree * Math.PI) / 180
-    const dLon = Math.cos(rad) * angularScale
-    const dLat = Math.sin(rad) * angularScale
-    ring.push([lon + dLon, lat + dLat])
+    ring.push([lon + Math.cos(rad) * angularScale, lat + Math.sin(rad) * angularScale])
   }
   return projectRingVertices(ring, radius)
 }
@@ -191,10 +192,7 @@ function _createCountryBufferGeometryInner(
   country: HarbourviewCountryGeometry,
   config: Partial<GlobeExtrusionConfig> = {},
 ) {
-  const mergedConfig = {
-    ...DEFAULT_CONFIG,
-    ...config,
-  }
+  const mergedConfig = { ...DEFAULT_CONFIG, ...config }
 
   const geometry = new BufferGeometry()
   const polygons = normalizePolygonTopology(country)
@@ -213,33 +211,42 @@ function _createCountryBufferGeometryInner(
   let vertexOffset = 0
 
   for (const polygon of polygons) {
-    const points = polygon.outer
-    const areaDeg2 = calculatePlanarArea(points)
+    const { outer, holes } = polygon
+
+    const areaDeg2 = calculatePlanarArea(outer)
     const isTinyCountry =
-      mergedConfig.tinyCountryIso2.includes(country.iso2) || areaDeg2 < mergedConfig.minimumAreaDeg2
+      mergedConfig.tinyCountryIso2.includes(country.iso2) ||
+      areaDeg2 < mergedConfig.minimumAreaDeg2
 
-    const topVertices = isTinyCountry
-      ? createTinyCountryMarker(country.centroid, topRadius, mergedConfig.tinyMarkerRadius)
-      : projectRingVertices(points, topRadius)
-    const vertexCount = topVertices.length / 3
-
-    let polyIndices: number[]
-    let polyPositions: number[]
-
-    if (useSurfaceMode) {
-      polyIndices = isTinyCountry ? createTopFanIndices(vertexCount) : createSurfaceIndices(points)
-      polyPositions = topVertices
-    } else {
-      const bottomVertices = isTinyCountry
-        ? createTinyCountryMarker(country.centroid, bottomRadius, mergedConfig.tinyMarkerRadius)
-        : projectRingVertices(points, bottomRadius)
-      polyIndices = [...createTopFanIndices(vertexCount), ...createWallIndices(vertexCount)]
-      polyPositions = [...topVertices, ...bottomVertices]
+    if (isTinyCountry) {
+      // Tiny countries: simple marker dot, no holes, no walls
+      const markerVerts = createTinyCountryMarker(country.centroid, topRadius, mergedConfig.tinyMarkerRadius)
+      const markerCount = markerVerts.length / 3
+      allPositions.push(...markerVerts)
+      allIndices.push(...createTopFanIndices(markerCount).map((i) => i + vertexOffset))
+      vertexOffset += markerCount
+      continue
     }
 
-    allPositions.push(...polyPositions)
-    allIndices.push(...polyIndices.map((idx) => idx + vertexOffset))
-    vertexOffset += polyPositions.length / 3
+    // --- Top face (with holes properly triangulated) ---
+    const topFace = createTopFaceWithHoles(outer, holes, topRadius)
+    const topFaceBase = vertexOffset
+
+    allPositions.push(...topFace.positions)
+    allIndices.push(...topFace.indices.map((i) => i + topFaceBase))
+    vertexOffset += topFace.positions.length / 3
+
+    if (!useSurfaceMode) {
+      // --- Bottom outer ring (no holes needed — ocean sphere fills the base) ---
+      const outerCount = outer.length
+      const bottomVerts = projectRingVertices(outer, bottomRadius)
+      const bottomBase = vertexOffset
+
+      allPositions.push(...bottomVerts)
+      // Walls: connect outer top ring (first outerCount verts of topFace) to outer bottom ring
+      allIndices.push(...createWallIndices(outerCount, topFaceBase, bottomBase))
+      vertexOffset += outerCount
+    }
   }
 
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
@@ -262,11 +269,10 @@ function _createCountryBufferGeometryInner(
 
 export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry) {
   const polygons = normalizePolygonTopology(country)
-
   return polygons.reduce((sum, polygon) => {
     const ringVertexCount = [polygon.outer, ...polygon.holes].reduce((rSum, ring) => rSum + ring.length, 0)
     const topTriangles = Math.max(0, ringVertexCount - 2 + polygon.holes.length * 2)
-    const wallTriangles = ringVertexCount * 2
+    const wallTriangles = polygon.outer.length * 2
     return sum + topTriangles + wallTriangles
   }, 0)
 }
