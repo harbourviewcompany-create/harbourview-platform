@@ -117,12 +117,12 @@ export function CountryPolygonMeshLayer({
               <meshPhysicalMaterial
                 color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
                 emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
-                emissiveIntensity={visualState === 'selected' ? 0.28 : material.emissiveIntensity}
+                emissiveIntensity={material.emissiveIntensity}
                 roughness={material.roughness}
                 metalness={material.metalness}
                 side={DoubleSide}
-                clearcoat={visualState === 'selected' ? 0.42 : 0.22}
-                clearcoatRoughness={0.58}
+                clearcoat={material.clearcoat}
+                clearcoatRoughness={material.clearcoatRoughness}
                 reflectivity={SPECULAR_CAP}
               />
             ) : (
