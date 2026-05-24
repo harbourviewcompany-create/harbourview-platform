@@ -2,7 +2,7 @@ import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countri
 
 export const GLOBE_RADIUS = 2.35
 export const COUNTRY_PLATE_OFFSET = 0.026
-export const BORDER_OFFSET = 0.036
+export const BORDER_OFFSET = 0.092
 export const SELECTED_PLATE_OFFSET = 0.052
 
 export interface GlobeVector3 {
