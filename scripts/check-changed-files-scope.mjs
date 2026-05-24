@@ -25,6 +25,7 @@ const allowedByProfile = {
     'docs/control/VERIFICATION_PLAN.md',
     'scripts/check-no-secret-strings.mjs',
     'scripts/check-changed-files-scope.mjs',
+    'scripts/test-business-opportunities-public-leakage.mjs',
     '.github/workflows/low-friction-branch-verification.yml',
     '.github/workflows/preview-verification.yml',
     '.github/workflows/protected-production-smoke.yml',
