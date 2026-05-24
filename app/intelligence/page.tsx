@@ -1,11 +1,10 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
 import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 import { CountryIntelligenceMap } from '@/components/intelligence/CountryIntelligenceMap'
 import { getCountriesAsMapRecords } from '@/lib/server/countriesQuery'
-import { countryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
+import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 
 export const metadata: Metadata = {
   title: 'Cannabis Market Intelligence — Country Pathways & Regulatory Signals',
@@ -48,7 +47,8 @@ export default async function IntelligencePage() {
     getPublicRegulatorySignals(),
   ])
 
-  const countries = mapRecords.length > 0 ? mapRecords : countryIntelligenceFixtures
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const countries: any[] = mapRecords.length > 0 ? mapRecords : publicCountryIntelligenceFixtures
 
   return (
     <main className="bg-[#020814] text-white">
@@ -85,7 +85,7 @@ export default async function IntelligencePage() {
 
       {signals.length > 0 && (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow="Recent signals" title="Policy and regulatory signals — what's moving and where.">
+          <SectionHeader eyebrow="Recent signals" title="Policy and regulatory signals — what&apos;s moving and where.">
             Public-safe summaries of recent regulatory and market developments across priority jurisdictions.
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -118,10 +118,12 @@ export default async function IntelligencePage() {
       </PublicSection>
 
       <FooterCta
-        title="Need to know if a market is worth pursuing before committing resources?"
-        body="Harbourview can review route viability, assess counterparty fit, and map country-specific access constraints before you commit to outreach, listing, or engagement."
+        eyebrow="Intelligence access"
+        title="Need to know if a market is worth pursuing?"
         actions={[{ label: 'Request a country brief', href: '/contact' }]}
-      />
+      >
+        Harbourview reviews route viability, counterparty fit and country-specific access constraints before you commit to outreach, listing or engagement.
+      </FooterCta>
     </main>
   )
 }
