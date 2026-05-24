@@ -102,8 +102,23 @@ function createTopFaceWithHoles(
 
   let indices: number[]
   try {
-    const triangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
-    indices = triangles.flatMap((t) => [t[0], t[1], t[2]])
+    const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
+    // Filter oversized bridge triangles: earcut creates spanning triangles across
+    // large concavities (e.g. Hudson Bay in Canada, Arctic coast in Russia).
+    // Triangles with area > 4× the polygon average are artifacts — remove them.
+    if (rawTriangles.length > 0) {
+      const totalArea = Math.abs(ringArea2D(outer))
+      const maxAllowed = (totalArea / rawTriangles.length) * 4
+      const filtered = rawTriangles.filter(([i, j, k]) => {
+        const ax = v2Outer[i].x, ay = v2Outer[i].y
+        const bx = v2Outer[j].x, by = v2Outer[j].y
+        const cx = v2Outer[k].x, cy = v2Outer[k].y
+        return Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2 <= maxAllowed
+      })
+      indices = filtered.flatMap((t) => [t[0], t[1], t[2]])
+    } else {
+      indices = []
+    }
   } catch {
     // Degenerate polygon — earcut failed, fall back to fan (no holes)
     indices = createTopFanIndices(outer.length)
