@@ -22,7 +22,7 @@ export type InstitutionalPageContent = {
 }
 
 export const PUBLIC_PRIVATE_BOUNDARY =
-  'Harbourview is intentionally not an open-contact directory. Public pages support discovery and context. Sensitive commercial, regulatory, documentary and counterparty information is handled through reviewed private workflows.'
+  'Public pages give you enough to orient and decide. Sensitive commercial detail, counterparty information, and reviewed introductions move through controlled private workflows — not open directories.'
 
 export const EDUCATION_DISCLAIMER =
   'Harbourview education is informational and non-promotional. It does not provide medical advice, prescribing instructions or treatment recommendations. Unless expressly stated, Harbourview education is not accredited continuing education.'
@@ -36,7 +36,7 @@ export const ASSESSMENT_DISCLAIMER =
 export const intelligenceModules: ModuleItem[] = [
   {
     title: 'Country Briefs',
-    description: 'High-level country context for access models, commercial maturity, pathway considerations and reviewed opportunity categories.',
+    description: 'Jurisdiction-level pathway orientation covering access models, commercial maturity, licensing structure and reviewed opportunity categories.',
     href: '/intelligence/country-briefs',
   },
   {
@@ -103,8 +103,8 @@ export const trustModules: ModuleItem[] = [
 ]
 
 const exchangeModules: ModuleItem[] = [
-  { title: 'Compliant Supply', description: 'Public-safe category orientation for reviewed supply inquiries and qualified routing.', href: '/marketplace/listings' },
-  { title: 'Wanted Requests', description: 'Buyer and operator demand collection routed through Harbourview review.', href: '/marketplace/wanted' },
+  { title: 'Compliant Supply', description: 'Licensed cannabis inventory — supply submissions and buyer routing handled through reviewed private workflows.', href: '/marketplace/listings' },
+  { title: 'Wanted Requests', description: 'Post what you need. Harbourview routes qualified seller responses through a reviewed workflow.', href: '/marketplace/wanted' },
   { title: 'Export-Ready Products', description: 'Seller and exporter orientation before documentation and route review.', href: '/marketplace/sell' },
   { title: 'Equipment & Infrastructure', description: 'Cultivation, processing, post-harvest, facility and automation equipment categories.', href: '/marketplace/services' },
   { title: 'Consumables & Operating Supplies', description: 'Packaging, lab, cultivation, logistics and operating supply categories.', href: '/marketplace/consumables' },
@@ -125,50 +125,50 @@ const professionalModules: ModuleItem[] = [
 
 export const hubPages: Record<string, InstitutionalPageContent> = {
   platform: {
-    eyebrow: 'Full-platform map',
-    title: 'Harbourview Platform',
+    eyebrow: 'Platform map',
+    title: 'The Harbourview Platform — how everything connects.',
     description:
-      'The public map for Harbourview as a global cannabis-industry connector spanning network access, exchange categories, intelligence, source methodology, markets, education, professionals, governance and reviewed connections.',
-    primaryCta: { label: 'Enter Exchange', href: '/marketplace' },
-    secondaryCta: { label: 'Speak Confidentially', href: '/intake' },
+      'Nine interconnected pillars covering every dimension of serious regulated cannabis commercial engagement — from country intelligence and reviewed marketplace listings to professional pathways and controlled introductions.',
+    primaryCta: { label: 'Browse the marketplace', href: '/marketplace' },
+    secondaryCta: { label: 'Start a confidential conversation', href: '/intake' },
     boundary: PUBLIC_PRIVATE_BOUNDARY,
     sections: [
       {
-        title: 'Platform pillars',
+        title: 'What each section does',
         description: 'Each pillar is public-safe and routes toward reviewed workflows where sensitive detail is involved.',
         items: [
-          { title: 'Network', description: 'Participant graph and role-router entry points for the cannabis industry and adjacent stakeholders.', href: '/network' },
-          { title: 'Exchange', description: 'Supply, demand, services, equipment, distressed assets and business opportunities.', href: '/marketplace' },
-          { title: 'Intelligence', description: 'Market, pathway, company, policy, category, source and timing context.', href: '/intelligence' },
-          { title: 'Source Methodology', description: 'Public explanation of source discipline, review standards and evidence boundaries.', href: '/source-methodology' },
-          { title: 'Markets', description: 'Jurisdiction orientation, import/export pathways and market brief routing.', href: '/markets' },
-          { title: 'Education', description: 'Compliance, pharmaceutical, clinical, pharmacy, cultivation, processing, GMP, law, policy and history.', href: '/education' },
-          { title: 'Professionals', description: 'Professional-role entry points for clinicians, pharmacists, lawyers, regulators, QA teams, investors and institutions.', href: '/professionals' },
-          { title: 'Trust & Governance', description: 'Verification, confidentiality, correction, marketplace rules and public/private boundary standards.', href: '/trust-governance' },
-          { title: 'Reviewed Connections', description: 'Qualified introductions, exporter/importer review, equipment sourcing, asset access and protected dealroom orientation.', href: '/reviewed-connections' },
+          { title: 'Network', description: 'Role-specific entry points for every type of serious participant — operators, buyers, exporters, importers, professionals and institutions.', href: '/network' },
+          { title: 'Exchange', description: 'A controlled commercial exchange for reviewed listings, wanted requests, surplus equipment, services and market-specific opportunities.', href: '/marketplace' },
+          { title: 'Intelligence', description: 'Reviewed regional intelligence covering country pathway status, regulatory signals and commercial timing context across global markets.', href: '/intelligence' },
+          { title: 'Source Methodology', description: 'How Harbourview intelligence is sourced, reviewed, and bounded — public transparency on evidence discipline.', href: '/source-methodology' },
+          { title: 'Markets', description: 'Country-level orientation for import and export pathways, access models, and jurisdiction-specific commercial context.', href: '/markets' },
+          { title: 'Education', description: 'Structured education for cannabis industry professionals — GMP, clinical access, pharmacy, compliance, cultivation and regulatory frameworks.', href: '/education' },
+          { title: 'Professionals', description: 'Dedicated pathways for clinicians, pharmacists, regulatory professionals, compliance teams, investors and institutional participants.', href: '/professionals' },
+          { title: 'Trust & Governance', description: 'How verification, confidentiality, and marketplace conduct standards are maintained across Harbourview.', href: '/trust-governance' },
+          { title: 'Reviewed Connections', description: 'Reviewed introductions for qualified counterparties — exporters, importers, equipment buyers and strategic partners, handled privately.', href: '/reviewed-connections' },
         ],
       },
     ],
   },
   network: {
     eyebrow: 'Controlled commercial network',
-    title: 'Harbourview Network',
+    title: 'Find your role. We\'ll route the rest.',
     description:
-      'Role-specific discovery for regulated cannabis operators, buyers, sellers, exporters, importers, distributors, professionals, institutions and adjacent stakeholders.',
-    primaryCta: { label: 'Enter Exchange', href: '/marketplace' },
-    secondaryCta: { label: 'Join Network', href: '/intake' },
+      'Harbourview Network routes different types of serious participants to the commercial pathways, intelligence, and connections that are relevant to their role.',
+    primaryCta: { label: 'Browse the marketplace', href: '/marketplace' },
+    secondaryCta: { label: 'Apply for access', href: '/intake' },
     boundary: PUBLIC_PRIVATE_BOUNDARY,
     sections: [
       {
-        title: 'Network role paths',
+        title: 'Entry points by role',
         description: 'Public discovery stays controlled while sensitive routing is handled through reviewed inquiry workflows.',
         items: [
-          { title: 'Operators & Cultivators', description: 'Equipment, services, compliance, education and reviewed commercial connection paths.', href: '/marketplace/services' },
-          { title: 'Buyers & Procurement Teams', description: 'Supply discovery, wanted requests and qualified seller routing.', href: '/marketplace/wanted' },
-          { title: 'Sellers & Exporters', description: 'Submission, export readiness and importer/distributor matching paths.', href: '/marketplace/sell' },
-          { title: 'Importers & Distributors', description: 'Market pathway, supply matching and counterparty review paths.', href: '/markets' },
-          { title: 'Professionals & Institutions', description: 'Clinical, pharmacy, legal, compliance, regulator, research and association paths.', href: '/professionals' },
-          { title: 'Investors & Acquirers', description: 'Distressed asset, business opportunity and diligence-readiness routes.', href: '/marketplace/business-opportunities' },
+          { title: 'Operators & Cultivators', description: 'Access equipment sourcing, compliance education, service providers, and reviewed commercial connection pathways relevant to licensed cannabis operators and cultivators.', href: '/marketplace/services' },
+          { title: 'Buyers & Procurement Teams', description: 'Post what you\'re looking to buy, browse available supply, and receive qualified seller routing through Harbourview review.', href: '/marketplace/wanted' },
+          { title: 'Sellers & Exporters', description: 'Submit available products or supply, assess export readiness, and access importer and distributor matching pathways through reviewed commercial routing.', href: '/marketplace/sell' },
+          { title: 'Importers & Distributors', description: 'Access country pathway context, supply matching, and counterparty review pathways for regulated cannabis importers and licensed distributors.', href: '/markets' },
+          { title: 'Professionals & Institutions', description: 'Dedicated entry points for clinicians, pharmacists, regulatory professionals, compliance teams, industry associations, and research institutions.', href: '/professionals' },
+          { title: 'Investors & Acquirers', description: 'Access distressed asset listings, business opportunity pipelines, and diligence-readiness review pathways for cannabis industry investors and acquirers.', href: '/marketplace/business-opportunities' },
         ],
       },
     ],
@@ -200,7 +200,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     sections: [
       {
         title: 'Opportunity categories',
-        description: 'Public pages can describe opportunity types while sensitive parties, terms and route details remain private.',
+        description: 'Public pages describe opportunity types while sensitive parties, terms and route details remain private.',
         items: [
           { title: 'Country Access', description: 'Potential market-entry openings and country-specific access pathways requiring review.', href: '/markets' },
           { title: 'Distribution Mandates', description: 'Reviewed distributor, importer and commercial channel opportunities.', href: '/marketplace/business-opportunities' },
@@ -215,7 +215,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     title: 'Intelligence',
     description:
       'Reviewed country, licensing, regulatory, category, counterparty and trade-route context for disciplined market access.',
-    primaryCta: { label: 'Request Intelligence Brief', href: '/contact' },
+    primaryCta: { label: 'Request a country brief', href: '/contact' },
     secondaryCta: { label: 'Explore Country Briefs', href: '/intelligence/country-briefs' },
     boundary: 'Public intelligence is high-level and reviewed as available. Harbourview does not publish sensitive source materials, private counterparty details or confidential commercial route information publicly.',
     sections: [
@@ -231,7 +231,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     title: 'Source Methodology',
     description:
       'Public-safe explanation of Harbourview source classes, review discipline, confidence language, local-language monitoring, correction handling and private evidence boundaries.',
-    primaryCta: { label: 'Request Intelligence Brief', href: '/contact' },
+    primaryCta: { label: 'Request a country brief', href: '/contact' },
     secondaryCta: { label: 'Review Intelligence', href: '/intelligence' },
     boundary: 'Source methodology pages explain process only. Raw source captures, internal evidence records, analyst notes, counterparty intelligence and route-sensitive material are not public content.',
     sections: [
@@ -250,21 +250,21 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
   },
   markets: {
     eyebrow: 'Jurisdiction hubs',
-    title: 'Markets',
+    title: 'Regulated cannabis markets — country status, pathways, and access conditions.',
     description:
-      'A public-safe orientation layer for country status, import/export pathways, opportunity categories, policy signals and market brief requests.',
-    primaryCta: { label: 'Track a Market', href: '/intelligence/country-briefs' },
-    secondaryCta: { label: 'Request Market Brief', href: '/contact' },
-    boundary: 'Market pages are orientation and request-routing surfaces. They do not confirm licensing, import eligibility, transaction clearance or legal/regulatory outcomes.',
+      'Country-level orientation for import and export pathways, access model status, opportunity categories and regulatory signals across global regulated cannabis markets. Market pages provide public-safe context only — detailed country briefs and route reviews are available through controlled requests.',
+    primaryCta: { label: 'Request a country brief', href: '/contact' },
+    secondaryCta: { label: 'Track a Market', href: '/intelligence/country-briefs' },
+    boundary: 'Market pages provide orientation context only. They do not confirm licensing eligibility, import clearance, transaction terms, or legal/regulatory outcomes. Detailed country reviews and route assessments are handled through controlled private requests.',
     sections: [
       {
         title: 'Market orientation surfaces',
-        description: 'Country and region depth will expand through intelligence implementation tickets after this public IA spine exists.',
+        description: 'Each surface routes toward reviewed workflows for deeper country, route and commercial context.',
         items: [
-          { title: 'Country Status', description: 'Public-safe market status, maturity and access-model orientation.', href: '/intelligence/country-briefs' },
-          { title: 'Import & Export Pathways', description: 'High-level pathway orientation before qualified legal and regulatory review.', href: '/compliance' },
-          { title: 'Opportunity Categories', description: 'Supply, demand, services, equipment, distressed assets and business opportunities by market context.', href: '/marketplace' },
-          { title: 'Signals', description: 'Policy, regulatory, commercial and timing movement surfaced without private evidence exposure.', href: '/signals' },
+          { title: 'Country Status', description: 'Country access model, regulatory maturity, and pathway status. Understand where a market sits before committing to entry.', href: '/intelligence/country-briefs' },
+          { title: 'Import & Export Pathways', description: 'High-level import and export pathway context — authorization frameworks, GMP requirements, permit pathways and cross-border controls.', href: '/compliance' },
+          { title: 'Opportunity Categories', description: 'Active opportunity categories by market — supply, demand, distribution mandates, service needs and equipment requirements filtered by jurisdiction.', href: '/marketplace' },
+          { title: 'Signals', description: 'Policy and regulatory change monitoring for cannabis markets — licensing, prescription access, enforcement, and trade rule updates.', href: '/signals' },
         ],
       },
     ],
@@ -290,7 +290,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     title: 'Professionals',
     description:
       'Role-specific public entry points for doctors, clinicians, pharmacists, lawyers, compliance advisors, QA and GMP professionals, researchers, policymakers, regulators, educators, advocates, investors and associations.',
-    primaryCta: { label: 'Join Professional Network', href: '/intake' },
+    primaryCta: { label: 'Apply for access', href: '/intake' },
     secondaryCta: { label: 'Explore Education', href: '/education' },
     boundary: 'Professional pages provide routing and education context only. They do not provide medical, legal, investment, regulatory or compliance advice.',
     sections: [
@@ -463,7 +463,7 @@ export const footerGroups = [
     links: [
       { label: 'About', href: '/about' },
       { label: 'Contact', href: '/contact' },
-      { label: 'Request Access', href: '/contact' },
+      { label: 'Start a confidential conversation', href: '/contact' },
       { label: 'Privacy', href: '/legal/privacy' },
       { label: 'Terms', href: '/legal/terms' },
     ],
