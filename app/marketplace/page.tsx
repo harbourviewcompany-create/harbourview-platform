@@ -11,7 +11,7 @@ import { marketplaceCategoryCapabilityMap } from '@/lib/marketplace/categoryCapa
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
 
 export const metadata: Metadata = {
-  title: 'Network | Harbourview',
+  title: 'Exchange | Harbourview',
   description:
     'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   openGraph: {
@@ -44,7 +44,7 @@ export default function MarketplacePage() {
   return (
     <>
       <PublicHero
-        eyebrow="Harbourview Network"
+        eyebrow="Harbourview Exchange"
         title="Controlled commercial access for reviewed opportunities and requests."
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
