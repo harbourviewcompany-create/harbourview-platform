@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
@@ -106,9 +105,10 @@ export default async function IntelligencePage() {
 
       <FooterCta
         title="Need jurisdiction-specific intelligence?"
-        body="Submit a private request. Harbourview reviews context before responding with any market, counterparty or route intelligence."
         actions={[{ label: 'Request Intelligence Review', href: '/contact' }]}
-      />
+      >
+        Submit a private request. Harbourview reviews context before responding with any market, counterparty or route intelligence.
+      </FooterCta>
     </main>
   )
 }
