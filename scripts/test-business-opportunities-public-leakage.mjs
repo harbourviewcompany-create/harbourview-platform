@@ -24,9 +24,19 @@ const forbiddenStrings = [
   'availabilityStatus',
   'sellerAuthorizationStatus',
   'internalReviewNotes',
+  'internal_notes',
+  'internal notes',
+  'contactEmail',
+  'licenceEvidence',
+  'licenseEvidence',
+  'diligenceStatus',
+  'source registry',
+  'source snapshots',
   'reviewedBy',
   'lastReviewedAt',
   'nextReviewDueAt',
+  'raw_scraped_text',
+  'raw scraped text',
 ]
 
 const failures = []
@@ -54,7 +64,7 @@ if (!existsSync(helperPath)) {
   )
 
   for (const forbidden of forbiddenStrings) {
-    if (helper.includes(forbidden)) {
+    if (helper.toLowerCase().includes(forbidden.toLowerCase())) {
       failures.push(`Public listings helper references forbidden private field/token: ${forbidden}`)
     }
   }
@@ -72,7 +82,7 @@ for (const [pagePath, category, ctaType, emptyState, routeLabel] of pageChecks) 
   requireText(page, emptyState, `${pagePath} is missing expected empty-state copy`)
   requireText(page, '/marketplace/sell', `${pagePath} is missing the submit/sell CTA route`)
   requireText(page, '/intake', `${pagePath} is missing the confidential intake CTA route`)
-  requireText(page, '/marketplace', `${pagePath} is missing the marketplace breadcrumb route`)
+  requireText(page, 'href="/marketplace"', `${pagePath} is missing the marketplace breadcrumb route`)
   requireText(page, '/contact?ref=', `${pagePath} is missing listing-card contact CTA route`)
   requireText(page, `type=${ctaType}`, `${pagePath} listing-card contact CTA has the wrong type query`)
   requireText(page, 'listing.slug ?? listing.id', `${pagePath} listing-card contact CTA must include listing ref`)
@@ -82,7 +92,7 @@ for (const [pagePath, category, ctaType, emptyState, routeLabel] of pageChecks) 
   requireText(page, routeLabel, `${pagePath} is missing expected route label: ${routeLabel}`)
 
   for (const forbidden of forbiddenStrings) {
-    if (page.includes(forbidden)) failures.push(`${pagePath} renders forbidden public leakage token: ${forbidden}`)
+    if (page.toLowerCase().includes(forbidden.toLowerCase())) failures.push(`${pagePath} renders forbidden public leakage token: ${forbidden}`)
   }
 }
 
