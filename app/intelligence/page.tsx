@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { Metadata } from 'next'
 
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
@@ -7,8 +8,20 @@ import { getCountriesAsMapRecords } from '@/lib/server/countriesQuery'
 import { countryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 
 export const metadata: Metadata = {
-  title: 'Intelligence | Harbourview',
-  description: 'Country and regional intelligence for reviewed commercial pathways, opportunity categories and controlled market access requests.',
+  title: 'Cannabis Market Intelligence — Country Pathways & Regulatory Signals',
+  description:
+    'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+  openGraph: {
+    title: 'Cannabis Market Intelligence — Country Pathways & Signals | Harbourview',
+    description:
+      'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Harbourview Intelligence — Cannabis Markets & Pathways',
+    description:
+      'Country-level cannabis market intelligence. Reviewed pathway context for Europe, APAC, Americas, MENA and Africa.',
+  },
 }
 
 const workflowRoutes = [
@@ -41,23 +54,24 @@ export default async function IntelligencePage() {
     <main className="bg-[#020814] text-white">
       <PublicHero
         eyebrow="Harbourview Intelligence"
-        title="Country intelligence without public exposure of sensitive evidence."
+        title="Where is the market today — and what does it take to enter?"
         actions={[
-          { label: 'Request Intelligence Review', href: '/contact' },
-          { label: 'Speak Confidentially', href: '/intake', variant: 'secondary' },
+          { label: 'Request a country brief', href: '/contact' },
+          { label: 'Start confidential intake', href: '/intake', variant: 'secondary' },
         ]}
         aside={
           <PublicCard className="p-6 text-sm leading-7 text-white/62">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
             <p>
-              Public intelligence surfaces orientation material only. Route claims, counterparty details,
-              source evidence and commercial specifics are handled through reviewed private workflows.
+              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, private contacts,
+              and analyst notes are handled through controlled private requests.
             </p>
           </PublicCard>
         }
       >
-        Jurisdiction monitoring, pathway intelligence and regulated market orientation
-        for operators building in controlled cannabis markets globally.
+        Harbourview Intelligence covers country pathway status, regulatory signals, import and export conditions,
+        and commercial timing context across global regulated cannabis markets. Coverage is public-safe and reviewed —
+        it provides commercial orientation, not legal advice or guaranteed access.
       </PublicHero>
 
       {countries.length > 0 && (
@@ -71,7 +85,7 @@ export default async function IntelligencePage() {
 
       {signals.length > 0 && (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow="Recent signals" title="Regulatory signal activity">
+          <SectionHeader eyebrow="Recent signals" title="Policy and regulatory signals — what's moving and where.">
             Public-safe summaries of recent regulatory and market developments across priority jurisdictions.
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -93,7 +107,7 @@ export default async function IntelligencePage() {
       )}
 
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="Intelligence workflows" title="Reviewed access without public exposure.">
+        <SectionHeader eyebrow="How intelligence requests work" title="Reviewed access without public exposure.">
           Intelligence surfaces are designed to support commercial decision-making without publishing sensitive material.
         </SectionHeader>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -104,12 +118,10 @@ export default async function IntelligencePage() {
       </PublicSection>
 
       <FooterCta
-        eyebrow="Intelligence access"
-        title="Need jurisdiction-specific intelligence?"
-        actions={[{ label: 'Request Intelligence Review', href: '/contact' }]}
-      >
-        Submit a private request. Harbourview reviews context before responding with any market, counterparty or route intelligence.
-      </FooterCta>
+        title="Need to know if a market is worth pursuing before committing resources?"
+        body="Harbourview can review route viability, assess counterparty fit, and map country-specific access constraints before you commit to outreach, listing, or engagement."
+        actions={[{ label: 'Request a country brief', href: '/contact' }]}
+      />
     </main>
   )
 }
