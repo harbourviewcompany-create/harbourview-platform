@@ -112,7 +112,9 @@ export default async function IntelligencePage() {
         </SectionHeader>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {workflowRoutes.map((route) => (
-            <PublicLinkCard key={route.href} title={route.title} href={route.href} body={route.body} />
+            <PublicLinkCard key={route.href} title={route.title} href={route.href}>
+              {route.body}
+            </PublicLinkCard>
           ))}
         </div>
       </PublicSection>
