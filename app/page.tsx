@@ -2,13 +2,19 @@ import type { Metadata } from 'next'
 import { GlobeSameScreenRouterLanding } from '@/components/globe/GlobeSameScreenRouterLanding'
 
 export const metadata: Metadata = {
-  title: 'Harbourview | Start by Country',
+  title: 'Regulated Cannabis Market Access, Intelligence & Introductions | Harbourview',
   description:
-    'Start with your country, role and intent. Harbourview routes regulated cannabis market access, intelligence, education and reviewed introductions through a simple country-first interface.',
+    'Harbourview helps serious operators in regulated cannabis markets access reviewed intelligence, qualified counterparties, and country-specific commercial pathways. Start by country.',
   openGraph: {
-    title: 'Harbourview | Start by Country',
+    title: 'Harbourview — Regulated Cannabis Market Access & Intelligence',
     description:
-      'A country-first Harbourview router for regulated cannabis market access, intelligence, education and reviewed introductions.',
+      'Harbourview routes serious operators in regulated cannabis markets to reviewed intelligence, qualified introductions, and country-specific access pathways. Start by country.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Harbourview — Regulated Cannabis Market Access & Intelligence',
+    description:
+      'Country-first market access, reviewed intelligence, and controlled introductions for regulated cannabis operators worldwide.',
   },
 }
 
