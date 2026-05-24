@@ -73,7 +73,8 @@ export function toCountryMapRecord(c: PublicCountry): PublicCountryMapRecord {
     coordinates: c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : undefined,
     reviewStatus: c.data_completeness === 'full' ? 'publicSafeSeed' : 'needsAnalystReview',
     isoAlpha2: c.iso_alpha2,
-  } as PublicCountryMapRecord
+    reviewLabel: c.data_completeness === 'full' ? 'Public-safe seed data' : 'Pending analyst review',
+  } as unknown as PublicCountryMapRecord
 }
 
 export async function getPublicCountries(): Promise<PublicCountry[]> {
