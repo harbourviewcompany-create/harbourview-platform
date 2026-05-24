@@ -33,6 +33,16 @@ export function bboxFocusDistance(bbox: [number, number, number, number]): numbe
   return clamp(MIN_FOCUS_DISTANCE + extent * BBOX_DISTANCE_SLOPE, MIN_FOCUS_DISTANCE, MAX_FOCUS_DISTANCE)
 }
 
+// Globe group rotation [rx=0.12, ry=-0.8, rz=0] from GlobeCanvas <group rotation={[0.12,-0.8,0]}>.
+// Without this the camera targets the country LOCAL position, not WORLD position.
+function applyGlobeGroupRotation(x: number, y: number, z: number): [number, number, number] {
+  const rx = 0.12, ry = -0.8
+  const cx = Math.cos(rx), sx = Math.sin(rx)
+  const cy = Math.cos(ry), sy = Math.sin(ry)
+  const x1 = x, y1 = y * cx - z * sx, z1 = y * sx + z * cx // Rx
+  return [x1 * cy + z1 * sy, y1, -x1 * sy + z1 * cy] // Ry
+}
+
 export function createCountryFocusPose(
   country: HarbourviewCountryGeometry,
   options: CountryFocusOptions = {},
@@ -50,9 +60,10 @@ export function createCountryFocusPose(
   const focusDistance = country.bbox ? bboxFocusDistance(country.bbox) : DEFAULT_FOCUS_DISTANCE
   const targetDistance = clamp(options.targetDistanceMax ?? DEFAULT_TARGET_DISTANCE, 0.5, DEFAULT_TARGET_DISTANCE)
 
+  const [wx, wy, wz] = applyGlobeGroupRotation(vector.x, vector.y, vector.z)
   return {
-    position: [vector.x * focusDistance, vector.y * focusDistance, vector.z * focusDistance],
-    target: [vector.x * targetDistance, vector.y * targetDistance, vector.z * targetDistance],
+    position: [wx * focusDistance, wy * focusDistance, wz * focusDistance],
+    target: [wx * targetDistance, wy * targetDistance, wz * targetDistance],
   }
 }
 
