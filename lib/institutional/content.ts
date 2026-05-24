@@ -423,7 +423,6 @@ export const footerGroups = [
       { label: 'Country Access', href: '/markets' },
       { label: 'Distribution Mandates', href: '/marketplace/business-opportunities' },
       { label: 'Strategic Partnerships', href: '/institutional-partnerships' },
-      { label: 'Submit Opportunity', href: '/marketplace/sell' },
     ],
   },
   {
