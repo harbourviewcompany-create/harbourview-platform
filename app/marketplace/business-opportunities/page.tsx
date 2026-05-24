@@ -1,18 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { businessOpportunities } from '@/lib/fixtures/business-opportunities'
-import ListingCard from '@/components/ListingCard'
-import EmptyState from '@/components/EmptyState'
-import { getLiveBusinessOpportunities } from '@/lib/marketplace/liveOpportunities'
+import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 
 export const metadata: Metadata = {
   title: 'Business Opportunities | Harbourview Network',
-  description:
-    'Facilities, partnerships, acquisitions, licence-linked opportunities and structured commercial routes subject to legal, regulatory and commercial diligence.',
+  description: 'Licensed facility acquisitions, brand acquisitions, equity opportunities and strategic commercial pathways for regulated cannabis operators.',
 }
 
 export default async function BusinessOpportunitiesPage() {
-  const opportunityFeed = await getLiveBusinessOpportunities(businessOpportunities)
+  const listings = await getPublicListingsByCategory('business_opportunities')
 
   return (
     <>
@@ -23,53 +19,47 @@ export default async function BusinessOpportunitiesPage() {
           </p>
           <h1 className="text-3xl font-bold mb-2">Business Opportunities</h1>
           <p className="text-gray-300 max-w-xl">
-            Facilities, partnerships, acquisitions, licence-linked opportunities and
-            structured commercial routes in regulated cannabis and adjacent supply chains.
-            All opportunities remain subject to legal, regulatory and commercial diligence.
+            Licensed facility acquisitions, brand acquisitions, equity opportunities and strategic commercial pathways.
+            All opportunities subject to Harbourview qualification before introduction.
           </p>
         </div>
       </section>
 
       <section className="py-12">
         <div className="page-container">
-          <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
-            <h2 className="text-navy font-semibold text-lg mb-2">Diligence required</h2>
-            <p className="text-gray-600 text-sm max-w-3xl">
-              Public summaries do not represent legal advice, verified licensing status,
-              exclusivity, guaranteed availability or completed diligence. Harbourview reviews
-              inquiries before routing and does not guarantee introductions or transaction outcomes.
-            </p>
-          </div>
-
-          {opportunityFeed.source === 'error' && (
-            <div className="mb-8 rounded-lg border border-gold/20 bg-white p-5">
-              <h2 className="text-navy font-semibold text-base mb-2">Reviewed opportunity feed temporarily unavailable</h2>
-              <p className="text-gray-600 text-sm max-w-3xl">
-                Harbourview is showing reviewed fallback summaries while the controlled live feed is unavailable.
-                Publication, routing and transaction details remain subject to separate review.
+          {listings.length === 0 ? (
+            <div className="text-center py-16 text-gray-500">
+              <p className="text-lg font-medium mb-2">No opportunities listed</p>
+              <p className="text-sm">
+                Have an opportunity to list?{' '}
+                <Link href="/marketplace/sell" className="text-navy underline">Submit for review</Link>
               </p>
             </div>
-          )}
-
-          {opportunityFeed.listings.length === 0 ? (
-            <EmptyState category="Business Opportunities" />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {opportunityFeed.listings.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} />
-              ))}
+              {listings.map((listing) => {
+                const specs = listing.high_level_specs as Record<string, unknown>
+                return (
+                  <div key={listing.id} className="rounded-lg border border-gray-200 bg-white p-6 flex flex-col gap-4 hover:border-gold/50 transition-colors">
+                    {listing.is_featured && (
+                      <span className="text-xs font-semibold text-gold uppercase tracking-wide">Featured</span>
+                    )}
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{listing.product_type}</p>
+                      <h3 className="font-semibold text-navy text-lg leading-snug">{listing.title}</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed flex-1">{listing.description}</p>
+                    <Link
+                      href={`/contact?ref=${listing.slug ?? listing.id}&type=business_opportunity`}
+                      className="mt-auto inline-block text-center bg-navy text-white text-sm font-medium px-4 py-2 rounded hover:bg-navy/80 transition-colors"
+                    >
+                      {(specs?.cta_label as string) ?? 'Request qualification'}
+                    </Link>
+                  </div>
+                )
+              })}
             </div>
           )}
-
-          <div className="mt-10 border-t pt-8">
-            <p className="text-gray-500 text-sm">
-              Have a business opportunity to submit?{' '}
-              <Link href="/intake" className="text-navy underline hover:text-gold">
-                Submit via Intake
-              </Link>
-              .
-            </p>
-          </div>
         </div>
       </section>
     </>
