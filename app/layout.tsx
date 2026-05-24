@@ -5,11 +5,15 @@ import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Harbourview | Global Cannabis Industry Platform',
+    default: 'Harbourview | Regulated Cannabis Market Access & Intelligence',
     template: '%s | Harbourview',
   },
   description:
-    'Harbourview connects the global cannabis industry through reviewed network access, commercial exchange, intelligence, education, compliance orientation, professional pathways and confidential routing.',
+    'Harbourview gives serious operators in regulated cannabis markets the intelligence, introductions, and access pathways that aren\'t available publicly.',
+  openGraph: {
+    siteName: 'Harbourview',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
