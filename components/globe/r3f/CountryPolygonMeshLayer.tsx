@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { DoubleSide } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
@@ -120,7 +119,6 @@ export function CountryPolygonMeshLayer({
                 emissiveIntensity={material.emissiveIntensity}
                 roughness={material.roughness}
                 metalness={material.metalness}
-                side={DoubleSide}
                 clearcoat={material.clearcoat}
                 clearcoatRoughness={material.clearcoatRoughness}
                 reflectivity={SPECULAR_CAP}
@@ -132,7 +130,6 @@ export function CountryPolygonMeshLayer({
                 emissiveIntensity={visualState === 'selected' ? 0.22 : material.emissiveIntensity}
                 roughness={material.roughness}
                 metalness={material.metalness}
-                side={DoubleSide}
               />
             )}
           </mesh>
