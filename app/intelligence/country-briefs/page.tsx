@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
 import { getPublicCountries } from '@/lib/server/countriesQuery'
 
@@ -95,9 +94,10 @@ export default async function CountryBriefsPage() {
 
       <FooterCta
         title="Need deeper jurisdiction intelligence?"
-        body="Submit a private request for route-specific context, counterparty intelligence or regulatory pathway review."
         actions={[{ label: 'Request Country Intelligence', href: '/contact' }]}
-      />
+      >
+        Submit a private request for route-specific context, counterparty intelligence or regulatory pathway review.
+      </FooterCta>
     </main>
   )
 }
