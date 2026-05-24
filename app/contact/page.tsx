@@ -7,9 +7,20 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'Contact Harbourview',
+  title: 'Contact Harbourview — Confidential Cannabis Market Inquiries',
   description:
-    'Contact Harbourview for confidential commercial inquiries, qualified opportunities, market-access support, and reviewed introductions.',
+    'Submit confidential inquiries for market-access intelligence, reviewed commercial opportunities, counterparty introductions and cannabis pathway review.',
+  openGraph: {
+    title: 'Contact Harbourview — Confidential Cannabis Market Inquiries',
+    description:
+      'Submit confidential inquiries for market-access intelligence, reviewed commercial opportunities, counterparty introductions and cannabis pathway review.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Contact Harbourview',
+    description:
+      'Confidential intake for market access, commercial opportunities, intelligence requests and counterparty introductions.',
+  },
 }
 
 const contactPaths = [
@@ -17,6 +28,7 @@ const contactPaths = [
   'Commercial intelligence and country pathway review',
   'Supplier, buyer or service-provider routing questions',
   'Confidential opportunities requiring controlled review',
+  'Export or import pathway questions where public sources don\'t give you a clear answer',
 ]
 
 export default function ContactPage() {
@@ -24,7 +36,7 @@ export default function ContactPage() {
     <>
       <PublicHero
         eyebrow="Contact Harbourview"
-        title="Start a confidential Harbourview conversation"
+        title="Send Harbourview a message. We review everything."
         compact
         aside={
           <PublicCard className="p-6">
@@ -44,10 +56,9 @@ export default function ContactPage() {
         }
       >
         <p>
-          Use this page for qualified opportunities, wanted requests, intelligence questions, market-access support and confidential commercial routing.
-        </p>
-        <p className="mt-4 text-sm leading-7 text-white/54">
-          Harbourview reviews inquiries before follow-up or counterparty contact.
+          This is the right place to send qualified opportunities, intelligence questions, market-access requests,
+          and confidential commercial inquiries. Every submission is reviewed before any follow-up or counterparty
+          contact is made.
         </p>
       </PublicHero>
 
@@ -60,7 +71,7 @@ export default function ContactPage() {
           <aside className="space-y-6">
             <PublicCard className="p-6">
               <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
-                Suitable inquiries
+                What are you working on?
               </p>
               <ul className="space-y-3 text-sm leading-6 text-white/60">
                 {contactPaths.map((path) => (
@@ -76,7 +87,9 @@ export default function ContactPage() {
                 Review standard
               </p>
               <p className="text-sm leading-7 text-white/56">
-                Harbourview reviews inquiries before follow-up. Submission does not create a transaction, representation or obligation to introduce counterparties. Availability, pricing, transaction terms and legal or regulatory outcomes remain subject to separate review.
+                Harbourview reviews every inquiry before follow-up. Submitting a message does not create a transaction,
+                representation, or obligation on either side. Availability, pricing, transaction terms and legal or
+                regulatory outcomes are subject to separate commercial review.
               </p>
             </PublicCard>
           </aside>
