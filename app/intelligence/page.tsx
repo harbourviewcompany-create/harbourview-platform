@@ -104,6 +104,7 @@ export default async function IntelligencePage() {
       </PublicSection>
 
       <FooterCta
+        eyebrow="Intelligence access"
         title="Need jurisdiction-specific intelligence?"
         actions={[{ label: 'Request Intelligence Review', href: '/contact' }]}
       >
