@@ -93,6 +93,7 @@ export default async function CountryBriefsPage() {
       )}
 
       <FooterCta
+        eyebrow="Intelligence access"
         title="Need deeper jurisdiction intelligence?"
         actions={[{ label: 'Request Country Intelligence', href: '/contact' }]}
       >
