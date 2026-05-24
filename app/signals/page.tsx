@@ -6,9 +6,20 @@ import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import { EmptyState, FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Signals | Harbourview',
+  title: 'Cannabis Regulatory Signals — Policy & Market Change Monitoring',
   description:
-    'Global policy and regulatory change monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.',
+    'Dated, source-backed regulatory change monitoring for regulated cannabis, hemp/CBD and adjacent controlled markets. Covers licensing, prescriptions, enforcement and trade.',
+  openGraph: {
+    title: 'Cannabis Regulatory Signals — Policy & Market Monitoring | Harbourview',
+    description:
+      'Dated, source-backed regulatory change monitoring for regulated cannabis, hemp/CBD and adjacent controlled markets. Covers licensing, prescriptions, enforcement and trade.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Harbourview Signals — Cannabis Regulatory Monitoring',
+    description:
+      'Source-backed regulatory signal monitoring for cannabis policy, licensing, import/export and enforcement changes worldwide.',
+  },
 }
 
 const monitoringLanes = [
@@ -49,7 +60,7 @@ export default async function SignalsPage() {
         eyebrow="Harbourview Signals"
         title="Regulatory and policy change signals for controlled markets."
         actions={[
-          { label: 'Request Signal Review', href: '/intake' },
+          { label: 'Request Early Access', href: '/intake' },
           { label: 'Intelligence Services', href: '/intelligence', variant: 'secondary' },
         ]}
         aside={
@@ -76,7 +87,9 @@ export default async function SignalsPage() {
         }
       >
         <p>
-          Source-backed monitoring for regulated cannabis, hemp/CBD and adjacent controlled-market pathways.
+          Signals is in controlled early access. Dated, source-backed regulatory monitoring for cannabis market access,
+          compliance strategy and commercial timing — built for operators who need to move on information before it
+          becomes common knowledge.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
           Public summaries are informational only and do not guarantee market access, import eligibility, commercial routing or regulatory outcome.
@@ -179,9 +192,9 @@ export default async function SignalsPage() {
       </PublicSection>
 
       <FooterCta
-        eyebrow="Request signals access"
+        eyebrow="Get early access"
         title="Need a dated, source-backed signal assessed?"
-        actions={[{ label: 'Request Review', href: '/intake' }, { label: 'Contact Harbourview', href: '/contact', variant: 'secondary' }]}
+        actions={[{ label: 'Request Early Access', href: '/intake' }, { label: 'Contact Harbourview', href: '/contact', variant: 'secondary' }]}
       >
         Request review for market access, compliance strategy, commercial timing or country-specific pathway monitoring.
       </FooterCta>
