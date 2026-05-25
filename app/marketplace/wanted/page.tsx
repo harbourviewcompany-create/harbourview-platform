@@ -5,11 +5,11 @@ import type { WantedRequest } from '@/lib/fixtures/types'
 import { EmptyState, FooterCta, PublicCard, PublicCta, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Wanted Requests | Harbourview Network',
+  title: 'Wanted Requests | Harbourview',
   description:
     'Create a wanted request through Harbourview Network. Describe buyer or operator demand and Harbourview will review before routing supplier responses privately.',
   openGraph: {
-    title: 'Wanted Requests | Harbourview Network',
+    title: 'Wanted Requests | Harbourview',
     description:
       'Create a wanted request and Harbourview will review before routing supplier responses privately.',
   },
@@ -160,7 +160,7 @@ export default function WantedPage() {
   return (
     <>
       <PublicHero
-        eyebrow="Harbourview Network Wanted Requests"
+        eyebrow="Exchange — Wanted Requests"
         title="Buyer and operator demand routed through controlled review."
         actions={[
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted' },
