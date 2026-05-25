@@ -97,7 +97,7 @@ describe('Natural Earth geometry topology validation', () => {
       iso2: 'XZ',
       iso3: 'XZZ',
       polygons: [
-        { rings: [{ kind: 'outer', points: outerA!.points }, { kind: 'inner', points: [...hole, hole[0]] }] },
+        { rings: [{ kind: 'outer' as const, points: outerA!.points }, { kind: 'hole' as const, points: [...hole, hole[0]] }] },
         { rings: [{ kind: 'outer', points: outerB!.points }] },
       ],
     }
