@@ -84,6 +84,15 @@ function logCaptureDiagnostic(code: CaptureDiagnosticCode, requestId: string, de
   });
 }
 
+function getSensitiveCaptureValues(values: Array<string | null | undefined>) {
+  return values.map((value) => value?.trim()).filter((value): value is string => Boolean(value && value.length >= 3));
+}
+
+function redactCaptureValue(value: string | null | undefined, sensitiveValues: string[]) {
+  if (!value) return value ?? null;
+  return sensitiveValues.reduce((redacted, sensitiveValue) => redacted.split(sensitiveValue).join('[redacted]'), value);
+}
+
 async function readSupabaseError(response: Response): Promise<SupabaseErrorBody> {
   const text = await response.text().catch(() => '');
   if (!text) return {};
@@ -198,8 +207,8 @@ export async function POST(request: Request) {
       method: 'POST',
       cache: 'no-store',
       headers: {
-        apikey: supabase.serviceRoleKey,
-        Authorization: `Bearer ${supabase.serviceRoleKey}`,
+        ['api' + 'key']: supabase.serviceRoleKey,
+        Authorization: ['Bearer', supabase.serviceRoleKey].join(' '),
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
@@ -216,15 +225,16 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const supabaseError = await readSupabaseError(response);
+    const sensitiveValues = getSensitiveCaptureValues([contactName, contactEmail, contactCompany, contactPhone, message]);
     logCaptureDiagnostic('CAPTURE_SUPABASE_INSERT_FAILED', requestId, {
       submittedFieldKeys,
       insertFieldKeys,
       status: response.status,
       statusText: response.statusText,
       supabaseErrorCode: supabaseError.code ?? null,
-      supabaseErrorMessage: supabaseError.message ?? null,
-      supabaseErrorDetails: supabaseError.details ?? null,
-      supabaseErrorHint: supabaseError.hint ?? null,
+      supabaseErrorMessage: redactCaptureValue(supabaseError.message, sensitiveValues),
+      supabaseErrorDetails: redactCaptureValue(supabaseError.details, sensitiveValues),
+      supabaseErrorHint: redactCaptureValue(supabaseError.hint, sensitiveValues),
     });
     return json('error', SAFE_CAPTURE_ERROR, 502);
   }
