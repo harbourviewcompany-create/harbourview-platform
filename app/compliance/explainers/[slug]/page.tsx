@@ -1,20 +1,25 @@
+import { notFound } from 'next/navigation'
 import { getExplainer } from '@/lib/compliance/explainers'
+import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
-type ExplainerPageProps = {
-  params: Promise<{ slug: string }>
-}
+type ExplainerPageProps = { params: Promise<{ slug: string }> }
 
 export default async function ExplainerPage({ params }: ExplainerPageProps) {
   const { slug } = await params
   const explainer = getExplainer(slug)
-
-  if (!explainer) return <div>Not found</div>
+  if (!explainer) return notFound()
 
   return (
-    <div className="page-container py-12 space-y-6">
-      <h1 className="text-2xl font-bold text-navy">{explainer.title}</h1>
-      <p>{explainer.summary}</p>
-      <p className="text-sm text-gray-600">{explainer.disclaimer}</p>
-    </div>
+    <>
+      <PublicHero eyebrow="Compliance / Explainers" title={explainer.title} compact />
+      <PublicSection tone="navy">
+        <div className="mx-auto max-w-3xl">
+          <PublicCard className="p-8 space-y-5 text-sm leading-8 text-white/62">
+            <p>{explainer.summary}</p>
+            <p className="text-xs text-white/36 border-t border-white/10 pt-4">{explainer.disclaimer}</p>
+          </PublicCard>
+        </div>
+      </PublicSection>
+    </>
   )
 }

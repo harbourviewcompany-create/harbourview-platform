@@ -58,7 +58,7 @@ export default function AboutPage() {
             <SectionHeader eyebrow="What Harbourview does" title="How we work" className="mb-5" />
             <div className="space-y-5 text-sm leading-7 text-white/60 sm:text-base">
               <p>
-                Harbourview Network gives operators, buyers, exporters, importers, and institutional participants a reviewed pathway to commercial engagement — without the noise of open directories, unqualified brokerage, or public counterparty exposure.
+                Harbourview gives operators, buyers, exporters, importers, and institutional participants a reviewed pathway to commercial engagement — without the noise of open directories, unqualified brokerage, or public counterparty exposure.
               </p>
               <p>
                 Submissions are reviewed. Contact details stay private. Routing is deliberate.

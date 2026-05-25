@@ -1,28 +1,32 @@
+import type { Metadata } from 'next'
 import { requestSupportDisclaimer } from '@/lib/compliance/disclaimers'
+import { FormShell, PublicHero, PublicSection } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Request Compliance Support | Harbourview',
+  description: 'Submit a structured compliance support request for regulated cannabis market entry, routing and documentation review.',
+}
 
 export default function ComplianceRequestSupportPage() {
   return (
-    <div className="page-container py-12 space-y-6">
-      <h1 className="text-2xl font-bold text-navy">Request Compliance Support</h1>
-      <p className="text-gray-700 max-w-2xl">
-        Submit a structured request so Harbourview can assess your compliance requirements and determine whether specialist routing is appropriate.
-      </p>
+    <>
+      <PublicHero eyebrow="Compliance" title="Request Compliance Support" compact>
+        <p>Submit a structured request so Harbourview can assess your compliance requirements and determine whether specialist routing is appropriate.</p>
+      </PublicHero>
 
-      <form className="grid gap-4 max-w-xl" aria-label="Compliance support intake form">
-        <input className="input" name="name" autoComplete="name" placeholder="Name" required />
-        <input className="input" name="company" autoComplete="organization" placeholder="Company" required />
-        <input className="input" type="email" name="email" autoComplete="email" placeholder="Email" required />
-        <input className="input" name="targetCountries" placeholder="Target Countries" required />
-        <textarea className="input" name="supportNeeded" placeholder="Support needed" rows={5} required />
-        <label className="text-sm">
-          <input type="checkbox" name="disclaimerAccepted" required /> I accept the compliance disclaimer
-        </label>
-        <button className="btn-primary" disabled>
-          Submit (intake not yet active)
-        </button>
-      </form>
-
-      <p className="text-sm text-gray-600">{requestSupportDisclaimer}</p>
-    </div>
+      <PublicSection tone="navy">
+        <div className="mx-auto max-w-xl space-y-6">
+          <FormShell>
+            <div className="p-6 space-y-3">
+              {['Name', 'Company', 'Email', 'Target Countries', 'Support needed'].map((f) => (
+                <div key={f} className="rounded-sm border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/44">{f}</div>
+              ))}
+              <p className="text-xs text-white/28 pt-1">Full intake form — coming soon. Use confidential intake in the meantime.</p>
+            </div>
+          </FormShell>
+          <p className="text-xs leading-7 text-white/40">{requestSupportDisclaimer}</p>
+        </div>
+      </PublicSection>
+    </>
   )
 }
