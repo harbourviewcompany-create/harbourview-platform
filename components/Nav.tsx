@@ -22,25 +22,23 @@ const navGroups: NavGroup[] = [
       { label: 'Professionals', href: '/professionals' },
       { label: 'Institutional Partnerships', href: '/institutional-partnerships' },
       { label: 'Reviewed Connections', href: '/reviewed-connections' },
+      { label: 'Trust & Governance', href: '/trust-governance' },
+      { label: 'Access States', href: '/access-states' },
     ],
   },
   {
     label: 'Exchange',
     items: [
       { label: 'Exchange Home', href: '/marketplace' },
-      { label: 'Cannabis Inventory', href: '/marketplace/cannabis-inventory' },
-      { label: 'New Products', href: '/marketplace/new-products' },
-      { label: 'Used & Surplus', href: '/marketplace/used-surplus' },
-      { label: 'Cultivation Equipment', href: '/marketplace/cultivation-equipment' },
+      { label: 'Reviewed Listings', href: '/marketplace/listings' },
+      { label: 'Wanted Requests', href: '/marketplace/wanted' },
+      { label: 'Sell or Export', href: '/marketplace/sell' },
+      { label: 'Import Demand', href: '/marketplace/import-demand' },
+      { label: 'Export-Ready Products', href: '/marketplace/export-ready' },
+      { label: 'Services & Equipment', href: '/marketplace/services' },
       { label: 'Consumables', href: '/marketplace/consumables' },
       { label: 'Genetics', href: '/marketplace/genetics' },
-      { label: 'Services', href: '/marketplace/services' },
-      { label: 'Distressed Inventory', href: '/marketplace/distressed-inventory' },
-      { label: 'Distressed Businesses', href: '/marketplace/distressed-businesses' },
-      { label: 'Business Opportunities', href: '/marketplace/business-opportunities' },
-      { label: 'Wanted Requests', href: '/marketplace/wanted' },
-      { label: 'Qualified Access', href: '/marketplace/qualified-access' },
-      { label: 'Submit Opportunity', href: '/marketplace/sell' },
+      { label: 'Distressed Assets', href: '/marketplace/distressed-businesses' },
     ],
   },
   {
@@ -58,8 +56,7 @@ const navGroups: NavGroup[] = [
 
 const navLinks: NavItem[] = [
   { label: 'Education', href: '/education' },
-  { label: 'Opportunities', href: '/opportunities' },
-  { label: 'Trust', href: '/trust-governance' },
+  { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ]
 
@@ -157,7 +154,7 @@ export default function Nav() {
           </nav>
 
           <Link href="/intake" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
-            Speak Confidentially
+            Start Confidential Intake
           </Link>
 
           <button
@@ -237,7 +234,7 @@ export default function Nav() {
                 className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light"
                 onClick={closeMenus}
               >
-                Speak Confidentially
+                Start Confidential Intake
               </Link>
             </div>
           </nav>
