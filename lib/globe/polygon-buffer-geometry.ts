@@ -95,6 +95,12 @@ function createTopFaceWithHoles(
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
 
+  // allV2 mirrors the combined vertex layout that earcut indexes into:
+  // [outer[0..n-1], hole0[0..m-1], hole1[0..p-1], ...]
+  // Required so hole-vertex indices (>= outer.length) resolve correctly.
+  // Previously v2Outer was used for validation, causing TypeError for ZA/Lesotho.
+  const allV2 = [...v2Outer, ...v2Holes.flat()]
+
   // Vertex layout expected by triangulateShape:
   //   [outer[0], outer[1], ..., hole0[0], hole0[1], ..., hole1[0], ...]
   const allPoints: [number, number][] = [...outer, ...holes.flat()]
@@ -103,22 +109,26 @@ function createTopFaceWithHoles(
   let indices: number[]
   try {
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
-    // Filter oversized bridge triangles: earcut creates spanning triangles across
-    // large concavities (e.g. Hudson Bay in Canada, Arctic coast in Russia).
-    // Triangles with area > 4× the polygon average are artifacts — remove them.
-    if (rawTriangles.length > 0) {
-      const totalArea = Math.abs(ringArea2D(outer))
-      const maxAllowed = (totalArea / rawTriangles.length) * 4
-      const filtered = rawTriangles.filter(([i, j, k]) => {
-        const ax = v2Outer[i].x, ay = v2Outer[i].y
-        const bx = v2Outer[j].x, by = v2Outer[j].y
-        const cx = v2Outer[k].x, cy = v2Outer[k].y
-        return Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2 <= maxAllowed
-      })
-      indices = filtered.flatMap((t) => [t[0], t[1], t[2]])
-    } else {
-      indices = []
+
+    // NOTE: A bridge-triangle area filter was introduced in commit 20bd0051
+    // using threshold (totalArea / triangleCount) * 4. This is mathematically
+    // unstable: earcut produces many tiny coastal triangles for non-convex
+    // polygons, collapsing the average and causing the 4x cap to drop valid
+    // large interior triangles for RU, CA, CN, BR, AU, US and ~10 more countries.
+    // Removed. The 1:110m dataset already eliminates most problematic concavities.
+    // If bridge filtering is revisited, use a geometry heuristic (longest edge
+    // vs. bounding-box diameter) rather than an area-average threshold.
+
+    // Guard: validate all indices are in range.
+    const vertexCount = allV2.length
+    const hasOutOfRange = rawTriangles.some(
+      ([i, j, k]) => i >= vertexCount || j >= vertexCount || k >= vertexCount,
+    )
+    if (hasOutOfRange) {
+      throw new RangeError(`earcut index out of range for ${vertexCount} vertices`)
     }
+
+    indices = rawTriangles.flatMap((t) => [t[0], t[1], t[2]])
   } catch {
     // Degenerate polygon — earcut failed, fall back to fan (no holes)
     indices = createTopFanIndices(outer.length)
