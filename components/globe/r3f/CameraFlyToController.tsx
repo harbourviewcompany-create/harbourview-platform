@@ -19,6 +19,7 @@ export function getFlyToMotionProfile(prefersReducedMotion: boolean): { shouldAn
   return {
     shouldAnimate: !prefersReducedMotion,
     flyDurationMs: prefersReducedMotion ? 0 : 900,
+    allowCountryFocus: !prefersReducedMotion,
   }
 }
 
