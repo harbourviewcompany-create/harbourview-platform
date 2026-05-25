@@ -94,13 +94,13 @@ describe('Natural Earth geometry topology validation', () => {
     const hole = outerA!.points.slice(0, 6).reverse()
     const complexCountry = {
       ...france!,
-      iso2: 'XZ',
-      iso3: 'XZZ',
+      iso2: 'XZ' as string,
+      iso3: 'XZZ' as string,
       polygons: [
         { rings: [{ kind: 'outer' as const, points: outerA!.points }, { kind: 'hole' as const, points: [...hole, hole[0]] }] },
-        { rings: [{ kind: 'outer', points: outerB!.points }] },
+        { rings: [{ kind: 'outer' as const, points: outerB!.points }] },
       ],
-    }
+    } as Parameters<typeof createCountryBufferGeometry>[0]
 
     const geometry = createCountryBufferGeometry(complexCountry)
     const position = geometry.getAttribute('position')
