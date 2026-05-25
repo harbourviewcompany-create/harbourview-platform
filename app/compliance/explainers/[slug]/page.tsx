@@ -11,7 +11,7 @@ export default async function ExplainerPage({ params }: ExplainerPageProps) {
 
   return (
     <>
-      <PublicHero eyebrow="Compliance / Explainers" title={explainer.title} compact />
+      <PublicHero eyebrow="Compliance / Explainers" title={explainer.title} compact>{""}</PublicHero>
       <PublicSection tone="navy">
         <div className="mx-auto max-w-3xl">
           <PublicCard className="p-8 space-y-5 text-sm leading-8 text-white/62">
