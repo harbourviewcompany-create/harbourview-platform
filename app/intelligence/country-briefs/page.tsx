@@ -24,7 +24,7 @@ const ACCESS_DOT: Record<string, string> = {
   emerging: 'bg-amber-400',
   limited: 'bg-orange-400',
   restricted: 'bg-red-400',
-  unknown: 'bg-white/20',
+  unknown: 'bg-transparent/20',
 }
 
 export default async function CountryBriefsPage() {
@@ -60,7 +60,7 @@ export default async function CountryBriefsPage() {
                     <h3 className="font-semibold text-white text-base">{country.country_name}</h3>
                     <p className="text-xs text-white/40">{country.region}</p>
                   </div>
-                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status] ?? 'bg-white/20'}`} />
+                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status] ?? 'bg-transparent/20'}`} />
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   {[
