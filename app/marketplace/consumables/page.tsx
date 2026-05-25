@@ -1,89 +1,224 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { consumables } from '@/lib/fixtures/consumables'
-import { getLiveConsumableOpportunities } from '@/lib/marketplace/liveOpportunities'
-import ListingCard from '@/components/ListingCard'
+import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
+import type { PublicListing } from '@/lib/server/listingsQuery'
 
 export const metadata: Metadata = {
-  title: 'Consumables & Operating Supplies | Harbourview Network',
+  title: 'Consumables & Operating Supplies | Harbourview',
   description:
-    'Bulk and recurring packaging, lab, cultivation, processing, sanitation, logistics, retail and maintenance supply. Inquiries are reviewed through Harbourview Network.',
-  openGraph: {
-    title: 'Consumables & Operating Supplies | Harbourview Network',
-    description:
-      'Bulk and recurring consumables and operating supplies. Inquiries are reviewed through Harbourview Network.',
+    'Bulk and recurring packaging, lab, cultivation, processing, sanitation, logistics and maintenance supply for licensed cannabis operators. Inquiries reviewed through Harbourview.',
+}
+
+const REGION_LABELS: Record<string, string> = {
+  north_america: 'North America',
+  europe: 'Europe',
+  asia_pacific: 'Asia Pacific',
+  latin_america: 'Latin America',
+  middle_east_africa: 'Middle East & Africa',
+  global: 'Global',
+}
+
+const supplyCategories = [
+  {
+    title: 'Packaging & compliance',
+    body: 'Child-resistant, tamper-evident and compliant packaging for licensed cannabis retail, medical and wholesale formats.',
   },
+  {
+    title: 'Lab & testing',
+    body: 'Analytical supplies, reagents, consumable labware and quality assurance inputs for licensed testing programs.',
+  },
+  {
+    title: 'Cultivation inputs',
+    body: 'Growing media, nutrients, IPM products, propagation supplies and cultivation consumables for licensed facilities.',
+  },
+  {
+    title: 'Processing & sanitation',
+    body: 'Extraction consumables, post-harvest inputs, sanitation chemicals and maintenance supplies for licensed operators.',
+  },
+]
+
+function ListingCard({ listing }: { listing: PublicListing }) {
+  const specs = listing.high_level_specs as Record<string, unknown>
+  const ctaLabel = (specs?.cta_label as string) ?? 'Request qualification'
+
+  return (
+    <div className="group flex flex-col rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
+      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
+      {listing.is_featured && (
+        <span className="mb-3 inline-flex w-fit rounded-full border border-gold/35 bg-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">
+          Featured
+        </span>
+      )}
+      {listing.product_type && (
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+          {listing.product_type}
+        </p>
+      )}
+      <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
+      <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {listing.region && (
+          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">
+            {REGION_LABELS[listing.region] ?? listing.region}
+          </span>
+        )}
+      </div>
+      <Link
+        href={`/contact?ref=${listing.slug ?? listing.id}&type=consumables`}
+        className="btn-marketplace mt-6 justify-center text-center text-sm"
+      >
+        {ctaLabel}
+      </Link>
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="mb-6 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-40" />
+      <p className="mb-2 text-lg font-semibold text-[#f5f1e8]">No supply listed</p>
+      <p className="mb-6 text-sm leading-7 text-white/54">
+        Consumable supply is sourced through Harbourview review on request. Submit supply
+        or request a routed inquiry for volume requirements.
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Link href="/marketplace/sell" className="btn-marketplace text-sm">
+          Submit supply
+        </Link>
+        <Link href="/intake" className="btn-intelligence text-sm">
+          Request routed inquiry
+        </Link>
+      </div>
+    </div>
+  )
 }
 
 export default async function ConsumablesPage() {
-  const listings = await getLiveConsumableOpportunities(consumables)
+  const listings = await getPublicListingsByCategory('consumables')
 
   return (
     <>
-      <section className="bg-navy text-white py-12">
-        <div className="page-container">
-          <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Network</Link> /
+      {/* Hero */}
+      <section className="relative overflow-hidden border-b border-gold/10 bg-[#061120] py-14 text-white sm:py-16 lg:py-20">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(198,165,90,0.08),transparent_30%)]" />
+        <div className="page-container relative z-10">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+            <Link href="/marketplace" className="transition-colors hover:text-gold">Exchange</Link>
+            {' '}/ Consumables &amp; Operating Supplies
           </p>
-          <h1 className="text-3xl font-bold mb-2">Consumables &amp; Operating Supplies</h1>
-          <p className="text-gray-300 max-w-xl">
-            Bulk and recurring packaging, lab, cultivation, processing, sanitation,
-            logistics, retail and maintenance supply categories. Contact details are
-            not public. Inquiries are reviewed before Harbourview coordinates any routing.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/marketplace/quote?listing=Consumables%20and%20Operating%20Supplies"
-              className="btn-primary text-center"
-            >
-              Request Routed Inquiry
+          <h1 className="max-w-4xl font-serif text-[2.2rem] leading-[1.06] tracking-normal text-[#f5f1e8] sm:text-5xl lg:text-6xl">
+            Bulk and recurring supply for licensed cannabis operations.
+          </h1>
+          <div className="mt-6 max-w-3xl text-base leading-8 text-white/62 sm:text-lg">
+            <p>
+              Packaging, lab consumables, cultivation inputs, processing supplies and operating
+              materials for licensed cannabis facilities. Volume, region, timing and specification
+              requirements are reviewed through Harbourview before any introduction is routed.
+            </p>
+          </div>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Link href="/intake" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
+              Request routed inquiry
             </Link>
-            <Link
-              href="/marketplace/sell?type=wanted"
-              className="btn-outline border-gold text-center text-gold hover:bg-gold hover:text-navy"
-            >
-              Create Wanted Request
-            </Link>
-            <Link
-              href="/marketplace/sell"
-              className="btn-outline border-white/40 text-center text-white hover:bg-white hover:text-navy"
-            >
-              Offer Supply for Review
+            <Link href="/marketplace/sell" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
+              Offer supply for review
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="py-12">
+      {/* Supply categories */}
+      <section className="border-b border-gold/10 bg-[#020814] py-12 sm:py-14">
         <div className="page-container">
-          <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
-            <h2 className="text-navy font-semibold text-lg mb-2">Buying consumables at volume?</h2>
-            <p className="text-gray-600 text-sm max-w-3xl">
-              Browse the categories below and submit a routed inquiry. Contact details are not public. Harbourview reviews inquiries and coordinates introductions privately where appropriate. Submit volume, region, timing and specification requirements in your inquiry. Public summaries do not guarantee availability, pricing or transaction terms.
+          <div className="mb-8">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+              Supply categories
             </p>
+            <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">
+              Buying consumables at volume?
+            </h2>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {supplyCategories.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.24)]"
+              >
+                <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+                <h3 className="mb-3 text-base font-semibold text-[#f4f1eb]">{item.title}</h3>
+                <p className="text-sm leading-7 text-white/58">{item.body}</p>
+              </div>
             ))}
           </div>
+        </div>
+      </section>
 
-          <div className="mt-12 border-t pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <p className="text-gray-500 text-sm">
-              Have supply to submit?{' '}
-              <Link href="/marketplace/sell" className="text-navy underline hover:text-gold">
-                Submit it for review
-              </Link>
-              {' '}or{' '}
-              <Link href="/intake" className="text-navy underline hover:text-gold">
-                request confidential support
-              </Link>
-              .
+      {/* Control notice */}
+      <section className="border-b border-gold/10 bg-[#030b16] py-8">
+        <div className="page-container">
+          <div className="rounded-sm border border-gold/20 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-gold/72">
+              Routed inquiry only
             </p>
-            <Link href="/marketplace/sell?type=wanted" className="btn-primary text-sm shrink-0">
-              Create Wanted Request
-            </Link>
+            <p className="text-sm leading-7 text-white/62">
+              Contact details are not public. Public summaries do not guarantee availability,
+              pricing, minimum order quantities or transaction terms. Submit volume, region, timing
+              and specification requirements. Harbourview reviews before coordinating any introduction.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Listings */}
+      <section className="bg-[#020814] py-12 sm:py-16 lg:py-18">
+        <div className="page-container">
+          {listings.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <>
+              <div className="mb-8 sm:mb-10">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+                  Reviewed supply
+                </p>
+                <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">
+                  Current approved listings.
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {listings.map((listing) => (
+                  <ListingCard key={listing.id} listing={listing} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="border-t border-gold/10 bg-[#030b16] py-12 sm:py-16">
+        <div className="page-container">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+                Have supply to offer?
+              </p>
+              <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">
+                Submit consumables for Harbourview review.
+              </h2>
+              <p className="mt-4 text-sm leading-7 text-white/58">
+                Recurring and bulk consumable supply relevant to licensed cannabis production.
+                Review and qualification before any introduction pathway.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link href="/marketplace/sell" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
+                Submit supply
+              </Link>
+              <Link href="/intake" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
+                Speak confidentially
+              </Link>
+            </div>
           </div>
         </div>
       </section>
