@@ -45,10 +45,10 @@ export default function MarketplacePage() {
     <>
       <PublicHero
         eyebrow="Harbourview Network"
-        title="Controlled commercial access for reviewed opportunities and requests."
+        title="Mobile-first marketplace access for reviewed commercial pathways."
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
-          { label: 'Explore Categories', href: '#categories', variant: 'secondary' },
+          { label: 'Review Listings', href: '#categories', variant: 'secondary' },
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
         ]}
       >
@@ -79,7 +79,7 @@ export default function MarketplacePage() {
       <PublicSection id="categories" tone="navy">
         <SectionHeader
           eyebrow="Network categories"
-          title="Explore reviewed commercial access categories."
+          title="Three-second mobile card scan with controlled inquiry routing."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {marketplaceCategoryCapabilityMap.map((cat) => (
@@ -95,7 +95,7 @@ export default function MarketplacePage() {
 
       <FooterCta
         eyebrow="Submit to Harbourview"
-        title="Have an opportunity, introduction request or wanted request to submit?"
+        title="Need a controlled introduction, wanted request or supply submission?"
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
