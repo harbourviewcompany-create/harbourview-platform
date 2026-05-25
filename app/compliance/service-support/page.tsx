@@ -1,36 +1,45 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import { complianceServiceCategories } from '@/lib/compliance/serviceCategories'
 import { coreComplianceDisclaimer } from '@/lib/compliance/disclaimers'
+import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Compliance Service Support | Harbourview',
+  description: 'Harbourview compliance support categories for regulated cannabis market entry, documentation and route review.',
+}
 
 export default function ComplianceServiceSupportPage() {
   return (
-    <div className="page-container py-12 space-y-8">
-      <section className="space-y-3">
-        <p className="text-sm uppercase tracking-[0.24em] text-gold font-semibold">Compliance Pathways</p>
-        <h1 className="text-3xl font-bold text-navy">Service Support Categories</h1>
-        <p className="max-w-3xl text-gray-700">
-          Harbourview organizes compliance support by category so qualified operators can understand what type of specialist review may be required before entering a market, moving product or relying on documentation.
-        </p>
-      </section>
+    <>
+      <PublicHero eyebrow="Compliance" title="Service Support Categories" compact>
+        <p>Harbourview organizes compliance support by category so qualified operators can understand what type of specialist review may be required before entering a market, moving product or relying on documentation.</p>
+      </PublicHero>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        {complianceServiceCategories.map((category) => (
-          <article key={category.slug} className="card p-5 space-y-3">
-            <h2 className="text-xl font-semibold text-navy">{category.name}</h2>
-            <p className="text-sm text-gray-700">{category.whoItHelps}</p>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Typical issues</p>
-              <ul className="mt-2 list-disc pl-5 text-sm text-gray-700">
-                {category.typicalIssues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            </div>
-            <a href={category.ctaHref} className="btn-outline">Request Support</a>
-          </article>
-        ))}
-      </section>
-
-      <p className="rounded border border-gold/40 bg-white p-4 text-sm text-gray-700">{coreComplianceDisclaimer}</p>
-    </div>
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="Compliance Pathways" title="Specialist review categories." />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {complianceServiceCategories.map((category) => (
+            <PublicCard key={category.slug} className="p-6 flex flex-col gap-4">
+              <div className="h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+              <h2 className="text-lg font-semibold text-[#f4f1eb]">{category.name}</h2>
+              <p className="text-sm leading-7 text-white/58">{category.whoItHelps}</p>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/36 mb-2">Typical issues</p>
+                <ul className="space-y-1 list-disc pl-4 text-sm text-white/52">
+                  {category.typicalIssues.map((issue) => <li key={issue}>{issue}</li>)}
+                </ul>
+              </div>
+              <Link href={category.ctaHref} className="btn-intelligence mt-auto text-sm text-center justify-center">
+                Request Support
+              </Link>
+            </PublicCard>
+          ))}
+        </div>
+        <PublicCard muted className="mt-6 p-5 text-xs leading-7 text-white/44">
+          {coreComplianceDisclaimer}
+        </PublicCard>
+      </PublicSection>
+    </>
   )
 }
