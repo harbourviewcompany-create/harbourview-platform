@@ -18,7 +18,7 @@ export default function IntakePage() {
     <>
       <PublicHero
         eyebrow="Confidential intake"
-        title="Route sensitive commercial and market-access requests for review."
+        title="Route sensitive commercial and market-access requests for private review."
         compact
         aside={
           <PublicCard className="p-6">

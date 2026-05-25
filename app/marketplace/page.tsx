@@ -45,7 +45,7 @@ export default function MarketplacePage() {
     <>
       <PublicHero
         eyebrow="Harbourview Network"
-        title="Controlled commercial access for reviewed opportunities and requests."
+        title="Mobile-first access to reviewed opportunities and controlled introductions."
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
           { label: 'Explore Categories', href: '#categories', variant: 'secondary' },
@@ -63,7 +63,7 @@ export default function MarketplacePage() {
       <PublicSection tone="dark">
         <SectionHeader
           eyebrow="Controlled network workflow"
-          title="Review and qualification before introduction."
+          title="Private review process before market introductions."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {processCards.map((card) => (

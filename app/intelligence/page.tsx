@@ -131,7 +131,7 @@ export default async function IntelligencePage() {
       </PublicSection>
 
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="HAR-39 workflow layer" title="Source-engine and watchlist requests now have public entry points.">
+        <SectionHeader eyebrow="HAR-39 workflow layer" title="Public entry points for source-engine and watchlist requests.">
           These routes explain how intelligence requests enter review without publishing raw evidence, source URLs, provenance records, private counterparties or analyst notes.
         </SectionHeader>
 

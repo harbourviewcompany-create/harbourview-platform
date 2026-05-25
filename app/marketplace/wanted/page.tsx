@@ -149,7 +149,7 @@ function WantedListingCard({ listing }: { listing: WantedRequest }) {
 
       <div className="mt-auto border-t border-gold/25 pt-4">
         <Link href={`/marketplace/quote?listing=${encodeURIComponent(listing.title)}`} className="btn-outline px-4 py-2 text-xs">
-          Respond to Request
+          Discuss Availability Privately
         </Link>
       </div>
     </article>
@@ -161,7 +161,7 @@ export default function WantedPage() {
     <>
       <PublicHero
         eyebrow="Harbourview Network Wanted Requests"
-        title="Buyer and operator demand routed through controlled review."
+        title="Buyer demand routed through controlled review and supplier matching."
         actions={[
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted' },
           { label: 'Explore Network', href: '/marketplace', variant: 'secondary' },
