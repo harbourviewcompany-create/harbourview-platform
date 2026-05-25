@@ -1,35 +1,48 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import { complianceProducts } from '@/lib/compliance/products'
 import { coreComplianceDisclaimer } from '@/lib/compliance/disclaimers'
+import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
+
+export const metadata: Metadata = {
+  title: 'Compliance Products | Harbourview',
+  description: 'Structured compliance outputs for regulated cannabis market entry, routing and documentation review.',
+}
 
 export default function ComplianceProductsPage() {
   return (
-    <div className="page-container py-12 space-y-8">
-      <section className="space-y-3">
-        <p className="text-sm uppercase tracking-[0.24em] text-gold font-semibold">Compliance Pathways</p>
-        <h1 className="text-3xl font-bold text-navy">Compliance Products</h1>
-        <p className="max-w-3xl text-gray-700">
-          Structured outputs designed to convert regulatory uncertainty into clear, actionable orientation without creating legal or compliance reliance.
-        </p>
-      </section>
+    <>
+      <PublicHero
+        eyebrow="Compliance"
+        title="Compliance Products"
+        compact
+      >
+        <p>Structured outputs designed to convert regulatory uncertainty into clear, actionable orientation without creating legal or compliance reliance.</p>
+      </PublicHero>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        {complianceProducts.map((product) => (
-          <article key={product.slug} className="card p-5 space-y-3">
-            <h2 className="text-xl font-semibold text-navy">{product.name}</h2>
-            <p className="text-sm text-gray-700">{product.summary}</p>
-            <p className="text-xs text-gray-500">Best for: {product.bestFor}</p>
-            <p className="text-xs text-gray-500">Output: {product.output}</p>
-            <ul className="text-xs text-gray-600 list-disc pl-5">
-              {product.riskControls.map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-            <a href={product.ctaHref} className="btn-primary">{product.ctaLabel}</a>
-          </article>
-        ))}
-      </section>
-
-      <p className="rounded border border-gold/40 bg-white p-4 text-sm text-gray-700">{coreComplianceDisclaimer}</p>
-    </div>
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="Compliance Pathways" title="Structured review outputs." />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {complianceProducts.map((product) => (
+            <PublicCard key={product.slug} className="p-6 flex flex-col gap-4">
+              <div className="h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+              <h2 className="text-lg font-semibold text-[#f4f1eb]">{product.name}</h2>
+              <p className="text-sm leading-7 text-white/58">{product.summary}</p>
+              <p className="text-xs text-white/38">Best for: {product.bestFor}</p>
+              <p className="text-xs text-white/38">Output: {product.output}</p>
+              <ul className="text-xs text-white/44 space-y-1 list-disc pl-4">
+                {product.riskControls.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+              <Link href={product.ctaHref} className="btn-marketplace mt-auto text-sm text-center justify-center">
+                {product.ctaLabel}
+              </Link>
+            </PublicCard>
+          ))}
+        </div>
+        <PublicCard muted className="mt-6 p-5 text-xs leading-7 text-white/44">
+          {coreComplianceDisclaimer}
+        </PublicCard>
+      </PublicSection>
+    </>
   )
 }
