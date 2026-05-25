@@ -1,70 +1,91 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { suppliers } from '@/lib/fixtures/suppliers'
-import SupplierCard from '@/components/SupplierCard'
+import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Supplier Discovery | Harbourview Network',
+  title: 'Supplier Discovery | Harbourview',
   description:
-    'Supplier discovery for regulated cannabis and adjacent supply-chain participants. Supplier introductions are routed through Harbourview review.',
+    'Reviewed supplier and service-provider profiles for regulated cannabis and adjacent supply-chain participants. Introductions routed through Harbourview review.',
 }
+
+const categories = [
+  { title: 'Producers & LPs', body: 'Licensed producers, extraction facilities and regulated product suppliers.' },
+  { title: 'Equipment & machinery', body: 'Cultivation, extraction, processing and packaging equipment suppliers.' },
+  { title: 'Consumables & inputs', body: 'Packaging, lab supplies, cultivation inputs and operating supply.' },
+  { title: 'Logistics & distribution', body: 'Import/export coordinators, cold-chain specialists and distribution partners.' },
+  { title: 'Services & advisory', body: 'Compliance, regulatory, BD, clinical and market-access service providers.' },
+  { title: 'Technology & data', body: 'Seed-to-sale, compliance software, analytics and operational technology.' },
+]
 
 export default function SupplierDirectoryPage() {
   return (
     <>
-      <section className="bg-navy text-white py-14">
-        <div className="page-container">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Supplier Discovery</h1>
-          <p className="text-gray-300 max-w-2xl">
-            Supplier and service-provider profiles for regulated cannabis and adjacent
-            supply-chain participants. Public profiles are commercial summaries only.
-            Request introductions through Harbourview review rather than direct public contact.
-            To submit your business,{' '}
-            <Link href="/intake" className="text-gold underline hover:text-gold-light">
-              submit via Intake
-            </Link>
-            .
+      <PublicHero
+        eyebrow="Supplier Discovery"
+        title="Reviewed supplier profiles for regulated cannabis operations."
+        actions={[
+          { label: 'Submit your company', href: '/intake' },
+          { label: 'Request an introduction', href: '/contact', variant: 'secondary' },
+        ]}
+      >
+        <p>
+          Supplier and service-provider profiles for licensed cannabis and adjacent supply-chain
+          participants. Public profiles are controlled summaries only. Introductions are routed
+          through Harbourview review rather than direct public contact.
+        </p>
+        <p className="mt-4 text-sm leading-7 text-white/54">
+          Supplier profiles do not imply verified availability, licensing, exclusivity, pricing
+          or transaction readiness. Harbourview reviews introduction requests before routing.
+        </p>
+      </PublicHero>
+
+      <PublicSection tone="dark">
+        <SectionHeader
+          eyebrow="Categories"
+          title="Supply-chain coverage for regulated operators."
+        />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map((cat) => (
+            <PublicCard key={cat.title} className="p-6">
+              <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+              <h3 className="mb-3 text-base font-semibold text-[#f4f1eb]">{cat.title}</h3>
+              <p className="text-sm leading-7 text-white/58">{cat.body}</p>
+            </PublicCard>
+          ))}
+        </div>
+      </PublicSection>
+
+      <PublicSection tone="navy">
+        <div className="flex flex-col items-center py-10 text-center">
+          <div className="mb-6 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-40" />
+          <p className="mb-2 text-lg font-semibold text-[#f5f1e8]">No profiles listed yet</p>
+          <p className="mb-8 max-w-xl text-sm leading-7 text-white/54">
+            Harbourview supplier profiles are added through a controlled review process.
+            Submit your company via intake or request an introduction for a supplier
+            category you need.
           </p>
-        </div>
-      </section>
-
-      <section className="py-12">
-        <div className="page-container">
-          <div className="mb-8 rounded-lg border border-gold/30 bg-gold-pale p-6">
-            <h2 className="text-navy font-semibold text-lg mb-2">Controlled supplier introductions</h2>
-            <p className="text-gray-600 text-sm max-w-3xl">
-              Supplier profiles do not imply verified availability, licensing, exclusivity,
-              pricing or transaction readiness. Harbourview reviews introduction requests
-              before routing and may request additional context before any counterparty contact.
-            </p>
-          </div>
-
-          {suppliers.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-gray-400 text-lg mb-4">No supplier profiles listed yet.</p>
-              <Link href="/intake" className="btn-primary">
-                Submit Supplier Profile
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {suppliers.map((supplier) => (
-                <SupplierCard key={supplier.id} supplier={supplier} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-12 border-t pt-8">
-            <p className="text-gray-500 text-sm">
-              Want to be considered for supplier discovery?{' '}
-              <Link href="/intake" className="text-navy underline hover:text-gold">
-                Submit your company via Intake
-              </Link>
-              .
-            </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link href="/intake" className="btn-marketplace text-sm">
+              Submit your company
+            </Link>
+            <Link href="/contact" className="btn-intelligence text-sm">
+              Request an introduction
+            </Link>
           </div>
         </div>
-      </section>
+      </PublicSection>
+
+      <FooterCta
+        eyebrow="Want to be listed?"
+        title="Submit your company for Harbourview review."
+        actions={[
+          { label: 'Submit via intake', href: '/intake' },
+          { label: 'Contact Harbourview', href: '/contact', variant: 'secondary' },
+        ]}
+      >
+        Supplier inclusion requires Harbourview review of category fit, credentials and
+        commercial relevance. Submission does not guarantee listing or introduction routing.
+      </FooterCta>
     </>
   )
 }
