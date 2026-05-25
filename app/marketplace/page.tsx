@@ -11,19 +11,13 @@ import { marketplaceCategoryCapabilityMap } from '@/lib/marketplace/categoryCapa
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
 
 export const metadata: Metadata = {
-  title: 'Regulated Cannabis Marketplace — Products, Equipment & Opportunities',
+  title: 'Exchange | Harbourview',
   description:
-    'A controlled commercial marketplace for regulated cannabis inventory, equipment, services, wanted requests and business opportunities. Buyer and seller contact handled privately.',
+    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   openGraph: {
-    title: 'Regulated Cannabis Marketplace — Products, Equipment & Opportunities | Harbourview',
+    title: 'Harbourview Network',
     description:
-      'A controlled commercial marketplace for regulated cannabis inventory, equipment, services, wanted requests and business opportunities. Buyer and seller contact handled privately.',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Harbourview Marketplace — Cannabis Industry Exchange',
-    description:
-      'Controlled listings for cannabis inventory, surplus equipment, services, consumables and business opportunities. Introductions reviewed before contact.',
+      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
   },
 }
 
@@ -50,18 +44,16 @@ export default function MarketplacePage() {
   return (
     <>
       <PublicHero
-        eyebrow="Harbourview Marketplace"
-        title="A controlled commercial marketplace for reviewed opportunities and requests."
+        eyebrow="Harbourview Exchange"
+        title="Controlled commercial access for reviewed opportunities and requests."
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
-          { label: 'Browse Categories', href: '#categories', variant: 'secondary' },
+          { label: 'Explore Categories', href: '#categories', variant: 'secondary' },
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
         ]}
       >
         <p>
-          Harbourview Marketplace gives serious operators access to reviewed commercial listings, wanted requests,
-          and market-specific opportunities. Contact details are never public. Harbourview reviews every inquiry
-          before coordinating introductions or transaction follow-up.
+          Harbourview Network connects qualified participants through reviewed opportunities, wanted requests, qualified introductions, commercial intelligence and relationship-led market access.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
           {MARKETPLACE_CONFIDENTIALITY_CAVEAT}
@@ -70,7 +62,7 @@ export default function MarketplacePage() {
 
       <PublicSection tone="dark">
         <SectionHeader
-          eyebrow="How it works"
+          eyebrow="Controlled network workflow"
           title="Review and qualification before introduction."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -86,8 +78,8 @@ export default function MarketplacePage() {
 
       <PublicSection id="categories" tone="navy">
         <SectionHeader
-          eyebrow="Marketplace categories"
-          title="Browse reviewed commercial access categories."
+          eyebrow="Network categories"
+          title="Explore reviewed commercial access categories."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {marketplaceCategoryCapabilityMap.map((cat) => (
@@ -102,14 +94,14 @@ export default function MarketplacePage() {
       </PublicSection>
 
       <FooterCta
-        eyebrow="Have something to sell, export, or list?"
-        title="Submit to Harbourview for review."
+        eyebrow="Submit to Harbourview"
+        title="Have an opportunity, introduction request or wanted request to submit?"
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
         ]}
       >
-        Submissions are reviewed before publication. Contact details stay private. Introductions are handled through controlled workflows.
+        Submit supply, services, business opportunities, buyer requirements or introduction requests for Harbourview Network review. Public visibility and routing are not automatic.
       </FooterCta>
     </>
   )

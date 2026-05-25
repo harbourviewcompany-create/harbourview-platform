@@ -30,7 +30,7 @@ const navGroups: NavGroup[] = [
       { label: 'Exchange Home', href: '/marketplace' },
       { label: 'Reviewed Listings', href: '/marketplace/listings' },
       { label: 'Wanted Requests', href: '/marketplace/wanted' },
-      { label: 'Sell or Export', href: '/marketplace/sell' },
+      { label: 'Submit Listing', href: '/marketplace/sell' },
       { label: 'Services & Equipment', href: '/marketplace/services' },
       { label: 'Consumables', href: '/marketplace/consumables' },
       { label: 'Genetics', href: '/marketplace/genetics' },
