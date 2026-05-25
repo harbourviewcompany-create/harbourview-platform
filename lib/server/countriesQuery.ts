@@ -118,7 +118,7 @@ export async function getPublicListings(): Promise<{ iso_alpha2: string; listing
 export async function getPublicCountryBySlug(slug: string): Promise<PublicCountry | null> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
   try {
-    const params = new URLSearchParams({ select: '*', country_slug: `eq.${slug}`, limit: '1' })
+    const params = new URLSearchParams({ select: 'id,country_name,country_slug,iso_alpha2,iso_alpha3,region,subregion,market_access_status,medical_status,adult_use_status,import_status,export_status,signals_status,opportunity_status,public_summary,data_completeness,last_updated_label,lat,lng,opportunity_categories,trade_roles,regulator_label', country_slug: `eq.${slug}`, limit: '1' })
     const res = await fetch(`${SUPABASE_URL}/rest/v1/countries?${params}`, {
       next: { revalidate: 3600 },
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
