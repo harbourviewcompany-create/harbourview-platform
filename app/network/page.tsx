@@ -7,13 +7,13 @@ export const metadata: Metadata = {
   description:
     'Role-specific entry points for every type of serious participant in regulated cannabis — operators, buyers, exporters, importers, professionals and institutions.',
   openGraph: {
-    title: 'Harbourview Network — Controlled Cannabis Industry Access',
+    title: 'Harbourview — Controlled Cannabis Industry Access',
     description:
       'Role-specific discovery for regulated cannabis operators, buyers, exporters, importers, distributors, professionals, institutions and adjacent stakeholders.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Harbourview Network',
+    title: 'Harbourview',
     description:
       'Role-specific entry points for every serious participant in regulated cannabis — operators, buyers, exporters, professionals and institutions.',
   },
