@@ -7,7 +7,6 @@ const publicFooterGroups = footerGroups
     links: group.links.filter((link) => {
       const label = link.label.toLowerCase()
       const href = link.href.toLowerCase()
-
       return !label.includes('supplier') && !href.includes('supplier')
     }),
   }))
@@ -21,8 +20,8 @@ export default function Footer() {
           <p className="premium-wordmark text-[16px] sm:text-[18px]">HARBOURVIEW</p>
           <div className="mt-5 h-px w-14 bg-gradient-to-r from-gold to-gold-light" />
           <p className="mt-5 max-w-3xl text-sm leading-7 text-white/58">
-            Controlled commercial network access, reviewed intelligence, professional education,
-            policy resources and institutional pathways for serious participants in regulated cannabis markets.
+            Harbourview gives serious operators in regulated cannabis markets the intelligence,
+            introductions, and access pathways that aren&apos;t available publicly.
           </p>
         </div>
 
@@ -47,10 +46,10 @@ export default function Footer() {
 
         <div className="mt-10 flex flex-col gap-4 border-t border-gold/10 pt-6 text-xs text-white/38 sm:mt-12 sm:flex-row sm:items-end sm:justify-between">
           <p>© {new Date().getFullYear()} Harbourview. All rights reserved.</p>
-
           <p className="max-w-2xl leading-6 sm:text-right">
-            Harbourview is intentionally not an open-contact directory. Public pages support discovery and context.
-            Sensitive commercial, regulatory, documentary and counterparty information is handled through reviewed private workflows.
+            Public pages give you enough to orient and decide. Sensitive commercial detail,
+            counterparty information, and reviewed introductions move through controlled private
+            workflows — not open directories.
           </p>
         </div>
       </div>
