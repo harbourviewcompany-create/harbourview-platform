@@ -15,7 +15,7 @@ import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { GlobeRouterStep } from '@/types/globe-router'
 
 
-export function getFlyToMotionProfile(prefersReducedMotion: boolean) {
+export function getFlyToMotionProfile(prefersReducedMotion: boolean): { shouldAnimate: boolean; flyDurationMs: number; allowCountryFocus: boolean } {
   return {
     shouldAnimate: !prefersReducedMotion,
     flyDurationMs: prefersReducedMotion ? 0 : 900,
