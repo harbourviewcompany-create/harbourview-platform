@@ -1,21 +1,21 @@
 import Link from 'next/link'
 
 type InstitutionalCTAProps = {
-  title: string
-  body: string
-  primaryLabel: string
-  primaryHref: string
+  title?: string
+  body?: string
+  primaryLabel?: string
+  primaryHref?: string
   secondaryLabel?: string
   secondaryHref?: string
 }
 
 export default function InstitutionalCTA({
-  title,
-  body,
-  primaryLabel,
-  primaryHref,
-  secondaryLabel,
-  secondaryHref,
+  title = "Tell us your market. We'll route you.",
+  body = 'Harbourview supports reviewed commercial engagement, institutional collaboration, intelligence requests and controlled market-access discussions through confidential intake pathways.',
+  primaryLabel = 'Start a confidential conversation',
+  primaryHref = '/contact',
+  secondaryLabel = 'Browse the marketplace',
+  secondaryHref = '/marketplace',
 }: InstitutionalCTAProps) {
   return (
     <section className="bg-[#020814] py-14 sm:py-18">
