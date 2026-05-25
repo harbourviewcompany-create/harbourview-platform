@@ -3,11 +3,11 @@ import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } 
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
 
 export const metadata: Metadata = {
-  title: 'Reviewed Network Listings | Harbourview Network',
+  title: 'Exchange Listings | Harbourview',
   description:
     'A safe public entry point for Harbourview Network listing categories, wanted requests and opportunity submissions.',
   openGraph: {
-    title: 'Reviewed Network Listings | Harbourview Network',
+    title: 'Exchange Listings | Harbourview',
     description:
       'Explore Harbourview Network categories and submit commercial opportunities through controlled review pathways.',
   },
@@ -44,7 +44,7 @@ export default function MarketplaceListingsPage() {
   return (
     <>
       <PublicHero
-        eyebrow="Harbourview Network Listings"
+        eyebrow="Exchange Listings"
         title="Reviewed commercial pathways for qualified network opportunities."
         actions={[
           { label: 'Explore Network', href: '/marketplace' },
