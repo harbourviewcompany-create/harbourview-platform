@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 }
 
 const contactPaths = [
-  'Harbourview Network submissions and wanted requests',
+  'Exchange submissions and wanted requests',
   'Commercial intelligence and country pathway review',
   'Supplier, buyer or service-provider routing questions',
   'Confidential opportunities requiring controlled review',
