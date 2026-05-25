@@ -12,9 +12,9 @@ import {
 } from '@/lib/marketplace/genetics/publicProjection'
 
 export const metadata: Metadata = {
-  title: 'Genetics, Seeds & Tissue Culture | Harbourview Network',
+  title: 'Genetics, Seeds & Tissue Culture | Harbourview',
   description:
-    'A controlled Harbourview Network showcase for genetics, seed lines, tissue-culture programs, clean-stock services and licensing opportunities.',
+    'A controlled Harbourview showcase for genetics, seed lines, tissue-culture programs, clean-stock services and licensing opportunities.',
 }
 
 export default async function GeneticsShowcasePage({
