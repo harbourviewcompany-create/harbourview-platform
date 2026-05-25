@@ -3,7 +3,7 @@ import IntakeForm from '@/app/intake/IntakeForm'
 import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
-  title: 'Submit Opportunity | Harbourview Network',
+  title: 'Submit Listing | Harbourview',
   description:
     'Submit supply, services, wanted requests or commercial opportunities through Harbourview Network. Contact details are not public and Harbourview reviews submissions before routing.',
 }
@@ -19,7 +19,7 @@ export default async function SellPage({
   return (
     <>
       <PublicHero
-        eyebrow={isWanted ? 'Wanted Request Intake' : 'Harbourview Network Submission'}
+        eyebrow={isWanted ? 'Wanted Request Intake' : 'Exchange — Submit Listing'}
         title={isWanted ? 'Create a private buyer requirement.' : 'Submit an opportunity for controlled review.'}
         compact
       >
