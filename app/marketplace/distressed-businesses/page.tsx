@@ -50,8 +50,7 @@ export default async function DistressedBusinessesPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(198,165,90,0.08),transparent_30%)]" />
         <div className="page-container relative z-10">
           <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
-            <Link href="/marketplace" className="transition-colors hover:text-gold">Exchange</Link>
-            {' / Distressed Businesses'}
+            <Link href="/marketplace" className="transition-colors hover:text-gold">Exchange</Link>{' / Distressed Businesses'}
           </p>
           <h1 className="max-w-4xl font-serif text-[2.2rem] leading-[1.06] tracking-normal text-[#f5f1e8] sm:text-5xl lg:text-6xl">
             Distressed cannabis businesses, facilities and operating assets.
@@ -88,10 +87,7 @@ export default async function DistressedBusinessesPage() {
         <div className="page-container">
           {listings.length === 0 ? <EmptyState /> : (
             <>
-              <div className="mb-8">
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">Reviewed summaries</p>
-                <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">Active reviewed opportunities.</h2>
-              </div>
+              <div className="mb-8"><p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">Reviewed summaries</p><h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">Active reviewed opportunities.</h2></div>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{listings.map((l) => <ListingCard key={l.id} listing={l} />)}</div>
             </>
           )}
