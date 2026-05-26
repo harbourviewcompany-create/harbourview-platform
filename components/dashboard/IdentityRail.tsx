@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useDashboard } from './DashboardContext'
+import { useDashboard } from '@/lib/dashboard/DashboardContext'
 import { useAllCountries } from '@/hooks/useAllCountries'
 
 interface Props {
