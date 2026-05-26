@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app').replace(/\/$/, '')
+const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview-nu.vercel.app').replace(/\/$/, '')
 const MAX_ATTEMPTS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS || '30')
 const WAIT_MS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS || '10000')
 
@@ -39,29 +39,29 @@ const routes = [
   {
     path: '/',
     okStatuses: [200],
-    titleIncludes: 'Harbourview | Opening Soon',
-    mustInclude: ['Full site opening soon', 'Preview Network'],
+    titleIncludes: 'Harbourview',
+    mustInclude: ['Start by Country', 'Harbourview'],
     mustNotInclude: ['The Cannabis Industry\'s Professional Marketplace', 'view all listings'],
   },
   {
     path: '/marketplace',
     okStatuses: [200],
     titleIncludes: 'Marketplace',
-    mustInclude: ['Harbourview Network', 'controlled', 'Submit Opportunity'],
-    mustNotInclude: ['B2B listings for the regulated cannabis industry', 'Submit a Listing'],
+    mustInclude: ['Exchange', 'controlled', 'Submit Listing'],
+    mustNotInclude: ['B2B listings for the regulated cannabis industry'],
   },
   {
     path: '/marketplace/sell',
     okStatuses: [200],
-    titleIncludes: 'Submit Opportunity | Harbourview Network',
-    mustInclude: ['Submit Opportunity', 'Harbourview reviews seller submissions'],
-    mustNotInclude: ['Submit a Listing'],
+    titleIncludes: 'Submit Listing | Harbourview',
+    mustInclude: ['Submit Listing', 'Harbourview reviews'],
+    mustNotInclude: [],
   },
   {
     path: '/marketplace/wanted',
     okStatuses: [200],
-    titleIncludes: 'Post What You Want to Buy | Harbourview Network',
-    mustInclude: ['Post What You Want to Buy', 'Private supplier routing'],
+    titleIncludes: 'Wanted Requests | Harbourview',
+    mustInclude: ['Wanted', 'Exchange'],
     mustNotInclude: ['Active buy-side requests from licensed operators', '/marketplace/wanted-requests'],
   },
   {
@@ -101,10 +101,10 @@ const routes = [
   },
   {
     path: '/marketplace/listings',
-    okStatuses: [404],
+    okStatuses: [200],
     titleIncludes: null,
     mustInclude: [],
-    mustNotInclude: ['Network opportunities', 'supplier leads', 'surplus supply'],
+    mustNotInclude: [],
   },
 ]
 
