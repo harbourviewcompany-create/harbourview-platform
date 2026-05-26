@@ -1,6 +1,6 @@
 'use client'
 
-import { useDashboard } from './DashboardContext'
+import { useDashboard } from '@/lib/dashboard/DashboardContext'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { StatusBadge } from './StatusBadge'
 
