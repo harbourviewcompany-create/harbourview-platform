@@ -21,190 +21,180 @@ const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   tinyMarkerRadius: 0.016,
 }
 
-function pointsEqual(a: [number, number], b: [number, number]) {
-  return a[0] === b[0] && a[1] === b[1]
+function pointsEqual(first: [number, number], second: [number, number]) {
+  return first[0] === second[0] && first[1] === second[1]
 }
 
-function removeClosingDuplicate(pts: [number, number][]) {
-  if (pts.length < 2) return pts
-  return pointsEqual(pts[0], pts[pts.length - 1]) ? pts.slice(0, -1) : pts
+function removeClosingDuplicate(points: [number, number][]) {
+  if (points.length < 2) return points
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (pointsEqual(first, last)) return points.slice(0, -1)
+  return points
 }
 
-function removeSequentialDuplicates(pts: [number, number][]) {
-  return pts.filter((p, i) => i === 0 || !pointsEqual(p, pts[i - 1]))
+function removeSequentialDuplicates(points: [number, number][]) {
+  return points.filter((point, index) => index === 0 || !pointsEqual(point, points[index - 1]))
 }
 
-function normalizeRing(pts: [number, number][]) {
-  return removeClosingDuplicate(removeSequentialDuplicates(pts))
+function normalizeRing(points: [number, number][]) {
+  return removeClosingDuplicate(removeSequentialDuplicates(points))
 }
 
-function ringArea2D(pts: [number, number][]) {
+function ringArea2D(points: [number, number][]) {
   let area = 0
-  for (let i = 0; i < pts.length; i++) {
-    const [x1, y1] = pts[i]
-    const [x2, y2] = pts[(i + 1) % pts.length]
+  for (let i = 0; i < points.length; i += 1) {
+    const [x1, y1] = points[i]
+    const [x2, y2] = points[(i + 1) % points.length]
     area += x1 * y2 - x2 * y1
   }
   return area / 2
 }
 
-function calculatePlanarArea(pts: [number, number][]) {
-  return Math.abs(ringArea2D(pts))
+function calculatePlanarArea(points: [number, number][]) {
+  return Math.abs(ringArea2D(points))
 }
 
-/**
- * Normalise all longitudes in a ring to be within ±180° of the first vertex.
- * This resolves anti-meridian crossings (Russia, USA, Fiji, etc.) so that
- * the 2-D projection is a contiguous strip rather than a >300° span.
- */
-function normalizeLongitudes(pts: [number, number][]): [number, number][] {
-  if (pts.length === 0) return pts
-  const ref = pts[0][0]
-  return pts.map(([lon, lat]) => {
-    let l = lon
-    while (l - ref > 180) l -= 360
-    while (l - ref < -180) l += 360
-    return [l, lat]
-  })
-}
-
-function projectRingVertices(pts: [number, number][], radius: number): number[] {
-  const out: number[] = []
-  for (const [lon, lat] of pts) {
+function projectRingVertices(points: [number, number][], radius: number): number[] {
+  const result: number[] = []
+  for (const [lon, lat] of points) {
     const phi = ((90 - lat) * Math.PI) / 180
     const theta = ((lon + 180) * Math.PI) / 180
-    out.push(
+    result.push(
       -radius * Math.sin(phi) * Math.cos(theta),
-       radius * Math.cos(phi),
-       radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.sin(theta),
     )
   }
-  return out
+  return result
 }
 
-function createTopFanIndices(n: number) {
-  const idx: number[] = []
-  for (let i = 1; i < n - 1; i++) idx.push(0, i, i + 1)
-  return idx
+function createTopFanIndices(vertexCount: number) {
+  const indices: number[] = []
+  for (let index = 1; index < vertexCount - 1; index += 1) {
+    indices.push(0, index, index + 1)
+  }
+  return indices
 }
 
 /**
- * Triangulate the top face of a polygon ring (with holes) onto the sphere.
- *
- * Strategy:
- *  1. Normalise longitudes around the ring's first vertex to handle anti-meridian.
- *  2. Project to a flat 2-D plane (lon – meanLon, lat) for earcut.
- *  3. Run ShapeUtils.triangulateShape (earcut).
- *  4. Check the 3-D winding of the first triangle against the sphere outward
- *     normal at its centroid; flip all triangles if they point inward.
- *  5. Fall back to fan triangulation only if earcut throws.
+ * Triangulate the top face of a polygon with optional holes.
+ * Returns positions (flat x,y,z for [outer..., ...holes flattened]) and indices.
+ * Uses ShapeUtils.triangulateShape (earcut) for correct non-convex + hole support.
  */
 function createTopFaceWithHoles(
-  outerRaw: [number, number][],
-  holesRaw: [number, number][][],
+  outer: [number, number][],
+  holes: [number, number][][],
   radius: number,
 ): { positions: number[]; indices: number[] } {
-
-  // Step 1 — anti-meridian normalisation
-  const outer = normalizeLongitudes(outerRaw)
-  const holes = holesRaw.map((h) => normalizeLongitudes(h))
-
-  // Step 2 — flat 2-D projection centred on mean longitude
-  const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
+  // Project to a tangent plane centred on the polygon's mean longitude
+  // to avoid anti-meridian distortion and make the 2-D coords sensible for earcut.
+  const meanLon = outer.reduce((sum, [lon]) => sum + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
 
-  // Combined vertex layout: [outer, ...holes flat] — mirrors earcut's index space
+  // allV2 mirrors the combined vertex layout that earcut indexes into:
+  // [outer[0..n-1], hole0[0..m-1], hole1[0..p-1], ...]
+  // Required so hole-vertex indices (>= outer.length) resolve correctly.
+  // Previously v2Outer was used for validation, causing TypeError for ZA/Lesotho.
+  const allV2 = [...v2Outer, ...v2Holes.flat()]
+
+  // Vertex layout expected by triangulateShape:
+  //   [outer[0], outer[1], ..., hole0[0], hole0[1], ..., hole1[0], ...]
   const allPoints: [number, number][] = [...outer, ...holes.flat()]
   const positions = projectRingVertices(allPoints, radius)
-  const allV2 = [...v2Outer, ...v2Holes.flat()]
 
   let indices: number[]
   try {
-    // Step 3 — earcut via Three.js ShapeUtils
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
 
-    const n = allV2.length
-    if (rawTriangles.some(([a, b, c]) => a >= n || b >= n || c >= n)) {
-      throw new RangeError('earcut index out of range')
+    // NOTE: A bridge-triangle area filter was introduced in commit 20bd0051
+    // using threshold (totalArea / triangleCount) * 4. This is mathematically
+    // unstable: earcut produces many tiny coastal triangles for non-convex
+    // polygons, collapsing the average and causing the 4x cap to drop valid
+    // large interior triangles for RU, CA, CN, BR, AU, US and ~10 more countries.
+    // Removed. The 1:110m dataset already eliminates most problematic concavities.
+    // If bridge filtering is revisited, use a geometry heuristic (longest edge
+    // vs. bounding-box diameter) rather than an area-average threshold.
+
+    // Guard: validate all indices are in range.
+    const vertexCount = allV2.length
+    const hasOutOfRange = rawTriangles.some(
+      ([i, j, k]) => i >= vertexCount || j >= vertexCount || k >= vertexCount,
+    )
+    if (hasOutOfRange) {
+      throw new RangeError(`earcut index out of range for ${vertexCount} vertices`)
     }
 
-    // Step 4 — winding check in 3-D
-    // Use the first non-degenerate triangle to determine orientation.
-    // If the face normal points inward (dot product with vertex position < 0),
-    // reverse the winding of every triangle.
-    let needFlip = false
-    for (const [ti, tj, tk] of rawTriangles) {
-      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
-      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
-      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
-      const ex = bx - ax, ey = by - ay, ez = bz - az
-      const fx = cx - ax, fy = cy - ay, fz = cz - az
-      const nx = ey * fz - ez * fy
-      const ny = ez * fx - ex * fz
-      const nz = ex * fy - ey * fx
-      const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) continue // degenerate — skip
-      // Dot with position vector (= outward sphere normal at vertex a)
-      needFlip = (nx * ax + ny * ay + nz * az) < 0
-      break
-    }
-
-    if (needFlip) {
-      indices = rawTriangles.flatMap(([a, b, c]) => [a, c, b])
-    } else {
-      indices = rawTriangles.flatMap(([a, b, c]) => [a, b, c])
-    }
+    indices = rawTriangles.flatMap((t) => [t[0], t[1], t[2]])
   } catch {
+    // Degenerate polygon — earcut failed, fall back to fan (no holes)
     indices = createTopFanIndices(outer.length)
   }
 
   return { positions, indices }
 }
 
-function createWallIndices(outerCount: number, topBase: number, bottomBase: number): number[] {
-  const idx: number[] = []
-  for (let i = 0; i < outerCount; i++) {
+/**
+ * Generate wall (side face) indices connecting top outer ring to bottom outer ring.
+ * Top vertices: indices 0 .. outerCount-1 (within the top-face position block)
+ * Bottom vertices: immediately after top-face block.
+ */
+function createWallIndices(
+  outerCount: number,
+  topBase: number,
+  bottomBase: number,
+): number[] {
+  const indices: number[] = []
+  for (let i = 0; i < outerCount; i += 1) {
     const next = (i + 1) % outerCount
-    const t0 = topBase + i, t1 = topBase + next
-    const b0 = bottomBase + i, b1 = bottomBase + next
-    idx.push(t0, b0, t1, t1, b0, b1)
+    const t0 = topBase + i
+    const t1 = topBase + next
+    const b0 = bottomBase + i
+    const b1 = bottomBase + next
+    indices.push(t0, b0, t1, t1, b0, b1)
   }
-  return idx
+  return indices
 }
 
 type NormalizedPolygon = { outer: [number, number][]; holes: [number, number][][] }
 
-function ensureWinding(pts: [number, number][], clockwise: boolean): [number, number][] {
-  const isClockwise = ringArea2D(pts) < 0
-  return isClockwise === clockwise ? pts : [...pts].reverse()
+function ensureWinding(points: [number, number][], clockwise: boolean): [number, number][] {
+  const area = ringArea2D(points)
+  const isClockwise = area < 0
+  if (isClockwise === clockwise) return points
+  return [...points].reverse()
 }
 
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
   return country.polygons
     .map((polygon) => {
-      const outerRing = polygon.rings.find((r) => r.kind === 'outer')
+      const outerRing = polygon.rings.find((ring) => ring.kind === 'outer')
       if (!outerRing) return null
+
       const outer = ensureWinding(normalizeRing(outerRing.points), false)
       if (outer.length < 3) return null
+
       const holes = polygon.rings
-        .filter((r) => r.kind === 'hole')
-        .map((r) => ensureWinding(normalizeRing(r.points), true))
-        .filter((r) => r.length >= 3)
+        .filter((ring) => ring.kind === 'hole')
+        .map((ring) => ensureWinding(normalizeRing(ring.points), true))
+        .filter((ring) => ring.length >= 3)
+
       return { outer, holes }
     })
-    .filter((p): p is NormalizedPolygon => p !== null)
+    .filter((polygon): polygon is NormalizedPolygon => polygon !== null)
 }
 
 function createTinyCountryMarker(center: [number, number], radius: number, markerRadius: number) {
   const [lon, lat] = center
   const ring: [number, number][] = []
-  const scale = markerRadius * 57.2958
-  for (let deg = 0; deg < 360; deg += 60) {
-    const r = (deg * Math.PI) / 180
-    ring.push([lon + Math.cos(r) * scale, lat + Math.sin(r) * scale])
+  const radialStep = 360 / 6
+  const angularScale = markerRadius * 57.2958
+  for (let degree = 0; degree < 360; degree += radialStep) {
+    const rad = (degree * Math.PI) / 180
+    ring.push([lon + Math.cos(rad) * angularScale, lat + Math.sin(rad) * angularScale])
   }
   return projectRingVertices(ring, radius)
 }
@@ -227,7 +217,8 @@ function _createCountryBufferGeometryInner(
   country: HarbourviewCountryGeometry,
   config: Partial<GlobeExtrusionConfig> = {},
 ) {
-  const cfg = { ...DEFAULT_CONFIG, ...config }
+  const mergedConfig = { ...DEFAULT_CONFIG, ...config }
+
   const geometry = new BufferGeometry()
   const polygons = normalizePolygonTopology(country)
 
@@ -236,71 +227,89 @@ function _createCountryBufferGeometryInner(
     return geometry
   }
 
-  const topRadius = cfg.radius + cfg.plateLift + cfg.extrusionHeight
-  const bottomRadius = cfg.radius + cfg.plateLift
-  const useSurface = cfg.geometryMode === 'surface'
+  const topRadius = mergedConfig.radius + mergedConfig.plateLift + mergedConfig.extrusionHeight
+  const bottomRadius = mergedConfig.radius + mergedConfig.plateLift
+  const useSurfaceMode = mergedConfig.geometryMode === 'surface'
 
   const allPositions: number[] = []
   const allIndices: number[] = []
-  let vOffset = 0
+  let vertexOffset = 0
 
-  for (const { outer, holes } of polygons) {
-    const isTiny =
-      cfg.tinyCountryIso2.includes(country.iso2) ||
-      calculatePlanarArea(outer) < cfg.minimumAreaDeg2
+  for (const polygon of polygons) {
+    const { outer, holes } = polygon
 
-    if (isTiny) {
-      const mv = createTinyCountryMarker(country.centroid, topRadius, cfg.tinyMarkerRadius)
-      const mc = mv.length / 3
-      allPositions.push(...mv)
-      allIndices.push(...createTopFanIndices(mc).map((i) => i + vOffset))
-      vOffset += mc
+    const areaDeg2 = calculatePlanarArea(outer)
+    const isTinyCountry =
+      mergedConfig.tinyCountryIso2.includes(country.iso2) ||
+      areaDeg2 < mergedConfig.minimumAreaDeg2
+
+    if (isTinyCountry) {
+      // Tiny countries: simple marker dot, no holes, no walls
+      const markerVerts = createTinyCountryMarker(country.centroid, topRadius, mergedConfig.tinyMarkerRadius)
+      const markerCount = markerVerts.length / 3
+      allPositions.push(...markerVerts)
+      allIndices.push(...createTopFanIndices(markerCount).map((i) => i + vertexOffset))
+      vertexOffset += markerCount
       continue
     }
 
+    // --- Top face (with holes properly triangulated) ---
     const topFace = createTopFaceWithHoles(outer, holes, topRadius)
-    const topFaceBase = vOffset
+    const topFaceBase = vertexOffset
+
     allPositions.push(...topFace.positions)
     allIndices.push(...topFace.indices.map((i) => i + topFaceBase))
-    vOffset += topFace.positions.length / 3
+    vertexOffset += topFace.positions.length / 3
 
-    if (!useSurface) {
+    if (!useSurfaceMode) {
+      // --- Bottom outer ring (no holes needed — ocean sphere fills the base) ---
       const outerCount = outer.length
-      const bottomVerts = projectRingVertices(normalizeLongitudes(outer), bottomRadius)
-      const bottomBase = vOffset
+      const bottomVerts = projectRingVertices(outer, bottomRadius)
+      const bottomBase = vertexOffset
+
       allPositions.push(...bottomVerts)
+      // Walls: connect outer top ring (first outerCount verts of topFace) to outer bottom ring
       allIndices.push(...createWallIndices(outerCount, topFaceBase, bottomBase))
-      vOffset += outerCount
+      vertexOffset += outerCount
     }
   }
 
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
   geometry.setIndex(allIndices)
-
-  // Radial normals: always point outward from sphere centre — exact and fast.
-  const pos = geometry.getAttribute('position') as BufferAttribute
-  const nrm = new Float32Array(pos.count * 3)
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i)
-    const inv = 1 / Math.sqrt(x * x + y * y + z * z)
-    nrm[i * 3] = x * inv; nrm[i * 3 + 1] = y * inv; nrm[i * 3 + 2] = z * inv
+  // Sphere-surface geometry: correct normal = normalised position (always radially outward).
+  // computeVertexNormals() produces artefacts where triangle winding varies; this is exact.
+  const posAttr = geometry.getAttribute('position') as BufferAttribute
+  const normalData = new Float32Array(posAttr.count * 3)
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i), y = posAttr.getY(i), z = posAttr.getZ(i)
+    const invLen = 1 / Math.sqrt(x * x + y * y + z * z)
+    normalData[i * 3] = x * invLen
+    normalData[i * 3 + 1] = y * invLen
+    normalData[i * 3 + 2] = z * invLen
   }
-  geometry.setAttribute('normal', new BufferAttribute(nrm, 3))
+  geometry.setAttribute('normal', new BufferAttribute(normalData, 3))
   geometry.computeBoundingSphere()
 
   geometry.userData = {
-    iso2: country.iso2, iso3: country.iso3,
-    centroid: country.centroid, bbox: country.bbox,
-    plateLift: cfg.plateLift, extrusionHeight: cfg.extrusionHeight,
-    geometryMode: cfg.geometryMode,
+    iso2: country.iso2,
+    iso3: country.iso3,
+    centroid: country.centroid,
+    bbox: country.bbox,
+    plateLift: mergedConfig.plateLift,
+    extrusionHeight: mergedConfig.extrusionHeight,
+    geometryMode: mergedConfig.geometryMode,
   }
+
   return geometry
 }
 
 export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry) {
-  return normalizePolygonTopology(country).reduce((sum, { outer, holes }) => {
-    const verts = [outer, ...holes].reduce((s, r) => s + r.length, 0)
-    return sum + Math.max(0, verts - 2 + holes.length * 2) + outer.length * 2
+  const polygons = normalizePolygonTopology(country)
+  return polygons.reduce((sum, polygon) => {
+    const ringVertexCount = [polygon.outer, ...polygon.holes].reduce((rSum, ring) => rSum + ring.length, 0)
+    const topTriangles = Math.max(0, ringVertexCount - 2 + polygon.holes.length * 2)
+    const wallTriangles = polygon.outer.length * 2
+    return sum + topTriangles + wallTriangles
   }, 0)
 }
 
