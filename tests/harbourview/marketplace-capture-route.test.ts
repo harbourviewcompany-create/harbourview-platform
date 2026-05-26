@@ -6,7 +6,7 @@ const validPayload = {
   contact_name: 'Harbourview Test Seller',
   contact_email: 'seller@example.com',
   contact_company: 'Harbourview Test Company',
-  contact_phone: null,
+  contact_phone: '555-0100',
   inquiry_type: 'listing_submission',
   message: 'Harbourview marketplace listing submission\n\nListing type: New Product\nTitle: Test listing\n\nDescription:\nSafe test description.',
   success_message: 'Listing submission received. Harbourview will review it before publication or counterparty routing.',
@@ -63,7 +63,7 @@ describe('/api/marketplace/capture', () => {
       contact_name: validPayload.contact_name,
       contact_email: validPayload.contact_email,
       contact_company: validPayload.contact_company,
-      contact_phone: null,
+      contact_phone: validPayload.contact_phone,
       inquiry_type: 'listing_submission',
       message: validPayload.message,
       status: 'received',
@@ -87,10 +87,15 @@ describe('/api/marketplace/capture', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('returns a safe public error when Supabase insert fails and logs structured non-sensitive diagnostics', async () => {
+  it('returns a safe public error when Supabase insert fails and logs structured redacted diagnostics', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ code: '23502', message: 'required column violation', details: 'schema detail', hint: 'Check required columns.' }),
+        JSON.stringify({
+          code: '23502',
+          message: `required column violation for ${validPayload.contact_email}`,
+          details: `Failing row contains ${validPayload.contact_name}, ${validPayload.contact_company}, ${validPayload.contact_phone}, and ${validPayload.message}.`,
+          hint: 'Check required columns.',
+        }),
         { status: 400, statusText: 'Bad Request' },
       ),
     )
@@ -113,14 +118,14 @@ describe('/api/marketplace/capture', () => {
       route: '/api/marketplace/capture',
       targetTable: 'marketplace_inquiries',
       supabaseErrorCode: '23502',
-      supabaseErrorMessage: 'required column violation',
-      supabaseErrorDetails: 'schema detail',
+      supabaseErrorMessage: 'required column violation for [redacted]',
       supabaseErrorHint: 'Check required columns.',
     })
     const logText = JSON.stringify(insertLog)
     expect(logText).not.toContain(validPayload.contact_name)
     expect(logText).not.toContain(validPayload.contact_email)
     expect(logText).not.toContain(validPayload.contact_company)
+    expect(logText).not.toContain(validPayload.contact_phone)
     expect(logText).not.toContain(validPayload.message)
   })
 })
