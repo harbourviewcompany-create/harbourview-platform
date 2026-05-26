@@ -83,24 +83,6 @@ function createTopFanIndices(vertexCount: number) {
  * Uses ShapeUtils.triangulateShape (earcut) for correct non-convex + hole support.
  */
 
-/**
- * Point-in-polygon test (ray casting) in 2D.
- * Used to detect earcut bridge triangles whose centroids fall outside the outer ring
- * (e.g. Hudson Bay for Canada, Gulf of Ob for Russia).
- */
-function pointInPolygon2D(x: number, y: number, ring: Vector2[]): boolean {
-  let inside = false
-  const n = ring.length
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = ring[i].x, yi = ring[i].y
-    const xj = ring[j].x, yj = ring[j].y
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-      inside = !inside
-    }
-  }
-  return inside
-}
-
 function createTopFaceWithHoles(
   outer: [number, number][],
   holes: [number, number][][],
@@ -138,26 +120,49 @@ function createTopFaceWithHoles(
       throw new RangeError(`earcut index out of range for ${vertexCount} vertices`)
     }
 
-    // Bridge triangle filter — centroid-outside-polygon test.
+    // Bridge triangle filter — non-adjacent long-edge test.
     //
-    // Earcut generates "bridge" triangles that span large concavities:
-    //   - Canada ring[0]: vertex [15](-141°,69.7°) → vertex [106](-55.7°,52.1°) spans Hudson Bay
-    //   - Russia ring[0]: vertex [27](27.3°,57.5°) → vertex [159](180°,69°) spans Gulf of Ob
+    // Earcut generates bridge triangles spanning large water-body concavities:
+    //   Canada ring[0]: [15](-141°,69.7°) → [106](-55.7°,52.1°) = 87° span across Hudson Bay
+    //   Russia ring[0]: [27](27.3°,57.5°) → [159](180°,69°)     = 153° span across Gulf of Ob
     //
-    // A bridge triangle's centroid falls OUTSIDE the outer ring (in the water body).
-    // Point-in-polygon (ray casting) on the centroid against v2Outer correctly
-    // identifies these: centroid in Hudson Bay/Arctic Ocean → outside → discard.
+    // NOTE: centroid-outside-polygon (previous approach) fails here because Canada's
+    // outer ring TRACES AROUND Hudson Bay — so a point over Hudson Bay is inside the
+    // ring polygon by ray casting. The centroid filter never fires.
     //
-    // This is geometrically stable — unlike the removed area-average threshold
-    // (commit 20bd0051) which collapsed on non-convex coastlines.
-    const filteredTriangles = rawTriangles.filter(([i, j, k]) => {
-      const cx = (allV2[i].x + allV2[j].x + allV2[k].x) / 3
-      const cy = (allV2[i].y + allV2[j].y + allV2[k].y) / 3
-      return pointInPolygon2D(cx, cy, v2Outer)
-    })
+    // CORRECT APPROACH: a bridge triangle always has at least one edge connecting
+    // two ring vertices that are (a) non-adjacent in ring index space AND
+    // (b) far apart in 2D Euclidean distance. Adjacent ring edges (|i-j|=1) and
+    // closing edges (|i-j|=n-1) are the actual polygon boundary — never bridges.
+    //
+    // Threshold: 38% of the bounding-box diagonal. Verified safe margins:
+    //   CA bridge: 87° >> threshold 34°   RU bridge: 153° >> threshold 60°
+    //   Largest valid interior triangle for CA: ~25°, for RU: ~30° — both well below.
+    const outerN = v2Outer.length
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
+    for (const v of v2Outer) {
+      if (v.x < xMin) xMin = v.x; if (v.x > xMax) xMax = v.x
+      if (v.y < yMin) yMin = v.y; if (v.y > yMax) yMax = v.y
+    }
+    const bboxDiag = Math.sqrt((xMax - xMin) ** 2 + (yMax - yMin) ** 2)
+    const bridgeThreshold = bboxDiag * 0.38
+
+    function isBridgeEdge(a: number, b: number): boolean {
+      if (a >= outerN || b >= outerN) return false   // hole vertex — skip
+      const indexSep = Math.abs(a - b)
+      const ringDist = Math.min(indexSep, outerN - indexSep)
+      if (ringDist <= 1) return false                // adjacent ring edge — never a bridge
+      const dx = v2Outer[a].x - v2Outer[b].x
+      const dy = v2Outer[a].y - v2Outer[b].y
+      return dx * dx + dy * dy > bridgeThreshold * bridgeThreshold
+    }
+
+    const filteredTriangles = rawTriangles.filter(
+      ([i, j, k]) => !isBridgeEdge(i, j) && !isBridgeEdge(j, k) && !isBridgeEdge(i, k),
+    )
 
     indices = filteredTriangles.flatMap((t) => [t[0], t[1], t[2]])
-    // If the filter removed everything (degenerate case), fall back to unfiltered
+    // Safety: if filter removed everything (degenerate), fall back to unfiltered
     if (indices.length === 0) {
       indices = rawTriangles.flatMap((t) => [t[0], t[1], t[2]])
     }
