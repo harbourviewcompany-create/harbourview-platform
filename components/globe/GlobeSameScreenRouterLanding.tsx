@@ -19,6 +19,8 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
+import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
+import { useCountryBrief } from '@/hooks/useCountryBrief'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -141,6 +143,7 @@ export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
+  const countryBrief = useCountryBrief(state.selectedCountryIso2)
   const selectedCountryName = state.mode === 'multi_market'
     ? `${state.selectedCountryIso2s.length || 0} markets`
     : getCountryName(state.selectedCountryIso2)
@@ -214,6 +217,8 @@ export function GlobeSameScreenRouterLanding() {
 
       {state.step === 'role' ? (
         <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
+          {countryBrief.status === 'loading' && <CountryBriefPanelSkeleton />}
+          {countryBrief.status === 'ok' && <CountryBriefPanel brief={countryBrief.data} />}
           <RoleChipSelector
             countryIso2={state.selectedCountryIso2}
             countryIso2s={state.selectedCountryIso2s}
