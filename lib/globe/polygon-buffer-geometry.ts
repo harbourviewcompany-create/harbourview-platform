@@ -82,6 +82,25 @@ function createTopFanIndices(vertexCount: number) {
  * Returns positions (flat x,y,z for [outer..., ...holes flattened]) and indices.
  * Uses ShapeUtils.triangulateShape (earcut) for correct non-convex + hole support.
  */
+
+/**
+ * Point-in-polygon test (ray casting) in 2D.
+ * Used to detect earcut bridge triangles whose centroids fall outside the outer ring
+ * (e.g. Hudson Bay for Canada, Gulf of Ob for Russia).
+ */
+function pointInPolygon2D(x: number, y: number, ring: Vector2[]): boolean {
+  let inside = false
+  const n = ring.length
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = ring[i].x, yi = ring[i].y
+    const xj = ring[j].x, yj = ring[j].y
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
 function createTopFaceWithHoles(
   outer: [number, number][],
   holes: [number, number][][],
@@ -110,15 +129,6 @@ function createTopFaceWithHoles(
   try {
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
 
-    // NOTE: A bridge-triangle area filter was introduced in commit 20bd0051
-    // using threshold (totalArea / triangleCount) * 4. This is mathematically
-    // unstable: earcut produces many tiny coastal triangles for non-convex
-    // polygons, collapsing the average and causing the 4x cap to drop valid
-    // large interior triangles for RU, CA, CN, BR, AU, US and ~10 more countries.
-    // Removed. The 1:110m dataset already eliminates most problematic concavities.
-    // If bridge filtering is revisited, use a geometry heuristic (longest edge
-    // vs. bounding-box diameter) rather than an area-average threshold.
-
     // Guard: validate all indices are in range.
     const vertexCount = allV2.length
     const hasOutOfRange = rawTriangles.some(
@@ -128,7 +138,29 @@ function createTopFaceWithHoles(
       throw new RangeError(`earcut index out of range for ${vertexCount} vertices`)
     }
 
-    indices = rawTriangles.flatMap((t) => [t[0], t[1], t[2]])
+    // Bridge triangle filter — centroid-outside-polygon test.
+    //
+    // Earcut generates "bridge" triangles that span large concavities:
+    //   - Canada ring[0]: vertex [15](-141°,69.7°) → vertex [106](-55.7°,52.1°) spans Hudson Bay
+    //   - Russia ring[0]: vertex [27](27.3°,57.5°) → vertex [159](180°,69°) spans Gulf of Ob
+    //
+    // A bridge triangle's centroid falls OUTSIDE the outer ring (in the water body).
+    // Point-in-polygon (ray casting) on the centroid against v2Outer correctly
+    // identifies these: centroid in Hudson Bay/Arctic Ocean → outside → discard.
+    //
+    // This is geometrically stable — unlike the removed area-average threshold
+    // (commit 20bd0051) which collapsed on non-convex coastlines.
+    const filteredTriangles = rawTriangles.filter(([i, j, k]) => {
+      const cx = (allV2[i].x + allV2[j].x + allV2[k].x) / 3
+      const cy = (allV2[i].y + allV2[j].y + allV2[k].y) / 3
+      return pointInPolygon2D(cx, cy, v2Outer)
+    })
+
+    indices = filteredTriangles.flatMap((t) => [t[0], t[1], t[2]])
+    // If the filter removed everything (degenerate case), fall back to unfiltered
+    if (indices.length === 0) {
+      indices = rawTriangles.flatMap((t) => [t[0], t[1], t[2]])
+    }
   } catch {
     // Degenerate polygon — earcut failed, fall back to fan (no holes)
     indices = createTopFanIndices(outer.length)
