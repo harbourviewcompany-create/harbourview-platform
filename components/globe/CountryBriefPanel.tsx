@@ -38,7 +38,7 @@ function StatusBadge({ label, value }: { label: string; value: string }) {
 export function CountryBriefPanel({ brief }: { brief: CountryBrief }) {
   return (
     <div className="mb-4 rounded-2xl border border-[#c6a55a]/18 bg-white/[0.04] px-4 py-3">
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] font-medium tracking-wide">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium tracking-wide">
         <StatusBadge label="Medical" value={brief.medical_status} />
         <StatusBadge label="Adult use" value={brief.adult_use_status} />
         <StatusBadge label="Import" value={brief.import_status} />
@@ -46,7 +46,7 @@ export function CountryBriefPanel({ brief }: { brief: CountryBrief }) {
       </div>
 
       {brief.public_summary && (
-        <p className="mt-2.5 line-clamp-2 text-xs leading-relaxed text-white/52">
+        <p className="mt-2.5 text-xs leading-relaxed text-white/58">
           {brief.public_summary}
         </p>
       )}
