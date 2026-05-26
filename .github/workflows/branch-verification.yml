@@ -98,7 +98,7 @@ jobs:
 
       - name: Production e2e route and mobile probes safe no writes
         env:
-          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview-nu.vercel.app
         run: npm run test:e2e
 
       - name: Upload Playwright production probe report
@@ -114,7 +114,7 @@ jobs:
 
       - name: Production visibility probe safe no writes
         env:
-          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview-nu.vercel.app
         run: npm run probe:production-visibility
 
   contact-production-visual:
@@ -141,7 +141,7 @@ jobs:
 
       - name: Run contact production visual verification
         env:
-          BASE_URL: https://harbourview.vercel.app
+          BASE_URL: https://harbourview-nu.vercel.app
           ARTIFACT_DIR: verification-results/contact-production-visual
         run: node scripts/verify-contact-production-visual.mjs
 
