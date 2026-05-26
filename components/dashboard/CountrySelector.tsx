@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useDashboard } from './DashboardContext'
+import { useDashboard } from '@/lib/dashboard/DashboardContext'
 import { useAllCountries, CountryRow } from '@/hooks/useAllCountries'
 import { StatusBadge } from './StatusBadge'
 
