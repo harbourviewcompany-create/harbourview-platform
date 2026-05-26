@@ -3,7 +3,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app').replace(/\/$/, '')
+const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview-nu.vercel.app').replace(/\/$/, '')
 const OUT_DIR = process.env.HARBOURVIEW_PRODUCTION_VERIFY_OUT || 'artifacts/production-runtime-verification'
 
 const routes = [
