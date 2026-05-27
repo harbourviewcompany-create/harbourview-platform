@@ -2,9 +2,8 @@
 
 import { Suspense, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, OrbitControls, Stars } from '@react-three/drei'
-import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import { Canvas } from '@react-three/fiber'
+import { Environment, OrbitControls } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { CountryBorderLayer } from './CountryBorderLayer'
@@ -65,7 +64,6 @@ export function GlobeCanvas({
       <Canvas
         className="h-full w-full pointer-events-auto"
         dpr={[1, 1.75]}
-        gl={{ antialias: true, alpha: false }}
         aria-label="Harbourview country globe"
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
@@ -81,18 +79,6 @@ export function GlobeCanvas({
 
         <Suspense fallback={null}>
           <Environment preset="sunset" />
-
-          {/* Sparse star field — depth behind globe */}
-          <Stars
-            radius={18}
-            depth={6}
-            count={380}
-            factor={0.9}
-            saturation={0}
-            fade
-            speed={0}
-          />
-
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />
             <CountryBorderLayer />
@@ -105,22 +91,11 @@ export function GlobeCanvas({
               onSelectCountry={onSelectCountry}
             />
           </group>
-
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
             routerStep={routerStep}
             controlsRef={controlsRef as RefObject<CameraFlyOrbitControlsLike | null>}
           />
-
-          {/* Bloom — luminous gold border lines, contained glow */}
-          <EffectComposer>
-            <Bloom
-              intensity={0.38}
-              luminanceThreshold={0.62}
-              luminanceSmoothing={0.08}
-              mipmapBlur
-            />
-          </EffectComposer>
         </Suspense>
 
         <OrbitControls
