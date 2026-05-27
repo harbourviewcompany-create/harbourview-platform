@@ -1,6 +1,8 @@
 import { BufferAttribute, BufferGeometry, ShapeUtils, Vector2 } from 'three'
 import type { HarbourviewCountryGeometry } from './geojson-country-types'
 
+const GLOBE_DEBUG = typeof process !== 'undefined' && process.env?.GLOBE_DEBUG === '1'
+
 export interface GlobeExtrusionConfig {
   radius: number
   plateLift: number
@@ -53,13 +55,13 @@ function calculatePlanarArea(pts: [number, number][]) {
 }
 
 /**
- * Normalise all longitudes in a ring to be within ±180° of the first vertex.
- * This resolves anti-meridian crossings (Russia, USA, Fiji, etc.) so that
- * the 2-D projection is a contiguous strip rather than a >300° span.
+ * Normalise all longitudes in a ring to be within ±180° of the ring's mean.
+ * Using the mean (instead of the first vertex) produces a better-centered
+ * 2-D projection that reduces edge distortion and improves earcut quality.
  */
 function normalizeLongitudes(pts: [number, number][]): [number, number][] {
   if (pts.length === 0) return pts
-  const ref = pts[0][0]
+  const ref = pts.reduce((s, p) => s + p[0], 0) / pts.length
   return pts.map(([lon, lat]) => {
     let l = lon
     while (l - ref > 180) l -= 360
@@ -92,25 +94,43 @@ function createTopFanIndices(n: number) {
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
  * Strategy:
- *  1. Normalise longitudes around the ring's first vertex to handle anti-meridian.
+ *  1. Normalise longitudes around the ring's mean longitude to handle anti-meridian.
  *  2. Project to a flat 2-D plane (lon – meanLon, lat) for earcut.
  *  3. Run ShapeUtils.triangulateShape (earcut).
- *  4. Check the 3-D winding of the first triangle against the sphere outward
- *     normal at its centroid; flip all triangles if they point inward.
+ *  4. Apply bridge-triangle filter that removes water-spanning artefacts.
  *  5. Fall back to fan triangulation only if earcut throws.
+ *
+ * DO NOT ADD: 3D winding check (needFlip). It evaluates one triangle and
+ * flips all — produces mass-invisible faces for US, CN, and northern-hemisphere
+ * countries where CCW in V2 (lon/lat) space != outward-facing in 3D sphere space.
  */
 function createTopFaceWithHoles(
   outer: [number, number][],
   holes: [number, number][][],
   radius: number,
+  iso2?: string,
 ): { positions: number[]; indices: number[] } {
-  const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
+  // Normalize all rings using the outer ring's mean as reference,
+  // so holes share the same longitude frame as their containing polygon.
+  const normalizedOuter = normalizeLongitudes(outer)
+  const meanLon = normalizedOuter.reduce((s, [lon]) => s + lon, 0) / normalizedOuter.length
+  const normalizedHoles = holes.map((h) => {
+    const nh = normalizeLongitudes(h)
+    // Re-anchor hole to outer's mean if it drifted during its own normalization
+    return nh.map(([lon, lat]) => {
+      let l = lon
+      while (l - meanLon > 180) l -= 360
+      while (l - meanLon < -180) l += 360
+      return [l, lat] as [number, number]
+    })
+  })
+
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
-  const v2Outer = outer.map(toV2)
-  const v2Holes = holes.map((h) => h.map(toV2))
+  const v2Outer = normalizedOuter.map(toV2)
+  const v2Holes = normalizedHoles.map((h) => h.map(toV2))
   const allV2 = [...v2Outer, ...v2Holes.flat()]
-  const allPoints: [number, number][] = [...outer, ...holes.flat()]
+  const allPoints: [number, number][] = [...normalizedOuter, ...normalizedHoles.flat()]
   const positions = projectRingVertices(allPoints, radius)
 
   let indices: number[]
@@ -119,20 +139,32 @@ function createTopFaceWithHoles(
 
     const n = allV2.length
     if (rawTriangles.some(([a, b, c]) => a >= n || b >= n || c >= n)) {
+      if (GLOBE_DEBUG) console.warn(`[globe] earcut index out of range for ${iso2}`)
       throw new RangeError('earcut index out of range')
     }
 
     // Bridge triangle filter — non-adjacent long-edge test.
-    // Runs only for large-bbox polygons (bboxDiag > 62) where earcut generates
-    // span-of-water bridges:
-    //   CA: Hudson Bay  [15]->[106]  87deg  threshold 54.3 ok
-    //   RU: Gulf of Ob  [27]->[159] 153deg  threshold 94.2 ok
-    //   US: coastal      various    58deg   threshold 37.7 ok
-    //   CN: interior     various    45deg   threshold 42.4 ok
-    // Skipped for bboxDiag <= 62 (BR=59.6, AU=52) concavities are shallow.
+    // Earcut can generate "span-of-water bridges" that connect distant
+    // coastline vertices across interior water bodies. This filter removes
+    // triangles with outer-ring edges that are both:
+    //   a) between non-adjacent vertices (skip > ADJACENCY_TOLERANCE), AND
+    //   b) longer than the adaptive threshold.
+    //
+    // Previous threshold (bboxDiag > 62) missed medium countries like Brazil
+    // (59.6) and Australia (52) that can still produce bridge artefacts.
+    // Now runs for all polygons with bboxDiag > 30.
+    //
+    // The adjacency tolerance is raised from 1 to 3 to preserve triangles
+    // near peninsulas and narrow isthmuses where vertices 2-3 apart are
+    // connected by legitimate short edges.
+    //
     // DO NOT replace with area-average filter (collapses for non-convex coasts),
     // centroid-outside-polygon (fails: CA ring traces around Hudson Bay),
     // or 3D winding check (flips all triangles on bad sample -> mass voids).
+    const ADJACENCY_TOLERANCE = 3
+    const MIN_BBOX_DIAG = 30
+    const RATIO = 0.55
+
     let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
     for (const v of v2Outer) {
       if (v.x < xMin) xMin = v.x; if (v.x > xMax) xMax = v.x
@@ -142,29 +174,34 @@ function createTopFaceWithHoles(
     const outerN = v2Outer.length
 
     let triangles = rawTriangles
-    if (bboxDiag > 62) {
-      const thresh2 = (bboxDiag * 0.60) ** 2
+    if (bboxDiag > MIN_BBOX_DIAG) {
+      const thresh2 = (bboxDiag * RATIO) ** 2
       triangles = rawTriangles.filter(([a, b, c]) => {
         for (const [p, q] of [[a, b], [b, c], [a, c]] as [number, number][]) {
           if (p >= outerN || q >= outerN) continue
           const sep = Math.abs(p - q)
-          if (Math.min(sep, outerN - sep) <= 1) continue
+          if (Math.min(sep, outerN - sep) <= ADJACENCY_TOLERANCE) continue
           const dx = v2Outer[p].x - v2Outer[q].x
           const dy = v2Outer[p].y - v2Outer[q].y
           if (dx * dx + dy * dy > thresh2) return false
         }
         return true
       })
-      if (triangles.length === 0) triangles = rawTriangles
+      if (triangles.length === 0) {
+        if (GLOBE_DEBUG) console.warn(`[globe] bridge filter removed all triangles for ${iso2}, restoring raw`)
+        triangles = rawTriangles
+      }
+      const removed = rawTriangles.length - triangles.length
+      if (GLOBE_DEBUG && removed > 0) {
+        const pct = ((removed / rawTriangles.length) * 100).toFixed(1)
+        console.log(`[globe] ${iso2}: removed ${removed}/${rawTriangles.length} bridge triangles (${pct}%), bboxDiag=${bboxDiag.toFixed(1)}`)
+      }
     }
 
-    // DO NOT ADD: 3D winding check (needFlip). It evaluates one triangle and
-    // flips all — produces mass-invisible faces for US, CN, and northern-hemisphere
-    // countries where CCW in V2 (lon/lat) space != outward-facing in 3D sphere space.
-    // The winding is correct without a flip for all 174 Natural Earth countries.
     indices = triangles.flatMap(([a, b, c]) => [a, b, c])
-  } catch {
-    indices = createTopFanIndices(outer.length)
+  } catch (err) {
+    if (GLOBE_DEBUG) console.warn(`[globe] earcut failed for ${iso2}, using fan fallback:`, err)
+    indices = createTopFanIndices(normalizedOuter.length)
   }
 
   return { positions, indices }
@@ -264,7 +301,7 @@ function _createCountryBufferGeometryInner(
       continue
     }
 
-    const topFace = createTopFaceWithHoles(outer, holes, topRadius)
+    const topFace = createTopFaceWithHoles(outer, holes, topRadius, country.iso2)
     const topFaceBase = vOffset
     allPositions.push(...topFace.positions)
     allIndices.push(...topFace.indices.map((i) => i + topFaceBase))
@@ -313,5 +350,6 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
 export const polygonGeometryInternals = {
   normalizeRing,
   normalizePolygonTopology,
+  normalizeLongitudes,
   ringArea2D,
 }
