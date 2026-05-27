@@ -107,7 +107,7 @@ export function CountrySelector({ open, onClose }: Props) {
           ))}
           {filtered.length === 0 && countries.status === 'ok' && (
             <p className="p-4 text-center text-xs" style={{ color: 'rgba(243,240,234,0.35)' }}>
-              No results for "{query}"
+              No results for &ldquo;{query}&rdquo;
             </p>
           )}
         </div>
