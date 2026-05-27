@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen" style={{ background: 'var(--hv-bg-950, #03070D)' }}>
+    <div className="w-full min-h-screen overflow-hidden" style={{ background: 'var(--hv-bg-950, #03070D)' }}>
       {children}
     </div>
   )
