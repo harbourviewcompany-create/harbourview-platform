@@ -3,7 +3,7 @@
 import { Suspense, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls } from '@react-three/drei'
+import { Environment, OrbitControls, Stars } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { CountryBorderLayer } from './CountryBorderLayer'
@@ -79,6 +79,18 @@ export function GlobeCanvas({
 
         <Suspense fallback={null}>
           <Environment preset="sunset" />
+
+          {/* Sparse star field behind the globe — depth cue */}
+          <Stars
+            radius={18}
+            depth={6}
+            count={350}
+            factor={0.85}
+            saturation={0}
+            fade
+            speed={0}
+          />
+
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />
             <CountryBorderLayer />
