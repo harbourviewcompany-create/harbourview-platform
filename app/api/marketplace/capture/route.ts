@@ -239,7 +239,7 @@ export async function POST(request: Request) {
     return json('error', SAFE_CAPTURE_ERROR, 502);
   }
 
-  await notifyMarketplaceInquiry({ ...payload, created_at: new Date().toISOString(), priority: 'medium' }).catch((error) => {
+  await notifyMarketplaceInquiry({ ...payload, inquiry_type: payload.inquiry_type ?? '', contact_name: payload.contact_name ?? '', contact_email: payload.contact_email ?? '', created_at: new Date().toISOString(), priority: 'medium' }).catch((error) => {
     console.info('harbourview_marketplace_notification_failed', {
       requestId,
       errorName: error instanceof Error ? error.name : 'unknown',
