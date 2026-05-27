@@ -71,7 +71,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.174.0",
-    "zod": "^4.1.5"
+    "zod": "^4.1.5",
+    "@react-three/postprocessing": "^2.16.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
