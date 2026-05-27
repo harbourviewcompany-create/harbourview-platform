@@ -86,8 +86,8 @@ export function OceanSphere() {
 
   return (
     <Sphere args={[2.35, 96, 96]}>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <oceanShaderMaterial ref={matRef as any} />
+      {/* @ts-expect-error — R3F extended element types don't expose ref in JSX props */}
+      <oceanShaderMaterial ref={matRef} />
     </Sphere>
   )
 }
