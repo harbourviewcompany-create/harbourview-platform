@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Sphere, Line } from '@react-three/drei'
+import { DoubleSide } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
@@ -145,6 +146,7 @@ function CandidateBCountries({
               emissiveIntensity={isSelected ? 0.26 : 0.06}
               roughness={isSelected ? 0.52 : 0.76}
               metalness={isSelected ? 0.28 : 0.18}
+              side={DoubleSide}
             />
           </mesh>
         )

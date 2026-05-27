@@ -198,7 +198,43 @@ function createTopFaceWithHoles(
       }
     }
 
-    indices = triangles.flatMap(([a, b, c]) => [a, b, c])
+    // Per-triangle winding fix: for each triangle, compute its face normal
+    // via the cross product and check if it faces outward (same direction as
+    // the radial vector at the triangle centroid). If inward, flip the winding.
+    // This replaces the previous approach of flipping ALL triangles based on
+    // one sample, which caused mass-invisible faces for US, CN, and
+    // northern-hemisphere countries. Per-triangle is correct because earcut
+    // in 2D produces consistent winding, but the spherical projection can
+    // invert the sense of individual triangles near concavities.
+    const posArr = positions
+    const triCount = triangles.length
+    const fixedTriangles: [number, number, number][] = new Array(triCount)
+    for (let t = 0; t < triCount; t++) {
+      const [ai, bi, ci] = triangles[t]
+      const ax = posArr[ai * 3], ay = posArr[ai * 3 + 1], az = posArr[ai * 3 + 2]
+      const bx = posArr[bi * 3], by = posArr[bi * 3 + 1], bz = posArr[bi * 3 + 2]
+      const cx = posArr[ci * 3], cy = posArr[ci * 3 + 1], cz = posArr[ci * 3 + 2]
+
+      // Face normal from cross product (b-a) x (c-a)
+      const e1x = bx - ax, e1y = by - ay, e1z = bz - az
+      const e2x = cx - ax, e2y = cy - ay, e2z = cz - az
+      const nx = e1y * e2z - e1z * e2y
+      const ny = e1z * e2x - e1x * e2z
+      const nz = e1x * e2y - e1y * e2x
+
+      // Centroid of the triangle
+      const mx = (ax + bx + cx) / 3
+      const my = (ay + by + cy) / 3
+      const mz = (az + bz + cz) / 3
+
+      // Outward normal = radial direction at centroid
+      // If face normal and radial point the same way, winding is correct
+      const dot = nx * mx + ny * my + nz * mz
+
+      fixedTriangles[t] = dot >= 0 ? [ai, bi, ci] : [ai, ci, bi]
+    }
+
+    indices = fixedTriangles.flatMap(([a, b, c]) => [a, b, c])
   } catch (err) {
     if (GLOBE_DEBUG) console.warn(`[globe] earcut failed for ${iso2}, using fan fallback:`, err)
     indices = createTopFanIndices(normalizedOuter.length)

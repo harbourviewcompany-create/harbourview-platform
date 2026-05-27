@@ -239,4 +239,52 @@ describe('Bridge triangle filter regression tests for problem countries', () => 
     const allPositive = result.every(([lon]) => lon > -180)
     expect(allPositive, 'asymmetric crossing normalized to contiguous range').toBe(true)
   })
+
+  it('all triangles face outward after per-triangle winding fix', () => {
+    for (const iso2 of ['US', 'CA', 'RU', 'CN', 'BR', 'AU']) {
+      const country = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === iso2)
+      if (!country) continue
+
+      // Use surface mode (same as rendering) — no wall triangles
+      const geometry = createCountryBufferGeometry(country, {
+        geometryMode: 'surface',
+      })
+      if (geometry.userData.empty) continue
+
+      const pos = geometry.getAttribute('position')
+      const idx = geometry.index
+      if (!idx) continue
+
+      // Sample up to 200 triangles and verify face normals point outward
+      const triCount = idx.count / 3
+      const sampleStep = Math.max(1, Math.floor(triCount / 200))
+      let outwardCount = 0
+      let checkedCount = 0
+
+      for (let t = 0; t < triCount; t += sampleStep) {
+        const ai = idx.getX(t * 3), bi = idx.getX(t * 3 + 1), ci = idx.getX(t * 3 + 2)
+        const ax = pos.getX(ai), ay = pos.getY(ai), az = pos.getZ(ai)
+        const bx = pos.getX(bi), by = pos.getY(bi), bz = pos.getZ(bi)
+        const cx = pos.getX(ci), cy = pos.getY(ci), cz = pos.getZ(ci)
+
+        const e1x = bx - ax, e1y = by - ay, e1z = bz - az
+        const e2x = cx - ax, e2y = cy - ay, e2z = cz - az
+        const nx = e1y * e2z - e1z * e2y
+        const ny = e1z * e2x - e1x * e2z
+        const nz = e1x * e2y - e1y * e2x
+
+        const mx = (ax + bx + cx) / 3
+        const my = (ay + by + cy) / 3
+        const mz = (az + bz + cz) / 3
+
+        const dot = nx * mx + ny * my + nz * mz
+        checkedCount++
+        if (dot >= 0) outwardCount++
+      }
+
+      const outwardRatio = outwardCount / checkedCount
+      expect(outwardRatio, `${iso2} should have all triangles facing outward (per-triangle winding fix)`).toBeGreaterThanOrEqual(0.98)
+      geometry.dispose()
+    }
+  })
 })

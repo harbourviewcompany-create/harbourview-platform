@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { DoubleSide } from 'three'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
@@ -78,6 +79,7 @@ function HoverPulseMesh({
         clearcoat={clearcoat}
         clearcoatRoughness={clearcoatRoughness}
         reflectivity={reflectivity}
+        side={DoubleSide}
       />
     </mesh>
   )
