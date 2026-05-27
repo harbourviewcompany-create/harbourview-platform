@@ -353,8 +353,35 @@ function _createCountryBufferGeometryInner(
     }
   }
 
-  geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
-  geometry.setIndex(allIndices)
+  // Remove degenerate (zero-area) triangles so computeVertexNormals() never
+  // produces (0,0,0) normals.  This guards against hole-on-boundary cases where
+  // earcut emits triangles whose edge cross-product is effectively zero.
+  const cleanIndices: number[] = []
+  for (let i = 0; i < allIndices.length; i += 3) {
+    const a = allIndices[i], b = allIndices[i + 1], c = allIndices[i + 2]
+    const ax = allPositions[a * 3], ay = allPositions[a * 3 + 1], az = allPositions[a * 3 + 2]
+    const bx = allPositions[b * 3], by = allPositions[b * 3 + 1], bz = allPositions[b * 3 + 2]
+    const cx = allPositions[c * 3], cy = allPositions[c * 3 + 1], cz = allPositions[c * 3 + 2]
+    const ex = bx - ax, ey = by - ay, ez = bz - az
+    const fx = cx - ax, fy = cy - ay, fz = cz - az
+    const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx
+    if (nx * nx + ny * ny + nz * nz > 1e-20) cleanIndices.push(a, b, c)
+  }
+
+  // Compact: remove vertices not referenced by any remaining triangle.
+  // computeVertexNormals() leaves unreferenced verts at (0,0,0), failing
+  // normal-magnitude checks.
+  const usedSet = new Set(cleanIndices)
+  const oldToNew = new Map<number, number>()
+  const compactPositions: number[] = []
+  for (const old of usedSet) {
+    oldToNew.set(old, compactPositions.length / 3)
+    compactPositions.push(allPositions[old * 3], allPositions[old * 3 + 1], allPositions[old * 3 + 2])
+  }
+  const compactIndices = cleanIndices.map((i) => oldToNew.get(i)!)
+
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(compactPositions), 3))
+  geometry.setIndex(compactIndices)
 
   // Radial normals: always point outward from sphere centre — exact and fast.
   const pos = geometry.getAttribute('position') as BufferAttribute

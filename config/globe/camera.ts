@@ -24,8 +24,8 @@ export const GLOBE_CAMERA_CONFIG = {
   rotateSpeed: 0.52,
   zoomSpeed: 0.2,
   flyDurationMs: 880,
-  minAzimuthAngle: -Infinity,
-  maxAzimuthAngle: Infinity,
+  minAzimuthAngle: -Math.PI,
+  maxAzimuthAngle: Math.PI,
   autoRotateSpeed: 0.4,
 }
 
