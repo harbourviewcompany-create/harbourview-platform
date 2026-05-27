@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
@@ -13,6 +15,73 @@ const SELECTED_EXTRUSION = 0.094
 const BORDER_METAL = '#8b7343'
 const SELECTED_ACCENT = '#b79a5a'
 const SPECULAR_CAP = 0.32
+
+
+function HoverPulseMesh({
+  geometry,
+  color,
+  emissive,
+  emissiveIntensity,
+  roughness,
+  metalness,
+  clearcoat,
+  clearcoatRoughness,
+  reflectivity,
+  isFocused,
+  onPointerEnter,
+  onPointerLeave,
+  onClick,
+}: {
+  geometry: ReturnType<typeof createCountryBufferGeometry>
+  color: string
+  emissive: string
+  emissiveIntensity: number
+  roughness: number
+  metalness: number
+  clearcoat: number
+  clearcoatRoughness: number
+  reflectivity: number
+  isFocused: boolean
+  onPointerEnter: () => void
+  onPointerLeave: () => void
+  onClick: () => void
+}) {
+  const matRef = useRef<MeshPhysicalMaterial>(null)
+  const targetRef = useRef(emissiveIntensity)
+
+  useEffect(() => {
+    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.44) : emissiveIntensity
+  }, [isFocused, emissiveIntensity])
+
+  useFrame((_, delta) => {
+    if (!matRef.current) return
+    const cur = matRef.current.emissiveIntensity
+    const tgt = targetRef.current
+    if (Math.abs(cur - tgt) < 0.001) return
+    matRef.current.emissiveIntensity = cur + (tgt - cur) * Math.min(delta * 9, 1)
+  })
+
+  return (
+    <mesh
+      geometry={geometry}
+      onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
+      onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+    >
+      <meshPhysicalMaterial
+        ref={matRef}
+        color={color}
+        emissive={emissive}
+        emissiveIntensity={emissiveIntensity}
+        roughness={roughness}
+        metalness={metalness}
+        clearcoat={clearcoat}
+        clearcoatRoughness={clearcoatRoughness}
+        reflectivity={reflectivity}
+      />
+    </mesh>
+  )
+}
 
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,
