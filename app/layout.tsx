@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import Nav from '@/components/Nav'
-import Footer from '@/components/Footer'
+import { ShellWrapper } from '@/components/ShellWrapper'
 
 export const metadata: Metadata = {
   title: {
@@ -9,7 +8,7 @@ export const metadata: Metadata = {
     template: '%s | Harbourview',
   },
   description:
-    'Harbourview gives serious operators in regulated cannabis markets the intelligence, introductions, and access pathways that aren\'t available publicly.',
+    "Harbourview gives serious operators in regulated cannabis markets the intelligence, introductions, and access pathways that aren't available publicly.",
   openGraph: {
     siteName: 'Harbourview',
     type: 'website',
@@ -24,9 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="flex flex-col min-h-screen">
-        <Nav />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <ShellWrapper>{children}</ShellWrapper>
       </body>
     </html>
   )
