@@ -158,29 +158,11 @@ function createTopFaceWithHoles(
       if (triangles.length === 0) triangles = rawTriangles
     }
 
-    // 3-D winding check — use first non-degenerate triangle to determine
-    // face orientation; flip all if normal points inward.
-    let needFlip = false
-    for (const [ti, tj, tk] of triangles) {
-      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
-      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
-      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
-      const ex = bx - ax, ey = by - ay, ez = bz - az
-      const fx = cx - ax, fy = cy - ay, fz = cz - az
-      const nx = ey * fz - ez * fy
-      const ny = ez * fx - ex * fz
-      const nz = ex * fy - ey * fx
-      const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) continue
-      needFlip = (nx * ax + ny * ay + nz * az) < 0
-      break
-    }
-
-    if (needFlip) {
-      indices = triangles.flatMap(([a, b, c]) => [a, c, b])
-    } else {
-      indices = triangles.flatMap(([a, b, c]) => [a, b, c])
-    }
+    // DO NOT ADD: 3D winding check (needFlip). It evaluates one triangle and
+    // flips all — produces mass-invisible faces for US, CN, and northern-hemisphere
+    // countries where CCW in V2 (lon/lat) space != outward-facing in 3D sphere space.
+    // The winding is correct without a flip for all 174 Natural Earth countries.
+    indices = triangles.flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
