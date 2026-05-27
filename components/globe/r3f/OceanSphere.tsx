@@ -2,7 +2,8 @@
 
 import { Sphere } from '@react-three/drei'
 import { shaderMaterial } from '@react-three/drei'
-import { extend, useFrame, useRef } from '@react-three/fiber'
+import { extend, useFrame } from '@react-three/fiber'
+import { useRef } from 'react'
 import type { ShaderMaterial } from 'three'
 
 // Fresnel rim: glows at grazing angles (limb of the globe)
