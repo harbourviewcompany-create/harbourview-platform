@@ -83,6 +83,57 @@ function HoverPulseMesh({
   )
 }
 
+
+function HoverPulseMesh({
+  geometry,
+  color,
+  emissive,
+  emissiveIntensity,
+  roughness,
+  metalness,
+  clearcoat,
+  clearcoatRoughness,
+  reflectivity,
+  isFocused,
+  onPointerEnter,
+  onPointerLeave,
+  onClick,
+}: {
+  geometry: ReturnType<typeof createCountryBufferGeometry>
+  color: string; emissive: string; emissiveIntensity: number
+  roughness: number; metalness: number; clearcoat: number
+  clearcoatRoughness: number; reflectivity: number; isFocused: boolean
+  onPointerEnter: (e: Parameters<NonNullable<import('@react-three/fiber').ThreeElements['mesh']['onPointerEnter']>>[0]) => void
+  onPointerLeave: (e: Parameters<NonNullable<import('@react-three/fiber').ThreeElements['mesh']['onPointerLeave']>>[0]) => void
+  onClick: (e: Parameters<NonNullable<import('@react-three/fiber').ThreeElements['mesh']['onClick']>>[0]) => void
+}) {
+  const matRef = useRef<MeshPhysicalMaterial>(null)
+  const targetRef = useRef(emissiveIntensity)
+
+  useEffect(() => {
+    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.44) : emissiveIntensity
+  }, [isFocused, emissiveIntensity])
+
+  useFrame((_, delta) => {
+    if (!matRef.current) return
+    const cur = matRef.current.emissiveIntensity
+    const tgt = targetRef.current
+    if (Math.abs(cur - tgt) < 0.001) return
+    matRef.current.emissiveIntensity = cur + (tgt - cur) * Math.min(delta * 9, 1)
+  })
+
+  return (
+    <mesh geometry={geometry} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onClick={onClick}>
+      <meshPhysicalMaterial
+        ref={matRef}
+        color={color} emissive={emissive} emissiveIntensity={emissiveIntensity}
+        roughness={roughness} metalness={metalness} clearcoat={clearcoat}
+        clearcoatRoughness={clearcoatRoughness} reflectivity={reflectivity}
+      />
+    </mesh>
+  )
+}
+
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,
   focusedCountryIso2,
@@ -162,10 +213,18 @@ export function CountryPolygonMeshLayer({
         const material = resolveCountryMaterialState({ visualState, layerId: activeLayerId })
 
         return (
-          <mesh
+          <HoverPulseMesh
             key={country.iso3}
             geometry={activeGeometry}
-            userData={{ iso2: country.iso2, iso3: country.iso3, name: country.name }}
+            color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
+            emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
+            emissiveIntensity={material.emissiveIntensity}
+            roughness={material.roughness}
+            metalness={material.metalness}
+            clearcoat={material.clearcoat}
+            clearcoatRoughness={material.clearcoatRoughness}
+            reflectivity={SPECULAR_CAP}
+            isFocused={focusedCountryIso2 === country.iso2}
             onPointerEnter={(event) => {
               event.stopPropagation()
               const hit = extractCountryHit(event)
@@ -180,28 +239,7 @@ export function CountryPolygonMeshLayer({
               const hit = extractCountryHit(event)
               if (hit) onSelectCountry?.(hit.iso2)
             }}
-          >
-            {hasCustomShaderPath ? (
-              <meshPhysicalMaterial
-                color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
-                emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
-                emissiveIntensity={material.emissiveIntensity}
-                roughness={material.roughness}
-                metalness={material.metalness}
-                clearcoat={material.clearcoat}
-                clearcoatRoughness={material.clearcoatRoughness}
-                reflectivity={SPECULAR_CAP}
-              />
-            ) : (
-              <meshStandardMaterial
-                color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
-                emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
-                emissiveIntensity={visualState === 'selected' ? 0.22 : material.emissiveIntensity}
-                roughness={material.roughness}
-                metalness={material.metalness}
-              />
-            )}
-          </mesh>
+          />
         )
       })}
     </group>
