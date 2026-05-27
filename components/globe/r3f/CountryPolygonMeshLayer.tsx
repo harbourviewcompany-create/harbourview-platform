@@ -174,20 +174,9 @@ export function CountryPolygonMeshLayer({
             clearcoatRoughness={material.clearcoatRoughness}
             reflectivity={SPECULAR_CAP}
             isFocused={focusedCountryIso2 === country.iso2}
-            onPointerEnter={(event) => {
-              event.stopPropagation()
-              const hit = extractCountryHit(event)
-              if (hit) onHoverCountry?.(hit.iso2)
-            }}
-            onPointerLeave={(event) => {
-              event.stopPropagation()
-              onHoverCountry?.(undefined)
-            }}
-            onClick={(event) => {
-              event.stopPropagation()
-              const hit = extractCountryHit(event)
-              if (hit) onSelectCountry?.(hit.iso2)
-            }}
+            onPointerEnter={() => onHoverCountry?.(country.iso2)}
+            onPointerLeave={() => onHoverCountry?.(undefined)}
+            onClick={() => onSelectCountry?.(country.iso2)}
           />
         )
       })}
