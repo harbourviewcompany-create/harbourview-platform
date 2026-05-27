@@ -1,6 +1,7 @@
 import type { DestinationType, GlobeRouteManifestEntry } from '@/types/globe-router'
 
 export const globeRouteManifest: GlobeRouteManifestEntry[] = [
+  { path: '/dashboard', availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
   { path: '/education/medical', availability: 'provisional', fallbackPath: '/intake', confirmedAvailable: false },
   { path: '/education/regulatory', availability: 'provisional', fallbackPath: '/intake', confirmedAvailable: false },
   { path: '/signals', availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
