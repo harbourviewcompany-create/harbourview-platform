@@ -41,7 +41,7 @@ export const listingSubmissionSchema = z.object({
     'Wanted Request',
     'Service',
     'Business Opportunity',
-    'Supplier Directory Listing',
+    'Featured Network Opportunity',
   ]),
   title: shortText(220).min(1),
   price: shortText(220).optional().default(''),
