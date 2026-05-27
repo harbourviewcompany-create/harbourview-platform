@@ -1,8 +1,6 @@
 import { BufferAttribute, BufferGeometry, ShapeUtils, Vector2 } from 'three'
 import type { HarbourviewCountryGeometry } from './geojson-country-types'
 
-const GLOBE_DEBUG = typeof process !== 'undefined' && process.env?.GLOBE_DEBUG === '1'
-
 export interface GlobeExtrusionConfig {
   radius: number
   plateLift: number
@@ -55,13 +53,13 @@ function calculatePlanarArea(pts: [number, number][]) {
 }
 
 /**
- * Normalise all longitudes in a ring to be within ±180° of the ring's mean.
- * Using the mean (instead of the first vertex) produces a better-centered
- * 2-D projection that reduces edge distortion and improves earcut quality.
+ * Normalise all longitudes in a ring to be within ±180° of the first vertex.
+ * This resolves anti-meridian crossings (Russia, USA, Fiji, etc.) so that
+ * the 2-D projection is a contiguous strip rather than a >300° span.
  */
 function normalizeLongitudes(pts: [number, number][]): [number, number][] {
   if (pts.length === 0) return pts
-  const ref = pts.reduce((s, p) => s + p[0], 0) / pts.length
+  const ref = pts[0][0]
   return pts.map(([lon, lat]) => {
     let l = lon
     while (l - ref > 180) l -= 360
@@ -94,154 +92,85 @@ function createTopFanIndices(n: number) {
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
  * Strategy:
- *  1. Normalise longitudes around the ring's mean longitude to handle anti-meridian.
+ *  1. Normalise longitudes around the ring's first vertex to handle anti-meridian.
  *  2. Project to a flat 2-D plane (lon – meanLon, lat) for earcut.
  *  3. Run ShapeUtils.triangulateShape (earcut).
- *  4. Apply bridge-triangle filter that removes water-spanning artefacts.
+ *  4. Check the 3-D winding of the first triangle against the sphere outward
+ *     normal at its centroid; flip all triangles if they point inward.
  *  5. Fall back to fan triangulation only if earcut throws.
- *
- * DO NOT ADD: 3D winding check (needFlip). It evaluates one triangle and
- * flips all — produces mass-invisible faces for US, CN, and northern-hemisphere
- * countries where CCW in V2 (lon/lat) space != outward-facing in 3D sphere space.
  */
 function createTopFaceWithHoles(
-  outer: [number, number][],
-  holes: [number, number][][],
+  outerRaw: [number, number][],
+  holesRaw: [number, number][][],
   radius: number,
-  iso2?: string,
 ): { positions: number[]; indices: number[] } {
-  // Normalize all rings using the outer ring's mean as reference,
-  // so holes share the same longitude frame as their containing polygon.
-  const normalizedOuter = normalizeLongitudes(outer)
-  const meanLon = normalizedOuter.reduce((s, [lon]) => s + lon, 0) / normalizedOuter.length
-  const normalizedHoles = holes.map((h) => {
-    const nh = normalizeLongitudes(h)
-    // Re-anchor hole to outer's mean if it drifted during its own normalization
-    return nh.map(([lon, lat]) => {
-      let l = lon
-      while (l - meanLon > 180) l -= 360
-      while (l - meanLon < -180) l += 360
-      return [l, lat] as [number, number]
-    })
-  })
 
+  // Step 1 — anti-meridian normalisation
+  const outer = normalizeLongitudes(outerRaw)
+  const holes = holesRaw.map((h) => normalizeLongitudes(h))
+
+  // Step 2 — flat 2-D projection centred on mean longitude
+  const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
-  const v2Outer = normalizedOuter.map(toV2)
-  const v2Holes = normalizedHoles.map((h) => h.map(toV2))
-  const allV2 = [...v2Outer, ...v2Holes.flat()]
-  const allPoints: [number, number][] = [...normalizedOuter, ...normalizedHoles.flat()]
+  const v2Outer = outer.map(toV2)
+  const v2Holes = holes.map((h) => h.map(toV2))
+
+  // Combined vertex layout: [outer, ...holes flat] — mirrors earcut's index space
+  const allPoints: [number, number][] = [...outer, ...holes.flat()]
   const positions = projectRingVertices(allPoints, radius)
+  const allV2 = [...v2Outer, ...v2Holes.flat()]
 
   let indices: number[]
   try {
+    // Step 3 — earcut via Three.js ShapeUtils
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
 
     const n = allV2.length
     if (rawTriangles.some(([a, b, c]) => a >= n || b >= n || c >= n)) {
-      if (GLOBE_DEBUG) console.warn(`[globe] earcut index out of range for ${iso2}`)
       throw new RangeError('earcut index out of range')
     }
 
-    // Bridge triangle filter — non-adjacent long-edge test.
-    //
-    // ROOT CAUSE of globe artefacts (dark triangles spanning US/CA/RU/CN):
-    // earcut fills non-convex polygons by connecting distant coastline vertices
-    // across interior water bodies. The threshold must be tight enough to catch
-    // all such cross-country edges.
-    //
-    // PREVIOUS BUG: threshold = bboxDiag * 0.55 scaled with country size,
-    // producing thresholds of 34 for US, 50 for CA, 86 for RU — all far too
-    // loose. Earcut edges of 28-45 degrees slipped through unfiltered.
-    //
-    // FIX: threshold = maxAdjacentEdge * 1.05
-    // Compute the longest edge between vertices ≤ ADJACENCY_TOLERANCE apart
-    // in the outer ring (i.e. the longest *legitimate* short-range edge).
-    // Any earcut triangle using an edge longer than this is a bridge artefact.
-    // This is data-driven per polygon, not dependent on bbox size.
-    //
-    // DO NOT replace with: area-average filter, centroid-outside-polygon,
-    // or global winding flip — all have been proven incorrect for this dataset.
-    const ADJACENCY_TOLERANCE = 3
-    const outerN = v2Outer.length
+    // Filter oversized bridge triangles: earcut creates spanning triangles across
+    // large concavities (Hudson Bay in Canada, Arctic coast in Russia, etc.).
+    // Any triangle whose 2-D area exceeds 8× the polygon average is an artefact.
+    const polyArea2D = Math.abs(ringArea2D(outer))
+    const maxTriArea = (polyArea2D / rawTriangles.length) * 8
+    const triangles = maxTriArea > 0 ? rawTriangles.filter(([a, b, c]) => {
+      const ax = allV2[a].x, ay = allV2[a].y
+      const bx = allV2[b].x, by = allV2[b].y
+      const cx = allV2[c].x, cy = allV2[c].y
+      return Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2 <= maxTriArea
+    }) : rawTriangles
 
-    // Compute max adjacent edge length in V2 (lon-centered, lat) space
-    let maxAdjacentEdge = 0
-    for (let i = 0; i < outerN; i++) {
-      for (let offset = 1; offset <= ADJACENCY_TOLERANCE; offset++) {
-        const j = (i + offset) % outerN
-        const dx = v2Outer[i].x - v2Outer[j].x
-        const dy = v2Outer[i].y - v2Outer[j].y
-        const d2 = dx * dx + dy * dy
-        if (d2 > maxAdjacentEdge) maxAdjacentEdge = d2
-      }
-    }
-    // thresh2 = (maxAdjacentEdge * 1.05)^2 — just above the longest legitimate edge
-    const thresh2 = maxAdjacentEdge * (1.05 * 1.05)
-
-    let triangles = rawTriangles
-    if (maxAdjacentEdge > 0) {
-      triangles = rawTriangles.filter(([a, b, c]) => {
-        for (const [p, q] of [[a, b], [b, c], [a, c]] as [number, number][]) {
-          if (p >= outerN || q >= outerN) continue
-          const sep = Math.abs(p - q)
-          if (Math.min(sep, outerN - sep) <= ADJACENCY_TOLERANCE) continue
-          const dx = v2Outer[p].x - v2Outer[q].x
-          const dy = v2Outer[p].y - v2Outer[q].y
-          if (dx * dx + dy * dy > thresh2) return false
-        }
-        return true
-      })
-      if (triangles.length === 0) {
-        if (GLOBE_DEBUG) console.warn(`[globe] bridge filter removed all triangles for ${iso2}, restoring raw`)
-        triangles = rawTriangles
-      }
-      if (GLOBE_DEBUG) {
-        const removed = rawTriangles.length - triangles.length
-        if (removed > 0) console.log(`[globe] ${iso2}: removed ${removed}/${rawTriangles.length} bridge triangles, thresh=${Math.sqrt(maxAdjacentEdge * 1.05 * 1.05).toFixed(2)}`)
-      }
+    // Step 4 — winding check in 3-D
+    // Use the first non-degenerate triangle to determine orientation.
+    // If the face normal points inward (dot product with vertex position < 0),
+    // reverse the winding of every triangle.
+    let needFlip = false
+    for (const [ti, tj, tk] of triangles) {
+      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
+      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
+      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
+      const ex = bx - ax, ey = by - ay, ez = bz - az
+      const fx = cx - ax, fy = cy - ay, fz = cz - az
+      const nx = ey * fz - ez * fy
+      const ny = ez * fx - ex * fz
+      const nz = ex * fy - ey * fx
+      const lenSq = nx * nx + ny * ny + nz * nz
+      if (lenSq < 1e-20) continue // degenerate — skip
+      // Dot with position vector (= outward sphere normal at vertex a)
+      needFlip = (nx * ax + ny * ay + nz * az) < 0
+      break
     }
 
-    // Per-triangle winding fix: for each triangle, compute its face normal
-    // via the cross product and check if it faces outward (same direction as
-    // the radial vector at the triangle centroid). If inward, flip the winding.
-    // This replaces the previous approach of flipping ALL triangles based on
-    // one sample, which caused mass-invisible faces for US, CN, and
-    // northern-hemisphere countries. Per-triangle is correct because earcut
-    // in 2D produces consistent winding, but the spherical projection can
-    // invert the sense of individual triangles near concavities.
-    const posArr = positions
-    const triCount = triangles.length
-    const fixedTriangles: [number, number, number][] = new Array(triCount)
-    for (let t = 0; t < triCount; t++) {
-      const [ai, bi, ci] = triangles[t]
-      const ax = posArr[ai * 3], ay = posArr[ai * 3 + 1], az = posArr[ai * 3 + 2]
-      const bx = posArr[bi * 3], by = posArr[bi * 3 + 1], bz = posArr[bi * 3 + 2]
-      const cx = posArr[ci * 3], cy = posArr[ci * 3 + 1], cz = posArr[ci * 3 + 2]
-
-      // Face normal from cross product (b-a) x (c-a)
-      const e1x = bx - ax, e1y = by - ay, e1z = bz - az
-      const e2x = cx - ax, e2y = cy - ay, e2z = cz - az
-      const nx = e1y * e2z - e1z * e2y
-      const ny = e1z * e2x - e1x * e2z
-      const nz = e1x * e2y - e1y * e2x
-
-      // Centroid of the triangle
-      const mx = (ax + bx + cx) / 3
-      const my = (ay + by + cy) / 3
-      const mz = (az + bz + cz) / 3
-
-      // Outward normal = radial direction at centroid
-      // If face normal and radial point the same way, winding is correct
-      const dot = nx * mx + ny * my + nz * mz
-
-      fixedTriangles[t] = dot >= 0 ? [ai, bi, ci] : [ai, ci, bi]
+    if (needFlip) {
+      indices = triangles.flatMap(([a, b, c]) => [a, c, b])
+    } else {
+      indices = triangles.flatMap(([a, b, c]) => [a, b, c])
     }
-
-    indices = fixedTriangles.flatMap(([a, b, c]) => [a, b, c])
-  } catch (err) {
-    if (GLOBE_DEBUG) console.warn(`[globe] earcut failed for ${iso2}, using fan fallback:`, err)
-    indices = createTopFanIndices(normalizedOuter.length)
+  } catch {
+    indices = createTopFanIndices(outer.length)
   }
 
   return { positions, indices }
@@ -341,7 +270,7 @@ function _createCountryBufferGeometryInner(
       continue
     }
 
-    const topFace = createTopFaceWithHoles(outer, holes, topRadius, country.iso2)
+    const topFace = createTopFaceWithHoles(outer, holes, topRadius)
     const topFaceBase = vOffset
     allPositions.push(...topFace.positions)
     allIndices.push(...topFace.indices.map((i) => i + topFaceBase))
@@ -357,35 +286,8 @@ function _createCountryBufferGeometryInner(
     }
   }
 
-  // Remove degenerate (zero-area) triangles so computeVertexNormals() never
-  // produces (0,0,0) normals.  This guards against hole-on-boundary cases where
-  // earcut emits triangles whose edge cross-product is effectively zero.
-  const cleanIndices: number[] = []
-  for (let i = 0; i < allIndices.length; i += 3) {
-    const a = allIndices[i], b = allIndices[i + 1], c = allIndices[i + 2]
-    const ax = allPositions[a * 3], ay = allPositions[a * 3 + 1], az = allPositions[a * 3 + 2]
-    const bx = allPositions[b * 3], by = allPositions[b * 3 + 1], bz = allPositions[b * 3 + 2]
-    const cx = allPositions[c * 3], cy = allPositions[c * 3 + 1], cz = allPositions[c * 3 + 2]
-    const ex = bx - ax, ey = by - ay, ez = bz - az
-    const fx = cx - ax, fy = cy - ay, fz = cz - az
-    const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx
-    if (nx * nx + ny * ny + nz * nz > 1e-20) cleanIndices.push(a, b, c)
-  }
-
-  // Compact: remove vertices not referenced by any remaining triangle.
-  // computeVertexNormals() leaves unreferenced verts at (0,0,0), failing
-  // normal-magnitude checks.
-  const usedSet = new Set(cleanIndices)
-  const oldToNew = new Map<number, number>()
-  const compactPositions: number[] = []
-  for (const old of usedSet) {
-    oldToNew.set(old, compactPositions.length / 3)
-    compactPositions.push(allPositions[old * 3], allPositions[old * 3 + 1], allPositions[old * 3 + 2])
-  }
-  const compactIndices = cleanIndices.map((i) => oldToNew.get(i)!)
-
-  geometry.setAttribute('position', new BufferAttribute(new Float32Array(compactPositions), 3))
-  geometry.setIndex(compactIndices)
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
+  geometry.setIndex(allIndices)
 
   // Radial normals: always point outward from sphere centre — exact and fast.
   const pos = geometry.getAttribute('position') as BufferAttribute
@@ -417,6 +319,5 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
 export const polygonGeometryInternals = {
   normalizeRing,
   normalizePolygonTopology,
-  normalizeLongitudes,
   ringArea2D,
 }
