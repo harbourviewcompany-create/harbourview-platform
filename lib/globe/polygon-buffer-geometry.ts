@@ -144,38 +144,43 @@ function createTopFaceWithHoles(
     }
 
     // Bridge triangle filter — non-adjacent long-edge test.
-    // Earcut can generate "span-of-water bridges" that connect distant
-    // coastline vertices across interior water bodies. This filter removes
-    // triangles with outer-ring edges that are both:
-    //   a) between non-adjacent vertices (skip > ADJACENCY_TOLERANCE), AND
-    //   b) longer than the adaptive threshold.
     //
-    // Previous threshold (bboxDiag > 62) missed medium countries like Brazil
-    // (59.6) and Australia (52) that can still produce bridge artefacts.
-    // Now runs for all polygons with bboxDiag > 30.
+    // ROOT CAUSE of globe artefacts (dark triangles spanning US/CA/RU/CN):
+    // earcut fills non-convex polygons by connecting distant coastline vertices
+    // across interior water bodies. The threshold must be tight enough to catch
+    // all such cross-country edges.
     //
-    // The adjacency tolerance is raised from 1 to 3 to preserve triangles
-    // near peninsulas and narrow isthmuses where vertices 2-3 apart are
-    // connected by legitimate short edges.
+    // PREVIOUS BUG: threshold = bboxDiag * 0.55 scaled with country size,
+    // producing thresholds of 34 for US, 50 for CA, 86 for RU — all far too
+    // loose. Earcut edges of 28-45 degrees slipped through unfiltered.
     //
-    // DO NOT replace with area-average filter (collapses for non-convex coasts),
-    // centroid-outside-polygon (fails: CA ring traces around Hudson Bay),
-    // or 3D winding check (flips all triangles on bad sample -> mass voids).
+    // FIX: threshold = maxAdjacentEdge * 1.05
+    // Compute the longest edge between vertices ≤ ADJACENCY_TOLERANCE apart
+    // in the outer ring (i.e. the longest *legitimate* short-range edge).
+    // Any earcut triangle using an edge longer than this is a bridge artefact.
+    // This is data-driven per polygon, not dependent on bbox size.
+    //
+    // DO NOT replace with: area-average filter, centroid-outside-polygon,
+    // or global winding flip — all have been proven incorrect for this dataset.
     const ADJACENCY_TOLERANCE = 3
-    const MIN_BBOX_DIAG = 30
-    const RATIO = 0.55
-
-    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
-    for (const v of v2Outer) {
-      if (v.x < xMin) xMin = v.x; if (v.x > xMax) xMax = v.x
-      if (v.y < yMin) yMin = v.y; if (v.y > yMax) yMax = v.y
-    }
-    const bboxDiag = Math.sqrt((xMax - xMin) ** 2 + (yMax - yMin) ** 2)
     const outerN = v2Outer.length
 
+    // Compute max adjacent edge length in V2 (lon-centered, lat) space
+    let maxAdjacentEdge = 0
+    for (let i = 0; i < outerN; i++) {
+      for (let offset = 1; offset <= ADJACENCY_TOLERANCE; offset++) {
+        const j = (i + offset) % outerN
+        const dx = v2Outer[i].x - v2Outer[j].x
+        const dy = v2Outer[i].y - v2Outer[j].y
+        const d2 = dx * dx + dy * dy
+        if (d2 > maxAdjacentEdge) maxAdjacentEdge = d2
+      }
+    }
+    // thresh2 = (maxAdjacentEdge * 1.05)^2 — just above the longest legitimate edge
+    const thresh2 = maxAdjacentEdge * (1.05 * 1.05)
+
     let triangles = rawTriangles
-    if (bboxDiag > MIN_BBOX_DIAG) {
-      const thresh2 = (bboxDiag * RATIO) ** 2
+    if (maxAdjacentEdge > 0) {
       triangles = rawTriangles.filter(([a, b, c]) => {
         for (const [p, q] of [[a, b], [b, c], [a, c]] as [number, number][]) {
           if (p >= outerN || q >= outerN) continue
@@ -191,10 +196,9 @@ function createTopFaceWithHoles(
         if (GLOBE_DEBUG) console.warn(`[globe] bridge filter removed all triangles for ${iso2}, restoring raw`)
         triangles = rawTriangles
       }
-      const removed = rawTriangles.length - triangles.length
-      if (GLOBE_DEBUG && removed > 0) {
-        const pct = ((removed / rawTriangles.length) * 100).toFixed(1)
-        console.log(`[globe] ${iso2}: removed ${removed}/${rawTriangles.length} bridge triangles (${pct}%), bboxDiag=${bboxDiag.toFixed(1)}`)
+      if (GLOBE_DEBUG) {
+        const removed = rawTriangles.length - triangles.length
+        if (removed > 0) console.log(`[globe] ${iso2}: removed ${removed}/${rawTriangles.length} bridge triangles, thresh=${Math.sqrt(maxAdjacentEdge * 1.05 * 1.05).toFixed(2)}`)
       }
     }
 
