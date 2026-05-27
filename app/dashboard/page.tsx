@@ -143,7 +143,7 @@ function DashboardInner() {
       >
         {/* LEFT COLUMN */}
         <aside
-          className="flex flex-col gap-4 overflow-y-auto px-3.5 py-4"
+          className="flex flex-col gap-4 overflow-y-hidden px-3.5 py-4"
           style={{ borderRight: '1px solid rgba(198,165,90,0.15)' }}
         >
           {/* Market context */}
