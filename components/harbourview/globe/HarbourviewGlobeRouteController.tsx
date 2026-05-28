@@ -43,7 +43,7 @@ function HarbourviewGlobeRouteControllerInner() {
       <section className={styles.routePanel} aria-label="Interactive Harbourview globe route controller">
         <p className={styles.routeEyebrow}>Globe route</p>
         <p className={styles.routeTitle}>{selectedMarket?.label || 'Global market pathways'}</p>
-        <p className={styles.routeDescription}>
+        <p className={styles.routeDescription} aria-live="polite">
           {routeState.kind === 'fallback'
             ? 'We could not load that route. Please select one of the supported market pathways.'
             : selectedMarket?.summary || 'Select a market pathway to tailor your Harbourview experience.'}
