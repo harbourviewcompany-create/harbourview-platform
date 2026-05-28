@@ -13,7 +13,7 @@ export default function SourceEnginePage() {
       eyebrow="HAR-39 intelligence surface"
       title="Source-engine requests without exposing private evidence."
       description="Harbourview can receive market, company, policy, counterparty and route questions through a controlled public workflow while keeping raw evidence, analyst notes, private sources and sensitive counterparties out of public pages."
-      boundary="This route explains request handling only. It does not publish raw source URLs, sourceEvidence, provenanceSummary, internal review notes, analyst conclusions, private contacts or live counterparty intelligence."
+      boundary="This route explains request handling only. It does not publish raw source URLs, sourceEvidence, provenanceSummary, internal review notes, analyst conclusions, sensitive relationship details or live counterparty intelligence."
       primaryAction={{ label: 'Request Intelligence Review', href: '/contact' }}
       secondaryAction={{ label: 'Speak Confidentially', href: '/intake', variant: 'secondary' }}
       sections={[

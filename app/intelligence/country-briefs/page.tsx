@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
 import { getPublicCountries } from '@/lib/server/countriesQuery'
+import { getAlphaCountryRows } from '@/lib/intelligence/alpha-country-coverage'
 
 export const metadata: Metadata = {
   title: 'Country Briefs | Harbourview Intelligence',
-  description: 'Jurisdiction-level regulatory and market orientation for priority cannabis markets.',
+  description: 'Jurisdiction-level regulatory and market orientation for repository-backed tracked alpha coverage.',
 }
 
 const ACCESS_COLORS: Record<string, string> = {
@@ -28,7 +29,9 @@ const ACCESS_DOT: Record<string, string> = {
 }
 
 export default async function CountryBriefsPage() {
-  const countries = await getPublicCountries()
+  const liveCountries = await getPublicCountries()
+  const countries = liveCountries.length > 0 ? liveCountries : getAlphaCountryRows()
+  const usingAlphaFallback = liveCountries.length === 0
 
   return (
     <main className="bg-[#020814] text-white">
@@ -43,24 +46,26 @@ export default async function CountryBriefsPage() {
           </PublicCard>
         }
       >
-        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} priority` : 'priority'} cannabis markets.
-        Briefs cover access pathway status, regulatory framework, licensing structure and commercial route context.
+        Jurisdiction-level regulatory and market orientation for repository-backed tracked alpha coverage.
+        These pages distinguish public-safe orientation, review-required records, and gap states; route-specific conclusions remain private-request only.
       </PublicHero>
 
       {countries.length > 0 && (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow="Coverage" title="Priority jurisdiction coverage">
-            Public-safe regulatory orientation across medical, adult-use, import and export status.
+          <SectionHeader eyebrow="Coverage" title={usingAlphaFallback ? 'Tracked alpha jurisdiction coverage' : 'Priority jurisdiction coverage'}>
+            {usingAlphaFallback
+              ? 'Supabase country records are unavailable in this environment, so this index is using only repository-backed alpha fixtures and explicit gap states.'
+              : 'Public-safe regulatory orientation across represented medical, adult-use, import and export status records.'}
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {countries.map((country) => (
-              <PublicCard key={country.id} className="p-5 flex flex-col gap-3">
+              <PublicCard key={'id' in country ? country.id : country.country_slug} className="p-5 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-semibold text-white text-base">{country.country_name}</h3>
                     <p className="text-xs text-white/40">{country.region}</p>
                   </div>
-                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status] ?? 'bg-transparent/20'}`} />
+                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status ?? 'unknown'] ?? 'bg-transparent/20'}`} />
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   {[
@@ -75,16 +80,19 @@ export default async function CountryBriefsPage() {
                     </div>
                   ))}
                 </div>
-                {country.public_summary && (
+                {'public_summary' in country && country.public_summary && (
                   <p className="text-xs text-white/50 leading-relaxed border-t border-white/10 pt-3 line-clamp-3">
                     {country.public_summary}
                   </p>
                 )}
-                {country.regulator_label && (
+                {'regulator_label' in country && country.regulator_label && (
                   <p className="text-xs text-white/30">Regulator: {country.regulator_label}</p>
                 )}
-                {country.last_updated_label && (
+                {'last_updated_label' in country && country.last_updated_label && (
                   <p className="text-xs text-white/20">Updated {country.last_updated_label}</p>
+                )}
+                {'source_note' in country && country.source_note && (
+                  <p className="text-xs text-white/30">{country.source_note}</p>
                 )}
               </PublicCard>
             ))}

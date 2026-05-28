@@ -1,18 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getAlphaCountryByIso2 } from '@/lib/intelligence/alpha-country-coverage'
 
 export type CountryBrief = {
   iso_alpha2: string
   country_name: string
-  market_access_status: string
-  medical_status: string
-  adult_use_status: string
-  import_status: string
-  export_status: string
+  market_access_status: string | null
+  medical_status: string | null
+  adult_use_status: string | null
+  import_status: string | null
+  export_status: string | null
   public_summary: string | null
   regulator_label: string | null
   country_slug: string
+  data_completeness?: string
 }
 
 type BriefState = { status: 'idle' } | { status: 'loading' } | { status: 'ok'; data: CountryBrief } | { status: 'error' }
@@ -30,7 +32,11 @@ export function useCountryBrief(iso2: string | null | undefined): BriefState {
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) { setState({ status: 'error' }); return }
+    if (!url || !key) {
+      const fallback = getAlphaCountryByIso2(iso2)
+      setState(fallback ? { status: 'ok', data: fallback } : { status: 'error' })
+      return
+    }
 
     setState({ status: 'loading' })
     const params = new URLSearchParams({
@@ -48,10 +54,14 @@ export function useCountryBrief(iso2: string | null | undefined): BriefState {
           cache.set(iso2, rows[0])
           setState({ status: 'ok', data: rows[0] })
         } else {
-          setState({ status: 'error' })
+          const fallback = getAlphaCountryByIso2(iso2)
+          setState(fallback ? { status: 'ok', data: fallback } : { status: 'error' })
         }
       })
-      .catch(() => setState({ status: 'error' }))
+      .catch(() => {
+        const fallback = getAlphaCountryByIso2(iso2)
+        setState(fallback ? { status: 'ok', data: fallback } : { status: 'error' })
+      })
   }, [iso2])
 
   return state

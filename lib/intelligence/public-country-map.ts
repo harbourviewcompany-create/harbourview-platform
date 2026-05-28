@@ -16,7 +16,7 @@ export type PublicCountryMapRecord = {
 }
 
 const reviewLabels: Record<ReviewStatus, string> = {
-  prototypeExtracted: 'Prototype extracted - pending review',
+  prototypeExtracted: 'Repository extract - pending review',
   needsAnalystReview: 'Needs analyst review',
   publicSafeSeed: 'Public-safe seed',
 }

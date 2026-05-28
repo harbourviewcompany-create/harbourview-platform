@@ -148,3 +148,22 @@ Expected Pass 1 evidence:
 - No auth/RLS changed.
 - No deployment setting changed.
 - No Notion, Drive, Linear, or Monday workspace changed.
+
+## 2026-05-28 — Alpha scan-first repair pass evidence
+
+**Scope:** HV-ALPHA-001 through HV-ALPHA-009 scan-first alpha repair pass covering globe, dashboard, Marketplace, Intelligence, Country Briefs, Education, and repository-derived jurisdiction coverage.
+
+**Evidence artifact:** `docs/control/ALPHA_REPAIR_SCAN_LEDGER_2026-05-28.md` records the scan ledger and repo-derived jurisdiction inventory.
+
+**Commands run:**
+- `npm install` — WARN/blocked: registry returned `403 Forbidden` for `tsx`; dependencies were not installed.
+- `npm run typecheck` — WARN/blocked by missing installed dependencies/types after install failure; output included missing `next`, `react`, `vitest`, and Node type declarations.
+- `npm run lint` — WARN/blocked by missing `next` binary after install failure.
+- `npm run build` — WARN/blocked by missing `next` binary after install failure.
+- `npm run test:globe-router` — WARN/blocked by missing `vitest` binary after install failure.
+- `npm run test:intelligence-globe-leakage` — WARN/blocked after source-token cleanup by script-local `npx tsc` failure (`TS5112` with current TypeScript CLI behavior when files are passed with a tsconfig present).
+- `npm run test:visibility` — FAIL/pre-existing public-copy guard finding in `app/marketplace/consumables/page.tsx` matching `/priority/`; not changed by this pass.
+- `node - <<'NODE' ... NODE` route/fallback inventory check — PASS.
+- `rg -n "240\+ markets|Today’s signals|private contacts|global regulated cannabis markets|worldwide|all countries|every country|unlock full intelligence" app components hooks lib/intelligence lib/server config --glob '!lib/intelligence/schema.ts' --glob '!lib/intelligence/fixtures.ts' --glob '!lib/intelligence/country-fixtures.json'` — PASS (no unsupported active public/operator copy matches).
+
+**Result:** HOLD for operator-ready alpha until dependencies install and the required Next/Vitest/build checks can run successfully, and until the visibility guard finding is resolved or classified.

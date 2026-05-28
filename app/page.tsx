@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Harbourview — Regulated Cannabis Market Access & Intelligence',
     description:
-      'Country-first market access, reviewed intelligence, and controlled introductions for regulated cannabis operators worldwide.',
+      'Country-first market access, reviewed intelligence, and controlled introductions for represented regulated cannabis markets.',
   },
 }
 

@@ -12,7 +12,7 @@ import { SignalStrip }          from '@/components/dashboard/SignalStrip'
 import { StatusBadge }          from '@/components/dashboard/StatusBadge'
 import Link                     from 'next/link'
 
-// ── Fixture listings (will come from Supabase in next iteration) ─────────────
+// ── Operator-alpha fixture listings; not live marketplace records ─────────────
 const LISTINGS: DashListingItem[] = [
   {
     id:       '1',
@@ -216,7 +216,7 @@ function DashboardInner() {
           {/* Subscribe CTA */}
           <div className="mt-auto border-t pt-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
             <p className="mb-3 text-[10px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.35)' }}>
-              Subscribe to post listings, contact counterparties, and unlock full intelligence.
+              Alpha workspace uses sample listings and reviewed request paths. Private counterparty access stays controlled.
             </p>
             <Link
               href="/marketplace/sell"

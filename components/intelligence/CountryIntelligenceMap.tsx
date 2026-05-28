@@ -37,7 +37,7 @@ function getReviewTone(reviewStatus: PublicCountryMapRecord['reviewStatus']) {
   if (reviewStatus === 'publicSafeSeed') return 'Public-safe'
   if (reviewStatus === 'needsAnalystReview') return 'Review required'
 
-  return 'Prototype extracted'
+  return 'Repository extract'
 }
 
 function safeHref(path: string, country: PublicCountryMapRecord) {
@@ -69,7 +69,7 @@ export function CountryIntelligenceMap({ countries }: CountryIntelligenceMapProp
               Map-based intelligence
             </p>
             <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[#f4f1eb] sm:text-5xl">
-              Select a country to review public pathway context.
+              Select a represented jurisdiction to review public pathway context.
             </h2>
           </div>
           <p className="text-sm leading-7 text-white/58">
@@ -80,7 +80,7 @@ export function CountryIntelligenceMap({ countries }: CountryIntelligenceMapProp
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
           <div className="rounded-sm border border-gold/12 bg-[linear-gradient(180deg,rgba(8,20,36,0.94),rgba(2,8,20,0.98))] p-3 shadow-[0_26px_80px_rgba(0,0,0,0.34)] sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-white/50">
-              <span>Clickable country map</span>
+              <span>Clickable represented-jurisdiction map</span>
               <span className="uppercase tracking-[0.2em] text-gold/60">Public projection only</span>
             </div>
 

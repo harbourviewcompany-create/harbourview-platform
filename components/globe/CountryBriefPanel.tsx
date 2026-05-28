@@ -23,14 +23,15 @@ const STATUS_TEXT: Record<string, string> = {
   unknown:    'text-white/30',
 }
 
-function StatusBadge({ label, value }: { label: string; value: string }) {
-  const dot = STATUS_DOT[value] ?? STATUS_DOT.unknown
-  const text = STATUS_TEXT[value] ?? STATUS_TEXT.unknown
+function StatusBadge({ label, value }: { label: string; value: string | null }) {
+  const normalizedValue = value ?? 'unknown'
+  const dot = STATUS_DOT[normalizedValue] ?? STATUS_DOT.unknown
+  const text = STATUS_TEXT[normalizedValue] ?? STATUS_TEXT.unknown
   return (
     <span className="flex items-center gap-1.5">
       <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${dot}`} />
       <span className="text-white/40">{label}</span>
-      <span className={`capitalize ${text}`}>{value}</span>
+      <span className={`capitalize ${text}`}>{normalizedValue}</span>
     </span>
   )
 }

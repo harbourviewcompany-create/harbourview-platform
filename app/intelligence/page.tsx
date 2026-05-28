@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Harbourview Intelligence — Cannabis Markets & Pathways',
     description:
-      'Country-level cannabis market intelligence. Reviewed pathway context for Europe, APAC, Americas, MENA and Africa.',
+      'Country-level cannabis market intelligence for represented alpha jurisdictions and reviewed pathway context.',
   },
 }
 
@@ -63,21 +63,21 @@ export default async function IntelligencePage() {
           <PublicCard className="p-6 text-sm leading-7 text-white/62">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
             <p>
-              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, private contacts,
-              and analyst notes are handled through controlled private requests.
+              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, sensitive relationship details,
+              and analyst notes are handled through controlled request workflows.
             </p>
           </PublicCard>
         }
       >
         Harbourview Intelligence covers country pathway status, regulatory signals, import and export conditions,
-        and commercial timing context across global regulated cannabis markets. Coverage is public-safe and reviewed —
+        and commercial timing context for represented alpha jurisdictions in the repository. Coverage is public-safe and reviewed —
         it provides commercial orientation, not legal advice or guaranteed access.
       </PublicHero>
 
       {countries.length > 0 && (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Market map" title={`${countries.length} jurisdictions tracked`}>
-            Select a country to view pathway status, regulatory framework and opportunity orientation.
+            Select a represented jurisdiction to view pathway status, regulatory framework and opportunity orientation where repo-backed data exists.
           </SectionHeader>
           <CountryIntelligenceMap countries={countries} />
         </PublicSection>

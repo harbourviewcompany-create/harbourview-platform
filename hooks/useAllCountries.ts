@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getAlphaCountryRows } from '@/lib/intelligence/alpha-country-coverage'
 
 export interface CountryRow {
   iso_alpha2: string
@@ -30,7 +31,7 @@ export function useAllCountries(): State {
     if (_cache) { setState({ status: 'ok', data: _cache }); return }
     const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) { setState({ status: 'error' }); return }
+    if (!url || !key) { setState({ status: 'ok', data: getAlphaCountryRows() }); return }
 
     const params = new URLSearchParams({
       select: 'iso_alpha2,country_name,market_access_status,medical_status,adult_use_status,import_status,export_status,public_summary,regulator_label,country_slug,opportunity_score',
@@ -46,7 +47,7 @@ export function useAllCountries(): State {
         _cache = rows
         setState({ status: 'ok', data: rows })
       })
-      .catch(() => setState({ status: 'error' }))
+      .catch(() => setState({ status: 'ok', data: getAlphaCountryRows() }))
   }, [])
 
   return state

@@ -50,11 +50,11 @@ export function SignalStrip() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-[9px] font-semibold uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.55)' }}>
-          Today’s signals
+          Alpha signal samples
         </span>
         <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(93,202,165,0.7)' }}>
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          Live
+          Sample
         </span>
       </div>
 
@@ -99,7 +99,7 @@ export function SignalStrip() {
         className="mt-1 text-center text-[10px] transition-opacity hover:opacity-80"
         style={{ color: 'rgba(198,165,90,0.45)' }}
       >
-        View all intelligence →
+        View public signals →
       </Link>
     </aside>
   )
