@@ -37,10 +37,14 @@ function HarbourviewGlobeRouteControllerInner() {
   const selectedMarket = routeState.selectedMarket
   const selectedRole = routeState.selectedRole
   const selectedIntent = routeState.selectedIntent
+  const routeAnnouncement = routeState.kind === 'fallback'
+    ? 'Fallback globe route selected.'
+    : `${selectedMarket?.label || 'Global market pathways'} globe route selected.`
 
   return (
     <div className={styles.routeShell} data-route-state={routeState.kind}>
       <section className={styles.routePanel} aria-label="Interactive Harbourview globe route controller">
+        <p className={styles.srOnly} aria-live="polite" aria-atomic="true">{routeAnnouncement}</p>
         <p className={styles.routeEyebrow}>Globe route</p>
         <p className={styles.routeTitle}>{selectedMarket?.label || 'Global market pathways'}</p>
         <p className={styles.routeDescription}>
