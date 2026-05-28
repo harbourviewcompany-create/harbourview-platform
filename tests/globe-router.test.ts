@@ -8,16 +8,16 @@ import { parseGlobeRouteState } from '@/components/harbourview/globe/globeRouteS
 import { mapGlobeRoleToDashboardRole, parseDashboardGlobeRouteContext } from '@/lib/dashboard/globeRouteContext'
 import type { IntentId, RoleId } from '@/types/globe-router'
 
-function expectFallbackRoutePreservesContext({
+function expectEducationRoutePreservesContext({
   countryIso2,
   roleId,
   intentId,
-  requestedPath,
+  expectedPath,
 }: {
   countryIso2: string
   roleId: RoleId
   intentId: IntentId
-  requestedPath: string
+  expectedPath: string
 }) {
   const result = resolveGlobeRoute({
     countryIso2,
@@ -29,13 +29,13 @@ function expectFallbackRoutePreservesContext({
     layerId: 'country_select',
   })
 
-  expect(result.status).toBe('fallback')
-  expect(result.href).toContain('/intake?')
+  expect(result.status).toBe('resolved')
+  expect(result.href).toContain(`${expectedPath}?`)
   expect(result.href).toContain(`country=${countryIso2}`)
   expect(result.href).toContain(`countries=${countryIso2}`)
   expect(result.href).toContain(`role=${roleId}`)
   expect(result.href).toContain(`intent=${intentId}`)
-  expect(result.href).toContain(`requestedPath=${encodeURIComponent(requestedPath)}`)
+  expect(result.href).not.toContain('requestedPath=')
 }
 
 describe('Harbourview globe same-screen router', () => {
@@ -134,21 +134,21 @@ describe('Harbourview globe same-screen router', () => {
     expect(context.source).toBeUndefined()
   })
 
-  it('falls Germany medical education paths back to intake without losing route context', () => {
-    expectFallbackRoutePreservesContext({
+  it('routes Germany medical education paths to country education without losing route context', () => {
+    expectEducationRoutePreservesContext({
       countryIso2: 'DE',
       roleId: 'doctor_prescriber',
       intentId: 'understand_medical_rules',
-      requestedPath: '/education/medical',
+      expectedPath: '/dashboard/country/germany/education',
     })
   })
 
-  it('falls Canada regulatory education paths back to intake without losing route context', () => {
-    expectFallbackRoutePreservesContext({
+  it('routes Canada regulatory education paths to country education without losing route context', () => {
+    expectEducationRoutePreservesContext({
       countryIso2: 'CA',
       roleId: 'regulatory_compliance',
       intentId: 'regulatory_framework',
-      requestedPath: '/education/regulatory',
+      expectedPath: '/dashboard/country/canada/education',
     })
   })
 
@@ -209,8 +209,9 @@ describe('Harbourview globe same-screen router', () => {
       intentId: 'understand_medical_rules',
     })
 
-    expect(resolved.status).toBe('fallback')
-    expect(state.kind).toBe('fallback')
+    expect(resolved.status).toBe('resolved')
+    expect(resolved.href).toContain('/dashboard/country/germany/education?')
+    expect(state.kind).toBe('intent-sheet')
     expect(state.invalidParams).toEqual([])
   })
 
