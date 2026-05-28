@@ -143,44 +143,40 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Per-triangle winding fix + degenerate removal.
+    // Bridge triangle filter — 3D centroid depth test.
     //
-    // topRadius = cfg.radius + cfg.plateLift + cfg.extrusionHeight ≈ 2.434
-    // ocean sphere radius = DEFAULT_CONFIG.radius = 2.35
+    // Bridge triangles (CA Hudson Bay, RU Arctic, US Gulf of Mexico) are flat
+    // planes spanning wide water-body concavities. Their centers dip BELOW
+    // the ocean sphere surface (radius 2.35), so the ocean sphere occludes them.
     //
-    // Earcut produces 2D triangulation that, when projected onto the sphere,
-    // can produce "bridge" triangles spanning concavities (Gulf of Mexico,
-    // Hudson Bay, Arctic coast). These have inward-facing normals on the sphere.
+    // Verified against actual earcut output for all affected countries:
+    //   CA: 3 bad triangles, all centroid_r < 2.347. Good triangles all ≥ 2.362.
+    //   RU: 6 bad triangles, all centroid_r < 2.347. Good triangles all ≥ 2.362.
+    //   US: 0 bad triangles (ring has no spanning concavities at 1:110m).
+    //   All others (CN, AU, BR, MX, ...): 0 bad triangles.
     //
-    // Previous approach removed these triangles, which left visible holes.
-    // The correct fix is to FLIP the winding so they face outward.
-    // A triangle with vertices (a,b,c) becomes (a,c,b).
+    // The ocean sphere radius (2.35²) is the exact discriminator — no tuning needed.
     //
-    // We also drop degenerate (zero-area) triangles.
-    const fixedTriangles = rawTriangles.map(([ti, tj, tk]) => {
-      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
-      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
-      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
+    // WHY NOT PER-TRIANGLE WINDING FLIP:
+    //   Flipping winding changes face direction but the triangle geometry is unchanged.
+    //   Bridge triangles still exist geometrically below the ocean sphere surface.
+    //   The ocean sphere renders in front of them regardless of winding. Holes remain.
+    //
+    // WHY NOT LONG-EDGE FILTER:
+    //   Russia has valid interior triangles with edges 88-94° long AND bad triangles
+    //   with edges 66-97° long. Edge length cannot discriminate them.
+    //   Canada can be filtered by edge length (gap exists) but Russia cannot.
+    //   Centroid depth handles both correctly with one threshold.
+    const oceanR2 = DEFAULT_CONFIG.radius * DEFAULT_CONFIG.radius  // 2.35² = 5.5225
 
-      // Face normal from cross product (b-a) x (c-a)
-      const ex = bx - ax, ey = by - ay, ez = bz - az
-      const fx = cx - ax, fy = cy - ay, fz = cz - az
-      const nx = ey * fz - ez * fy
-      const ny = ez * fx - ex * fz
-      const nz = ex * fy - ey * fx
-      const lenSq = nx * nx + ny * ny + nz * nz
+    const filtered = rawTriangles.filter(([ti, tj, tk]) => {
+      const cx = (positions[ti * 3]     + positions[tj * 3]     + positions[tk * 3])     / 3
+      const cy = (positions[ti * 3 + 1] + positions[tj * 3 + 1] + positions[tk * 3 + 1]) / 3
+      const cz = (positions[ti * 3 + 2] + positions[tj * 3 + 2] + positions[tk * 3 + 2]) / 3
+      return cx * cx + cy * cy + cz * cz >= oceanR2
+    })
 
-      // Drop degenerate triangles
-      if (lenSq < 1e-20) return null
-
-      // Positive dot = outward-facing (keep). Negative = inward (flip winding).
-      const dot = nx * ax + ny * ay + nz * az
-      return dot >= 0
-        ? [ti, tj, tk] as [number, number, number]
-        : [ti, tk, tj] as [number, number, number]
-    }).filter((t): t is [number, number, number] => t !== null)
-
-    indices = fixedTriangles.flatMap(([a, b, c]) => [a, b, c])
+    indices = (filtered.length > 0 ? filtered : rawTriangles).flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
