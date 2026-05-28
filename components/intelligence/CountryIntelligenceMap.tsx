@@ -37,7 +37,7 @@ function getReviewTone(reviewStatus: PublicCountryMapRecord['reviewStatus']) {
   if (reviewStatus === 'publicSafeSeed') return 'Public-safe'
   if (reviewStatus === 'needsAnalystReview') return 'Review required'
 
-  return 'Prototype extracted'
+  return 'Alpha extraction pending review'
 }
 
 function safeHref(path: string, country: PublicCountryMapRecord) {

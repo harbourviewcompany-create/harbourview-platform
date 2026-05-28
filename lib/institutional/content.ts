@@ -146,6 +146,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
           { title: 'Professionals', description: 'Professional-role entry points for clinicians, pharmacists, lawyers, regulators, QA teams, investors and institutions.', href: '/professionals' },
           { title: 'Trust & Governance', description: 'Verification, confidentiality, correction, marketplace rules and public/private boundary standards.', href: '/trust-governance' },
           { title: 'Reviewed Connections', description: 'Qualified introductions, exporter/importer review, equipment sourcing, asset access and protected dealroom orientation.', href: '/reviewed-connections' },
+          { title: 'Operator Dashboard', description: 'Working-alpha operating surface for market context, public-safe example listings and reviewed workflow entry points; private records remain outside public navigation.', href: '/dashboard' },
         ],
       },
     ],

@@ -12,7 +12,7 @@ import { SignalStrip }          from '@/components/dashboard/SignalStrip'
 import { StatusBadge }          from '@/components/dashboard/StatusBadge'
 import Link                     from 'next/link'
 
-// ── Fixture listings (will come from Supabase in next iteration) ─────────────
+// ── Alpha fixture listings (public-safe examples; no private Supabase data) ─────
 const LISTINGS: DashListingItem[] = [
   {
     id:       '1',
@@ -95,10 +95,10 @@ const LISTINGS: DashListingItem[] = [
 ]
 
 const MARKET_STRIP = [
-  { name: 'Germany',     status: 'Medical only',  score: 91, color: '#378add' },
-  { name: 'Australia',   status: 'Medical only',  score: 88, color: '#378add' },
-  { name: 'Netherlands', status: 'Recreational',  score: 82, color: '#1d9e75' },
-  { name: 'UK',          status: 'Medical only',  score: 78, color: '#378add' },
+  { name: 'Germany', iso2: 'DE', status: 'Medical only',  score: 91, color: '#378add' },
+  { name: 'Australia', iso2: 'AU', status: 'Medical only',  score: 88, color: '#378add' },
+  { name: 'Netherlands', iso2: 'NL', status: 'Recreational',  score: 82, color: '#1d9e75' },
+  { name: 'UK', iso2: 'GB', status: 'Medical only',  score: 78, color: '#378add' },
 ]
 
 type FilterType = 'all' | 'supply' | 'demand' | 'equipment'
@@ -132,6 +132,10 @@ function DashboardInner() {
     <>
       {/* ── IDENTITY RAIL ─────────────────────────────────────────────── */}
       <IdentityRail onMarketClick={() => setSelectorOpen(true)} />
+
+      <div className="border-b border-[#c6a55a]/15 bg-[#071122] px-4 py-2 text-center text-[11px] leading-5 text-[#f5f1e8]/62">
+        Operator-ready alpha surface using public-safe example listings and market orientation. Private counterparties, pricing, evidence and review records are not exposed here.
+      </div>
 
       {/* ── THREE-COLUMN BODY ─────────────────────────────────────────── */}
       <div
@@ -250,7 +254,7 @@ function DashboardInner() {
               {MARKET_STRIP.map(m => (
                 <button
                   key={m.name}
-                  onClick={() => openBrief(m.name.slice(0,2).toUpperCase(), m.name)}
+                  onClick={() => openBrief(m.iso2, m.name)}
                   className="rounded-xl p-3 text-left transition-all hover:border-[rgba(198,165,90,0.3)]"
                   style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.15)' }}
                 >
