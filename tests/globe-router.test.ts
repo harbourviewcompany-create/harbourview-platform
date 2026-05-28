@@ -5,6 +5,7 @@ import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { globeRouterReducer, initialGlobeRouterState } from '@/components/globe/useGlobeRouterState'
 import { parseGlobeRouteState } from '@/components/harbourview/globe/globeRouteState'
+import { parseDashboardInitialStateFromGlobeParams } from '@/lib/dashboard/globeRouteContext'
 import type { IntentId, RoleId } from '@/types/globe-router'
 
 function expectFallbackRoutePreservesContext({
@@ -108,6 +109,37 @@ describe('Harbourview globe same-screen router', () => {
     expect(result.href).toContain('country=DE')
     expect(result.href).toContain('role=importer')
     expect(result.href).toContain('intent=view_market_signals')
+  })
+
+
+  it('hydrates dashboard defaults from globe route query context', () => {
+    const state = parseDashboardInitialStateFromGlobeParams(new URLSearchParams('source=globe_router&mode=single_market&country=DE&role=doctor_prescriber&intent=request_introduction'))
+
+    expect(state).toEqual({
+      countryIso2: 'DE',
+      countryName: 'Germany',
+      role: 'medical_professional',
+    })
+  })
+
+  it('uses first multi-market country and regulatory dashboard role from globe context', () => {
+    const state = parseDashboardInitialStateFromGlobeParams(new URLSearchParams('source=globe_router&mode=multi_market&countries=PT,DE&role=legal_advisory&intent=routing_review'))
+
+    expect(state).toEqual({
+      countryIso2: 'PT',
+      countryName: 'Portugal',
+      role: 'regulatory_legal',
+    })
+  })
+
+  it('keeps dashboard defaults for non-globe traffic', () => {
+    const state = parseDashboardInitialStateFromGlobeParams(new URLSearchParams('country=DE&role=doctor_prescriber'))
+
+    expect(state).toEqual({
+      countryIso2: 'CA',
+      countryName: 'Canada',
+      role: 'commercial_operator',
+    })
   })
 
   it('falls Germany medical education paths back to intake without losing route context', () => {

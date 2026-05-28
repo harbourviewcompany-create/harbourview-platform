@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DashboardProvider }    from '@/lib/dashboard/DashboardContext'
+import { parseDashboardInitialStateFromGlobeParams } from '@/lib/dashboard/globeRouteContext'
 import { IdentityRail }         from '@/components/dashboard/IdentityRail'
 import { ContextSummary }       from '@/components/dashboard/ContextSummary'
 import { CountrySelector }      from '@/components/dashboard/CountrySelector'
@@ -321,10 +323,21 @@ function DashboardInner() {
   )
 }
 
-export default function DashboardPage() {
+function DashboardPageWithRouteContext() {
+  const searchParams = useSearchParams()
+  const initialState = useMemo(() => parseDashboardInitialStateFromGlobeParams(searchParams), [searchParams])
+
   return (
-    <DashboardProvider>
+    <DashboardProvider initialState={initialState}>
       <DashboardInner />
     </DashboardProvider>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardProvider><DashboardInner /></DashboardProvider>}>
+      <DashboardPageWithRouteContext />
+    </Suspense>
   )
 }
