@@ -37,11 +37,11 @@ export function HarbourviewSovereignPlateGlobe({
     <div
       className="pointer-events-none absolute inset-0 overflow-hidden bg-[#01050d] opacity-95"
       aria-hidden="true"
-      data-globe-renderer="css-fallback-prototype"
+      data-globe-renderer="css-fallback-alpha"
       data-fallback-mode="passive-background"
     >
       <div className="absolute left-4 top-4 z-20 rounded-full border border-[#c6a55a]/20 bg-black/28 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/68 backdrop-blur-xl">
-        Prototype fallback renderer
+        Alpha fallback renderer
       </div>
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(16,58,95,0.72),transparent_42%),radial-gradient(circle_at_56%_48%,rgba(198,165,90,0.12),transparent_58%),linear-gradient(180deg,#020814_0%,#01050d_100%)]" />

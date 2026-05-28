@@ -96,7 +96,7 @@ function getListingRepresentativeImage(listing: PublicListing): RepresentativeIm
   return imageCatalog.packaging
 }
 
-function RepresentativeImageFrame({ image, priority = false }: { image: RepresentativeImage; priority?: boolean }) {
+function RepresentativeImageFrame({ image, eagerLoad = false }: { image: RepresentativeImage; eagerLoad?: boolean }) {
   return (
     <figure className="overflow-hidden rounded-sm border border-gold/10 bg-[#071425]">
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#071425]">
@@ -104,7 +104,7 @@ function RepresentativeImageFrame({ image, priority = false }: { image: Represen
           src={image.src}
           alt={image.alt}
           fill
-          priority={priority}
+          loading={eagerLoad ? 'eager' : 'lazy'}
           sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
           className="object-cover opacity-90 saturate-[0.88] transition-transform duration-300 group-hover:scale-[1.02]"
         />
@@ -213,7 +213,7 @@ export default async function ConsumablesPage() {
               </div>
             </div>
             <div className="group lg:pt-2">
-              <RepresentativeImageFrame image={heroImage} priority />
+              <RepresentativeImageFrame image={heroImage} eagerLoad />
             </div>
           </div>
         </div>

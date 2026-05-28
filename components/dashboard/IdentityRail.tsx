@@ -17,7 +17,7 @@ export function IdentityRail({ onMarketClick }: Props) {
     : role === 'regulatory_legal'   ? 'Regulatory & Legal'
     : 'Commercial Operator'
 
-  const countryCount = countries.status === 'ok' ? countries.data.length : 240
+  const countryCountLabel = countries.status === 'ok' ? `${countries.data.length} reviewed market records` : 'Alpha market coverage'
 
   return (
     <header
@@ -72,7 +72,7 @@ export function IdentityRail({ onMarketClick }: Props) {
               color: '#5dcaa5',
             }}
           >
-            ✓ Free
+            Alpha
           </div>
         </div>
       </div>
@@ -80,7 +80,7 @@ export function IdentityRail({ onMarketClick }: Props) {
       {/* Right — globe mini + account */}
       <div className="flex items-center gap-3">
         <span className="text-[10px] tracking-[0.08em]" style={{ color: 'rgba(198,165,90,0.45)' }}>
-          {countryCount}+ markets
+          {countryCountLabel}
         </span>
         <button
           onClick={onMarketClick}

@@ -43,14 +43,14 @@ export default async function CountryBriefsPage() {
           </PublicCard>
         }
       >
-        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} priority` : 'priority'} cannabis markets.
-        Briefs cover access pathway status, regulatory framework, licensing structure and commercial route context.
+        Tracked alpha coverage for {countries.length > 0 ? `${countries.length} priority` : 'priority'} cannabis markets.
+        Briefs cover public-safe access pathway status, regulatory framework, licensing structure and commercial route context when approved records are configured.
       </PublicHero>
 
-      {countries.length > 0 && (
+      {countries.length > 0 ? (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Coverage" title="Priority jurisdiction coverage">
-            Public-safe regulatory orientation across medical, adult-use, import and export status.
+            Public-safe regulatory orientation across medical, adult-use, import and export status. This is tracked priority coverage, not a representation of complete global jurisdiction coverage.
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {countries.map((country) => (
@@ -89,6 +89,15 @@ export default async function CountryBriefsPage() {
               </PublicCard>
             ))}
           </div>
+        </PublicSection>
+      ) : (
+        <PublicSection tone="dark">
+          <SectionHeader eyebrow="Coverage gap" title="Approved country brief records are not configured in this environment.">
+            The country-brief route is live, but it does not claim complete global coverage without an approved public country dataset. Use the request path for jurisdiction-specific review until public-safe records are configured.
+          </SectionHeader>
+          <PublicCard muted className="p-6 text-sm leading-7 text-white/62">
+            Missing for complete coverage: approved country records, route-specific brief content, source-status labels, and country detail pages backed by reviewed data.
+          </PublicCard>
         </PublicSection>
       )}
 

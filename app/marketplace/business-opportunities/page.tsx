@@ -1,21 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
-import type { PublicListing } from '@/lib/server/listingsQuery'
+import { businessOpportunities } from '@/lib/fixtures/business-opportunities'
+import type { BusinessOpportunity } from '@/lib/fixtures/types'
+import { getLiveBusinessOpportunities } from '@/lib/marketplace/liveOpportunities'
 
 export const metadata: Metadata = {
   title: 'Business Opportunities | Harbourview',
   description:
     'Licensed facility acquisitions, brand acquisitions, equity opportunities and strategic commercial pathways for regulated cannabis operators.',
-}
-
-const REGION_LABELS: Record<string, string> = {
-  north_america: 'North America',
-  europe: 'Europe',
-  asia_pacific: 'Asia Pacific',
-  latin_america: 'Latin America',
-  middle_east_africa: 'Middle East & Africa',
-  global: 'Global',
 }
 
 const opportunityTypes = [
@@ -37,34 +29,27 @@ const opportunityTypes = [
   },
 ]
 
-function ListingCard({ listing }: { listing: PublicListing }) {
-  const specs = listing.high_level_specs as Record<string, unknown>
-  const ctaLabel = (specs?.cta_label as string) ?? 'Request qualification'
+function ListingCard({ listing }: { listing: BusinessOpportunity }) {
+  const ctaLabel = 'Request qualification'
 
   return (
     <div className="group flex flex-col rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
       <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
-      {listing.is_featured && (
-        <span className="mb-3 inline-flex w-fit rounded-full border border-gold/35 bg-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">
-          Featured
-        </span>
-      )}
-      {listing.product_type && (
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
-          {listing.product_type}
-        </p>
-      )}
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+        {listing.opportunityType.replaceAll('-', ' ')}
+      </p>
       <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
       <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        {listing.region && (
-          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">
-            {REGION_LABELS[listing.region] ?? listing.region}
-          </span>
-        )}
+        <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">
+          {listing.location}
+        </span>
+        <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">
+          {listing.state}
+        </span>
       </div>
       <Link
-        href={`/contact?ref=${listing.slug ?? listing.id}&type=business_opportunity`}
+        href={`/contact?ref=${listing.id}&type=business_opportunity`}
         className="btn-marketplace mt-6 justify-center text-center text-sm"
       >
         {ctaLabel}
@@ -94,7 +79,8 @@ function EmptyState() {
 }
 
 export default async function BusinessOpportunitiesPage() {
-  const listings = await getPublicListingsByCategory('business_opportunities')
+  const opportunityFeed = await getLiveBusinessOpportunities(businessOpportunities)
+  const listings = opportunityFeed.listings
 
   return (
     <>

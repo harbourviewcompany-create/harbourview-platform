@@ -129,9 +129,9 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
           {reasonLabel}
         </div>
         <div className="absolute bottom-10 left-8 max-w-sm">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">Premium market routing preview</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-white">Stable market routing view</h2>
           <p className="mt-3 text-sm leading-6 text-white/66">
-            We are showing a static globe shell to preserve stability and keep navigation responsive on this device.
+            We are showing the stable alpha globe fallback to preserve routing reliability and keep navigation responsive on this device.
           </p>
         </div>
       </div>
