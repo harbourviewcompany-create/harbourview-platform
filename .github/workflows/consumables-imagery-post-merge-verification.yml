@@ -1,0 +1,102 @@
+name: Consumables Imagery Post-Merge Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/consumables-imagery-post-merge-verification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-current-main:
+    name: Verify consumables imagery on current main
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Determine verification ref
+        id: verify_ref
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "Verifying pull request base SHA: ${{ github.event.pull_request.base.sha }}"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+            echo "Verifying current main"
+          fi
+
+      - name: Checkout current main target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.verify_ref.outputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          mkdir -p verification-results/consumables-imagery
+          npm ci 2>&1 | tee verification-results/consumables-imagery/npm-ci.log
+
+      - name: Run requested consumables imagery verification commands
+        shell: bash
+        run: |
+          set -u
+          mkdir -p verification-results/consumables-imagery
+          summary="verification-results/consumables-imagery/summary.md"
+          : > "$summary"
+          status=0
+
+          run_check() {
+            local label="$1"
+            shift
+            local log="verification-results/consumables-imagery/${label}.log"
+            : > "$log"
+            echo "## ${label}" | tee -a "$summary"
+            echo "\$ $*" | tee -a "$log" "$summary"
+            set +e
+            "$@" 2>&1 | tee -a "$log"
+            local code=${PIPESTATUS[0]}
+            set -e
+            echo "exit_code=${code}" | tee -a "$log" "$summary"
+            if [ "$code" -eq 0 ]; then
+              echo "result=GO" | tee -a "$summary"
+            else
+              echo "result=HOLD" | tee -a "$summary"
+              status=1
+            fi
+            echo "" | tee -a "$summary"
+          }
+
+          run_check "test-public-images" npm run test:public-images
+          run_check "test-live-source-intake" npm run test:live-source-intake
+          run_check "test-visibility" npm run test:visibility
+          run_check "build" npm run build
+
+          if [ "$status" -eq 0 ]; then
+            echo "Final verdict: GO" | tee -a "$summary"
+          else
+            echo "Final verdict: HOLD" | tee -a "$summary"
+          fi
+
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload verification logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consumables-imagery-post-merge-verification-logs
+          path: verification-results/consumables-imagery/
+          if-no-files-found: error
+          retention-days: 14
