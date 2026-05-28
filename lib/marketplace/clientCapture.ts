@@ -15,10 +15,13 @@ type MarketplaceInquiryInsert = {
   status: 'received'
 }
 
+const SAFE_LISTING_CAPTURE_ERROR = 'Listing submission could not be saved. Please try again or contact Harbourview directly.'
+const SAFE_INQUIRY_CAPTURE_ERROR = 'Inquiry could not be saved. Please try again or contact Harbourview directly.'
+
 export async function submitMarketplaceInquiryDirect(
   payload: MarketplaceInquiryInsert,
   successMessage: string,
-  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION' | 'CONFIDENTIAL_INTAKE'
+  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION' | 'CONFIDENTIAL_INTAKE' | 'GENETICS' | 'CONTACT'
 ): Promise<CaptureResult> {
   let response: Response
 
@@ -31,18 +34,29 @@ export async function submitMarketplaceInquiryDirect(
       },
       body: JSON.stringify({ ...payload, success_message: successMessage }),
     })
-  } catch (error) {
-    const detail = error instanceof Error ? error.name : 'UnknownError'
+  } catch {
     return {
       ok: false,
-      message: `${successMessage.replace(/received\..*$/i, 'could not be completed.')} Browser could not reach Supabase. ${detail}. [${diagnosticPrefix}_SUPABASE_DIRECT_REQUEST_FAILED]`,
+      message: diagnosticPrefix === 'LISTING_SUBMISSION' ? SAFE_LISTING_CAPTURE_ERROR : SAFE_INQUIRY_CAPTURE_ERROR,
     }
   }
 
   if (!response.ok) {
+    let body: { message?: unknown } | null = null
+    try {
+      body = await response.json()
+    } catch {
+      body = null
+    }
+
     return {
       ok: false,
-      message: `${successMessage.replace(/received\..*$/i, 'could not be saved.')} Capture service returned ${response.status}. [${diagnosticPrefix}_SUPABASE_DIRECT_INSERT_FAILED]`,
+      message:
+        typeof body?.message === 'string' && body.message.trim()
+          ? body.message
+          : diagnosticPrefix === 'LISTING_SUBMISSION'
+            ? SAFE_LISTING_CAPTURE_ERROR
+            : SAFE_INQUIRY_CAPTURE_ERROR,
     }
   }
 

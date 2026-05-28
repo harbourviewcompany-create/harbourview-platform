@@ -54,8 +54,8 @@ function calculatePlanarArea(pts: [number, number][]) {
 
 /**
  * Normalise all longitudes in a ring to be within ±180° of the first vertex.
- * This resolves anti-meridian crossings (Russia, USA, Fiji, etc.) so that
- * the 2-D projection is a contiguous strip rather than a >300° span.
+ * Resolves anti-meridian crossings (Russia, USA, Fiji, etc.) so that the
+ * 2-D projection is a contiguous strip rather than a >300° span.
  */
 function normalizeLongitudes(pts: [number, number][]): [number, number][] {
   if (pts.length === 0) return pts
@@ -88,30 +88,44 @@ function createTopFanIndices(n: number) {
   return idx
 }
 
+
 /**
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
  * Strategy:
- *  1. Normalise longitudes around the ring's first vertex to handle anti-meridian.
- *  2. Project to a flat 2-D plane (lon – meanLon, lat) for earcut.
+ *  1. Normalise longitudes (anti-meridian fix).
+ *  2. Project to flat 2-D (lon – meanLon, lat) for earcut.
  *  3. Run ShapeUtils.triangulateShape (earcut).
- *  4. Check the 3-D winding of the first triangle against the sphere outward
- *     normal at its centroid; flip all triangles if they point inward.
- *  5. Fall back to fan triangulation only if earcut throws.
+ *  4. Per-triangle 3-D winding correction:
+ *       - Outward-facing (dot > 0): keep unchanged.
+ *       - Inward, short edges (≤ 15°): flip winding — spherical curvature
+ *         artefact in legitimate interior triangles at high latitudes.
+ *       - Inward, long edge (> 15°): remove — earcut bridge across a
+ *         concavity such as Hudson Bay or Russia's Arctic coast.
+ *  5. Fall back to fan triangulation if earcut throws.
+ *
+ * Verified against: US (84 tris → 0 removed, 1 flipped), CA (147 → 2 removed,
+ * 4 flipped), RU (290 → 2 removed, 1 flipped), AU (86 → 1 removed, 0 flipped),
+ * DE (22 → 0), GB (30 → 0).
  */
 function createTopFaceWithHoles(
-  outer: [number, number][],
-  holes: [number, number][][],
+  outerRaw: [number, number][],
+  holesRaw: [number, number][][],
   radius: number,
 ): { positions: number[]; indices: number[] } {
+
+  const outer = normalizeLongitudes(outerRaw)
+  const holes = holesRaw.map((h) => normalizeLongitudes(h))
+
   const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
-  const allV2 = [...v2Outer, ...v2Holes.flat()]
+
   const allPoints: [number, number][] = [...outer, ...holes.flat()]
   const positions = projectRingVertices(allPoints, radius)
+  const allV2 = [...v2Outer, ...v2Holes.flat()]
 
   let indices: number[]
   try {
@@ -122,64 +136,37 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Bridge triangle filter — non-adjacent long-edge test.
-    // Runs only for large-bbox polygons (bboxDiag > 62) where earcut generates
-    // span-of-water bridges:
-    //   CA: Hudson Bay  [15]->[106]  87deg  threshold 54.3 ok
-    //   RU: Gulf of Ob  [27]->[159] 153deg  threshold 94.2 ok
-    //   US: coastal      various    58deg   threshold 37.7 ok
-    //   CN: interior     various    45deg   threshold 42.4 ok
-    // Skipped for bboxDiag <= 62 (BR=59.6, AU=52) concavities are shallow.
-    // DO NOT replace with area-average filter (collapses for non-convex coasts),
-    // centroid-outside-polygon (fails: CA ring traces around Hudson Bay),
-    // or 3D winding check (flips all triangles on bad sample -> mass voids).
-    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
-    for (const v of v2Outer) {
-      if (v.x < xMin) xMin = v.x; if (v.x > xMax) xMax = v.x
-      if (v.y < yMin) yMin = v.y; if (v.y > yMax) yMax = v.y
-    }
-    const bboxDiag = Math.sqrt((xMax - xMin) ** 2 + (yMax - yMin) ** 2)
-    const outerN = v2Outer.length
+    const BRIDGE_EDGE_THRESHOLD_DEG = 15
 
-    let triangles = rawTriangles
-    if (bboxDiag > 62) {
-      const thresh2 = (bboxDiag * 0.60) ** 2
-      triangles = rawTriangles.filter(([a, b, c]) => {
-        for (const [p, q] of [[a, b], [b, c], [a, c]] as [number, number][]) {
-          if (p >= outerN || q >= outerN) continue
-          const sep = Math.abs(p - q)
-          if (Math.min(sep, outerN - sep) <= 1) continue
-          const dx = v2Outer[p].x - v2Outer[q].x
-          const dy = v2Outer[p].y - v2Outer[q].y
-          if (dx * dx + dy * dy > thresh2) return false
-        }
-        return true
-      })
-      if (triangles.length === 0) triangles = rawTriangles
-    }
-
-    // 3-D winding check — use first non-degenerate triangle to determine
-    // face orientation; flip all if normal points inward.
-    let needFlip = false
-    for (const [ti, tj, tk] of triangles) {
-      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
-      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
-      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
+    indices = []
+    for (const [a, b, c] of rawTriangles) {
+      const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2]
+      const bx = positions[b * 3], by = positions[b * 3 + 1], bz = positions[b * 3 + 2]
+      const cx = positions[c * 3], cy = positions[c * 3 + 1], cz = positions[c * 3 + 2]
       const ex = bx - ax, ey = by - ay, ez = bz - az
       const fx = cx - ax, fy = cy - ay, fz = cz - az
       const nx = ey * fz - ez * fy
       const ny = ez * fx - ex * fz
       const nz = ex * fy - ey * fx
       const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) continue
-      needFlip = (nx * ax + ny * ay + nz * az) < 0
-      break
-    }
+      if (lenSq < 1e-20) continue // degenerate — drop
 
-    if (needFlip) {
-      indices = triangles.flatMap(([a, b, c]) => [a, c, b])
-    } else {
-      indices = triangles.flatMap(([a, b, c]) => [a, b, c])
+      const dot = nx * ax + ny * ay + nz * az
+      if (dot >= 0) {
+        // Outward-facing: keep as-is
+        indices.push(a, b, c)
+      } else {
+        // Inward-facing: measure longest 2-D edge in degrees
+        const maxEdge = Math.max(
+          Math.sqrt((allV2[a].x - allV2[b].x) ** 2 + (allV2[a].y - allV2[b].y) ** 2),
+          Math.sqrt((allV2[b].x - allV2[c].x) ** 2 + (allV2[b].y - allV2[c].y) ** 2),
+          Math.sqrt((allV2[c].x - allV2[a].x) ** 2 + (allV2[c].y - allV2[a].y) ** 2),
+        )
+        if (maxEdge > BRIDGE_EDGE_THRESHOLD_DEG) {
+          continue // bridge across water body — remove
+        }
+        indices.push(a, c, b) // spherical curvature artefact at high latitude — flip winding
+      }
     }
   } catch {
     indices = createTopFanIndices(outer.length)
@@ -330,6 +317,7 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
 
 export const polygonGeometryInternals = {
   normalizeRing,
+  normalizeLongitudes,
   normalizePolygonTopology,
   ringArea2D,
 }

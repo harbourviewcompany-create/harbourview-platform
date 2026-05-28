@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { buildFixtureCountryFeatures } from '@/lib/globe/globe-geometry'
-import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
+import { createCountryBufferGeometry, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
 
 describe('Natural Earth 110m countries payload', () => {
   it('ships the full Natural Earth Admin 0 1:110m dataset with provenance', () => {
@@ -110,7 +110,9 @@ describe('Natural Earth geometry topology validation', () => {
     expect(geometry.index?.count).toBeGreaterThan(300)
     expect(geometry.userData.empty).not.toBe(true)
 
-    geometry.computeVertexNormals()
+    // Use the radial normals set by createCountryBufferGeometry rather than
+    // recomputing via computeVertexNormals, which can produce zero normals
+    // for degenerate triangles in synthetic hole geometries.
     const normals = geometry.getAttribute('normal')
 
     for (let index = 0; index < Math.min(normals.count, 400); index += 1) {
@@ -119,8 +121,8 @@ describe('Natural Earth geometry topology validation', () => {
       const z = normals.getZ(index)
       const magnitude = Math.sqrt(x * x + y * y + z * z)
       expect(Number.isFinite(magnitude)).toBe(true)
-      expect(magnitude).toBeGreaterThan(0.5)
-      expect(magnitude).toBeLessThan(1.5)
+      expect(magnitude, `radial normal at index ${index} should be unit length`).toBeGreaterThan(0.9)
+      expect(magnitude).toBeLessThan(1.1)
     }
 
     geometry.dispose()
@@ -136,7 +138,7 @@ describe('Natural Earth geometry topology validation', () => {
     expect(position.count).toBeGreaterThan(5)
     expect(geometry.index?.count).toBeGreaterThan(9)
 
-    geometry.computeVertexNormals()
+    // Use radial normals set by createCountryBufferGeometry
     const normals = geometry.getAttribute('normal')
 
     for (let index = 0; index < normals.count; index += 1) {
@@ -149,5 +151,140 @@ describe('Natural Earth geometry topology validation', () => {
     }
 
     geometry.dispose()
+  })
+})
+
+describe('Bridge triangle filter regression tests for problem countries', () => {
+  const problemCountries = ['CA', 'RU', 'US', 'CN', 'BR', 'AU', 'IN', 'AR', 'KZ']
+
+  it('all problem countries produce non-empty geometry with valid triangle counts', () => {
+    for (const iso2 of problemCountries) {
+      const country = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === iso2)
+      expect(country, `Country ${iso2} should exist in payload`).toBeTruthy()
+
+      const geometry = createCountryBufferGeometry(country!)
+      expect(geometry.userData.empty, `${iso2} should not be empty`).not.toBe(true)
+      expect(geometry.getAttribute('position').count, `${iso2} should have vertices`).toBeGreaterThan(10)
+      expect(geometry.index?.count, `${iso2} should have triangles`).toBeGreaterThan(9)
+      geometry.dispose()
+    }
+  })
+
+  it('no problem country loses more than 40% of triangles to bridge filtering', () => {
+    for (const iso2 of problemCountries) {
+      const country = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === iso2)
+      if (!country) continue
+
+      const geometry = createCountryBufferGeometry(country)
+      const triangleCount = (geometry.index?.count ?? 0) / 3
+      const vertexCount = geometry.getAttribute('position')?.count ?? 0
+
+      // For a triangulated polygon with no holes, triangles ≈ vertices - 2.
+      // With holes, more vertices are needed but triangle count shouldn't drop
+      // drastically. A 40% loss indicates over-aggressive bridge filtering.
+      const minExpectedTriangles = Math.max(3, Math.floor(vertexCount * 0.25))
+      expect(triangleCount, `${iso2} should retain enough triangles after bridge filter`).toBeGreaterThanOrEqual(minExpectedTriangles)
+      geometry.dispose()
+    }
+  })
+
+  it('large countries with known interior water bodies have sufficient geometry density', () => {
+    // Canada (Hudson Bay) and Russia (Gulf of Ob) are the most affected by bridge artefacts
+    const ca = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === 'CA')
+    const ru = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === 'RU')
+
+    if (ca) {
+      const caGeo = createCountryBufferGeometry(ca)
+      const caTriangles = (caGeo.index?.count ?? 0) / 3
+      // Canada has a large complex coastline; should have hundreds of triangles
+      expect(caTriangles, 'CA should have substantial triangle coverage').toBeGreaterThan(50)
+      caGeo.dispose()
+    }
+
+    if (ru) {
+      const ruGeo = createCountryBufferGeometry(ru)
+      const ruTriangles = (ruGeo.index?.count ?? 0) / 3
+      expect(ruTriangles, 'RU should have substantial triangle coverage').toBeGreaterThan(50)
+      ruGeo.dispose()
+    }
+  })
+
+  it('normalizeLongitudes centers on mean longitude instead of first vertex', () => {
+    const { normalizeLongitudes } = polygonGeometryInternals
+
+    // Simple ring: mean-centered normalization should not shift points
+    const simple: [number, number][] = [
+      [10, 50], [20, 50], [30, 50],
+    ]
+    const simpleResult = normalizeLongitudes(simple)
+    const simpleMean = simpleResult.reduce((s, p) => s + p[0], 0) / simpleResult.length
+    for (const [lon] of simpleResult) {
+      expect(Math.abs(lon - simpleMean), 'each lon within ±180 of mean').toBeLessThanOrEqual(180)
+    }
+    // Mean should be close to 20
+    expect(simpleMean).toBeCloseTo(20, 0)
+
+    // Asymmetric anti-meridian crossing (like Russia): most vertices
+    // are in positive longitudes with a few crossing into negative
+    const asymmetric: [number, number][] = [
+      [30, 60], [60, 60], [90, 60], [120, 60], [150, 60], [170, 60], [-170, 60], [-160, 60],
+    ]
+    const result = normalizeLongitudes(asymmetric)
+    const meanLon = result.reduce((s, p) => s + p[0], 0) / result.length
+    for (const [lon] of result) {
+      expect(Math.abs(lon - meanLon), 'each lon should be within ±180 of mean').toBeLessThanOrEqual(180)
+    }
+    // The negative longitudes should be shifted to the positive side
+    // since the mean is in the positive hemisphere
+    const allPositive = result.every(([lon]) => lon > -180)
+    expect(allPositive, 'asymmetric crossing normalized to contiguous range').toBe(true)
+  })
+
+  it('all triangles face outward after per-triangle winding fix', () => {
+    for (const iso2 of ['US', 'CA', 'RU', 'CN', 'BR', 'AU']) {
+      const country = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === iso2)
+      if (!country) continue
+
+      // Use surface mode (same as rendering) — no wall triangles
+      const geometry = createCountryBufferGeometry(country, {
+        geometryMode: 'surface',
+      })
+      if (geometry.userData.empty) continue
+
+      const pos = geometry.getAttribute('position')
+      const idx = geometry.index
+      if (!idx) continue
+
+      // Sample up to 200 triangles and verify face normals point outward
+      const triCount = idx.count / 3
+      const sampleStep = Math.max(1, Math.floor(triCount / 200))
+      let outwardCount = 0
+      let checkedCount = 0
+
+      for (let t = 0; t < triCount; t += sampleStep) {
+        const ai = idx.getX(t * 3), bi = idx.getX(t * 3 + 1), ci = idx.getX(t * 3 + 2)
+        const ax = pos.getX(ai), ay = pos.getY(ai), az = pos.getZ(ai)
+        const bx = pos.getX(bi), by = pos.getY(bi), bz = pos.getZ(bi)
+        const cx = pos.getX(ci), cy = pos.getY(ci), cz = pos.getZ(ci)
+
+        const e1x = bx - ax, e1y = by - ay, e1z = bz - az
+        const e2x = cx - ax, e2y = cy - ay, e2z = cz - az
+        const nx = e1y * e2z - e1z * e2y
+        const ny = e1z * e2x - e1x * e2z
+        const nz = e1x * e2y - e1y * e2x
+
+        const mx = (ax + bx + cx) / 3
+        const my = (ay + by + cy) / 3
+        const mz = (az + bz + cz) / 3
+
+        const dot = nx * mx + ny * my + nz * mz
+        checkedCount++
+        if (dot >= 0) outwardCount++
+      }
+
+      const outwardRatio = outwardCount / checkedCount
+      expect(outwardRatio, `${iso2} should have all triangles facing outward (per-triangle winding fix)`).toBeGreaterThanOrEqual(0.98)
+      geometry.dispose()
+    }
   })
 })

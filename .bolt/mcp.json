@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "notion": {
+      "enabled": true
+    },
+    "linear": {
+      "enabled": true
+    },
+    "github": {
+      "enabled": true
+    },
+    "shaders": {
+      "enabled": true
+    }
+  }
+}

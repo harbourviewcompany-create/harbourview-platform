@@ -12,6 +12,9 @@ export const captureInquiryTypeSchema = z.enum([
   'seller_contact',
   'similar_equipment',
   'sourcing_mandate',
+  'genetics_access_request',
+  'genetics_program_submission',
+  'contact_general',
 ])
 
 const botFrictionFields = {
@@ -41,7 +44,7 @@ export const listingSubmissionSchema = z.object({
     'Wanted Request',
     'Service',
     'Business Opportunity',
-    'Supplier Directory Listing',
+    'Featured Network Opportunity',
   ]),
   title: shortText(220).min(1),
   price: shortText(220).optional().default(''),
