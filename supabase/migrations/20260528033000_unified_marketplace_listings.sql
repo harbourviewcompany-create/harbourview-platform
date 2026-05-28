@@ -4,7 +4,7 @@ create extension if not exists pgcrypto;
 
 -- MP-SCHEMA-001: one canonical marketplace listing record with typed detail tables.
 -- Additive only: this migration creates missing objects and constraints without dropping,
--- renaming, or rewriting existing marketplace tables.
+-- renaming, rewriting, or backfilling existing marketplace data.
 
 create table if not exists public.listings (
   id uuid primary key default gen_random_uuid(),
@@ -39,18 +39,49 @@ alter table public.listings
   add column if not exists updated_at timestamptz not null default now();
 
 -- Existing databases with a pre-existing listings table must explicitly backfill listing_type
--- before this check can validate. New rows must use the canonical discriminator.
-alter table public.listings
-  add constraint if not exists listings_listing_type_check
-  check (listing_type in ('supply', 'equipment'));
+-- before this constraint can be validated. NOT VALID avoids an implicit table rewrite/scan,
+-- but still enforces the canonical discriminator for new or updated rows.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.listings'::regclass
+      and conname = 'listings_listing_type_check'
+  ) then
+    alter table public.listings
+      add constraint listings_listing_type_check
+      check (listing_type is not null and listing_type in ('supply', 'equipment')) not valid;
+  end if;
+end $$;
 
-alter table public.listings
-  add constraint if not exists listings_status_check
-  check (status in ('draft', 'pending_review', 'approved', 'published', 'rejected', 'archived'));
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.listings'::regclass
+      and conname = 'listings_status_check'
+  ) then
+    alter table public.listings
+      add constraint listings_status_check
+      check (status in ('draft', 'pending_review', 'approved', 'published', 'rejected', 'archived')) not valid;
+  end if;
+end $$;
 
-alter table public.listings
-  add constraint if not exists listings_visibility_check
-  check (visibility in ('private', 'public'));
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.listings'::regclass
+      and conname = 'listings_visibility_check'
+  ) then
+    alter table public.listings
+      add constraint listings_visibility_check
+      check (visibility in ('private', 'public')) not valid;
+  end if;
+end $$;
 
 create table if not exists public.listing_supply_details (
   listing_id uuid primary key references public.listings(id) on delete cascade,
