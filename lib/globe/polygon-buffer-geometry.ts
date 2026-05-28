@@ -91,43 +91,51 @@ function createTopFanIndices(n: number) {
 /**
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
- * Strategy:
- *  1. Normalise longitudes around the ring's first vertex to handle anti-meridian.
- *  2. Project to a flat 2-D plane (lon – meanLon, lat) for earcut.
- *  3. Run ShapeUtils.triangulateShape (earcut).
- *  4. Filter bridge triangles: earcut creates spanning "bridge" triangles across
- *     large concavities (Gulf of Mexico for USA, Hudson Bay for Canada, the Arctic
- *     coast for Russia, etc.). These bridges have face normals pointing INTO the
- *     sphere. We remove any triangle whose 3-D face normal dot product with the
- *     vertex position vector is negative — i.e. it faces inward. This is exact
- *     and requires no threshold tuning.
- *  5. Fall back to fan triangulation only if earcut throws.
+ * The critical problem with earcut on sphere projections:
+ * Earcut creates "bridge" triangles across large concavities (Hudson Bay for Canada,
+ * Gulf of Mexico for USA, Gulf of Ob for Russia). These are flat planes, not curved
+ * to follow the sphere. Their centers dip BELOW the ocean sphere surface (radius 2.35),
+ * so the ocean sphere renders on top of them — visually they appear as dark holes.
+ *
+ * Sagitta of a chord at topRadius (2.434) spanning angle θ: R × (1 - cos(θ/2))
+ *   CA Hudson Bay bridge (~87°):  sagitta=0.67, centroid_r=1.77 < 2.35 → hole
+ *   RU Gulf of Ob bridge (~153°): sagitta=1.87, centroid_r=0.57 < 2.35 → hole
+ *   US diagonal bridge (~70°):    sagitta=0.44, centroid_r=1.99 < 2.35 → hole
+ *   Valid interior triangle (~20°): sagitta=0.04, centroid_r=2.40 > 2.35 → visible ✓
+ *
+ * Fix: compute each triangle's 3D centroid. If centroid_radius < ocean_sphere_radius,
+ * the triangle is occluded → remove it. No threshold tuning needed.
+ *
+ * DO NOT replace this with:
+ *   - Area-average filter: collapses for non-convex coastlines
+ *   - Per-triangle winding flip: triangles still exist below ocean sphere, still invisible
+ *   - bboxDiag ratio threshold: requires tuning, breaks for different countries
+ *   - Centroid-outside-polygon (2D ray cast): fails because CA outer ring traces AROUND
+ *     Hudson Bay, so Hudson Bay centroid is geometrically inside the ring polygon
  */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
   holesRaw: [number, number][][],
   radius: number,
 ): { positions: number[]; indices: number[] } {
-
-  // Step 1 — anti-meridian normalisation
+  // Anti-meridian normalisation
   const outer = normalizeLongitudes(outerRaw)
   const holes = holesRaw.map((h) => normalizeLongitudes(h))
 
-  // Step 2 — flat 2-D projection centred on mean longitude
+  // Flat 2-D projection centred on mean longitude for earcut
   const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
 
-  // Combined vertex layout: [outer, ...holes flat] — mirrors earcut's index space
+  // Combined vertex layout [outer, ...holes] mirrors earcut index space
   const allPoints: [number, number][] = [...outer, ...holes.flat()]
   const positions = projectRingVertices(allPoints, radius)
   const allV2 = [...v2Outer, ...v2Holes.flat()]
 
   let indices: number[]
   try {
-    // Step 3 — earcut via Three.js ShapeUtils
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
 
     const n = allV2.length
@@ -135,46 +143,36 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Step 4 — per-triangle 3-D winding fix.
+    // Bridge triangle filter — 3D centroid below ocean sphere test.
     //
-    // Earcut is a 2-D triangulator. When projected onto a sphere, some of the
-    // internal "bridge" triangles it creates across large concavities (the Gulf
-    // of Mexico for USA, Hudson Bay for Canada, the Arctic coast for Russia)
-    // end up facing INWARD — their face normal points toward the sphere centre
-    // rather than away from it.
+    // topRadius = cfg.radius + cfg.plateLift + cfg.extrusionHeight ≈ 2.434
+    // ocean sphere radius = DEFAULT_CONFIG.radius = 2.35
     //
-    // Previous approach removed these triangles, which left visible holes.
-    // The correct fix is to FLIP the winding of inward-facing triangles so
-    // they face outward. A triangle with vertices (a,b,c) becomes (a,c,b).
+    // A bridge triangle's flat center dips below the ocean sphere surface.
+    // We detect this by computing the 3D centroid and comparing its distance
+    // from the origin against the ocean sphere radius.
     //
-    // We detect inward-facing triangles by computing the cross-product of two
-    // edges (the face normal in 3-D), then taking its dot product with the
-    // position vector of the first vertex (which points radially outward).
-    // Negative dot = inward-facing = flip it.
-    const fixedTriangles = rawTriangles.map(([ti, tj, tk]) => {
-      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
-      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
-      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
-      const ex = bx - ax, ey = by - ay, ez = bz - az
-      const fx = cx - ax, fy = cy - ay, fz = cz - az
-      const nx = ey * fz - ez * fy
-      const ny = ez * fx - ex * fz
-      const nz = ex * fy - ey * fx
-      const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) return null // degenerate triangle — drop it
-      // Positive dot = outward-facing (keep order). Negative = inward (flip).
-      const dot = nx * ax + ny * ay + nz * az
-      return dot >= 0 ? [ti, tj, tk] as [number, number, number] : [ti, tk, tj] as [number, number, number]
-    }).filter((t): t is [number, number, number] => t !== null)
+    // This is geometrically exact — no threshold tuning required.
+    // Valid triangles span ≤30° (centroid_r ≥ 2.35). Bridge triangles span
+    // ≥45° (centroid_r ≤ 2.25). The ocean sphere surface at 2.35 is the
+    // natural discriminator.
+    const oceanRadiusSq = DEFAULT_CONFIG.radius * DEFAULT_CONFIG.radius
 
-    indices = fixedTriangles.flatMap(([a, b, c]) => [a, b, c])
+    const filtered = rawTriangles.filter(([ti, tj, tk]) => {
+      const cx = (positions[ti * 3]     + positions[tj * 3]     + positions[tk * 3])     / 3
+      const cy = (positions[ti * 3 + 1] + positions[tj * 3 + 1] + positions[tk * 3 + 1]) / 3
+      const cz = (positions[ti * 3 + 2] + positions[tj * 3 + 2] + positions[tk * 3 + 2]) / 3
+      return cx * cx + cy * cy + cz * cz >= oceanRadiusSq
+    })
+
+    // Safety: if filter removed everything (degenerate input), fall back to unfiltered
+    indices = (filtered.length > 0 ? filtered : rawTriangles).flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
 
   return { positions, indices }
 }
-
 function createWallIndices(outerCount: number, topBase: number, bottomBase: number): number[] {
   const idx: number[] = []
   for (let i = 0; i < outerCount; i++) {
