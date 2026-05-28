@@ -60,7 +60,7 @@ export function CountryBriefPanel({ brief }: { brief: CountryBrief }) {
           className="ml-auto text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c6a55a]/70 hover:text-[#c6a55a]"
           tabIndex={-1}
         >
-          Full brief →
+          Brief index →
         </Link>
       </div>
     </div>

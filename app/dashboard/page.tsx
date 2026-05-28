@@ -95,10 +95,10 @@ const LISTINGS: DashListingItem[] = [
 ]
 
 const MARKET_STRIP = [
-  { name: 'Germany',     status: 'Medical only',  score: 91, color: '#378add' },
-  { name: 'Australia',   status: 'Medical only',  score: 88, color: '#378add' },
-  { name: 'Netherlands', status: 'Recreational',  score: 82, color: '#1d9e75' },
-  { name: 'UK',          status: 'Medical only',  score: 78, color: '#378add' },
+  { name: 'Germany', iso2: 'DE', status: 'Medical only', score: 91, color: '#378add' },
+  { name: 'Australia', iso2: 'AU', status: 'Medical only', score: 88, color: '#378add' },
+  { name: 'Netherlands', iso2: 'NL', status: 'Tracked alpha', score: 82, color: '#1d9e75' },
+  { name: 'United Kingdom', iso2: 'GB', status: 'Medical only', score: 78, color: '#378add' },
 ]
 
 type FilterType = 'all' | 'supply' | 'demand' | 'equipment'
@@ -236,21 +236,21 @@ function DashboardInner() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Active markets</span>
-                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— priority opportunities near your context</span>
+                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— alpha fixture examples near your context</span>
               </div>
               <button
                 onClick={() => setSelectorOpen(true)}
                 className="rounded-full px-3 py-1 text-[10px] transition-all"
                 style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(243,240,234,0.5)' }}
               >
-                All markets
+                Tracked markets
               </button>
             </div>
             <div className="grid grid-cols-4 gap-2.5">
               {MARKET_STRIP.map(m => (
                 <button
                   key={m.name}
-                  onClick={() => openBrief(m.name.slice(0,2).toUpperCase(), m.name)}
+                  onClick={() => openBrief(m.iso2, m.name)}
                   className="rounded-xl p-3 text-left transition-all hover:border-[rgba(198,165,90,0.3)]"
                   style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.15)' }}
                 >
@@ -272,7 +272,7 @@ function DashboardInner() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Supply &amp; demand</span>
-                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— {filtered.length} active</span>
+                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— {filtered.length} alpha examples</span>
               </div>
               <div className="flex gap-1.5">
                 {FILTERS.map(f => (

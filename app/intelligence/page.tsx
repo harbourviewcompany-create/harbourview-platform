@@ -9,17 +9,17 @@ import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 export const metadata: Metadata = {
   title: 'Cannabis Market Intelligence — Country Pathways & Regulatory Signals',
   description:
-    'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+    'Tracked alpha jurisdiction intelligence for represented cannabis markets. Country pathway context, regulatory signals and controlled market-access requests.',
   openGraph: {
     title: 'Cannabis Market Intelligence — Country Pathways & Signals | Harbourview',
     description:
-      'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+      'Tracked alpha jurisdiction intelligence for represented cannabis markets. Country pathway context, regulatory signals and controlled market-access requests.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Harbourview Intelligence — Cannabis Markets & Pathways',
     description:
-      'Country-level cannabis market intelligence. Reviewed pathway context for Europe, APAC, Americas, MENA and Africa.',
+      'Country-level cannabis market intelligence for represented alpha jurisdictions with reviewed pathway context where records exist.',
   },
 }
 
@@ -63,21 +63,21 @@ export default async function IntelligencePage() {
           <PublicCard className="p-6 text-sm leading-7 text-white/62">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
             <p>
-              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, private contacts,
+              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, non-public contact details,
               and analyst notes are handled through controlled private requests.
             </p>
           </PublicCard>
         }
       >
         Harbourview Intelligence covers country pathway status, regulatory signals, import and export conditions,
-        and commercial timing context across global regulated cannabis markets. Coverage is public-safe and reviewed —
+        and commercial timing context across represented regulated cannabis markets in the current alpha dataset. Coverage is public-safe and reviewed —
         it provides commercial orientation, not legal advice or guaranteed access.
       </PublicHero>
 
       {countries.length > 0 && (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Market map" title={`${countries.length} jurisdictions tracked`}>
-            Select a country to view pathway status, regulatory framework and opportunity orientation.
+            Select a represented jurisdiction to view pathway status, regulatory framework and opportunity orientation. Coverage is partial and repo-backed.
           </SectionHeader>
           <CountryIntelligenceMap countries={countries} />
         </PublicSection>

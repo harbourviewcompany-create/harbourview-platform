@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getAlphaCountryFixtureRowByIso2 } from '@/lib/intelligence/alpha-country-coverage'
 
 export type CountryBrief = {
   iso_alpha2: string
@@ -28,9 +29,19 @@ export function useCountryBrief(iso2: string | null | undefined): BriefState {
     const cached = cache.get(iso2)
     if (cached) { setState({ status: 'ok', data: cached }); return }
 
+    const fixtureBrief = getAlphaCountryFixtureRowByIso2(iso2)
+
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) { setState({ status: 'error' }); return }
+    if (!url || !key) {
+      if (fixtureBrief) {
+        cache.set(iso2, fixtureBrief)
+        setState({ status: 'ok', data: fixtureBrief })
+      } else {
+        setState({ status: 'error' })
+      }
+      return
+    }
 
     setState({ status: 'loading' })
     const params = new URLSearchParams({
@@ -47,11 +58,21 @@ export function useCountryBrief(iso2: string | null | undefined): BriefState {
         if (rows[0]) {
           cache.set(iso2, rows[0])
           setState({ status: 'ok', data: rows[0] })
+        } else if (fixtureBrief) {
+          cache.set(iso2, fixtureBrief)
+          setState({ status: 'ok', data: fixtureBrief })
         } else {
           setState({ status: 'error' })
         }
       })
-      .catch(() => setState({ status: 'error' }))
+      .catch(() => {
+        if (fixtureBrief) {
+          cache.set(iso2, fixtureBrief)
+          setState({ status: 'ok', data: fixtureBrief })
+        } else {
+          setState({ status: 'error' })
+        }
+      })
   }, [iso2])
 
   return state

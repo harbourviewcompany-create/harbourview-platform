@@ -84,7 +84,7 @@ export function CountrySearchOverlay({
       </div>
 
       <label className="mt-3 block" htmlFor="country-search-input">
-        <span id="country-search-label" className="sr-only">Search countries and regions</span>
+        <span id="country-search-label" className="sr-only">Search tracked markets and regions</span>
         <input
           id="country-search-input"
           type="search"
@@ -92,18 +92,18 @@ export function CountrySearchOverlay({
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={handleQueryKeyDown}
           role="combobox"
-          aria-label="Search countries and regions"
+          aria-label="Search tracked markets and regions"
           aria-describedby="country-search-help"
           aria-expanded={hasQuery}
           aria-controls="country-search-results"
           aria-activedescendant={hasQuery && highlightedCountry ? `country-option-${highlightedCountry.iso2}` : undefined}
           autoComplete="off"
-          placeholder="Search countries"
+          placeholder="Search tracked markets"
           className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
         />
       </label>
       <p id="country-search-help" className="sr-only">
-        Type to filter countries. Use up and down arrow keys to choose a result, then press Enter to select.
+        Type to filter tracked markets. Use up and down arrow keys to choose a result, then press Enter to select.
       </p>
 
       {hasQuery ? (
@@ -124,7 +124,7 @@ export function CountrySearchOverlay({
             </button>
           ))}
           {matches.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-white/70">No countries found.</p>
+            <p className="px-3 py-2 text-sm text-white/70">No tracked markets found.</p>
           ) : null}
         </div>
       ) : null}

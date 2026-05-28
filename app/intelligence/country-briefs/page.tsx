@@ -1,34 +1,25 @@
 import type { Metadata } from 'next'
 import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
-import { getPublicCountries } from '@/lib/server/countriesQuery'
+import { getCountriesAsMapRecords } from '@/lib/server/countriesQuery'
+import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
+import { projectPublicCountryMapRecords } from '@/lib/intelligence/public-country-map'
 
 export const metadata: Metadata = {
   title: 'Country Briefs | Harbourview Intelligence',
-  description: 'Jurisdiction-level regulatory and market orientation for priority cannabis markets.',
+  description: 'Tracked alpha jurisdiction-level regulatory and market orientation for represented cannabis markets.',
 }
 
-const ACCESS_COLORS: Record<string, string> = {
-  active: 'text-emerald-400',
-  open: 'text-emerald-300',
-  regulated: 'text-sky-400',
-  emerging: 'text-amber-400',
-  limited: 'text-orange-400',
-  restricted: 'text-red-400',
-  unknown: 'text-white/30',
-}
-
-const ACCESS_DOT: Record<string, string> = {
-  active: 'bg-emerald-400',
-  open: 'bg-emerald-300',
-  regulated: 'bg-sky-400',
-  emerging: 'bg-amber-400',
-  limited: 'bg-orange-400',
-  restricted: 'bg-red-400',
-  unknown: 'bg-transparent/20',
+function getReviewClass(reviewStatus: string) {
+  if (reviewStatus === 'publicSafeSeed') return 'text-emerald-300'
+  if (reviewStatus === 'needsAnalystReview') return 'text-amber-300'
+  return 'text-white/40'
 }
 
 export default async function CountryBriefsPage() {
-  const countries = await getPublicCountries()
+  const liveCountries = await getCountriesAsMapRecords()
+  const fixtureCountries = projectPublicCountryMapRecords(publicCountryIntelligenceFixtures)
+  const countries = liveCountries.length > 0 ? liveCountries : fixtureCountries
+  const coverageSource = liveCountries.length > 0 ? 'approved public country records' : 'repo alpha fixture records'
 
   return (
     <main className="bg-[#020814] text-white">
@@ -43,54 +34,44 @@ export default async function CountryBriefsPage() {
           </PublicCard>
         }
       >
-        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} priority` : 'priority'} cannabis markets.
-        Briefs cover access pathway status, regulatory framework, licensing structure and commercial route context.
+        Harbourview currently publishes tracked alpha jurisdiction orientation for represented repository-backed markets only.
+        This is partial coverage from {coverageSource}, not a complete global country brief library.
       </PublicHero>
 
-      {countries.length > 0 && (
-        <PublicSection tone="dark">
-          <SectionHeader eyebrow="Coverage" title="Priority jurisdiction coverage">
-            Public-safe regulatory orientation across medical, adult-use, import and export status.
-          </SectionHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <PublicSection tone="dark">
+        <SectionHeader eyebrow="Coverage" title={`${countries.length} represented jurisdictions in this alpha surface`}>
+          Public-safe regulatory orientation is shown only where current repository data or approved public country records exist.
+          Missing jurisdictions remain request-only until approved data is added.
+        </SectionHeader>
+        {countries.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {countries.map((country) => (
-              <PublicCard key={country.id} className="p-5 flex flex-col gap-3">
+              <PublicCard key={country.slug} className="flex flex-col gap-3 p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold text-white text-base">{country.country_name}</h3>
+                    <h3 className="text-base font-semibold text-white">{country.country}</h3>
                     <p className="text-xs text-white/40">{country.region}</p>
                   </div>
-                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status] ?? 'bg-transparent/20'}`} />
+                  <span className={`mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${getReviewClass(country.reviewStatus)}`}>
+                    {country.reviewLabel}
+                  </span>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  {[
-                    ['Medical', country.medical_status],
-                    ['Adult use', country.adult_use_status],
-                    ['Import', country.import_status],
-                    ['Export', country.export_status],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex items-center gap-1.5">
-                      <span className="text-white/30 w-14 flex-shrink-0">{label}</span>
-                      <span className={`capitalize ${ACCESS_COLORS[value ?? 'unknown'] ?? 'text-white/30'}`}>{value}</span>
-                    </div>
-                  ))}
-                </div>
-                {country.public_summary && (
-                  <p className="text-xs text-white/50 leading-relaxed border-t border-white/10 pt-3 line-clamp-3">
-                    {country.public_summary}
-                  </p>
-                )}
-                {country.regulator_label && (
-                  <p className="text-xs text-white/30">Regulator: {country.regulator_label}</p>
-                )}
-                {country.last_updated_label && (
-                  <p className="text-xs text-white/20">Updated {country.last_updated_label}</p>
+                <p className="text-sm leading-7 text-white/62">{country.statusLabel}</p>
+                <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/50">
+                  {country.publicSummary}
+                </p>
+                {country.regulatorLabel && (
+                  <p className="text-xs text-white/30">Regulator reference: {country.regulatorLabel}</p>
                 )}
               </PublicCard>
             ))}
           </div>
-        </PublicSection>
-      )}
+        ) : (
+          <PublicCard className="p-6 text-sm leading-7 text-white/62">
+            No public country brief records are available in this environment. Country intelligence remains request-only until approved records are present.
+          </PublicCard>
+        )}
+      </PublicSection>
 
       <FooterCta
         eyebrow="Intelligence access"

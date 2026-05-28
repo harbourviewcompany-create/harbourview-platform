@@ -201,7 +201,7 @@ export function GlobeSameScreenRouterLanding() {
 
       <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Start with country. Harbourview will adjust the next choices by market, role and intent.
+          Start with a represented market. Harbourview will adjust the next choices by market, role and intent. Alpha coverage is partial.
         </p>
       </div>
 

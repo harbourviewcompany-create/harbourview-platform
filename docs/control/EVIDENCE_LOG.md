@@ -68,6 +68,31 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 |---|---|---|---|---|
 | TBD | TBD | Not verified in Pass 1 | TBD | Unknown |
 
+
+## 2026-05-28: Scan-first alpha repair pass
+
+**Evidence ID:** `HV-ALPHA-SCAN-REPAIR-20260528`
+
+**Branch:** current working branch
+
+**Scope:** Globe, dashboard, Marketplace/Intelligence/Education section inventory, `/intelligence/country-briefs` partial coverage copy, dashboard fixture labeling, and repo-derived jurisdiction ledger.
+
+**Evidence artifact:** `docs/control/ALPHA_REPAIR_SCAN_LEDGER.md` records the scan ledger and country/jurisdiction reconciliation from current repository files only.
+
+**Commands and results (UTC):**
+- `npm run typecheck` — BLOCKED/WARN: dependencies are not installed; TypeScript reported missing `next`, `react`, `vitest`, and Node type declarations.
+- `npm install` — BLOCKED/WARN: registry returned `403 Forbidden` for `tsx`, so dependencies could not be restored in this environment.
+- `npm run lint` — BLOCKED/WARN: `next` executable is unavailable because dependencies are not installed.
+- `npm run test:globe-router` — BLOCKED/WARN: `vitest` executable is unavailable because dependencies are not installed.
+- `npm run build` — BLOCKED/WARN: `next` executable is unavailable because dependencies are not installed.
+- `node scripts/test-globe-router-scope.mjs` — PASS.
+- `node scripts/test-globe-router-mounted.mjs` — FAIL: existing mounted-globe proof expects `aria-live`.
+- `node scripts/test-public-provenance-visibility.mjs` — FAIL: existing public provenance visibility test flags `app/marketplace/consumables/page.tsx` token `priority`.
+- `node scripts/test-business-opportunities-public-leakage.mjs` — FAIL: existing business opportunities public leakage test says the page is not wired to the reviewed live feed adapter.
+- `node scripts/test-intelligence-globe-public-leakage.mjs` — FAIL after forbidden-token repair because the script invokes `npx tsc` in a mode rejected by the installed/global TypeScript CLI (`TS5112`).
+
+**Operational conclusion:** HOLD for operator-ready alpha until dependency restoration and failing legacy/route verification gates are cleared.
+
 ## Known Unproven Claims
 
 | Claim | Why unproven | Required evidence | Status |
