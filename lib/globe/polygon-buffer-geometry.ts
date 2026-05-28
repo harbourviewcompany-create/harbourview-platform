@@ -57,15 +57,18 @@ function calculatePlanarArea(pts: [number, number][]) {
  * Resolves anti-meridian crossings (Russia, USA, Fiji, etc.) so that the
  * 2-D projection is a contiguous strip rather than a >300° span.
  */
-function normalizeLongitudes(pts: [number, number][]): [number, number][] {
-  if (pts.length === 0) return pts
-  const ref = pts[0][0]
+function normalizeLongitudesAround(pts: [number, number][], referenceLongitude: number): [number, number][] {
   return pts.map(([lon, lat]) => {
     let l = lon
-    while (l - ref > 180) l -= 360
-    while (l - ref < -180) l += 360
+    while (l - referenceLongitude > 180) l -= 360
+    while (l - referenceLongitude < -180) l += 360
     return [l, lat]
   })
+}
+
+function normalizeLongitudes(pts: [number, number][]): [number, number][] {
+  if (pts.length === 0) return pts
+  return normalizeLongitudesAround(pts, pts[0][0])
 }
 
 function projectRingVertices(pts: [number, number][], radius: number): number[] {
@@ -114,8 +117,9 @@ function createTopFaceWithHoles(
   radius: number,
 ): { positions: number[]; indices: number[] } {
 
-  const outer = normalizeLongitudes(outerRaw)
-  const holes = holesRaw.map((h) => normalizeLongitudes(h))
+  const referenceLongitude = outerRaw[0]?.[0] ?? 0
+  const outer = normalizeLongitudesAround(outerRaw, referenceLongitude)
+  const holes = holesRaw.map((h) => normalizeLongitudesAround(h, referenceLongitude))
 
   const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
@@ -175,13 +179,17 @@ function createTopFaceWithHoles(
   return { positions, indices }
 }
 
-function createWallIndices(outerCount: number, topBase: number, bottomBase: number): number[] {
+function createWallIndices(ringCount: number, topBase: number, bottomBase: number, reverse = false): number[] {
   const idx: number[] = []
-  for (let i = 0; i < outerCount; i++) {
-    const next = (i + 1) % outerCount
+  for (let i = 0; i < ringCount; i++) {
+    const next = (i + 1) % ringCount
     const t0 = topBase + i, t1 = topBase + next
     const b0 = bottomBase + i, b1 = bottomBase + next
-    idx.push(t0, b0, t1, t1, b0, b1)
+    if (reverse) {
+      idx.push(t0, t1, b0, t1, b1, b0)
+    } else {
+      idx.push(t0, b0, t1, t1, b0, b1)
+    }
   }
   return idx
 }
@@ -198,11 +206,16 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
     .map((polygon) => {
       const outerRing = polygon.rings.find((r) => r.kind === 'outer')
       if (!outerRing) return null
-      const outer = ensureWinding(normalizeRing(outerRing.points), false)
-      if (outer.length < 3) return null
+
+      const rawOuter = normalizeRing(outerRing.points)
+      if (rawOuter.length < 3) return null
+
+      const referenceLongitude = rawOuter[0][0]
+      const outer = ensureWinding(normalizeLongitudesAround(rawOuter, referenceLongitude), false)
       const holes = polygon.rings
         .filter((r) => r.kind === 'hole')
-        .map((r) => ensureWinding(normalizeRing(r.points), true))
+        .map((r) => normalizeLongitudesAround(normalizeRing(r.points), referenceLongitude))
+        .map((r) => ensureWinding(r, true))
         .filter((r) => r.length >= 3)
       return { outer, holes }
     })
@@ -276,12 +289,24 @@ function _createCountryBufferGeometryInner(
     vOffset += topFace.positions.length / 3
 
     if (!useSurface) {
+      let topRingBase = topFaceBase
+
       const outerCount = outer.length
-      const bottomVerts = projectRingVertices(normalizeLongitudes(outer), bottomRadius)
+      const bottomVerts = projectRingVertices(outer, bottomRadius)
       const bottomBase = vOffset
       allPositions.push(...bottomVerts)
-      allIndices.push(...createWallIndices(outerCount, topFaceBase, bottomBase))
+      allIndices.push(...createWallIndices(outerCount, topRingBase, bottomBase))
       vOffset += outerCount
+      topRingBase += outerCount
+
+      for (const hole of holes) {
+        const holeCount = hole.length
+        const holeBottomBase = vOffset
+        allPositions.push(...projectRingVertices(hole, bottomRadius))
+        allIndices.push(...createWallIndices(holeCount, topRingBase, holeBottomBase, true))
+        vOffset += holeCount
+        topRingBase += holeCount
+      }
     }
   }
 
@@ -311,13 +336,15 @@ function _createCountryBufferGeometryInner(
 export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry) {
   return normalizePolygonTopology(country).reduce((sum, { outer, holes }) => {
     const verts = [outer, ...holes].reduce((s, r) => s + r.length, 0)
-    return sum + Math.max(0, verts - 2 + holes.length * 2) + outer.length * 2
+    const wallVertices = [outer, ...holes].reduce((s, r) => s + r.length, 0)
+    return sum + Math.max(0, verts - 2 + holes.length * 2) + wallVertices * 2
   }, 0)
 }
 
 export const polygonGeometryInternals = {
   normalizeRing,
   normalizeLongitudes,
+  normalizeLongitudesAround,
   normalizePolygonTopology,
   ringArea2D,
 }

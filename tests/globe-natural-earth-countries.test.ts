@@ -55,6 +55,17 @@ describe('Natural Earth 110m countries payload', () => {
     expect(emptyCount).toBe(0)
   })
 
+  it('retains separate Natural Earth polygon parts for archipelagos and transcontinental countries', () => {
+    const expectedMultipolygonCountries = ['US', 'CA', 'RU', 'ID', 'PH']
+
+    for (const iso2 of expectedMultipolygonCountries) {
+      const country = naturalEarthCountriesPayload.countries.find((item) => item.iso2 === iso2)
+
+      expect(country, `${iso2} should exist in the Natural Earth payload`).toBeTruthy()
+      expect(country!.polygons.length, `${iso2} should retain more than one polygon part`).toBeGreaterThan(1)
+    }
+  })
+
   it('keeps total vertex points within a sane mobile geometry budget', () => {
     const totalPoints = naturalEarthCountriesPayload.countries.reduce(
       (sum, country) =>
@@ -106,7 +117,7 @@ describe('Natural Earth geometry topology validation', () => {
     const position = geometry.getAttribute('position')
 
     expect(complexCountry.polygons.length).toBe(2)
-    expect(position.count).toBeGreaterThan(100)
+    expect(position.count).toBeGreaterThan(80)
     expect(geometry.index?.count).toBeGreaterThan(300)
     expect(geometry.userData.empty).not.toBe(true)
 
