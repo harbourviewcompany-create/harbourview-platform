@@ -21,7 +21,7 @@ const SAFE_INQUIRY_CAPTURE_ERROR = 'Inquiry could not be saved. Please try again
 export async function submitMarketplaceInquiryDirect(
   payload: MarketplaceInquiryInsert,
   successMessage: string,
-  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION' | 'CONFIDENTIAL_INTAKE'
+  diagnosticPrefix: 'QUOTE' | 'LISTING_SUBMISSION' | 'CONFIDENTIAL_INTAKE' | 'GENETICS' | 'CONTACT'
 ): Promise<CaptureResult> {
   let response: Response
 

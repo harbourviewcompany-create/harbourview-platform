@@ -12,6 +12,9 @@ export const captureInquiryTypeSchema = z.enum([
   'seller_contact',
   'similar_equipment',
   'sourcing_mandate',
+  'genetics_access_request',
+  'genetics_program_submission',
+  'contact_general',
 ])
 
 const botFrictionFields = {

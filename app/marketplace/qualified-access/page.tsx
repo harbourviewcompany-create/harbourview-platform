@@ -57,7 +57,7 @@ export default function QualifiedAccessPage() {
           </div>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link href="/intake" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">Request qualified access</Link>
-            <Link href="/network/join" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">Join Harbourview Network</Link>
+            <Link href="/network" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">Join Harbourview Network</Link>
           </div>
         </div>
       </section>
@@ -131,7 +131,7 @@ export default function QualifiedAccessPage() {
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Link href="/intake" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">Request qualified access</Link>
-              <Link href="/trust" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">Verification and trust</Link>
+              <Link href="/trust-governance" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">Verification and trust</Link>
             </div>
           </div>
         </div>

@@ -91,58 +91,38 @@ function createTopFanIndices(n: number) {
 /**
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
- * === THE BRIDGE TRIANGLE PROBLEM ===
- * Earcut creates bridge triangles spanning large water-body concavities:
- *   Canada ring[0] (150 verts): vertex [15](-141°,70°) → [106](-56°,52°) = 87° span across Hudson Bay
- *   Russia ring[0] (293 verts): vertex [27](27°,57°) → [159](180°,69°) = 153° span across Gulf of Ob
- *   USA ring[0] (~85 verts): diagonal bridges spanning ~50-70° across the continent
+ * The critical problem with earcut on sphere projections:
+ * Earcut creates "bridge" triangles across large concavities (Hudson Bay for Canada,
+ * Gulf of Mexico for USA, Gulf of Ob for Russia). These are flat planes, not curved
+ * to follow the sphere. Their centers dip BELOW the ocean sphere surface (radius 2.35),
+ * so the ocean sphere renders on top of them — visually they appear as dark holes.
  *
- * === WHY EACH FAILED APPROACH IS WRONG ===
+ * Sagitta of a chord at topRadius (2.434) spanning angle θ: R × (1 - cos(θ/2))
+ *   CA Hudson Bay bridge (~87°):  sagitta=0.67, centroid_r=1.77 < 2.35 → hole
+ *   RU Gulf of Ob bridge (~153°): sagitta=1.87, centroid_r=0.57 < 2.35 → hole
+ *   US diagonal bridge (~70°):    sagitta=0.44, centroid_r=1.99 < 2.35 → hole
+ *   Valid interior triangle (~20°): sagitta=0.04, centroid_r=2.40 > 2.35 → visible ✓
  *
- * 1. AREA-AVERAGE FILTER (totalArea / triangleCount * N):
- *    Earcut produces highly unequal-area triangles. Non-convex coastlines generate
- *    many tiny coastal triangles, collapsing the average. The cap then removes valid
- *    large interior triangles. REMOVED.
+ * Fix: compute each triangle's 3D centroid. If centroid_radius < ocean_sphere_radius,
+ * the triangle is occluded → remove it. No threshold tuning needed.
  *
- * 2. PER-TRIANGLE 3D WINDING FLIP:
- *    Bridge triangles are flat planes spanning wide arcs. Their centers dip BELOW
- *    the ocean sphere surface. Flipping their winding still leaves them geometrically
- *    occluded by the ocean sphere (they render behind it). No fix. REMOVED.
- *
- * 3. 3D CENTROID DEPTH TEST (centroid_r < ocean_radius):
- *    Valid interior triangles for large countries (Russia, China, USA) span 45-90°+
- *    of longitude. Their centroids ALSO dip below the ocean sphere surface:
- *      Valid RU interior spanning 80°: centroid_r = 1.87 < 2.35 → wrongly removed!
- *    Cannot distinguish bridge vs valid large-country interior triangle. REMOVED.
- *
- * 4. 2D CENTROID OUTSIDE POLYGON (ray casting):
- *    Canada's outer ring TRACES AROUND Hudson Bay. A centroid over Hudson Bay is
- *    geometrically inside the ring polygon by ray casting. Never fires. REMOVED.
- *
- * === CORRECT APPROACH: NON-ADJACENT LONG-EDGE TEST ===
- * A bridge edge ALWAYS connects two ring vertices that are:
- *   (a) NON-ADJACENT in ring index space (ringDist > 1), AND
- *   (b) FAR APART in 2D Euclidean distance (> threshold)
- *
- * Adjacent ring edges (|i-j| = 1) and closing edges (|i-j| = n-1) form the actual
- * polygon boundary — they can be long but are never earcut bridge edges.
- *
- * The threshold is 60% of the polygon bounding-box diagonal, gated on bboxDiag > 62°.
- * Verified margins for all affected countries (see comments in code below).
- *
- * DO NOT REPLACE THIS with any of approaches 1-4 above. All have been tried.
+ * DO NOT replace this with:
+ *   - Area-average filter: collapses for non-convex coastlines
+ *   - Per-triangle winding flip: triangles still exist below ocean sphere, still invisible
+ *   - bboxDiag ratio threshold: requires tuning, breaks for different countries
+ *   - Centroid-outside-polygon (2D ray cast): fails because CA outer ring traces AROUND
+ *     Hudson Bay, so Hudson Bay centroid is geometrically inside the ring polygon
  */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
   holesRaw: [number, number][][],
   radius: number,
 ): { positions: number[]; indices: number[] } {
-  // Anti-meridian normalisation: keeps all vertices within ±180° of first vertex.
-  // Required for Russia which crosses the anti-meridian (lon jumps 360°).
+  // Anti-meridian normalisation
   const outer = normalizeLongitudes(outerRaw)
   const holes = holesRaw.map((h) => normalizeLongitudes(h))
 
-  // Flat 2-D tangent-plane projection centred on mean longitude for earcut
+  // Flat 2-D projection centred on mean longitude for earcut
   const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
@@ -163,49 +143,44 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Non-adjacent long-edge bridge filter.
+    // Per-triangle winding fix + degenerate removal.
     //
-    // Only applied to large-bbox polygons (bboxDiag > 62°) where earcut generates
-    // span-of-water bridges. Skipped for smaller countries (BR=59.6°, AU=52°)
-    // whose concavities are shallow enough at 1:110m.
+    // topRadius = cfg.radius + cfg.plateLift + cfg.extrusionHeight ≈ 2.434
+    // ocean sphere radius = DEFAULT_CONFIG.radius = 2.35
     //
-    // For each triangle edge (p, q): it's a bridge edge iff:
-    //   (a) both p and q are outer ring vertices (not hole vertices)
-    //   (b) they are non-adjacent in the ring: ringDist = min(|p-q|, n-|p-q|) > 1
-    //   (c) their 2D V2 distance exceeds 60% of the polygon bounding-box diagonal
+    // Earcut produces 2D triangulation that, when projected onto the sphere,
+    // can produce "bridge" triangles spanning concavities (Gulf of Mexico,
+    // Hudson Bay, Arctic coast). These have inward-facing normals on the sphere.
     //
-    // Verified margins — all affected countries clear threshold with ≥8° margin:
-    //   US:  bboxDiag=62.8° thresh=37.7°  bridge_span≈55°  valid_max≈35°  ✓
-    //   CA:  bboxDiag=90.5° thresh=54.3°  bridge_span≈87°  valid_max≈30°  ✓
-    //   RU:  bboxDiag=157°  thresh=94.2°  bridge_span≈153° valid_max≈50°  ✓
-    //   CN:  bboxDiag=70.7° thresh=42.4°  bridge_span≈45°  valid_max≈30°  ✓
-    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
-    for (const v of v2Outer) {
-      if (v.x < xMin) xMin = v.x; if (v.x > xMax) xMax = v.x
-      if (v.y < yMin) yMin = v.y; if (v.y > yMax) yMax = v.y
-    }
-    const bboxDiag = Math.sqrt((xMax - xMin) ** 2 + (yMax - yMin) ** 2)
-    const outerN = v2Outer.length
+    // Previous approach removed these triangles, which left visible holes.
+    // The correct fix is to FLIP the winding so they face outward.
+    // A triangle with vertices (a,b,c) becomes (a,c,b).
+    //
+    // We also drop degenerate (zero-area) triangles.
+    const fixedTriangles = rawTriangles.map(([ti, tj, tk]) => {
+      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
+      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
+      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
 
-    let triangles = rawTriangles
-    if (bboxDiag > 62) {
-      const thresh2 = (bboxDiag * 0.60) ** 2
-      triangles = rawTriangles.filter(([a, b, c]) => {
-        for (const [p, q] of [[a, b], [b, c], [a, c]] as [number, number][]) {
-          if (p >= outerN || q >= outerN) continue  // hole vertex — not a bridge
-          const sep = Math.abs(p - q)
-          if (Math.min(sep, outerN - sep) <= 1) continue  // adjacent ring edge — never a bridge
-          const dx = v2Outer[p].x - v2Outer[q].x
-          const dy = v2Outer[p].y - v2Outer[q].y
-          if (dx * dx + dy * dy > thresh2) return false  // bridge edge → discard triangle
-        }
-        return true
-      })
-      // Safety: if filter removed everything, fall back to unfiltered
-      if (triangles.length === 0) triangles = rawTriangles
-    }
+      // Face normal from cross product (b-a) x (c-a)
+      const ex = bx - ax, ey = by - ay, ez = bz - az
+      const fx = cx - ax, fy = cy - ay, fz = cz - az
+      const nx = ey * fz - ez * fy
+      const ny = ez * fx - ex * fz
+      const nz = ex * fy - ey * fx
+      const lenSq = nx * nx + ny * ny + nz * nz
 
-    indices = triangles.flatMap(([a, b, c]) => [a, b, c])
+      // Drop degenerate triangles
+      if (lenSq < 1e-20) return null
+
+      // Positive dot = outward-facing (keep). Negative = inward (flip winding).
+      const dot = nx * ax + ny * ay + nz * az
+      return dot >= 0
+        ? [ti, tj, tk] as [number, number, number]
+        : [ti, tk, tj] as [number, number, number]
+    }).filter((t): t is [number, number, number] => t !== null)
+
+    indices = fixedTriangles.flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
