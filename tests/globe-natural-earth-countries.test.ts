@@ -3,6 +3,23 @@ import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countri
 import { buildFixtureCountryFeatures } from '@/lib/globe/globe-geometry'
 import { createCountryBufferGeometry, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
 
+
+function absoluteRingArea(points: [number, number][]) {
+  let area = 0
+  for (let index = 0; index < points.length; index += 1) {
+    const [x1, y1] = points[index]
+    const [x2, y2] = points[(index + 1) % points.length]
+    area += x1 * y2 - x2 * y1
+  }
+  return Math.abs(area / 2)
+}
+
+function largestOuterRing(country: (typeof naturalEarthCountriesPayload.countries)[number]) {
+  return country.polygons
+    .flatMap((polygon) => polygon.rings.filter((ring) => ring.kind === 'outer'))
+    .sort((a, b) => absoluteRingArea(b.points) - absoluteRingArea(a.points))[0]
+}
+
 describe('Natural Earth 110m countries payload', () => {
   it('ships the full Natural Earth Admin 0 1:110m dataset with provenance', () => {
     expect(naturalEarthCountriesPayload.provenance.source).toBe('Natural Earth Admin 0 Countries')
@@ -86,8 +103,8 @@ describe('Natural Earth geometry topology validation', () => {
     expect(france).toBeTruthy()
     expect(spain).toBeTruthy()
 
-    const outerA = france!.polygons[0].rings.find((ring) => ring.kind === 'outer')
-    const outerB = spain!.polygons[0].rings.find((ring) => ring.kind === 'outer')
+    const outerA = largestOuterRing(france!)
+    const outerB = largestOuterRing(spain!)
     expect(outerA).toBeTruthy()
     expect(outerB).toBeTruthy()
 
@@ -126,6 +143,18 @@ describe('Natural Earth geometry topology validation', () => {
     }
 
     geometry.dispose()
+  })
+
+  it('preserves Natural Earth multipolygon countries instead of dropping islands and overseas territory', () => {
+    const unitedStates = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'US')
+    const france = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'FR')
+    expect(unitedStates).toBeTruthy()
+    expect(france).toBeTruthy()
+
+    expect(unitedStates!.polygons.length).toBeGreaterThan(1)
+    expect(france!.polygons.length).toBeGreaterThan(1)
+    expect(unitedStates!.bbox[0]).toBeLessThan(-160)
+    expect(france!.bbox[0]).toBeLessThan(-50)
   })
 
   it('produces valid, indexed geometry for small countries without degenerating normals', () => {
