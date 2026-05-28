@@ -134,41 +134,33 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Step 4 — per-triangle 3-D winding filter.
+    // Step 4 — per-triangle 3-D winding correction.
     //
-    // Earcut is a 2-D triangulator. When projected onto a sphere, some of the
-    // internal "bridge" triangles it creates across large concavities (the Gulf
-    // of Mexico for USA, Hudson Bay for Canada, the Arctic coast for Russia)
-    // end up facing INWARD — their face normal points toward the sphere centre
-    // rather than away from it.
+    // Earcut is a 2-D triangulator. When lon/lat coordinates are projected onto
+    // a sphere, triangles in high-latitude or highly non-convex regions can end
+    // up facing INWARD — their face normal points toward the sphere centre rather
+    // than away from it. This is a projection artefact; the triangles are
+    // legitimate fills (centroids inside the polygon).
     //
-    // We detect this with a simple test: compute the cross-product of two edges
-    // (the face normal in 3-D), then take its dot product with the position
-    // vector of the first vertex (which points radially outward). If the dot
-    // product is negative, the triangle is inward-facing and is a bridge artefact.
+    // We FLIP the winding of inward-facing triangles (swap b and c) rather than
+    // removing them. Removing them creates visible black voids — e.g. Hudson Bay
+    // in Canada, the Russian Arctic coast, and Australia's interior.
     //
-    // This is exact — no threshold tuning needed — and has been verified against
-    // US (87 pts), Canada (150 pts), Russia (293 pts), Australia (89 pts),
-    // Germany (25 pts), and Great Britain (33 pts). All bridge triangles have
-    // strongly negative dots (< -0.3 normalised). No legitimate triangles are
-    // inward-facing in any tested country.
-    const triangles = rawTriangles.filter(([ti, tj, tk]) => {
-      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
-      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
-      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
+    // Test: dot(cross(B-A, C-A), A). Negative dot → inward → flip to [a, c, b].
+    indices = rawTriangles.flatMap(([a, b, c]) => {
+      const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2]
+      const bx = positions[b * 3], by = positions[b * 3 + 1], bz = positions[b * 3 + 2]
+      const cx = positions[c * 3], cy = positions[c * 3 + 1], cz = positions[c * 3 + 2]
       const ex = bx - ax, ey = by - ay, ez = bz - az
       const fx = cx - ax, fy = cy - ay, fz = cz - az
       const nx = ey * fz - ez * fy
       const ny = ez * fx - ex * fz
       const nz = ex * fy - ey * fx
       const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) return false // degenerate triangle — drop it
-      // Dot with position vector (= outward sphere normal at vertex a).
-      // Positive means outward-facing (keep). Negative means inward (bridge — remove).
-      return (nx * ax + ny * ay + nz * az) > 0
+      if (lenSq < 1e-20) return [a, b, c] // degenerate — keep as-is
+      // Flip inward-facing triangles; outward-facing pass through unchanged
+      return (nx * ax + ny * ay + nz * az) < 0 ? [a, c, b] : [a, b, c]
     })
-
-    indices = triangles.flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
