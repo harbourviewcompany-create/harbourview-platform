@@ -1,7 +1,8 @@
 import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
-import type { GlobeRouteInput, GlobeRouteResult, IntentProfile } from '@/types/globe-router'
+import { getCountryByIso2 } from '@/lib/dashboard/countries'
+import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile } from '@/types/globe-router'
 
 function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPath?: string) {
   const params = new URLSearchParams()
@@ -19,9 +20,39 @@ function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPat
   return `${basePath}?${params.toString()}`
 }
 
+// Resolve education-type destinations to the country dashboard education section.
+// Returns null when no country is available (multi-market / not-sure flows).
+function resolveCountryEducationPath(
+  destinationType: DestinationType,
+  input: GlobeRouteInput,
+): string | null {
+  const isEducation =
+    destinationType === 'medical_education' || destinationType === 'regulatory_education'
+
+  if (!isEducation) return null
+  if (!input.countryIso2) return null
+
+  const country = getCountryByIso2(input.countryIso2)
+  if (!country) return null
+
+  return `/dashboard/country/${country.slug}/education`
+}
+
 export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
   const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? 'routing_review'
+
+  // Country-specific education path — dynamic route, always available when slug resolves.
+  const countryEducationPath = resolveCountryEducationPath(destinationType, input)
+  if (countryEducationPath) {
+    return {
+      status: 'resolved',
+      href: appendGlobeQuery(countryEducationPath, input),
+      destinationType,
+    }
+  }
+
+  // Standard manifest-backed resolution.
   const requestedPath = destinationBasePathMap[destinationType]
 
   if (!routeExists(requestedPath)) {
