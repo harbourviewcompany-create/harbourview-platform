@@ -4,7 +4,7 @@ import { getPublicCountries } from '@/lib/server/countriesQuery'
 
 export const metadata: Metadata = {
   title: 'Country Briefs | Harbourview Intelligence',
-  description: 'Jurisdiction-level regulatory and market orientation for priority cannabis markets.',
+  description: 'Jurisdiction-level regulatory and market orientation for tracked alpha jurisdictions represented in current repository data.',
 }
 
 const ACCESS_COLORS: Record<string, string> = {
@@ -43,14 +43,14 @@ export default async function CountryBriefsPage() {
           </PublicCard>
         }
       >
-        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} priority` : 'priority'} cannabis markets.
-        Briefs cover access pathway status, regulatory framework, licensing structure and commercial route context.
+        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} tracked alpha` : 'tracked alpha'} jurisdictions represented in current repository data.
+        Coverage is partial: unavailable countries remain request-only until repo-backed brief data exists.
       </PublicHero>
 
-      {countries.length > 0 && (
+      {countries.length > 0 ? (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow="Coverage" title="Priority jurisdiction coverage">
-            Public-safe regulatory orientation across medical, adult-use, import and export status.
+          <SectionHeader eyebrow="Coverage" title="Tracked alpha jurisdiction coverage">
+            Public-safe regulatory orientation across medical, adult-use, import and export status where current repository data exists.
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {countries.map((country) => (
@@ -89,6 +89,12 @@ export default async function CountryBriefsPage() {
               </PublicCard>
             ))}
           </div>
+        </PublicSection>
+      ) : (
+        <PublicSection tone="dark">
+          <SectionHeader eyebrow="Coverage gap" title="No country brief records are published from current repository data yet.">
+            Country brief coverage is request-only until approved, repo-backed jurisdiction records are available.
+          </SectionHeader>
         </PublicSection>
       )}
 

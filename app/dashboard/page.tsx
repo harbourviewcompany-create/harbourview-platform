@@ -12,7 +12,7 @@ import { SignalStrip }          from '@/components/dashboard/SignalStrip'
 import { StatusBadge }          from '@/components/dashboard/StatusBadge'
 import Link                     from 'next/link'
 
-// ── Fixture listings (will come from Supabase in next iteration) ─────────────
+// ── Repo-backed alpha fixture listings; not live marketplace records. ─────────────
 const LISTINGS: DashListingItem[] = [
   {
     id:       '1',
@@ -95,10 +95,10 @@ const LISTINGS: DashListingItem[] = [
 ]
 
 const MARKET_STRIP = [
-  { name: 'Germany',     status: 'Medical only',  score: 91, color: '#378add' },
-  { name: 'Australia',   status: 'Medical only',  score: 88, color: '#378add' },
-  { name: 'Netherlands', status: 'Recreational',  score: 82, color: '#1d9e75' },
-  { name: 'UK',          status: 'Medical only',  score: 78, color: '#378add' },
+  { iso2: 'DE', name: 'Germany',        status: 'Tracked medical',      score: 91, color: '#378add' },
+  { iso2: 'AU', name: 'Australia',      status: 'Tracked medical',      score: 88, color: '#378add' },
+  { iso2: 'NL', name: 'Netherlands',    status: 'Alpha coverage gap',   score: 82, color: '#1d9e75' },
+  { iso2: 'GB', name: 'United Kingdom', status: 'Tracked medical',      score: 78, color: '#378add' },
 ]
 
 type FilterType = 'all' | 'supply' | 'demand' | 'equipment'
@@ -235,8 +235,8 @@ function DashboardInner() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Active markets</span>
-                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— priority opportunities near your context</span>
+                <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Tracked alpha markets</span>
+                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— repo-backed fixture context near your selection</span>
               </div>
               <button
                 onClick={() => setSelectorOpen(true)}
@@ -250,7 +250,7 @@ function DashboardInner() {
               {MARKET_STRIP.map(m => (
                 <button
                   key={m.name}
-                  onClick={() => openBrief(m.name.slice(0,2).toUpperCase(), m.name)}
+                  onClick={() => openBrief(m.iso2, m.name)}
                   className="rounded-xl p-3 text-left transition-all hover:border-[rgba(198,165,90,0.3)]"
                   style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.15)' }}
                 >
@@ -271,8 +271,8 @@ function DashboardInner() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Supply &amp; demand</span>
-                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— {filtered.length} active</span>
+                <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Supply &amp; demand fixtures</span>
+                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— {filtered.length} alpha examples</span>
               </div>
               <div className="flex gap-1.5">
                 {FILTERS.map(f => (

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
 import { useAllCountries } from '@/hooks/useAllCountries'
+import { countryOptions } from '@/config/globe/country-role-profiles'
 
 interface Props {
   onMarketClick: () => void
@@ -17,7 +18,7 @@ export function IdentityRail({ onMarketClick }: Props) {
     : role === 'regulatory_legal'   ? 'Regulatory & Legal'
     : 'Commercial Operator'
 
-  const countryCount = countries.status === 'ok' ? countries.data.length : 240
+  const countryCount = countries.status === 'ok' ? countries.data.length : countryOptions.length
 
   return (
     <header
@@ -80,7 +81,7 @@ export function IdentityRail({ onMarketClick }: Props) {
       {/* Right — globe mini + account */}
       <div className="flex items-center gap-3">
         <span className="text-[10px] tracking-[0.08em]" style={{ color: 'rgba(198,165,90,0.45)' }}>
-          {countryCount}+ markets
+          {countryCount} tracked alpha markets
         </span>
         <button
           onClick={onMarketClick}

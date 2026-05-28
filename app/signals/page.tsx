@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Harbourview Signals — Cannabis Regulatory Monitoring',
     description:
-      'Source-backed regulatory signal monitoring for cannabis policy, licensing, import/export and enforcement changes worldwide.',
+      'Source-backed regulatory signal monitoring for cannabis policy, licensing, import/export and enforcement changes in represented jurisdictions.',
   },
 }
 

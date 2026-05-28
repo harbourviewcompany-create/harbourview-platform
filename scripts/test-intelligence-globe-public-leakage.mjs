@@ -44,7 +44,7 @@ for (const sourceFile of sourceFiles) {
 }
 
 execSync(
-  'npx tsc lib/intelligence/fixtures.ts lib/intelligence/schema.ts lib/intelligence/public-country-map.ts --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --resolveJsonModule --outDir .tmp/intelligence-map-test',
+  'npx tsc --ignoreConfig lib/intelligence/fixtures.ts lib/intelligence/schema.ts lib/intelligence/public-country-map.ts --module commonjs --target es2020 --moduleResolution node --ignoreDeprecations 6.0 --esModuleInterop --skipLibCheck --resolveJsonModule --outDir .tmp/intelligence-map-test',
   { stdio: 'inherit' },
 )
 execSync('cp lib/intelligence/country-fixtures.json .tmp/intelligence-map-test/country-fixtures.json', {

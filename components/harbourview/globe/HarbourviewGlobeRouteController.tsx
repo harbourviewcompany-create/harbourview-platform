@@ -48,6 +48,9 @@ function HarbourviewGlobeRouteControllerInner() {
             ? 'We could not load that route. Please select one of the supported market pathways.'
             : selectedMarket?.summary || 'Select a market pathway to tailor your Harbourview experience.'}
         </p>
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          Globe route state: {routeState.kind}.
+        </p>
 
         <div className={styles.controlGroup} aria-label="Select market">
           {globeMarketOptions.map((market) => (

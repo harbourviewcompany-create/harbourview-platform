@@ -20,7 +20,7 @@ export default function LicensingPathwaysPage() {
           </PublicCard>
         }
       >
-        Regulatory licensing pathway context for import, export, cultivation, processing and distribution across priority jurisdictions.
+        Regulatory licensing pathway context for import, export, cultivation, processing and distribution for represented alpha jurisdictions.
       </PublicHero>
 
       <PublicSection tone="dark">

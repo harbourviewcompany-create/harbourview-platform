@@ -9,17 +9,17 @@ import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 export const metadata: Metadata = {
   title: 'Cannabis Market Intelligence — Country Pathways & Regulatory Signals',
   description:
-    'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+    'Tracked alpha jurisdiction intelligence from current repository fixtures and reviewed public records. Country pathway context, regulatory signals and controlled market-access requests.',
   openGraph: {
     title: 'Cannabis Market Intelligence — Country Pathways & Signals | Harbourview',
     description:
-      'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+      'Tracked alpha jurisdiction intelligence from current repository fixtures and reviewed public records. Country pathway context, regulatory signals and controlled market-access requests.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Harbourview Intelligence — Cannabis Markets & Pathways',
     description:
-      'Country-level cannabis market intelligence. Reviewed pathway context for Europe, APAC, Americas, MENA and Africa.',
+      'Country-level cannabis market intelligence for tracked alpha jurisdictions represented in current repository data.',
   },
 }
 
@@ -32,12 +32,12 @@ const workflowRoutes = [
   {
     title: 'Country Briefs',
     href: '/intelligence/country-briefs',
-    body: 'Jurisdiction-level regulatory orientation briefs covering access pathway status, licensing structure and commercial route context.',
+    body: 'Jurisdiction-level regulatory orientation for tracked alpha coverage only; unavailable countries stay request-only until repo-backed data exists.',
   },
   {
     title: 'Signals',
     href: '/contact',
-    body: 'Regulatory signal monitoring, policy development, counterparty intelligence and route-condition tracking for priority jurisdictions.',
+    body: 'Regulatory signal monitoring, policy development, counterparty intelligence and route-condition tracking for represented alpha jurisdictions.',
   },
 ] as const
 
@@ -63,21 +63,21 @@ export default async function IntelligencePage() {
           <PublicCard className="p-6 text-sm leading-7 text-white/62">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
             <p>
-              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, private contacts,
+              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, non-public contact paths,
               and analyst notes are handled through controlled private requests.
             </p>
           </PublicCard>
         }
       >
         Harbourview Intelligence covers country pathway status, regulatory signals, import and export conditions,
-        and commercial timing context across global regulated cannabis markets. Coverage is public-safe and reviewed —
-        it provides commercial orientation, not legal advice or guaranteed access.
+        and commercial timing context for jurisdictions represented in current repository data. Coverage is partial, public-safe and reviewed —
+        it provides commercial orientation, not legal advice, global completeness or guaranteed access.
       </PublicHero>
 
       {countries.length > 0 && (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow="Market map" title={`${countries.length} jurisdictions tracked`}>
-            Select a country to view pathway status, regulatory framework and opportunity orientation.
+          <SectionHeader eyebrow="Market map" title={`${countries.length} alpha jurisdictions tracked`}>
+            Select a represented country to view repository-backed pathway status, regulatory framework and opportunity orientation.
           </SectionHeader>
           <CountryIntelligenceMap countries={countries} />
         </PublicSection>
@@ -86,7 +86,7 @@ export default async function IntelligencePage() {
       {signals.length > 0 && (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Recent signals" title="Policy and regulatory signals — what&apos;s moving and where.">
-            Public-safe summaries of recent regulatory and market developments across priority jurisdictions.
+            Public-safe summaries of regulatory and market developments where current repository records exist.
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {signals.slice(0, 6).map((signal) => (

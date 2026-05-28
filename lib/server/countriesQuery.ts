@@ -1,8 +1,47 @@
 import 'server-only'
 import type { PublicCountryMapRecord } from '@/lib/intelligence/public-country-map'
+import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
+import { countryOptions } from '@/config/globe/country-role-profiles'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+const countryOptionByName = new Map(countryOptions.map((country) => [country.name, country]))
+
+function statusFromPathways(pathways: string[], pathway: 'medical' | 'adultUse') {
+  return pathways.includes(pathway) ? 'tracked' : 'unknown'
+}
+
+function fixtureToPublicCountry(fixture: (typeof publicCountryIntelligenceFixtures)[number]): PublicCountry {
+  const option = countryOptionByName.get(fixture.country)
+
+  return {
+    id: `fixture-${fixture.slug}`,
+    country_name: fixture.country,
+    country_slug: fixture.slug,
+    iso_alpha2: option?.iso2 ?? fixture.slug.slice(0, 2).toUpperCase(),
+    iso_alpha3: '',
+    region: fixture.region,
+    subregion: null,
+    market_access_status: fixture.reviewStatus === 'publicSafeSeed' ? 'tracked' : 'review-required',
+    medical_status: statusFromPathways(fixture.pathways, 'medical'),
+    adult_use_status: statusFromPathways(fixture.pathways, 'adultUse'),
+    import_status: fixture.tradeRole.includes('import market') ? 'tracked' : 'unknown',
+    export_status: fixture.tradeRole.includes('export market') ? 'tracked' : 'unknown',
+    signals_status: 'fixture',
+    opportunity_status: 'fixture',
+    public_summary: fixture.publicSummary,
+    data_completeness: fixture.reviewStatus === 'publicSafeSeed' ? 'full' : 'partial',
+    last_updated_label: 'repo fixture',
+    lat: fixture.coordinates?.lat ?? null,
+    lng: fixture.coordinates?.lng ?? null,
+    opportunity_categories: fixture.opportunityCategories,
+    trade_roles: fixture.tradeRole,
+    regulator_label: fixture.regulatorLabel ?? null,
+  }
+}
+
+const staticPublicCountryFallback: PublicCountry[] = publicCountryIntelligenceFixtures.map(fixtureToPublicCountry)
 
 export type PublicCountry = {
   id: string
@@ -78,7 +117,7 @@ export function toCountryMapRecord(c: PublicCountry): PublicCountryMapRecord {
 }
 
 export async function getPublicCountries(): Promise<PublicCountry[]> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return staticPublicCountryFallback
   try {
     const params = new URLSearchParams({
       select: 'id,country_name,country_slug,iso_alpha2,iso_alpha3,region,subregion,market_access_status,medical_status,adult_use_status,import_status,export_status,signals_status,opportunity_status,public_summary,data_completeness,last_updated_label,lat,lng,opportunity_categories,trade_roles,regulator_label',
@@ -88,9 +127,10 @@ export async function getPublicCountries(): Promise<PublicCountry[]> {
       next: { revalidate: 3600 },
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
     })
-    if (!res.ok) return []
-    return res.json()
-  } catch { return [] }
+    if (!res.ok) return staticPublicCountryFallback
+    const rows = await res.json()
+    return rows.length > 0 ? rows : staticPublicCountryFallback
+  } catch { return staticPublicCountryFallback }
 }
 
 export async function getCountriesAsMapRecords(): Promise<PublicCountryMapRecord[]> {
@@ -116,15 +156,16 @@ export async function getPublicListings(): Promise<{ iso_alpha2: string; listing
 }
 
 export async function getPublicCountryBySlug(slug: string): Promise<PublicCountry | null> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
+  const fallback = staticPublicCountryFallback.find((country) => country.country_slug === slug) ?? null
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return fallback
   try {
     const params = new URLSearchParams({ select: 'id,country_name,country_slug,iso_alpha2,iso_alpha3,region,subregion,market_access_status,medical_status,adult_use_status,import_status,export_status,signals_status,opportunity_status,public_summary,data_completeness,last_updated_label,lat,lng,opportunity_categories,trade_roles,regulator_label', country_slug: `eq.${slug}`, limit: '1' })
     const res = await fetch(`${SUPABASE_URL}/rest/v1/countries?${params}`, {
       next: { revalidate: 3600 },
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
     })
-    if (!res.ok) return null
+    if (!res.ok) return fallback
     const rows = await res.json()
-    return rows[0] ?? null
-  } catch { return null }
+    return rows[0] ?? fallback
+  } catch { return fallback }
 }

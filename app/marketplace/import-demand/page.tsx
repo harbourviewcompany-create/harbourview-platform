@@ -75,7 +75,7 @@ export default async function ImportdemandPage() {
           <div key="Importer procurement" className="rounded-sm border border-gold/10 bg-[rgba(10,20,35,0.6)] p-6">
               <div className="mb-4 h-px w-10 bg-gradient-to-r from-gold to-gold-light opacity-60" />
               <h3 className="mb-2 text-sm font-semibold text-[#f5f1e8]">Importer procurement</h3>
-              <p className="text-sm leading-7 text-white/52">Licensed importers with open procurement windows for GMP-certified cannabis products across priority jurisdictions.</p>
+              <p className="text-sm leading-7 text-white/52">Licensed importers with open procurement windows for GMP-certified cannabis products for represented alpha jurisdictions.</p>
             </div>
           <div key="Distributor sourcing" className="rounded-sm border border-gold/10 bg-[rgba(10,20,35,0.6)] p-6">
               <div className="mb-4 h-px w-10 bg-gradient-to-r from-gold to-gold-light opacity-60" />
