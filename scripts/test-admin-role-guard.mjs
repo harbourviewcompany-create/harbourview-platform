@@ -10,6 +10,9 @@ const adminListings = readFileSync('app/admin/(protected)/listings/page.tsx', 'u
 const adminInquiries = readFileSync('app/admin/(protected)/inquiries/page.tsx', 'utf8');
 const adminInquiryDetail = readFileSync('app/admin/(protected)/inquiries/[id]/page.tsx', 'utf8');
 const adminRoot = readFileSync('app/admin/(protected)/page.tsx', 'utf8');
+const adminHub = readFileSync('app/admin/(protected)/hub/page.tsx', 'utf8');
+const adminDealDashboard = readFileSync('app/admin/(protected)/deal-dashboard/page.tsx', 'utf8');
+const dealflowRoute = readFileSync('app/api/genetics-routing/dealflow/route.ts', 'utf8');
 const adminSources = readFileSync('app/admin/(protected)/sources/page.tsx', 'utf8');
 const adminSourcesNew = readFileSync('app/admin/(protected)/sources/new/page.tsx', 'utf8');
 const adminCandidates = readFileSync('app/admin/(protected)/candidates/page.tsx', 'utf8');
@@ -19,6 +22,11 @@ const failures = [];
 
 function assert(condition, message) {
   if (!condition) failures.push(message);
+}
+
+function assertGuardedPage(name, content) {
+  assert(content.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), `${name} page must import direct role guard`);
+  assert(content.includes('await requireAdminAuth()'), `${name} page must invoke direct role guard before rendering private fields`);
 }
 
 assert(roleHelper.includes("'admin', 'operator', 'analyst', 'viewer'"), 'role helper must define admin/operator/analyst/viewer');
@@ -42,27 +50,41 @@ assert(guard.includes('unauthorized()'), 'missing or invalid tokens must receive
 assert(guard.includes('forbidden()'), 'valid non-admin roles must receive explicit forbidden denial');
 assert(adminLayout.includes('await requireAdminAuth()'), 'admin layout must invoke server-side role guard');
 assert(adminLayout.includes("export const dynamic = 'force-dynamic'"), 'admin layout must be dynamic and not statically expose admin content');
-assert(adminListings.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin listings page must import direct role guard');
-assert(adminListings.includes('await requireAdminAuth()'), 'admin listings page must invoke direct role guard before rendering provenance');
+assert(adminLayout.includes('href="/admin/hub"'), 'admin layout must link to dashboard hub');
+assert(adminLayout.includes('href="/admin/deal-dashboard"'), 'admin layout must link to deal dashboard');
+assert(adminRoot.includes("redirect('/admin/hub')"), 'admin root must redirect to /admin/hub');
+assertGuardedPage('admin root', adminRoot);
+assertGuardedPage('admin hub', adminHub);
+assertGuardedPage('admin listings', adminListings);
+assertGuardedPage('admin inquiries', adminInquiries);
+assertGuardedPage('admin inquiry detail', adminInquiryDetail);
+assert(adminDealDashboard.includes('DealDashboardClient'), 'admin deal dashboard page must preserve existing dashboard client render');
 assert(adminListings.includes("export const dynamic = 'force-dynamic'"), 'admin listings page must be dynamic and not statically expose provenance content');
 assert(adminListings.includes('View source listing'), 'admin listings must retain source link for authorized users');
 assert(adminListings.includes('Evidence captured'), 'admin listings must retain evidence for authorized users');
 assert(adminListings.includes('Internal review notes'), 'admin listings must retain internal review notes for authorized users');
-assert(adminInquiries.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin inquiries page must import direct role guard');
-assert(adminInquiries.includes('await requireAdminAuth()'), 'admin inquiries page must invoke direct role guard before rendering workflow fields');
-assert(adminInquiryDetail.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin inquiry detail page must import direct role guard');
-assert(adminInquiryDetail.includes('await requireAdminAuth()'), 'admin inquiry detail page must invoke direct role guard before rendering workflow fields');
-assert(adminRoot.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'admin root page must import direct role guard before redirecting');
-assert(adminRoot.includes('await requireAdminAuth()'), 'admin root page must invoke direct role guard before redirecting');
 for (const [name, content] of [
   ['admin sources', adminSources],
   ['admin source intake', adminSourcesNew],
   ['admin candidates', adminCandidates],
   ['admin candidate detail', adminCandidateDetail],
 ]) {
-  assert(content.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), `${name} page must import direct role guard`);
-  assert(content.includes('await requireAdminAuth()'), `${name} page must invoke direct role guard before rendering private source/candidate fields`);
+  assertGuardedPage(name, content);
 }
+assert(dealflowRoute.includes("import { requireAdminAuth } from '@/lib/auth/adminGuard'"), 'dealflow mutation route must import admin guard');
+assert(dealflowRoute.includes('await requireAdminAuth()'), 'dealflow mutation route must require admin auth before service-role client creation');
+assert(dealflowRoute.indexOf('await requireDealflowAdminAuth()') < dealflowRoute.indexOf('const client = getClient()'), 'dealflow route must authenticate before creating service-role client');
+assert(dealflowRoute.includes("{ error: 'unauthorized' }, { status: 401 }"), 'dealflow route must return explicit 401 JSON');
+assert(dealflowRoute.includes("{ error: 'forbidden' }, { status: 403 }"), 'dealflow route must return explicit 403 JSON');
+assert(dealflowRoute.includes("{ error: 'invalid_record_id' }, { status: 400 }"), 'dealflow route must validate recordId with explicit 400 JSON');
+assert(dealflowRoute.includes("{ error: 'invalid_action' }, { status: 400 }"), 'dealflow route must validate action with explicit 400 JSON');
+assert(dealflowRoute.includes("{ error: 'record_not_found' }, { status: 404 }"), 'dealflow route must return explicit 404 JSON');
+assert(dealflowRoute.includes("{ error: 'admin_data_client_unconfigured' }, { status: 500 }"), 'dealflow route must return explicit 500 JSON for missing admin data config');
+for (const action of ['mark_engaged', 'mark_negotiating', 'mark_won', 'mark_lost']) {
+  assert(dealflowRoute.includes(`'${action}'`), `dealflow route must preserve ${action} action`);
+}
+assert(!dealflowRoute.includes("'mark_introduced'"), 'dealflow route must not expose an unrendered mark_introduced mutation action');
+assert(!dealflowRoute.includes("'archive'"), 'dealflow route must not expose an unrendered archive mutation action');
 assert(adminLogin.includes('/auth/v1/token?grant_type=password'), 'admin login must authenticate with Supabase Auth password flow');
 assert(adminLogin.includes('/rest/v1/user_roles'), 'admin login must check user_roles before setting a session');
 assert(adminLogin.includes('hasAdminRole'), 'admin login must allow only admin/operator roles');
@@ -84,9 +106,12 @@ if (failures.length) {
 console.log('ok admin role model denies anonymous/missing roles with explicit auth interruptions');
 console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
-console.log('ok admin listings page directly guards provenance render');
-console.log('ok admin inquiry pages directly guard workflow render');
-console.log('ok admin source and candidate pages directly guard private intake render');
+console.log('ok admin root redirects to protected dashboard hub');
+console.log('ok admin hub, inquiries, listings, sources and candidates directly guard private render');
+console.log('ok admin nav links include dashboard hub and deal dashboard');
 console.log('ok admin provenance rendering is preserved behind role guard');
+console.log('ok dealflow mutation route authenticates before service-role access');
+console.log('ok dealflow route returns explicit 401/403/400/404/500 JSON states');
+console.log('ok dealflow route preserves rendered dashboard actions only');
 console.log('ok admin login establishes only admin/operator HttpOnly sessions');
 console.log('ok failed admin login expires stale admin session cookie');

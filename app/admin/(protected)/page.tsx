@@ -3,5 +3,5 @@ import { requireAdminAuth } from '@/lib/auth/adminGuard';
 
 export default async function AdminRootPage() {
   await requireAdminAuth();
-  redirect('/admin/inquiries');
+  redirect('/admin/hub');
 }

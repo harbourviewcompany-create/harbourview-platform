@@ -25,11 +25,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Authenticated admin/operator workspace for reviewing marketplace inquiries, listing provenance and internal workflow.
           </p>
           <nav className="mt-5 flex flex-wrap gap-3 text-sm">
+            <Link href="/admin/hub" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
+              Dashboard hub
+            </Link>
             <Link href="/admin/inquiries" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
               Inquiries
             </Link>
             <Link href="/admin/listings" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
               Listing provenance
+            </Link>
+            <Link href="/admin/deal-dashboard" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
+              Deal dashboard
             </Link>
             <Link href="/admin/sources" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">
               Sources
