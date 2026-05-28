@@ -88,17 +88,6 @@ function createTopFanIndices(n: number) {
   return idx
 }
 
-/**
- * Maximum 2-D edge length (degrees) below which an inward-facing triangle is
- * treated as a spherical-curvature artefact (flip winding) rather than a
- * bridge across a water body (remove entirely).
- *
- * Bridges have long diagonals: 23–88° in the tested corpus.
- * Legitimate high-latitude fill triangles that happen to face inward
- * due to spherical projection have short edges: ≤ 12° in all cases.
- * A threshold of 15° cleanly separates the two populations.
- */
-const BRIDGE_EDGE_THRESHOLD_DEG = 15
 
 /**
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
@@ -147,6 +136,8 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
+    const BRIDGE_EDGE_THRESHOLD_DEG = 15
+
     indices = []
     for (const [a, b, c] of rawTriangles) {
       const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2]
@@ -162,21 +153,19 @@ function createTopFaceWithHoles(
 
       const dot = nx * ax + ny * ay + nz * az
       if (dot >= 0) {
-        // Outward-facing: keep
+        // Outward-facing: keep as-is
         indices.push(a, b, c)
       } else {
-        // Inward-facing: check longest 2-D edge to determine action
+        // Inward-facing: measure longest 2-D edge in degrees
         const maxEdge = Math.max(
           Math.sqrt((allV2[a].x - allV2[b].x) ** 2 + (allV2[a].y - allV2[b].y) ** 2),
           Math.sqrt((allV2[b].x - allV2[c].x) ** 2 + (allV2[b].y - allV2[c].y) ** 2),
           Math.sqrt((allV2[c].x - allV2[a].x) ** 2 + (allV2[c].y - allV2[a].y) ** 2),
         )
         if (maxEdge > BRIDGE_EDGE_THRESHOLD_DEG) {
-          // Bridge triangle spanning a water body — remove
-          continue
+          continue // bridge across water body — remove
         }
-        // High-latitude spherical curvature artefact — flip winding
-        indices.push(a, c, b)
+        indices.push(a, c, b) // spherical curvature artefact at high latitude — flip winding
       }
     }
   } catch {
@@ -328,6 +317,7 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
 
 export const polygonGeometryInternals = {
   normalizeRing,
+  normalizeLongitudes,
   normalizePolygonTopology,
   ringArea2D,
 }
