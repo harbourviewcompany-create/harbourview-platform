@@ -19,22 +19,24 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Determine verification ref
-        id: verify_ref
+      - name: Initialize verification evidence directory
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
-            echo "Verifying pull request base SHA: ${{ github.event.pull_request.base.sha }}"
-          else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-            echo "Verifying current main"
-          fi
+          mkdir -p verification-results/consumables-imagery
+          {
+            echo "# Consumables imagery post-merge verification"
+            echo ""
+            echo "Workflow run: ${GITHUB_RUN_ID}"
+            echo "Repository: ${GITHUB_REPOSITORY}"
+            echo "Event: ${GITHUB_EVENT_NAME}"
+            echo "Target ref: main"
+            echo ""
+          } > verification-results/consumables-imagery/summary.md
 
       - name: Checkout current main target
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.verify_ref.outputs.ref }}
+          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -43,19 +45,41 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        id: npm_ci
+        continue-on-error: true
         shell: bash
         run: |
           mkdir -p verification-results/consumables-imagery
-          npm ci 2>&1 | tee verification-results/consumables-imagery/npm-ci.log
+          echo "## npm-ci" | tee -a verification-results/consumables-imagery/summary.md
+          echo "\$ npm ci" | tee -a verification-results/consumables-imagery/npm-ci.log verification-results/consumables-imagery/summary.md
+          set +e
+          npm ci 2>&1 | tee -a verification-results/consumables-imagery/npm-ci.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=${code}" | tee -a verification-results/consumables-imagery/npm-ci.log verification-results/consumables-imagery/summary.md
+          if [ "$code" -eq 0 ]; then
+            echo "result=GO" | tee -a verification-results/consumables-imagery/summary.md
+          else
+            echo "result=HOLD" | tee -a verification-results/consumables-imagery/summary.md
+          fi
+          echo "" | tee -a verification-results/consumables-imagery/summary.md
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Run requested consumables imagery verification commands
+        id: requested_checks
+        continue-on-error: true
         shell: bash
         run: |
           set -u
           mkdir -p verification-results/consumables-imagery
           summary="verification-results/consumables-imagery/summary.md"
-          : > "$summary"
           status=0
+
+          if [ "${{ steps.npm_ci.outputs.code }}" != "0" ]; then
+            echo "Dependency installation failed; requested npm scripts were not run." | tee -a "$summary"
+            echo "code=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           run_check() {
             local label="$1"
@@ -83,20 +107,41 @@ jobs:
           run_check "test-visibility" npm run test:visibility
           run_check "build" npm run build
 
-          if [ "$status" -eq 0 ]; then
+          echo "code=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write final GO/HOLD summary
+        id: final_verdict
+        shell: bash
+        run: |
+          summary="verification-results/consumables-imagery/summary.md"
+          final=0
+          if [ "${{ steps.npm_ci.outputs.code }}" != "0" ]; then
+            final=1
+          fi
+          if [ "${{ steps.requested_checks.outputs.code }}" != "0" ]; then
+            final=1
+          fi
+
+          if [ "$final" -eq 0 ]; then
             echo "Final verdict: GO" | tee -a "$summary"
           else
             echo "Final verdict: HOLD" | tee -a "$summary"
           fi
 
           cat "$summary" >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+          echo "code=${final}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload verification logs on failure
-        if: failure()
+      - name: Upload verification logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: consumables-imagery-post-merge-verification-logs
           path: verification-results/consumables-imagery/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Fail if verification did not pass
+        if: steps.final_verdict.outputs.code != '0'
+        shell: bash
+        run: exit 1
