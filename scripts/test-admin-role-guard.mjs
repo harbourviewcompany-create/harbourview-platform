@@ -58,6 +58,8 @@ assertGuardedPage('admin hub', adminHub);
 assertGuardedPage('admin listings', adminListings);
 assertGuardedPage('admin inquiries', adminInquiries);
 assertGuardedPage('admin inquiry detail', adminInquiryDetail);
+assertGuardedPage('admin deal dashboard', adminDealDashboard);
+assert(adminDealDashboard.includes("export const dynamic = 'force-dynamic'"), 'admin deal dashboard page must be dynamic and not statically expose service-role-backed content');
 assert(adminDealDashboard.includes('DealDashboardClient'), 'admin deal dashboard page must preserve existing dashboard client render');
 assert(adminListings.includes("export const dynamic = 'force-dynamic'"), 'admin listings page must be dynamic and not statically expose provenance content');
 assert(adminListings.includes('View source listing'), 'admin listings must retain source link for authorized users');
@@ -107,7 +109,7 @@ console.log('ok admin role model denies anonymous/missing roles with explicit au
 console.log('ok admin/operator are the only allowed admin roles');
 console.log('ok analyst/viewer are not admin-allowed');
 console.log('ok admin root redirects to protected dashboard hub');
-console.log('ok admin hub, inquiries, listings, sources and candidates directly guard private render');
+console.log('ok admin hub, inquiries, listings, deal dashboard, sources and candidates directly guard private render');
 console.log('ok admin nav links include dashboard hub and deal dashboard');
 console.log('ok admin provenance rendering is preserved behind role guard');
 console.log('ok dealflow mutation route authenticates before service-role access');
