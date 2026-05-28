@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { defaultDashboardInitialState, type DashboardInitialState } from './globeRouteContext'
 
 export type DashboardRole = 'commercial_operator' | 'medical_professional' | 'regulatory_legal'
 
@@ -14,10 +15,16 @@ export interface DashboardCtx {
 
 const Ctx = createContext<DashboardCtx | null>(null)
 
-export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [countryIso2, setCountryIso2] = useState('CA')
-  const [countryName, setCountryName] = useState('Canada')
-  const [role, setRoleState] = useState<DashboardRole>('commercial_operator')
+export function DashboardProvider({ children, initialState = defaultDashboardInitialState }: { children: ReactNode; initialState?: DashboardInitialState }) {
+  const [countryIso2, setCountryIso2] = useState(initialState.countryIso2)
+  const [countryName, setCountryName] = useState(initialState.countryName)
+  const [role, setRoleState] = useState<DashboardRole>(initialState.role)
+
+  useEffect(() => {
+    setCountryIso2(initialState.countryIso2)
+    setCountryName(initialState.countryName)
+    setRoleState(initialState.role)
+  }, [initialState.countryIso2, initialState.countryName, initialState.role])
 
   function setCountry(iso2: string, name: string) {
     setCountryIso2(iso2)
