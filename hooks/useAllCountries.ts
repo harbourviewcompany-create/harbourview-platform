@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
+import { countryOptions } from '@/config/globe/country-role-profiles'
 
 export interface CountryRow {
   iso_alpha2: string
@@ -21,6 +23,26 @@ type State =
   | { status: 'ok'; data: CountryRow[] }
   | { status: 'error' }
 
+function hasPathway(pathways: string[], pathway: 'medical' | 'adultUse') {
+  return pathways.includes(pathway) ? 'tracked alpha' : 'not published'
+}
+
+const fixtureCountryRows: CountryRow[] = publicCountryIntelligenceFixtures
+  .map((fixture, index) => ({
+    iso_alpha2: countryOptions.find((country) => country.name === fixture.country)?.iso2 ?? '',
+    country_name: fixture.country,
+    market_access_status: fixture.reviewStatus === 'publicSafeSeed' ? 'public-safe seed' : 'needs analyst review',
+    medical_status: hasPathway(fixture.pathways, 'medical'),
+    adult_use_status: hasPathway(fixture.pathways, 'adultUse'),
+    import_status: fixture.tradeRole.includes('import market') ? 'tracked alpha' : 'not published',
+    export_status: fixture.tradeRole.includes('export market') || fixture.tradeRole.includes('supply origin') ? 'tracked alpha' : 'not published',
+    public_summary: fixture.publicSummary,
+    regulator_label: fixture.regulatorLabel ?? null,
+    country_slug: fixture.slug,
+    opportunity_score: 100 - index,
+  }))
+  .filter((row) => row.iso_alpha2)
+
 let _cache: CountryRow[] | null = null
 
 export function useAllCountries(): State {
@@ -30,7 +52,11 @@ export function useAllCountries(): State {
     if (_cache) { setState({ status: 'ok', data: _cache }); return }
     const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) { setState({ status: 'error' }); return }
+    if (!url || !key) {
+      _cache = fixtureCountryRows
+      setState({ status: 'ok', data: fixtureCountryRows })
+      return
+    }
 
     const params = new URLSearchParams({
       select: 'iso_alpha2,country_name,market_access_status,medical_status,adult_use_status,import_status,export_status,public_summary,regulator_label,country_slug,opportunity_score',
@@ -43,10 +69,14 @@ export function useAllCountries(): State {
     })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then((rows: CountryRow[]) => {
-        _cache = rows
-        setState({ status: 'ok', data: rows })
+        const data = rows.length > 0 ? rows : fixtureCountryRows
+        _cache = data
+        setState({ status: 'ok', data })
       })
-      .catch(() => setState({ status: 'error' }))
+      .catch(() => {
+        _cache = fixtureCountryRows
+        setState({ status: 'ok', data: fixtureCountryRows })
+      })
   }, [])
 
   return state
