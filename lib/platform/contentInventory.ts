@@ -335,6 +335,21 @@ export const contentInventory: ContentInventoryItem[] = [
     relatedCapabilityIds: ['legal-terms'],
     falseGoRisk: 'Marketplace and education use can proceed without clear platform-use boundaries.',
   },
+
+  {
+    id: 'dashboard-home',
+    route: '/dashboard',
+    title: 'Dashboard home',
+    pillar: 'intelligence',
+    sensitivity: 'intelligence',
+    visibility: 'mixed',
+    criticality: 'launch-critical',
+    status: 'partial',
+    sourceBasis: 'static-orientation',
+    reviewerRequired: true,
+    relatedCapabilityIds: ['dashboard-home'],
+    falseGoRisk: 'Country dashboard routes can be mistaken for complete live intelligence.',
+  },
 ]
 
 export const launchCriticalContentInventory = contentInventory.filter((item) => item.criticality === 'launch-critical')
