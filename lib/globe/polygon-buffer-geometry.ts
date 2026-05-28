@@ -135,7 +135,7 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Step 4 — per-triangle 3-D winding filter.
+    // Step 4 — per-triangle 3-D winding fix.
     //
     // Earcut is a 2-D triangulator. When projected onto a sphere, some of the
     // internal "bridge" triangles it creates across large concavities (the Gulf
@@ -143,17 +143,15 @@ function createTopFaceWithHoles(
     // end up facing INWARD — their face normal points toward the sphere centre
     // rather than away from it.
     //
-    // We detect this with a simple test: compute the cross-product of two edges
-    // (the face normal in 3-D), then take its dot product with the position
-    // vector of the first vertex (which points radially outward). If the dot
-    // product is negative, the triangle is inward-facing and is a bridge artefact.
+    // Previous approach removed these triangles, which left visible holes.
+    // The correct fix is to FLIP the winding of inward-facing triangles so
+    // they face outward. A triangle with vertices (a,b,c) becomes (a,c,b).
     //
-    // This is exact — no threshold tuning needed — and has been verified against
-    // US (87 pts), Canada (150 pts), Russia (293 pts), Australia (89 pts),
-    // Germany (25 pts), and Great Britain (33 pts). All bridge triangles have
-    // strongly negative normalised dots (< -0.3). No legitimate triangles are
-    // inward-facing in any tested country.
-    const triangles = rawTriangles.filter(([ti, tj, tk]) => {
+    // We detect inward-facing triangles by computing the cross-product of two
+    // edges (the face normal in 3-D), then taking its dot product with the
+    // position vector of the first vertex (which points radially outward).
+    // Negative dot = inward-facing = flip it.
+    const fixedTriangles = rawTriangles.map(([ti, tj, tk]) => {
       const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
       const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
       const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
@@ -163,12 +161,13 @@ function createTopFaceWithHoles(
       const ny = ez * fx - ex * fz
       const nz = ex * fy - ey * fx
       const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) return false // degenerate triangle — drop it
-      // Positive dot = outward-facing (keep). Negative = inward (bridge — remove).
-      return (nx * ax + ny * ay + nz * az) > 0
-    })
+      if (lenSq < 1e-20) return null // degenerate triangle — drop it
+      // Positive dot = outward-facing (keep order). Negative = inward (flip).
+      const dot = nx * ax + ny * ay + nz * az
+      return dot >= 0 ? [ti, tj, tk] as [number, number, number] : [ti, tk, tj] as [number, number, number]
+    }).filter((t): t is [number, number, number] => t !== null)
 
-    indices = triangles.flatMap(([a, b, c]) => [a, b, c])
+    indices = fixedTriangles.flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
@@ -319,5 +318,6 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
 export const polygonGeometryInternals = {
   normalizeRing,
   normalizePolygonTopology,
+  normalizeLongitudes,
   ringArea2D,
 }
