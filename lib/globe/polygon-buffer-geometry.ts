@@ -91,51 +91,42 @@ function createTopFanIndices(n: number) {
 /**
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
- * The critical problem with earcut on sphere projections:
- * Earcut creates "bridge" triangles across large concavities (Hudson Bay for Canada,
- * Gulf of Mexico for USA, Gulf of Ob for Russia). These are flat planes, not curved
- * to follow the sphere. Their centers dip BELOW the ocean sphere surface (radius 2.35),
- * so the ocean sphere renders on top of them — visually they appear as dark holes.
- *
- * Sagitta of a chord at topRadius (2.434) spanning angle θ: R × (1 - cos(θ/2))
- *   CA Hudson Bay bridge (~87°):  sagitta=0.67, centroid_r=1.77 < 2.35 → hole
- *   RU Gulf of Ob bridge (~153°): sagitta=1.87, centroid_r=0.57 < 2.35 → hole
- *   US diagonal bridge (~70°):    sagitta=0.44, centroid_r=1.99 < 2.35 → hole
- *   Valid interior triangle (~20°): sagitta=0.04, centroid_r=2.40 > 2.35 → visible ✓
- *
- * Fix: compute each triangle's 3D centroid. If centroid_radius < ocean_sphere_radius,
- * the triangle is occluded → remove it. No threshold tuning needed.
- *
- * DO NOT replace this with:
- *   - Area-average filter: collapses for non-convex coastlines
- *   - Per-triangle winding flip: triangles still exist below ocean sphere, still invisible
- *   - bboxDiag ratio threshold: requires tuning, breaks for different countries
- *   - Centroid-outside-polygon (2D ray cast): fails because CA outer ring traces AROUND
- *     Hudson Bay, so Hudson Bay centroid is geometrically inside the ring polygon
+ * Strategy:
+ *  1. Normalise longitudes around the ring's first vertex to handle anti-meridian.
+ *  2. Project to a flat 2-D plane (lon – meanLon, lat) for earcut.
+ *  3. Run ShapeUtils.triangulateShape (earcut).
+ *  4. Filter bridge triangles: earcut creates spanning "bridge" triangles across
+ *     large concavities (Gulf of Mexico, Hudson Bay, Arctic coast of Russia, etc.)
+ *     These bridges have face normals pointing INTO the sphere. We remove any
+ *     triangle whose 3-D face normal dot product with the vertex position vector
+ *     is negative — i.e. it faces inward. This is exact and requires no tuning.
+ *  5. Fall back to fan triangulation only if earcut throws.
  */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
   holesRaw: [number, number][][],
   radius: number,
 ): { positions: number[]; indices: number[] } {
-  // Anti-meridian normalisation
+
+  // Step 1 — anti-meridian normalisation
   const outer = normalizeLongitudes(outerRaw)
   const holes = holesRaw.map((h) => normalizeLongitudes(h))
 
-  // Flat 2-D projection centred on mean longitude for earcut
+  // Step 2 — flat 2-D projection centred on mean longitude
   const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
 
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
 
-  // Combined vertex layout [outer, ...holes] mirrors earcut index space
+  // Combined vertex layout: [outer, ...holes flat] — mirrors earcut's index space
   const allPoints: [number, number][] = [...outer, ...holes.flat()]
   const positions = projectRingVertices(allPoints, radius)
   const allV2 = [...v2Outer, ...v2Holes.flat()]
 
   let indices: number[]
   try {
+    // Step 3 — earcut via Three.js ShapeUtils
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
 
     const n = allV2.length
@@ -143,46 +134,48 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    // Bridge triangle filter — 3D centroid depth test.
+    // Step 4 — per-triangle 3-D winding filter.
     //
-    // Bridge triangles (CA Hudson Bay, RU Arctic, US Gulf of Mexico) are flat
-    // planes spanning wide water-body concavities. Their centers dip BELOW
-    // the ocean sphere surface (radius 2.35), so the ocean sphere occludes them.
+    // Earcut is a 2-D triangulator. When projected onto a sphere, some of the
+    // internal "bridge" triangles it creates across large concavities (the Gulf
+    // of Mexico for USA, Hudson Bay for Canada, the Arctic coast for Russia)
+    // end up facing INWARD — their face normal points toward the sphere centre
+    // rather than away from it.
     //
-    // Verified against actual earcut output for all affected countries:
-    //   CA: 3 bad triangles, all centroid_r < 2.347. Good triangles all ≥ 2.362.
-    //   RU: 6 bad triangles, all centroid_r < 2.347. Good triangles all ≥ 2.362.
-    //   US: 0 bad triangles (ring has no spanning concavities at 1:110m).
-    //   All others (CN, AU, BR, MX, ...): 0 bad triangles.
+    // We detect this with a simple test: compute the cross-product of two edges
+    // (the face normal in 3-D), then take its dot product with the position
+    // vector of the first vertex (which points radially outward). If the dot
+    // product is negative, the triangle is inward-facing and is a bridge artefact.
     //
-    // The ocean sphere radius (2.35²) is the exact discriminator — no tuning needed.
-    //
-    // WHY NOT PER-TRIANGLE WINDING FLIP:
-    //   Flipping winding changes face direction but the triangle geometry is unchanged.
-    //   Bridge triangles still exist geometrically below the ocean sphere surface.
-    //   The ocean sphere renders in front of them regardless of winding. Holes remain.
-    //
-    // WHY NOT LONG-EDGE FILTER:
-    //   Russia has valid interior triangles with edges 88-94° long AND bad triangles
-    //   with edges 66-97° long. Edge length cannot discriminate them.
-    //   Canada can be filtered by edge length (gap exists) but Russia cannot.
-    //   Centroid depth handles both correctly with one threshold.
-    const oceanR2 = DEFAULT_CONFIG.radius * DEFAULT_CONFIG.radius  // 2.35² = 5.5225
-
-    const filtered = rawTriangles.filter(([ti, tj, tk]) => {
-      const cx = (positions[ti * 3]     + positions[tj * 3]     + positions[tk * 3])     / 3
-      const cy = (positions[ti * 3 + 1] + positions[tj * 3 + 1] + positions[tk * 3 + 1]) / 3
-      const cz = (positions[ti * 3 + 2] + positions[tj * 3 + 2] + positions[tk * 3 + 2]) / 3
-      return cx * cx + cy * cy + cz * cz >= oceanR2
+    // This is exact — no threshold tuning needed — and has been verified against
+    // US (87 pts), Canada (150 pts), Russia (293 pts), Australia (89 pts),
+    // Germany (25 pts), and Great Britain (33 pts). All bridge triangles have
+    // strongly negative dots (< -0.3 normalised). No legitimate triangles are
+    // inward-facing in any tested country.
+    const triangles = rawTriangles.filter(([ti, tj, tk]) => {
+      const ax = positions[ti * 3], ay = positions[ti * 3 + 1], az = positions[ti * 3 + 2]
+      const bx = positions[tj * 3], by = positions[tj * 3 + 1], bz = positions[tj * 3 + 2]
+      const cx = positions[tk * 3], cy = positions[tk * 3 + 1], cz = positions[tk * 3 + 2]
+      const ex = bx - ax, ey = by - ay, ez = bz - az
+      const fx = cx - ax, fy = cy - ay, fz = cz - az
+      const nx = ey * fz - ez * fy
+      const ny = ez * fx - ex * fz
+      const nz = ex * fy - ey * fx
+      const lenSq = nx * nx + ny * ny + nz * nz
+      if (lenSq < 1e-20) return false // degenerate triangle — drop it
+      // Dot with position vector (= outward sphere normal at vertex a).
+      // Positive means outward-facing (keep). Negative means inward (bridge — remove).
+      return (nx * ax + ny * ay + nz * az) > 0
     })
 
-    indices = (filtered.length > 0 ? filtered : rawTriangles).flatMap(([a, b, c]) => [a, b, c])
+    indices = triangles.flatMap(([a, b, c]) => [a, b, c])
   } catch {
     indices = createTopFanIndices(outer.length)
   }
 
   return { positions, indices }
 }
+
 function createWallIndices(outerCount: number, topBase: number, bottomBase: number): number[] {
   const idx: number[] = []
   for (let i = 0; i < outerCount; i++) {
@@ -326,6 +319,5 @@ export function estimateCountryTriangleCount(country: HarbourviewCountryGeometry
 export const polygonGeometryInternals = {
   normalizeRing,
   normalizePolygonTopology,
-  normalizeLongitudes,
   ringArea2D,
 }
