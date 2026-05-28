@@ -107,11 +107,11 @@ export function CountryBriefModal({ iso2, name, onClose }: Props) {
                   Post listing →
                 </Link>
                 <Link
-                  href={`/markets`}
+                  href="/intelligence/country-briefs"
                   className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all"
                   style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                 >
-                  Full intelligence →
+                  Country briefs →
                 </Link>
                 <button
                   onClick={onClose}
@@ -126,9 +126,9 @@ export function CountryBriefModal({ iso2, name, onClose }: Props) {
 
           {brief.status === 'error' && (
             <p className="text-[12px]" style={{ color: 'rgba(243,240,234,0.4)' }}>
-              Intelligence data unavailable for this market. {' '}
-              <Link href="/markets" className="underline" style={{ color: 'var(--hv-champagne-400)' }}>
-                Browse all markets →
+              No public alpha brief is available for this market yet. {' '}
+              <Link href="/intelligence/country-briefs" className="underline" style={{ color: 'var(--hv-champagne-400)' }}>
+                Browse tracked country briefs →
               </Link>
             </p>
           )}

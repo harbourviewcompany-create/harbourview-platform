@@ -12,7 +12,7 @@ import { SignalStrip }          from '@/components/dashboard/SignalStrip'
 import { StatusBadge }          from '@/components/dashboard/StatusBadge'
 import Link                     from 'next/link'
 
-// ── Fixture listings (will come from Supabase in next iteration) ─────────────
+// ── Alpha fixture listings: public-safe examples only, not live marketplace records. ──
 const LISTINGS: DashListingItem[] = [
   {
     id:       '1',
@@ -95,10 +95,10 @@ const LISTINGS: DashListingItem[] = [
 ]
 
 const MARKET_STRIP = [
-  { name: 'Germany',     status: 'Medical only',  score: 91, color: '#378add' },
-  { name: 'Australia',   status: 'Medical only',  score: 88, color: '#378add' },
-  { name: 'Netherlands', status: 'Recreational',  score: 82, color: '#1d9e75' },
-  { name: 'UK',          status: 'Medical only',  score: 78, color: '#378add' },
+  { iso2: 'DE', name: 'Germany',        status: 'Medical only',  score: 91, color: '#378add' },
+  { iso2: 'AU', name: 'Australia',      status: 'Medical only',  score: 88, color: '#378add' },
+  { iso2: 'NL', name: 'Netherlands',    status: 'Recreational',  score: 82, color: '#1d9e75' },
+  { iso2: 'GB', name: 'United Kingdom', status: 'Medical only',  score: 78, color: '#378add' },
 ]
 
 type FilterType = 'all' | 'supply' | 'demand' | 'equipment'
@@ -199,7 +199,7 @@ function DashboardInner() {
               {[
                 { label: 'Submit a request →',       href: '/marketplace/wanted' },
                 { label: 'Speak to Harbourview →',   href: '/contact' },
-                { label: 'Explore all markets →',    href: '/markets' },
+                { label: 'Explore tracked markets →', href: '/markets' },
               ].map(a => (
                 <Link
                   key={a.label}
@@ -216,7 +216,7 @@ function DashboardInner() {
           {/* Subscribe CTA */}
           <div className="mt-auto border-t pt-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
             <p className="mb-3 text-[10px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.35)' }}>
-              Subscribe to post listings, contact counterparties, and unlock full intelligence.
+              Alpha examples are public-safe orientation only. Submit a reviewed request before sharing private counterparty or listing details.
             </p>
             <Link
               href="/marketplace/sell"
@@ -235,22 +235,22 @@ function DashboardInner() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Active markets</span>
-                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— priority opportunities near your context</span>
+                <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Tracked alpha markets</span>
+                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— fixture examples near your context</span>
               </div>
               <button
                 onClick={() => setSelectorOpen(true)}
                 className="rounded-full px-3 py-1 text-[10px] transition-all"
                 style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(243,240,234,0.5)' }}
               >
-                All markets
+                Tracked markets
               </button>
             </div>
             <div className="grid grid-cols-4 gap-2.5">
               {MARKET_STRIP.map(m => (
                 <button
                   key={m.name}
-                  onClick={() => openBrief(m.name.slice(0,2).toUpperCase(), m.name)}
+                  onClick={() => openBrief(m.iso2, m.name)}
                   className="rounded-xl p-3 text-left transition-all hover:border-[rgba(198,165,90,0.3)]"
                   style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.15)' }}
                 >
@@ -260,7 +260,7 @@ function DashboardInner() {
                     <div className="h-full rounded-full" style={{ width: `${m.score}%`, background: m.color }} />
                   </div>
                   <p className="mt-1.5 text-[9px] uppercase tracking-[0.08em]" style={{ color: 'rgba(243,240,234,0.3)' }}>
-                    Score {m.score}
+                    Alpha score {m.score}
                   </p>
                 </button>
               ))}
@@ -272,7 +272,7 @@ function DashboardInner() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <span className="font-serif text-[16px]" style={{ color: 'var(--hv-text-primary)' }}>Supply &amp; demand</span>
-                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— {filtered.length} active</span>
+                <span className="ml-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.35)' }}>— {filtered.length} alpha examples</span>
               </div>
               <div className="flex gap-1.5">
                 {FILTERS.map(f => (
