@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
+import { getDashboardRoleLabel } from '@/lib/dashboard/globeRouteContext'
 import { useAllCountries } from '@/hooks/useAllCountries'
 
 interface Props {
@@ -12,10 +13,7 @@ export function IdentityRail({ onMarketClick }: Props) {
   const { countryName, role } = useDashboard()
   const countries = useAllCountries()
 
-  const roleLabel =
-    role === 'medical_professional' ? 'Medical Professional'
-    : role === 'regulatory_legal'   ? 'Regulatory & Legal'
-    : 'Commercial Operator'
+  const roleLabel = getDashboardRoleLabel(role)
 
   const countryCount = countries.status === 'ok' ? countries.data.length : null
 

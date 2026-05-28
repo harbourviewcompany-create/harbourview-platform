@@ -49,6 +49,10 @@ function HarbourviewGlobeRouteControllerInner() {
             : selectedMarket?.summary || 'Select a market pathway to tailor your Harbourview experience.'}
         </p>
 
+        <p aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+          Globe route state: {routeState.kind}.
+        </p>
+
         <div className={styles.controlGroup} aria-label="Select market">
           {globeMarketOptions.map((market) => (
             <button key={market.key} type="button" className={styles.routeButton} aria-pressed={selectedMarket?.key === market.key} onClick={() => pushState({ market: market.key, route: null })}>

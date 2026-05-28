@@ -5,6 +5,7 @@ import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { globeRouterReducer, initialGlobeRouterState } from '@/components/globe/useGlobeRouterState'
 import { parseGlobeRouteState } from '@/components/harbourview/globe/globeRouteState'
+import { mapGlobeRoleToDashboardRole, parseDashboardGlobeRouteContext } from '@/lib/dashboard/globeRouteContext'
 import type { IntentId, RoleId } from '@/types/globe-router'
 
 function expectFallbackRoutePreservesContext({
@@ -108,6 +109,29 @@ describe('Harbourview globe same-screen router', () => {
     expect(result.href).toContain('country=DE')
     expect(result.href).toContain('role=importer')
     expect(result.href).toContain('intent=view_market_signals')
+  })
+
+  it('hydrates dashboard context from globe router query params', () => {
+    const context = parseDashboardGlobeRouteContext(new URLSearchParams('source=globe_router&mode=single_market&country=DE&countries=DE&role=doctor_prescriber&intent=request_introduction&layer=country_select'))
+
+    expect(context.countryIso2).toBe('DE')
+    expect(context.countryName).toBe('Germany')
+    expect(context.role).toBe('medical_professional')
+    expect(context.source).toBe('globe_router')
+    expect(context.intentId).toBe('request_introduction')
+    expect(context.layerId).toBe('country_select')
+  })
+
+  it('maps globe roles to dashboard role bands and keeps safe defaults for non-globe entries', () => {
+    expect(mapGlobeRoleToDashboardRole('regulatory_compliance')).toBe('regulatory_legal')
+    expect(mapGlobeRoleToDashboardRole('exporter')).toBe('commercial_operator')
+
+    const context = parseDashboardGlobeRouteContext(new URLSearchParams('source=directory&country=DE&role=doctor_prescriber'))
+
+    expect(context.countryIso2).toBe('CA')
+    expect(context.countryName).toBe('Canada')
+    expect(context.role).toBe('commercial_operator')
+    expect(context.source).toBeUndefined()
   })
 
   it('falls Germany medical education paths back to intake without losing route context', () => {
