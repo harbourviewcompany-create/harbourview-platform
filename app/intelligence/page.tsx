@@ -9,17 +9,17 @@ import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 export const metadata: Metadata = {
   title: 'Cannabis Market Intelligence — Country Pathways & Regulatory Signals',
   description:
-    'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+    'Reviewed alpha intelligence for repository-backed priority jurisdictions. Country pathway context, regulatory signals and controlled market-access requests.',
   openGraph: {
     title: 'Cannabis Market Intelligence — Country Pathways & Signals | Harbourview',
     description:
-      'Reviewed regional intelligence covering Europe, APAC, MENA, Americas and Africa. Country pathway context, regulatory signals and controlled market-access requests.',
+      'Reviewed alpha intelligence for repository-backed priority jurisdictions. Country pathway context, regulatory signals and controlled market-access requests.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Harbourview Intelligence — Cannabis Markets & Pathways',
     description:
-      'Country-level cannabis market intelligence. Reviewed pathway context for Europe, APAC, Americas, MENA and Africa.',
+      'Country-level cannabis market intelligence for repository-backed alpha coverage. Reviewed pathway context for represented jurisdictions only.',
   },
 }
 
@@ -70,14 +70,14 @@ export default async function IntelligencePage() {
         }
       >
         Harbourview Intelligence covers country pathway status, regulatory signals, import and export conditions,
-        and commercial timing context across global regulated cannabis markets. Coverage is public-safe and reviewed —
+        and commercial timing context across tracked alpha jurisdictions represented in repository data. Coverage is public-safe, partial and reviewed —
         it provides commercial orientation, not legal advice or guaranteed access.
       </PublicHero>
 
       {countries.length > 0 && (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Market map" title={`${countries.length} jurisdictions tracked`}>
-            Select a country to view pathway status, regulatory framework and opportunity orientation.
+            Select a represented jurisdiction to view pathway status, regulatory framework and opportunity orientation. This map is an alpha coverage view, not a claim of complete global country coverage.
           </SectionHeader>
           <CountryIntelligenceMap countries={countries} />
         </PublicSection>
