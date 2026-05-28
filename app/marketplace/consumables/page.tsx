@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
@@ -18,57 +19,140 @@ const REGION_LABELS: Record<string, string> = {
   global: 'Global',
 }
 
+type RepresentativeImage = {
+  src: string
+  alt: string
+  caption: string
+}
+
+const representativeCaption =
+  'Representative category image. Supplier fit, specifications, region and terms are confirmed through Harbourview review.'
+
+const imageCatalog = {
+  packaging: {
+    src: '/marketplace/images/packaging-pouches.webp',
+    alt: 'Unbranded packaging pouches shown as representative consumables category imagery',
+    caption: representativeCaption,
+  },
+  labQa: {
+    src: '/marketplace/images/lab-qa-consumables.webp',
+    alt: 'Unbranded lab and quality assurance supplies shown as representative consumables category imagery',
+    caption: representativeCaption,
+  },
+  cultivation: {
+    src: '/marketplace/images/cultivation-inputs.webp',
+    alt: 'Unbranded cultivation inputs shown as representative consumables category imagery',
+    caption: representativeCaption,
+  },
+  facility: {
+    src: '/marketplace/images/facility-supplies.webp',
+    alt: 'Unbranded facility supplies shown as representative consumables category imagery',
+    caption: representativeCaption,
+  },
+  warehouse: {
+    src: '/marketplace/images/warehouse-logistics.webp',
+    alt: 'Unbranded warehouse and logistics supplies shown as representative consumables category imagery',
+    caption: representativeCaption,
+  },
+} satisfies Record<string, RepresentativeImage>
+
+const heroImage: RepresentativeImage = {
+  src: imageCatalog.warehouse.src,
+  alt: 'Unbranded bulk operating supplies shown as representative consumables marketplace imagery',
+  caption: representativeCaption,
+}
+
 const supplyCategories = [
   {
     title: 'Packaging & compliance',
     body: 'Child-resistant, tamper-evident and compliant packaging for licensed cannabis retail, medical and wholesale formats.',
+    image: imageCatalog.packaging,
   },
   {
     title: 'Lab & testing',
     body: 'Analytical supplies, reagents, consumable labware and quality assurance inputs for licensed testing programs.',
+    image: imageCatalog.labQa,
   },
   {
     title: 'Cultivation inputs',
     body: 'Growing media, nutrients, IPM products, propagation supplies and cultivation consumables for licensed facilities.',
+    image: imageCatalog.cultivation,
   },
   {
     title: 'Processing & sanitation',
     body: 'Extraction consumables, post-harvest inputs, sanitation chemicals and maintenance supplies for licensed operators.',
+    image: imageCatalog.facility,
   },
 ]
+
+function getListingRepresentativeImage(listing: PublicListing): RepresentativeImage {
+  const searchText = [listing.product_type, listing.title, listing.description].filter(Boolean).join(' ').toLowerCase()
+
+  if (/lab|qa|quality|test|sample|analytical|reagent/.test(searchText)) return imageCatalog.labQa
+  if (/cultivation|grow|nutrient|media|propagation|greenhouse/.test(searchText)) return imageCatalog.cultivation
+  if (/warehouse|logistics|shipping|carton|pallet|retail|dispensary|label|fulfilment|fulfillment/.test(searchText)) return imageCatalog.warehouse
+  if (/processing|sanitation|ppe|glove|maintenance|facility|post-harvest|extraction/.test(searchText)) return imageCatalog.facility
+
+  return imageCatalog.packaging
+}
+
+function RepresentativeImageFrame({ image, priority = false }: { image: RepresentativeImage; priority?: boolean }) {
+  return (
+    <figure className="overflow-hidden rounded-sm border border-gold/10 bg-[#071425]">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#071425]">
+        <Image
+          src={image.src}
+          alt={image.alt}
+          fill
+          priority={priority}
+          sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
+          className="object-cover opacity-90 saturate-[0.88] transition-transform duration-300 group-hover:scale-[1.02]"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,8,20,0.02)_0%,rgba(2,8,20,0.42)_100%)]" />
+      </div>
+      <figcaption className="border-t border-gold/10 px-4 py-3 text-[11px] leading-5 text-white/42">
+        {image.caption}
+      </figcaption>
+    </figure>
+  )
+}
 
 function ListingCard({ listing }: { listing: PublicListing }) {
   const specs = listing.high_level_specs as Record<string, unknown>
   const ctaLabel = (specs?.cta_label as string) ?? 'Request qualification'
+  const image = getListingRepresentativeImage(listing)
 
   return (
-    <div className="group flex flex-col rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
-      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
-      {listing.is_featured && (
-        <span className="mb-3 inline-flex w-fit rounded-full border border-gold/35 bg-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">
-          Featured
-        </span>
-      )}
-      {listing.product_type && (
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
-          {listing.product_type}
-        </p>
-      )}
-      <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
-      <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {listing.region && (
-          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">
-            {REGION_LABELS[listing.region] ?? listing.region}
+    <div className="group flex flex-col overflow-hidden rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
+      <RepresentativeImageFrame image={image} />
+      <div className="flex flex-1 flex-col p-6">
+        <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
+        {listing.is_featured && (
+          <span className="mb-3 inline-flex w-fit rounded-full border border-gold/35 bg-gold/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">
+            Featured
           </span>
         )}
+        {listing.product_type && (
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+            {listing.product_type}
+          </p>
+        )}
+        <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
+        <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {listing.region && (
+            <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">
+              {REGION_LABELS[listing.region] ?? listing.region}
+            </span>
+          )}
+        </div>
+        <Link
+          href={`/contact?ref=${listing.slug ?? listing.id}&type=consumables`}
+          className="btn-marketplace mt-6 justify-center text-center text-sm"
+        >
+          {ctaLabel}
+        </Link>
       </div>
-      <Link
-        href={`/contact?ref=${listing.slug ?? listing.id}&type=consumables`}
-        className="btn-marketplace mt-6 justify-center text-center text-sm"
-      >
-        {ctaLabel}
-      </Link>
     </div>
   )
 }
@@ -103,27 +187,34 @@ export default async function ConsumablesPage() {
       <section className="relative overflow-hidden border-b border-gold/10 bg-[#061120] py-14 text-white sm:py-16 lg:py-20">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(198,165,90,0.08),transparent_30%)]" />
         <div className="page-container relative z-10">
-          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
-            <Link href="/marketplace" className="transition-colors hover:text-gold">Exchange</Link>
-            {' '}/ Consumables &amp; Operating Supplies
-          </p>
-          <h1 className="max-w-4xl font-serif text-[2.2rem] leading-[1.06] tracking-normal text-[#f5f1e8] sm:text-5xl lg:text-6xl">
-            Bulk and recurring supply for licensed cannabis operations.
-          </h1>
-          <div className="mt-6 max-w-3xl text-base leading-8 text-white/62 sm:text-lg">
-            <p>
-              Packaging, lab consumables, cultivation inputs, processing supplies and operating
-              materials for licensed cannabis facilities. Volume, region, timing and specification
-              requirements are reviewed through Harbourview before any introduction is routed.
-            </p>
-          </div>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link href="/intake" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
-              Request routed inquiry
-            </Link>
-            <Link href="/marketplace/sell" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
-              Offer supply for review
-            </Link>
+          <div className="grid grid-cols-1 gap-9 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">
+            <div>
+              <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+                <Link href="/marketplace" className="transition-colors hover:text-gold">Exchange</Link>
+                {' '}/ Consumables &amp; Operating Supplies
+              </p>
+              <h1 className="max-w-4xl font-serif text-[2.2rem] leading-[1.06] tracking-normal text-[#f5f1e8] sm:text-5xl lg:text-6xl">
+                Bulk and recurring supply for licensed cannabis operations.
+              </h1>
+              <div className="mt-6 max-w-3xl text-base leading-8 text-white/62 sm:text-lg">
+                <p>
+                  Packaging, lab consumables, cultivation inputs, processing supplies and operating
+                  materials for licensed cannabis facilities. Volume, region, timing and specification
+                  requirements are reviewed through Harbourview before any introduction is routed.
+                </p>
+              </div>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link href="/intake" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
+                  Request routed inquiry
+                </Link>
+                <Link href="/marketplace/sell" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
+                  Offer supply for review
+                </Link>
+              </div>
+            </div>
+            <div className="group lg:pt-2">
+              <RepresentativeImageFrame image={heroImage} priority />
+            </div>
           </div>
         </div>
       </section>
@@ -143,11 +234,14 @@ export default async function ConsumablesPage() {
             {supplyCategories.map((item) => (
               <div
                 key={item.title}
-                className="rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.24)]"
+                className="group overflow-hidden rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] shadow-[0_18px_44px_rgba(0,0,0,0.24)]"
               >
-                <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
-                <h3 className="mb-3 text-base font-semibold text-[#f4f1eb]">{item.title}</h3>
-                <p className="text-sm leading-7 text-white/58">{item.body}</p>
+                <RepresentativeImageFrame image={item.image} />
+                <div className="p-6">
+                  <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+                  <h3 className="mb-3 text-base font-semibold text-[#f4f1eb]">{item.title}</h3>
+                  <p className="text-sm leading-7 text-white/58">{item.body}</p>
+                </div>
               </div>
             ))}
           </div>
