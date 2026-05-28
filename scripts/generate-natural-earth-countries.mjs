@@ -10,6 +10,7 @@ const SOURCE_PATH = resolve(repoRoot, 'data/globe/source/ne_110m_admin_0_countri
 const OUTPUT_PATH = resolve(repoRoot, 'data/globe/natural-earth-countries.ts')
 
 const SIMPLIFY_TOLERANCE_DEG = 0.25
+const MIN_POLYGON_AREA_DEG2 = 0.01
 const SKIP_ISO2 = new Set(['AQ'])
 
 function perpendicularDistanceDeg(point, lineStart, lineEnd) {
@@ -90,51 +91,39 @@ function simplifyRing(points, tolerance) {
   return simplified
 }
 
-function selectPreferredPolygon(polygonCoordinates) {
-  let bestPolygon = null
-  let bestArea = -Infinity
-
-  for (const polygon of polygonCoordinates) {
-    const outerRing = polygon[0]
-    if (!outerRing) continue
-
-    let area = 0
-    for (let i = 0; i < outerRing.length - 1; i += 1) {
-      const [x1, y1] = outerRing[i]
-      const [x2, y2] = outerRing[i + 1]
-      area += x1 * y2 - x2 * y1
-    }
-
-    const absArea = Math.abs(area / 2)
-
-    if (absArea > bestArea) {
-      bestArea = absArea
-      bestPolygon = polygon
-    }
+function ringAreaDeg2(ring) {
+  let area = 0
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const [x1, y1] = ring[i]
+    const [x2, y2] = ring[i + 1]
+    area += x1 * y2 - x2 * y1
   }
 
-  return bestPolygon
+  return Math.abs(area / 2)
 }
 
 function normalizePolygons(geometry, tolerance) {
   const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
-  const preferred = selectPreferredPolygon(polygons)
 
-  if (!preferred) return []
+  return polygons
+    .map((polygon) => {
+      const rings = []
 
-  const rings = []
-  preferred.forEach((ring, index) => {
-    const simplified = simplifyRing(ring, tolerance)
-    if (!simplified) return
-    rings.push({
-      kind: index === 0 ? 'outer' : 'hole',
-      points: simplified,
+      polygon.forEach((ring, index) => {
+        const simplified = simplifyRing(ring, tolerance)
+        if (!simplified) return
+
+        if (index === 0 && ringAreaDeg2(simplified) < MIN_POLYGON_AREA_DEG2) return
+
+        rings.push({
+          kind: index === 0 ? 'outer' : 'hole',
+          points: simplified,
+        })
+      })
+
+      return rings.some((ring) => ring.kind === 'outer') ? { rings } : null
     })
-  })
-
-  if (!rings.some((ring) => ring.kind === 'outer')) return []
-
-  return [{ rings }]
+    .filter(Boolean)
 }
 
 function computeBoundingBox(polygons) {
@@ -300,7 +289,7 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
     generatedAt: '${new Date().toISOString()}',
     generatedBy: 'scripts/generate-natural-earth-countries.mjs',
     harbourviewTransformVersion: '1.0.0-natural-earth-110m',
-    notes: 'Outer polygon per country selected by largest signed area; Douglas-Peucker simplified at ${SIMPLIFY_TOLERANCE_DEG}\u00b0 tolerance; coordinates rounded to 3 decimal places.',
+    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; Douglas-Peucker simplified at ${SIMPLIFY_TOLERANCE_DEG}\u00b0 tolerance; coordinates rounded to 3 decimal places.',
   },
   countries: [
 ${countries.map(serializeCountry).join('\n')}

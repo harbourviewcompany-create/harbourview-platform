@@ -5,7 +5,6 @@ import { useFrame } from '@react-three/fiber'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
-import { extractCountryHit } from '@/lib/globe/country-hit-testing'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
 
@@ -98,8 +97,6 @@ export function CountryPolygonMeshLayer({
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
-  const hasCustomShaderPath = true
-
   const idleGeometries = useMemo(
     () =>
       naturalEarthCountriesPayload.countries.map((country) => ({

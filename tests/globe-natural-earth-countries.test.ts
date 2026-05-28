@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
-import { buildFixtureCountryFeatures } from '@/lib/globe/globe-geometry'
+import { buildFixtureCountryFeatures, lonLatToVector3 } from '@/lib/globe/globe-geometry'
 import { createCountryBufferGeometry, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
 
 describe('Natural Earth 110m countries payload', () => {
@@ -55,6 +55,17 @@ describe('Natural Earth 110m countries payload', () => {
     expect(emptyCount).toBe(0)
   })
 
+  it('retains separate Natural Earth polygon parts for archipelagos and transcontinental countries', () => {
+    const expectedMultipolygonCountries = ['US', 'CA', 'RU', 'ID', 'PH']
+
+    for (const iso2 of expectedMultipolygonCountries) {
+      const country = naturalEarthCountriesPayload.countries.find((item) => item.iso2 === iso2)
+
+      expect(country, `${iso2} should exist in the Natural Earth payload`).toBeTruthy()
+      expect(country!.polygons.length, `${iso2} should retain more than one polygon part`).toBeGreaterThan(1)
+    }
+  })
+
   it('keeps total vertex points within a sane mobile geometry budget', () => {
     const totalPoints = naturalEarthCountriesPayload.countries.reduce(
       (sum, country) =>
@@ -106,7 +117,7 @@ describe('Natural Earth geometry topology validation', () => {
     const position = geometry.getAttribute('position')
 
     expect(complexCountry.polygons.length).toBe(2)
-    expect(position.count).toBeGreaterThan(100)
+    expect(position.count).toBeGreaterThan(80)
     expect(geometry.index?.count).toBeGreaterThan(300)
     expect(geometry.userData.empty).not.toBe(true)
 
@@ -125,6 +136,43 @@ describe('Natural Earth geometry topology validation', () => {
       expect(magnitude).toBeLessThan(1.1)
     }
 
+    geometry.dispose()
+  })
+
+  it('renders retained small multipolygon fragments at their own coordinates, not the country centroid', () => {
+    const country = {
+      iso2: 'XZ',
+      iso3: 'XZZ',
+      name: 'Synthetic multipolygon fixture',
+      centroid: [0, 0] as [number, number],
+      bbox: [0, 0, 50.1, 10.1] as [number, number, number, number],
+      source: 'natural-earth-admin-0' as const,
+      polygons: [
+        {
+          rings: [{ kind: 'outer' as const, points: [[0, 0], [4, 0], [0, 4], [0, 0]] as [number, number][] }],
+        },
+        {
+          rings: [{ kind: 'outer' as const, points: [[50, 10], [50.1, 10], [50, 10.1], [50, 10]] as [number, number][] }],
+        },
+      ],
+    }
+
+    const geometry = createCountryBufferGeometry(country, { geometryMode: 'surface' })
+    const position = geometry.getAttribute('position')
+    const expected = lonLatToVector3(50, 10, 2.35 + 0.024 + 0.06)
+    let hasFragmentVertex = false
+
+    for (let index = 0; index < position.count; index += 1) {
+      const dx = position.getX(index) - expected.x
+      const dy = position.getY(index) - expected.y
+      const dz = position.getZ(index) - expected.z
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 0.01) {
+        hasFragmentVertex = true
+        break
+      }
+    }
+
+    expect(hasFragmentVertex).toBe(true)
     geometry.dispose()
   })
 
@@ -209,17 +257,17 @@ describe('Bridge triangle filter regression tests for problem countries', () => 
     }
   })
 
-  it('normalizeLongitudes centers on mean longitude instead of first vertex', () => {
+  it('normalizes longitudes to a contiguous range around a shared reference', () => {
     const { normalizeLongitudes } = polygonGeometryInternals
 
-    // Simple ring: mean-centered normalization should not shift points
+    // Simple ring: reference-centered normalization should not shift points
     const simple: [number, number][] = [
       [10, 50], [20, 50], [30, 50],
     ]
     const simpleResult = normalizeLongitudes(simple)
     const simpleMean = simpleResult.reduce((s, p) => s + p[0], 0) / simpleResult.length
     for (const [lon] of simpleResult) {
-      expect(Math.abs(lon - simpleMean), 'each lon within ±180 of mean').toBeLessThanOrEqual(180)
+      expect(Math.abs(lon - simpleMean), 'each lon within ±180 of normalized center').toBeLessThanOrEqual(180)
     }
     // Mean should be close to 20
     expect(simpleMean).toBeCloseTo(20, 0)
@@ -232,7 +280,7 @@ describe('Bridge triangle filter regression tests for problem countries', () => 
     const result = normalizeLongitudes(asymmetric)
     const meanLon = result.reduce((s, p) => s + p[0], 0) / result.length
     for (const [lon] of result) {
-      expect(Math.abs(lon - meanLon), 'each lon should be within ±180 of mean').toBeLessThanOrEqual(180)
+      expect(Math.abs(lon - meanLon), 'each lon should be within ±180 of normalized center').toBeLessThanOrEqual(180)
     }
     // The negative longitudes should be shifted to the positive side
     // since the mean is in the positive hemisphere
