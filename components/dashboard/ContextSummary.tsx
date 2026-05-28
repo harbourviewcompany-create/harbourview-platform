@@ -1,6 +1,7 @@
 'use client'
 
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
+import { getDashboardRoleLabel } from '@/lib/dashboard/globeRouteContext'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { StatusBadge } from './StatusBadge'
 
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export function ContextSummary({ onMarketClick }: Props) {
-  const { countryIso2, countryName } = useDashboard()
+  const { countryIso2, countryName, role, routeContext } = useDashboard()
   const brief = useCountryBrief(countryIso2)
 
   const statuses = brief.status === 'ok' ? [
@@ -30,7 +31,7 @@ export function ContextSummary({ onMarketClick }: Props) {
         {countryName}
       </div>
       <div className="mb-3 text-[11px]" style={{ color: 'rgba(243,240,234,0.55)' }}>
-        Commercial Operator
+        {getDashboardRoleLabel(role)}{routeContext?.source === 'globe_router' ? ' · Routed from globe' : ''}
       </div>
 
       {brief.status === 'ok' && (

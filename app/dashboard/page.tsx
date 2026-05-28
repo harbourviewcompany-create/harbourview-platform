@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { DashboardProvider }    from '@/lib/dashboard/DashboardContext'
 import { IdentityRail }         from '@/components/dashboard/IdentityRail'
 import { ContextSummary }       from '@/components/dashboard/ContextSummary'
@@ -323,8 +323,10 @@ function DashboardInner() {
 
 export default function DashboardPage() {
   return (
-    <DashboardProvider>
-      <DashboardInner />
-    </DashboardProvider>
+    <Suspense fallback={null}>
+      <DashboardProvider>
+        <DashboardInner />
+      </DashboardProvider>
+    </Suspense>
   )
 }
