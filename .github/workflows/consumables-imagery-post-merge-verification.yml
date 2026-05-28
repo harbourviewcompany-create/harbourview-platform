@@ -1,6 +1,11 @@
 name: Consumables Imagery Post-Merge Verification
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/consumables-imagery-post-merge-verification.yml
   pull_request:
     branches:
       - main
@@ -10,7 +15,7 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: write
 
 jobs:
   verify-current-main:
@@ -19,6 +24,16 @@ jobs:
     timeout-minutes: 25
 
     steps:
+      - name: Checkout current main target
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Initialize verification evidence directory
         shell: bash
         run: |
@@ -29,27 +44,15 @@ jobs:
             echo "Workflow run: ${GITHUB_RUN_ID}"
             echo "Repository: ${GITHUB_REPOSITORY}"
             echo "Event: ${GITHUB_EVENT_NAME}"
-            echo "Target ref: main"
+            echo "Checked out ref: main"
             echo ""
           } > verification-results/consumables-imagery/summary.md
-
-      - name: Checkout current main target
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
 
       - name: Install dependencies
         id: npm_ci
         continue-on-error: true
         shell: bash
         run: |
-          mkdir -p verification-results/consumables-imagery
           echo "## npm-ci" | tee -a verification-results/consumables-imagery/summary.md
           echo "\$ npm ci" | tee -a verification-results/consumables-imagery/npm-ci.log verification-results/consumables-imagery/summary.md
           set +e
@@ -71,7 +74,6 @@ jobs:
         shell: bash
         run: |
           set -u
-          mkdir -p verification-results/consumables-imagery
           summary="verification-results/consumables-imagery/summary.md"
           status=0
 
