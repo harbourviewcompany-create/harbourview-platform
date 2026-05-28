@@ -21,6 +21,7 @@ import { RoleChipSelector } from './RoleChipSelector'
 import { IntentCardGrid } from './IntentCardGrid'
 import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
+import { featureFlags } from '@/lib/harbourview/feature-flags'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -69,7 +70,7 @@ function getFallbackContextItems(state: GlobeRouterState) {
 
 type GlobeFallbackReason = 'flag-disabled' | 'reduced-motion' | 'webgl-unavailable' | 'low-performance'
 
-const INTERACTIVE_GLOBE_ENABLED = true // env gate removed — always enabled
+const INTERACTIVE_GLOBE_ENABLED = featureFlags.interactiveGlobe
 
 function useGlobeFallbackReason(): GlobeFallbackReason | null {
   const [reason, setReason] = useState<GlobeFallbackReason | null>(null)
@@ -129,9 +130,9 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
           {reasonLabel}
         </div>
         <div className="absolute bottom-10 left-8 max-w-sm">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">Premium market routing preview</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-white">Market routing fallback</h2>
           <p className="mt-3 text-sm leading-6 text-white/66">
-            We are showing a static globe shell to preserve stability and keep navigation responsive on this device.
+            We are showing the stable globe fallback to preserve routing and keep navigation responsive on this device.
           </p>
         </div>
       </div>
@@ -201,7 +202,7 @@ export function GlobeSameScreenRouterLanding() {
 
       <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Start with country. Harbourview will adjust the next choices by market, role and intent.
+          Start with a tracked alpha jurisdiction. Harbourview will adjust the next choices by market, role and intent.
         </p>
       </div>
 

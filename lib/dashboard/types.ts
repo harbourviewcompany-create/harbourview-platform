@@ -1,4 +1,4 @@
-import type { GlobeLayerId, GlobeRouterMode } from '@/types/globe-router'
+import type { GlobeLayerId, GlobeRouterMode, IntentId, RoleId } from '@/types/globe-router'
 
 export type DashboardRouteSection =
   | 'overview'
@@ -90,7 +90,10 @@ export interface PublicCountryDashboardDTO {
 export interface GlobeDashboardRouteContext {
   countryIso2?: string
   countrySlug?: string
+  countryIso2s?: string[]
   mode?: GlobeRouterMode
-  source?: 'globe' | 'directory' | 'dashboard'
+  source?: 'globe_router' | 'globe' | 'directory' | 'dashboard'
+  roleId?: RoleId
+  intentId?: IntentId
   layerId?: GlobeLayerId
 }

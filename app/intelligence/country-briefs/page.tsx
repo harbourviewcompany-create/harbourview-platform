@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
-import { getPublicCountries } from '@/lib/server/countriesQuery'
+import { getPublicCountries, type PublicCountry } from '@/lib/server/countriesQuery'
+import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
+import { countryOptions } from '@/config/globe/country-role-profiles'
 
 export const metadata: Metadata = {
   title: 'Country Briefs | Harbourview Intelligence',
@@ -27,8 +29,44 @@ const ACCESS_DOT: Record<string, string> = {
   unknown: 'bg-transparent/20',
 }
 
+function fixtureToPublicCountry(fixture: (typeof publicCountryIntelligenceFixtures)[number], index: number): PublicCountry | null {
+  const iso2 = countryOptions.find((country) => country.name === fixture.country)?.iso2
+  if (!iso2) return null
+
+  return {
+    id: `fixture-${fixture.slug}`,
+    country_name: fixture.country,
+    country_slug: fixture.slug,
+    iso_alpha2: iso2,
+    iso_alpha3: '',
+    region: fixture.region,
+    subregion: null,
+    market_access_status: fixture.reviewStatus === 'publicSafeSeed' ? 'active' : 'unknown',
+    medical_status: fixture.pathways.includes('medical') ? 'active' : 'unknown',
+    adult_use_status: fixture.pathways.includes('adultUse') ? 'regulated' : 'unknown',
+    import_status: fixture.tradeRole.includes('import market') ? 'active' : 'unknown',
+    export_status: fixture.tradeRole.includes('export market') || fixture.tradeRole.includes('supply origin') ? 'active' : 'unknown',
+    signals_status: 'unknown',
+    opportunity_status: 'unknown',
+    public_summary: fixture.publicSummary,
+    data_completeness: fixture.reviewStatus === 'publicSafeSeed' ? 'seed' : 'fixture',
+    last_updated_label: index === 0 ? 'fixture alpha coverage' : null,
+    lat: fixture.coordinates?.lat ?? null,
+    lng: fixture.coordinates?.lng ?? null,
+    opportunity_categories: fixture.opportunityCategories,
+    trade_roles: fixture.tradeRole,
+    regulator_label: fixture.regulatorLabel ?? null,
+  }
+}
+
+const fixtureCountries = publicCountryIntelligenceFixtures
+  .map(fixtureToPublicCountry)
+  .filter((country): country is PublicCountry => Boolean(country))
+
 export default async function CountryBriefsPage() {
-  const countries = await getPublicCountries()
+  const liveCountries = await getPublicCountries()
+  const countries = liveCountries.length > 0 ? liveCountries : fixtureCountries
+  const usingFixtureCoverage = liveCountries.length === 0
 
   return (
     <main className="bg-[#020814] text-white">
@@ -43,14 +81,14 @@ export default async function CountryBriefsPage() {
           </PublicCard>
         }
       >
-        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} priority` : 'priority'} cannabis markets.
-        Briefs cover access pathway status, regulatory framework, licensing structure and commercial route context.
+        Jurisdiction-level regulatory and market orientation for {countries.length > 0 ? `${countries.length} tracked alpha` : 'tracked alpha'} cannabis markets represented in repository data.
+        Briefs cover access pathway status, regulatory framework, licensing structure and commercial route context where public-safe data exists; coverage is partial and not a complete country dataset.
       </PublicHero>
 
       {countries.length > 0 && (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Coverage" title="Priority jurisdiction coverage">
-            Public-safe regulatory orientation across medical, adult-use, import and export status.
+            Public-safe regulatory orientation across medical, adult-use, import and export status for represented jurisdictions only. {usingFixtureCoverage ? 'This environment is using static alpha fixtures because no Supabase country rows are configured.' : 'Live public country rows are available through the configured public data path.'}
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {countries.map((country) => (

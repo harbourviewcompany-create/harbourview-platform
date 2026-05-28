@@ -47,10 +47,14 @@ function HarbourviewGlobeRouteControllerInner() {
         <p className={styles.srOnly} aria-live="polite" aria-atomic="true">{routeAnnouncement}</p>
         <p className={styles.routeEyebrow}>Globe route</p>
         <p className={styles.routeTitle}>{selectedMarket?.label || 'Global market pathways'}</p>
-        <p className={styles.routeDescription}>
+        <p className={styles.routeDescription} aria-live="polite">
           {routeState.kind === 'fallback'
             ? 'We could not load that route. Please select one of the supported market pathways.'
             : selectedMarket?.summary || 'Select a market pathway to tailor your Harbourview experience.'}
+        </p>
+
+        <p aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+          Globe route state: {routeState.kind}.
         </p>
 
         <div className={styles.controlGroup} aria-label="Select market">

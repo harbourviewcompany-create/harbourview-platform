@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
+import { getDashboardRoleLabel } from '@/lib/dashboard/globeRouteContext'
 import { useAllCountries } from '@/hooks/useAllCountries'
 
 interface Props {
@@ -12,12 +13,9 @@ export function IdentityRail({ onMarketClick }: Props) {
   const { countryName, role } = useDashboard()
   const countries = useAllCountries()
 
-  const roleLabel =
-    role === 'medical_professional' ? 'Medical Professional'
-    : role === 'regulatory_legal'   ? 'Regulatory & Legal'
-    : 'Commercial Operator'
+  const roleLabel = getDashboardRoleLabel(role)
 
-  const countryCount = countries.status === 'ok' ? countries.data.length : 240
+  const countryCount = countries.status === 'ok' ? countries.data.length : null
 
   return (
     <header
@@ -80,7 +78,7 @@ export function IdentityRail({ onMarketClick }: Props) {
       {/* Right — globe mini + account */}
       <div className="flex items-center gap-3">
         <span className="text-[10px] tracking-[0.08em]" style={{ color: 'rgba(198,165,90,0.45)' }}>
-          {countryCount}+ markets
+          {countryCount ? `${countryCount} tracked alpha markets` : 'Tracked alpha markets'}
         </span>
         <button
           onClick={onMarketClick}
