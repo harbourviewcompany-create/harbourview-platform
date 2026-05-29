@@ -27,10 +27,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               ['/admin/sources', 'Sources'],
               ['/admin/candidates', 'Candidates'],
               ['/admin/intelligence-automation', 'Intelligence'],
-              ['/admin/agents', 'Agents'],
-              ['/admin/proprietary-intelligence', 'Proprietary intel'],
-              ['/admin/enterprise', 'Enterprise'],
-              ['/admin/monetization', 'Monetization'],
             ] as [string, string][]).map(([href, label]) => (
               <Link key={href} href={href} className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">{label}</Link>
             ))}
