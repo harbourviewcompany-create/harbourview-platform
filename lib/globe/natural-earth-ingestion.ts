@@ -7,12 +7,23 @@ import type {
   NaturalEarthCountryFeatureCollection,
 } from './geojson-country-types'
 
+// Some Natural Earth features carry ISO_A2 = "-99" for territories that are
+// administratively part of a country with overseas regions (e.g. France, Norway).
+// In those cases ISO_A2_EH ("extended homeland") carries the correct two-letter code.
 function extractIso2(feature: NaturalEarthCountryFeature) {
-  return feature.properties.ISO_A2 ?? feature.properties.ADM0_A3?.slice(0, 2) ?? 'XX'
+  const iso2 = feature.properties.ISO_A2
+  if (iso2 && iso2 !== '-99') return iso2
+  const iso2eh = feature.properties.ISO_A2_EH
+  if (iso2eh && iso2eh !== '-99') return iso2eh
+  return feature.properties.ADM0_A3?.slice(0, 2) ?? 'XX'
 }
 
 function extractIso3(feature: NaturalEarthCountryFeature) {
-  return feature.properties.ISO_A3 ?? feature.properties.ADM0_A3 ?? 'XXX'
+  const iso3 = feature.properties.ISO_A3
+  if (iso3 && iso3 !== '-99') return iso3
+  const iso3eh = feature.properties.ISO_A3_EH
+  if (iso3eh && iso3eh !== '-99') return iso3eh
+  return feature.properties.ADM0_A3 ?? 'XXX'
 }
 
 function extractName(feature: NaturalEarthCountryFeature) {
@@ -106,3 +117,4 @@ export const naturalEarthIngestionInternals = {
   calculateBoundingBox,
   calculateCentroid,
 }
+
