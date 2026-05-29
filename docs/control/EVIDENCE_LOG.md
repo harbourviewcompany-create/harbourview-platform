@@ -1,7 +1,7 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-05-28
-Status: Finish-line reset scaffold with preserved legacy evidence entries
+Last updated: 2026-05-29
+Status: Finish-line reset scaffold with MP-SCHEMA-001 follow-up verification HOLD recorded
 Authority: Canonical evidence log for Harbourview finish-line execution
 
 ## Purpose
@@ -30,10 +30,10 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Area | Current evidence status | Notes |
 |---|---|---|
 | Repo control docs | In progress | Pass 1 creates/updates the five control docs |
-| Build/typecheck/lint | Unknown | Not run in Pass 1 |
-| Deployment | Unknown | Not verified in Pass 1 |
+| Build/typecheck/lint | Unknown | MP-SCHEMA-001 follow-up PR requests clean verification; exact command outputs are pending |
+| Deployment | Unknown | Not verified in Pass 1; PR #530 Cloudflare preview succeeded, but canonical Vercel production proof remains separate |
 | Public route checks | Unknown | Not run in Pass 1 |
-| Public/private leakage checks | Unknown | Not run in Pass 1 |
+| Public/private leakage checks | Partial static coverage | MP-SCHEMA-001 DTO tests exist; runtime `test:visibility` output remains pending |
 | Admin/auth/RLS checks | Unknown | Not run in Pass 1 |
 | Marketplace flows | Unknown | Not run in Pass 1 |
 | Production writes | Not authorized | Must remain gated and explicit |
@@ -43,6 +43,39 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Current |
+| 2026-05-29 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verification-evidence` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Current HOLD |
+
+## MP-SCHEMA-001 Verification Follow-up
+
+**Evidence ID:** `HV-MP-SCHEMA-001-VERIFY-20260529`
+
+**Source change:** PR `#530`, MP-SCHEMA-001 unified marketplace listings schema, DTO validation, and tests.
+
+**Follow-up branch:** `docs/mp-schema-001-verification-evidence`
+
+**Follow-up scope:** docs/control evidence and registry discipline only. No runtime code, schema, migrations, DTO implementation, tests, dependencies, auth, RLS, deployment settings, Supabase settings, or production write behavior are intentionally changed by this follow-up.
+
+**Required commands:**
+
+- `npm ci`
+- `npm run check:migrations`
+- `npm run typecheck`
+- `npm run lint`
+- `npx vitest run tests/harbourview/unified-listings-dto.test.ts`
+- `npm run test:visibility`
+- `npm run build`
+- Supabase migration dry-run/review when available
+
+**Current result:** HOLD pending clean runner output and Supabase migration dry-run/review evidence.
+
+**Known prior findings:**
+
+- Project Registry Discipline failure for PR `#530` was caused by missing registry-impact PR metadata, not by a confirmed schema/runtime defect.
+- Low-Friction Branch Verification failure for PR `#530` was expected because the original schema PR changed `lib/`, `supabase/`, and `tests/`, outside the control-only profile.
+- Branch Verification failed for PR `#530`, but exact job logs were unavailable through the connected GitHub tool, so no concrete failing command/error line was available to patch.
+- PR `#530` Cloudflare Pages preview reported deploy success for commit `7ca4b75`; Vercel/Netlify preview issues were not accepted as schema/runtime proof.
+
+**GO criteria:** Exact outputs must prove all required commands pass, runtime leakage verification passes, and Supabase migration dry-run/review is non-blocking.
 
 ## Deployment Evidence
 
@@ -53,8 +86,9 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 ## Security / Leakage Evidence
 
 | Date | Check | Scope | Result | Link / artifact | Status |
-|---|---|---|---|---|---|
-| TBD | TBD | TBD | Not verified in Pass 1 | TBD | Unknown |
+|---|---|---|---|---|
+| 2026-05-29 | MP-SCHEMA-001 DTO boundary static/test coverage | Unified listing DTO allowlist and forbidden-key test file from PR #530 | Partial coverage present; runtime public-route leakage still pending | `tests/harbourview/unified-listings-dto.test.ts`; `npm run test:visibility` pending | Current HOLD |
+| TBD | Runtime public leakage verification | Public routes / built app | Not verified in Pass 1 or this evidence-only update | TBD | Unknown |
 
 ## Admin / Auth / RLS Evidence
 
@@ -65,7 +99,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 ## Marketplace Flow Evidence
 
 | Date | Flow | Result | Link / artifact | Status |
-|---|---|---|---|---|
+|---|---|---|---|
 | TBD | TBD | Not verified in Pass 1 | TBD | Unknown |
 
 ## Known Unproven Claims
@@ -76,6 +110,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Current feature readiness | Pass 1 did not inspect app runtime or tests | Build/test/probe evidence from current repo/deployment | Open |
 | Current admin/auth/RLS readiness | Pass 1 did not run role/access checks | Current role matrix/access verification | Open |
 | Current public/private leakage posture | Pass 1 did not run leakage probes | Current static/runtime leakage checks | Open |
+| MP-SCHEMA-001 release readiness | Required post-merge verification commands and Supabase dry-run/review are not yet recorded | Clean outputs for npm/migration/typecheck/lint/Vitest/visibility/build plus Supabase review | Open |
 
 ## Preserved Legacy Evidence Entries
 
