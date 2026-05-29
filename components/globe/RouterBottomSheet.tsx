@@ -19,7 +19,7 @@ export function RouterBottomSheet({
 }) {
   const sizeClass = {
     confirm: 'max-h-[24svh]',
-    role: 'max-h-[48svh]',
+    role: 'max-h-[64svh]',
     intent: 'max-h-[62svh]',
     search: 'max-h-[72svh]',
   }[size]
