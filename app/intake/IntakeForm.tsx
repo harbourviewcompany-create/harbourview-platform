@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
+import { MARKETPLACE_LISTING_TYPE_OPTIONS } from '@/lib/marketplace/listingTypeOptions'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
@@ -10,15 +11,7 @@ type IntakeFormProps = {
   submitLabel?: string
 }
 
-const listingTypes = [
-  'New Product',
-  'Used / Surplus Equipment',
-  'Cannabis Inventory',
-  'Wanted Request',
-  'Service',
-  'Business Opportunity',
-  'Featured Network Opportunity',
-]
+const listingTypes = MARKETPLACE_LISTING_TYPE_OPTIONS
 
 const initialMessage = ''
 
