@@ -1,18 +1,43 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect } from 'react'
 
-export default function DashboardCountryError({ reset }: { reset: () => void }) {
+export default function CountryError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    console.error('[CountryConsole]', error)
+  }, [error])
+
   return (
-    <main className="min-h-screen bg-[#03070d] p-6 text-white">
-      <div className="mx-auto max-w-2xl rounded-3xl border border-red-400/25 bg-red-950/20 p-8">
-        <h2 className="text-2xl font-semibold">Country dashboard could not load</h2>
-        <p className="mt-3 text-white/70">Retry the dashboard route or return to the globe country selector.</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" onClick={reset} className="rounded-xl bg-[#c6a55a] px-4 py-3 text-sm font-semibold text-[#07111f]">Retry</button>
-          <Link href="/" className="rounded-xl border border-white/15 px-4 py-3 text-sm text-white/80">Back to globe</Link>
-        </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#03070d] px-6 text-center">
+      <p className="mb-3 text-[10px] uppercase tracking-[0.2em]" style={{ color: 'rgba(239,68,68,0.55)' }}>
+        Error · Harbourview
+      </p>
+      <h1 className="mb-3 font-serif text-3xl text-white">Something went wrong</h1>
+      <p className="mb-7 max-w-sm text-sm leading-relaxed" style={{ color: 'rgba(243,240,234,0.45)' }}>
+        The country console failed to load. This may be a temporary issue.
+        {error.digest && (
+          <span className="mt-1 block text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            Error ID: {error.digest}
+          </span>
+        )}
+      </p>
+      <div className="flex flex-wrap justify-center gap-3">
+        <button
+          onClick={reset}
+          className="rounded-xl px-5 py-2.5 text-sm font-medium transition-all hover:opacity-90"
+          style={{ background: 'rgba(198,165,90,0.12)', border: '1px solid rgba(198,165,90,0.3)', color: '#F0D39A' }}
+        >
+          Try again
+        </button>
+        <Link
+          href="/dashboard"
+          className="rounded-xl px-5 py-2.5 text-sm transition-all hover:opacity-70"
+          style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(243,240,234,0.5)' }}
+        >
+          Back to dashboard
+        </Link>
       </div>
-    </main>
+    </div>
   )
 }

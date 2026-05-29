@@ -1,150 +1,392 @@
+'use client'
+
 import Link from 'next/link'
-import type { CountryDashboardSummary, DashboardSectionSlug } from '@/lib/dashboard/contracts'
-import { countries, dashboardSections, getDashboardSectionHref } from '@/lib/dashboard/countries'
-import { serializeCountryDashboardPublicDto } from '@/lib/dashboard/publicDto'
-import { CountrySwitcher } from './CountrySwitcher'
-import type { DashboardRole } from '@/lib/dashboard/globeRouteContext'
+import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { IdentityRail } from '@/components/dashboard/IdentityRail'
+import { SignalStrip } from '@/components/dashboard/SignalStrip'
+import { ContextSummary } from '@/components/dashboard/ContextSummary'
+import { CountrySelector } from '@/components/dashboard/CountrySelector'
+import { PostListingModal } from '@/components/dashboard/PostListingModal'
+import { useDashboard } from '@/lib/dashboard/DashboardContext'
+import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
+import type { CountryDashboardSummary, DashboardPanelBase, DashboardSectionSlug } from '@/lib/dashboard/contracts'
 
-const sectionLabels: Record<DashboardSectionSlug, string> = {
-  market: 'Market',
-  education: 'Education',
-  compliance: 'Compliance',
-  signals: 'Signals',
+// ── Tone maps (shared across shell + section view) ─────────────────────────
+export const TONE_BG: Record<string, string> = {
+  green: 'rgba(29,158,117,0.07)',
+  blue:  'rgba(59,130,246,0.07)',
+  gold:  'rgba(198,165,90,0.07)',
+  amber: 'rgba(245,158,11,0.07)',
+  slate: 'rgba(255,255,255,0.025)',
+  red:   'rgba(239,68,68,0.07)',
+}
+export const TONE_BORDER: Record<string, string> = {
+  green: 'rgba(29,158,117,0.25)',
+  blue:  'rgba(59,130,246,0.25)',
+  gold:  'rgba(198,165,90,0.25)',
+  amber: 'rgba(245,158,11,0.25)',
+  slate: 'rgba(255,255,255,0.08)',
+  red:   'rgba(239,68,68,0.25)',
+}
+export const TONE_TEXT: Record<string, string> = {
+  green: '#5dcaa5',
+  blue:  '#7ec8f7',
+  gold:  '#f4d27a',
+  amber: '#fbbf24',
+  slate: 'rgba(243,240,234,0.4)',
+  red:   '#f87171',
+}
+
+export const SECTION_LABELS: Record<DashboardSectionSlug, string> = {
+  market:        'Market posture',
+  education:     'Education',
+  compliance:    'Compliance',
+  signals:       'Signals',
   opportunities: 'Opportunities',
-  intelligence: 'Intelligence',
-  connections: 'Reviewed Connections',
+  intelligence:  'Intelligence',
+  connections:   'Connections',
 }
 
-// Sections surfaced first for each role — shown highlighted in the nav.
-const rolePrioritySections: Record<DashboardRole, DashboardSectionSlug[]> = {
-  medical_professional: ['education', 'compliance', 'market'],
-  regulatory_legal: ['compliance', 'intelligence', 'signals'],
-  commercial_operator: ['market', 'opportunities', 'signals'],
+const SECTION_ICONS: Record<DashboardSectionSlug, string> = {
+  market:        '📊',
+  education:     '📚',
+  compliance:    '⚖️',
+  signals:       '📡',
+  opportunities: '💡',
+  intelligence:  '🔍',
+  connections:   '🤝',
 }
 
-const roleAccentColor: Record<DashboardRole, string> = {
-  medical_professional: 'text-[#6bbfff] border-[#6bbfff]/30 bg-[#6bbfff]/10',
-  regulatory_legal: 'text-[#b8a5ff] border-[#b8a5ff]/30 bg-[#b8a5ff]/10',
-  commercial_operator: 'text-[#f4d27a] border-[#c6a55a]/35 bg-[#c6a55a]/10',
+const SECTION_DESCRIPTIONS: Record<DashboardSectionSlug, string> = {
+  market:        'Regulatory posture, import framework, market model, operator landscape.',
+  education:     'Prescriber, patient, and operator education pathways and status.',
+  compliance:    'GMP, packaging, labelling, and import compliance requirements.',
+  signals:       'Curated regulatory, market, and trade intelligence signals.',
+  opportunities: 'Reviewed commercial opportunity routing and intake.',
+  intelligence:  'Analyst-reviewed country intelligence briefs and source methodology.',
+  connections:   'Reviewed connection and counterparty routing for this jurisdiction.',
 }
 
-export function CountryDashboardShell({
+// ── CountryContextSync ─────────────────────────────────────────────────────
+// Syncs the URL-resolved country into DashboardContext so IdentityRail / ContextSummary
+// display the correct country when navigating directly to a country URL.
+export function CountryContextSync({ iso2, name }: { iso2: string; name: string }) {
+  const { setCountry, countryIso2 } = useDashboard()
+
+  useEffect(() => {
+    if (countryIso2 !== iso2) setCountry(iso2, name)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iso2, name])
+
+  return null
+}
+
+// ── CountryConsoleShell ────────────────────────────────────────────────────
+export function CountryConsoleShell({
   country,
-  section = 'market',
-  dashboardRole = 'commercial_operator',
-  roleLabel = 'Commercial Operator',
+  children,
 }: {
   country: CountryDashboardSummary
-  section?: DashboardSectionSlug
-  dashboardRole?: DashboardRole
-  roleLabel?: string
+  children: React.ReactNode
 }) {
-  const dto = serializeCountryDashboardPublicDto(country)
-  const selectedPanel = dto.panels[section]
-  const regionCountries = countries.filter((item) => item.region === country.region).slice(0, 8)
-  const prioritySections = rolePrioritySections[dashboardRole]
+  const [selectorOpen, setSelectorOpen] = useState(false)
+  const [postListingOpen, setPostListingOpen] = useState(false)
+  const pathname = usePathname()
 
-  // Sort section tabs so role-priority sections appear first.
-  const sortedSections = [...dashboardSections].sort((a, b) => {
-    const ai = prioritySections.indexOf(a)
-    const bi = prioritySections.indexOf(b)
-    if (ai !== -1 && bi !== -1) return ai - bi
-    if (ai !== -1) return -1
-    if (bi !== -1) return 1
-    return 0
-  })
+  const sections = Object.keys(country.panels) as DashboardSectionSlug[]
 
   return (
-    <main className="min-h-screen bg-[#03070d] text-white">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-6 lg:px-8">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/50">
-          <Link className="rounded focus:outline-none focus:ring-2 focus:ring-[#c6a55a]" href="/">Globe</Link>
-          <span>/</span>
-          <Link className="rounded focus:outline-none focus:ring-2 focus:ring-[#c6a55a]" href="/dashboard">Dashboard</Link>
-          <span>/</span>
-          <span className="text-[#f4d27a]">{dto.displayName}</span>
-        </nav>
+    <div className="flex h-screen flex-col overflow-hidden bg-[#03070d]">
+      {/* Sync URL country → context */}
+      <CountryContextSync iso2={country.iso2} name={country.displayName} />
 
-        <header className="rounded-3xl border border-[#c6a55a]/25 bg-[linear-gradient(135deg,rgba(11,26,47,0.96),rgba(3,7,13,0.98))] p-5 shadow-2xl md:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#c6a55a]">Selected country intelligence console</p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">{dto.displayName}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-white/72 md:text-base">{dto.publicSummary}</p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/70">
-                <span className="rounded-full border border-white/15 px-3 py-1">{dto.iso2} / {dto.iso3}</span>
-                <span className="rounded-full border border-white/15 px-3 py-1">{dto.region}</span>
-                <span className="rounded-full border border-white/15 px-3 py-1">{dto.subregion}</span>
-                <span className="rounded-full border border-[#c6a55a]/35 bg-[#c6a55a]/10 px-3 py-1 text-[#f4d27a]">{dto.statusBadge.label}</span>
-                {/* Role identity badge — set by the globe router when navigating from a role selection */}
-                <span className={`rounded-full border px-3 py-1 font-semibold ${roleAccentColor[dashboardRole]}`}>
-                  {roleLabel}
-                </span>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:min-w-64">
-              <Link href={'/contact?intent=dashboard-review&country=' + dto.slug} className="rounded-xl bg-[#c6a55a] px-4 py-3 text-center text-sm font-semibold text-[#07111f] focus:outline-none focus:ring-2 focus:ring-white">Request Harbourview review</Link>
-              <Link href="/" className="rounded-xl border border-white/15 px-4 py-3 text-center text-sm text-white/85 focus:outline-none focus:ring-2 focus:ring-[#c6a55a]">Back to globe</Link>
-            </div>
+      {/* Top rail */}
+      <IdentityRail onMarketClick={() => setSelectorOpen(true)} />
+
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── Left sidebar ── */}
+        <aside
+          className="flex w-56 flex-shrink-0 flex-col overflow-y-auto"
+          style={{
+            background: 'rgba(4,9,18,0.97)',
+            borderRight: '1px solid rgba(198,165,90,0.12)',
+          }}
+        >
+          {/* Country context card */}
+          <div className="px-3 py-4">
+            <ContextSummary onMarketClick={() => setSelectorOpen(true)} />
           </div>
-        </header>
 
-        <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
-          <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-4" aria-label="Dashboard country navigation">
-            <label className="text-xs uppercase tracking-[0.18em] text-white/50" htmlFor="country-switcher">Country switcher</label>
-            <CountrySwitcher currentSlug={dto.slug} countries={countries.map((item) => ({ slug: item.slug, displayName: item.displayName, dashboardPath: item.dashboardPath }))} />
-            <div className="mt-5 hidden lg:block">
-              <p className="mb-2 text-xs uppercase tracking-[0.18em] text-white/50">Region browse</p>
-              <div className="grid gap-2">
-                {regionCountries.map((item) => <Link key={item.slug} href={item.dashboardPath} className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white/75 hover:border-[#c6a55a]/50 focus:outline-none focus:ring-2 focus:ring-[#c6a55a]">{item.displayName}</Link>)}
-              </div>
-            </div>
-          </aside>
+          {/* Section nav */}
+          <nav className="flex-1 px-2 pb-2">
+            <p
+              className="mb-1.5 px-1 text-[9px] uppercase tracking-[0.14em]"
+              style={{ color: 'rgba(198,165,90,0.4)' }}
+            >
+              Console sections
+            </p>
 
-          <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
-            <nav aria-label="Dashboard section navigation" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-3">
-              {sortedSections.map((item) => {
-                const selected = item === section
-                const isPriority = prioritySections.includes(item)
-                return (
-                  <Link
-                    key={item}
-                    href={getDashboardSectionHref(dto.slug, item)}
-                    aria-current={selected ? 'page' : undefined}
-                    className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#c6a55a] ${
-                      selected
-                        ? 'border-[#c6a55a] bg-[#c6a55a]/15 text-[#f4d27a]'
-                        : isPriority
-                          ? 'border-white/25 text-white/90 hover:border-[#c6a55a]/40'
-                          : 'border-white/15 text-white/75 hover:border-[#c6a55a]/40'
-                    }`}
-                  >
-                    {sectionLabels[item]}
-                  </Link>
-                )
-              })}
-            </nav>
+            {/* Overview link */}
+            {(() => {
+              const href = country.dashboardPath
+              const isActive = pathname === href
+              return (
+                <Link
+                  href={href}
+                  className={`mb-0.5 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] transition-all ${
+                    isActive
+                      ? 'bg-[rgba(198,165,90,0.1)] text-[#f0d39a]'
+                      : 'text-white/60 hover:bg-white/[0.04] hover:text-white/90'
+                  }`}
+                >
+                  <span>🏠</span>
+                  <span>Overview</span>
+                  {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#c6a55a]" />}
+                </Link>
+              )
+            })()}
 
-            <div className="mt-4 rounded-2xl border border-[#c6a55a]/15 bg-[#07111f]/80 p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#c6a55a]">{selectedPanel.stateCopy.label}</p>
-                  <h2 className="mt-2 text-2xl font-semibold">{sectionLabels[section]}</h2>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/72">{selectedPanel.publicSummary}</p>
-                </div>
-                <span className="rounded-full border border-white/15 px-3 py-1 text-xs uppercase tracking-[0.16em] text-white/70">{selectedPanel.state}</span>
-              </div>
-              <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-white/70">
-                {selectedPanel.stateCopy.emptyState}
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {selectedPanel.actions.map((action) => <Link key={action.href + '-' + action.label} href={action.href} className="rounded-xl border border-[#c6a55a]/30 px-4 py-3 text-sm text-[#f4d27a] focus:outline-none focus:ring-2 focus:ring-[#c6a55a]">{action.label}</Link>)}
-              </div>
-            </div>
-          </section>
-        </div>
+            {/* Section links */}
+            {sections.map((section) => {
+              const href = `${country.dashboardPath}/${section}`
+              const isActive = pathname === href || pathname.startsWith(`${href}/`)
+              const available = country.routeAvailability[section]
+              const panelBadge = getDashboardStatusBadge(country.panels[section].state)
+
+              return (
+                <Link
+                  key={section}
+                  href={available ? href : '#'}
+                  aria-disabled={!available}
+                  className={`mb-0.5 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] transition-all ${
+                    isActive
+                      ? 'bg-[rgba(198,165,90,0.1)] text-[#f0d39a]'
+                      : available
+                      ? 'text-white/60 hover:bg-white/[0.04] hover:text-white/90'
+                      : 'cursor-not-allowed text-white/25'
+                  }`}
+                >
+                  <span>{SECTION_ICONS[section]}</span>
+                  <span className="flex-1">{SECTION_LABELS[section]}</span>
+                  {isActive && <span className="h-1.5 w-1.5 rounded-full bg-[#c6a55a]" />}
+                  {!isActive && available && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: TONE_TEXT[panelBadge.tone], opacity: 0.5 }}
+                    />
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* Bottom actions */}
+          <div
+            className="px-3 py-4"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <button
+              onClick={() => setPostListingOpen(true)}
+              className="mb-2 w-full rounded-xl py-2 text-[11px] transition-all hover:opacity-90"
+              style={{
+                background: 'rgba(198,165,90,0.1)',
+                border: '1px solid rgba(198,165,90,0.25)',
+                color: '#F0D39A',
+              }}
+            >
+              + Post listing
+            </button>
+            <Link
+              href="/"
+              className="block text-center text-[10px] transition-opacity hover:opacity-70"
+              style={{ color: 'rgba(198,165,90,0.35)' }}
+            >
+              ← Return to globe
+            </Link>
+          </div>
+        </aside>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+
+        {/* ── Right signal strip (xl+) ── */}
+        <aside className="hidden w-52 flex-shrink-0 overflow-y-auto xl:flex xl:flex-col">
+          <SignalStrip />
+        </aside>
       </div>
-    </main>
+
+      {/* Modals */}
+      <CountrySelector open={selectorOpen} onClose={() => setSelectorOpen(false)} />
+      <PostListingModal open={postListingOpen} onClose={() => setPostListingOpen(false)} />
+    </div>
   )
 }
 
+// ── SectionPageView ────────────────────────────────────────────────────────
+// Shared section renderer used by every sub-section page.
+export function SectionPageView({
+  country,
+  section,
+  panel,
+  sectionSpecific,
+}: {
+  country: CountryDashboardSummary
+  section: DashboardSectionSlug
+  panel: DashboardPanelBase & Record<string, string>
+  sectionSpecific?: { label: string; value: string }
+}) {
+  const badge = getDashboardStatusBadge(panel.state)
+  const isUnavailable = panel.state === 'unavailable'
+
+  return (
+    <div className="min-h-full p-5">
+      {/* Breadcrumb */}
+      <div className="mb-5 flex items-center gap-2 text-[11px]" style={{ color: 'rgba(198,165,90,0.45)' }}>
+        <Link
+          href={country.dashboardPath}
+          className="transition-opacity hover:opacity-80"
+        >
+          {country.displayName}
+        </Link>
+        <span style={{ color: 'rgba(255,255,255,0.2)' }}>›</span>
+        <span style={{ color: 'rgba(198,165,90,0.7)' }}>{SECTION_LABELS[section]}</span>
+      </div>
+
+      {/* Section header */}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5 mb-2">
+            <span className="text-2xl">{SECTION_ICONS[section]}</span>
+            <h1 className="font-serif text-2xl font-semibold text-white">
+              {SECTION_LABELS[section]}
+            </h1>
+          </div>
+          <p className="text-sm" style={{ color: 'rgba(243,240,234,0.5)' }}>
+            {SECTION_DESCRIPTIONS[section]}
+          </p>
+        </div>
+        <span
+          className="flex-shrink-0 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.12em]"
+          style={{
+            background: TONE_BG[badge.tone],
+            borderColor: TONE_BORDER[badge.tone],
+            color: TONE_TEXT[badge.tone],
+          }}
+        >
+          {badge.label}
+        </span>
+      </div>
+
+      {/* State copy block */}
+      <div
+        className="mb-4 rounded-2xl border-l-2 p-4"
+        style={{
+          background: TONE_BG[badge.tone],
+          borderLeftColor: TONE_BORDER[badge.tone],
+        }}
+      >
+        <p className="mb-1 text-[10px] uppercase tracking-[0.12em]" style={{ color: TONE_TEXT[badge.tone] }}>
+          {panel.stateCopy.label}
+        </p>
+        <p className="text-sm leading-relaxed" style={{ color: 'rgba(243,240,234,0.75)' }}>
+          {panel.stateCopy.summary}
+        </p>
+      </div>
+
+      {/* Public summary */}
+      <div
+        className="mb-4 rounded-2xl p-4"
+        style={{ background: 'rgba(13,32,55,0.7)', border: '1px solid rgba(198,165,90,0.12)' }}
+      >
+        <p className="mb-1.5 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
+          Public orientation
+        </p>
+        <p className="text-sm leading-relaxed" style={{ color: 'rgba(243,240,234,0.6)' }}>
+          {panel.publicSummary}
+        </p>
+      </div>
+
+      {/* Section-specific field (marketPosture, signalAvailability, etc.) */}
+      {sectionSpecific && (
+        <div
+          className="mb-4 rounded-2xl p-4"
+          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <p className="mb-1.5 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.45)' }}>
+            {sectionSpecific.label}
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: 'rgba(243,240,234,0.55)' }}>
+            {sectionSpecific.value}
+          </p>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {isUnavailable && (
+        <div
+          className="mb-4 rounded-2xl p-4 text-center"
+          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}
+        >
+          <p className="text-sm" style={{ color: 'rgba(248,113,113,0.7)' }}>
+            {panel.stateCopy.emptyState}
+          </p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2.5">
+        {panel.actions.map((action) => {
+          const isPrimary = action.intent === 'section' || action.intent === 'primary-dashboard'
+          const isReview  = action.intent === 'review-request'
+          const isReturn  = action.intent === 'globe-return'
+
+          if (isReturn) {
+            return (
+              <Link
+                key={action.href}
+                href="/"
+                className="rounded-xl px-4 py-2.5 text-[12px] transition-all hover:opacity-80"
+                style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(243,240,234,0.45)' }}
+              >
+                {action.label}
+              </Link>
+            )
+          }
+
+          return (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="rounded-xl px-4 py-2.5 text-[12px] font-medium transition-all hover:opacity-90"
+              style={
+                isPrimary
+                  ? { background: 'rgba(198,165,90,0.12)', border: '1px solid rgba(198,165,90,0.3)', color: '#F0D39A' }
+                  : isReview
+                  ? { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(243,240,234,0.55)' }
+                  : { border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(243,240,234,0.45)' }
+              }
+            >
+              {action.label}
+            </Link>
+          )
+        })}
+      </div>
+
+      {/* Back to overview */}
+      <div className="mt-8 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <Link
+          href={country.dashboardPath}
+          className="text-[11px] transition-opacity hover:opacity-70"
+          style={{ color: 'rgba(198,165,90,0.4)' }}
+        >
+          ← Back to {country.displayName} overview
+        </Link>
+      </div>
+    </div>
+  )
+}

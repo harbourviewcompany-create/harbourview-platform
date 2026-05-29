@@ -1,10 +1,22 @@
 import { notFound } from 'next/navigation'
-import { CountryDashboardShell } from '../_components'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
+import { SectionPageView } from '../_components'
 
-export default async function ComplianceDashboardPage({ params }: { params: Promise<{ country: string }> }) {
-  const { country: countryParam } = await params
-  const country = resolveCountryRouteParam(countryParam)
+type Props = { params: Promise<{ country: string }> }
+
+export default async function CompliancePage({ params }: Props) {
+  const { country: slug } = await params
+  const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
-  return <CountryDashboardShell country={country} section="compliance" />
+
+  const panel = country.panels.compliance
+
+  return (
+    <SectionPageView
+      country={country}
+      section="compliance"
+      panel={panel as typeof panel & Record<string, string>}
+      sectionSpecific={{ label: 'Compliance status', value: panel.complianceStatus }}
+    />
+  )
 }

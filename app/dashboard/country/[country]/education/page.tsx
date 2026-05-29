@@ -1,10 +1,22 @@
 import { notFound } from 'next/navigation'
-import { CountryDashboardShell } from '../_components'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
+import { SectionPageView } from '../_components'
 
-export default async function EducationDashboardPage({ params }: { params: Promise<{ country: string }> }) {
-  const { country: countryParam } = await params
-  const country = resolveCountryRouteParam(countryParam)
+type Props = { params: Promise<{ country: string }> }
+
+export default async function EducationPage({ params }: Props) {
+  const { country: slug } = await params
+  const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
-  return <CountryDashboardShell country={country} section="education" />
+
+  const panel = country.panels.education
+
+  return (
+    <SectionPageView
+      country={country}
+      section="education"
+      panel={panel as typeof panel & Record<string, string>}
+      sectionSpecific={{ label: 'Education status', value: panel.educationStatus }}
+    />
+  )
 }
