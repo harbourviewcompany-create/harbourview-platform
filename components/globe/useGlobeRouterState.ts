@@ -76,30 +76,40 @@ export function globeRouterReducer(
     case 'MULTI_MARKET_CONFIRM':
       return { ...state, step: 'role', mode: 'multi_market', inlineNotice: undefined }
     case 'NOT_SURE_COUNTRY':
+      // No country known — route immediately to intake via the fallback path
       return {
         ...state,
-        step: 'intent',
+        step: 'routing',
+        routeStatus: 'resolving',
         mode: 'not_sure',
         selectedCountryIso2: undefined,
         selectedCountryIso2s: [],
         selectedRoleId: 'not_sure',
         selectedIntentId: undefined,
-        routeStatus: 'idle',
       }
     case 'ROLE_SELECT':
     case 'ROLE_SEARCH_SELECT':
+      // Role selection is the final user action — fire the resolver immediately
       return {
         ...state,
-        step: 'intent',
+        step: 'routing',
+        routeStatus: 'resolving',
         selectedRoleId: action.roleId,
         selectedIntentId: undefined,
         roleSearchQuery: '',
-        routeStatus: 'idle',
       }
     case 'ROLE_SEARCH_QUERY':
       return { ...state, roleSearchQuery: action.query }
     case 'NOT_SURE_ROLE':
-      return { ...state, step: 'intent', selectedRoleId: 'not_sure', selectedIntentId: undefined }
+      return {
+        ...state,
+        step: 'routing',
+        routeStatus: 'resolving',
+        selectedRoleId: 'not_sure',
+        selectedIntentId: undefined,
+      }
+    // INTENT_SELECT and CONTINUE are kept for legacy compatibility but no longer
+    // reachable from the primary flow (intent step removed).
     case 'INTENT_SELECT':
       return { ...state, selectedIntentId: action.intentId, routeStatus: 'idle' }
     case 'CONTINUE':
@@ -115,12 +125,8 @@ export function globeRouterReducer(
         requestedPath: action.requestedPath,
       }
     case 'BACK':
-      if (state.step === 'intent') {
-        if (state.mode === 'not_sure') return { ...initialGlobeRouterState }
-        return { ...state, step: 'role', selectedIntentId: undefined }
-      }
       if (state.step === 'role') return { ...state, step: 'country', selectedRoleId: undefined }
-      if (state.step === 'fallback' || state.step === 'routing') return { ...state, step: 'intent', routeStatus: 'idle' }
+      if (state.step === 'fallback' || state.step === 'routing') return { ...state, step: 'role', routeStatus: 'idle' }
       return { ...initialGlobeRouterState }
     case 'ESCAPE':
       if (state.roleSearchQuery) return { ...state, roleSearchQuery: '' }
@@ -136,3 +142,4 @@ export function globeRouterReducer(
 export function useGlobeRouterState() {
   return useReducer(globeRouterReducer, initialGlobeRouterState)
 }
+

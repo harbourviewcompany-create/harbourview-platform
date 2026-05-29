@@ -152,15 +152,15 @@ describe('Harbourview globe same-screen router', () => {
     })
   })
 
-  it('moves from country to role to intent without a separate recommendation screen', () => {
+  it('moves from country to role directly to routing without an intent step', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'CA' })
     const afterRole = globeRouterReducer(afterCountry, { type: 'ROLE_SELECT', roleId: 'cultivator_producer' })
-    const afterIntent = globeRouterReducer(afterRole, { type: 'INTENT_SELECT', intentId: 'buyer_or_export_route' })
 
     expect(afterCountry.step).toBe('role')
-    expect(afterRole.step).toBe('intent')
-    expect(afterIntent.step).toBe('intent')
-    expect(afterIntent.selectedIntentId).toBe('buyer_or_export_route')
+    // Intent step removed — role selection fires the resolver immediately
+    expect(afterRole.step).toBe('routing')
+    expect(afterRole.routeStatus).toBe('resolving')
+    expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
   it('returns to the country step on back from role so the camera can fly back to globe', () => {
@@ -172,14 +172,13 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterBack.selectedRoleId).toBeUndefined()
   })
 
-  it('returns from fallback to intent and can reset to the start of the router', () => {
+  it('returns from fallback to role step and can reset to the start of the router', () => {
     const country = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const role = globeRouterReducer(country, { type: 'ROLE_SELECT', roleId: 'doctor_prescriber' })
-    const intent = globeRouterReducer(role, { type: 'INTENT_SELECT', intentId: 'understand_medical_rules' })
-    const routing = globeRouterReducer(intent, { type: 'CONTINUE' })
-    const fallback = globeRouterReducer(routing, {
+    // role_select now fires resolver directly; simulate a route-missing outcome
+    const fallback = globeRouterReducer(role, {
       type: 'ROUTE_MISSING',
-      href: '/intake?source=globe_router&country=DE&role=doctor_prescriber&intent=understand_medical_rules&requestedPath=%2Feducation%2Fmedical',
+      href: '/intake?source=globe_router&country=DE&role=doctor_prescriber&requestedPath=%2Feducation%2Fmedical',
       requestedPath: '/education/medical',
     })
     const back = globeRouterReducer(fallback, { type: 'BACK' })
@@ -189,9 +188,10 @@ describe('Harbourview globe same-screen router', () => {
     expect(fallback.routeStatus).toBe('missing')
     expect(fallback.selectedCountryIso2).toBe('DE')
     expect(fallback.selectedRoleId).toBe('doctor_prescriber')
-    expect(fallback.selectedIntentId).toBe('understand_medical_rules')
     expect(fallback.requestedPath).toBe('/education/medical')
-    expect(back.step).toBe('intent')
+    // BACK from fallback returns to role selection (intent step removed)
+    expect(back.step).toBe('role')
+    expect(back.routeStatus).toBe('idle')
     expect(back.selectedCountryIso2).toBe('DE')
     expect(reset).toEqual(initialGlobeRouterState)
   })
