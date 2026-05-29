@@ -38,11 +38,30 @@ function resolveCountryEducationPath(
   return `/dashboard/country/${country.slug}/education`
 }
 
+// Resolve intelligence destinations to the country intelligence section when a country
+// is known and the section route exists.
+function resolveCountrySectionPath(
+  destinationType: DestinationType,
+  section: 'market' | 'signals' | 'opportunities' | 'intelligence' | 'connections',
+  input: GlobeRouteInput,
+): string | null {
+  if (!input.countryIso2) return null
+  if (input.mode === 'multi_market') return null
+
+  const country = getCountryByIso2(input.countryIso2)
+  if (!country) return null
+
+  const sectionAvailable = country.routeAvailability[section as keyof typeof country.routeAvailability]
+  if (!sectionAvailable) return null
+
+  return `/dashboard/country/${country.slug}/${section}`
+}
+
 export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
   const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? 'routing_review'
 
-  // Country-specific education path — dynamic route, always available when slug resolves.
+  // 1. Country-specific education — dynamic route, always available when slug resolves.
   const countryEducationPath = resolveCountryEducationPath(destinationType, input)
   if (countryEducationPath) {
     return {
@@ -52,7 +71,31 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // Standard manifest-backed resolution.
+  // 2. Country-specific signals section.
+  if (destinationType === 'signals') {
+    const countrySignalsPath = resolveCountrySectionPath(destinationType, 'signals', input)
+    if (countrySignalsPath) {
+      return {
+        status: 'resolved',
+        href: appendGlobeQuery(countrySignalsPath, input),
+        destinationType,
+      }
+    }
+  }
+
+  // 3. Country-specific opportunities section for marketplace intents.
+  if (destinationType === 'marketplace_services') {
+    const countryOppsPath = resolveCountrySectionPath(destinationType, 'opportunities', input)
+    if (countryOppsPath) {
+      return {
+        status: 'resolved',
+        href: appendGlobeQuery(countryOppsPath, input),
+        destinationType,
+      }
+    }
+  }
+
+  // 4. Standard manifest-backed resolution.
   const requestedPath = destinationBasePathMap[destinationType]
 
   if (!routeExists(requestedPath)) {
@@ -77,3 +120,4 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
 export function useRouteResolver() {
   return resolveGlobeRoute
 }
+
