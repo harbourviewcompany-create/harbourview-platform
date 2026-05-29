@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation'
 import { CountryDashboardShell } from './_components'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
-import { mapGlobeRoleToDashboardRole, getDashboardRoleLabel } from '@/lib/dashboard/globeRouteContext'
-import type { RoleId } from '@/types/globe-router'
+import { resolveCommercialDashboardSelection } from '@/lib/dashboard/commercialDashboard'
 
 export default async function CountryDashboardPage({
   params,
@@ -15,12 +14,7 @@ export default async function CountryDashboardPage({
   const country = resolveCountryRouteParam(countryParam)
   if (!country) notFound()
 
-  // Resolve the globe role from query params set by the router.
-  // Falls back to 'commercial_operator' when navigating directly (no source param).
-  const rawRole = typeof resolvedSearch.role === 'string' ? resolvedSearch.role : undefined
-  const dashboardRole = mapGlobeRoleToDashboardRole(rawRole as RoleId | undefined)
-  const roleLabel = getDashboardRoleLabel(dashboardRole)
+  const { selectedRole, selectedLayer } = resolveCommercialDashboardSelection(resolvedSearch)
 
-  return <CountryDashboardShell country={country} dashboardRole={dashboardRole} roleLabel={roleLabel} />
+  return <CountryDashboardShell country={country} selectedRole={selectedRole} selectedLayer={selectedLayer} />
 }
-
