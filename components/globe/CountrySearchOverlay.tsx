@@ -1,8 +1,7 @@
 'use client'
 
 import { KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { countryOptions } from '@/config/globe/country-role-profiles'
-import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
+import { canonicalCountrySearchOptions, searchCanonicalCountries } from '@/lib/dashboard/countrySearch'
 
 export function CountrySearchOverlay({
   onSelectCountry,
@@ -15,11 +14,7 @@ export function CountrySearchOverlay({
 }) {
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
-  const matches = useMemo(() => {
-    return countryOptions.filter((country) =>
-      tokenMatchesSearch(query, [country.name, country.iso2, country.region]),
-    )
-  }, [query])
+  const matches = useMemo(() => searchCanonicalCountries(query), [query])
   const hasQuery = query.trim().length > 0
   const highlightedCountry = matches[highlightedIndex]
 
@@ -28,7 +23,7 @@ export function CountrySearchOverlay({
   }, [query])
 
   const selectCountry = (countryIso2: string) => {
-    const selected = countryOptions.find((country) => country.iso2 === countryIso2)
+    const selected = canonicalCountrySearchOptions.find((country) => country.iso2 === countryIso2)
     onSelectCountry(countryIso2)
     setQuery('')
     setHighlightedIndex(0)
@@ -70,7 +65,7 @@ export function CountrySearchOverlay({
 
     if (event.key === 'Enter') {
       event.preventDefault()
-      if (highlightedCountry) selectCountry(highlightedCountry.iso2)
+      if (highlightedCountry && highlightedCountry.status !== 'request-access') selectCountry(highlightedCountry.iso2)
     }
   }
 
@@ -114,13 +109,17 @@ export function CountrySearchOverlay({
               key={country.iso2}
               type="button"
               onMouseEnter={() => setHighlightedIndex(index)}
-              onClick={() => selectCountry(country.iso2)}
+              onClick={() => {
+                if (country.status === 'request-access') return
+                selectCountry(country.iso2)
+              }}
+              disabled={country.status === 'request-access'}
               role="option"
               aria-selected={index === highlightedIndex}
               className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-white/[0.1]' : ''}`}
             >
               <span>{country.name}</span>
-              <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
+              <span className="text-xs text-[#c6a55a]/70">{country.status === 'request-access' ? 'Request access' : `${country.iso2} / ${country.iso3}`}</span>
             </button>
           ))}
           {matches.length === 0 ? (

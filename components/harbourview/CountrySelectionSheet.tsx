@@ -1,8 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { countryOptions } from '@/config/globe/country-role-profiles'
-import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
+import { searchCanonicalCountries } from '@/lib/dashboard/countrySearch'
 import { CheckCircleIcon, GlobeIcon, QuestionCircleIcon, SearchIcon } from './icons'
 
 type SelectedPath = 'country' | 'not_sure' | 'multi_market'
@@ -28,9 +27,7 @@ export function CountrySelectionSheet({
 
   const matches = useMemo(() => {
     if (!query.trim()) return []
-    return countryOptions
-      .filter((c) => tokenMatchesSearch(query, [c.name, c.iso2, c.region]))
-      .slice(0, 6)
+    return searchCanonicalCountries(query)
   }, [query])
 
   const canContinue = selectedCountryIso2 !== null || selectedPath !== 'country'
@@ -137,37 +134,50 @@ export function CountrySelectionSheet({
               background: 'rgba(7,17,28,0.96)',
               border: '1px solid rgba(220,231,242,0.14)',
               backdropFilter: 'blur(18px)',
-              overflow: 'hidden',
+              maxHeight: 280,
+              overflowY: 'auto',
+              overflowX: 'hidden',
               zIndex: 10,
             }}
           >
-            {matches.map((country) => (
-              <li key={country.iso2} role="option" aria-selected={selectedCountryIso2 === country.iso2}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectCountry(country.iso2)
-                    onSelectPath('country')
-                    setQuery('')
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: selectedCountryIso2 === country.iso2 ? 'rgba(240,211,154,0.08)' : 'transparent',
-                    color: 'var(--hv-text-primary)',
-                    fontSize: 15,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    border: 'none',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  }}
-                >
-                  {country.name}
-                </button>
-              </li>
-            ))}
+            {matches.map((country) => {
+              const requestAccess = country.status === 'request-access'
+
+              return (
+                <li key={country.iso2} role="option" aria-selected={selectedCountryIso2 === country.iso2} aria-disabled={requestAccess}>
+                  <button
+                    type="button"
+                    disabled={requestAccess}
+                    onClick={() => {
+                      if (requestAccess) return
+                      onSelectCountry(country.iso2)
+                      onSelectPath('country')
+                      setQuery('')
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: selectedCountryIso2 === country.iso2 ? 'rgba(240,211,154,0.08)' : 'transparent',
+                      color: requestAccess ? 'rgba(220,231,242,0.48)' : 'var(--hv-text-primary)',
+                      fontSize: 15,
+                      textAlign: 'left',
+                      cursor: requestAccess ? 'not-allowed' : 'pointer',
+                      border: 'none',
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <span>{country.name}</span>
+                    <span style={{ color: 'rgba(214,177,105,0.72)', fontSize: 12 }}>
+                      {requestAccess ? 'Request access' : `${country.iso2} / ${country.iso3}`}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

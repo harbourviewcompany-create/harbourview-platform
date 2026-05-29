@@ -44,6 +44,9 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 |---|---|---|---|---|---|
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Current |
 
+| 2026-05-29 | Commercial country dashboard reset | `npm ci`; `npm run lint`; `npm run typecheck`; `npm run test -- --passWithNoTests`; `npm run build`; `npx vitest run tests/dashboard/commercial-country-dashboard.test.tsx`; `git diff --check` | Dependency install/test/build commands blocked because `node_modules` is absent and registry access returned 403 or local binaries were unavailable; `git diff --check` passed | Local terminal output in agent session; changed files include `app/dashboard/country/[country]/_components.tsx`, `lib/dashboard/commercial.ts`, and `tests/dashboard/commercial-country-dashboard.test.tsx` | Blocked / partial |
+| 2026-05-29 | Mobile country dashboard acceptance patch | `npm install`; `npm run typecheck`; `npm run lint`; `npm run test -- --passWithNoTests`; `npm run build`; `npx playwright --version`; `git diff --check`; static forbidden-string scan | Dependency install/test/build/Playwright commands blocked because `node_modules` is absent and registry access returned 403 or local binaries were unavailable; `git diff --check` passed; static forbidden-string scan found no matches in touched public dashboard/menu/search files | Local terminal output in agent session; changed files include `app/dashboard/country/[country]/_components.tsx`, `components/Nav.tsx`, `lib/dashboard/countrySearch.ts`, and `tests/dashboard/mobile-country-flow.test.tsx` | Blocked / partial |
+
 ## Deployment Evidence
 
 | Date | Environment | URL | Result | Link / artifact | Status |
