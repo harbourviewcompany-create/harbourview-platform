@@ -1,3 +1,4 @@
+import { getCountryByIso2 } from '@/lib/dashboard/countries'
 import type { CountryOption, CountryRoleProfile, RoleId } from '@/types/globe-router'
 import { allRoleIds } from './role-profiles'
 
@@ -145,7 +146,15 @@ export function getCountryRoleProfile(countryIso2?: string): CountryRoleProfile 
 export function getCountryName(countryIso2?: string) {
   if (!countryIso2) return 'Selected market'
 
-  return countryOptionMap[countryIso2]?.name ?? countryIso2
+  // Primary: tracked-alpha short list with curated names
+  const tracked = countryOptionMap[countryIso2]
+  if (tracked) return tracked.name
+
+  // Fallback: full 196-country Natural Earth database
+  const full = getCountryByIso2(countryIso2)
+  if (full) return full.displayName
+
+  return countryIso2
 }
 
 export function getMultiMarketRoleIds(countryIso2s: string[]) {
