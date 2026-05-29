@@ -17,7 +17,14 @@ export function CountrySearchOverlay({
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const matches = useMemo(() => {
     return countryOptions.filter((country) =>
-      tokenMatchesSearch(query, [country.name, country.iso2, country.region]),
+      tokenMatchesSearch(query, [
+        country.name,
+        country.iso2,
+        country.iso3 ?? '',
+        country.region,
+        country.subregion ?? '',
+        ...(country.aliases ?? []),
+      ]),
     )
   }, [query])
   const hasQuery = query.trim().length > 0
@@ -75,7 +82,7 @@ export function CountrySearchOverlay({
   }
 
   return (
-    <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-6 sm:right-auto sm:w-[380px]">
+    <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 max-h-[min(72svh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-hidden rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-6 sm:right-auto sm:w-[380px]">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#d8be76]">Harbourview</p>
         <button type="button" onClick={onNotSure} className="min-h-10 rounded-full border border-[#c6a55a]/20 px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-white/70">
@@ -107,7 +114,7 @@ export function CountrySearchOverlay({
       </p>
 
       {hasQuery ? (
-        <div id="country-search-results" role="listbox" aria-label="Matching countries" className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1">
+        <div id="country-search-results" role="listbox" aria-label="Matching countries" className="mt-2 max-h-[calc(72svh-7.25rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1 [-webkit-overflow-scrolling:touch]">
           {matches.map((country, index) => (
             <button
               id={`country-option-${country.iso2}`}
@@ -117,10 +124,15 @@ export function CountrySearchOverlay({
               onClick={() => selectCountry(country.iso2)}
               role="option"
               aria-selected={index === highlightedIndex}
-              className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-white/[0.1]' : ''}`}
+              className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-white/[0.1]' : ''}`}
             >
-              <span>{country.name}</span>
-              <span className="text-xs text-[#c6a55a]/70">{country.iso2}</span>
+              <span className="min-w-0">
+                <span className="block truncate">{country.name}</span>
+                {country.dashboardStatus === 'request-only' || country.dashboardStatus === 'review-required' || country.dashboardStatus === 'unavailable' ? (
+                  <span className="block text-[10px] uppercase tracking-[0.14em] text-white/42">Contact / request access</span>
+                ) : null}
+              </span>
+              <span className="shrink-0 text-xs text-[#c6a55a]/70">{country.iso2}</span>
             </button>
           ))}
           {matches.length === 0 ? (
