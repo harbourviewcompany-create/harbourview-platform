@@ -245,6 +245,7 @@ export type FeedbackOutcome =
   | 'valuable_relationship'
   | 'weak_fit'
   | 'needs_future_follow_up'
+  | 'converted_to_opportunity'
 
 export interface FeedbackEvent {
   id: string
@@ -257,3 +258,4 @@ export interface FeedbackEvent {
   notes?: string
   loggedAt: string
 }
+
