@@ -3,6 +3,7 @@ import type { CountryDashboardSummary, DashboardSectionSlug } from '@/lib/dashbo
 import { countries, dashboardSections, getDashboardSectionHref } from '@/lib/dashboard/countries'
 import { serializeCountryDashboardPublicDto } from '@/lib/dashboard/publicDto'
 import { CountrySwitcher } from './CountrySwitcher'
+import type { DashboardRole } from '@/lib/dashboard/globeRouteContext'
 
 const sectionLabels: Record<DashboardSectionSlug, string> = {
   market: 'Market',
@@ -14,10 +15,44 @@ const sectionLabels: Record<DashboardSectionSlug, string> = {
   connections: 'Reviewed Connections',
 }
 
-export function CountryDashboardShell({ country, section = 'market' }: { country: CountryDashboardSummary; section?: DashboardSectionSlug }) {
+// Sections surfaced first for each role — shown highlighted in the nav.
+const rolePrioritySections: Record<DashboardRole, DashboardSectionSlug[]> = {
+  medical_professional: ['education', 'compliance', 'market'],
+  regulatory_legal: ['compliance', 'intelligence', 'signals'],
+  commercial_operator: ['market', 'opportunities', 'signals'],
+}
+
+const roleAccentColor: Record<DashboardRole, string> = {
+  medical_professional: 'text-[#6bbfff] border-[#6bbfff]/30 bg-[#6bbfff]/10',
+  regulatory_legal: 'text-[#b8a5ff] border-[#b8a5ff]/30 bg-[#b8a5ff]/10',
+  commercial_operator: 'text-[#f4d27a] border-[#c6a55a]/35 bg-[#c6a55a]/10',
+}
+
+export function CountryDashboardShell({
+  country,
+  section = 'market',
+  dashboardRole = 'commercial_operator',
+  roleLabel = 'Commercial Operator',
+}: {
+  country: CountryDashboardSummary
+  section?: DashboardSectionSlug
+  dashboardRole?: DashboardRole
+  roleLabel?: string
+}) {
   const dto = serializeCountryDashboardPublicDto(country)
   const selectedPanel = dto.panels[section]
   const regionCountries = countries.filter((item) => item.region === country.region).slice(0, 8)
+  const prioritySections = rolePrioritySections[dashboardRole]
+
+  // Sort section tabs so role-priority sections appear first.
+  const sortedSections = [...dashboardSections].sort((a, b) => {
+    const ai = prioritySections.indexOf(a)
+    const bi = prioritySections.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return 0
+  })
 
   return (
     <main className="min-h-screen bg-[#03070d] text-white">
@@ -41,10 +76,14 @@ export function CountryDashboardShell({ country, section = 'market' }: { country
                 <span className="rounded-full border border-white/15 px-3 py-1">{dto.region}</span>
                 <span className="rounded-full border border-white/15 px-3 py-1">{dto.subregion}</span>
                 <span className="rounded-full border border-[#c6a55a]/35 bg-[#c6a55a]/10 px-3 py-1 text-[#f4d27a]">{dto.statusBadge.label}</span>
+                {/* Role identity badge — set by the globe router when navigating from a role selection */}
+                <span className={`rounded-full border px-3 py-1 font-semibold ${roleAccentColor[dashboardRole]}`}>
+                  {roleLabel}
+                </span>
               </div>
             </div>
             <div className="grid gap-2 sm:min-w-64">
-              <Link href={`/contact?intent=dashboard-review&country=${dto.slug}`} className="rounded-xl bg-[#c6a55a] px-4 py-3 text-center text-sm font-semibold text-[#07111f] focus:outline-none focus:ring-2 focus:ring-white">Request Harbourview review</Link>
+              <Link href={'/contact?intent=dashboard-review&country=' + dto.slug} className="rounded-xl bg-[#c6a55a] px-4 py-3 text-center text-sm font-semibold text-[#07111f] focus:outline-none focus:ring-2 focus:ring-white">Request Harbourview review</Link>
               <Link href="/" className="rounded-xl border border-white/15 px-4 py-3 text-center text-sm text-white/85 focus:outline-none focus:ring-2 focus:ring-[#c6a55a]">Back to globe</Link>
             </div>
           </div>
@@ -64,9 +103,25 @@ export function CountryDashboardShell({ country, section = 'market' }: { country
 
           <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
             <nav aria-label="Dashboard section navigation" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-3">
-              {dashboardSections.map((item) => {
+              {sortedSections.map((item) => {
                 const selected = item === section
-                return <Link key={item} href={getDashboardSectionHref(dto.slug, item)} aria-current={selected ? 'page' : undefined} className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#c6a55a] ${selected ? 'border-[#c6a55a] bg-[#c6a55a]/15 text-[#f4d27a]' : 'border-white/15 text-white/75 hover:border-[#c6a55a]/40'}`}>{sectionLabels[item]}</Link>
+                const isPriority = prioritySections.includes(item)
+                return (
+                  <Link
+                    key={item}
+                    href={getDashboardSectionHref(dto.slug, item)}
+                    aria-current={selected ? 'page' : undefined}
+                    className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#c6a55a] ${
+                      selected
+                        ? 'border-[#c6a55a] bg-[#c6a55a]/15 text-[#f4d27a]'
+                        : isPriority
+                          ? 'border-white/25 text-white/90 hover:border-[#c6a55a]/40'
+                          : 'border-white/15 text-white/75 hover:border-[#c6a55a]/40'
+                    }`}
+                  >
+                    {sectionLabels[item]}
+                  </Link>
+                )
               })}
             </nav>
 
@@ -83,7 +138,7 @@ export function CountryDashboardShell({ country, section = 'market' }: { country
                 {selectedPanel.stateCopy.emptyState}
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
-                {selectedPanel.actions.map((action) => <Link key={`${action.href}-${action.label}`} href={action.href} className="rounded-xl border border-[#c6a55a]/30 px-4 py-3 text-sm text-[#f4d27a] focus:outline-none focus:ring-2 focus:ring-[#c6a55a]">{action.label}</Link>)}
+                {selectedPanel.actions.map((action) => <Link key={action.href + '-' + action.label} href={action.href} className="rounded-xl border border-[#c6a55a]/30 px-4 py-3 text-sm text-[#f4d27a] focus:outline-none focus:ring-2 focus:ring-[#c6a55a]">{action.label}</Link>)}
               </div>
             </div>
           </section>
@@ -92,3 +147,4 @@ export function CountryDashboardShell({ country, section = 'market' }: { country
     </main>
   )
 }
+
