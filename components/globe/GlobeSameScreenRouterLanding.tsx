@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
-import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
 import dynamic from 'next/dynamic'
@@ -18,7 +17,6 @@ import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
-import { IntentCardGrid } from './IntentCardGrid'
 import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
@@ -34,7 +32,6 @@ function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.selectedCountryIso2) params.set('country', state.selectedCountryIso2)
   if (state.selectedCountryIso2s.length) params.set('countries', state.selectedCountryIso2s.join(','))
   if (state.selectedRoleId) params.set('role', state.selectedRoleId)
-  if (state.selectedIntentId) params.set('intent', state.selectedIntentId)
   if (state.activeLayerId) params.set('layer', state.activeLayerId)
   if (state.requestedPath) params.set('requestedPath', state.requestedPath)
 
@@ -55,10 +52,6 @@ function getFallbackContextItems(state: GlobeRouterState) {
 
   if (state.selectedRoleId) {
     items.push({ label: 'Role', value: roleProfileMap[state.selectedRoleId]?.label ?? state.selectedRoleId })
-  }
-
-  if (state.selectedIntentId) {
-    items.push({ label: 'Intent', value: intentProfileMap[state.selectedIntentId]?.label ?? state.selectedIntentId })
   }
 
   if (state.requestedPath) {
@@ -151,6 +144,7 @@ export function GlobeSameScreenRouterLanding() {
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
+
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
 
@@ -202,7 +196,7 @@ export function GlobeSameScreenRouterLanding() {
 
       <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Start with a tracked alpha jurisdiction. Harbourview will adjust the next choices by market, role and intent.
+          Select a country and your role. Harbourview will route you to the right market intelligence.
         </p>
       </div>
 
@@ -228,19 +222,6 @@ export function GlobeSameScreenRouterLanding() {
             selectedRoleId={state.selectedRoleId}
             onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
             onSelectRole={(roleId) => dispatch({ type: 'ROLE_SELECT', roleId })}
-          />
-        </RouterBottomSheet>
-      ) : null}
-
-      {state.step === 'intent' ? (
-        <RouterBottomSheet eyebrow={selectedCountryName} title="What are you trying to do?" size="intent" onBack={() => dispatch({ type: 'BACK' })} footer={<button type="button" disabled={!state.selectedIntentId} onClick={() => dispatch({ type: 'CONTINUE' })} className="min-h-12 w-full rounded-full bg-[#c6a55a] px-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] disabled:cursor-not-allowed disabled:opacity-45">Continue</button>}>
-          <IntentCardGrid
-            countryName={selectedCountryName}
-            countryIso2={state.selectedCountryIso2}
-            mode={state.mode}
-            roleId={state.selectedRoleId}
-            selectedIntentId={state.selectedIntentId}
-            onSelectIntent={(intentId) => dispatch({ type: 'INTENT_SELECT', intentId })}
           />
         </RouterBottomSheet>
       ) : null}
@@ -273,7 +254,7 @@ export function GlobeSameScreenRouterLanding() {
         >
           <div className="grid gap-4">
             <p data-testid="globe-fallback-message" className="text-sm leading-6 text-white/72">
-              No public page is live for this selection yet. Harbourview has kept the route context below so intake can continue without making you re-enter the country, role or intent.
+              No public page is live for this selection yet. Harbourview has kept the route context below so intake can continue without making you re-enter the country or role.
             </p>
 
             {fallbackContextItems.length > 0 ? (
@@ -288,7 +269,7 @@ export function GlobeSameScreenRouterLanding() {
             ) : null}
 
             <p className="text-xs leading-5 text-white/50">
-              Use Back to change the selected intent, or Start over to return to country selection.
+              Use Back to change your role selection, or Start over to return to country selection.
             </p>
           </div>
         </RouterBottomSheet>
@@ -296,3 +277,4 @@ export function GlobeSameScreenRouterLanding() {
     </main>
   )
 }
+
