@@ -18,7 +18,7 @@ const productCategories = [
 
 const labelClass = 'mb-2 block text-sm font-semibold text-[#f4f1eb]'
 const fieldClass =
-  'w-full rounded-sm border border-gold/14 bg-[#020814] px-3 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/32 focus:border-gold/55 focus:ring-2 focus:ring-gold/15'
+  'w-full rounded-sm border border-gold/15 bg-[#020814] px-3 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-gold/50 focus:ring-2 focus:ring-gold/15'
 const errorClass = 'mt-2 text-xs text-red-300'
 
 function readFormString(data: FormData, key: string) {
@@ -117,10 +117,10 @@ export default function ConsumablesRequestForm() {
 
   if (state === 'success') {
     return (
-      <div className="rounded-sm border border-gold/12 bg-[#071425] p-8 text-center">
+      <div className="rounded-sm border border-gold/15 bg-[#071425] p-8 text-center">
         <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-gold">Received</p>
         <h2 className="mb-2 font-serif text-2xl tracking-[-0.03em] text-[#f5f1e8]">Consumables request received</h2>
-        <p data-testid="consumables-request-diagnostic-message" className="text-sm leading-7 text-white/58">
+        <p data-testid="consumables-request-diagnostic-message" className="text-sm leading-7 text-white/60">
           {message}
         </p>
         <button
@@ -139,9 +139,9 @@ export default function ConsumablesRequestForm() {
 
   return (
     <form onSubmit={handleSubmit} className="rounded-sm border border-gold/10 bg-[#071425] p-6" noValidate>
-      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">Buyer request intake</p>
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/75">Buyer request intake</p>
       <h2 className="mb-3 font-serif text-3xl tracking-[-0.035em] text-[#f5f1e8]">Request consumables sourcing.</h2>
-      <p className="mb-6 text-sm leading-7 text-white/58">
+      <p className="mb-6 text-sm leading-7 text-white/60">
         Use this form for category, volume, target market and timing requirements. Harbourview reviews requests before response or routing.
       </p>
 
@@ -209,7 +209,7 @@ export default function ConsumablesRequestForm() {
           />
         </div>
 
-        <p className="text-xs leading-6 text-white/42">
+        <p className="text-xs leading-6 text-white/40">
           Public page submissions are captured through the controlled marketplace intake route. Contact details and request details are not public.
         </p>
 
