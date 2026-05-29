@@ -1,0 +1,68 @@
+name: Phase 1 Source Import Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_import:
+        description: "Type IMPORT to execute source_registry writes"
+        required: true
+        default: "DRY_RUN"
+      source_version:
+        description: "Source import version label"
+        required: true
+        default: "phase1_uploaded_5359_20260528"
+
+permissions:
+  contents: read
+
+jobs:
+  import-source-registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets[format('SUPABASE_{0}', 'SERVICE_ROLE_KEY')] }}
+      SOURCE_IMPORT_VERSION: ${{ inputs.source_version }}
+      SOURCE_IMPORT_INPUT: data/source-import/cannabis_sources_5000.json
+      SOURCE_IMPORT_BATCH_SIZE: "100"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify execution gate and source payload
+        run: |
+          if [ "${{ inputs.run_import }}" != "IMPORT" ]; then
+            echo "run_import must be IMPORT. Current value: ${{ inputs.run_import }}"
+            exit 1
+          fi
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          echo "$SUPABASE_URL" | grep -q "$SUPABASE_PROJECT_REF"
+          if [ -d data/source-import/payload_chunks ] && ls data/source-import/payload_chunks/*.b64 >/dev/null 2>&1; then
+            cat data/source-import/payload_chunks/*.b64 > /tmp/cannabis_sources_5000.json.gz.b64
+            base64 -d /tmp/cannabis_sources_5000.json.gz.b64 > /tmp/cannabis_sources_5000.json.gz
+            gzip -dc /tmp/cannabis_sources_5000.json.gz > data/source-import/cannabis_sources_5000.json
+          fi
+          test -f data/source-import/cannabis_sources_5000.json
+          node -e "const fs=require('fs'); const rows=JSON.parse(fs.readFileSync('data/source-import/cannabis_sources_5000.json','utf8')); if(!Array.isArray(rows)) throw new Error('source payload is not an array'); console.log(JSON.stringify({source_rows: rows.length}, null, 2)); if(rows.length < 5359) throw new Error('expected at least 5359 source rows');"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build import batches
+        run: npm run source-import:build
+
+      - name: Execute source import
+        run: npm run source-import:push
+
+      - name: Upload source import artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-source-import-artifacts
+          path: |
+            docs/control/source-import/manifest.json
+            docs/control/source-import/preupload_rejections.json
+            docs/control/source-import/import_run_ledger.json
