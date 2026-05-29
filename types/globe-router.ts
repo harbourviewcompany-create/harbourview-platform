@@ -91,8 +91,12 @@ export interface RoleProfile {
 
 export interface CountryOption {
   iso2: string
+  iso3?: string
   name: string
   region: string
+  subregion?: string
+  aliases?: string[]
+  dashboardStatus?: DashboardPanelState
 }
 
 export interface CountryRoleProfile {
@@ -177,6 +181,15 @@ export interface GlobeRouteResult {
 }
 
 export type RouteAvailability = 'available' | 'provisional' | 'missing'
+
+export type DashboardPanelState =
+  | 'live'
+  | 'partial'
+  | 'static-orientation'
+  | 'fallback-backed'
+  | 'request-only'
+  | 'review-required'
+  | 'unavailable'
 
 export interface GlobeRouteManifestEntry {
   path: string
