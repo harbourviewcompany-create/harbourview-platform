@@ -48,6 +48,7 @@ const REQUIRED_ALIAS_GROUPS: Record<string, string[]> = {
 }
 
 const fixtureStatusBySlug: Record<string, DashboardPanelState> = {
+  brazil: 'live',
   germany: 'live',
   italy: 'partial',
   'new-zealand': 'request-only',
@@ -61,6 +62,7 @@ const fixtureStatusBySlug: Record<string, DashboardPanelState> = {
 }
 
 const fixtureSummaries: Record<string, string> = {
+  brazil: 'Commercial operating dashboard for marketplace transactions, lawful trade access review, professional education, readiness gates, and supporting movement.',
   germany: 'Live country console for medical-market posture, compliance routing, signals, and reviewed opportunity intake.',
   italy: 'Partial country console with reviewed orientation and request-routed country intelligence.',
   'new-zealand': 'Request-only country console for private market, compliance, and connection review.',
