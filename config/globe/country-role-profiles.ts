@@ -1,19 +1,29 @@
-import { getCountryByIso2 } from '@/lib/dashboard/countries'
+import { countries, getCountryByIso2 } from '@/lib/dashboard/countries'
 import type { CountryOption, CountryRoleProfile, RoleId } from '@/types/globe-router'
 import { allRoleIds } from './role-profiles'
 
+const curatedCountryOrder = ['DE', 'CA', 'PT', 'NL', 'AU', 'GB', 'US', 'CO', 'UY', 'IL', 'ZA']
+
+function mapDashboardCountryToOption(country: (typeof countries)[number]): CountryOption {
+  return {
+    iso2: country.iso2,
+    iso3: country.iso3,
+    name: country.displayName,
+    region: country.region,
+    subregion: country.subregion,
+    aliases: country.aliases,
+    dashboardStatus: country.dashboardStatus,
+  }
+}
+
 export const countryOptions: CountryOption[] = [
-  { iso2: 'DE', name: 'Germany', region: 'Europe' },
-  { iso2: 'CA', name: 'Canada', region: 'North America' },
-  { iso2: 'PT', name: 'Portugal', region: 'Europe' },
-  { iso2: 'NL', name: 'Netherlands', region: 'Europe' },
-  { iso2: 'AU', name: 'Australia', region: 'Oceania' },
-  { iso2: 'GB', name: 'United Kingdom', region: 'Europe' },
-  { iso2: 'US', name: 'United States', region: 'North America' },
-  { iso2: 'CO', name: 'Colombia', region: 'South America' },
-  { iso2: 'UY', name: 'Uruguay', region: 'South America' },
-  { iso2: 'IL', name: 'Israel', region: 'Middle East' },
-  { iso2: 'ZA', name: 'South Africa', region: 'Africa' },
+  ...curatedCountryOrder
+    .map((iso2) => countries.find((country) => country.iso2 === iso2))
+    .filter((country): country is (typeof countries)[number] => Boolean(country))
+    .map(mapDashboardCountryToOption),
+  ...countries
+    .filter((country) => !curatedCountryOrder.includes(country.iso2))
+    .map(mapDashboardCountryToOption),
 ]
 
 export const countryOptionMap = Object.fromEntries(
@@ -139,18 +149,18 @@ export function getCountryRoleProfile(countryIso2?: string): CountryRoleProfile 
   return countryRoleProfileMap[countryIso2] ?? {
     ...defaultCountryRoleProfile,
     countryIso2,
-    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? getCountryName(countryIso2),
   }
 }
 
 export function getCountryName(countryIso2?: string) {
   if (!countryIso2) return 'Selected market'
 
-  // Primary: tracked-alpha short list with curated names
+  // Primary: full dashboard-safe country registry used by both desktop and mobile routing.
   const tracked = countryOptionMap[countryIso2]
   if (tracked) return tracked.name
 
-  // Fallback: full 196-country Natural Earth database
+  // Fallback: full 196-country Natural Earth database.
   const full = getCountryByIso2(countryIso2)
   if (full) return full.displayName
 
