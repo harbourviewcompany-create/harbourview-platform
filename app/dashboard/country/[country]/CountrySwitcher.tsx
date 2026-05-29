@@ -2,12 +2,12 @@
 
 import { useRouter } from 'next/navigation'
 
-export function CountrySwitcher({ countries, currentSlug }: { countries: { slug: string; displayName: string; dashboardPath: string }[]; currentSlug: string }) {
+export function CountrySwitcher({ countries, currentSlug, id = 'country-switcher' }: { countries: { slug: string; displayName: string; dashboardPath: string }[]; currentSlug: string; id?: string }) {
   const router = useRouter()
 
   return (
     <select
-      id="country-switcher"
+      id={id}
       value={currentSlug}
       onChange={(event) => {
         const next = countries.find((country) => country.slug === event.target.value)

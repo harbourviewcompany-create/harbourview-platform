@@ -45,9 +45,11 @@ const REQUIRED_ALIAS_GROUPS: Record<string, string[]> = {
   taiwan: ['Taiwan'],
   'hong-kong': ['Hong Kong'],
   macau: ['Macau'],
+  malta: ['Malta'],
 }
 
 const fixtureStatusBySlug: Record<string, DashboardPanelState> = {
+  brazil: 'live',
   germany: 'live',
   italy: 'partial',
   'new-zealand': 'request-only',
@@ -61,6 +63,7 @@ const fixtureStatusBySlug: Record<string, DashboardPanelState> = {
 }
 
 const fixtureSummaries: Record<string, string> = {
+  brazil: 'Commercial operating dashboard for marketplace transactions, lawful trade access review, professional education, readiness gates, and supporting movement.',
   germany: 'Live country console for medical-market posture, compliance routing, signals, and reviewed opportunity intake.',
   italy: 'Partial country console with reviewed orientation and request-routed country intelligence.',
   'new-zealand': 'Request-only country console for private market, compliance, and connection review.',
@@ -90,6 +93,7 @@ const countryOverrides: Record<string, Partial<CountryDashboardSummary>> = {
   taiwan: { iso2: 'TW', iso3: 'TWN', displayName: 'Taiwan', region: 'Asia', subregion: 'Eastern Asia' },
   'hong-kong': { iso2: 'HK', iso3: 'HKG', displayName: 'Hong Kong', region: 'Asia', subregion: 'Eastern Asia' },
   macau: { iso2: 'MO', iso3: 'MAC', displayName: 'Macau', region: 'Asia', subregion: 'Eastern Asia' },
+  malta: { iso2: 'MT', iso3: 'MLT', displayName: 'Malta', region: 'Europe', subregion: 'Southern Europe' },
 }
 
 const slugAliases: Record<string, string> = {
@@ -232,7 +236,7 @@ const naturalEarthRecords = naturalEarthCountriesPayload.countries.map((country)
   globeFeatureId: country.iso3,
 }))
 
-const supplementalRecords = ['kosovo', 'taiwan', 'hong-kong', 'macau']
+const supplementalRecords = ['kosovo', 'taiwan', 'hong-kong', 'macau', 'malta']
   .map((slug) => countryOverrides[slug])
   .filter((country): country is Partial<CountryDashboardSummary> & { displayName: string; iso2: string; iso3: string } => Boolean(country?.displayName && country.iso2 && country.iso3))
   .map((country) => makeCountry({ displayName: country.displayName, iso2: country.iso2, iso3: country.iso3, region: country.region, subregion: country.subregion, globeFeatureId: country.iso3 }))
