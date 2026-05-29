@@ -8,9 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:globe-router && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
+    "test": "npm run test:globe-router && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts --pool=forks --no-file-parallelism",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
-    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-foundation.test.ts tests/globe-polygon-rendering.test.ts tests/globe-natural-earth-countries.test.ts && node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs",
+    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-foundation.test.ts tests/globe-polygon-rendering.test.ts tests/globe-natural-earth-countries.test.ts --pool=forks --no-file-parallelism && node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs",
     "test:visibility": "node scripts/test-public-provenance-visibility.mjs && node scripts/test-business-opportunities-public-leakage.mjs",
     "test:listing-quality": "node scripts/test-listing-quality.mjs",
     "test:public-images": "node scripts/test-public-image-assets.mjs",
@@ -21,7 +21,6 @@
     "test:regulatory-signals-public-leakage": "node scripts/test-regulatory-signals-public-leakage.mjs",
     "test:regulatory-signals-contract": "node scripts/test-regulatory-signals-contract.mjs",
     "test:admin-guard": "node scripts/test-admin-role-guard.mjs && node scripts/test-admin-role-logic.mjs && node scripts/test-marketplace-conversion-workflow.mjs && node scripts/test-smoke-marketplace-route-guard.mjs",
-    "test:admin-dashboard": "node scripts/test-admin-role-guard.mjs && node scripts/test-playwright-public-and-admin-access.mjs",
     "test:live-source-intake": "node scripts/test-live-source-intake.mjs",
     "test:new-products-equipment-intake": "node scripts/test-new-products-equipment-intake.mjs",
     "test:intake-workflow-safety": "node scripts/test-live-source-intake.mjs && node scripts/test-new-products-equipment-intake.mjs && node scripts/test-intake-workflow-safety.mjs",
@@ -62,10 +61,7 @@
     "qa:public-surface": "node scripts/qa-registry.mjs --bundle=public-surface",
     "qa:compliance": "node scripts/qa-registry.mjs --bundle=compliance",
     "qa:smoke": "node scripts/qa-registry.mjs --bundle=smoke",
-    "test:public-copy-dedup": "node scripts/test-public-copy-dedup.mjs",
-    "source-import:build": "tsx scripts/source-import/build-source-import-batches.ts",
-    "source-import:push": "tsx scripts/source-import/push-source-import-batches.ts",
-    "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts"
+    "test:public-copy-dedup": "node scripts/test-public-copy-dedup.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
@@ -75,8 +71,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.174.0",
-    "zod": "^4.1.5",
-    "@react-three/postprocessing": "^2.16.2"
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -88,7 +83,6 @@
     "eslint-config-next": "^15.3.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "vitest": "^2.0.0",
     "wrangler": "^4.90.0"
