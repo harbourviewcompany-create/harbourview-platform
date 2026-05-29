@@ -1,6 +1,6 @@
 # Harbourview Project Registry
 
-Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17.  
+Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; MP-SCHEMA-001 verification follow-up recorded as HOLD on 2026-05-29.  
 Scope: GitHub, Vercel and Supabase assets visible in connected audits, plus the 2026-05-17 verified Vercel connector state recorded in Notion dispatch `DSP-10` / `HAR-16 / HAR-22`.  
 Change policy: This document is a control register. It is not approval to delete, pause, merge, deploy, reconfigure domains, change branch protection, change secrets, modify Supabase, modify runtime code, modify middleware, modify auth, modify dependencies or migrate anything without a separate approved cleanup PR or operator confirmation.
 
@@ -66,6 +66,25 @@ This registry is the source-of-truth map for Harbourview-related projects across
 | Parallel network build | `harbourview-network` | Incubation | Private repo with newer control structure. It must feed or replace the canonical app only after explicit decision. |
 | Legacy signal data | `harbourviewcompany-create's Project` / `fgdrvqqezdiraqyuofte` | HOLD | Contains 430 `signals` rows but no migrations found. Treat as legacy/prototype until inspected. |
 | Misnamed local chatbot repo | `Harbourview` | Rename/archive candidate | README identifies the repo as a Windows-first local Ollama/browser chatbot, not the Harbourview platform. |
+
+## MP-SCHEMA-001 Registry Impact — 2026-05-29
+
+**Status:** HOLD pending clean verification evidence.
+
+**Affected registry rows:**
+
+- `Harbourview Platform` / `harbourviewcompany-create/harbourview-platform`
+- `Harbourview Marketplace` / Supabase project ref `zvxdgdkukjrrwamdpqrg`
+
+**Source change:** PR `#530` added the unified marketplace listings schema, public DTO validation, and DTO tests.
+
+**Follow-up branch:** `docs/mp-schema-001-verification-evidence`
+
+**Follow-up scope:** docs/control evidence only. No runtime code, schema, migrations, tests, dependencies, auth, RLS, deployment settings, Supabase settings, or production write behavior are intentionally changed.
+
+**Registry-change decision:** No new registry row is required. The existing `Harbourview Platform` and `Harbourview Marketplace` rows remain the affected canonical entries. MP-SCHEMA-001 remains HOLD until exact command outputs and Supabase migration dry-run/review are captured.
+
+**Required closure evidence:** `npm ci`, `npm run check:migrations`, `npm run typecheck`, `npm run lint`, `npx vitest run tests/harbourview/unified-listings-dto.test.ts`, `npm run test:visibility`, `npm run build`, and Supabase migration dry-run/review.
 
 ## Confirmed Vercel Production Mapping
 
@@ -133,13 +152,13 @@ The earlier Vercel dashboard review showed active preview branches tied to `harb
 
 | System | Project Name | Canonical Status | Purpose | GitHub Repo | Vercel Project | Supabase Project Ref | Production URL | Visibility | Current Risk | Disposition | Owner | Next Action | Decision Needed |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| GitHub / App / Vercel | Harbourview Platform | Confirmed canonical production app and Vercel mapping | Main Harbourview marketplace, intelligence, admin, intake and public platform surface | `harbourviewcompany-create/harbourview-platform` | `harbourview` under Vercel team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; production branch `main`; production commit `2ee3105e236122083d3fb86a16ca3c8811cce440` | `zvxdgdkukjrrwamdpqrg` likely target | `https://harbourview-nu.vercel.app`; deployment URL `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Private repo | GitHub secret mapping, stale branch-protection contexts, anonymous `/admin` denial, public leakage scan, remaining marketplace category route evidence, incomplete production checklist, preview-branch sprawl and verification-default drift remain unresolved | Keep and stabilize as canonical | Tyler / Harbourview | Close remaining HOLD gates without modifying runtime code unless separately approved | Confirm GitHub secrets, branch-protection contexts, admin denial, leakage scan, category routes and preview cleanup plan |
+| GitHub / App / Vercel | Harbourview Platform | Confirmed canonical production app and Vercel mapping | Main Harbourview marketplace, intelligence, admin, intake and public platform surface | `harbourviewcompany-create/harbourview-platform` | `harbourview` under Vercel team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; production branch `main`; production commit `2ee3105e236122083d3fb86a16ca3c8811cce440` | `zvxdgdkukjrrwamdpqrg` likely target | `https://harbourview-nu.vercel.app`; deployment URL `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Private repo | GitHub secret mapping, stale branch-protection contexts, anonymous `/admin` denial, public leakage scan, remaining marketplace category route evidence, incomplete production checklist, preview-branch sprawl, verification-default drift, and MP-SCHEMA-001 post-merge command evidence remain unresolved | Keep and stabilize as canonical | Tyler / Harbourview | Close remaining HOLD gates without modifying runtime code unless separately approved | Confirm GitHub secrets, branch-protection contexts, admin denial, leakage scan, category routes, preview cleanup plan, and MP-SCHEMA-001 verification outputs |
 | GitHub / App | Harbourview Network | Incubation / replacement candidate | Newer private Harbourview Network architecture and app foundation | `harbourviewcompany-create/harbourview-network` | Not visible in this registry update | Not confirmed | None confirmed | Private repo | Could duplicate `harbourview-platform` work and split execution if treated as parallel production | Keep as architecture feeder or controlled replacement candidate | Tyler / Harbourview | Decide whether it feeds `harbourview-platform` or becomes future canonical repo | Decide merge-forward vs. replacement strategy |
 | GitHub / App / Vercel | Chatbot | Separate active deployed product | AI/chat application deployed to Vercel | `harbourviewcompany-create/chatbot` | `chatbot` | None found | `chatbot-harbourviewnetwork.vercel.app` and related Vercel domains | Private repo; Vercel project visible in earlier audit context | May cause operator confusion if treated as Harbourview platform deployment target | Keep separate unless intentionally integrated | Tyler / Harbourview | Document deployment/env requirements and confirm whether it belongs inside Harbourview Network | Decide standalone vs. integrated product |
 | GitHub / Local Tool | Local AI Chatbot | Non-canonical / misnamed | Windows-first local chatbot using browser fallback and optional Ollama | `harbourviewcompany-create/Harbourview` | Not visible | None | None | Private repo | Misleading repo name can cause operator confusion and agent mistakes | Rename to `local-ai-chatbot` or archive | Tyler | Rename/archive after preserving useful files | Confirm rename/archive |
 | GitHub / Demo Portfolio | Contractor Demos | Demo/sales asset | Static demo websites and visual prototypes for sales/client demonstrations | `harbourviewcompany-create/contractor` | Not visible | None | None confirmed | Public repo | Public demo repo is acceptable only if no private/client-sensitive material exists | Keep as demo portfolio repo | Tyler | Add README clarifying demo-only status and route inventory | Confirm whether public visibility is intentional |
 | GitHub / Webhook | HV Telnyx Webhook | Unknown / review required | Unknown Telnyx webhook utility | `harbourviewcompany-create/hv-telnyx-webhook` | Not visible | None | None | Public repo | Public webhook repo may expose operational assumptions even if no secrets are present | Inspect immediately; likely make private or archive | Tyler | Audit files, secrets history, deployment linkage and Telnyx usage | Decide active/private/archive |
-| Supabase / Database | Harbourview Marketplace | Provisional canonical production database | Marketplace data, inquiries, admin role model, source intake, candidate workflow, signal-engine migrations | Expected consumer: `harbourview-platform` | Not directly applicable | `zvxdgdkukjrrwamdpqrg` | Supabase API URL should remain controlled | Supabase project active | Mixed migration history, public SECURITY DEFINER smoke RPC warnings, anon insert warning, JWT-disabled edge function, extension in public schema, live RLS state still requires current verification | Keep and harden | Tyler / Harbourview | Run DB hardening PR/migration plan and document intentional deny-by-default tables | Confirm as canonical production DB |
+| Supabase / Database | Harbourview Marketplace | Provisional canonical production database | Marketplace data, inquiries, admin role model, source intake, candidate workflow, signal-engine migrations | Expected consumer: `harbourview-platform` | Not directly applicable | `zvxdgdkukjrrwamdpqrg` | Supabase API URL should remain controlled | Supabase project active | Mixed migration history, public SECURITY DEFINER smoke RPC warnings, anon insert warning, JWT-disabled edge function, extension in public schema, live RLS state still requires current verification, and MP-SCHEMA-001 migration dry-run/review remain unresolved | Keep and harden | Tyler / Harbourview | Run DB hardening PR/migration plan and document intentional deny-by-default tables | Confirm as canonical production DB |
 | Supabase / Database | Legacy Signal Project | Legacy/prototype pending inspection | Early signal/editorial/source/dossier schema; 430 signal rows | No confirmed GitHub repo | Not directly applicable | `fgdrvqqezdiraqyuofte` | None | Supabase project active | No migrations found; unclear ownership; data may be stranded or duplicated | Freeze except read-only inspection; migrate or archive later | Tyler / Harbourview | Export/inspect schema and sample rows, then decide migration into canonical DB | Decide migrate, archive, or keep as sandbox |
 | Vercel / Deployment | Harbourview Vercel Target | Confirmed canonical production target | Production deployment target for Harbourview Platform | `harbourviewcompany-create/harbourview-platform` | `harbourview` under team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; team ID `team_zFcrpEaH7xxVPfFlj9yAKMZf` | Expected DB: `zvxdgdkukjrrwamdpqrg` | `https://harbourview-nu.vercel.app`; `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Public production deployment | GitHub secret mapping and stale context cleanup remain unresolved | Keep as canonical deployment target | Tyler / Harbourview | Confirm GitHub secrets, branch protection and production safety scans | None for production domain/project/team IDs; remaining controls still required |
 | Vercel / Deployment | Chatbot Vercel Project | Active separate deployment | Production deployment for chatbot app | `harbourviewcompany-create/chatbot` | `chatbot` | None found | `chatbot-harbourviewnetwork.vercel.app` | Visible in earlier Vercel team audit context | Must not be confused with canonical Harbourview production target | Keep separate | Tyler / Harbourview | Document env, domains and whether it should be under Harbourview product umbrella | Decide naming/domain strategy |
@@ -183,6 +202,7 @@ Known table groups:
 | Authorization | `user_roles` | Harbourview role model anchor |
 | Source/intelligence intake | `source_registry`, `source_snapshots`, `marketplace_candidates`, `candidate_review_events` | Evidence/source watching and candidate review foundation |
 | Experimental/local lead capture | `wurx_ottawa_leads` | Needs classification and policy hardening |
+| MP-SCHEMA-001 unified listings | `listings`, `listing_supply_details`, `listing_equipment_details` | Added by PR #530; remains HOLD until command verification and Supabase migration dry-run/review are recorded |
 
 Known cleanup items:
 
@@ -193,6 +213,7 @@ Known cleanup items:
 - Enable leaked password protection if Supabase Auth is used.
 - Document RLS-enabled/no-policy server-only tables as intentional deny-by-default, or add explicit policies if not intentional.
 - Verify live RLS state before any production write path, release claim or schema change.
+- Capture MP-SCHEMA-001 migration dry-run/review before promoting the unified listings schema to GO.
 
 ### `harbourviewcompany-create's Project` / `fgdrvqqezdiraqyuofte`
 
@@ -228,6 +249,7 @@ Control rule: no new writes until this project is classified. Export schema and 
 - Playfair Display is not verified as an implemented/imported runtime font.
 - Custom JWT claims are not verified; current evidence supports `user_roles` table lookup.
 - Verification defaults and docs must be checked for post-HAR-22 drift if they still target an older Harbourview production domain.
+- MP-SCHEMA-001 post-merge verification commands and Supabase migration dry-run/review are not yet recorded.
 
 ## Immediate GO Items
 
