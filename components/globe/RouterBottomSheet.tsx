@@ -27,7 +27,7 @@ export function RouterBottomSheet({
   return (
     <section
       aria-label={title}
-      className={`pointer-events-auto fixed inset-x-3 bottom-3 z-30 rounded-[28px] border border-[#c6a55a]/28 bg-[#030b16]/92 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:w-[440px] ${sizeClass}`}
+      className={`pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex flex-col rounded-[28px] border border-[#c6a55a]/28 bg-[#030b16]/92 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-xl sm:inset-x-auto sm:left-1/2 sm:w-[440px] sm:-translate-x-1/2 ${sizeClass}`}
     >
       {/* aria-modal=false because the globe remains active visual context; focus is manually managed inside sheet controls; screen-reader users can complete the same flow through DOM/fallback controls. */}
       <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-[#c6a55a]/34" aria-hidden="true" />
@@ -48,7 +48,7 @@ export function RouterBottomSheet({
         ) : null}
       </div>
 
-      <div className="mt-4 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
         {children}
       </div>
 

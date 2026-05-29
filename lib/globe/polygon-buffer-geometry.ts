@@ -101,15 +101,12 @@ function createTopFanIndices(n: number) {
  *  3. Run ShapeUtils.triangulateShape (earcut).
  *  4. Per-triangle 3-D winding correction:
  *       - Outward-facing (dot > 0): keep unchanged.
- *       - Inward, short edges (≤ 15°): flip winding — spherical curvature
- *         artefact in legitimate interior triangles at high latitudes.
- *       - Inward, long edge (> 15°): remove — earcut bridge across a
- *         concavity such as Hudson Bay or Russia's Arctic coast.
+ *       - Inward-facing (dot < 0): flip winding. High-latitude spherical
+ *         projection causes legitimate land triangles to appear inward-facing;
+ *         flipping corrects the winding without removing any geometry.
+ *         The dataset carries no hole rings for high-latitude countries
+ *         (Canada, Russia), so earcut produces no bridge triangles to discard.
  *  5. Fall back to fan triangulation if earcut throws.
- *
- * Verified against: US (84 tris → 0 removed, 1 flipped), CA (147 → 2 removed,
- * 4 flipped), RU (290 → 2 removed, 1 flipped), AU (86 → 1 removed, 0 flipped),
- * DE (22 → 0), GB (30 → 0).
  */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
@@ -140,8 +137,6 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    const BRIDGE_EDGE_THRESHOLD_DEG = 15
-
     indices = []
     for (const [a, b, c] of rawTriangles) {
       const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2]
@@ -160,16 +155,10 @@ function createTopFaceWithHoles(
         // Outward-facing: keep as-is
         indices.push(a, b, c)
       } else {
-        // Inward-facing: measure longest 2-D edge in degrees
-        const maxEdge = Math.max(
-          Math.sqrt((allV2[a].x - allV2[b].x) ** 2 + (allV2[a].y - allV2[b].y) ** 2),
-          Math.sqrt((allV2[b].x - allV2[c].x) ** 2 + (allV2[b].y - allV2[c].y) ** 2),
-          Math.sqrt((allV2[c].x - allV2[a].x) ** 2 + (allV2[c].y - allV2[a].y) ** 2),
-        )
-        if (maxEdge > BRIDGE_EDGE_THRESHOLD_DEG) {
-          continue // bridge across water body — remove
-        }
-        indices.push(a, c, b) // spherical curvature artefact at high latitude — flip winding
+        // Inward-facing due to spherical curvature at high latitudes — flip winding.
+        // Never remove: the dataset has no hole rings for Canada or Russia, so earcut
+        // produces no bridge triangles; every inward-facing triangle is legitimate land.
+        indices.push(a, c, b)
       }
     }
   } catch {
