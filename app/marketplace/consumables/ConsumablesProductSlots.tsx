@@ -103,7 +103,7 @@ function AssetFrame({ imageKey }: { imageKey: ConsumablesImageKey }) {
           </div>
         )}
       </div>
-      <figcaption className="border-t border-gold/10 px-4 py-3 text-[11px] leading-5 text-white/42">
+      <figcaption className="border-t border-gold/10 px-4 py-3 text-[11px] leading-5 text-white/40">
         {asset.alt}
       </figcaption>
     </figure>
@@ -115,13 +115,13 @@ export function ConsumablesProductSlots() {
     <section className="border-b border-gold/10 bg-[#020814] py-12 sm:py-16" id="products">
       <div className="page-container">
         <div className="mb-8 sm:mb-10">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/70">
             Product slots
           </p>
           <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">
             Consumables catalogue scaffold.
           </h2>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/58">
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/60">
             These product slots preserve the standalone page structure while keeping final supplier information, availability and pricing out of public view until approved.
           </p>
         </div>
@@ -138,12 +138,12 @@ export function ConsumablesProductSlots() {
                   <span>{slot.meta}</span>
                 </div>
                 <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{slot.title}</h3>
-                <p className="flex-1 text-sm leading-7 text-white/58">{slot.body}</p>
-                <dl className="mt-5 grid grid-cols-1 gap-2 text-xs text-white/52">
+                <p className="flex-1 text-sm leading-7 text-white/60">{slot.body}</p>
+                <dl className="mt-5 grid grid-cols-1 gap-2 text-xs text-white/50">
                   {slot.specs.map(([label, value]) => (
-                    <div key={label} className="flex justify-between gap-4 border-t border-white/8 pt-2">
+                    <div key={label} className="flex justify-between gap-4 border-t border-white/10 pt-2">
                       <dt>{label}</dt>
-                      <dd className="text-right font-semibold text-white/72">{value}</dd>
+                      <dd className="text-right font-semibold text-white/70">{value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -166,13 +166,13 @@ export function ConsumablesAssetManifestPanel() {
     <section className="border-t border-gold/10 bg-[#030b16] py-12 sm:py-16" id="assets">
       <div className="page-container">
         <div className="mb-8 max-w-3xl">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/70">
             Image manifest
           </p>
           <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[#f5f1e8] sm:text-4xl">
             Explicit asset slots for consumables.
           </h2>
-          <p className="mt-4 text-sm leading-7 text-white/58">
+          <p className="mt-4 text-sm leading-7 text-white/60">
             Final WebP product images can be added without changing card logic. Placeholder frames keep the page reviewable until those files are present.
           </p>
         </div>
@@ -181,7 +181,7 @@ export function ConsumablesAssetManifestPanel() {
             <div key={asset.key} className="rounded-sm border border-gold/10 bg-[#071425] p-5">
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <p className="break-all text-xs font-semibold text-[#f5f1e8]">{asset.path}</p>
-                <span className="w-fit rounded-full border border-gold/25 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold/76">
+                <span className="w-fit rounded-full border border-gold/25 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold/75">
                   {asset.status === 'ready' ? 'Ready' : 'Needed'}
                 </span>
               </div>
