@@ -51,11 +51,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build import batches
-        run: npm run source-import:build
-
-      - name: Execute source import
-        run: npm run source-import:push
+      - name: Import and verify source registry
+        run: node scripts/source-import/run-phase1-actions-import-and-verify.mjs
 
       - name: Upload source import artifacts
         if: always()
@@ -66,3 +63,5 @@ jobs:
             docs/control/source-import/manifest.json
             docs/control/source-import/preupload_rejections.json
             docs/control/source-import/import_run_ledger.json
+            docs/control/source-import/phase1_actions_verification.json
+            docs/control/source-import/phase1_actions_verification.md
