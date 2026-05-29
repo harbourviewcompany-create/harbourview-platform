@@ -2,7 +2,34 @@ import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
 import { getCountryByIso2 } from '@/lib/dashboard/countries'
-import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile } from '@/types/globe-router'
+import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
+
+// Maps globe role IDs to destination types when no intent is selected.
+// Mirrors the DashboardRole logic in lib/dashboard/globeRouteContext.ts so the
+// resolver and the dashboard shell agree on where commercial vs medical vs
+// regulatory professionals land.
+const medicalRoleIds = new Set<RoleId>([
+  'doctor_prescriber',
+  'pharmacist',
+  'clinic_healthcare_operator',
+  'patient_caregiver_education',
+])
+
+const regulatoryRoleIds = new Set<RoleId>([
+  'regulatory_compliance',
+  'legal_advisory',
+  'government_regulator',
+  'gmp_quality',
+  'lab_qa',
+  'logistics_customs',
+])
+
+function mapRoleToDestinationType(roleId?: RoleId): DestinationType {
+  if (!roleId || roleId === 'not_sure') return 'routing_review'
+  if (medicalRoleIds.has(roleId)) return 'medical_education'
+  if (regulatoryRoleIds.has(roleId)) return 'regulatory_education'
+  return 'marketplace_services'
+}
 
 function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPath?: string) {
   const params = new URLSearchParams()
@@ -57,11 +84,33 @@ function resolveCountrySectionPath(
   return `/dashboard/country/${country.slug}/${section}`
 }
 
+// Resolve any role directly to the country dashboard when a slug is available.
+// This is the primary path for all single-market role selections without an intent.
+function resolveCountryDashboardPath(input: GlobeRouteInput): string | null {
+  if (!input.countryIso2 || input.mode === 'multi_market') return null
+  const country = getCountryByIso2(input.countryIso2)
+  if (!country) return null
+  return `/dashboard/country/${country.slug}`
+}
+
 export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
-  const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? 'routing_review'
+  const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? mapRoleToDestinationType(input.roleId)
 
-  // 1. Country-specific education — dynamic route, always available when slug resolves.
+  // 1. Single-market without intent — go straight to the country dashboard.
+  //    The shell reads the role query param and adapts its content accordingly.
+  if (!input.intentId && input.countryIso2 && input.mode !== 'multi_market') {
+    const dashboardPath = resolveCountryDashboardPath(input)
+    if (dashboardPath) {
+      return {
+        status: 'resolved',
+        href: appendGlobeQuery(dashboardPath, input),
+        destinationType,
+      }
+    }
+  }
+
+  // 2. Country-specific education — dynamic route, always available when slug resolves.
   const countryEducationPath = resolveCountryEducationPath(destinationType, input)
   if (countryEducationPath) {
     return {
@@ -71,7 +120,7 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 2. Country-specific signals section.
+  // 3. Country-specific signals section.
   if (destinationType === 'signals') {
     const countrySignalsPath = resolveCountrySectionPath(destinationType, 'signals', input)
     if (countrySignalsPath) {
@@ -83,7 +132,7 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 3. Country-specific opportunities section for marketplace intents.
+  // 4. Country-specific opportunities section for marketplace intents.
   if (destinationType === 'marketplace_services') {
     const countryOppsPath = resolveCountrySectionPath(destinationType, 'opportunities', input)
     if (countryOppsPath) {
@@ -95,7 +144,7 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 4. Standard manifest-backed resolution.
+  // 5. Standard manifest-backed resolution.
   const requestedPath = destinationBasePathMap[destinationType]
 
   if (!routeExists(requestedPath)) {
