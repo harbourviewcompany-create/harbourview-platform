@@ -1,9 +1,12 @@
+import { requireAdminAuth } from '@/lib/auth/adminGuard'
 import { createClient } from '@/lib/server/supabaseRestClient'
 import { DealDashboardClient } from '@/components/admin/deal-dashboard/DealDashboardClient'
 import type {
   DealDashboardEvent,
   DealDashboardRecord,
 } from '@/lib/introduction-routing/dealDashboard'
+
+export const dynamic = 'force-dynamic'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,6 +16,8 @@ function getClient() {
 }
 
 export default async function Page() {
+  await requireAdminAuth()
+
   const client = getClient()
   let records: DealDashboardRecord[] = []
   let events: DealDashboardEvent[] = []
