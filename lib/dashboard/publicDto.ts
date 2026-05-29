@@ -1,4 +1,5 @@
 import type { CountryDashboardPublicDto, CountryDashboardSummary } from './contracts'
+import type { CountryDashboardRecord } from './commercialDashboard'
 import { getDashboardStatusBadge } from './statusBadges'
 
 export function serializeCountryDashboardPublicDto(country: CountryDashboardSummary): CountryDashboardPublicDto {
@@ -28,3 +29,26 @@ export function serializeCountryDashboardPublicDto(country: CountryDashboardSumm
   }
 }
 
+
+export function serializeCommercialCountryDashboardPublicDto(record: CountryDashboardRecord): CountryDashboardRecord {
+  return {
+    slug: record.slug,
+    iso2: record.iso2,
+    iso3: record.iso3,
+    displayName: record.displayName,
+    publicSummary: record.publicSummary,
+    selectedLayer: record.selectedLayer,
+    selectedLayerMetric: record.selectedLayerMetric,
+    quickFacts: record.quickFacts,
+    marketplace: record.marketplace,
+    tradeAccess: record.tradeAccess,
+    education: record.education,
+    readiness: record.readiness,
+    movement: record.movement,
+    coverage: record.coverage,
+    heatmapMetrics: record.heatmapMetrics,
+    comparisonMetrics: record.comparisonMetrics,
+    reviewActions: record.reviewActions,
+    roleViews: record.roleViews,
+  }
+}

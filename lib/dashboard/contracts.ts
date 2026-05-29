@@ -139,3 +139,23 @@ export type GlobeRoutingEventHandlers = {
   onDashboardEnter?: (payload: GlobeRoutingEventPayload) => void
   onCountrySearchSelect?: (payload: GlobeRoutingEventPayload) => void
 }
+
+export type {
+  CountryDashboardRecord,
+  CountryRoleView,
+  CountryMarketplaceProfile,
+  CountryMarketplaceCategory,
+  CountryListingSummary,
+  CountryWantedRequestSummary,
+  CountryTradeAccessProfile,
+  CountryEducationProfile,
+  CountryProfessionalEducationModule,
+  CountryReadinessProfile,
+  CountryMovementProfile,
+  CountryHeatmapLayer,
+  CountryHeatmapMetric,
+  CountryReviewAction,
+  CountryQuickFacts,
+  CountryCoverageProfile,
+  CountryDashboardRole,
+} from './commercialDashboard'
