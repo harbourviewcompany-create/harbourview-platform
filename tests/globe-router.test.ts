@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
+import { countryOptions, getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
 import { getIntentIdsForRole } from '@/config/globe/intent-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { globeRouterReducer, initialGlobeRouterState } from '@/components/globe/useGlobeRouterState'
 import { parseGlobeRouteState } from '@/components/harbourview/globe/globeRouteState'
+import { countries } from '@/lib/dashboard/countries'
 import { mapGlobeRoleToDashboardRole, parseDashboardGlobeRouteContext } from '@/lib/dashboard/globeRouteContext'
-import type { IntentId, RoleId } from '@/types/globe-router'
+import type { CountryOption, IntentId, RoleId } from '@/types/globe-router'
 
 function expectEducationRoutePreservesContext({
   countryIso2,
@@ -38,6 +39,17 @@ function expectEducationRoutePreservesContext({
   expect(result.href).not.toContain('requestedPath=')
 }
 
+function countryMatchesMobileSearch(country: CountryOption, query: string) {
+  return tokenMatchesSearch(query, [
+    country.name,
+    country.iso2,
+    country.iso3 ?? '',
+    country.region,
+    country.subregion ?? '',
+    ...(country.aliases ?? []),
+  ])
+}
+
 describe('Harbourview globe same-screen router', () => {
   it('uses Germany-specific role chips before generic roles', () => {
     const profile = getCountryRoleProfile('DE')
@@ -67,6 +79,66 @@ describe('Harbourview globe same-screen router', () => {
     expect(profile.searchableRoleIds).toContain('doctor_prescriber')
     expect(profile.searchableRoleIds).toContain('logistics_customs')
     expect(profile.searchableRoleIds).toContain('not_sure')
+  })
+
+  it('uses the full dashboard country registry as the mobile country search universe', () => {
+    const searchIso2s = new Set(countryOptions.map((country) => country.iso2))
+    const canonicalIso2s = new Set(countries.map((country) => country.iso2))
+    const requiredCountries = [
+      ['CA', 'Canada'],
+      ['US', 'United States'],
+      ['DE', 'Germany'],
+      ['PT', 'Portugal'],
+      ['AU', 'Australia'],
+      ['TH', 'Thailand'],
+      ['ZA', 'South Africa'],
+      ['BR', 'Brazil'],
+      ['CO', 'Colombia'],
+      ['LS', 'Lesotho'],
+      ['MK', 'North Macedonia'],
+      ['MT', 'Malta'],
+      ['UY', 'Uruguay'],
+      ['IL', 'Israel'],
+      ['CZ', 'Czechia'],
+      ['NL', 'Netherlands'],
+      ['DK', 'Denmark'],
+      ['PL', 'Poland'],
+      ['JP', 'Japan'],
+      ['NZ', 'New Zealand'],
+    ] as const
+
+    expect(countryOptions.length).toBe(countries.length)
+    expect(searchIso2s).toEqual(canonicalIso2s)
+
+    for (const [iso2, name] of requiredCountries) {
+      const country = countryOptions.find((option) => option.iso2 === iso2)
+      expect(country, `${name} should be present in mobile country search options`).toBeTruthy()
+      expect(country?.name).toBe(name)
+    }
+  })
+
+  it('matches mobile country search by name, alpha-2, alpha-3, and common aliases at 390px parity', () => {
+    const assertions = [
+      ['Ca', 'CA'],
+      ['Can', 'CA'],
+      ['DE', 'DE'],
+      ['Ger', 'DE'],
+      ['Tha', 'TH'],
+      ['Les', 'LS'],
+      ['Uru', 'UY'],
+      ['North', 'MK'],
+      ['CZE', 'CZ'],
+      ['Czech Republic', 'CZ'],
+      ['Holland', 'NL'],
+      ['JPN', 'JP'],
+      ['NZL', 'NZ'],
+    ] as const
+
+    for (const [query, iso2] of assertions) {
+      const country = countryOptions.find((option) => option.iso2 === iso2)
+      expect(country, `${iso2} should exist before query ${query}`).toBeTruthy()
+      expect(countryMatchesMobileSearch(country!, query), `${query} should find ${country?.name}`).toBe(true)
+    }
   })
 
   it('prioritizes cross-border roles for multi-market routing', () => {
