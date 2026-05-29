@@ -1,10 +1,18 @@
 import { notFound } from 'next/navigation'
 import { CountryDashboardShell } from '../_components'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
+import { getDefaultRoleForDashboardSection, resolveCommercialDashboardSelection } from '@/lib/dashboard/commercialDashboard'
 
-export default async function OpportunitiesDashboardPage({ params }: { params: Promise<{ country: string }> }) {
-  const { country: countryParam } = await params
+export default async function OpportunitiesDashboardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ country: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const [{ country: countryParam }, resolvedSearch] = await Promise.all([params, searchParams])
   const country = resolveCountryRouteParam(countryParam)
   if (!country) notFound()
-  return <CountryDashboardShell country={country} section="opportunities" />
+  const { selectedRole, selectedLayer } = resolveCommercialDashboardSelection(resolvedSearch, getDefaultRoleForDashboardSection('opportunities'))
+  return <CountryDashboardShell country={country} section="opportunities" selectedRole={selectedRole} selectedLayer={selectedLayer} />
 }
