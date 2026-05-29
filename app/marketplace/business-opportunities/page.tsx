@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { businessOpportunities } from '@/lib/fixtures/business-opportunities'
 import type { BusinessOpportunity } from '@/lib/fixtures/types'
 import { getLiveBusinessOpportunities } from '@/lib/marketplace/liveOpportunities'
@@ -59,7 +60,7 @@ function ListingCard({ listing }: { listing: BusinessOpportunity }) {
         )}
       </div>
       <Link
-        href={`/contact?ref=${listing.id}&type=business_opportunity`}
+        href={getPublicListingHref(listing, 'business_opportunity')}
         className="btn-marketplace mt-6 justify-center text-center text-sm"
       >
         {ctaLabel}

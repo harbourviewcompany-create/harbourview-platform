@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import IntakeForm from '@/app/intake/IntakeForm'
+import { resolveMarketplaceListingTypeOption } from '@/lib/marketplace/listingTypeOptions'
 import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default async function SellPage({
   searchParams: Promise<{ type?: string }>
 }) {
   const params = await searchParams
-  const isWanted = params.type === 'wanted'
+  const listingTypeOption = resolveMarketplaceListingTypeOption(params.type)
+  const isWanted = listingTypeOption?.label === 'Wanted Request'
+  const submitLabel = isWanted ? 'Submit Wanted Request' : listingTypeOption ? `Submit ${listingTypeOption.label}` : 'Submit Listing'
 
   return (
     <>
@@ -75,7 +78,7 @@ export default async function SellPage({
             </>
           )}
           <FormShell>
-            <IntakeForm />
+            <IntakeForm initialListingType={listingTypeOption?.label} submitLabel={submitLabel} />
           </FormShell>
         </div>
       </PublicSection>
