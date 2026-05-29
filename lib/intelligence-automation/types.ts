@@ -209,6 +209,7 @@ export type GraphEdgeType =
   | 'requires_document'
   | 'has_evidence'
   | 'generated_signal'
+  | 'relevant_to_market'
   | 'matched_to'
   | 'introduced_to'
   | 'converted_to_opportunity'
