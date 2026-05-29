@@ -8,7 +8,11 @@ export type GeoJsonMultiPolygonCoordinates = GeoJsonPolygonCoordinates[]
 
 export interface NaturalEarthCountryProperties {
   ISO_A2?: string
+  /** ISO 3166-1 alpha-2 with overseas territories included (corrects -99 in ISO_A2 for France, Norway, etc.) */
+  ISO_A2_EH?: string
   ISO_A3?: string
+  /** ISO 3166-1 alpha-3 with overseas territories included */
+  ISO_A3_EH?: string
   ADM0_A3?: string
   NAME?: string
   NAME_LONG?: string
@@ -68,3 +72,4 @@ export interface HarbourviewCountryGeometryPayload {
   }
   countries: HarbourviewCountryGeometry[]
 }
+
