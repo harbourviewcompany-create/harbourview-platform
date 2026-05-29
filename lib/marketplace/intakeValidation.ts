@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MARKETPLACE_LISTING_TYPE_OPTIONS } from '@/lib/marketplace/listingTypeOptions'
 
 const emailSchema = z.string().trim().toLowerCase().email('Please use a valid business email address.')
 const shortText = (max: number) => z.string().trim().max(max, `Must be ${max} characters or fewer.`)
@@ -37,15 +38,7 @@ export const listingSubmissionSchema = z.object({
   name: shortText(220).min(1),
   email: emailSchema,
   company: shortText(220).optional().default(''),
-  listingType: z.enum([
-    'New Product',
-    'Used / Surplus Equipment',
-    'Cannabis Inventory',
-    'Wanted Request',
-    'Service',
-    'Business Opportunity',
-    'Featured Network Opportunity',
-  ]),
+  listingType: z.enum(MARKETPLACE_LISTING_TYPE_OPTIONS),
   title: shortText(220).min(1),
   price: shortText(220).optional().default(''),
   location: shortText(220).optional().default(''),

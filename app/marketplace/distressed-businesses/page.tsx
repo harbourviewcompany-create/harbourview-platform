@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 
@@ -26,7 +27,7 @@ function ListingCard({ listing }: { listing: PublicListing }) {
       {listing.product_type && <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">{listing.product_type}</p>}
       <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
       <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
-      <Link href={`/contact?ref=${listing.slug ?? listing.id}&type=distressed_businesses`} className="btn-marketplace mt-6 justify-center text-center text-sm">{ctaLabel}</Link>
+      <Link href={getPublicListingHref(listing, 'distressed_businesses')} className="btn-marketplace mt-6 justify-center text-center text-sm">{ctaLabel}</Link>
     </div>
   )
 }

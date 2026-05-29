@@ -6,9 +6,11 @@ import type {
 } from '@/lib/fixtures/types'
 
 type ListingWithReplyAddress = Listing
+export type BusinessOpportunityWithPublicSlug = BusinessOpportunity & { slug?: string | null }
 
 export interface LiveOpportunityRecord {
   id?: unknown
+  slug?: unknown
   title?: unknown
   description?: unknown
   price?: unknown
@@ -31,7 +33,7 @@ export interface LiveOpportunityRecord {
 }
 
 export interface LiveBusinessOpportunityResult {
-  listings: BusinessOpportunity[]
+  listings: BusinessOpportunityWithPublicSlug[]
   source: 'live' | 'fixture' | 'empty' | 'error'
 }
 
@@ -115,7 +117,7 @@ export function isValidPublicImageUrl(value: unknown): value is string {
   }
 }
 
-function normalizeBusinessOpportunity(record: LiveOpportunityRecord): BusinessOpportunity | null {
+function normalizeBusinessOpportunity(record: LiveOpportunityRecord): BusinessOpportunityWithPublicSlug | null {
   if (!isApprovedForPublic(record)) return null
 
   const id = asText(record.id)
@@ -127,6 +129,7 @@ function normalizeBusinessOpportunity(record: LiveOpportunityRecord): BusinessOp
 
   return {
     id,
+    slug: asText(record.slug) ?? null,
     category: 'business-opportunities',
     title,
     description,
@@ -149,9 +152,10 @@ function normalizeBusinessOpportunity(record: LiveOpportunityRecord): BusinessOp
   }
 }
 
-function sanitizeBusinessOpportunity(listing: BusinessOpportunity): BusinessOpportunity {
+function sanitizeBusinessOpportunity(listing: BusinessOpportunityWithPublicSlug): BusinessOpportunityWithPublicSlug {
   return {
     id: listing.id,
+    slug: listing.slug ?? null,
     category: 'business-opportunities',
     title: listing.title,
     description: listing.description,
@@ -213,7 +217,7 @@ export async function getLiveBusinessOpportunities(
     const payload: unknown = await response.json()
     const liveListings = extractRecords(payload)
       .map((record) => normalizeBusinessOpportunity(record as LiveOpportunityRecord))
-      .filter((listing): listing is BusinessOpportunity => Boolean(listing))
+      .filter((listing): listing is BusinessOpportunityWithPublicSlug => Boolean(listing))
 
     if (liveListings.length > 0) return { listings: liveListings, source: 'live' }
 
