@@ -35,7 +35,8 @@ is_known_duplicate_project_id() {
   local candidate="${1:-}"
 
   case "$candidate" in
-    prj_zlwnDnFFs7rJa42QQn1cElFRYY7E)
+    prj_zlwnDnFFs7rJa42QQn1cElFRYY7E|\
+    prj_JeAGIr5pjCSSwfAAXaqjXPceDrSW)
       return 0
       ;;
     *)
@@ -88,7 +89,7 @@ case "$branch" in
     echo "Vercel ignore: build allowed for branch '$branch'."
     exit 1
     ;;
-  feature/*|fix/*|cloudflare/*|vercel/*|dependabot/*|renovate/*|github-actions/*|bot/*|codex/*)
+  feature/*|feat/*|fix/*|ops/*|cloudflare/*|vercel/*|dependabot/*|renovate/*|github-actions/*|bot/*|codex/*|admin-*|chore/*|refactor/*|docs/*)
     echo "Vercel ignore: skipping non-allowlisted branch '$branch'."
     exit 0
     ;;
@@ -97,3 +98,4 @@ case "$branch" in
     exit 0
     ;;
 esac
+
