@@ -1,0 +1,89 @@
+import { requireAdminAuth } from '@/lib/admin-auth'
+import Link from 'next/link'
+import { watchers } from '@/lib/fixtures/agents_fixtures'
+
+const STATUS: Record<string, string> = {
+  active: 'bg-green-950 text-green-400',
+  paused: 'bg-amber-950 text-amber-400',
+  failed: 'bg-red-950 text-red-400',
+  scheduled: 'bg-indigo-950 text-indigo-400',
+}
+
+export default async function WatchersPage() {
+  await requireAdminAuth()
+
+  const counts = {
+    active: watchers.filter(w => w.status === 'active').length,
+    paused: watchers.filter(w => w.status === 'paused').length,
+    failed: watchers.filter(w => w.status === 'failed').length,
+    scheduled: watchers.filter(w => w.status === 'scheduled').length,
+  }
+
+  return (
+    <div className="p-6 max-w-7xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-1">
+            <Link href="/admin/agents" className="hover:text-zinc-300">Agents</Link>
+            <span>/</span>
+            <span className="text-zinc-300">Watchers</span>
+          </div>
+          <h1 className="text-2xl font-bold text-zinc-100">Intelligence Watchers</h1>
+        </div>
+      </div>
+
+      <div className="flex gap-3 flex-wrap">
+        {Object.entries(counts).map(([status, n]) => (
+          <div key={status} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS[status]}`}>{status}</span>
+            <span className="text-lg font-bold text-zinc-100">{n}</span>
+          </div>
+        ))}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
+          <span className="text-xs text-zinc-400 font-medium">total</span>
+          <span className="text-lg font-bold text-zinc-100">{watchers.length}</span>
+        </div>
+      </div>
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-zinc-800">
+              {['Name', 'Type', 'Markets', 'Status', 'Last Run', 'Next Run', 'Yield / Runs', 'Notes'].map((h, i) => (
+                <th key={h} className={`px-4 py-2.5 text-zinc-400 font-medium text-xs ${i >= 6 ? 'text-right' : 'text-left'}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-800/50">
+            {watchers.map(w => (
+              <tr key={w.id} className="hover:bg-zinc-800/30 transition-colors">
+                <td className="px-4 py-3">
+                  <div className="text-zinc-200 font-medium text-xs">{w.name}</div>
+                  <div className="text-zinc-500 text-xs mt-0.5">{w.categories.join(', ')}</div>
+                </td>
+                <td className="px-4 py-3 text-zinc-400 text-xs font-mono">{w.type}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-1">
+                    {w.markets.map(m => (
+                      <span key={m} className="text-xs bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded">{m}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS[w.status]}`}>{w.status}</span>
+                </td>
+                <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{w.lastRun}</td>
+                <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{w.nextRun}</td>
+                <td className="px-4 py-3 text-right">
+                  <span className="text-zinc-200 text-xs font-medium">{w.yieldCount}</span>
+                  <span className="text-zinc-500 text-xs"> / {w.runCount}</span>
+                </td>
+                <td className="px-4 py-3 text-zinc-500 text-xs max-w-48">{w.notes ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
