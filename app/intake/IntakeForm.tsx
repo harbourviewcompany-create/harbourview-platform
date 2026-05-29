@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
+import { MARKETPLACE_LISTING_TYPE_OPTIONS, resolveMarketplaceListingTypeOption } from '@/lib/marketplace/listingTypeOptions'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
@@ -9,16 +10,6 @@ type IntakeFormProps = {
   initialListingType?: string
   submitLabel?: string
 }
-
-const listingTypes = [
-  'New Product',
-  'Used / Surplus Equipment',
-  'Cannabis Inventory',
-  'Wanted Request',
-  'Service',
-  'Business Opportunity',
-  'Featured Network Opportunity',
-]
 
 const initialMessage = ''
 
@@ -54,7 +45,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
   const [state, setState] = useState<FormState>('idle')
   const [message, setMessage] = useState(initialMessage)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const defaultListingType = initialListingType && listingTypes.includes(initialListingType) ? initialListingType : ''
+  const defaultListingType = resolveMarketplaceListingTypeOption(initialListingType) ?? ''
   const isWantedRequest = defaultListingType === 'Wanted Request'
 
   function validate(data: FormData) {
@@ -199,7 +190,7 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy bg-white"
           >
             <option value="">— Select a type —</option>
-            {listingTypes.map((t) => (
+            {MARKETPLACE_LISTING_TYPE_OPTIONS.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>

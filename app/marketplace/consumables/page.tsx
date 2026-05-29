@@ -4,6 +4,7 @@ import Link from 'next/link'
 import ConsumablesRequestForm from './ConsumablesRequestForm'
 import { ConsumablesAssetManifestPanel, ConsumablesProductSlots } from './ConsumablesProductSlots'
 import { CONSUMABLES_IMAGE_MANIFEST } from './image-manifest'
+import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 
@@ -150,7 +151,7 @@ function ListingCard({ listing }: { listing: PublicListing }) {
           )}
         </div>
         <Link
-          href={`/contact?ref=${listing.slug ?? listing.id}&type=consumables`}
+          href={getPublicListingHref(listing, 'consumables')}
           className="btn-marketplace mt-6 justify-center text-center text-sm"
         >
           {ctaLabel}

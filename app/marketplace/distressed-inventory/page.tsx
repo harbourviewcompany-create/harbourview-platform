@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 
@@ -29,7 +30,7 @@ function ListingCard({ listing }: { listing: PublicListing }) {
       <div className="mt-4 flex flex-wrap gap-2">
         {listing.region && <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">{REGION_LABELS[listing.region] ?? listing.region}</span>}
       </div>
-      <Link href={`/contact?ref=${listing.slug ?? listing.id}&type=distressed_inventory`} className="btn-marketplace mt-6 justify-center text-center text-sm">{ctaLabel}</Link>
+      <Link href={getPublicListingHref(listing, 'distressed_inventory')} className="btn-marketplace mt-6 justify-center text-center text-sm">{ctaLabel}</Link>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 
@@ -64,7 +65,7 @@ function ListingCard({ listing }: { listing: PublicListing }) {
         )}
       </div>
       <Link
-        href={`/contact?ref=${listing.slug ?? listing.id}&type=new_products`}
+        href={getPublicListingHref(listing, 'new_products')}
         className="btn-marketplace mt-6 justify-center text-center text-sm"
       >
         {ctaLabel}

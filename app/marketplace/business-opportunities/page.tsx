@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { businessOpportunities } from '@/lib/fixtures/business-opportunities'
-import type { BusinessOpportunity } from '@/lib/fixtures/types'
-import { getLiveBusinessOpportunities } from '@/lib/marketplace/liveOpportunities'
+import { getLiveBusinessOpportunities, type BusinessOpportunityWithPublicSlug } from '@/lib/marketplace/liveOpportunities'
+import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 
 export const metadata: Metadata = {
   title: 'Business Opportunities | Harbourview',
@@ -38,7 +38,7 @@ const opportunityTypes = [
   },
 ]
 
-function ListingCard({ listing }: { listing: BusinessOpportunity }) {
+function ListingCard({ listing }: { listing: BusinessOpportunityWithPublicSlug }) {
   const ctaLabel = 'Request qualification'
 
   return (
@@ -59,7 +59,7 @@ function ListingCard({ listing }: { listing: BusinessOpportunity }) {
         )}
       </div>
       <Link
-        href={`/contact?ref=${listing.id}&type=business_opportunity`}
+        href={getPublicListingHref(listing, 'business_opportunity')}
         className="btn-marketplace mt-6 justify-center text-center text-sm"
       >
         {ctaLabel}

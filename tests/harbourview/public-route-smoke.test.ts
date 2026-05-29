@@ -8,15 +8,58 @@ function readRepoFile(path: string) {
   return readFileSync(join(repoRoot, path), 'utf8')
 }
 
+const marketplaceRoutePages = [
+  'app/marketplace/listings/page.tsx',
+  'app/marketplace/used-surplus/page.tsx',
+  'app/marketplace/business-opportunities/page.tsx',
+  'app/marketplace/consumables/page.tsx',
+  'app/marketplace/new-products/page.tsx',
+  'app/marketplace/cannabis-inventory/page.tsx',
+  'app/marketplace/services/page.tsx',
+  'app/marketplace/wanted/page.tsx',
+  'app/marketplace/genetics/page.tsx',
+  'app/marketplace/cultivation-equipment/page.tsx',
+  'app/marketplace/distressed-inventory/page.tsx',
+  'app/marketplace/distressed-businesses/page.tsx',
+  'app/marketplace/qualified-access/page.tsx',
+  'app/intake/page.tsx',
+]
+
+const liveCategoryPages = [
+  'app/marketplace/new-products/page.tsx',
+  'app/marketplace/used-surplus/page.tsx',
+  'app/marketplace/cannabis-inventory/page.tsx',
+  'app/marketplace/services/page.tsx',
+  'app/marketplace/consumables/page.tsx',
+  'app/marketplace/cultivation-equipment/page.tsx',
+  'app/marketplace/distressed-inventory/page.tsx',
+  'app/marketplace/distressed-businesses/page.tsx',
+  'app/marketplace/business-opportunities/page.tsx',
+]
+
+const forbiddenPublicLeakageStrings = [
+  'sourceUrl',
+  'sourceName',
+  'Evidence captured',
+  'provenanceSummary',
+  'sourceEvidence',
+  'verificationStatus',
+  'availabilityStatus',
+  'sellerAuthorizationStatus',
+  'internalReviewNotes',
+  'reviewedBy',
+  'lastReviewedAt',
+  'nextReviewDueAt',
+]
+
 describe('public route smoke coverage', () => {
   const requiredPublicPages = [
     'app/page.tsx',
     'app/marketplace/page.tsx',
     'app/marketplace/sell/page.tsx',
-    'app/marketplace/wanted/page.tsx',
+    ...marketplaceRoutePages,
     'app/intelligence/page.tsx',
     'app/signals/page.tsx',
-    'app/intake/page.tsx',
   ]
 
   it('keeps required public pages mounted', () => {
@@ -24,6 +67,12 @@ describe('public route smoke coverage', () => {
       expect(existsSync(join(repoRoot, pagePath)), `${pagePath} must exist`).toBe(true)
       const source = readRepoFile(pagePath)
       expect(source).toContain('export default')
+    }
+  })
+
+  it('keeps the full marketplace route universe mounted', () => {
+    for (const pagePath of marketplaceRoutePages) {
+      expect(existsSync(join(repoRoot, pagePath)), `${pagePath} must exist`).toBe(true)
     }
   })
 
@@ -36,6 +85,35 @@ describe('public route smoke coverage', () => {
     if (hasDedicatedFallbackRoute) {
       const fallbackPage = readRepoFile('app/marketplace/submit-listing/page.tsx')
       expect(fallbackPage).toContain('export default')
+    }
+  })
+
+  it('wires the individual marketplace listing page to live public listings only', () => {
+    const detailPage = readRepoFile('app/marketplace/listings/[slug]/page.tsx')
+
+    expect(detailPage).toContain('getPublicListingBySlug')
+    expect(detailPage).not.toContain("lib/marketplace/publicListings")
+  })
+
+  it('routes live category listing cards through the public listing href helper', () => {
+    for (const pagePath of liveCategoryPages) {
+      const source = readRepoFile(pagePath)
+      expect(source, `${pagePath} must import or use getPublicListingHref`).toContain('getPublicListingHref')
+    }
+  })
+
+  it('keeps public route files free of private review and source field names', () => {
+    const publicRouteFiles = [
+      ...marketplaceRoutePages,
+      'app/marketplace/listings/[slug]/page.tsx',
+      'app/marketplace/sell/page.tsx',
+    ]
+
+    for (const pagePath of publicRouteFiles) {
+      const source = readRepoFile(pagePath)
+      for (const forbidden of forbiddenPublicLeakageStrings) {
+        expect(source, `${pagePath} must not expose ${forbidden}`).not.toContain(forbidden)
+      }
     }
   })
 })
