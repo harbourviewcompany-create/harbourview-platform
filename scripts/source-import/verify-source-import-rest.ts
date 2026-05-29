@@ -15,7 +15,7 @@ const authHeader = ["Bearer", serviceKey].join(" ");
 async function rest(path: string, headers: Record<string, string> = {}) {
   const res = await fetch(`${supabaseUrl}${path}`, {
     headers: {
-      apikey: serviceKey,
+      apikey: serviceKey as string,
       Authorization: authHeader,
       "Content-Type": "application/json",
       ...headers
@@ -136,3 +136,4 @@ async function main() {
 }
 
 main();
+
