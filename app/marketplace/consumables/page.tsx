@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+import ConsumablesRequestForm from './ConsumablesRequestForm'
+import { ConsumablesAssetManifestPanel, ConsumablesProductSlots } from './ConsumablesProductSlots'
+import { CONSUMABLES_IMAGE_MANIFEST } from './image-manifest'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 
@@ -30,35 +33,35 @@ const representativeCaption =
 
 const imageCatalog = {
   packaging: {
-    src: '/marketplace/images/packaging-pouches.webp',
-    alt: 'Unbranded packaging pouches shown as representative consumables category imagery',
+    src: CONSUMABLES_IMAGE_MANIFEST.packagingPouches.path,
+    alt: CONSUMABLES_IMAGE_MANIFEST.packagingPouches.alt,
     caption: representativeCaption,
   },
   labQa: {
-    src: '/marketplace/images/lab-qa-consumables.webp',
-    alt: 'Unbranded lab and quality assurance supplies shown as representative consumables category imagery',
+    src: CONSUMABLES_IMAGE_MANIFEST.labQaConsumables.path,
+    alt: CONSUMABLES_IMAGE_MANIFEST.labQaConsumables.alt,
     caption: representativeCaption,
   },
   cultivation: {
-    src: '/marketplace/images/cultivation-inputs.webp',
-    alt: 'Unbranded cultivation inputs shown as representative consumables category imagery',
+    src: CONSUMABLES_IMAGE_MANIFEST.cultivationInputs.path,
+    alt: CONSUMABLES_IMAGE_MANIFEST.cultivationInputs.alt,
     caption: representativeCaption,
   },
   facility: {
-    src: '/marketplace/images/facility-supplies.webp',
-    alt: 'Unbranded facility supplies shown as representative consumables category imagery',
+    src: CONSUMABLES_IMAGE_MANIFEST.facilitySupplies.path,
+    alt: CONSUMABLES_IMAGE_MANIFEST.facilitySupplies.alt,
     caption: representativeCaption,
   },
   warehouse: {
-    src: '/marketplace/images/warehouse-logistics.webp',
-    alt: 'Unbranded warehouse and logistics supplies shown as representative consumables category imagery',
+    src: CONSUMABLES_IMAGE_MANIFEST.warehouseLogistics.path,
+    alt: CONSUMABLES_IMAGE_MANIFEST.warehouseLogistics.alt,
     caption: representativeCaption,
   },
 } satisfies Record<string, RepresentativeImage>
 
 const heroImage: RepresentativeImage = {
   src: imageCatalog.warehouse.src,
-  alt: 'Unbranded bulk operating supplies shown as representative consumables marketplace imagery',
+  alt: imageCatalog.warehouse.alt,
   caption: representativeCaption,
 }
 
@@ -96,7 +99,7 @@ function getListingRepresentativeImage(listing: PublicListing): RepresentativeIm
   return imageCatalog.packaging
 }
 
-function RepresentativeImageFrame({ image }: { image: RepresentativeImage }) {
+function RepresentativeImageFrame({ image, priority = false }: { image: RepresentativeImage; priority?: boolean }) {
   return (
     <figure className="overflow-hidden rounded-sm border border-gold/10 bg-[#071425]">
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#071425]">
@@ -104,6 +107,7 @@ function RepresentativeImageFrame({ image }: { image: RepresentativeImage }) {
           src={image.src}
           alt={image.alt}
           fill
+          priority={priority}
           sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
           className="object-cover opacity-90 saturate-[0.88] transition-transform duration-300 group-hover:scale-[1.02]"
         />
@@ -160,18 +164,18 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="mb-6 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-40" />
-      <p className="mb-2 text-lg font-semibold text-[#f5f1e8]">No supply listed</p>
+      <p className="mb-2 text-lg font-semibold text-[#f5f1e8]">No approved live supply listed</p>
       <p className="mb-6 text-sm leading-7 text-white/54">
-        Consumable supply is sourced through Harbourview review on request. Submit supply
+        Consumable supply can still be reviewed through Harbourview request intake. Submit supply
         or request a routed inquiry for volume requirements.
       </p>
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link href="/marketplace/sell" className="btn-marketplace text-sm">
           Submit supply
         </Link>
-        <Link href="/intake" className="btn-intelligence text-sm">
-          Request routed inquiry
-        </Link>
+        <a href="#request" className="btn-intelligence text-sm">
+          Request consumables inquiry
+        </a>
       </div>
     </div>
   )
@@ -203,16 +207,19 @@ export default async function ConsumablesPage() {
                 </p>
               </div>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link href="/intake" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
-                  Request routed inquiry
-                </Link>
+                <a href="#request" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
+                  Request consumables inquiry
+                </a>
                 <Link href="/marketplace/sell" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
                   Offer supply for review
                 </Link>
+                <a href="#assets" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
+                  View image manifest
+                </a>
               </div>
             </div>
             <div className="group lg:pt-2">
-              <RepresentativeImageFrame image={heroImage} />
+              <RepresentativeImageFrame image={heroImage} priority />
             </div>
           </div>
         </div>
@@ -263,6 +270,8 @@ export default async function ConsumablesPage() {
         </div>
       </section>
 
+      <ConsumablesProductSlots />
+
       {/* Listings */}
       <section className="bg-[#020814] py-12 sm:py-16 lg:py-18">
         <div className="page-container">
@@ -287,6 +296,25 @@ export default async function ConsumablesPage() {
           )}
         </div>
       </section>
+
+      {/* Request form */}
+      <section className="border-t border-gold/10 bg-[#030b16] py-12 sm:py-16" id="request">
+        <div className="page-container">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">
+            <ConsumablesRequestForm />
+            <aside className="rounded-sm border border-gold/10 bg-[#071425] p-6">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold/78">
+                Controlled routing
+              </p>
+              <p className="text-sm leading-7 text-white/58">
+                The request form uses Harbourview&apos;s existing marketplace capture route. Submissions are reviewed before response, routing or supplier introduction.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <ConsumablesAssetManifestPanel />
 
       {/* CTA */}
       <section className="border-t border-gold/10 bg-[#030b16] py-12 sm:py-16">
