@@ -65,6 +65,7 @@ export function CountryBorderLayer() {
                 transparent
                 opacity={ring.kind === 'outer' ? 0.94 : 0.58}
                 depthWrite={false}
+                depthTest={false}
                 renderOrder={30}
               />
             )),
@@ -82,6 +83,7 @@ export function CountryBorderLayer() {
               transparent
               opacity={ring.kind === 'outer' ? presentation.subdivisionOuterOpacity : presentation.subdivisionHoleOpacity}
               depthWrite={false}
+              depthTest={false}
               renderOrder={31}
             />
           )),
@@ -99,6 +101,7 @@ export function CountryBorderLayer() {
               transparent
               opacity={ring.kind === 'outer' ? presentation.subdivisionOuterOpacity : presentation.subdivisionHoleOpacity}
               depthWrite={false}
+              depthTest={false}
               renderOrder={32}
             />
           )),
