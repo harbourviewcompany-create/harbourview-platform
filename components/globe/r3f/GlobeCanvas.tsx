@@ -106,9 +106,10 @@ export function GlobeCanvas({
 
         {/* Lights: drop the sunset HDRI (CDN hit, warm cast) in favour of
             a hemisphere light that reads as cold deep space. */}
-        <ambientLight intensity={0.32} color="#fff4d6" />
+        <ambientLight intensity={0.48} color="#fff4d6" />
         <directionalLight position={[4, 3, 5]} intensity={1.9} color="#fff8e8" />
         <directionalLight position={[-3, 1, -4]} intensity={0.35} color="#d4c060" />
+        <directionalLight position={[-4, -1, -3]} intensity={0.55} color="#c8a030" />
         <hemisphereLight args={['#1a2840', '#030a14', 0.45]} />
 
         <Suspense fallback={null}>

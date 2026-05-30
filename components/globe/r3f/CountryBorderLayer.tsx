@@ -16,7 +16,7 @@ const MOBILE_VIEWPORT_WIDTH = 640
 // plates top out at ~GLOBE_RADIUS + 0.122. Borders must sit above the selected
 // plate surface or the selected state/province meshes visually bury the lines,
 // which is most obvious on iPhone-sized viewports after selecting United States.
-const VISIBLE_BORDER_OFFSET = 0.14
+const VISIBLE_BORDER_OFFSET = 0.13
 const VISIBLE_BORDER_RADIUS = GLOBE_RADIUS + VISIBLE_BORDER_OFFSET
 
 function projectBorderRing(points: [number, number][]) {
@@ -63,7 +63,7 @@ export function CountryBorderLayer() {
                 color="#c6a55a"
                 lineWidth={ring.kind === 'outer' ? presentation.countryOuterWidth : presentation.countryHoleWidth}
                 transparent
-                opacity={ring.kind === 'outer' ? 0.94 : 0.58}
+                opacity={ring.kind === 'outer' ? 0.78 : 0.46}
                 depthWrite={false}
                 depthTest={false}
                 renderOrder={30}
