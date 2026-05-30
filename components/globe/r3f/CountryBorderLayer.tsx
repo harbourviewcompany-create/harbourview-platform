@@ -1,7 +1,7 @@
 'use client'
 
 import { Line } from '@react-three/drei'
-import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { naturalEarthCountryBorders } from '@/data/globe/natural-earth-country-borders'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { lonLatToVector3, vector3ToArray, BORDER_OFFSET } from '@/lib/globe/globe-geometry'
@@ -13,14 +13,14 @@ function projectBorderRing(points: [number, number][]) {
 export function CountryBorderLayer() {
   return (
     <group>
-      {/* Non-Canada, non-US countries */}
-      {naturalEarthCountriesPayload.countries
+      {/* Non-Canada, non-US countries — 50m resolution for clean border lines */}
+      {naturalEarthCountryBorders
         .filter((c) => c.iso2 !== 'CA' && c.iso2 !== 'US')
         .map((country) =>
           country.polygons.flatMap((polygon, polygonIndex) =>
             polygon.rings.map((ring, ringIndex) => (
               <Line
-                key={`${country.iso3}-${polygonIndex}-${ringIndex}`}
+                key={`${country.iso2}-${polygonIndex}-${ringIndex}`}
                 points={projectBorderRing(ring.points)}
                 color="#c6a55a"
                 lineWidth={ring.kind === 'outer' ? 0.86 : 0.42}
