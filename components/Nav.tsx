@@ -60,25 +60,21 @@ const navLinks: NavItem[] = [
   { label: 'Contact', href: '/contact' },
 ]
 
+const mobileNavLinks: NavItem[] = [
+  { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Education', href: '/education' },
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+]
+
 export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openDesktopGroup, setOpenDesktopGroup] = useState<string | null>(null)
-  const [openMobileGroups, setOpenMobileGroups] = useState<Record<string, boolean>>({
-    Platform: true,
-    Exchange: true,
-    Intelligence: true,
-  })
 
   const closeMenus = () => {
     setMobileOpen(false)
     setOpenDesktopGroup(null)
-  }
-
-  const toggleMobileGroup = (label: string) => {
-    setOpenMobileGroups((current) => ({
-      ...current,
-      [label]: !current[label],
-    }))
   }
 
   return (
@@ -181,61 +177,16 @@ export default function Nav() {
             aria-label="Mobile navigation"
           >
             <div className="grid grid-cols-1 gap-3">
-              {navGroups.map((group) => {
-                const groupId = `mobile-nav-${group.label.toLowerCase()}`
-                const isOpen = Boolean(openMobileGroups[group.label])
-
-                return (
-                  <div key={group.label} className="rounded-sm border border-gold/10 bg-white/[0.02]">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gold/10 hover:text-gold"
-                      aria-expanded={isOpen}
-                      aria-controls={groupId}
-                      onClick={() => toggleMobileGroup(group.label)}
-                    >
-                      <span>{group.label}</span>
-                      <span aria-hidden="true" className="text-gold/80">{isOpen ? '−' : '+'}</span>
-                    </button>
-
-                    {isOpen && (
-                      <div id={groupId} className="grid gap-2 border-t border-gold/10 p-2">
-                        {group.items.map((item) => (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            className="rounded-sm bg-black/16 px-4 py-3 text-white/72 transition-colors hover:bg-gold/10 hover:text-gold"
-                            onClick={closeMenus}
-                          >
-                            {item.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {navLinks.map((link) => (
-                  <Link
-                    key={`${link.label}-${link.href}`}
-                    href={link.href}
-                    className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
-                    onClick={closeMenus}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-
-              <Link
-                href="/intake"
-                className="rounded-sm border border-gold/30 bg-gold px-4 py-3 text-center text-[#071425] transition-colors hover:bg-gold-light"
-                onClick={closeMenus}
-              >
-                Start Confidential Intake
-              </Link>
+              {mobileNavLinks.map((link) => (
+                <Link
+                  key={`${link.label}-${link.href}`}
+                  href={link.href}
+                  className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
+                  onClick={closeMenus}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </nav>
         </div>

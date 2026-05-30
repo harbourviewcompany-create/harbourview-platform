@@ -73,6 +73,7 @@ test.describe('production public routes', () => {
 
 test.describe('mobile navigation and layout', () => {
   test('mobile hamburger opens and routes close safely', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/', { waitUntil: 'networkidle' })
     await expect(page.locator('body')).toBeVisible()
     const beforeWidth = await page.evaluate(() => document.documentElement.scrollWidth)
@@ -82,9 +83,30 @@ test.describe('mobile navigation and layout', () => {
     const toggle = page.getByRole('button', { name: /toggle menu/i })
     await expect(toggle).toBeVisible()
     await toggle.click()
-    await expect(page.getByRole('navigation', { name: /Mobile navigation/i })).toBeVisible()
-    await page.getByRole('link', { name: /Wanted Requests/i }).click()
-    await expect(page).toHaveURL(/\/marketplace\/wanted/)
+
+    const mobileNav = page.getByRole('navigation', { name: /Mobile navigation/i })
+    await expect(mobileNav).toBeVisible()
+
+    const mobileLinkTexts = (await mobileNav.getByRole('link').allTextContents()).map((text) => text.trim())
+    expect(mobileLinkTexts).toEqual(['Marketplace', 'Intelligence', 'Education', 'About', 'Contact'])
+
+    for (const forbiddenLabel of [
+      'Platform',
+      'Exchange',
+      'Start Confidential Intake',
+      'Wanted Requests',
+      'Sell or Export',
+      'Markets',
+      'Signals'
+    ]) {
+      await expect(mobileNav.getByText(forbiddenLabel, { exact: true })).toHaveCount(0)
+    }
+
+    await expect(mobileNav.getByRole('button')).toHaveCount(0)
+    await page.screenshot({ path: 'test-results/mobile-hamburger-open-390.png', fullPage: true })
+
+    await mobileNav.getByRole('link', { name: 'Marketplace' }).click()
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/marketplace')
 
     const afterWidth = await page.evaluate(() => document.documentElement.scrollWidth)
     const afterViewportWidth = await page.evaluate(() => document.documentElement.clientWidth)
