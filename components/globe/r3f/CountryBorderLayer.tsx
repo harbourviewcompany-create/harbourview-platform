@@ -1,47 +1,65 @@
 'use client'
 
+import { useMemo } from 'react'
+import { useThree } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
-import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
-import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { lonLatToVector3, vector3ToArray, BORDER_OFFSET } from '@/lib/globe/globe-geometry'
+import {
+  entryMatchesCountryOrParent,
+  expandSelectedGlobeSet,
+  getRenderableEntryKind,
+  isRenderableEntrySelected,
+  renderableGlobeEntries,
+} from '@/lib/globe/renderable-globe-entries'
+import { getViewportClass, resolveBorderStyle } from '@/lib/globe/globe-visual-state'
 
 function projectBorderRing(points: [number, number][]) {
   return points.map((point) => vector3ToArray(lonLatToVector3(point[0], point[1], 2.35 + BORDER_OFFSET)))
 }
 
-export function CountryBorderLayer() {
+export function CountryBorderLayer({
+  selectedCountryIso2,
+  selectedCountryIso2s,
+  focusedCountryIso2,
+}: {
+  selectedCountryIso2?: string
+  selectedCountryIso2s: string[]
+  focusedCountryIso2?: string
+}) {
+  const width = useThree((state) => state.size.width)
+  const viewportClass = getViewportClass(width)
+
+  const selectedSet = useMemo(
+    () => expandSelectedGlobeSet(selectedCountryIso2, selectedCountryIso2s),
+    [selectedCountryIso2, selectedCountryIso2s],
+  )
+
   return (
-    <group>
-      {/* Non-Canada countries */}
-      {naturalEarthCountriesPayload.countries
-        .filter((c) => c.iso2 !== 'CA')
-        .map((country) =>
-          country.polygons.flatMap((polygon, polygonIndex) =>
-            polygon.rings.map((ring, ringIndex) => (
+    <group userData={{ layer: 'country-borders' }}>
+      {renderableGlobeEntries.map((entry) =>
+        entry.polygons.flatMap((polygon, polygonIndex) =>
+          polygon.rings.map((ring, ringIndex) => {
+            const isSelected = isRenderableEntrySelected(entry, selectedSet)
+            const isFocused = entryMatchesCountryOrParent(entry, focusedCountryIso2)
+            const style = resolveBorderStyle({
+              viewportClass,
+              renderableKind: getRenderableEntryKind(entry),
+              ringKind: ring.kind,
+              isFocused,
+              isSelected,
+            })
+
+            return (
               <Line
-                key={`${country.iso3}-${polygonIndex}-${ringIndex}`}
+                key={`${entry.iso3}-${polygonIndex}-${ringIndex}`}
                 points={projectBorderRing(ring.points)}
-                color="#c6a55a"
-                lineWidth={ring.kind === 'outer' ? 0.86 : 0.42}
+                color={style.color}
+                lineWidth={style.lineWidth}
                 transparent
-                opacity={ring.kind === 'outer' ? 0.92 : 0.54}
+                opacity={style.opacity}
               />
-            )),
-          ),
-        )}
-      {/* Canadian province borders — slightly thinner than country borders */}
-      {canadaProvinces.map((province) =>
-        province.polygons.flatMap((polygon, polygonIndex) =>
-          polygon.rings.map((ring, ringIndex) => (
-            <Line
-              key={`${province.iso3}-${polygonIndex}-${ringIndex}`}
-              points={projectBorderRing(ring.points)}
-              color="#c6a55a"
-              lineWidth={ring.kind === 'outer' ? 0.72 : 0.36}
-              transparent
-              opacity={ring.kind === 'outer' ? 0.78 : 0.42}
-            />
-          )),
+            )
+          }),
         ),
       )}
     </group>
