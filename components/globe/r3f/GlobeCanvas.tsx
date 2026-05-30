@@ -108,7 +108,6 @@ export function GlobeCanvas({
 
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />
-            <CountryBorderLayer />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
               selectedCountryIso2s={selectedCountryIso2s}
@@ -117,6 +116,8 @@ export function GlobeCanvas({
               onHoverCountry={onHoverCountry}
               onSelectCountry={onSelectCountry}
             />
+            {/* Border strokes render after polygon plates so U.S. subdivisions remain legible on mobile. */}
+            <CountryBorderLayer />
             {/* Hover label — floats above the plate centroid while hovering */}
             {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
