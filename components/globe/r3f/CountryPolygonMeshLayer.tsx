@@ -58,11 +58,13 @@ function HoverPulseMesh({
     targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.44) : emissiveIntensity
   }, [isFocused, emissiveIntensity])
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!matRef.current) return
     const cur = matRef.current.emissiveIntensity
     const tgt = targetRef.current
     if (Math.abs(cur - tgt) < 0.001) return
+    // Pulse is still animating — request the next frame (#4)
+    state.invalidate()
     matRef.current.emissiveIntensity = cur + (tgt - cur) * Math.min(delta * 9, 1)
   })
 
