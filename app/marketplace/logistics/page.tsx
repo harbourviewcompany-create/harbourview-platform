@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 
 export const metadata: Metadata = {
   title: 'Cannabis Logistics & Trade Route Services | Harbourview',
