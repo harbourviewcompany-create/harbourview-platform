@@ -76,4 +76,12 @@ export const usStateByIso2 = Object.fromEntries(
   usStateProfiles.map((state) => [state.iso2, state]),
 ) as Record<string, UsStateProfile>
 
+export const usStateBySlug = Object.fromEntries(
+  usStateProfiles.map((state) => [state.slug, state]),
+) as Record<string, UsStateProfile>
+
+export const usStateByAbbr = Object.fromEntries(
+  usStateProfiles.map((state) => [state.abbreviation.toLowerCase(), state]),
+) as Record<string, UsStateProfile>
+
 export const usStateSlugs = usStateProfiles.map((state) => state.slug)

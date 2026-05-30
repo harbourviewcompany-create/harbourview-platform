@@ -1,5 +1,6 @@
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinceProfiles, canadaProvinceBySlug, canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
+import { usStateProfiles, usStateByIso2, usStateBySlug, usStateByAbbr } from '@/data/globe/us-state-profiles'
 import type {
   CountryDashboardPanels,
   CountryDashboardSummary,
@@ -317,6 +318,39 @@ export function resolveCountryRouteParam(value?: string | null) {
       parentDashboardSummary: typeof parent
       regulatoryAuthority: string
       regulatoryNotes: string
+    }
+  }
+  // Check US state slug (e.g. 'illinois', 'california') or iso2 (e.g. 'US-IL') or abbreviation (e.g. 'IL')
+  const state =
+    usStateBySlug[value] ??
+    usStateByIso2[value.toUpperCase()] ??
+    usStateByAbbr[value.toLowerCase()] ??
+    null
+  if (state) {
+    const parent = getCountryBySlug('united-states')
+    return {
+      iso2: state.iso2,
+      iso3: 'USA-' + state.abbreviation,
+      displayName: state.name,
+      slug: state.slug,
+      region: 'Americas',
+      subregion: 'North America',
+      aliases: [state.abbreviation, `${state.name} USA`],
+      dashboardStatus: state.dashboardStatus,
+      publicSummary: `State-level cannabis intelligence for ${state.name}. Each state operates its own regulatory framework independently from federal law.`,
+      lastUpdated: 'May 2026',
+      dashboardPath: `/dashboard/country/${state.slug}`,
+      panels: parent?.panels ?? {},
+      routeAvailability: parent?.routeAvailability ?? {},
+      parentIso2: 'US',
+      parentSlug: 'united-states',
+      parentDisplayName: 'United States',
+      parentDashboardSummary: parent,
+    } as CountryDashboardSummary & {
+      parentIso2: string
+      parentSlug: string
+      parentDisplayName: string
+      parentDashboardSummary: typeof parent
     }
   }
   return getCountryBySlug(value) ?? getCountryByIso2(value) ?? getCountryByIso3(value) ?? getCountryByAlias(value)
