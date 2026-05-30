@@ -8,9 +8,9 @@ import { MeshStandardMaterial, Color } from 'three'
 // Injects into Three.js standard shader pipeline at build time.
 function createOceanMaterial() {
   const mat = new MeshStandardMaterial({
-    color: new Color('#02060c'),
-    emissive: new Color('#0a1522'),
-    emissiveIntensity: 0.18,
+    color: new Color('#030c18'),
+    emissive: new Color('#0e1f35'),
+    emissiveIntensity: 0.24,
     roughness: 0.88,
     metalness: 0.06,
   })

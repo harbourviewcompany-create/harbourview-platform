@@ -13,8 +13,8 @@ import type { GlobeLayerId } from '@/types/globe-router'
 const PLATE_LIFT = 0.026
 const IDLE_EXTRUSION = 0.058
 const SELECTED_EXTRUSION = 0.094
-const BORDER_METAL = '#8b7343'
-const SELECTED_ACCENT = '#b79a5a'
+const BORDER_METAL = '#c6a55a'
+const SELECTED_ACCENT = '#d4b93c'
 const SPECULAR_CAP = 0.32
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
