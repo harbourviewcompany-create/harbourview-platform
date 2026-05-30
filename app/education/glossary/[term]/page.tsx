@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -23,18 +24,18 @@ export default async function GlossaryTermPage({ params }: { params: Promise<{ t
               Harbourview glossary definitions are reviewed before publication to ensure accuracy, appropriate scope and claim discipline. This term has been assigned a route but its definition has not yet been cleared for public access. Definitions for controlled terminology may be available through the education request intake.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a
+              <Link
                 href="/education/request"
                 className="inline-flex min-h-11 items-center justify-center rounded-full bg-gold px-6 py-3 text-sm font-semibold text-navy transition hover:bg-[#d6b76d]"
               >
                 Request Definition
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/education/glossary"
                 className="inline-flex min-h-11 items-center justify-center rounded-full border border-gold/60 px-6 py-3 text-sm font-semibold text-gold transition hover:bg-gold hover:text-navy"
               >
                 Return to Glossary
-              </a>
+              </Link>
             </div>
           </div>
           <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.03] p-6">
