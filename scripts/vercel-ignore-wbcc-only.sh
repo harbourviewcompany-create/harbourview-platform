@@ -85,7 +85,7 @@ case "$branch" in
     echo "Vercel ignore: build allowed for branch '$branch'."
     exit 1
     ;;
-  preview/*|deploy/*)
+  preview/*|deploy/*|chatgpt/*)
     echo "Vercel ignore: build allowed for branch '$branch'."
     exit 1
     ;;
