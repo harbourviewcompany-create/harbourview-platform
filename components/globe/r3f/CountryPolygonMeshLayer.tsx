@@ -130,7 +130,7 @@ export function CountryPolygonMeshLayer({
         geometry: createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
-          geometryMode: 'extruded',
+          geometryMode: 'surface',
         }),
         // Inflated hit geometry for small countries — larger plateLift pushes it
         // slightly above the visual mesh so raycasting hits it first
@@ -139,7 +139,7 @@ export function CountryPolygonMeshLayer({
             ? createCountryBufferGeometry(entry, {
                 plateLift: PLATE_LIFT + 0.06,
                 extrusionHeight: IDLE_EXTRUSION + 0.04,
-                geometryMode: 'extruded',
+                geometryMode: 'surface',
               })
             : undefined,
       })),
@@ -179,7 +179,7 @@ export function CountryPolygonMeshLayer({
         createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT + 0.002,
           extrusionHeight: SELECTED_EXTRUSION,
-          geometryMode: 'extruded',
+          geometryMode: 'surface',
         }),
       )
     }
