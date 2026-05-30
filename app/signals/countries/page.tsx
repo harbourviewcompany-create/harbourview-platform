@@ -27,9 +27,10 @@ export default async function CountriesPage() {
         {countries.length === 0 ? (
           <EmptyState
             title="No jurisdictions with published signals yet."
-            description="Harbourview publishes signals as they pass public-safe review. Check back or submit a country intelligence request."
             action={{ label: 'Request Country Intelligence', href: '/intelligence' }}
-          />
+          >
+            Harbourview publishes signals as they pass public-safe review. Check back or submit a country intelligence request.
+          </EmptyState>
         ) : (
           <>
             <SectionHeader
