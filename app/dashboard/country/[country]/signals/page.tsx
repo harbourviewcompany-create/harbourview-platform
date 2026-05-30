@@ -4,6 +4,7 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
+import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 
 type Props = { params: Promise<{ country: string }> }
 
@@ -140,9 +141,20 @@ export default async function SignalsPage({ params }: Props) {
   const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
 
-  const panel   = country.panels.signals
-  const badge   = getDashboardStatusBadge(panel.state)
-  const derived = deriveSignals(panel.state, country.displayName)
+  const panel       = country.panels.signals
+  const badge       = getDashboardStatusBadge(panel.state)
+  const intel       = getCountryIntelligence(country.slug)
+  const baseDerived = deriveSignals(panel.state, country.displayName)
+  const derived: SignalsDerived = intel?.signals ? {
+    ...baseDerived,
+    feedSignals: intel.signals.feedSignals.map((s) => ({
+      tag:      s.tag,
+      headline: s.headline,
+      date:     s.date,
+      tone:     s.tone,
+    })),
+    sourceNote: intel.signals.sourceNote,
+  } : baseDerived
   const availableCount = derived.categories.filter((c) => c.available).length
 
   return (

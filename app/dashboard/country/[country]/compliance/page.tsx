@@ -4,6 +4,7 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
+import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 
 type Props = { params: Promise<{ country: string }> }
 
@@ -145,9 +146,17 @@ export default async function CompliancePage({ params }: Props) {
   const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
 
-  const panel   = country.panels.compliance
-  const badge   = getDashboardStatusBadge(panel.state)
-  const derived = deriveCompliance(panel.state)
+  const panel       = country.panels.compliance
+  const badge       = getDashboardStatusBadge(panel.state)
+  const intel       = getCountryIntelligence(country.slug)
+  const baseDerived = deriveCompliance(panel.state)
+  const derived: ComplianceDerived = intel?.compliance ? {
+    headline:     intel.compliance.headline,
+    subline:      intel.compliance.subline,
+    importNote:   intel.compliance.importNote,
+    certNote:     intel.compliance.certNote,
+    requirements: intel.compliance.requirements,
+  } : baseDerived
   const metCount   = derived.requirements.filter((r) => r.status === 'met').length
   const totalCount = derived.requirements.length
 

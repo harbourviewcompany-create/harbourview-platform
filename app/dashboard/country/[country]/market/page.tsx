@@ -4,6 +4,7 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
+import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 
 type Props = { params: Promise<{ country: string }> }
 
@@ -68,9 +69,16 @@ export default async function MarketPage({ params }: Props) {
   const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
 
-  const panel   = country.panels.market
-  const badge   = getDashboardStatusBadge(panel.state)
-  const derived = deriveMarketData(panel.state)
+  const panel       = country.panels.market
+  const badge       = getDashboardStatusBadge(panel.state)
+  const intel       = getCountryIntelligence(country.slug)
+  const baseDerived = deriveMarketData(panel.state)
+  const derived: MarketDerived = intel?.market ? {
+    model:     { label: intel.market.frameworkLabel,  detail: intel.market.frameworkDetail },
+    imports:   { label: intel.market.importLabel,     detail: intel.market.importDetail },
+    operators: { label: intel.market.operatorLabel,   detail: intel.market.operatorDetail },
+    regulator: { label: intel.market.regulatorLabel,  detail: intel.market.regulatorDetail },
+  } : baseDerived
   const isLocked = panel.state === 'unavailable' || panel.state === 'request-only'
 
   return (

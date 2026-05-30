@@ -49,31 +49,57 @@ const REQUIRED_ALIAS_GROUPS: Record<string, string[]> = {
 }
 
 const fixtureStatusBySlug: Record<string, DashboardPanelState> = {
-  germany: 'live',
-  italy: 'partial',
-  'new-zealand': 'request-only',
-  canada: 'live',
-  brazil: 'live',
-  'united-states': 'partial',
+  // Live consoles
+  germany:          'live',
+  australia:        'live',
+  canada:           'live',
+  brazil:           'live',
+  israel:           'live',
+  // Partial consoles
+  france:           'partial',
+  italy:            'partial',
+  netherlands:      'partial',
+  portugal:         'partial',
+  poland:           'partial',
+  'united-states':  'partial',
+  // Review-required
   'united-kingdom': 'review-required',
-  portugal: 'fallback-backed',
-  australia: 'static-orientation',
-  colombia: 'request-only',
-  israel: 'unavailable',
+  czechia:          'review-required',
+  denmark:          'review-required',
+  switzerland:      'review-required',
+  // Request-only
+  'new-zealand':    'request-only',
+  colombia:         'request-only',
+  thailand:         'request-only',
+  malta:            'request-only',
+  luxembourg:       'request-only',
 }
 
 const fixtureSummaries: Record<string, string> = {
-  germany: 'Live country console for medical-market posture, compliance routing, signals, and reviewed opportunity intake.',
-  italy: 'Partial country console with reviewed orientation and request-routed country intelligence.',
-  'new-zealand': 'Request-only country console for private market, compliance, and connection review.',
-  canada: 'Live country console for supply-chain posture, market education, and dashboard section routing.',
-  brazil: 'Live commercial operating dashboard for marketplace workflows, trade access, professional education, readiness gates, and supporting movement.',
-  'united-states': 'Partial country console with state-sensitive orientation and reviewed routing boundaries.',
-  'united-kingdom': 'Review-required country console for medical-market orientation and private routing.',
-  portugal: 'Fallback-backed country console for EU-adjacent production and export orientation.',
-  australia: 'Static orientation country console for market, education, and signal routing.',
-  colombia: 'Request-only country console for export posture and opportunity review intake.',
-  israel: 'Unavailable country console with safe request-review and return-to-globe routing only.',
+  // Live
+  germany:          'Live country console — BtMG/CanG dual-framework, BfArM import permits, GKV reimbursement, active multi-operator market.',
+  australia:        'Live country console — TGA/ODC dual-authority framework, SAS Category B and Authorised Prescriber pathways, active import market.',
+  canada:           'Live country console for supply-chain posture, market education, and dashboard section routing.',
+  brazil:           'Live commercial operating dashboard for marketplace workflows, trade access, professional education, readiness gates, and supporting movement.',
+  israel:           'Live country console — IMCA/MOH licensed market, ~120,000 registered patients, EU-GMP export-capable operators.',
+  // Partial
+  france:           'Partial console — ANSM post-experiment transition, Accès Précoce (AAP) framework, permanent medical access legislation advancing.',
+  italy:            'Partial console — AIFA import authorisation, SCFM state cultivator, magistral compounding pharmacy access model.',
+  netherlands:      'Partial console — OMC/Bedrocan supply model, NF-compliant product standards, recreational pilot expanding.',
+  portugal:         'Partial console — INFARMED EU-GMP production hub and domestic medical access; key origin market for EU supply chain.',
+  poland:           'Partial console — GIF import permit market, 1.2M+ annual prescriptions, accessible prescribing with any licensed physician.',
+  'united-states':  'Partial country console with state-sensitive orientation and reviewed routing boundaries.',
+  // Review-required
+  'united-kingdom': 'Review-required console — MHRA/Home Office Schedule 2 framework, specialist prescribing, private-prescription-only market.',
+  czechia:          'Review-required console — SÚKL licensed market, prescription access through specialist physicians, active import.',
+  denmark:          'Review-required console — pilot programme now permanent, prescription through specialist network.',
+  switzerland:      'Review-required console — Swissmedic special authorisation pathway, private-market access.',
+  // Request-only
+  'new-zealand':    'Request-only country console for private market, compliance, and connection review.',
+  colombia:         'Request-only country console for export posture and opportunity review intake.',
+  thailand:         'Request-only console — legalisation reversed 2024; medical-only pathway review-gated.',
+  malta:            'Request-only console — first EU adult-use legalisation; market structure still forming.',
+  luxembourg:       'Request-only console — adult-use personal cultivation legal; commercial market framework pending.',
 }
 
 const countryOverrides: Record<string, Partial<CountryDashboardSummary>> = {
