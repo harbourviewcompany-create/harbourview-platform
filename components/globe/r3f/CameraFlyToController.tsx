@@ -5,6 +5,8 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { canadaProvinces } from '@/data/globe/canada-provinces'
+import { usStates } from '@/data/globe/us-states'
 import {
   createCountryFocusPose,
   easeInOutCubic,
@@ -26,10 +28,21 @@ export function getFlyToMotionProfile(prefersReducedMotion: boolean): { shouldAn
 function findCountryPose(countryIso2?: string, targetDistanceMax?: number): GlobeCameraPose | null {
   if (!countryIso2) return null
 
+  // US states: iso2 starts with 'US-'
+  if (countryIso2.startsWith('US-')) {
+    const state = usStates.find((s) => s.iso2 === countryIso2)
+    if (state) return createCountryFocusPose(state, { targetDistanceMax })
+  }
+
+  // Canadian provinces: iso2 starts with 'CA-'
+  if (countryIso2.startsWith('CA-')) {
+    const province = canadaProvinces.find((p) => p.iso2 === countryIso2)
+    if (province) return createCountryFocusPose(province, { targetDistanceMax })
+  }
+
+  // Sovereign countries
   const country = naturalEarthCountriesPayload.countries.find((candidate) => candidate.iso2 === countryIso2)
-
   if (!country) return null
-
   return createCountryFocusPose(country, { targetDistanceMax })
 }
 

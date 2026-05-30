@@ -8,6 +8,7 @@ import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
+import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
@@ -59,8 +60,17 @@ export function GlobeCanvas({
     ? GLOBE_CAMERA_CONFIG.polarByState.country
     : GLOBE_CAMERA_CONFIG.polarByState.selected
 
+  // Auto-rotate only when nothing is hovered or selected
+  const isHovering = !!focusedCountryIso2
+  const isSelected = !!selectedCountryIso2
+  const shouldAutoRotate = !isHovering && !isSelected
+
   return (
-    <div className={className ?? 'absolute inset-0 pointer-events-none'}>
+    <div
+      className={className ?? 'absolute inset-0 pointer-events-none'}
+      // Pointer cursor whenever a country plate is hovered
+      style={{ cursor: isHovering ? 'pointer' : 'default' }}
+    >
       <Canvas
         className="h-full w-full pointer-events-auto"
         dpr={[1, 1.75]}
@@ -102,6 +112,8 @@ export function GlobeCanvas({
               onHoverCountry={onHoverCountry}
               onSelectCountry={onSelectCountry}
             />
+            {/* Hover label — floats above the plate centroid while hovering */}
+            {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
@@ -121,6 +133,8 @@ export function GlobeCanvas({
           maxDistance={distanceLimits.max}
           minPolarAngle={polarLimits.min}
           maxPolarAngle={polarLimits.max}
+          autoRotate={shouldAutoRotate}
+          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
         />
       </Canvas>
     </div>
