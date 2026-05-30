@@ -58,9 +58,10 @@ export default async function CountrySignalsPage({ params }: { params: Promise<{
         {signals.length === 0 ? (
           <EmptyState
             title="No published signals for this jurisdiction yet."
-            description="Harbourview publishes signals as they pass review. Request country intelligence for a deeper assessment."
             action={{ label: 'Request Country Intelligence', href: '/intelligence' }}
-          />
+          >
+            Harbourview publishes signals as they pass review. Request country intelligence for a deeper assessment.
+          </EmptyState>
         ) : (
           <div className="space-y-4">
             {signals.map((signal) => (
