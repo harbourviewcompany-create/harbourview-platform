@@ -1,5 +1,6 @@
 import { countries, getCountryByIso2 } from '@/lib/dashboard/countries'
 import { canadaProvinceProfiles } from '@/data/globe/canada-province-profiles'
+import { usStateProfiles } from '@/data/globe/us-state-profiles'
 import type { CountryOption, CountryRoleProfile, RoleId } from '@/types/globe-router'
 import { allRoleIds } from './role-profiles'
 
@@ -37,10 +38,21 @@ const provinceOptions: CountryOption[] = canadaProvinceProfiles.map((p) => ({
   dashboardStatus: p.dashboardStatus,
 }))
 
-// Merge: provinces appear after main country list
+// US state options — injected after province options
+const usStateOptions: CountryOption[] = usStateProfiles.map((s) => ({
+  iso2: s.iso2,
+  name: s.name,
+  region: 'Americas',
+  subregion: 'North America',
+  aliases: [s.abbreviation, `${s.name} United States`, `${s.name} USA`, `US-${s.abbreviation}`],
+  dashboardStatus: s.dashboardStatus,
+}))
+
+// Merge: provinces and states appear after main country list
 export const allCountryAndProvinceOptions: CountryOption[] = [
   ...countryOptions,
   ...provinceOptions,
+  ...usStateOptions,
 ]
 
 export const countryOptionMap = Object.fromEntries(
