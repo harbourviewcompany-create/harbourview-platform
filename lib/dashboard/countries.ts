@@ -291,10 +291,11 @@ export function getCountryByAlias(alias?: string | null) {
 
 export function resolveCountryRouteParam(value?: string | null) {
   if (!value) return undefined
-  // Check province slug first (e.g. 'ontario', 'british-columbia')
+
+  // ── Canada provinces ──────────────────────────────────────────────────────
+  // Matches: slug ('ontario'), ISO 3166-2 ('CA-ON').
   const province = canadaProvinceBySlug[value] ?? canadaProvinceByIso2[value.toUpperCase()] ?? null
   if (province) {
-    // Return a synthetic CountryDashboardSummary-compatible object for provinces
     const parent = getCountryBySlug('canada')
     return {
       iso2: province.iso2,
@@ -305,6 +306,13 @@ export function resolveCountryRouteParam(value?: string | null) {
       subregion: 'North America',
       aliases: [province.abbreviation],
       dashboardStatus: province.dashboardStatus,
+      defaultDashboardSection: 'market' as DashboardSectionSlug,
+      globeFeatureId: province.iso2,
+      lastUpdated: '2026-05-30',
+      dashboardPath: `/dashboard/country/${province.slug}`,
+      publicSummary: `Province-level cannabis intelligence for ${province.name}. Regulated under Canadian federal law with province-specific retail authority.`,
+      panels: buildPanels(province.slug, province.dashboardStatus),
+      routeAvailability: routeAvailabilityFor(province.dashboardStatus),
       parentIso2: 'CA',
       parentSlug: 'canada',
       parentDisplayName: 'Canada',
@@ -320,39 +328,55 @@ export function resolveCountryRouteParam(value?: string | null) {
       regulatoryNotes: string
     }
   }
-  // Check US state slug (e.g. 'illinois', 'california') or iso2 (e.g. 'US-IL') or abbreviation (e.g. 'IL')
+
+  // ── US states ─────────────────────────────────────────────────────────────
+  // Matches: full slug ('illinois', 'new-york') or explicit ISO 3166-2 ('US-IL').
+  // Bare 2-letter values ('IL', 'IN', 'DE'…) intentionally fall through to
+  // country resolution below — prevents collision with sovereign ISO2 codes
+  // (IL=Israel, IN=India, DE=Germany, CO=Colombia, GA=Georgia, OR=unknown).
+  // Globe clicks produce 'US-XX' — caught by isExplicitStateIso2.
+  const isStateSlug = value.length > 3 || (value.includes('-') && !value.toUpperCase().startsWith('CA-'))
+  const isExplicitStateIso2 = value.toUpperCase().startsWith('US-')
   const state =
-    usStateBySlug[value] ??
-    usStateByIso2[value.toUpperCase()] ??
-    usStateByAbbr[value.toLowerCase()] ??
-    null
+    (isStateSlug || isExplicitStateIso2)
+      ? (usStateBySlug[value] ?? usStateByIso2[value.toUpperCase()] ?? null)
+      : null
+
   if (state) {
-    const parent = getCountryBySlug('united-states')
     return {
       iso2: state.iso2,
-      iso3: 'USA-' + state.abbreviation,
+      // Use the ISO 3166-2 code (state.iso2 = 'US-MI') rather than the
+      // fabricated 'USA-MI' which rendered visibly in the page header.
+      iso3: state.iso2,
       displayName: state.name,
       slug: state.slug,
       region: 'Americas',
       subregion: 'North America',
-      aliases: [state.abbreviation, `${state.name} USA`],
+      aliases: [state.abbreviation, `${state.name} USA`, `${state.name}, USA`],
       dashboardStatus: state.dashboardStatus,
-      publicSummary: `State-level cannabis intelligence for ${state.name}. Each state operates its own regulatory framework independently from federal law.`,
-      lastUpdated: 'May 2026',
+      defaultDashboardSection: 'market' as DashboardSectionSlug,
+      globeFeatureId: state.iso2,
+      lastUpdated: '2026-05-30',
       dashboardPath: `/dashboard/country/${state.slug}`,
-      panels: parent?.panels ?? {},
-      routeAvailability: parent?.routeAvailability ?? {},
+      publicSummary: `State-level cannabis intelligence for ${state.name}. Each state operates its own regulatory framework independently from federal law.`,
+      // Build panels from the state's own dashboardStatus so the overview badge
+      // and panel states are consistent (previously inherited US parent panels).
+      panels: buildPanels(state.slug, state.dashboardStatus),
+      routeAvailability: routeAvailabilityFor(state.dashboardStatus),
       parentIso2: 'US',
       parentSlug: 'united-states',
       parentDisplayName: 'United States',
-      parentDashboardSummary: parent,
+      parentDashboardSummary: getCountryBySlug('united-states'),
     } as CountryDashboardSummary & {
       parentIso2: string
       parentSlug: string
       parentDisplayName: string
-      parentDashboardSummary: typeof parent
+      parentDashboardSummary: ReturnType<typeof getCountryBySlug>
     }
   }
+
+  // ── Countries ─────────────────────────────────────────────────────────────
+  // Bare 2-letter values land here: IL→Israel, IN→India, DE→Germany, etc.
   return getCountryBySlug(value) ?? getCountryByIso2(value) ?? getCountryByIso3(value) ?? getCountryByAlias(value)
 }
 
