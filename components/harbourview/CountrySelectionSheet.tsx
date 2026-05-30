@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { countryOptions } from '@/config/globe/country-role-profiles'
+import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/country-role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { CheckCircleIcon, GlobeIcon, QuestionCircleIcon, SearchIcon } from './icons'
 

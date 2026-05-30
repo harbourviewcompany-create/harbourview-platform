@@ -1,4 +1,5 @@
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { canadaProvinceProfiles, canadaProvinceBySlug, canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
 import type {
   CountryDashboardPanels,
   CountryDashboardSummary,
@@ -288,6 +289,36 @@ export function getCountryByAlias(alias?: string | null) {
 }
 
 export function resolveCountryRouteParam(value?: string | null) {
+  if (!value) return undefined
+  // Check province slug first (e.g. 'ontario', 'british-columbia')
+  const province = canadaProvinceBySlug[value] ?? canadaProvinceByIso2[value.toUpperCase()] ?? null
+  if (province) {
+    // Return a synthetic CountryDashboardSummary-compatible object for provinces
+    const parent = getCountryBySlug('canada')
+    return {
+      iso2: province.iso2,
+      iso3: province.iso2.replace('-', ''),
+      displayName: province.name,
+      slug: province.slug,
+      region: 'Americas',
+      subregion: 'North America',
+      aliases: [province.abbreviation],
+      dashboardStatus: province.dashboardStatus,
+      parentIso2: 'CA',
+      parentSlug: 'canada',
+      parentDisplayName: 'Canada',
+      parentDashboardSummary: parent,
+      regulatoryAuthority: province.retailAuthority,
+      regulatoryNotes: province.keyNotes,
+    } as CountryDashboardSummary & {
+      parentIso2: string
+      parentSlug: string
+      parentDisplayName: string
+      parentDashboardSummary: typeof parent
+      regulatoryAuthority: string
+      regulatoryNotes: string
+    }
+  }
   return getCountryBySlug(value) ?? getCountryByIso2(value) ?? getCountryByIso3(value) ?? getCountryByAlias(value)
 }
 

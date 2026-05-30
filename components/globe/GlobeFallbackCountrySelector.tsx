@@ -1,6 +1,6 @@
 'use client'
 
-import { countryOptions } from '@/config/globe/country-role-profiles'
+import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/country-role-profiles'
 
 export function GlobeFallbackCountrySelector({
   selectedCountryIso2,

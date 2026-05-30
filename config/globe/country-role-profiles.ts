@@ -1,4 +1,5 @@
 import { countries, getCountryByIso2 } from '@/lib/dashboard/countries'
+import { canadaProvinceProfiles } from '@/data/globe/canada-province-profiles'
 import type { CountryOption, CountryRoleProfile, RoleId } from '@/types/globe-router'
 import { allRoleIds } from './role-profiles'
 
@@ -24,6 +25,22 @@ export const countryOptions: CountryOption[] = [
   ...countries
     .filter((country) => !curatedCountryOrder.includes(country.iso2))
     .map(mapDashboardCountryToOption),
+]
+
+// Province options — injected after country options so provinces appear in search
+const provinceOptions: CountryOption[] = canadaProvinceProfiles.map((p) => ({
+  iso2: p.iso2,
+  name: p.name,
+  region: 'Americas',
+  subregion: 'North America',
+  aliases: [p.abbreviation, `${p.name} Canada`, `CA-${p.abbreviation}`],
+  dashboardStatus: p.dashboardStatus,
+}))
+
+// Merge: provinces appear after main country list
+export const allCountryAndProvinceOptions: CountryOption[] = [
+  ...countryOptions,
+  ...provinceOptions,
 ]
 
 export const countryOptionMap = Object.fromEntries(

@@ -1,4 +1,4 @@
-import { countryOptions } from '@/config/globe/country-role-profiles'
+import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/country-role-profiles'
 import { intentProfiles } from '@/config/globe/intent-profiles'
 import { roleProfiles } from '@/config/globe/role-profiles'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'

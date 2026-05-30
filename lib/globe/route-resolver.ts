@@ -2,6 +2,7 @@ import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
 import { getCountryByIso2 } from '@/lib/dashboard/countries'
+import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
 import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
 
 // Maps globe role IDs to destination types when no intent is selected.
@@ -93,6 +94,17 @@ function resolveCountryDashboardPath(input: GlobeRouteInput): string | null {
   return `/dashboard/country/${country.slug}`
 }
 
+// Resolve a country iso2 that may be a province (CA-XX) to its dashboard slug.
+function resolveCountryOrProvinceDashboardSlug(iso2: string): string | null {
+  // Province: CA-XX -> /dashboard/country/[province-slug]
+  if (iso2.startsWith('CA-')) {
+    const province = canadaProvinceByIso2[iso2]
+    return province ? `/dashboard/country/${province.slug}` : `/dashboard/country/canada`
+  }
+  const country = getCountryByIso2(iso2)
+  return country ? `/dashboard/country/${country.slug}` : null
+}
+
 export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
   const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? mapRoleToDestinationType(input.roleId)
@@ -100,7 +112,9 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   // 1. Single-market without intent — go straight to the country dashboard.
   //    The shell reads the role query param and adapts its content accordingly.
   if (!input.intentId && input.countryIso2 && input.mode !== 'multi_market') {
-    const dashboardPath = resolveCountryDashboardPath(input)
+    // Handle province iso2 (CA-XX) directly
+    const directSlug = input.countryIso2 ? resolveCountryOrProvinceDashboardSlug(input.countryIso2) : null
+    const dashboardPath = directSlug ?? resolveCountryDashboardPath(input)
     if (dashboardPath) {
       return {
         status: 'resolved',

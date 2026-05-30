@@ -2,6 +2,7 @@
 
 import { Line } from '@react-three/drei'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { lonLatToVector3, vector3ToArray, BORDER_OFFSET } from '@/lib/globe/globe-geometry'
 
 function projectBorderRing(points: [number, number][]) {
@@ -11,16 +12,34 @@ function projectBorderRing(points: [number, number][]) {
 export function CountryBorderLayer() {
   return (
     <group>
-      {naturalEarthCountriesPayload.countries.map((country) =>
-        country.polygons.flatMap((polygon, polygonIndex) =>
+      {/* Non-Canada countries */}
+      {naturalEarthCountriesPayload.countries
+        .filter((c) => c.iso2 !== 'CA')
+        .map((country) =>
+          country.polygons.flatMap((polygon, polygonIndex) =>
+            polygon.rings.map((ring, ringIndex) => (
+              <Line
+                key={`${country.iso3}-${polygonIndex}-${ringIndex}`}
+                points={projectBorderRing(ring.points)}
+                color="#c6a55a"
+                lineWidth={ring.kind === 'outer' ? 0.86 : 0.42}
+                transparent
+                opacity={ring.kind === 'outer' ? 0.92 : 0.54}
+              />
+            )),
+          ),
+        )}
+      {/* Canadian province borders — slightly thinner than country borders */}
+      {canadaProvinces.map((province) =>
+        province.polygons.flatMap((polygon, polygonIndex) =>
           polygon.rings.map((ring, ringIndex) => (
             <Line
-              key={`${country.iso3}-${polygonIndex}-${ringIndex}`}
+              key={`${province.iso3}-${polygonIndex}-${ringIndex}`}
               points={projectBorderRing(ring.points)}
               color="#c6a55a"
-              lineWidth={ring.kind === 'outer' ? 0.86 : 0.42}
+              lineWidth={ring.kind === 'outer' ? 0.72 : 0.36}
               transparent
-              opacity={ring.kind === 'outer' ? 0.92 : 0.54}
+              opacity={ring.kind === 'outer' ? 0.78 : 0.42}
             />
           )),
         ),

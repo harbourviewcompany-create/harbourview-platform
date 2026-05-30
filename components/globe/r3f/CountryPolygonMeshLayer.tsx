@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
@@ -15,6 +16,11 @@ const BORDER_METAL = '#8b7343'
 const SELECTED_ACCENT = '#b79a5a'
 const SPECULAR_CAP = 0.32
 
+// All renderable entries: provinces replace CA
+const globeEntries = [
+  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA'),
+  ...canadaProvinces,
+]
 
 function HoverPulseMesh({
   geometry,
@@ -99,9 +105,9 @@ export function CountryPolygonMeshLayer({
 }) {
   const idleGeometries = useMemo(
     () =>
-      naturalEarthCountriesPayload.countries.map((country) => ({
-        country,
-        geometry: createCountryBufferGeometry(country, {
+      globeEntries.map((entry) => ({
+        entry,
+        geometry: createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
           geometryMode: 'surface',
@@ -119,18 +125,21 @@ export function CountryPolygonMeshLayer({
   const selectedSet = useMemo(() => {
     const set = new Set<string>(selectedCountryIso2s)
     if (selectedCountryIso2) set.add(selectedCountryIso2)
+    // If CA is selected, highlight all provinces
+    if (selectedCountryIso2 === 'CA' || selectedCountryIso2s.includes('CA')) {
+      canadaProvinces.forEach((p) => set.add(p.iso2))
+    }
     return set
   }, [selectedCountryIso2, selectedCountryIso2s])
 
   const extrudedGeometries = useMemo(() => {
     if (selectedSet.size === 0) return new Map<string, ReturnType<typeof createCountryBufferGeometry>>()
-
     const map = new Map<string, ReturnType<typeof createCountryBufferGeometry>>()
-    for (const country of naturalEarthCountriesPayload.countries) {
-      if (!selectedSet.has(country.iso2)) continue
+    for (const entry of globeEntries) {
+      if (!selectedSet.has(entry.iso2)) continue
       map.set(
-        country.iso2,
-        createCountryBufferGeometry(country, {
+        entry.iso2,
+        createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT + 0.002,
           extrusionHeight: SELECTED_EXTRUSION,
           geometryMode: 'surface',
@@ -148,19 +157,19 @@ export function CountryPolygonMeshLayer({
 
   return (
     <group userData={{ layer: 'country-polygon-meshes' }}>
-      {idleGeometries.map(({ country, geometry }) => {
-        const isSelected = selectedSet.has(country.iso2)
-        const activeGeometry = isSelected ? extrudedGeometries.get(country.iso2) ?? geometry : geometry
+      {idleGeometries.map(({ entry, geometry }) => {
+        const isSelected = selectedSet.has(entry.iso2)
+        const activeGeometry = isSelected ? extrudedGeometries.get(entry.iso2) ?? geometry : geometry
         const visualState = isSelected
           ? 'selected'
-          : focusedCountryIso2 === country.iso2
+          : focusedCountryIso2 === entry.iso2
             ? 'focused'
             : 'idle'
         const material = resolveCountryMaterialState({ visualState, layerId: activeLayerId })
 
         return (
           <HoverPulseMesh
-            key={country.iso3}
+            key={entry.iso3}
             geometry={activeGeometry}
             color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
             emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
@@ -170,10 +179,10 @@ export function CountryPolygonMeshLayer({
             clearcoat={material.clearcoat}
             clearcoatRoughness={material.clearcoatRoughness}
             reflectivity={SPECULAR_CAP}
-            isFocused={focusedCountryIso2 === country.iso2}
-            onPointerEnter={() => onHoverCountry?.(country.iso2)}
+            isFocused={focusedCountryIso2 === entry.iso2}
+            onPointerEnter={() => onHoverCountry?.(entry.iso2)}
             onPointerLeave={() => onHoverCountry?.(undefined)}
-            onClick={() => onSelectCountry?.(country.iso2)}
+            onClick={() => onSelectCountry?.(entry.iso2)}
           />
         )
       })}
