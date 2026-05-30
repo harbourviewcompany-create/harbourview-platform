@@ -80,7 +80,6 @@ export function GlobeCanvas({
         <Suspense fallback={null}>
           <Environment preset="sunset" />
 
-          {/* Sparse star field behind the globe — depth cue */}
           <Stars
             radius={18}
             depth={6}
@@ -93,7 +92,11 @@ export function GlobeCanvas({
 
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />
-            <CountryBorderLayer />
+            <CountryBorderLayer
+              selectedCountryIso2={selectedCountryIso2}
+              selectedCountryIso2s={selectedCountryIso2s}
+              focusedCountryIso2={focusedCountryIso2}
+            />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
               selectedCountryIso2s={selectedCountryIso2s}
