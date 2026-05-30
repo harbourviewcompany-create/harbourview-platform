@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
+import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import type { GlobeLayerId } from '@/types/globe-router'
@@ -16,10 +17,11 @@ const BORDER_METAL = '#8b7343'
 const SELECTED_ACCENT = '#b79a5a'
 const SPECULAR_CAP = 0.32
 
-// All renderable entries: provinces replace CA
+// All renderable entries: provinces replace CA, states replace US
 const globeEntries = [
-  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA'),
+  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA' && c.iso2 !== 'US'),
   ...canadaProvinces,
+  ...usStates,
 ]
 
 function HoverPulseMesh({
@@ -128,6 +130,10 @@ export function CountryPolygonMeshLayer({
     // If CA is selected, highlight all provinces
     if (selectedCountryIso2 === 'CA' || selectedCountryIso2s.includes('CA')) {
       canadaProvinces.forEach((p) => set.add(p.iso2))
+    }
+    // If US is selected, highlight all states
+    if (selectedCountryIso2 === 'US' || selectedCountryIso2s.includes('US')) {
+      usStates.forEach((s) => set.add(s.iso2))
     }
     return set
   }, [selectedCountryIso2, selectedCountryIso2s])

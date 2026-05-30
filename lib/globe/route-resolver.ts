@@ -3,6 +3,7 @@ import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
 import { getCountryByIso2 } from '@/lib/dashboard/countries'
 import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
+import { usStateByIso2 } from '@/data/globe/us-state-profiles'
 import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
 
 // Maps globe role IDs to destination types when no intent is selected.
@@ -94,12 +95,17 @@ function resolveCountryDashboardPath(input: GlobeRouteInput): string | null {
   return `/dashboard/country/${country.slug}`
 }
 
-// Resolve a country iso2 that may be a province (CA-XX) to its dashboard slug.
+// Resolve a country iso2 that may be a province (CA-XX) or US state (US-XX) to its dashboard slug.
 function resolveCountryOrProvinceDashboardSlug(iso2: string): string | null {
   // Province: CA-XX -> /dashboard/country/[province-slug]
   if (iso2.startsWith('CA-')) {
     const province = canadaProvinceByIso2[iso2]
     return province ? `/dashboard/country/${province.slug}` : `/dashboard/country/canada`
+  }
+  // US state: US-XX -> /dashboard/country/[state-slug]
+  if (iso2.startsWith('US-')) {
+    const state = usStateByIso2[iso2]
+    return state ? `/dashboard/country/${state.slug}` : `/dashboard/country/united-states`
   }
   const country = getCountryByIso2(iso2)
   return country ? `/dashboard/country/${country.slug}` : null
