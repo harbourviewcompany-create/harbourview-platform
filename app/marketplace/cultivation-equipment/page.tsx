@@ -68,7 +68,7 @@ function EmptyState() {
       <p className="mb-6 text-sm leading-7 text-white/54">
         Cultivation equipment is sourced through Harbourview review. Submit an opportunity or request sourcing.
       </p>
-      <Link href="/marketplace/sell" className="btn-marketplace text-sm">Submit equipment</Link>
+      <Link href="/marketplace/sell?type=cultivation_equipment" className="btn-marketplace text-sm">Submit equipment</Link>
     </div>
   )
 }
@@ -93,7 +93,7 @@ export default async function CultivationEquipmentPage() {
             </p>
           </div>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link href="/marketplace/sell" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">Submit equipment</Link>
+            <Link href="/marketplace/sell?type=cultivation_equipment" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">Submit equipment</Link>
             <Link href="/intake" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">Request sourcing</Link>
           </div>
         </div>
@@ -151,7 +151,7 @@ export default async function CultivationEquipmentPage() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/marketplace/sell" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">Submit equipment</Link>
+            <Link href="/marketplace/sell?type=cultivation_equipment" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">Submit equipment</Link>
             <Link href="/intake" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">Speak confidentially</Link>
           </div>
         </div>
