@@ -55,6 +55,9 @@ const forbiddenPublicLeakageStrings = [
 describe('public route smoke coverage', () => {
   const requiredPublicPages = [
     'app/page.tsx',
+    'app/dashboard/page.tsx',
+    'app/dashboard/country/[country]/page.tsx',
+    'app/dashboard/country/[country]/[section]/page.tsx',
     'app/marketplace/page.tsx',
     'app/marketplace/sell/page.tsx',
     ...marketplaceRoutePages,
@@ -68,6 +71,13 @@ describe('public route smoke coverage', () => {
       const source = readRepoFile(pagePath)
       expect(source).toContain('export default')
     }
+  })
+
+  it('keeps the working-alpha operator dashboard exposed in navigation', () => {
+    const navSource = readRepoFile('components/Nav.tsx')
+
+    expect(navSource).toContain('Operator Dashboard')
+    expect(navSource).toContain("href: '/dashboard'")
   })
 
   it('keeps the full marketplace route universe mounted', () => {
