@@ -1,5 +1,6 @@
-import { EducationRouteShell } from '@/components/clinical-education/EducationRouteShell'
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 
-export default function Page() {
-  return <EducationRouteShell title="Compliance Education" description="Institutional-grade education surface with controlled medical-content governance." />
+export default function CompliancePage() {
+  redirect('/education/compliance-readiness')
 }

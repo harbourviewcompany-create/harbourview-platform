@@ -21,14 +21,79 @@ const educationSpineRoutes = [
     body: 'Organize exporter, importer, product, batch, logistics and route assumptions before qualified review.',
   },
   {
+    title: 'GMP Education',
+    href: '/education/gmp',
+    body: 'Good Manufacturing Practice foundations, documentation readiness and quality evidence categories for cannabis operators and exporters.',
+  },
+  {
+    title: 'GACP Education',
+    href: '/education/gacp',
+    body: 'Agricultural and collection practice controls, cultivation documentation and export readiness for cannabis cultivators.',
+  },
+  {
+    title: 'GDP Education',
+    href: '/education/gdp',
+    body: 'Distribution controls, cold chain management, import documentation and controlled-drug handling for logistics and distribution professionals.',
+  },
+  {
     title: 'Pharmaceutical & Medical Cannabis',
     href: '/education/pharmaceutical-medical-cannabis',
     body: 'Frame professional medical cannabis education without clinical directions, patient-specific instructions or promotional product claims.',
   },
   {
+    title: 'Pharmacy Education',
+    href: '/education/pharmacy',
+    body: 'Dispensing channel concepts, controlled-handling requirements and supply-chain context for pharmacy professionals and importers.',
+  },
+  {
+    title: 'Laboratory & Testing',
+    href: '/education/testing',
+    body: 'CoA literacy, testing method concepts, contaminant categories and quality documentation evaluation for procurement and supply teams.',
+  },
+  {
+    title: 'Quality & Compliance',
+    href: '/education/quality-compliance',
+    body: 'The full quality system map — GACP, GMP, GDP, CoA and audit readiness — across the regulated cannabis supply chain.',
+  },
+  {
+    title: 'Importer & Distributor',
+    href: '/education/importer-distributor',
+    body: 'Role definitions, authorisation requirements, route documentation and onboarding readiness for import and distribution participants.',
+  },
+  {
+    title: 'Cultivation & Production',
+    href: '/education/cultivation-production',
+    body: 'Production controls, post-harvest discipline, batch documentation and export evidence for cultivators and licensed producers.',
+  },
+  {
+    title: 'Procurement',
+    href: '/education/procurement',
+    body: 'Supplier evaluation, documentation review, buyer readiness and due diligence concepts for regulated cannabis procurement teams.',
+  },
+  {
+    title: 'Pharmacovigilance & Safety',
+    href: '/education/pharmacovigilance',
+    body: 'Adverse event concepts, product complaint handling, recall readiness and post-market safety obligations for operators and quality teams.',
+  },
+  {
+    title: 'Regulatory & Policy',
+    href: '/education/policy',
+    body: 'Regulatory frameworks, licensing models, market conduct standards and policy concepts for regulated cannabis market participants.',
+  },
+  {
     title: 'Cannabis History Library',
     href: '/education/cannabis-history-library',
-    body: 'Create a source-led library shelf for policy evolution, market development, quality systems and institutional milestones.',
+    body: 'Source-led library for policy evolution, market development, quality systems and institutional milestones across regulated cannabis.',
+  },
+  {
+    title: 'Professional Briefings',
+    href: '/education/briefings',
+    body: 'Controlled professional briefings prepared for specific audience contexts — reviewed before preparation and distributed with a scope statement.',
+  },
+  {
+    title: 'Review Required Topics',
+    href: '/education/review-required',
+    body: 'Topics that require qualified review before Harbourview can respond — and how to route them through the appropriate intake path.',
   },
   {
     title: 'Regulatory Change Tracker',

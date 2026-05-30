@@ -53,7 +53,7 @@ export const dosageBoundaryDisclaimer =
   'Harbourview may organize education around product forms, routes, formulas, ratios, timing and monitoring considerations. Harbourview does not provide patient-specific instructions or treatment recommendations.'
 
 export const patientBoundaryDisclaimer =
-  'This resource is intended for licensed professionals and regulated market participants. Harbourview does not provide patient-specific medical advice. Patients should consult a qualified clinician or pharmacist in their jurisdiction.'
+  'This resource is intended for licensed professionals and regulated market participants. It is not patient-facing content and does not provide patient-specific medical advice. Patients should consult a qualified clinician or pharmacist in their jurisdiction.'
 
 const requestHref = '/network/clinical-education/request'
 const standardMedicalAdviceBoundary = 'Professional education only. Not medical advice, prescribing advice, patient-specific guidance, product recommendation or treatment direction.'
