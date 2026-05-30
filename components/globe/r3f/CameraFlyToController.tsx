@@ -3,7 +3,7 @@
 import type { RefObject } from 'react'
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import {
   createCountryFocusPose,
@@ -14,8 +14,11 @@ import {
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { GlobeRouterStep } from '@/types/globe-router'
 
-
-export function getFlyToMotionProfile(prefersReducedMotion: boolean): { shouldAnimate: boolean; flyDurationMs: number; allowCountryFocus: boolean } {
+export function getFlyToMotionProfile(prefersReducedMotion: boolean): {
+  shouldAnimate: boolean
+  flyDurationMs: number
+  allowCountryFocus: boolean
+} {
   return {
     shouldAnimate: !prefersReducedMotion,
     flyDurationMs: prefersReducedMotion ? 0 : 900,
@@ -25,11 +28,8 @@ export function getFlyToMotionProfile(prefersReducedMotion: boolean): { shouldAn
 
 function findCountryPose(countryIso2?: string, targetDistanceMax?: number): GlobeCameraPose | null {
   if (!countryIso2) return null
-
-  const country = naturalEarthCountriesPayload.countries.find((candidate) => candidate.iso2 === countryIso2)
-
+  const country = naturalEarthCountriesPayload.countries.find((c) => c.iso2 === countryIso2)
   if (!country) return null
-
   return createCountryFocusPose(country, { targetDistanceMax })
 }
 
@@ -51,6 +51,62 @@ function posesEqual(a: GlobeCameraPose, b: GlobeCameraPose, epsilon = 0.001): bo
   )
 }
 
+// ---------------------------------------------------------------------------
+// Spherical interpolation helpers (Finding #8)
+// ---------------------------------------------------------------------------
+// Linear lerp tunnels through the globe when from and to are on opposite
+// hemispheres. Slerp traces a great-circle arc around the globe surface,
+// which is what users expect when the camera swings to a new country.
+
+const _fromDir = new Vector3()
+const _toDir = new Vector3()
+const _fromQuat = new Quaternion()
+const _toQuat = new Quaternion()
+const _zAxis = new Vector3(0, 0, 1)
+const _slerpQuat = new Quaternion()
+
+/**
+ * Interpolate camera *position* along a great-circle arc.
+ * The camera radius (distance from origin) is linearly interpolated
+ * separately so the arc can smoothly zoom in/out as it swings.
+ */
+function slerpCameraPosition(
+  from: [number, number, number],
+  to: [number, number, number],
+  t: number,
+  out: Vector3,
+): void {
+  _fromDir.set(from[0], from[1], from[2])
+  _toDir.set(to[0], to[1], to[2])
+
+  const fromDist = _fromDir.length()
+  const toDist = _toDir.length()
+
+  // Degenerate: if either vector is zero, fall back to linear
+  if (fromDist < 1e-6 || toDist < 1e-6) {
+    out.set(
+      from[0] + (to[0] - from[0]) * t,
+      from[1] + (to[1] - from[1]) * t,
+      from[2] + (to[2] - from[2]) * t,
+    )
+    return
+  }
+
+  _fromDir.normalize()
+  _toDir.normalize()
+
+  // Build quaternions: rotation from +Z to each direction vector
+  _fromQuat.setFromUnitVectors(_zAxis, _fromDir)
+  _toQuat.setFromUnitVectors(_zAxis, _toDir)
+
+  // Slerp between the two orientations
+  _slerpQuat.copy(_fromQuat).slerp(_toQuat, t)
+
+  // Reconstruct position: apply slerped rotation to +Z, scale by lerped radius
+  const interpolatedDist = fromDist + (toDist - fromDist) * t
+  out.set(0, 0, 1).applyQuaternion(_slerpQuat).multiplyScalar(interpolatedDist)
+}
+
 export interface CameraFlyOrbitControlsLike {
   target: Vector3
   update: () => void
@@ -65,7 +121,7 @@ export function CameraFlyToController({
   routerStep?: GlobeRouterStep
   controlsRef?: RefObject<CameraFlyOrbitControlsLike | null>
 }) {
-  const { camera } = useThree()
+  const { camera, invalidate } = useThree()
 
   const fromPoseRef = useRef<GlobeCameraPose>(getInitialCameraPose())
   const toPoseRef = useRef<GlobeCameraPose>(getInitialCameraPose())
@@ -87,18 +143,16 @@ export function CameraFlyToController({
       : null
     const desired = countryPose ?? getInitialCameraPose()
 
-    if (posesEqual(desired, toPoseRef.current) && !isAnimatingRef.current) {
-      return
-    }
+    if (posesEqual(desired, toPoseRef.current) && !isAnimatingRef.current) return
 
     const currentTarget = controlsRef?.current?.target ?? targetVecRef.current
     fromPoseRef.current = poseFromVectors(camera.position, currentTarget)
     toPoseRef.current = desired
+
     const motionProfile = getFlyToMotionProfile(prefersReducedMotionRef.current)
     if (!motionProfile.shouldAnimate) {
-      positionVecRef.current.set(desired.position[0], desired.position[1], desired.position[2])
-      targetVecRef.current.set(desired.target[0], desired.target[1], desired.target[2])
-
+      positionVecRef.current.set(...desired.position)
+      targetVecRef.current.set(...desired.target)
       camera.position.copy(positionVecRef.current)
       camera.lookAt(targetVecRef.current)
       const controls = controlsRef?.current
@@ -115,30 +169,32 @@ export function CameraFlyToController({
 
     startTimeRef.current = null
     isAnimatingRef.current = true
-  }, [camera, controlsRef, routerStep, selectedCountryIso2])
+    // Kick off the first frame under frameloop="demand"
+    invalidate()
+  }, [camera, controlsRef, invalidate, routerStep, selectedCountryIso2])
 
   useFrame(() => {
     if (!isAnimatingRef.current) return
 
+    // Keep requesting frames while the animation runs (#4)
+    invalidate()
+
     const now = performance.now()
-    if (startTimeRef.current === null) {
-      startTimeRef.current = now
-    }
+    if (startTimeRef.current === null) startTimeRef.current = now
 
     const elapsed = now - startTimeRef.current
     const duration = getFlyToMotionProfile(prefersReducedMotionRef.current).flyDurationMs
     const rawProgress = duration > 0 ? elapsed / duration : 1
-    const progress = rawProgress >= 1 ? 1 : rawProgress
+    const progress = Math.min(rawProgress, 1)
     const eased = easeInOutCubic(progress)
 
     const from = fromPoseRef.current
     const to = toPoseRef.current
 
-    positionVecRef.current.set(
-      from.position[0] + (to.position[0] - from.position[0]) * eased,
-      from.position[1] + (to.position[1] - from.position[1]) * eased,
-      from.position[2] + (to.position[2] - from.position[2]) * eased,
-    )
+    // Slerp camera position along a great-circle arc (#8)
+    slerpCameraPosition(from.position, to.position, eased, positionVecRef.current)
+
+    // Target (orbit pivot) is typically near the globe surface — linear is fine
     targetVecRef.current.set(
       from.target[0] + (to.target[0] - from.target[0]) * eased,
       from.target[1] + (to.target[1] - from.target[1]) * eased,
