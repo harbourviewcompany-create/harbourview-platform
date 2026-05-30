@@ -88,6 +88,12 @@ export function CameraFlyToController({
 
   const positionVecRef = useRef(new Vector3())
   const targetVecRef = useRef(new Vector3())
+  // Slerp: unit-sphere vectors for arc interpolation; recomputed on each fly trigger
+  const fromUnitRef = useRef(new Vector3())
+  const toUnitRef = useRef(new Vector3())
+  const fromDistRef = useRef(0)
+  const toDistRef = useRef(0)
+  const slerpThetaRef = useRef(0) // cached great-circle angle for Shoemake slerp
 
   useEffect(() => {
     const wantsCountryFocus = !!selectedCountryIso2 && routerStep !== 'country'
@@ -107,6 +113,16 @@ export function CameraFlyToController({
     const currentTarget = controlsRef?.current?.target ?? targetVecRef.current
     fromPoseRef.current = poseFromVectors(camera.position, currentTarget)
     toPoseRef.current = desired
+    // Cache unit vectors + distances for slerp arc interpolation
+    fromUnitRef.current.set(...fromPoseRef.current.position)
+    fromDistRef.current = fromUnitRef.current.length()
+    fromUnitRef.current.normalize()
+    toUnitRef.current.set(...toPoseRef.current.position)
+    toDistRef.current = toUnitRef.current.length()
+    toUnitRef.current.normalize()
+    // Cache the great-circle angle once per fly trigger (zero alloc in useFrame)
+    const dotAB = Math.min(1, Math.max(-1, fromUnitRef.current.dot(toUnitRef.current)))
+    slerpThetaRef.current = Math.acos(dotAB)
     const motionProfile = getFlyToMotionProfile(prefersReducedMotionRef.current)
     if (!motionProfile.shouldAnimate) {
       positionVecRef.current.set(desired.position[0], desired.position[1], desired.position[2])
@@ -147,11 +163,28 @@ export function CameraFlyToController({
     const from = fromPoseRef.current
     const to = toPoseRef.current
 
-    positionVecRef.current.set(
-      from.position[0] + (to.position[0] - from.position[0]) * eased,
-      from.position[1] + (to.position[1] - from.position[1]) * eased,
-      from.position[2] + (to.position[2] - from.position[2]) * eased,
-    )
+    // Camera position: Shoemake slerp on unit sphere + lerp distance.
+    // Zero allocations in the hot path — all refs, no new Vector3/Quaternion.
+    const dist = fromDistRef.current + (toDistRef.current - fromDistRef.current) * eased
+    const theta = slerpThetaRef.current
+    if (theta < 0.0001) {
+      // Trivially close directions — straight lerp is fine
+      positionVecRef.current.set(
+        from.position[0] + (to.position[0] - from.position[0]) * eased,
+        from.position[1] + (to.position[1] - from.position[1]) * eased,
+        from.position[2] + (to.position[2] - from.position[2]) * eased,
+      )
+    } else {
+      const sinTheta = Math.sin(theta)
+      const w0 = Math.sin((1 - eased) * theta) / sinTheta // fromUnit weight
+      const w1 = Math.sin(eased * theta) / sinTheta        // toUnit weight
+      positionVecRef.current
+        .copy(fromUnitRef.current).multiplyScalar(w0)
+        .addScaledVector(toUnitRef.current, w1)
+        .multiplyScalar(dist)
+    }
+
+    // Orbit target: simple lerp — it moves a small amount near globe centre.
     targetVecRef.current.set(
       from.target[0] + (to.target[0] - from.target[0]) * eased,
       from.target[1] + (to.target[1] - from.target[1]) * eased,

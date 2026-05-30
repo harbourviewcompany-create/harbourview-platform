@@ -3,9 +3,10 @@
 import { Suspense, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls, Stars } from '@react-three/drei'
+import { OrbitControls, Stars } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
+import { AtmosphereLayer } from './AtmosphereLayer'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
@@ -88,18 +89,22 @@ export function GlobeCanvas({
         <directionalLight position={[-3, 1, -4]} intensity={0.55} color="#c8a040" />
 
         <Suspense fallback={null}>
-          <Environment preset="sunset" />
+          {/* Hemisphere light: warm sky-dome above, cool fill below — no HDRI download */}
+          <hemisphereLight args={[0xfff0d0, 0x0a1522, 0.55]} />
 
           {/* Sparse star field behind the globe — depth cue */}
           <Stars
             radius={18}
             depth={6}
-            count={350}
+            count={2800}
             factor={0.85}
             saturation={0}
             fade
             speed={0}
           />
+
+          {/* Atmosphere glow: BackSide Fresnel sphere, sits outside the rotating group */}
+          <AtmosphereLayer />
 
           <group rotation={[0.12, -0.8, 0]}>
             <OceanSphere />

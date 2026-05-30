@@ -302,15 +302,11 @@ function _createCountryBufferGeometryInner(
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
   geometry.setIndex(allIndices)
 
-  // Radial normals: always point outward from sphere centre — exact and fast.
-  const pos = geometry.getAttribute('position') as BufferAttribute
-  const nrm = new Float32Array(pos.count * 3)
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i)
-    const inv = 1 / Math.sqrt(x * x + y * y + z * z)
-    nrm[i * 3] = x * inv; nrm[i * 3 + 1] = y * inv; nrm[i * 3 + 2] = z * inv
-  }
-  geometry.setAttribute('normal', new BufferAttribute(nrm, 3))
+  // Face-averaged normals: Three.js averages per-face normals across shared
+  // vertices. Top faces get near-radial normals; wall quads get tangential
+  // normals (perpendicular to the country edge, parallel to the sphere
+  // surface). Correct specular highlights on extruded sidewalls.
+  geometry.computeVertexNormals()
   geometry.computeBoundingSphere()
 
   geometry.userData = {
