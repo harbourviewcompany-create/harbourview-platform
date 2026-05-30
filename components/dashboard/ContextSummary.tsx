@@ -30,9 +30,19 @@ export function ContextSummary({ onMarketClick }: Props) {
       >
         {countryName}
       </div>
-      <div className="mb-3 text-[11px]" style={{ color: 'rgba(243,240,234,0.55)' }}>
+      <div className="mb-2 text-[11px]" style={{ color: 'rgba(243,240,234,0.55)' }}>
         {getDashboardRoleLabel(role)}{routeContext?.source === 'globe_router' ? ' · Routed from globe' : ''}
       </div>
+
+      {(routeContext?.intentLabel || routeContext?.roleLabel) && (
+        <div
+          className="mb-3 rounded-lg px-2.5 py-2 text-[10px] leading-relaxed"
+          style={{ background: 'rgba(255,255,255,0.035)', color: 'rgba(243,240,234,0.45)' }}
+        >
+          {routeContext.roleLabel && <div>Selected role: {routeContext.roleLabel}</div>}
+          {routeContext.intentLabel && <div>Selected intent: {routeContext.intentLabel}</div>}
+        </div>
+      )}
 
       {brief.status === 'ok' && (
         <>
