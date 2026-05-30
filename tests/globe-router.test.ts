@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { countryOptions, getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
 import { getIntentIdsForRole } from '@/config/globe/intent-profiles'
+import { destinationBasePathMap, globeRouteManifestMap } from '@/config/globe/route-map'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { globeRouterReducer, initialGlobeRouterState } from '@/components/globe/useGlobeRouterState'
@@ -191,12 +192,16 @@ describe('Harbourview globe same-screen router', () => {
     expect(context.role).toBe('medical_professional')
     expect(context.source).toBe('globe_router')
     expect(context.intentId).toBe('request_introduction')
+    expect(context.intentLabel).toBe('Request Introduction')
     expect(context.layerId).toBe('country_select')
   })
 
-  it('maps globe roles to dashboard role bands and keeps safe defaults for non-globe entries', () => {
+  it('maps globe roles and intents to dashboard role bands with safe defaults for non-globe entries', () => {
     expect(mapGlobeRoleToDashboardRole('regulatory_compliance')).toBe('regulatory_legal')
     expect(mapGlobeRoleToDashboardRole('exporter')).toBe('commercial_operator')
+
+    const regulatoryIntentContext = parseDashboardGlobeRouteContext(new URLSearchParams('source=globe_router&country=DE&role=importer&intent=understand_import_rules'))
+    expect(regulatoryIntentContext.role).toBe('regulatory_legal')
 
     const context = parseDashboardGlobeRouteContext(new URLSearchParams('source=directory&country=DE&role=doctor_prescriber'))
 
@@ -222,6 +227,15 @@ describe('Harbourview globe same-screen router', () => {
       intentId: 'regulatory_framework',
       expectedPath: '/dashboard/country/canada/education',
     })
+  })
+
+  it('keeps education fallback paths aligned with current public education pages', () => {
+    expect(destinationBasePathMap.medical_education).toBe('/education/pharmaceutical-medical-cannabis')
+    expect(destinationBasePathMap.regulatory_education).toBe('/education/compliance-readiness')
+    expect(globeRouteManifestMap['/education/pharmaceutical-medical-cannabis']?.confirmedAvailable).toBe(true)
+    expect(globeRouteManifestMap['/education/compliance-readiness']?.confirmedAvailable).toBe(true)
+    expect(globeRouteManifestMap['/education/clinical']).toBeUndefined()
+    expect(globeRouteManifestMap['/education/compliance']).toBeUndefined()
   })
 
   it('moves from country to role directly to routing without an intent step', () => {
