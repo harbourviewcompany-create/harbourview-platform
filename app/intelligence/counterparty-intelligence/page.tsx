@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
+import IntelligenceModulePage from '@/app/intelligence/IntelligenceModulePage'
 
 export const metadata: Metadata = {
   title: 'Counterparty Intelligence | Harbourview Intelligence',
@@ -8,31 +8,27 @@ export const metadata: Metadata = {
 
 export default function CounterpartyIntelligencePage() {
   return (
-    <main className="bg-[#020814] text-white">
-      <PublicHero
-        eyebrow="Intelligence"
-        title="Counterparty Intelligence"
-        actions={[{ label: 'Request Counterparty Intelligence', href: '/intake' }]}
-        aside={
-          <PublicCard className="p-6 text-sm leading-7 text-white/62">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
-            <p>Counterparty intelligence is handled through reviewed private workflows. No counterparty is publicly identified without consent.</p>
-          </PublicCard>
-        }
-      >
-        Reviewed counterparty context for importers, distributors, licensed producers, procurement bodies and institutional buyers in regulated markets.
-      </PublicHero>
-
-      <PublicSection tone="dark">
-        <SectionHeader eyebrow="Private workflow" title="Counterparty context belongs behind review controls.">
-          Public pages explain the workflow. Sensitive company names, contact paths, route evidence, diligence findings and commercial context are handled privately.
-        </SectionHeader>
-        <PublicCard muted className="p-6 text-sm leading-7 text-white/62">
-          Harbourview uses controlled intake for counterparty intelligence to preserve confidentiality, consent boundaries and review discipline.
-        </PublicCard>
-      </PublicSection>
-
-      <FooterCta eyebrow="Counterparty review" title="Need reviewed counterparty intelligence?" actions={[{ label: 'Request Counterparty Intelligence', href: '/intake' }]}>Use confidential intake when the request involves counterparties, routes, commercial context, sensitive diligence or protected introductions.</FooterCta>
-    </main>
+    <IntelligenceModulePage
+      content={{
+        eyebrow: 'Intelligence / Counterparty',
+        title: 'Reviewed counterparty context for regulated cannabis markets.',
+        description:
+          'Harbourview counterparty intelligence provides reviewed context on operators, importers, distributors, licensed producers, procurement bodies and institutional buyers — without publishing sensitive identities, contact paths or private commercial details.',
+        requestLabel: 'Request Counterparty Intelligence',
+        reviewItems: [
+          'Operator role verification: publicly available evidence of a counterparty\'s claimed role, licence category, operating scope and commercial activities in regulated markets.',
+          'Import and export alignment: reviewed context on whether a counterparty\'s claimed import, export, distribution or wholesale authorisation is consistent with public market evidence.',
+          'Procurement body context: regulatory body mandate, procurement framework, preferred supplier eligibility and institutional contact pathway orientation for public bodies.',
+          'Distribution network orientation: general market structure and distributor role mapping for priority jurisdictions, without publishing specific counterparty commercial terms.',
+          'Due diligence preparation: publicly safe orientation on what categories of counterparty evidence Harbourview reviewers assess before introductions are routed.',
+          'Licensing gap signals: publicly available signals of licence expiry, regulatory action, compliance concern or operating category mismatch relevant to a counterparty assessment.',
+        ],
+        boundaryItems: [
+          'No private counterparty names, contact details, internal assessments, dossier findings or commercial intelligence is published on this public page.',
+          'Counterparty intelligence requests involving specific named parties are routed through confidential intake — not contact or public request forms.',
+          'Harbourview does not confirm, endorse, verify or rate specific counterparties on this public surface.',
+        ],
+      }}
+    />
   )
 }

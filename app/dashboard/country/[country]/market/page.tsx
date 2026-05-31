@@ -6,6 +6,18 @@ import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params
+  const displayName = country.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+  return {
+    title: `${displayName} Market Overview | Harbourview`,
+    description: `Harbourview ${displayName} market overview dashboard. Country-level market intelligence, pathway context and commercial routing for regulated cannabis.`,
+  }
+}
+
+
 type Props = { params: Promise<{ country: string }> }
 
 // ── State-derived market data ──────────────────────────────────────────────

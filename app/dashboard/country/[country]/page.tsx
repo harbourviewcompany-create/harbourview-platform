@@ -5,7 +5,18 @@ import { getDashboardStatusBadge }  from '@/lib/dashboard/statusBadges'
 import type { DashboardSectionSlug } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT, SECTION_LABELS, SECTION_ICONS } from './_components'
 
-// Section-level one-liners shown on panel cards
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params
+  const displayName = country.replace(/-/g, ' ').replace(/\w/g, (c: string) => c.toUpperCase())
+  return {
+    title: `${displayName} Country Dashboard | Harbourview`,
+    description: `Harbourview ${displayName} country dashboard. Market intelligence, compliance context, education and commercial routing for regulated cannabis.`,
+  }
+}
+
+
 const SECTION_SUBLABEL: Record<DashboardSectionSlug, string> = {
   market:        'Posture · Framework · Operators',
   education:     'Prescriber · Patient · Operator',
@@ -40,7 +51,6 @@ export default async function CountryConsolePage({ params }: Props) {
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            {/* Region breadcrumb */}
             <p className="mb-1.5 text-[9px] uppercase tracking-[0.22em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
               {country.region}{country.subregion ? ` · ${country.subregion}` : ''}
             </p>
@@ -52,13 +62,12 @@ export default async function CountryConsolePage({ params }: Props) {
             </p>
           </div>
 
-          {/* Status badge */}
           <span
             className="shrink-0 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.12em]"
             style={{
-              background:   TONE_BG[overallBadge.tone],
-              borderColor:  TONE_BORDER[overallBadge.tone],
-              color:        TONE_TEXT[overallBadge.tone],
+              background:  TONE_BG[overallBadge.tone],
+              borderColor: TONE_BORDER[overallBadge.tone],
+              color:       TONE_TEXT[overallBadge.tone],
             }}
           >
             {overallBadge.label}
@@ -74,9 +83,7 @@ export default async function CountryConsolePage({ params }: Props) {
           <span className="h-3 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
           <span>Updated {country.lastUpdated}</span>
           <span className="h-3 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
-          <span
-            style={{ color: availableCount > 0 ? 'rgba(93,202,165,0.7)' : 'rgba(243,240,234,0.3)' }}
-          >
+          <span style={{ color: availableCount > 0 ? 'rgba(93,202,165,0.7)' : 'rgba(243,240,234,0.3)' }}>
             {availableCount} of {sections.length} sections available
           </span>
         </div>
@@ -94,82 +101,96 @@ export default async function CountryConsolePage({ params }: Props) {
           return (
             <div
               key={section}
-              className="group flex flex-col rounded-2xl p-4 transition-all"
+              className="group flex flex-col rounded-2xl transition-all"
               style={{
-                background:  TONE_BG[badge.tone],
-                border:      `1px solid ${TONE_BORDER[badge.tone]}`,
-                borderLeft:  `3px solid ${TONE_TEXT[badge.tone]}`,
-                opacity:     available ? 1 : 0.65,
+                background: 'rgba(7,15,30,0.75)',
+                border: `1px solid rgba(255,255,255,${available ? '0.09' : '0.05'})`,
+                opacity: available ? 1 : 0.6,
               }}
             >
-              {/* Card header */}
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg leading-none">{SECTION_ICONS[section]}</span>
-                  <div>
-                    <h3 className="text-[13px] font-semibold text-white leading-snug">
-                      {SECTION_LABELS[section]}
-                    </h3>
-                    <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(198,165,90,0.45)' }}>
-                      {SECTION_SUBLABEL[section]}
-                    </p>
+              {/* Tone strip — thin top bar signals status at a glance */}
+              <div
+                className="h-[3px] w-full rounded-t-2xl"
+                style={{ background: available ? TONE_TEXT[badge.tone] : 'rgba(255,255,255,0.08)', opacity: available ? 0.7 : 1 }}
+              />
+
+              <div className="flex flex-1 flex-col p-4">
+                {/* Card header */}
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    {/* SVG icon */}
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-1.5"
+                      style={{
+                        background: `rgba(${badge.tone === 'green' ? '29,158,117' : badge.tone === 'blue' ? '59,130,246' : badge.tone === 'gold' ? '198,165,90' : badge.tone === 'amber' ? '245,158,11' : badge.tone === 'red' ? '239,68,68' : '255,255,255'},0.1)`,
+                        color: available ? TONE_TEXT[badge.tone] : 'rgba(255,255,255,0.25)',
+                      }}
+                    >
+                      {SECTION_ICONS[section]}
+                    </div>
+                    <div>
+                      <h3 className="text-[13px] font-semibold text-white leading-snug">
+                        {SECTION_LABELS[section]}
+                      </h3>
+                      <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(198,165,90,0.4)' }}>
+                        {SECTION_SUBLABEL[section]}
+                      </p>
+                    </div>
                   </div>
+
+                  <span
+                    className="shrink-0 rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.08em]"
+                    style={{
+                      background:  TONE_BG[badge.tone],
+                      borderColor: TONE_BORDER[badge.tone],
+                      color:       TONE_TEXT[badge.tone],
+                    }}
+                  >
+                    {badge.label}
+                  </span>
                 </div>
-                <span
-                  className="shrink-0 rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.08em]"
-                  style={{
-                    background:  TONE_BG[badge.tone],
-                    borderColor: TONE_BORDER[badge.tone],
-                    color:       TONE_TEXT[badge.tone],
-                  }}
+
+                {/* State label */}
+                <p
+                  className="mb-1 text-[10px] font-medium uppercase tracking-[0.1em]"
+                  style={{ color: TONE_TEXT[badge.tone] }}
                 >
-                  {badge.label}
-                </span>
-              </div>
+                  {panel.stateCopy.label}
+                </p>
 
-              {/* State summary */}
-              <p
-                className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.1em]"
-                style={{ color: TONE_TEXT[badge.tone] }}
-              >
-                {panel.stateCopy.label}
-              </p>
+                {/* Public summary */}
+                <p className="flex-1 line-clamp-3 text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.48)' }}>
+                  {panel.publicSummary}
+                </p>
 
-              {/* Public summary */}
-              <p className="flex-1 line-clamp-3 text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.52)' }}>
-                {panel.publicSummary}
-              </p>
-
-              {/* CTA */}
-              <div className="mt-3.5">
-                {available ? (
-                  <Link
-                    href={href}
-                    className="block w-full rounded-xl py-2 text-center text-[11px] font-medium transition-all hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[rgba(198,165,90,0.4)]"
-                    style={{
-                      background: 'rgba(198,165,90,0.1)',
-                      border:     '1px solid rgba(198,165,90,0.28)',
-                      color:      '#F0D39A',
-                    }}
-                  >
-                    {firstAction?.label ?? `Open ${SECTION_LABELS[section]}`}
-                  </Link>
-                ) : (
-                  <div
-                    className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-[11px]"
-                    style={{
-                      background: 'rgba(255,255,255,0.025)',
-                      border:     '1px solid rgba(255,255,255,0.07)',
-                      color:      'rgba(243,240,234,0.2)',
-                    }}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: TONE_TEXT[badge.tone], opacity: 0.5 }}
-                    />
-                    {panel.stateCopy.ctaLabel ?? 'Not available'}
-                  </div>
-                )}
+                {/* CTA */}
+                <div className="mt-3.5">
+                  {available ? (
+                    <Link
+                      href={href}
+                      className="block w-full rounded-xl py-2 text-center text-[11px] font-medium transition-all hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[rgba(198,165,90,0.4)]"
+                      style={{
+                        background: 'rgba(198,165,90,0.09)',
+                        border:     '1px solid rgba(198,165,90,0.24)',
+                        color:      '#F0D39A',
+                      }}
+                    >
+                      {firstAction?.label ?? `Open ${SECTION_LABELS[section]}`}
+                    </Link>
+                  ) : (
+                    <div
+                      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-[11px]"
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border:     '1px solid rgba(255,255,255,0.06)',
+                        color:      'rgba(243,240,234,0.2)',
+                      }}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: TONE_TEXT[badge.tone], opacity: 0.4 }} />
+                      {panel.stateCopy.ctaLabel ?? 'Not available'}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )

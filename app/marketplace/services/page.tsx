@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 
 export const metadata: Metadata = {
   title: 'Services | Harbourview',

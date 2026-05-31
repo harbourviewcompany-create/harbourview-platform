@@ -2,9 +2,11 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
+import { getPublicListings, type PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
-import { getPublicListings } from '@/lib/server/listingsQuery'
-import type { PublicListing } from '@/lib/server/listingsQuery'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export const metadata: Metadata = {
   title: 'Exchange Listings | Harbourview',
@@ -41,47 +43,67 @@ const accessCards = [
 const guardrails = [
   'Public pages show controlled summaries only.',
   `Route-specific boundary: ${MARKETPLACE_CONFIDENTIALITY_CAVEAT}`,
-  'Terms and introduction fit remain subject to Harbourview review.',
+  'Availability, terms and introduction fit remain subject to Harbourview review.',
 ]
 
-function ListingCard({ listing }: { listing: PublicListing }) {
-  const ctaLabel =
-    typeof listing.high_level_specs?.cta_label === 'string'
-      ? listing.high_level_specs.cta_label
-      : 'Request qualification'
+const CATEGORY_LABELS: Record<string, string> = {
+  new_products: 'New Products',
+  used_surplus: 'Used & Surplus Equipment',
+  cannabis_inventory: 'Cannabis Inventory',
+  consumables: 'Consumables',
+  cultivation_equipment: 'Cultivation Equipment',
+  distressed_inventory: 'Distressed Inventory',
+  distressed_businesses: 'Distressed Businesses',
+  services: 'Services',
+  business_opportunities: 'Business Opportunities',
+  genetics: 'Genetics',
+}
+
+const REGION_LABELS: Record<string, string> = {
+  north_america: 'North America',
+  europe: 'Europe',
+  asia_pacific: 'Asia Pacific',
+  latin_america: 'Latin America',
+  middle_east_africa: 'Middle East & Africa',
+  global: 'Global',
+}
+
+function formatPublicLabel(value: string | null | undefined, labels: Record<string, string> = {}) {
+  if (!value) return null
+  return labels[value] ?? value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function getStringSpec(listing: PublicListing, key: string) {
+  const value = listing.high_level_specs?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function ListingGridCard({ listing }: { listing: PublicListing }) {
+  const href = getPublicListingHref(listing, listing.category || 'listing')
+  const ctaLabel = getStringSpec(listing, 'cta_label') ?? (listing.slug ? 'View reviewed listing' : 'Request Harbourview review')
+  const category = formatPublicLabel(listing.category, CATEGORY_LABELS) ?? 'Marketplace listing'
+  const region = listing.location_country || formatPublicLabel(listing.region, REGION_LABELS)
 
   return (
-    <article className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]/80 p-5 shadow-lg shadow-black/20">
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#C6A55A]">
-        <span>{listing.marketplace_section.replace(/_/g, ' ')}</span>
-        <span className="text-[#F5F1E8]/35">/</span>
-        <span>{listing.category.replace(/_/g, ' ')}</span>
+    <article className="group flex h-full flex-col rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
+      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold/76">
+        <span>{category}</span>
+        {listing.is_featured ? <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-gold">Featured</span> : null}
       </div>
-
-      <h2 className="text-xl font-semibold leading-tight text-[#F5F1E8]">{listing.title}</h2>
-
-      <div className="mt-4 space-y-2 text-sm text-[#F5F1E8]/68">
-        <p>{listing.description}</p>
-        <p>
-          <span className="text-[#C6A55A]">Region:</span> {listing.region.replace(/_/g, ' ')}
-        </p>
-      </div>
-
-      <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-[#F5F1E8]/70">
-        <p className="font-medium text-[#C6A55A]">Harbourview qualification required</p>
-        <p>
-          Introduction requests are handled through Harbourview review before counterparty contact or commercial handoff.
-        </p>
-      </div>
-
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <Link
-          href={getPublicListingHref(listing, listing.category)}
-          className="rounded-full bg-[#C6A55A] px-4 py-2 text-sm font-medium text-[#081423] transition hover:bg-[#D8BC73]"
-        >
-          {ctaLabel}
-        </Link>
-      </div>
+      {listing.product_type ? (
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">{listing.product_type}</p>
+      ) : null}
+      <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
+      <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
+      {region ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">{region}</span>
+        </div>
+      ) : null}
+      <Link href={href} className="btn-marketplace mt-6 justify-center text-center text-sm">
+        {ctaLabel}
+      </Link>
     </article>
   )
 }
@@ -109,17 +131,19 @@ export default async function MarketplaceListingsPage() {
       </PublicHero>
 
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="Live approved listings" title="Current public-safe opportunities." />
-        {listings.length > 0 ? (
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <SectionHeader eyebrow="Current reviewed listings" title="Approved public summaries across marketplace categories." />
+        {listings.length === 0 ? (
+          <PublicCard className="p-7">
+            <p className="text-sm leading-7 text-white/62">
+              No approved public listings are currently available. Category orientation pages and intake routes remain live for reviewed submissions and qualified requests.
+            </p>
+          </PublicCard>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {listings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingGridCard key={listing.id} listing={listing} />
             ))}
           </div>
-        ) : (
-          <PublicCard className="p-7 text-sm leading-7 text-white/62">
-            Live approved listings will appear here after Harbourview review. Use the category routes below or submit an opportunity for controlled intake.
-          </PublicCard>
         )}
       </PublicSection>
 

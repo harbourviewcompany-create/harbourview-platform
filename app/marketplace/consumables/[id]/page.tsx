@@ -1,147 +1,112 @@
-import Image from 'next/image'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { consumables } from '@/lib/fixtures/consumables'
+import { InquiryForm } from '@/components/marketplace/InquiryForm'
+import { getPublicListingBySlug, type PublicListing } from '@/lib/server/listingsQuery'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 type Props = { params: Promise<{ id: string }> }
 
-export async function generateStaticParams() {
-  return consumables.map((listing) => ({ id: listing.id }))
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
-  const listing = consumables.find((l) => l.id === id)
+  const listing = await getPublicListingBySlug(id)
   if (!listing) return { title: 'Listing not found | Harbourview Network' }
   return {
     title: `${listing.title} | Harbourview Network`,
-    description: `${listing.description.slice(0, 140)} — Inquire to buy through Harbourview.`,
+    description: `${listing.description.slice(0, 140)} — Inquiry reviewed through Harbourview.`,
   }
+}
+
+const REGION_LABELS: Record<string, string> = {
+  north_america: 'North America',
+  europe: 'Europe',
+  asia_pacific: 'Asia Pacific',
+  latin_america: 'Latin America',
+  middle_east_africa: 'Middle East & Africa',
+  global: 'Global',
+}
+
+function getStringSpec(listing: PublicListing, key: string) {
+  const value = listing.high_level_specs?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 export default async function ConsumableDetailPage({ params }: Props) {
   const { id } = await params
-  const listing = consumables.find((l) => l.id === id)
+  const listing = await getPublicListingBySlug(id)
 
-  if (!listing) {
-    notFound()
-  }
+  if (!listing) notFound()
 
-  const inquiryHref = `/marketplace/quote?listing=${encodeURIComponent(listing.title)}`
+  const ctaLabel = getStringSpec(listing, 'cta_label') ?? 'Request qualification'
+  const region = listing.location_country || REGION_LABELS[listing.region] || listing.region || 'Region confirmed by inquiry'
 
   return (
-    <>
-      <section className="bg-navy text-white py-10">
-        <div className="page-container">
-          <p className="text-gold text-sm font-medium mb-1">
-            <Link href="/marketplace" className="hover:underline">Network</Link>
-            {' / '}
-            <Link href="/marketplace/consumables" className="hover:underline">Consumables &amp; Operating Supplies</Link>
-            {' /'}
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-bold mt-2 mb-3">{listing.title}</h1>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {listing.tags.map((tag) => (
-              <span key={tag} className="text-xs bg-white/10 text-white px-2.5 py-1 rounded-full">{tag}</span>
-            ))}
-          </div>
-        </div>
-      </section>
+    <main className="min-h-screen bg-[#081423] px-6 py-16 text-[#F5F1E8] md:px-10 lg:px-16">
+      <article className="mx-auto max-w-5xl">
+        <Link href="/marketplace/consumables" className="text-sm text-[#C6A55A] underline-offset-4 hover:underline">
+          ← Back to Consumables
+        </Link>
 
-      <section className="py-12">
-        <div className="page-container max-w-4xl">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Image / representative notice */}
-              {listing.image && (
-                <figure className="relative overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
-                  <Image src={listing.image.src ?? ''} alt={listing.image.alt ?? ''} className="w-full h-52 object-cover" width={800} height={208} unoptimized />
-                  <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-navy shadow-sm">
-                    Representative image
-                  </span>
-                  {listing.image.caption && (
-                    <figcaption className="px-4 py-2 text-xs text-gray-400">{listing.image.caption}</figcaption>
-                  )}
-                </figure>
-              )}
+        <div className="mt-8 rounded-3xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-6 md:p-10">
+          <p className="text-sm uppercase tracking-[0.24em] text-[#C6A55A]">Consumables &amp; Operating Supplies</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">{listing.title}</h1>
 
-              {/* Description */}
-              <div className="card p-6">
-                <h2 className="font-semibold text-navy text-base mb-3">About this category</h2>
-                <p className="text-sm text-gray-600 leading-relaxed">{listing.description}</p>
-              </div>
-
-              {/* What buyers should include */}
-              <div className="card p-6">
-                <h2 className="font-semibold text-navy text-base mb-3">What to include in your inquiry</h2>
-                <ul className="text-sm text-gray-600 space-y-1.5 list-disc list-inside">
-                  <li>Listing or category of interest</li>
-                  <li>Quantity or estimated order volume</li>
-                  <li>Location and whether shipping is required</li>
-                  <li>Timeline — when you need delivery</li>
-                  <li>Budget or target price if you are comfortable sharing</li>
-                  <li>Intended use and any compliance requirements</li>
-                  <li>Specification, certification or format requirements</li>
-                </ul>
-              </div>
-
-              {/* What sellers can submit */}
-              <div className="card p-6">
-                <h2 className="font-semibold text-navy text-base mb-3">Have supply to sell?</h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  If you supply this category and want to reach reviewed buyers through Harbourview, submit your supply for review.
-                </p>
-                <Link href="/marketplace/sell" className="btn-outline text-sm">
-                  List Similar Supply for Sale
-                </Link>
-              </div>
-
-              {/* Screening note */}
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-xs text-gray-500">
-                  <strong className="text-gray-700">Compliance and screening:</strong> Restricted chemicals, controlled solvents, pesticides, prescription products, unverified cannabis inventory and genetics or seeds without licence-review clearance are excluded from Harbourview Network. Harbourview reviews all submissions before any introduction or routing.
-                </p>
-              </div>
+          <div className="mt-6 grid gap-3 text-sm text-[#F5F1E8]/75 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Type</span>
+              {listing.product_type ?? 'Consumables supply'}
             </div>
-
-            {/* Sidebar */}
-            <div className="space-y-4">
-              <div className="card p-6">
-                <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Price</p>
-                  <p className="text-lg font-semibold text-navy">{listing.price || 'Price on request'}</p>
-                </div>
-                <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Availability</p>
-                  <p className="text-sm text-gray-600">Availability reviewed by inquiry</p>
-                </div>
-                <div className="mb-6">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Region</p>
-                  <p className="text-sm text-gray-600">{listing.location}</p>
-                </div>
-
-                <Link href={inquiryHref} className="btn-primary w-full text-center block mb-3">
-                  Inquire to Buy
-                </Link>
-                <Link href="/marketplace/sell" className="btn-outline w-full text-center block text-sm mb-3">
-                  List Similar Item
-                </Link>
-                <Link href="/marketplace/sell?type=wanted" className="btn-outline w-full text-center block text-sm text-gray-500">
-                  Post What You Want to Buy
-                </Link>
-              </div>
-
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Seller contact details are not public. Harbourview reviews buyer inquiries before coordinating introductions or transaction follow-up.
-                </p>
-              </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Price</span>
+              {listing.price_amount
+                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: listing.price_currency || 'USD', maximumFractionDigits: 0 }).format(listing.price_amount)
+                : 'Price on request'}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <span className="block text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Region</span>
+              {region}
             </div>
           </div>
+
+          <p className="mt-8 max-w-3xl text-lg leading-8 text-[#F5F1E8]/82">{listing.description}</p>
+
+          <section className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-black/15 p-5">
+              <h2 className="text-lg font-semibold text-[#F5F1E8]">What to include in your inquiry</h2>
+              <ul className="mt-4 list-inside list-disc space-y-1.5 text-sm leading-6 text-[#F5F1E8]/70">
+                <li>Category of supply or specific SKUs of interest</li>
+                <li>Estimated order volume and cadence</li>
+                <li>Region and whether international shipping is required</li>
+                <li>Timing — when you need delivery</li>
+                <li>Budget or target price range</li>
+                <li>Specification, certification or format requirements</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/15 p-5">
+              <h2 className="text-lg font-semibold text-[#F5F1E8]">Harbourview review note</h2>
+              <p className="mt-4 text-sm leading-6 text-[#F5F1E8]/75">
+                Supplier contact details, pricing, minimum order quantities, delivery timelines and introduction fit are reviewed through Harbourview before any supplier response or introduction is coordinated.
+              </p>
+              <p className="mt-4 text-sm leading-6 text-[#F5F1E8]/75">
+                Restricted chemicals, controlled solvents, pesticides and prescription products are excluded from Harbourview Network.
+              </p>
+            </div>
+          </section>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <a href="#inquiry" className="rounded-full bg-[#C6A55A] px-5 py-3 text-center text-sm font-medium text-[#081423] transition hover:bg-[#D8BC73]">
+              {ctaLabel}
+            </a>
+            <Link href="/marketplace/sell" className="rounded-full border border-[#C6A55A]/40 px-5 py-3 text-center text-sm font-medium text-[#C6A55A] transition hover:border-[#C6A55A]">
+              Offer similar supply
+            </Link>
+          </div>
+
+          <InquiryForm listingSlug={listing.slug ?? id} listingTitle={listing.title} ctaLabel={ctaLabel} />
         </div>
-      </section>
-    </>
+      </article>
+    </main>
   )
 }

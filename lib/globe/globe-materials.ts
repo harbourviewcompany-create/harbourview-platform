@@ -35,12 +35,17 @@ export function resolveCountryMaterialState({
     oceanBase: hvTokens.globe.oceanBase,
     plateBase: hvTokens.globe.plateBase,
     borderColor: hvTokens.globe.borderMutedGold,
-    emissive: '#3d2508',
-    emissiveIntensity: 0.28,
-    roughness: 0.26,
-    metalness: 0.82,
-    clearcoat: 0.44,
-    clearcoatRoughness: 0.24,
+    // Emissive must be real dark gold, not near-black — plates need self-illumination
+    // on the dark hemisphere so they read as gold rather than transparent.
+    // #7a5e28: H≈38°, S≈52%, L≈31% — same hue as plateBase at ~55% brightness.
+    emissive: '#7a5e28',
+    emissiveIntensity: 0.65,
+    // Low metalness so diffuse (base color) contributes 68% of ambient — gold reads
+    // on the dark side via diffuse + emissive, not specular alone.
+    roughness: 0.48,
+    metalness: 0.32,
+    clearcoat: 0.22,
+    clearcoatRoughness: 0.35,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 

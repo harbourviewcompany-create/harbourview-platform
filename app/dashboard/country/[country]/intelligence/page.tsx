@@ -5,6 +5,18 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params
+  const displayName = country.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+  return {
+    title: `${displayName} Intelligence | Harbourview`,
+    description: `Harbourview ${displayName} intelligence dashboard. Country-level market intelligence, pathway context and commercial routing for regulated cannabis.`,
+  }
+}
+
+
 type Props = { params: Promise<{ country: string }> }
 
 type BriefMeta = {

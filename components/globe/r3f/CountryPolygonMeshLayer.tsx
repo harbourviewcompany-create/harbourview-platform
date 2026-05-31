@@ -5,25 +5,33 @@ import { useFrame } from '@react-three/fiber'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
+import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
+import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
-
-const PLATE_LIFT = 0.026
-const IDLE_EXTRUSION = 0.058
-const SELECTED_EXTRUSION = 0.094
-const BORDER_METAL = '#8b7343'
-const SELECTED_ACCENT = '#b79a5a'
+const BORDER_METAL = '#c6a55a'
+const SELECTED_ACCENT = '#d4b93c'
 const SPECULAR_CAP = 0.32
 
-// All renderable entries: provinces replace CA
+// Countries whose bbox area (lon-span × lat-span) is below this threshold get an
+// inflated invisible hit mesh so they're tappable on mobile.
+const SMALL_COUNTRY_BBOX_THRESHOLD_DEG2 = 8
+
+function bboxArea(bbox: [number, number, number, number]) {
+  return Math.abs(bbox[2] - bbox[0]) * Math.abs(bbox[3] - bbox[1])
+}
+
+// All renderable entries: provinces replace CA, states replace US
 const globeEntries = [
-  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA'),
+  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA' && c.iso2 !== 'US'),
   ...canadaProvinces,
+  ...usStates,
 ]
 
 function HoverPulseMesh({
   geometry,
+  hitGeometry,
   color,
   emissive,
   emissiveIntensity,
@@ -38,6 +46,7 @@ function HoverPulseMesh({
   onClick,
 }: {
   geometry: ReturnType<typeof createCountryBufferGeometry>
+  hitGeometry?: ReturnType<typeof createCountryBufferGeometry>
   color: string
   emissive: string
   emissiveIntensity: number
@@ -58,33 +67,43 @@ function HoverPulseMesh({
     targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.44) : emissiveIntensity
   }, [isFocused, emissiveIntensity])
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!matRef.current) return
     const cur = matRef.current.emissiveIntensity
     const tgt = targetRef.current
     if (Math.abs(cur - tgt) < 0.001) return
+    // Pulse is still animating — request the next frame (#4)
+    state.invalidate()
     matRef.current.emissiveIntensity = cur + (tgt - cur) * Math.min(delta * 9, 1)
   })
 
   return (
-    <mesh
-      geometry={geometry}
-      onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
-      onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
-      onClick={(e) => { e.stopPropagation(); onClick() }}
-    >
-      <meshPhysicalMaterial
-        ref={matRef}
-        color={color}
-        emissive={emissive}
-        emissiveIntensity={emissiveIntensity}
-        roughness={roughness}
-        metalness={metalness}
-        clearcoat={clearcoat}
-        clearcoatRoughness={clearcoatRoughness}
-        reflectivity={reflectivity}
+    <>
+      {/* Visual mesh — renders the country plate */}
+      <mesh geometry={geometry}>
+        <meshPhysicalMaterial
+          ref={matRef}
+          color={color}
+          emissive={emissive}
+          emissiveIntensity={emissiveIntensity}
+          roughness={roughness}
+          metalness={metalness}
+          clearcoat={clearcoat}
+          clearcoatRoughness={clearcoatRoughness}
+          reflectivity={reflectivity}
+        />
+      </mesh>
+      {/* Hit mesh — inflated invisible surface for pointer events.
+          For large countries this is the same geometry. For small countries
+          (Singapore, Luxembourg, UAE, etc.) it's larger, improving tap accuracy. */}
+      <mesh
+        geometry={hitGeometry ?? geometry}
+        visible={false}
+        onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
+        onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
+        onClick={(e) => { e.stopPropagation(); onClick() }}
       />
-    </mesh>
+    </>
   )
 }
 
@@ -112,13 +131,26 @@ export function CountryPolygonMeshLayer({
           extrusionHeight: IDLE_EXTRUSION,
           geometryMode: 'surface',
         }),
+        // Inflated hit geometry for small countries — larger plateLift pushes it
+        // slightly above the visual mesh so raycasting hits it first
+        hitGeometry:
+          bboxArea(entry.bbox) < SMALL_COUNTRY_BBOX_THRESHOLD_DEG2
+            ? createCountryBufferGeometry(entry, {
+                plateLift: PLATE_LIFT + 0.06,
+                extrusionHeight: IDLE_EXTRUSION + 0.04,
+                geometryMode: 'surface',
+              })
+            : undefined,
       })),
     [],
   )
 
   useEffect(() => {
     return () => {
-      idleGeometries.forEach(({ geometry }) => geometry.dispose())
+      idleGeometries.forEach(({ geometry, hitGeometry }) => {
+        geometry.dispose()
+        hitGeometry?.dispose()
+      })
     }
   }, [idleGeometries])
 
@@ -128,6 +160,10 @@ export function CountryPolygonMeshLayer({
     // If CA is selected, highlight all provinces
     if (selectedCountryIso2 === 'CA' || selectedCountryIso2s.includes('CA')) {
       canadaProvinces.forEach((p) => set.add(p.iso2))
+    }
+    // If US is selected, highlight all states
+    if (selectedCountryIso2 === 'US' || selectedCountryIso2s.includes('US')) {
+      usStates.forEach((s) => set.add(s.iso2))
     }
     return set
   }, [selectedCountryIso2, selectedCountryIso2s])
@@ -157,7 +193,7 @@ export function CountryPolygonMeshLayer({
 
   return (
     <group userData={{ layer: 'country-polygon-meshes' }}>
-      {idleGeometries.map(({ entry, geometry }) => {
+      {idleGeometries.map(({ entry, geometry, hitGeometry }) => {
         const isSelected = selectedSet.has(entry.iso2)
         const activeGeometry = isSelected ? extrudedGeometries.get(entry.iso2) ?? geometry : geometry
         const visualState = isSelected
@@ -171,6 +207,7 @@ export function CountryPolygonMeshLayer({
           <HoverPulseMesh
             key={entry.iso3}
             geometry={activeGeometry}
+            hitGeometry={isSelected ? undefined : hitGeometry}
             color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
             emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
             emissiveIntensity={material.emissiveIntensity}

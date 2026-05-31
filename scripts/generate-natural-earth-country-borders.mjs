@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+/**
+ * Generates country border ring data at 50m resolution for CountryBorderLayer.
+ * Uses a tighter Douglas-Peucker tolerance (0.08°) than the fill data (0.25°),
+ * producing visually clean borders that match Canada province / US state quality.
+ * The fill mesh layer continues to use the cheaper 110m data.
+ */
+import { readFile, writeFile } from 'node:fs/promises'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(here, '..')
+
+const SOURCE_PATH = resolve(repoRoot, 'data/globe/source/ne_50m_admin_0_countries.geojson')
+const OUTPUT_PATH = resolve(repoRoot, 'data/globe/natural-earth-country-borders.ts')
+
+// Tighter tolerance than fill data — keeps visible border fidelity
+const SIMPLIFY_TOLERANCE_DEG = 0.08
+const MIN_POLYGON_AREA_DEG2 = 0.005
+const SKIP_ISO2 = new Set(['AQ'])
+
+function perpendicularDistanceDeg(point, lineStart, lineEnd) {
+  const [x, y] = point
+  const [x1, y1] = lineStart
+  const [x2, y2] = lineEnd
+  const dx = x2 - x1
+  const dy = y2 - y1
+  if (dx === 0 && dy === 0) {
+    return Math.sqrt((x - x1) ** 2 + (y - y1) ** 2)
+  }
+  const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)))
+  const projX = x1 + t * dx
+  const projY = y1 + t * dy
+  return Math.sqrt((x - projX) ** 2 + (y - projY) ** 2)
+}
+
+function douglasPeucker(points, tolerance) {
+  if (points.length < 3) return points.slice()
+  const keep = new Array(points.length).fill(false)
+  keep[0] = true
+  keep[points.length - 1] = true
+  const stack = [[0, points.length - 1]]
+  while (stack.length > 0) {
+    const [startIndex, endIndex] = stack.pop()
+    let maxDistance = 0
+    let maxIndex = startIndex
+    for (let i = startIndex + 1; i < endIndex; i++) {
+      const d = perpendicularDistanceDeg(points[i], points[startIndex], points[endIndex])
+      if (d > maxDistance) { maxDistance = d; maxIndex = i }
+    }
+    if (maxDistance > tolerance) {
+      keep[maxIndex] = true
+      stack.push([startIndex, maxIndex])
+      stack.push([maxIndex, endIndex])
+    }
+  }
+  return points.filter((_, i) => keep[i])
+}
+
+function roundCoord(v) { return Math.round(v * 1000) / 1000 }
+
+function simplifyRing(points, tolerance) {
+  if (!Array.isArray(points) || points.length < 3) return null
+  const cleaned = points.map(p => [roundCoord(p[0]), roundCoord(p[1])])
+  const simplified = douglasPeucker(cleaned, tolerance)
+  if (simplified.length < 4) return null
+  const first = simplified[0]; const last = simplified[simplified.length - 1]
+  if (first[0] !== last[0] || first[1] !== last[1]) simplified.push([first[0], first[1]])
+  return simplified
+}
+
+function ringArea(ring) {
+  let area = 0
+  for (let i = 0; i < ring.length - 1; i++) {
+    area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+  }
+  return Math.abs(area / 2)
+}
+
+function normalizePolygons(geometry, tolerance) {
+  const polys = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
+  return polys.map(poly => {
+    const rings = []
+    poly.forEach((ring, idx) => {
+      const simplified = simplifyRing(ring, tolerance)
+      if (!simplified) return
+      if (idx === 0 && ringArea(simplified) < MIN_POLYGON_AREA_DEG2) return
+      rings.push({ kind: idx === 0 ? 'outer' : 'hole', points: simplified })
+    })
+    return rings.some(r => r.kind === 'outer') ? { rings } : null
+  }).filter(Boolean)
+}
+
+function extractIso2(p) {
+  const v = p.ISO_A2_EH ?? p.ISO_A2 ?? p.WB_A2
+  return (!v || v === '-99') ? null : String(v).toUpperCase()
+}
+
+function transformFeature(feature) {
+  const p = feature.properties ?? {}
+  const iso2 = extractIso2(p)
+  if (!iso2 || SKIP_ISO2.has(iso2)) return null
+  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  if (polygons.length === 0) return null
+  return { iso2, polygons }
+}
+
+function serializePoints(pts) {
+  return `[${pts.map(p => `[${p[0]},${p[1]}]`).join(',')}]`
+}
+
+function serializeCountry({ iso2, polygons }) {
+  const polygonLines = polygons.map(poly => {
+    const ringLines = poly.rings.map(r =>
+      `          { kind: '${r.kind}', points: ${serializePoints(r.points)} },`
+    ).join('\n')
+    return `      { rings: [\n${ringLines}\n      ] },`
+  }).join('\n')
+  return `  { iso2: '${iso2}', polygons: [\n${polygonLines}\n  ] },`
+}
+
+async function main() {
+  const raw = await readFile(SOURCE_PATH, 'utf8')
+  const source = JSON.parse(raw)
+  const countries = []
+  for (const feature of source.features ?? []) {
+    const c = transformFeature(feature)
+    if (c) countries.push(c)
+  }
+  countries.sort((a, b) => a.iso2.localeCompare(b.iso2))
+
+  const totalPoints = countries.reduce(
+    (acc, c) => acc + c.polygons.reduce((a, p) => a + p.rings.reduce((b, r) => b + r.points.length, 0), 0), 0
+  )
+
+  const body = `// Generated by scripts/generate-natural-earth-country-borders.mjs
+// Source: ne_50m_admin_0_countries.geojson — simplified at 0.08° tolerance
+// Used only by CountryBorderLayer for clean border lines. Fill mesh uses 110m data.
+// Do not edit by hand. Re-run the script to regenerate.
+
+export type CountryBorderRing = { kind: 'outer' | 'hole'; points: [number, number][] }
+export type CountryBorderPolygon = { rings: CountryBorderRing[] }
+export type CountryBorderEntry = { iso2: string; polygons: CountryBorderPolygon[] }
+
+export const naturalEarthCountryBorders: CountryBorderEntry[] = [
+${countries.map(serializeCountry).join('\n')}
+]
+`
+
+  await writeFile(OUTPUT_PATH, body, 'utf8')
+  console.log(`Wrote ${OUTPUT_PATH}`)
+  console.log(`Countries: ${countries.length}`)
+  console.log(`Total vertices: ${totalPoints}`)
+}
+
+main().catch(e => { console.error(e); process.exit(1) })

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
@@ -52,14 +53,55 @@ export const SECTION_LABELS: Record<DashboardSectionSlug, string> = {
   connections:   'Connections',
 }
 
-export const SECTION_ICONS: Record<DashboardSectionSlug, string> = {
-  market:        '📊',
-  education:     '📚',
-  compliance:    '⚖️',
-  signals:       '📡',
-  opportunities: '💡',
-  intelligence:  '🔍',
-  connections:   '🤝',
+// SVG icon set — rendered at size of parent container (use a sized flex wrapper)
+export const SECTION_ICONS: Record<DashboardSectionSlug, ReactNode> = {
+  market: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" aria-hidden="true">
+      <rect x="1.5" y="9.5" width="2.5" height="5" rx="0.5" fill="currentColor"/>
+      <rect x="6.75" y="6" width="2.5" height="8.5" rx="0.5" fill="currentColor"/>
+      <rect x="12" y="2.5" width="2.5" height="12" rx="0.5" fill="currentColor"/>
+    </svg>
+  ),
+  education: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 5.5v8.5"/>
+      <path d="M8 5.5C6.5 4 4 3.5 2 4v8c2-.5 4.5.5 6 2"/>
+      <path d="M8 5.5c1.5-1.5 4-2 6-1.5v8c-2-.5-4.5.5-6 2"/>
+    </svg>
+  ),
+  compliance: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 2L13.5 4.5V9c0 3.5-2.5 5.5-5.5 6.5C5 14.5 2.5 12.5 2.5 9V4.5L8 2Z"/>
+      <path d="M5.5 8.5l2 2 3-3"/>
+    </svg>
+  ),
+  signals: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+      <circle cx="8" cy="12.5" r="1.3" fill="currentColor" stroke="none"/>
+      <path d="M4.8 9.2a4.5 4.5 0 0 1 6.4 0"/>
+      <path d="M2.2 6.5a8 8 0 0 1 11.6 0"/>
+    </svg>
+  ),
+  opportunities: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.5 12.5L10 6"/>
+      <path d="M6.5 6H10v3.5"/>
+    </svg>
+  ),
+  intelligence: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+      <circle cx="6.5" cy="6.5" r="4.5"/>
+      <path d="M9.8 9.8l3.7 3.7"/>
+    </svg>
+  ),
+  connections: (
+    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+      <circle cx="8" cy="2.5" r="1.8" fill="currentColor" stroke="none"/>
+      <circle cx="2.5" cy="13" r="1.8" fill="currentColor" stroke="none"/>
+      <circle cx="13.5" cy="13" r="1.8" fill="currentColor" stroke="none"/>
+      <path d="M8 4.3l-5.5 7.5M8 4.3l5.5 7.5M4.3 13h7.4"/>
+    </svg>
+  ),
 }
 
 export const SECTION_DESCRIPTIONS: Record<DashboardSectionSlug, string> = {
@@ -92,7 +134,7 @@ function NavItem({
   dotColor,
 }: {
   href: string
-  icon: string
+  icon: React.ReactNode
   label: string
   isActive: boolean
   available?: boolean
@@ -118,7 +160,7 @@ function NavItem({
         if (!isActive) (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'
       }}
     >
-      <span className="w-4 shrink-0 text-center text-base leading-none">{icon}</span>
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
       <span className="flex-1 leading-none">{label}</span>
       {isActive && <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#c6a55a' }} />}
       {!isActive && available && dotColor && (
@@ -317,7 +359,7 @@ export function SectionPageView({
       <div className="mb-7 flex items-start justify-between gap-4">
         <div>
           <div className="mb-1.5 flex items-center gap-2.5">
-            <span className="text-2xl leading-none">{SECTION_ICONS[section]}</span>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center" style={{ color: 'rgba(240,211,154,0.8)' }}>{SECTION_ICONS[section]}</span>
             <h1 className="font-serif text-2xl font-semibold text-white">{SECTION_LABELS[section]}</h1>
           </div>
           <p className="max-w-lg text-sm leading-relaxed" style={{ color: 'rgba(243,240,234,0.45)' }}>

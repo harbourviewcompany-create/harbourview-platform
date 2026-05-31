@@ -9,24 +9,21 @@ type InquiryFormProps = {
   ctaLabel: string
 }
 
-type InquiryState = {
-  status: 'idle' | 'success' | 'error'
-  message: string
-}
+type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
 const MAX_MESSAGE_LENGTH = 2500
-const initialState: InquiryState = { status: 'idle', message: '' }
 
 function readFormString(data: FormData, key: string) {
   const value = data.get(key)
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function buildMessageWithListingContext(fields: {
-  message: string
-  country: string
+function buildListingInquiryMessage(fields: {
   listingSlug: string
   listingTitle: string
+  country: string
+  inquiryType: string
+  message: string
 }) {
   return [
     fields.message,
@@ -35,12 +32,14 @@ function buildMessageWithListingContext(fields: {
     `Market: ${fields.country}`,
     `Listing: ${fields.listingTitle}`,
     `Slug: ${fields.listingSlug}`,
+    `Request type: ${fields.inquiryType}`,
   ].join('\n')
 }
 
 export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryFormProps) {
-  const [state, setState] = useState<InquiryState>(initialState)
-  const [isPending, setIsPending] = useState(false)
+  const [state, setState] = useState<FormState>('idle')
+  const [message, setMessage] = useState('')
+  const [diagnosticMessage, setDiagnosticMessage] = useState('')
   const [messageLength, setMessageLength] = useState(0)
   const isNearLimit = messageLength >= MAX_MESSAGE_LENGTH * 0.9
 
@@ -48,9 +47,11 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
     event.preventDefault()
     const form = event.currentTarget
     const data = new FormData(form)
+    const website = readFormString(data, 'website')
 
-    if (readFormString(data, 'website')) {
-      setState({ status: 'error', message: 'Inquiry could not be processed. [INQUIRY_VALIDATION_SPAM_TRAP]' })
+    if (website) {
+      setState('error')
+      setDiagnosticMessage('Inquiry could not be processed.')
       return
     }
 
@@ -60,21 +61,31 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
     const country = readFormString(data, 'country')
     const phone = readFormString(data, 'phone')
     const inquiryType = readFormString(data, 'inquiry_type') || 'listing_verification'
-    const message = readFormString(data, 'message')
+    const freeTextMessage = readFormString(data, 'message')
     const consent = data.get('consent') === 'on'
 
-    if (!name || !email || !company || !country || !message) {
-      setState({ status: 'error', message: 'Please complete name, email, company, country and message. [INQUIRY_VALIDATION_REQUIRED_FIELDS]' })
+    if (!name || !email || !company || !country || !freeTextMessage || !consent) {
+      setState('error')
+      setDiagnosticMessage('Please complete name, email, company, country, message and consent before submitting.')
       return
     }
 
-    if (!consent) {
-      setState({ status: 'error', message: 'Please confirm consent before submitting the inquiry. [INQUIRY_VALIDATION_CONSENT]' })
+    const submissionMessage = buildListingInquiryMessage({
+      listingSlug,
+      listingTitle,
+      country,
+      inquiryType,
+      message: freeTextMessage,
+    })
+
+    if (submissionMessage.length > MAX_MESSAGE_LENGTH) {
+      setState('error')
+      setDiagnosticMessage('Please keep the message under 2,500 characters.')
       return
     }
 
-    setIsPending(true)
-    setState(initialState)
+    setState('submitting')
+    setDiagnosticMessage('')
 
     const result = await submitMarketplaceInquiryDirect(
       {
@@ -85,23 +96,24 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
         contact_company: company,
         contact_phone: phone || null,
         inquiry_type: inquiryType,
-        message: buildMessageWithListingContext({ message, country, listingSlug, listingTitle }),
+        message: submissionMessage,
         status: 'received',
       },
       'Inquiry received. Harbourview will review the request before any introduction or seller contact. [INQUIRY_OK]',
       'QUOTE',
     )
 
-    setIsPending(false)
-
     if (result.ok) {
-      setState({ status: 'success', message: result.message })
-      form.reset()
+      setState('success')
+      setDiagnosticMessage(result.message)
+      setMessage('')
       setMessageLength(0)
+      form.reset()
       return
     }
 
-    setState({ status: 'error', message: result.message })
+    setState('error')
+    setDiagnosticMessage(result.message)
   }
 
   return (
@@ -113,7 +125,7 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
+      <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2" noValidate>
         <input type="hidden" name="listing_slug" value={listingSlug} />
         <input type="hidden" name="listing_title" value={listingTitle} />
 
@@ -165,7 +177,11 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
             name="message"
             maxLength={MAX_MESSAGE_LENGTH}
             rows={5}
-            onChange={(event) => setMessageLength(event.currentTarget.value.length)}
+            value={message}
+            onChange={(event) => {
+              setMessage(event.currentTarget.value)
+              setMessageLength(event.currentTarget.value.length)
+            }}
             placeholder="Describe what you need verified, sourced or introduced. Include location, timing, quantity, budget range or equipment requirements where relevant."
             className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 placeholder:text-[#F5F1E8]/35 focus:ring-2"
           />
@@ -180,11 +196,11 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
         </label>
 
         <div className="flex flex-col gap-3 md:col-span-2 sm:flex-row sm:items-center">
-          <button type="submit" disabled={isPending} className="rounded-full bg-[#C6A55A] px-5 py-3 text-center text-sm font-medium text-[#081423] transition hover:bg-[#D8BC73] disabled:cursor-not-allowed disabled:opacity-60">
-            {isPending ? 'Submitting...' : ctaLabel}
+          <button type="submit" disabled={state === 'submitting'} className="rounded-full bg-[#C6A55A] px-5 py-3 text-center text-sm font-medium text-[#081423] transition hover:bg-[#D8BC73] disabled:cursor-not-allowed disabled:opacity-60">
+            {state === 'submitting' ? 'Submitting...' : ctaLabel}
           </button>
-          {state.message ? (
-            <p data-testid="inquiry-diagnostic-message" className={state.status === 'success' ? 'text-sm text-[#D8BC73]' : 'text-sm text-red-200'}>{state.message}</p>
+          {diagnosticMessage ? (
+            <p data-testid="inquiry-diagnostic-message" className={state === 'success' ? 'text-sm text-[#D8BC73]' : 'text-sm text-red-200'}>{diagnosticMessage}</p>
           ) : null}
         </div>
       </form>

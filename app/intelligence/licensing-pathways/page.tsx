@@ -1,38 +1,34 @@
 import type { Metadata } from 'next'
-import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
+import IntelligenceModulePage from '@/app/intelligence/IntelligenceModulePage'
 
 export const metadata: Metadata = {
   title: 'Licensing Pathways | Harbourview Intelligence',
-  description: 'Regulatory licensing pathway context for import, export, cultivation, processing and distribution.',
+  description: 'Regulatory licensing pathway context for import, export, cultivation, processing and distribution across priority jurisdictions.',
 }
 
 export default function LicensingPathwaysPage() {
   return (
-    <main className="bg-[#020814] text-white">
-      <PublicHero
-        eyebrow="Intelligence"
-        title="Licensing Pathways"
-        actions={[{ label: 'Request Licensing Pathway Intelligence', href: '/contact' }]}
-        aside={
-          <PublicCard className="p-6 text-sm leading-7 text-white/62">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
-            <p>Licensing pathway information is orientation-level. Harbourview does not provide legal advice. Operators should verify requirements with qualified local advisors.</p>
-          </PublicCard>
-        }
-      >
-        Regulatory licensing pathway context for import, export, cultivation, processing and distribution across priority jurisdictions.
-      </PublicHero>
-
-      <PublicSection tone="dark">
-        <SectionHeader eyebrow="Pathway context" title="Licensing orientation for regulated-market planning.">
-          This page orients users around licence categories, pathway questions, route readiness and jurisdiction-specific review needs without publishing private route analysis.
-        </SectionHeader>
-        <PublicCard muted className="p-6 text-sm leading-7 text-white/62">
-          Licensing content is a starting point for structured review. It does not confirm eligibility, authorization, approval, route viability or legal sufficiency.
-        </PublicCard>
-      </PublicSection>
-
-      <FooterCta eyebrow="Licensing intelligence" title="Need licensing pathway context for a priority market?" actions={[{ label: 'Request Licensing Pathway Intelligence', href: '/contact' }]}>Harbourview can route licensing questions into reviewed workflows before commercial action or counterparty engagement.</FooterCta>
-    </main>
+    <IntelligenceModulePage
+      content={{
+        eyebrow: 'Intelligence / Licensing',
+        title: 'Licensing pathway context for regulated cannabis market access.',
+        description:
+          'Harbourview licensing pathway intelligence orients operators around licence categories, authorisation requirements, pathway questions and jurisdiction-specific review needs — without providing legal advice, confirming eligibility or publishing private route analysis.',
+        requestLabel: 'Request Licensing Pathway Intelligence',
+        reviewItems: [
+          'Cultivation licence categories: an orientation to cultivation authorisation types, GACP certificate requirements, output volume controls and export eligibility distinctions across priority source markets.',
+          'Manufacturing and processing licences: GMP certification scope, secondary processing authorisation, product form permissions and the licence basis for export-ready batch production.',
+          'Import authorisation frameworks: competent authority structures, narcotics import order processes, GDP requirements and importer qualification steps across tracked destination markets.',
+          'Export licence and permit structures: export authorisation categories, narcotics export permit frameworks, phytosanitary requirements and Incoterm-relevant export responsibility.',
+          'Wholesale and distribution authorisation: GDP-certified wholesale distribution licence categories, pharmacy supply permissions, controlled drug handling authorisations and re-export permissions.',
+          'Special access and unlicensed pathways: compassionate use, named patient, special access scheme and temporary authorisation frameworks in jurisdictions where full market authorisation has not been granted.',
+        ],
+        boundaryItems: [
+          'Pathway summaries are orientation-level only. They do not confirm licence eligibility, authorisation scope, route viability or legal sufficiency for any specific operator or transaction.',
+          'Specific licensing questions involving products, batches, counterparties, contracts or active regulatory submissions are routed through private intake — not this public surface.',
+          'Harbourview does not provide legal advice. Operators should verify licensing requirements with qualified local legal advisors and the relevant competent authority.',
+        ],
+      }}
+    />
   )
 }
