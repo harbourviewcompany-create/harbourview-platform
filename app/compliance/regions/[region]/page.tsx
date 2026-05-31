@@ -17,6 +17,9 @@ export async function generateMetadata({ params }: { params: Promise<{ region: s
   }
 }
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export default async function RegionPage({ params }: { params: Promise<{ region: string }> }) {
   const { region: regionSlug } = await params
   const region = getComplianceRegion(regionSlug)
