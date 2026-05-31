@@ -19,6 +19,9 @@ function formatLabel(value: string) {
   return value.replace(/_/g, ' ')
 }
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export default async function TypePage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params
 
