@@ -101,6 +101,10 @@ export default async function CountryPage({ params }: { params: Promise<{ countr
             </dl>
 
             <p className="mt-8 text-sm leading-7 text-white/48">{c.disclaimer}</p>
+            <div className="mt-6 rounded border border-gold/10 bg-white/[0.02] p-4">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-gold/60">Compliance boundary</p>
+              <p className="text-xs leading-6 text-white/40">{c.complianceBoundary ?? 'Pathway summaries are orientation-level only. They do not confirm licence eligibility, authorisation scope, import or export clearance, legal sufficiency or regulatory approval for any specific operator, product or transaction.'}</p>
+            </div>
           </article>
 
           <aside className="rounded-sm border border-gold/12 bg-black/20 p-6">

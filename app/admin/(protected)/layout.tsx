@@ -19,17 +19,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Admin Review</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#F5F1E8]/65">Authenticated admin/operator workspace for marketplace review, intelligence automation, and internal workflow.</p>
           <nav className="mt-5 flex flex-wrap gap-2 text-sm">
-            {([
-              ['/admin/hub', 'Hub'],
-              ['/admin/inquiries', 'Inquiries'],
-              ['/admin/listings', 'Listings'],
-              ['/admin/deal-dashboard', 'Deal dashboard'],
-              ['/admin/sources', 'Sources'],
-              ['/admin/candidates', 'Candidates'],
-              ['/admin/intelligence-automation', 'Intelligence'],
-            ] as [string, string][]).map(([href, label]) => (
-              <Link key={href} href={href} className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">{label}</Link>
-            ))}
+            <Link href="/admin/hub" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Hub</Link>
+            <Link href="/admin/inquiries" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Inquiries</Link>
+            <Link href="/admin/listings" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Listings</Link>
+            <Link href="/admin/deal-dashboard" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Deal dashboard</Link>
+            <Link href="/admin/sources" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Sources</Link>
+            <Link href="/admin/candidates" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Candidates</Link>
+            <Link href="/admin/intelligence-automation" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Intelligence</Link>
             <form action="/admin/logout" method="post">
               <button type="submit" className="rounded-full border border-white/20 px-3 py-1.5 text-[#F5F1E8]/70 transition hover:bg-white/10">Sign out</button>
             </form>

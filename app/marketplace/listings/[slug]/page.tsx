@@ -147,7 +147,7 @@ export default async function MarketplaceListingDetailPage({
                 Harbourview handles introduction requests through a controlled review process. Availability, counterparty fit, commercial terms and any required seller engagement are confirmed before a handoff is made.
               </p>
               <p className="mt-4 text-sm leading-6 text-[#F5F1E8]/75">
-                {complianceNote ?? 'Public pages show safe summaries only. Private documents, counterparty identity, source materials, diligence context and internal review notes are not disclosed here.'}
+                {complianceNote ?? 'Public pages show safe summaries only. Private documents, counterparty identity, source materials, diligence context and non-public review records are not disclosed here.'}
               </p>
             </div>
           </section>

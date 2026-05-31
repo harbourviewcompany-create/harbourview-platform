@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
+import { getLiveBusinessOpportunities } from '@/lib/marketplace/liveOpportunities'
+import { businessOpportunities } from '@/lib/fixtures/business-opportunities'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -91,6 +93,7 @@ function EmptyState() {
 
 export default async function BusinessOpportunitiesPage() {
   const listings = await getPublicListingsByCategory('business_opportunities')
+  const liveOpportunities = await getLiveBusinessOpportunities(businessOpportunities)
 
   return (
     <>
