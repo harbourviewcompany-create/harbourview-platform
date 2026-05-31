@@ -11,6 +11,9 @@ import {
   type GeneticsFilterSearchParams,
 } from '@/lib/marketplace/genetics/publicProjection'
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Genetics, Seeds & Tissue Culture | Harbourview',
   description:
