@@ -125,6 +125,10 @@ Avoid: guaranteed route, confirmed buyers, active deal flow, instant matching, d
 
 Preserve keyboard navigation, visible focus states, contrast, descriptive buttons, reduced motion, reliable mobile tap targets, form labels and useful error states.
 
+## Dashboard handoff
+
+The platform dashboard design/spec is controlled by `docs/control/DASHBOARD_DESIGN_HANDOFF.md`. Dashboard implementation work must preserve its three-pillar structure: Marketplace, Intel Signals and Education.
+
 ## Completion criteria
 
 A design change is complete only when it follows this palette/tone/hierarchy, names components changed, records screenshots or precise visual evidence, preserves accessibility basics and does not invent market intelligence.
