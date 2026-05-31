@@ -4,6 +4,9 @@ import { getPublicCountries, type PublicCountry } from '@/lib/server/countriesQu
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 import { countryOptions } from '@/config/globe/country-role-profiles'
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Country Briefs | Harbourview Intelligence',
   description: 'Jurisdiction-level regulatory and market orientation for priority cannabis markets.',
