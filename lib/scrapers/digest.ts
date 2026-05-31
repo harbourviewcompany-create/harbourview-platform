@@ -6,9 +6,9 @@ import type { ScrapeRunSummary } from './types'
 
 export async function sendScrapeDigest(summary: ScrapeRunSummary): Promise<void> {
   const resendKey = process.env.RESEND_API_KEY?.trim()
-  const recipient = process.env.HARBOURVIEW_MARKETPLACE_NOTIFY_EMAIL?.trim()
-  const fromAddress = process.env.HARBOURVIEW_NOTIFY_FROM_EMAIL?.trim() ?? 'onboarding@resend.dev'
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? 'https://harbourview-platform.vercel.app'
+  const recipient = process.env.HARBOURVIEW_TO_EMAIL?.trim()
+  const fromAddress = process.env.HARBOURVIEW_FROM_EMAIL?.trim() ?? 'onboarding@resend.dev'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? 'https://harbourview.vercel.app'
 
   if (!resendKey || !recipient) {
     console.info('scrape_digest: skipping — RESEND_API_KEY or recipient not set')
