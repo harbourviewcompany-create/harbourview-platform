@@ -33,7 +33,7 @@ const COUNTRIES = {
   us:{ flag:'🇺🇸', name:'United States',id:'us', status:'Complex',      sc:'#D9A441', cur:'USD', c1:'Los Angeles', c2:'Denver',     c3:'Portland',     bar:{opp:'Very High',reg:'Complex',    act:'Very Strong',score:71, s1:'Federal: Schedule I',      s2:'State Regulated'}},
 };
 
-const mkListings = (ct) => [
+const mkListings = (ct: {c1:string;c2:string;c3:string;cur:string}) => [
   {id:1,cat:'Equipment',           bg:'linear-gradient(135deg,#091828,#0D2540)', title:'Stainless Steel Mixing Tank 500L',  desc:'Food grade 316 SS mixing tank. Excellent condition. Minimal use.',      tags:['Equipment','Verified Seller','Excellent Condition'], loc:ct.c1, price:`${ct.cur} $8,750`    },
   {id:2,cat:'Cannabis',            bg:'linear-gradient(135deg,#091408,#0A1E10)', title:'Premium Flower – Indoor Grown',      desc:'Top shelf indoor grown flower. Lab tested and certified.',              tags:['Cannabis','Verified Seller','Lab Tested'],           loc:ct.c2, price:`${ct.cur} $4,200 / kg`},
   {id:3,cat:'Consumables',         bg:'linear-gradient(135deg,#0A1610,#0D1C14)', title:'Nutrient Solution Starter Kit',      desc:'Complete 3-part nutrient solution kit.',                               tags:['Consumables','New','Verified Seller'],               loc:ct.c3, price:`${ct.cur} $320`       },
@@ -41,7 +41,7 @@ const mkListings = (ct) => [
   {id:5,cat:'Business Opportunity',bg:'linear-gradient(135deg,#08101C,#0A1530)', title:'Turnkey Greenhouse Facility',        desc:'1,200m² greenhouse with climate systems. Ready for cultivation.',      tags:['Business Opportunity','Verified Seller'],            loc:ct.c1, price:`${ct.cur} $950,000`  },
 ];
 
-const mkSignals = (name) => [
+const mkSignals = (name: string) => [
   {id:1,icon:'📋',headline:`${name}: government reviews cannabis export licensing framework.`,   tag:'REGULATION',ts:['rgba(74,154,107,0.18)','#6FCF7D','rgba(74,154,107,0.35)'], time:'2h ago', hot:true },
   {id:2,icon:'📈',headline:'Extraction equipment demand rising across APAC & EU markets.',        tag:'MARKET',    ts:['rgba(59,130,160,0.18)','#5DAFC8','rgba(59,130,160,0.35)'], time:'6h ago', hot:false},
   {id:3,icon:'🌿',headline:'New GMP guidance released for medicinal cannabis manufacturers.',      tag:'COMPLIANCE',ts:['rgba(217,164,65,0.18)','#D9A441','rgba(217,164,65,0.35)'], time:'1d ago', hot:false},
