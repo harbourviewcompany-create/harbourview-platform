@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
 
@@ -40,18 +40,21 @@ for (const token of forbiddenPublicTokens) {
   }
 }
 
-execSync(
-  `npx tsc ${sourcePath} ${schemaPath} --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --resolveJsonModule --outDir .tmp/intelligence-fixture-test`,
-  { stdio: 'inherit' }
-)
-execSync(`cp ${jsonFixturePath} .tmp/intelligence-fixture-test/country-fixtures.json`, { stdio: 'inherit' })
+// Use tsx for full module resolution (handles zod and other node_modules)
+mkdirSync('.tmp/intelligence-fixture-test', { recursive: true })
+const runnerPath = '.tmp/intelligence-fixture-test/runner.ts'
+writeFileSync(runnerPath, `
+import { publicCountryIntelligenceFixtures, privateIntelligenceFieldQuarantine } from '${process.cwd()}/${sourcePath}'
+import { PublicCountryIntelligenceFixturesSchema } from '${process.cwd()}/${schemaPath}'
+import { writeFileSync } from 'node:fs'
+const result = { publicCountryIntelligenceFixtures, privateIntelligenceFieldQuarantine }
+writeFileSync('${process.cwd()}/.tmp/intelligence-fixture-test/result.json', JSON.stringify(result))
+PublicCountryIntelligenceFixturesSchema.parse(publicCountryIntelligenceFixtures)
+`)
+execSync(`npx tsx --tsconfig ${process.cwd()}/tsconfig.json ${process.cwd()}/${runnerPath}`, { stdio: 'inherit', cwd: process.cwd() })
 
-const fixtureModule = await import(pathToFileURL(`${process.cwd()}/.tmp/intelligence-fixture-test/fixtures.js`))
-const schemaModule = await import(pathToFileURL(`${process.cwd()}/.tmp/intelligence-fixture-test/schema.js`))
-
-const projected = fixtureModule.publicCountryIntelligenceFixtures
-schemaModule.PublicCountryIntelligenceFixturesSchema.parse(projected)
-
+const { publicCountryIntelligenceFixtures: projected, privateIntelligenceFieldQuarantine } =
+  JSON.parse(readFileSync('.tmp/intelligence-fixture-test/result.json', 'utf8'))
 const serialized = JSON.stringify(projected)
 for (const token of forbiddenPublicTokens) {
   if (serialized.includes(token)) {
@@ -61,7 +64,7 @@ for (const token of forbiddenPublicTokens) {
 
 for (const record of projected) {
   for (const key of Object.keys(record)) {
-    if (fixtureModule.privateIntelligenceFieldQuarantine.includes(key)) {
+    if (privateIntelligenceFieldQuarantine.includes(key)) {
       throw new Error(`Quarantined key leaked into public projection: ${key}`)
     }
   }

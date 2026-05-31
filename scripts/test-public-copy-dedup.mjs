@@ -12,7 +12,7 @@ const approvedModules = new Set([
   'lib/content/complianceCopy.ts',
 ])
 
-const files = execSync('rg --files app lib', { encoding: 'utf8' })
+const files = execSync('find app lib -type f \\( -name "*.ts" -o -name "*.tsx" \\)', { encoding: 'utf8' })
   .split('\n')
   .filter(Boolean)
   .filter((file) => (file.endsWith('.ts') || file.endsWith('.tsx')) && file !== 'lib/content/complianceCopy.ts')

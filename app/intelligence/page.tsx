@@ -63,7 +63,7 @@ export default async function IntelligencePage() {
           <PublicCard className="p-6 text-sm leading-7 text-white/62">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
             <p>
-              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, private contacts,
+              Intelligence summaries are reviewed for public-safe publication. Detailed evidence, non-public contact paths,
               and analyst notes are handled through controlled private requests.
             </p>
           </PublicCard>
