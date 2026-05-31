@@ -6,6 +6,9 @@ import { CountryIntelligenceMap } from '@/components/intelligence/CountryIntelli
 import { getCountriesAsMapRecords } from '@/lib/server/countriesQuery'
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Cannabis Market Intelligence — Country Pathways & Regulatory Signals',
   description:
