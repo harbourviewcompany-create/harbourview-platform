@@ -25,6 +25,9 @@ export async function generateMetadata({ params }: GeneticsProfilePageProps): Pr
   }
 }
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export default async function GeneticsProfilePage({ params }: GeneticsProfilePageProps) {
   const { slug } = await params
   const profile = getPublicGeneticsProfile(slug)
