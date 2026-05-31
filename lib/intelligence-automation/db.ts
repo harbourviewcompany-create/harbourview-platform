@@ -266,6 +266,36 @@ export async function listIaSignals(): Promise<AdminDataResult<AutomationSignal[
   return { ok: true, data: result.data.map(rowToSignal) }
 }
 
+// ── READ: Signals by market (for country dashboard) ───────────────────────────
+
+export async function listIaSignalsByMarket(
+  market: string,
+  limit = 12,
+): Promise<AdminDataResult<AutomationSignal[]>> {
+  const result = await fetchAdminSupabaseJson<Record<string, unknown>[]>(
+    `/rest/v1/ia_signals?market=eq.${encodeURIComponent(market)}&select=*&order=detected_at.desc&limit=${limit}`,
+  )
+  if (!result.ok) {
+    const fallback = automationSignals.filter(
+      (s) => s.market.toLowerCase() === market.toLowerCase(),
+    )
+    return { ok: true, data: fallback }
+  }
+  return { ok: true, data: result.data.map(rowToSignal) }
+}
+
+export async function countIaSignalsByMarket(market: string): Promise<number> {
+  const result = await fetchAdminSupabaseJson<Record<string, unknown>[]>(
+    `/rest/v1/ia_signals?market=eq.${encodeURIComponent(market)}&select=id&stage=neq.archived`,
+  )
+  if (!result.ok) {
+    return automationSignals.filter(
+      (s) => s.market.toLowerCase() === market.toLowerCase() && s.stage !== 'archived',
+    ).length
+  }
+  return result.data.length
+}
+
 export async function getIaSignal(id: string): Promise<AdminDataResult<AutomationSignal | null>> {
   const result = await fetchAdminSupabaseJson<Record<string, unknown>[]>(
     `/rest/v1/ia_signals?id=eq.${encodeURIComponent(id)}&select=*`,

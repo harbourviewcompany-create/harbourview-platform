@@ -4,6 +4,7 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge }  from '@/lib/dashboard/statusBadges'
 import type { DashboardSectionSlug } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT, SECTION_LABELS, SECTION_ICONS } from './_components'
+import { countIaSignalsByMarket } from '@/lib/intelligence-automation/db'
 
 import type { Metadata } from 'next'
 
@@ -37,6 +38,9 @@ export default async function CountryConsolePage({ params }: Props) {
   const overallBadge   = getDashboardStatusBadge(country.dashboardStatus)
   const sections       = Object.keys(country.panels) as DashboardSectionSlug[]
   const availableCount = sections.filter((s) => country.routeAvailability[s]).length
+
+  // Live signal count for intelligence + signals panel badges
+  const signalCount = await countIaSignalsByMarket(country.displayName)
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -157,6 +161,14 @@ export default async function CountryConsolePage({ params }: Props) {
                 >
                   {panel.stateCopy.label}
                 </p>
+              {/* Live signal count badge for intelligence + signals panels */}
+              {signalCount > 0 && (section === 'intelligence' || section === 'signals') && (
+                <div className="mb-2 -mt-1">
+                  <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.08em] text-emerald-400">
+                    {signalCount} live signal{signalCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
 
                 {/* Public summary */}
                 <p className="flex-1 line-clamp-3 text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.48)' }}>

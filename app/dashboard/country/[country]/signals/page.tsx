@@ -5,6 +5,7 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
+import { listIaSignalsByMarket } from '@/lib/intelligence-automation/db'
 
 import type { Metadata } from 'next'
 
@@ -157,17 +158,53 @@ export default async function SignalsPage({ params }: Props) {
   const badge       = getDashboardStatusBadge(panel.state)
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveSignals(panel.state, country.displayName)
-  const derived: SignalsDerived = intel?.signals ? {
-    ...baseDerived,
-    feedSignals: intel.signals.feedSignals.map((s) => ({
-      tag:      s.tag,
-      headline: s.headline,
-      date:     s.date,
-      tone:     s.tone,
-    })),
-    sourceNote: intel.signals.sourceNote,
-  } : baseDerived
+
+  // ── Pull live IA signals, fall back to static registry ──────────────────
+  const iaResult      = await listIaSignalsByMarket(country.displayName)
+  const iaSignals     = iaResult.ok
+    ? iaResult.data.filter(s => s.stage !== 'archived')
+    : []
+
+  function iaToFeedSignal(s: (typeof iaSignals)[number]): FeedSignal {
+    let tone = 'slate'
+    if (s.type === 'regulatory_change' || s.type === 'documentation_readiness') tone = 'green'
+    else if (s.commercialImpact === 'high')   tone = 'green'
+    else if (s.type === 'buyer_demand' || s.type === 'importer_activity' || s.type === 'distributor_activity') tone = 'blue'
+    else if (s.commercialImpact === 'medium') tone = 'gold'
+    return {
+      tag:      s.type.replace(/_/g, ' '),
+      headline: s.title,
+      date:     s.detectedAt,
+      tone,
+    }
+  }
+
+  const derived: SignalsDerived = (() => {
+    // Prefer live IA signals → then static registry → then derived defaults
+    if (iaSignals.length > 0) {
+      return {
+        ...baseDerived,
+        feedSignals: iaSignals.map(iaToFeedSignal),
+        sourceNote: `${iaSignals.length} active signal${iaSignals.length !== 1 ? 's' : ''} from Harbourview intelligence database. Sources include national regulator publications, operator disclosures, importer directories, and market monitoring feeds. Last updated ${iaSignals[0]?.detectedAt ?? 'recently'}.`,
+      }
+    }
+    if (intel?.signals) {
+      return {
+        ...baseDerived,
+        feedSignals: intel.signals.feedSignals.map(s => ({
+          tag:      s.tag,
+          headline: s.headline,
+          date:     s.date,
+          tone:     s.tone,
+        })),
+        sourceNote: intel.signals.sourceNote,
+      }
+    }
+    return baseDerived
+  })()
+
   const availableCount = derived.categories.filter((c) => c.available).length
+  const iaLive = iaSignals.length > 0
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -202,6 +239,11 @@ export default async function SignalsPage({ params }: Props) {
           >
             {badge.label}
           </span>
+          {iaLive && (
+            <span className="shrink-0 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-emerald-400">
+              {iaSignals.length} live
+            </span>
+          )}
         </div>
         {derived.categories.length > 0 && (
           <div className="border-t px-5 py-2.5" style={{ borderColor: TONE_BORDER[badge.tone] }}>
