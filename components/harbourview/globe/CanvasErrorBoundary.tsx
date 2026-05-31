@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { Component, createRef } from 'react'
 import React from 'react'
-import StaticGlobeFallback from './StaticGlobeFallback'
+import { HarbourviewGlobeClientLoader } from './HarbourviewGlobeClientLoader'
 
 type Props = {
   children: ReactNode
@@ -27,7 +27,7 @@ export default class CanvasErrorBoundary extends Component<Props, State> {
     this.props.onError?.(error)
 
     if (process.env.NODE_ENV !== 'production') {
-      console.error('Harbourview globe render failed', error)
+      console.error('Harbourview globe render failed — showing WebGL fallback', error)
     }
   }
 
@@ -46,9 +46,10 @@ export default class CanvasErrorBoundary extends Component<Props, State> {
           aria-live="assertive"
           aria-atomic="true"
           tabIndex={-1}
-          aria-label="3D globe preview unavailable. Showing static globe fallback."
+          aria-label="Interactive globe unavailable. Showing fallback globe."
+          className="absolute inset-0"
         >
-          <StaticGlobeFallback />
+          <HarbourviewGlobeClientLoader />
         </div>
       )
     }
