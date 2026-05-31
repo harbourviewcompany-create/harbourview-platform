@@ -58,6 +58,7 @@ export type ComplianceCountry = {
   harbourviewSupportAvailability: string
   complianceTags: string[]
   relatedExplainers: string[]
+  complianceBoundary?: string
   disclaimer: string
   complianceBoundary?: string
 }
