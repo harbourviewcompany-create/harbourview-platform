@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { useState, useEffect, useRef } from "react";
 
 // ═══ TOKENS ═══════════════════════════════════════════════════════════════
@@ -494,7 +494,7 @@ function Desktop({activeNav,setActiveNav,country,setCountry,role,setRole,activeC
             {filtered.length===0?(
               <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:C.tm,gap:8,padding:'40px 0'}}>
                 <span style={{fontSize:32}}>🔍</span>
-                <div style={{fontSize:13}}>No listings match "{search || activeCat}"</div>
+                <div style={{fontSize:13}}>No listings match &quot;{search || activeCat}&quot;</div>
                 <button onClick={()=>{setSearch('');setActiveCat(null);}} style={{background:'none',border:`1px solid ${C.bDim}`,borderRadius:7,padding:'6px 14px',color:C.gold,fontSize:11,cursor:'pointer',fontFamily:'inherit',marginTop:4}}>Clear filters</button>
               </div>
             ):filtered.map(l=>(
