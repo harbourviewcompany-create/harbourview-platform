@@ -1,5 +1,23 @@
 # Harbourview Evidence Log
 
+
+## 2026-05-31: Vercel deployment dependency declaration repair
+
+**Evidence ID:** `HV-VERCEL-MISSING-DEPS-REPAIR-20260531`
+
+**Branch:** current working branch
+
+**Scope:** Reverted the broad dependency-removal approach and restored the Supabase SDK/SSR pattern. Added the missing runtime dependencies used by the globe and Supabase SSR modules so Vercel can install packages that are imported by the application build.
+
+**Commands and results (UTC):**
+- `npm run lint` — PASS (warnings only; no blocking lint errors)
+- `npm run build` — NOT FULLY RUN LOCALLY after dependency declaration repair because this container cannot fetch newly declared registry packages; the previous local build log identified missing module declarations for `three`, `@react-three/fiber`, `@react-three/drei`, and `@react-three/postprocessing`.
+- `npm install --package-lock-only --ignore-scripts` — BLOCKED in this environment by registry/proxy policy; Vercel should resolve the newly declared dependency graph during its install step.
+
+**Evidence notes:** The repair is package-declaration scoped and preserves the official Supabase packages instead of replacing them with a custom REST-only implementation.
+
+**Compliance/data handling:** Public/internal dependency metadata and deployment evidence only. No secrets, credentials, customer data, private logs, or production payloads were added.
+
 Last updated: 2026-05-28
 Status: Finish-line reset scaffold with preserved legacy evidence entries
 Authority: Canonical evidence log for Harbourview finish-line execution
