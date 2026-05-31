@@ -25,6 +25,9 @@ const regionLabels: Record<string, string> = {
   'asia-pacific': 'Asia-Pacific',
 }
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export default async function CountryPage({ params }: { params: Promise<{ country: string }> }) {
   const { country: slug } = await params
   const c = getComplianceCountry(slug)
