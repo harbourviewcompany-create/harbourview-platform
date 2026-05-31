@@ -83,11 +83,8 @@ export function CountrySearchOverlay({
 
   return (
     <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 max-h-[min(72svh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-hidden rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[380px] sm:-translate-x-1/2">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#d8be76]">Harbourview</p>
-        <button type="button" onClick={onNotSure} className="min-h-10 rounded-full border border-[#c6a55a]/20 px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-white/70">
-          I’m not sure yet
-        </button>
       </div>
 
       <label className="mt-3 block" htmlFor="country-search-input">

@@ -35,17 +35,20 @@ export function resolveCountryMaterialState({
     oceanBase: hvTokens.globe.oceanBase,
     plateBase: hvTokens.globe.plateBase,
     borderColor: hvTokens.globe.borderMutedGold,
-    // Emissive must be real dark gold, not near-black — plates need self-illumination
-    // on the dark hemisphere so they read as gold rather than transparent.
-    // #7a5e28: H≈38°, S≈52%, L≈31% — same hue as plateBase at ~55% brightness.
-    emissive: '#7a5e28',
-    emissiveIntensity: 0.65,
-    // Low metalness so diffuse (base color) contributes 68% of ambient — gold reads
-    // on the dark side via diffuse + emissive, not specular alone.
-    roughness: 0.48,
-    metalness: 0.32,
-    clearcoat: 0.22,
-    clearcoatRoughness: 0.35,
+    // Emissive: dark gold at moderate intensity fills shadow side so it reads as
+    // dark gold, not black. Lower than before so lighting contrast (not uniform
+    // self-glow) creates the 3D depth.
+    emissive: '#6b5222',
+    emissiveIntensity: 0.38,
+    // Higher metalness + lower roughness = tighter specular lobe = visible hot
+    // spot on lit face, soft falloff on tangents, emissive-filled shadows.
+    // This gradient reads as polished 3D metal rather than a flat gold disc.
+    roughness: 0.28,
+    metalness: 0.52,
+    // Clearcoat adds a second sharp reflection layer — makes specular highlight
+    // look like polished metal rather than painted matte.
+    clearcoat: 0.42,
+    clearcoatRoughness: 0.22,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 

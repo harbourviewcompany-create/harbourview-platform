@@ -200,16 +200,6 @@ export function GlobeSameScreenRouterLanding() {
         </p>
       </div>
 
-      <div className="pointer-events-auto fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-20 flex flex-col gap-2 sm:right-6">
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'MULTI_MARKET_ENABLE' })}
-          className="min-h-11 rounded-full border border-[#c6a55a]/22 bg-[#030b16]/76 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/72 backdrop-blur-xl"
-        >
-          Multi-market
-        </button>
-      </div>
-
       {state.step === 'role' ? (
         <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
           {countryBrief.status === 'loading' && <CountryBriefPanelSkeleton />}

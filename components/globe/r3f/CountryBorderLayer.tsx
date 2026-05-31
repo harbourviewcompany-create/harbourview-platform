@@ -1,110 +1,161 @@
 'use client'
 
-import { useThree } from '@react-three/fiber'
-import { Line } from '@react-three/drei'
+import { useMemo } from 'react'
+import * as THREE from 'three'
 import { naturalEarthCountryBorders } from '@/data/globe/natural-earth-country-borders'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { GLOBE_RADIUS, lonLatToVector3, vector3ToArray } from '@/lib/globe/globe-geometry'
 import { BORDER_OFFSET } from '@/lib/globe/globe-plate-config'
 
-// Reference distance at which lineWidth values were tuned (mid-zoom)
-const REFERENCE_DISTANCE = 5.5
-const MOBILE_VIEWPORT_WIDTH = 640
-
-// Border lines ride at GLOBE_RADIUS + BORDER_OFFSET (= PLATE_LIFT + IDLE_EXTRUSION + 0.002).
-// This puts them exactly at the idle plate surface with a 0.002-unit z-fight clearance —
-// not a visible gap. depthTest={true} hides far-hemisphere borders behind the ocean sphere.
+// Border lines ride exactly at idle plate surface + z-fight epsilon (0.002).
+// depthTest=true on every LineSegments hides far-hemisphere borders behind
+// the ocean sphere — no "see-through globe" bleedthrough.
 const BORDER_RADIUS = GLOBE_RADIUS + BORDER_OFFSET
 
-function projectBorderRing(points: [number, number][]) {
-  return points.map((point) => vector3ToArray(lonLatToVector3(point[0], point[1], BORDER_RADIUS)))
-}
+// ---------------------------------------------------------------------------
+// Build a Float32Array of explicit start–end PAIRS for a set of rings.
+// THREE.LineSegments reads positions as [s0, e0, s1, e1, ...] — each pair
+// is one independent segment. Rings are closed by looping the last point
+// back to the first. No NaN separators needed: each ring contributes its
+// own isolated set of pairs.
+// ---------------------------------------------------------------------------
+function buildSegmentPositions(
+  rings: { points: [number, number][] }[],
+): Float32Array {
+  // Pre-calculate total float count so we can allocate once
+  let count = 0
+  for (const ring of rings) count += ring.points.length * 2 * 3 // pairs × xyz
 
-function clamp(v: number, min: number, max: number) {
-  return v < min ? min : v > max ? max : v
-}
+  const buf = new Float32Array(count)
+  let offset = 0
 
-function getLinePresentation(distance: number, viewportWidth: number) {
-  const distanceScale = clamp(distance / REFERENCE_DISTANCE, 0.52, 1.6)
-  const isMobile = viewportWidth <= MOBILE_VIEWPORT_WIDTH
-  const mobileBoost = isMobile ? 1.38 : 1
-
-  return {
-    countryOuterWidth: clamp(0.86 * distanceScale * mobileBoost, isMobile ? 0.74 : 0.42, 1.55),
-    countryHoleWidth: clamp(0.42 * distanceScale * mobileBoost, isMobile ? 0.34 : 0.18, 0.78),
-    subdivisionOuterWidth: clamp(0.82 * distanceScale * mobileBoost, isMobile ? 0.76 : 0.36, 1.46),
-    subdivisionHoleWidth: clamp(0.4 * distanceScale * mobileBoost, isMobile ? 0.32 : 0.16, 0.72),
-    subdivisionOuterOpacity: isMobile ? 0.96 : 0.82,
-    subdivisionHoleOpacity: isMobile ? 0.66 : 0.46,
+  for (const ring of rings) {
+    const pts = ring.points
+    const n = pts.length
+    for (let i = 0; i < n; i++) {
+      const [aLon, aLat] = pts[i]
+      const [bLon, bLat] = pts[(i + 1) % n] // wraps: last→first closes ring
+      const [ax, ay, az] = vector3ToArray(lonLatToVector3(aLon, aLat, BORDER_RADIUS))
+      const [bx, by, bz] = vector3ToArray(lonLatToVector3(bLon, bLat, BORDER_RADIUS))
+      buf[offset++] = ax; buf[offset++] = ay; buf[offset++] = az
+      buf[offset++] = bx; buf[offset++] = by; buf[offset++] = bz
+    }
   }
+
+  return buf
+}
+
+// Collect all outer rings from a list of HarbourviewCountryGeometry objects
+function collectOuterRings(
+  countries: { polygons: { rings: { kind: string; points: [number, number][] }[] }[] }[],
+) {
+  const out: { points: [number, number][] }[] = []
+  for (const c of countries) {
+    for (const polygon of c.polygons) {
+      for (const ring of polygon.rings) {
+        if (ring.kind === 'outer') out.push(ring)
+      }
+    }
+  }
+  return out
 }
 
 export function CountryBorderLayer() {
-  const { camera, size } = useThree()
-  // Scale line width with camera distance so borders feel consistent across zoom levels.
-  // Mobile receives a minimum width/opacity floor because the country and role overlays
-  // reduce visible map area and the closer mobile camera otherwise makes state lines read faint.
-  const presentation = getLinePresentation(camera.position.length(), size.width)
+  // -------------------------------------------------------------------------
+  // Build geometries once. useMemo ensures these run only on mount, not on
+  // every frame — the THREE.BufferGeometry objects are stable references.
+  // -------------------------------------------------------------------------
+
+  const worldGeom = useMemo(() => {
+    const worldCountries = naturalEarthCountryBorders.filter(
+      (c) => c.iso2 !== 'CA' && c.iso2 !== 'US',
+    )
+    const rings = collectOuterRings(worldCountries)
+    const positions = buildSegmentPositions(rings)
+    const geom = new THREE.BufferGeometry()
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    return geom
+  }, [])
+
+  const usGeom = useMemo(() => {
+    const rings = collectOuterRings(usStates)
+    const positions = buildSegmentPositions(rings)
+    const geom = new THREE.BufferGeometry()
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    return geom
+  }, [])
+
+  const caGeom = useMemo(() => {
+    const rings = collectOuterRings(canadaProvinces)
+    const positions = buildSegmentPositions(rings)
+    const geom = new THREE.BufferGeometry()
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    return geom
+  }, [])
+
+  // -------------------------------------------------------------------------
+  // Materials — one per visual group. LineBasicMaterial is a native WebGL
+  // primitive (zero custom shader overhead). At the globe's DPR (1–1.75×),
+  // 1 CSS-pixel borders are crisp and cartographically appropriate.
+  // -------------------------------------------------------------------------
+
+  const worldMat = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: new THREE.Color('#c6a55a'),
+        transparent: true,
+        opacity: 0.72,
+        depthTest: true,
+        depthWrite: false,
+      }),
+    [],
+  )
+
+  const usMat = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: new THREE.Color('#d8be76'),
+        transparent: true,
+        opacity: 0.80,
+        depthTest: true,
+        depthWrite: false,
+      }),
+    [],
+  )
+
+  const caMat = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: new THREE.Color('#c6a55a'),
+        transparent: true,
+        opacity: 0.72,
+        depthTest: true,
+        depthWrite: false,
+      }),
+    [],
+  )
 
   return (
     <group renderOrder={30} userData={{ layer: 'country-and-subdivision-borders' }}>
-      {/* Non-Canada, non-US countries — 50m resolution for clean border lines */}
-      {naturalEarthCountryBorders
-        .filter((c) => c.iso2 !== 'CA' && c.iso2 !== 'US')
-        .map((country) =>
-          country.polygons.flatMap((polygon, polygonIndex) =>
-            polygon.rings.map((ring, ringIndex) => (
-              <Line
-                key={`${country.iso2}-${polygonIndex}-${ringIndex}`}
-                points={projectBorderRing(ring.points)}
-                color="#c6a55a"
-                lineWidth={ring.kind === 'outer' ? presentation.countryOuterWidth : presentation.countryHoleWidth}
-                transparent
-                opacity={ring.kind === 'outer' ? 0.78 : 0.46}
-                depthWrite={false}
-                depthTest={true}
-                renderOrder={30}
-              />
-            )),
-          ),
-        )}
-      {/* Canadian province borders — same subdivision tuning as US states */}
-      {canadaProvinces.map((province) =>
-        province.polygons.flatMap((polygon, polygonIndex) =>
-          polygon.rings.map((ring, ringIndex) => (
-            <Line
-              key={`${province.iso3}-${polygonIndex}-${ringIndex}`}
-              points={projectBorderRing(ring.points)}
-              color="#c6a55a"
-              lineWidth={ring.kind === 'outer' ? presentation.subdivisionOuterWidth : presentation.subdivisionHoleWidth}
-              transparent
-              opacity={ring.kind === 'outer' ? presentation.subdivisionOuterOpacity : presentation.subdivisionHoleOpacity}
-              depthWrite={false}
-              depthTest={true}
-              renderOrder={31}
-            />
-          )),
-        ),
-      )}
-      {/* U.S. state borders — preserve the full desktop state registry on mobile */}
-      {usStates.map((state) =>
-        state.polygons.flatMap((polygon, polygonIndex) =>
-          polygon.rings.map((ring, ringIndex) => (
-            <Line
-              key={`${state.iso3}-${polygonIndex}-${ringIndex}`}
-              points={projectBorderRing(ring.points)}
-              color="#d8be76"
-              lineWidth={ring.kind === 'outer' ? presentation.subdivisionOuterWidth : presentation.subdivisionHoleWidth}
-              transparent
-              opacity={ring.kind === 'outer' ? presentation.subdivisionOuterOpacity : presentation.subdivisionHoleOpacity}
-              depthWrite={false}
-              depthTest={true}
-              renderOrder={32}
-            />
-          )),
-        ),
-      )}
+      {/* All world country borders — 1 draw call */}
+      <lineSegments
+        geometry={worldGeom}
+        material={worldMat}
+        renderOrder={30}
+      />
+      {/* All U.S. state borders — 1 draw call */}
+      <lineSegments
+        geometry={usGeom}
+        material={usMat}
+        renderOrder={31}
+      />
+      {/* All Canadian province borders — 1 draw call */}
+      <lineSegments
+        geometry={caGeom}
+        material={caMat}
+        renderOrder={32}
+      />
     </group>
   )
 }
