@@ -59,6 +59,10 @@ export const countryOptionMap = Object.fromEntries(
   countryOptions.map((country) => [country.iso2, country]),
 ) as Record<string, CountryOption>
 
+export const allCountryAndProvinceOptionMap = Object.fromEntries(
+  allCountryAndProvinceOptions.map((country) => [country.iso2, country]),
+) as Record<string, CountryOption>
+
 export const defaultPrimaryRoleIds: RoleId[] = [
   'importer',
   'exporter',
@@ -186,7 +190,7 @@ export function getCountryName(countryIso2?: string) {
   if (!countryIso2) return 'Selected market'
 
   // Primary: full dashboard-safe country registry used by both desktop and mobile routing.
-  const tracked = countryOptionMap[countryIso2]
+  const tracked = allCountryAndProvinceOptionMap[countryIso2]
   if (tracked) return tracked.name
 
   // Fallback: full 196-country Natural Earth database.

@@ -148,3 +148,34 @@ Expected Pass 1 evidence:
 - No auth/RLS changed.
 - No deployment setting changed.
 - No Notion, Drive, Linear, or Monday workspace changed.
+
+
+## 2026-05-31: Production globe hardening verification attempt
+
+**Evidence ID:** `HV-GLOBE-PRODUCTION-HARDENING-20260531`
+
+**Branch:** Current working branch
+
+**Scope:** Public Harbourview globe rendering layers, globe material tokens, human-readable state/province labels, search shell contrast, role bottom-sheet contrast, and route-flow UI styling.
+
+**Commands and results (UTC):**
+- `npm install` — WARNING/BLOCKED: registry/network policy caused the install to hang; the attempt was stopped and the prior `node_modules` tree was restored before verification continued.
+- `npm run lint` — PASS with pre-existing warnings in unrelated files.
+- `npm run typecheck` — FAIL: existing dashboard implicit-any errors and missing Supabase package/type errors block repository-wide typecheck.
+- `npm run test:globe-router` — FAIL: existing Natural Earth/search-universe assertions fail; `globe-foundation` and `globe-polygon-rendering` pass after this patch.
+- `npm run test` — FAIL: stops on the same `test:globe-router` failures.
+- `node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs` — PASS.
+- `npm run build` — FAIL: production build compiles but fails validity checks on existing `components/dashboard/HarbourviewDashboard.tsx` implicit-any errors.
+- `npm run test:secret-scan` — PASS.
+- `npm start` — FAIL: no production `.next` build is available because `npm run build` fails.
+- `npm run test:e2e` — WARNING/BLOCKED: registry policy blocks `npx -p @playwright/test@1.54.0`.
+- `npm run capture:browser` — WARNING/BLOCKED: no script named `capture:browser` exists in `package.json`.
+- `npm run dev` plus `curl -I http://127.0.0.1:3000/` — PASS: local development server returned HTTP 200 for `/`.
+
+**Evidence artifacts:**
+- Browser screenshots were not captured because no browser/Playwright runtime is installed and registry policy blocked fetching Playwright.
+- No secrets or private operational data were printed or committed.
+
+**Operational conclusion:**
+- Globe-layer, material, label, search, and role-sheet changes are implemented locally.
+- Production GO remains HOLD until repository-wide typecheck/build blockers are resolved and browser smoke/screenshot verification can run.

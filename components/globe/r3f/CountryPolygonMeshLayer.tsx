@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import type { MeshPhysicalMaterial } from 'three'
+import { FrontSide, type MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
@@ -10,9 +10,7 @@ import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
-const BORDER_METAL = '#c6a55a'
-const SELECTED_ACCENT = '#d4b93c'
-const SPECULAR_CAP = 0.32
+const SPECULAR_CAP = 0.24
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
 // inflated invisible hit mesh so they're tappable on mobile.
@@ -64,7 +62,7 @@ function HoverPulseMesh({
   const targetRef = useRef(emissiveIntensity)
 
   useEffect(() => {
-    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.44) : emissiveIntensity
+    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
   }, [isFocused, emissiveIntensity])
 
   useFrame((state, delta) => {
@@ -79,8 +77,8 @@ function HoverPulseMesh({
 
   return (
     <>
-      {/* Visual mesh — renders the country plate */}
-      <mesh geometry={geometry}>
+      {/* Visual mesh — renders the country plate. Polygon offset and stable renderOrder keep selected and idle plates above the ocean without fighting boundary strokes. */}
+      <mesh geometry={geometry} renderOrder={20}>
         <meshPhysicalMaterial
           ref={matRef}
           color={color}
@@ -91,6 +89,12 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
+          side={FrontSide}
+          depthTest
+          depthWrite
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
         />
       </mesh>
       {/* Hit mesh — inflated invisible surface for pointer events.
@@ -99,6 +103,7 @@ function HoverPulseMesh({
       <mesh
         geometry={hitGeometry ?? geometry}
         visible={false}
+        renderOrder={40}
         onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
         onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
         onClick={(e) => { e.stopPropagation(); onClick() }}
@@ -192,7 +197,7 @@ export function CountryPolygonMeshLayer({
   }, [extrudedGeometries])
 
   return (
-    <group userData={{ layer: 'country-polygon-meshes' }}>
+    <group renderOrder={20} userData={{ layer: 'country-polygon-meshes' }}>
       {idleGeometries.map(({ entry, geometry, hitGeometry }) => {
         const isSelected = selectedSet.has(entry.iso2)
         const activeGeometry = isSelected ? extrudedGeometries.get(entry.iso2) ?? geometry : geometry
@@ -208,8 +213,8 @@ export function CountryPolygonMeshLayer({
             key={entry.iso3}
             geometry={activeGeometry}
             hitGeometry={isSelected ? undefined : hitGeometry}
-            color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
-            emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
+            color={material.plateBase}
+            emissive={material.emissive}
             emissiveIntensity={material.emissiveIntensity}
             roughness={material.roughness}
             metalness={material.metalness}

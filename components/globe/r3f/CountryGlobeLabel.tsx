@@ -31,19 +31,19 @@ export function CountryGlobeLabel({ iso2 }: { iso2: string }) {
       center
       // Occlude behind the globe itself — label disappears on the far side
       occlude={false}
-      zIndexRange={[10, 20]}
+      zIndexRange={[80, 90]}
       style={{ pointerEvents: 'none', userSelect: 'none' }}
     >
       <div
         style={{
-          background: 'rgba(1,5,13,0.82)',
-          border: '1px solid rgba(198,165,90,0.38)',
+          background: 'rgba(2,9,19,0.9)',
+          border: '1px solid rgba(241,223,170,0.44)',
           borderRadius: '6px',
           padding: '3px 9px',
           fontSize: '11px',
           fontWeight: 500,
           letterSpacing: '0.08em',
-          color: '#f5e8c0',
+          color: '#fff8e6',
           whiteSpace: 'nowrap',
           backdropFilter: 'blur(6px)',
           WebkitBackdropFilter: 'blur(6px)',

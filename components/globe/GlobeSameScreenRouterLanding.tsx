@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
+import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
 import dynamic from 'next/dynamic'
@@ -47,7 +47,7 @@ function getFallbackContextItems(state: GlobeRouterState) {
       value: state.selectedCountryIso2s.map((countryIso2) => getCountryName(countryIso2)).join(', '),
     })
   } else if (state.selectedCountryIso2) {
-    items.push({ label: 'Country', value: getCountryName(state.selectedCountryIso2) })
+    items.push({ label: 'Market', value: getCountryName(state.selectedCountryIso2) })
   }
 
   if (state.selectedRoleId) {
@@ -138,9 +138,6 @@ export function GlobeSameScreenRouterLanding() {
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
   const countryBrief = useCountryBrief(state.selectedCountryIso2)
-  const selectedCountryName = state.mode === 'multi_market'
-    ? `${state.selectedCountryIso2s.length || 0} markets`
-    : getCountryName(state.selectedCountryIso2)
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
@@ -196,12 +193,12 @@ export function GlobeSameScreenRouterLanding() {
 
       <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
         <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Select a country and your role. Harbourview will route you to the right market intelligence.
+          Search a market, state, or province, then choose your role for the right Harbourview path.
         </p>
       </div>
 
       {state.step === 'role' ? (
-        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
+        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : allCountryAndProvinceOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected market'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
           {countryBrief.status === 'loading' && <CountryBriefPanelSkeleton />}
           {countryBrief.status === 'ok' && <CountryBriefPanel brief={countryBrief.data} />}
           <RoleChipSelector

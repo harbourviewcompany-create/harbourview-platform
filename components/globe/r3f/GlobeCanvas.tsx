@@ -4,8 +4,7 @@ import { Suspense, useCallback, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { EffectComposer, SSAO, Bloom, Vignette } from '@react-three/postprocessing'
-import { BlendFunction } from 'postprocessing'
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { ACESFilmicToneMapping } from 'three'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
@@ -104,7 +103,7 @@ export function GlobeCanvas({
           // ACES Filmic tone mapping — whole-scene response curve.
           // Richer shadow detail, compressed highlights, graded look.
           state.gl.toneMapping = ACESFilmicToneMapping
-          state.gl.toneMappingExposure = 1.05
+          state.gl.toneMappingExposure = 0.92
           // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
@@ -113,11 +112,11 @@ export function GlobeCanvas({
 
         {/* Lights: drop the sunset HDRI (CDN hit, warm cast) in favour of
             a hemisphere light that reads as cold deep space. */}
-        <ambientLight intensity={0.48} color="#fff4d6" />
-        <directionalLight position={[4, 3, 5]} intensity={1.9} color="#fff8e8" />
-        <directionalLight position={[-3, 1, -4]} intensity={0.35} color="#d4c060" />
-        <directionalLight position={[-4, -1, -3]} intensity={0.55} color="#c8a030" />
-        <hemisphereLight args={['#1a2840', '#030a14', 0.45]} />
+        <ambientLight intensity={0.54} color="#fff5dc" />
+        <directionalLight position={[4, 3, 5]} intensity={1.45} color="#fff8e8" />
+        <directionalLight position={[-3, 1, -4]} intensity={0.24} color="#d8ca82" />
+        <directionalLight position={[-4, -1, -3]} intensity={0.28} color="#b8a45f" />
+        <hemisphereLight args={['#192942', '#020812', 0.36]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — blue-white with varied brightness, reads as deep space */}
@@ -173,48 +172,26 @@ export function GlobeCanvas({
           autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
         />
 
-        {/*
-          Post-processing effects — composed in a single render pass.
-          multisampling={0}: MSAA disabled (required for SSAO normal-pass).
-          enableNormalPass: provides the normal buffer SSAO needs for depth-aware occlusion.
-        */}
-        <EffectComposer multisampling={0} enableNormalPass>
-          {/*
-            SSAO — darkens the concave seams between raised country plates.
-            radius=18: ~18px screen-space sampling radius, tuned to plate-edge scale.
-            intensity=2.5: strong enough to see in the valleys, not so much it muddies flats.
-            luminanceInfluence=0.9: keeps bright (lit) plate faces mostly unaffected.
-          */}
-          <SSAO
-            blendFunction={BlendFunction.MULTIPLY}
-            samples={16}
-            rings={4}
-            luminanceInfluence={0.9}
-            radius={18}
-            bias={0.5}
-            intensity={2.5}
-            worldDistanceThreshold={0.4}
-            worldDistanceFalloff={0.1}
-            worldProximityThreshold={0.06}
-            worldProximityFalloff={0.04}
-          />
+        {/* Post-processing effects — restrained bloom and vignette only, with no normal-pass occlusion mask over high-latitude geometry. */}
+        <EffectComposer multisampling={0}>
+          {/* SSAO intentionally removed from production globe: the screen-space normal pass was able to over-darken high-latitude geometry and create crescent-like artifacts during Russia/Arctic rotation. */}
           {/*
             Bloom — selected/hovered plates pulse above luminanceThreshold so their
             emissive glow bleeds into adjacent pixels, reading as internal light.
             mipmapBlur produces a natural, high-quality bloom without ringing.
           */}
           <Bloom
-            luminanceThreshold={0.78}
-            luminanceSmoothing={0.2}
-            intensity={0.5}
-            radius={0.7}
+            luminanceThreshold={0.86}
+            luminanceSmoothing={0.16}
+            intensity={0.18}
+            radius={0.32}
             mipmapBlur
           />
           {/*
             Vignette — darkens screen edges, pushes attention inward to the globe.
             offset/darkness tuned to feel like ambient edge fall-off, not a heavy frame.
           */}
-          <Vignette eskil={false} offset={0.22} darkness={0.65} />
+          <Vignette eskil={false} offset={0.26} darkness={0.46} />
         </EffectComposer>
       </Canvas>
     </div>
