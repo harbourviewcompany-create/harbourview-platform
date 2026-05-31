@@ -86,6 +86,30 @@ export interface ScrapedCandidate {
   discoveredAt: string
 }
 
+
+export interface ScrapedListingCandidate {
+  sourceId: string
+  sourceName: string
+  sourceUrl: string
+  title: string
+  description: string
+  price: string
+  currency: string
+  location: string
+  condition: string
+  imageUrl: string
+  tags: string[]
+  discoveredAt: string
+  confidence: number
+}
+
+export interface ScrapeResult {
+  source: ScraperSource
+  status: 'skipped' | 'fetched' | 'failed'
+  reason?: string
+  candidates: ScrapedListingCandidate[]
+}
+
 export interface ScrapeRunResult {
   source: ScraperSource
   status: 'ok' | 'skipped' | 'failed' | 'rate_limited'

@@ -1,3 +1,23 @@
+
+## 2026-05-31: Vercel deployment build-log repair
+
+**Evidence ID:** `HV-VERCEL-DEPLOY-LOG-REPAIR-20260531`
+
+**Branch:** current working branch
+
+**Scope:** Removed the blocked Supabase SDK package path from the deploy dependency graph, routed remaining Supabase table usage through the repository REST client, and repaired type/lint failures surfaced by `next build` so Vercel can complete the build step.
+
+**Commands and results (UTC):**
+- `npm run lint` — PASS (warnings only; no blocking lint errors)
+- `npm run build` — PASS (warnings only; generated all app routes)
+- `npm run typecheck` — NOT RUN (package has no `typecheck` script)
+- `npm run test -- --passWithNoTests` — NOT RUN (package has no `test` script)
+- `npm install` — BLOCKED in this environment by registry/security-policy 403 while fetching `@types/node`; the deploy fix removes the earlier blocked `iceberg-js` dependency path from `package-lock.json`
+
+**Evidence notes:** Build output remains the primary deploy-log evidence for this repair. Existing warning-only lint findings were not broadened in scope for this deployment unblock.
+
+**Compliance/data handling:** Public/internal code and dependency metadata only. No secrets, credentials, customer data, private logs, or production payloads were added.
+
 # Harbourview Evidence Log
 
 Last updated: 2026-05-28

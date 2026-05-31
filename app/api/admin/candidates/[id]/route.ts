@@ -3,8 +3,11 @@
 // PATCH { action: 'approve' | 'reject' | 'edit', fields?: Partial<listing> }
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/server/supabaseRestClient'
 import { requireAdminAuth } from '@/lib/auth/adminGuard'
+import type { Candidate } from '@/app/admin/(protected)/listings/candidates/CandidateReviewCard'
+
+type ListingInsertResult = { id: string }
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +48,7 @@ export async function PATCH(
   if (action === 'approve') {
     // Fetch the candidate
     const { data: candidate, error: fetchErr } = await supabase
-      .from('marketplace_candidates')
+      .from<Candidate[]>('marketplace_candidates')
       .select('*')
       .eq('id', id)
       .single()
@@ -59,7 +62,7 @@ export async function PATCH(
 
     // Insert into public listings table
     const { data: listing, error: insertErr } = await supabase
-      .from('listings')
+      .from<ListingInsertResult[]>('listings')
       .insert({
         title,
         slug: slugify(title),
@@ -93,6 +96,7 @@ export async function PATCH(
       .single()
 
     if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    if (!listing) return NextResponse.json({ error: 'Listing insert returned no row' }, { status: 500 })
 
     // Mark candidate as approved + link to listing
     await supabase

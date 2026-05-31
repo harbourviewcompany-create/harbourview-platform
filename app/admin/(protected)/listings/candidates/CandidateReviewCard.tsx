@@ -3,8 +3,9 @@
 
 import { useState } from 'react'
 
-type Candidate = {
+export type Candidate = {
   id: string
+  source_id?: string | null
   source_name: string
   source_url: string
   marketplace_category: string
@@ -19,6 +20,7 @@ type Candidate = {
   price_amount: number | null
   price_currency: string | null
   condition: string | null
+  seller_type?: string | null
   confidence: number | null
   discovered_at: string
   ai_normalised: Record<string, unknown> | null

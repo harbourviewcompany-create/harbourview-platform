@@ -2,7 +2,7 @@
 // Inserts normalised candidates into marketplace_candidates with status='needs_review'.
 // Uses service-role Supabase client — never anon.
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/server/supabaseRestClient'
 import type { RawScrapedItem, AINormalisedListing } from './types'
 import { generateFingerprint } from './deduplication'
 
@@ -17,7 +17,7 @@ function getServiceClient() {
 export async function fetchExistingFingerprints(): Promise<Set<string>> {
   const supabase = getServiceClient()
   const { data, error } = await supabase
-    .from('marketplace_candidates')
+    .from<Array<{ source_fingerprint: string }>>('marketplace_candidates')
     .select('source_fingerprint')
     .not('source_fingerprint', 'is', null)
 

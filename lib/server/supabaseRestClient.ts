@@ -1,19 +1,33 @@
-type SupabaseResponse<T = unknown> = {
+type SupabaseError = {
+  status?: number
+  statusText?: string
+  message: string
+}
+
+type SupabaseResponse<T = Record<string, unknown>[]> = {
   data: T | null
-  error: unknown
+  error: SupabaseError | null
 }
 
 type QueryParams = Record<string, string>
+type SingleResult<T> = T extends Array<infer Item> ? Item : T
+
+type OrderOptions = { ascending?: boolean }
+type UpsertOptions = { onConflict?: string; ignoreDuplicates?: boolean }
 
 function trimUrl(value: string) {
   return value.replace(/\/$/, '')
 }
 
-class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>> {
+class SupabaseRestQuery<T = Record<string, unknown>[]> implements PromiseLike<SupabaseResponse<T>> {
   private method = 'GET'
   private body: unknown
   private selectColumns = '*'
   private filters: QueryParams = {}
+  private orderBy: string | null = null
+  private rowLimit: number | null = null
+  private onConflict: string | null = null
+  private preferResolution: string | null = null
   private returnSingle = false
 
   constructor(
@@ -33,6 +47,14 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
     return this
   }
 
+  upsert(payload: unknown, options: UpsertOptions = {}) {
+    this.method = 'POST'
+    this.body = payload
+    this.onConflict = options.onConflict ?? null
+    this.preferResolution = options.ignoreDuplicates ? 'ignore-duplicates' : 'merge-duplicates'
+    return this
+  }
+
   update(payload: unknown) {
     this.method = 'PATCH'
     this.body = payload
@@ -40,13 +62,28 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
   }
 
   eq(column: string, value: string) {
-    this.filters[column] = value
+    this.filters[column] = `eq.${value}`
     return this
   }
 
-  single() {
+  not(column: string, operator: string, value: string | null) {
+    this.filters[column] = `not.${operator}.${value ?? 'null'}`
+    return this
+  }
+
+  order(column: string, options: OrderOptions = {}) {
+    this.orderBy = `${column}.${options.ascending === false ? 'desc' : 'asc'}`
+    return this
+  }
+
+  limit(count: number) {
+    this.rowLimit = count
+    return this
+  }
+
+  single(): Promise<SupabaseResponse<SingleResult<T>>> {
     this.returnSingle = true
-    return this.execute()
+    return this.execute() as Promise<SupabaseResponse<SingleResult<T>>>
   }
 
   then<TResult1 = SupabaseResponse<T>, TResult2 = never>(
@@ -61,10 +98,17 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
     params.set('select', this.selectColumns)
 
     Object.entries(this.filters).forEach(([column, value]) => {
-      params.set(column, `eq.${value}`)
+      params.set(column, value)
     })
 
+    if (this.orderBy) params.set('order', this.orderBy)
+    if (this.rowLimit !== null) params.set('limit', String(this.rowLimit))
+    if (this.onConflict) params.set('on_conflict', this.onConflict)
+
     const endpoint = `${trimUrl(this.url)}/rest/v1/${this.table}?${params.toString()}`
+    const prefer = ['return=representation', this.preferResolution ? `resolution=${this.preferResolution}` : null]
+      .filter(Boolean)
+      .join(',')
 
     const response = await fetch(endpoint, {
       method: this.method,
@@ -73,7 +117,7 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
         apikey: this.key,
         authorization: `Bearer ${this.key}`,
         'content-type': 'application/json',
-        prefer: 'return=representation',
+        prefer,
       },
       body: this.method === 'GET' ? undefined : JSON.stringify(this.body),
     })
@@ -98,9 +142,11 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
   }
 }
 
-export function createClient(url: string, key: string) {
+export function createClient(url: string, key: string, _options?: unknown) {
+  void _options
+
   return {
-    from<T = unknown>(table: string) {
+    from<T = Record<string, unknown>[]>(table: string) {
       return new SupabaseRestQuery<T>(url, key, table)
     },
   }

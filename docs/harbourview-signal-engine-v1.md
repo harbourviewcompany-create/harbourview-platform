@@ -123,7 +123,7 @@ psql "$DATABASE_URL" < supabase/seed.sql
 | Admin role check | `supabase/migrations/20260430000002_signal_engine_rls.sql` | Replace `is_signal_admin()` body with real auth check |
 | Embedding pipeline | `source_chunks.embedding vector(384)` | Wire HuggingFace or equivalent to populate column; ivfflat index pre-created |
 | Job processor | `signal_jobs` table | Implement worker that polls `status = 'queued'` and processes by `job_type` |
-| Supabase client | Not yet configured | Add `@supabase/supabase-js`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` to env |
+| Supabase client | Repository REST client available | Use `lib/server/supabaseRestClient.ts` with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; avoid reintroducing the full Supabase SDK unless the deploy dependency policy is updated |
 | Supabase type generation | `supabase gen types typescript --local` | Run after `supabase start` to generate `lib/database.types.ts`; import alongside `lib/signals/types.ts` |
 | Admin UI | Not yet built | Signal review dashboard reads from `signal_candidates` filtered by `status` |
 

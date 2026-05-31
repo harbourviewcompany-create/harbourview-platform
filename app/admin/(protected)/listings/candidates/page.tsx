@@ -3,8 +3,8 @@
 // Shows needs_review candidates with approve/reject actions.
 
 import { requireAdminAuth } from '@/lib/auth/adminGuard'
-import { createClient } from '@supabase/supabase-js'
-import CandidateReviewCard from './CandidateReviewCard'
+import { createClient } from '@/lib/server/supabaseRestClient'
+import CandidateReviewCard, { type Candidate } from './CandidateReviewCard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -20,7 +20,7 @@ export default async function CandidatesPage() {
 
   const supabase = getServiceClient()
   const { data: candidates } = await supabase
-    .from('marketplace_candidates')
+    .from<Candidate[]>('marketplace_candidates')
     .select('*')
     .eq('status', 'needs_review')
     .order('discovered_at', { ascending: false })
