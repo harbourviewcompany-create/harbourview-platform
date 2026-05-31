@@ -18,7 +18,14 @@ import { RoleChipSelector } from './RoleChipSelector'
 import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
-import { HarbourviewGlobeClientLoader } from '@/components/harbourview/globe/HarbourviewGlobeClientLoader'
+// SSR-safe: HarbourviewGlobeClientLoader accesses WebGL/document — must not run on server
+const HarbourviewGlobeClientLoader = dynamic(
+  () =>
+    import('@/components/harbourview/globe/HarbourviewGlobeClientLoader').then(
+      (m) => ({ default: m.HarbourviewGlobeClientLoader }),
+    ),
+  { ssr: false },
+)
 import CanvasErrorBoundary from '@/components/harbourview/globe/CanvasErrorBoundary'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
