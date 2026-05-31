@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type RefObject } from "react";
 
 // ═══ TOKENS ═══════════════════════════════════════════════════════════════
 const C = {
@@ -73,7 +73,7 @@ const HMODES    = ['Demand','Regulatory','Supply Chain','Market Activity'];
 const HCOLORS   = {Demand:['rgba(217,164,65,0.9)','rgba(217,164,65,0.35)'],Regulatory:['rgba(111,207,125,0.9)','rgba(111,207,125,0.35)'],['Supply Chain']:['rgba(93,175,200,0.9)','rgba(93,175,200,0.35)'],['Market Activity']:['rgba(176,126,212,0.9)','rgba(176,126,212,0.35)']};
 
 // ═══ SVG ATOMS ═══════════════════════════════════════════════════════════
-const Compass = ({s=30}) => (
+const Compass = ({s=30}: {s?: number}) => (
   <svg width={s} height={s} viewBox="0 0 34 34" fill="none">
     <polygon points="17,1 19.5,15 17,17 14.5,15"         fill="#D9A441"/>
     <polygon points="33,17 19,19.5 17,17 19,14.5"         fill="#D9A441"/>
@@ -98,14 +98,14 @@ const PinIcon = () => (
     <path d="M5 0C2.79 0 1 1.79 1 4C1 7 5 11.5 5 11.5S9 7 9 4C9 1.79 7.21 0 5 0ZM5 5.5C4.17 5.5 3.5 4.83 3.5 4S4.17 2.5 5 2.5 6.5 3.17 6.5 4 5.83 5.5 5 5.5Z" fill="#6F7A86"/>
   </svg>
 );
-const BK = ({on}) => (
+const BK = ({on}: {on: boolean}) => (
   <svg width="14" height="17" viewBox="0 0 14 17" fill="none">
     <path d="M1 1.5C1 1.22 1.22 1 1.5 1H12.5C12.78 1 13 1.22 13 1.5V15.5L7 11.5L1 15.5V1.5Z" fill={on?'rgba(217,164,65,0.22)':'none'} stroke={on?'#D9A441':'#6F7A86'} strokeWidth="1.2"/>
   </svg>
 );
 
 // ═══ LISTING THUMBNAIL ═══════════════════════════════════════════════════
-const Thumb = ({cat, bg, w=76, h=66}) => {
+const Thumb = ({cat, bg, w=76, h=66}: {cat: string; bg: string; w?: number; h?: number}) => {
   const Art = () => {
     if (cat==='Equipment') return (
       <svg viewBox="0 0 76 66" fill="none"><rect x="18" y="14" width="40" height="38" rx="7" fill="rgba(59,130,160,0.18)" stroke="rgba(59,130,160,0.35)" strokeWidth="1.2"/><rect x="28" y="9" width="20" height="8" rx="3" fill="rgba(59,130,160,0.12)" stroke="rgba(59,130,160,0.28)" strokeWidth="1"/><line x1="18" y1="32" x2="58" y2="32" stroke="rgba(59,130,160,0.25)" strokeWidth="1"/><circle cx="12" cy="35" r="4" fill="rgba(59,130,160,0.15)" stroke="rgba(59,130,160,0.35)" strokeWidth="1"/><rect x="24" y="36" width="6" height="12" rx="1.5" fill="rgba(59,130,160,0.1)" stroke="rgba(59,130,160,0.2)" strokeWidth="0.8"/><rect x="34" y="38" width="6" height="10" rx="1.5" fill="rgba(59,130,160,0.1)" stroke="rgba(59,130,160,0.2)" strokeWidth="0.8"/></svg>
@@ -132,10 +132,10 @@ const Thumb = ({cat, bg, w=76, h=66}) => {
 };
 
 // ═══ CANVAS GLOBE ════════════════════════════════════════════════════════
-const Globe = ({selectedCountry='nz', heatmode='Demand'}) => {
-  const cvRef  = useRef(null);
+const Globe = ({selectedCountry='nz', heatmode='Demand'}: {selectedCountry?: string; heatmode?: string}) => {
+  const cvRef  = useRef<HTMLCanvasElement>(null);
   const rotRef = useRef(0);
-  const afRef  = useRef(null);
+  const afRef  = useRef<number | null>(null);
 
   const NODES = [
     {id:'nz',lat:-41,lng:174,big:true},{id:'au',lat:-25,lng:133,big:true},{id:'de',lat:51,lng:10,big:true},
@@ -155,11 +155,12 @@ const Globe = ({selectedCountry='nz', heatmode='Demand'}) => {
     cv.style.width  = '100%';
     cv.style.height = 'auto';
     const ctx  = cv.getContext('2d');
+    if (!ctx) return;
     ctx.scale(dpr, dpr);
     const cx = SIZE/2, cy = SIZE/2, r = SIZE * 0.44;
-    const hc   = HCOLORS[heatmode] || HCOLORS['Demand'];
+    const hc   = HCOLORS[heatmode as keyof typeof HCOLORS] || HCOLORS['Demand'];
 
-    const proj = (lat, lng) => {
+    const proj = (lat: number, lng: number) => {
       const la = lat*Math.PI/180, lo = (lng+rotRef.current)*Math.PI/180;
       const x  = Math.cos(la)*Math.sin(lo);
       const y  = -Math.sin(la);
@@ -248,19 +249,19 @@ const Globe = ({selectedCountry='nz', heatmode='Demand'}) => {
 
     const tick=()=>{ rotRef.current=(rotRef.current+.1)%360; draw(); afRef.current=requestAnimationFrame(tick); };
     tick();
-    return ()=>cancelAnimationFrame(afRef.current);
+    return ()=>{ if (afRef.current !== null) cancelAnimationFrame(afRef.current); };
   },[selectedCountry,heatmode]);
 
   return <canvas ref={cvRef} style={{display:'block',borderRadius:10}}/>;
 };
 
 // ═══ SHARED COMPONENTS ═══════════════════════════════════════════════════
-const TC = ({label}) => {
+const TC = ({label}: {label: string}) => {
   const [bg,color,border]=TAGS[label]||['rgba(255,255,255,0.06)','#8A949E','rgba(255,255,255,0.10)'];
   return <span style={{background:bg,color,border:`1px solid ${border}`,borderRadius:4,fontSize:10,fontWeight:500,padding:'2px 6px',whiteSpace:'nowrap',flexShrink:0}}>{label}</span>;
 };
 
-const SigRow = ({s}) => {
+const SigRow = ({s}: {s: {id: number; icon: string; headline: string; tag: string; ts: [string, string, string]; time: string; hot: boolean}}) => {
   const [bg,color,border]=s.ts;
   return (
     <div style={{display:'flex',alignItems:'flex-start',gap:9,padding:'9px 10px',borderRadius:8,background:C.bg3,border:`1px solid ${C.bDim}`}}>
@@ -279,7 +280,7 @@ const SigRow = ({s}) => {
   );
 };
 
-const EduCard = ({item}) => (
+const EduCard = ({item}: {item: {icon: string; title: string; desc: string}}) => (
   <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'10px 6px',borderRadius:10,background:C.bg3,border:`1px solid ${C.bDim}`,textAlign:'center',cursor:'pointer'}}>
     <div style={{width:32,height:32,borderRadius:8,background:C.goldBg,border:`1px solid ${C.bGold}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>{item.icon}</div>
     <div style={{color:C.ts,fontSize:10,fontWeight:500,lineHeight:1.3}}>{item.title}</div>
@@ -288,20 +289,20 @@ const EduCard = ({item}) => (
 );
 
 // ═══ OUTSIDE CLICK HOOK ════════════════════════════════════════════════
-function useOutside(ref, fn) {
+function useOutside(ref: RefObject<HTMLElement>, fn: () => void) {
   useEffect(()=>{
-    const h=e=>{if(ref.current&&!ref.current.contains(e.target))fn();};
+    const h=(e: MouseEvent)=>{if(ref.current&&!ref.current.contains(e.target as Node))fn();};
     document.addEventListener('mousedown',h);
     return()=>document.removeEventListener('mousedown',h);
   },[fn]);
 }
 
 // ═══ DROPDOWNS ═══════════════════════════════════════════════════════════
-const CountryDrop = ({current,onSelect}) => {
+const CountryDrop = ({current,onSelect}: {current: string; onSelect: (id: string) => void}) => {
   const [open,setOpen]=useState(false);
-  const ref=useRef(null);
+  const ref=useRef<HTMLDivElement>(null);
   useOutside(ref,()=>setOpen(false));
-  const ct=COUNTRIES[current];
+  const ct=COUNTRIES[current as keyof typeof COUNTRIES];
   return (
     <div ref={ref} style={{position:'relative'}}>
       <button onClick={()=>setOpen(!open)} style={{display:'flex',alignItems:'center',gap:6,background:C.bg3,border:`1px solid ${open?C.bGold:C.bMid}`,borderRadius:7,padding:'5px 9px',color:C.tp,fontSize:11.5,cursor:'pointer',fontFamily:'inherit',transition:'border-color .15s',flexShrink:0}}>
@@ -331,9 +332,9 @@ const CountryDrop = ({current,onSelect}) => {
   );
 };
 
-const RoleDrop = ({role,setRole}) => {
+const RoleDrop = ({role,setRole}: {role: string; setRole: (r: string) => void}) => {
   const [open,setOpen]=useState(false);
-  const ref=useRef(null);
+  const ref=useRef<HTMLDivElement>(null);
   useOutside(ref,()=>setOpen(false));
   return (
     <div ref={ref} style={{position:'relative'}}>
@@ -357,8 +358,8 @@ const RoleDrop = ({role,setRole}) => {
 };
 
 // ═══ NOTIFICATION PANEL ══════════════════════════════════════════════════
-const NotifPanel = ({open,onClose}) => {
-  const ref=useRef(null);
+const NotifPanel = ({open,onClose}: {open: boolean; onClose: () => void}) => {
+  const ref=useRef<HTMLDivElement>(null);
   useOutside(ref,onClose);
   const [items,setItems]=useState(NOTIFS);
   const markAll=()=>setItems(p=>p.map(n=>({...n,unread:false})));
@@ -394,9 +395,9 @@ const NotifPanel = ({open,onClose}) => {
 };
 
 // ═══ DESKTOP ═════════════════════════════════════════════════════════════
-function Desktop({activeNav,setActiveNav,country,setCountry,role,setRole,activeCat,setActiveCat,activeTab,setActiveTab,saved,toggleSave,notifOpen,setNotifOpen,heatmode,setHeatmode}) {
+function Desktop({activeNav,setActiveNav,country,setCountry,role,setRole,activeCat,setActiveCat,activeTab,setActiveTab,saved,toggleSave,notifOpen,setNotifOpen,heatmode,setHeatmode}: {activeNav:string;setActiveNav:(v:string)=>void;country:string;setCountry:(v:string)=>void;role:string;setRole:(v:string)=>void;activeCat:string|null;setActiveCat:(v:string|null)=>void;activeTab:string;setActiveTab:(v:string)=>void;saved:Set<number>;toggleSave:(id:number)=>void;notifOpen:boolean;setNotifOpen:(v:boolean)=>void;heatmode:string;setHeatmode:(v:string)=>void}) {
   const [search,setSearch]=useState('');
-  const ct=COUNTRIES[country];
+  const ct=COUNTRIES[country as keyof typeof COUNTRIES];
   const listings=mkListings(ct);
   const signals=mkSignals(ct.name);
   const unread=NOTIFS.filter(n=>n.unread).length;
@@ -614,13 +615,13 @@ function Desktop({activeNav,setActiveNav,country,setCountry,role,setRole,activeC
 }
 
 // ═══ MOBILE ══════════════════════════════════════════════════════════════
-function Mobile({activeNav,setActiveNav,country,setCountry,saved,toggleSave,notifOpen,setNotifOpen}) {
+function Mobile({activeNav,setActiveNav,country,setCountry,saved,toggleSave,notifOpen,setNotifOpen}: {activeNav:string;setActiveNav:(v:string)=>void;country:string;setCountry:(v:string)=>void;saved:Set<number>;toggleSave:(id:number)=>void;notifOpen:boolean;setNotifOpen:(v:boolean)=>void}) {
   const [search,setSearch]=useState('');
-  const ct=COUNTRIES[country];
+  const ct=COUNTRIES[country as keyof typeof COUNTRIES];
   const listings=mkListings(ct);
   const signals=mkSignals(ct.name);
   const [cOpen,setCOpen]=useState(false);
-  const cRef=useRef(null);
+  const cRef=useRef<HTMLDivElement>(null);
   useOutside(cRef,()=>setCOpen(false));
   const unread=NOTIFS.filter(n=>n.unread).length;
   const filtered=listings.filter(l=>!search||l.title.toLowerCase().includes(search.toLowerCase())||l.loc.toLowerCase().includes(search.toLowerCase()));
@@ -763,9 +764,9 @@ export default function HarbourviewDashboard() {
   const [activeNav, setActiveNav] = useState('dashboard');
   const [country,   setCountry]   = useState('nz');
   const [role,      setRole]      = useState('Importer / Buyer');
-  const [activeCat, setActiveCat] = useState(null);
+  const [activeCat, setActiveCat] = useState<string|null>(null);
   const [activeTab, setActiveTab] = useState('featured');
-  const [saved,     setSaved]     = useState(new Set());
+  const [saved,     setSaved]     = useState<Set<number>>(new Set());
   const [isMobile,  setIsMobile]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [heatmode,  setHeatmode]  = useState('Demand');
@@ -776,7 +777,7 @@ export default function HarbourviewDashboard() {
     return()=>window.removeEventListener('resize',check);
   },[]);
 
-  const toggleSave=id=>setSaved(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
+  const toggleSave=(id: number)=>setSaved(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
 
   return (
     <>
