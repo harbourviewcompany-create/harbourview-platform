@@ -3,6 +3,9 @@ import { getPublicRegulatorySignalCountries } from '@/lib/regulatory-signals/pub
 import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
 import { EmptyState, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Signals by Country | Harbourview Signals',
   description: 'Regulatory signal monitoring by jurisdiction. Public-safe, source-backed signals for tracked cannabis markets.',
