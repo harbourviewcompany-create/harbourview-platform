@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
+import IntelligenceModulePage from '@/app/intelligence/IntelligenceModulePage'
 
 export const metadata: Metadata = {
   title: 'Logistics & Trade Routes | Harbourview Intelligence',
@@ -8,31 +8,27 @@ export const metadata: Metadata = {
 
 export default function LogisticsTradeRoutesPage() {
   return (
-    <main className="bg-[#020814] text-white">
-      <PublicHero
-        eyebrow="Intelligence"
-        title="Logistics & Trade Routes"
-        actions={[{ label: 'Request Logistics Intelligence', href: '/contact' }]}
-        aside={
-          <PublicCard className="p-6 text-sm leading-7 text-white/62">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/66">Trust boundary</p>
-            <p>Trade route information is orientation-level only. Customs, transport and documentation requirements must be verified with qualified operators and advisors.</p>
-          </PublicCard>
-        }
-      >
-        Trade route context, logistics pathway orientation and documentation framework summaries for regulated cannabis export and import corridors.
-      </PublicHero>
-
-      <PublicSection tone="dark">
-        <SectionHeader eyebrow="Route orientation" title="Trade-route context before route-specific diligence.">
-          Harbourview frames logistics and trade-route questions across corridor feasibility, documentation expectations and qualified operator review without publishing sensitive route detail.
-        </SectionHeader>
-        <PublicCard muted className="p-6 text-sm leading-7 text-white/62">
-          Public logistics intelligence does not confirm customs clearance, transport availability, documentation sufficiency or corridor viability.
-        </PublicCard>
-      </PublicSection>
-
-      <FooterCta eyebrow="Logistics intelligence" title="Need logistics or trade-route context?" actions={[{ label: 'Request Logistics Intelligence', href: '/contact' }]}>Harbourview can route logistics questions into reviewed workflows before operational engagement or public commercial activity.</FooterCta>
-    </main>
+    <IntelligenceModulePage
+      content={{
+        eyebrow: 'Intelligence / Logistics',
+        title: 'Trade route and logistics pathway context for regulated cannabis corridors.',
+        description:
+          'Harbourview logistics intelligence provides orientation on trade corridors, documentation frameworks, cold chain requirements and qualified operator categories for regulated cannabis export and import — without publishing sensitive route detail, operator identities or commercial terms.',
+        requestLabel: 'Request Logistics Intelligence',
+        reviewItems: [
+          'Corridor feasibility orientation: a public-safe overview of the documentation layers, regulatory requirements and common friction points for priority export-to-import corridors.',
+          'Cold chain and temperature control requirements: GDP-aligned cold chain expectations for cannabis product categories, common logistics qualification standards and temperature excursion management concepts.',
+          'Documentation framework summaries: the narcotics permit, phytosanitary certificate, CoA, commercial invoice, bill of lading, import order and customs declaration sequence across typical regulated cannabis routes.',
+          'Third-party logistics qualification: an orientation to what GDP-compliant logistics providers are expected to demonstrate — facility qualification, carrier agreements, temperature mapping and chain-of-custody documentation.',
+          'Incoterm relevance for regulated cannabis: how EXW, DAP, DDP and CIF allocate risk, customs responsibility and documentation duty between exporters and importers in regulated supply chains.',
+          'Logistics risk categories: transit country narcotics controls, cold chain integrity risk, documentation completeness failure modes and carrier qualification gaps that typically appear in Harbourview route review.',
+        ],
+        boundaryItems: [
+          'Public logistics intelligence does not confirm specific corridor viability, customs clearance, carrier availability, cost estimates or documentation sufficiency for any specific shipment.',
+          'Operator-specific logistics questions involving active shipments, specific carriers, customs cases or documentation disputes are handled through private intake — not this surface.',
+          'Harbourview does not provide freight forwarding, customs brokerage, legal or regulatory authority services.',
+        ],
+      }}
+    />
   )
 }
