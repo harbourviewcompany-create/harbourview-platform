@@ -3,6 +3,14 @@ import { DashboardCountryDirectory } from './DashboardCountryDirectory'
 import { countries, fixtureCountries, dashboardSections } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Country Dashboard | Harbourview',
+  description: 'Harbourview country intelligence dashboard. Select a market to access pathway context, compliance orientation, signals and commercial routing.',
+}
+
+
 const TONE_BADGE: Record<string, string> = {
   green: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/[0.06]',
   blue:  'border-sky-500/30 text-sky-400 bg-sky-500/[0.06]',

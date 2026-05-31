@@ -1,8 +1,19 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ContentStatusNotice, InlineStatusBadge } from '@/components/ContentStatusNotice'
 import { getComplianceCountry } from '@/lib/compliance/countries'
 import { maturityLabels } from '@/lib/compliance/safePublicCompliance'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country: slug } = await params
+  const c = getComplianceCountry(slug)
+  if (!c) return { title: 'Country Not Found | Harbourview' }
+  return {
+    title: `${c.country} Compliance Pathways | Harbourview`,
+    description: `${c.pathwaySummary.slice(0, 155)} Public-safe orientation only.`,
+  }
+}
 
 const regionLabels: Record<string, string> = {
   europe: 'Europe',

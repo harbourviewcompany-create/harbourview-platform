@@ -6,6 +6,18 @@ import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params
+  const displayName = country.replace(/-/g, ' ').replace(/\w/g, (c) => c.toUpperCase())
+  return {
+    title: `${displayName} Signals | Harbourview`,
+    description: `Harbourview ${displayName} regulatory signals dashboard. Reviewed signals for market-access, compliance and commercial timing decisions.`,
+  }
+}
+
+
 type Props = { params: Promise<{ country: string }> }
 
 type SignalCategory = { icon: string; label: string; description: string; available: boolean; cadence: string }

@@ -5,6 +5,18 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params
+  const displayName = country.replace(/-/g, ' ').replace(/\w/g, (c) => c.toUpperCase())
+  return {
+    title: `${displayName} Opportunities | Harbourview`,
+    description: `Harbourview ${displayName} opportunities dashboard. Reviewed commercial openings, distribution mandates and country access pathways.`,
+  }
+}
+
+
 type Props = { params: Promise<{ country: string }> }
 
 type OpportunityType = { icon: string; label: string; detail: string; status: 'open' | 'gated' | 'unavailable' }

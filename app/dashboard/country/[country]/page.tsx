@@ -5,6 +5,18 @@ import { getDashboardStatusBadge }  from '@/lib/dashboard/statusBadges'
 import type { DashboardSectionSlug } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT, SECTION_LABELS, SECTION_ICONS } from './_components'
 
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
+  const { country } = await params
+  const displayName = country.replace(/-/g, ' ').replace(/\w/g, (c: string) => c.toUpperCase())
+  return {
+    title: `${displayName} Country Dashboard | Harbourview`,
+    description: `Harbourview ${displayName} country dashboard. Market intelligence, compliance context, education and commercial routing for regulated cannabis.`,
+  }
+}
+
+
 const SECTION_SUBLABEL: Record<DashboardSectionSlug, string> = {
   market:        'Posture · Framework · Operators',
   education:     'Prescriber · Patient · Operator',

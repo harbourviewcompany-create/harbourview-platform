@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { InquiryForm } from '@/components/marketplace/InquiryForm'
@@ -5,6 +6,16 @@ import { getPublicListingBySlug, type PublicListing } from '@/lib/server/listing
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const listing = await getPublicListingBySlug(slug)
+  if (!listing) return { title: 'Listing Not Found | Harbourview Marketplace' }
+  return {
+    title: `${listing.title} | Harbourview Marketplace`,
+    description: listing.description?.slice(0, 155) ?? 'Reviewed marketplace listing on Harbourview. Enquiries are handled through controlled intake.',
+  }
+}
 
 const REGION_LABELS: Record<string, string> = {
   north_america: 'North America',
