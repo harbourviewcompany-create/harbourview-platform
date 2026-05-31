@@ -61,7 +61,7 @@ function buildEmailHtml(inquiry: MarketplaceInquiryNotification, adminLink: stri
 }
 
 export async function notifyMarketplaceInquiry(inquiry: MarketplaceInquiryNotification): Promise<NotificationResult> {
-  const recipient = process.env.HARBOURVIEW_MARKETPLACE_NOTIFY_EMAIL?.trim();
+  const recipient = process.env.HARBOURVIEW_TO_EMAIL?.trim();
   if (!recipient) return { status: 'skipped', reason: 'missing_recipient' };
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
@@ -78,7 +78,7 @@ export async function notifyMarketplaceInquiry(inquiry: MarketplaceInquiryNotifi
     ? `${siteUrl}/admin/inquiries/${inquiry.id}`
     : `${siteUrl}/admin/inquiries`;
 
-  const fromAddress = process.env.HARBOURVIEW_NOTIFY_FROM_EMAIL?.trim() || 'notifications@harbourview.co';
+  const fromAddress = process.env.HARBOURVIEW_FROM_EMAIL?.trim() || 'notifications@harbourview.co';
   const subject = `New inquiry: ${inquiry.inquiry_type} — ${inquiry.contact_name}${inquiry.contact_company ? ` (${inquiry.contact_company})` : ''}`;
   const html = buildEmailHtml(inquiry, adminLink);
 
