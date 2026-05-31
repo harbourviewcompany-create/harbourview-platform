@@ -18,6 +18,9 @@ function formatLabel(value: string) {
   return value.replace(/_/g, ' ')
 }
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export default async function CountrySignalsPage({ params }: { params: Promise<{ country: string }> }) {
   const { country } = await params
   const displayName = country.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
