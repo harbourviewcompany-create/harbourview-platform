@@ -52,9 +52,10 @@ export default async function TypePage({ params }: { params: Promise<{ type: str
         {signals.length === 0 ? (
           <EmptyState
             title="No published signals in this category yet."
-            description="Harbourview publishes signals as they pass review. Submit an intelligence request for a deeper assessment."
             action={{ label: 'Request Intelligence', href: '/intelligence' }}
-          />
+          >
+            Harbourview publishes signals as they pass review. Submit an intelligence request for a deeper assessment.
+          </EmptyState>
         ) : (
           <div className="space-y-4">
             {signals
