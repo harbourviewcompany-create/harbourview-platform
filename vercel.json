@@ -3,5 +3,11 @@
   "git": {
     "deploymentEnabled": true
   },
-  "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh"
+  "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh",
+  "crons": [
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }
