@@ -8,11 +8,8 @@ import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
+import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
-
-const PLATE_LIFT = 0.026
-const IDLE_EXTRUSION = 0.058
-const SELECTED_EXTRUSION = 0.094
 const BORDER_METAL = '#c6a55a'
 const SELECTED_ACCENT = '#d4b93c'
 const SPECULAR_CAP = 0.32

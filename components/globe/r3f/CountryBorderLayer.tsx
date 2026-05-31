@@ -6,21 +6,19 @@ import { naturalEarthCountryBorders } from '@/data/globe/natural-earth-country-b
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { GLOBE_RADIUS, lonLatToVector3, vector3ToArray } from '@/lib/globe/globe-geometry'
+import { BORDER_OFFSET } from '@/lib/globe/globe-plate-config'
 
 // Reference distance at which lineWidth values were tuned (mid-zoom)
 const REFERENCE_DISTANCE = 5.5
 const MOBILE_VIEWPORT_WIDTH = 640
 
-// Country/state/province plates render at radius + plateLift + extrusionHeight.
-// Idle plates top out at ~GLOBE_RADIUS + 0.084 and selected US/Canada subdivision
-// plates top out at ~GLOBE_RADIUS + 0.122. Borders must sit above the selected
-// plate surface or the selected state/province meshes visually bury the lines,
-// which is most obvious on iPhone-sized viewports after selecting United States.
-const VISIBLE_BORDER_OFFSET = 0.13
-const VISIBLE_BORDER_RADIUS = GLOBE_RADIUS + VISIBLE_BORDER_OFFSET
+// Border lines ride at GLOBE_RADIUS + BORDER_OFFSET (= PLATE_LIFT + IDLE_EXTRUSION + 0.002).
+// This puts them exactly at the idle plate surface with a 0.002-unit z-fight clearance —
+// not a visible gap. depthTest={true} hides far-hemisphere borders behind the ocean sphere.
+const BORDER_RADIUS = GLOBE_RADIUS + BORDER_OFFSET
 
 function projectBorderRing(points: [number, number][]) {
-  return points.map((point) => vector3ToArray(lonLatToVector3(point[0], point[1], VISIBLE_BORDER_RADIUS)))
+  return points.map((point) => vector3ToArray(lonLatToVector3(point[0], point[1], BORDER_RADIUS)))
 }
 
 function clamp(v: number, min: number, max: number) {
