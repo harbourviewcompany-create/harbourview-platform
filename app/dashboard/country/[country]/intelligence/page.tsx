@@ -4,6 +4,7 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
+import { listIaSignalsByMarket } from '@/lib/intelligence-automation/db'
 
 type Props = { params: Promise<{ country: string }> }
 
@@ -11,7 +12,7 @@ type BriefMeta = {
   classification: string
   methodology:    string
   confidence:     string
-  confidenceNum:  number   // 0–100 for progress bar
+  confidenceNum:  number
   coverage:       { section: string; status: string; available: boolean }[]
   orientationPoints: string[]
 }
@@ -138,7 +139,7 @@ function deriveBriefMeta(state: DashboardPanelState, countryName: string): Brief
       methodology:     'No intelligence record is available for this jurisdiction on the public dashboard.',
       confidence:      'None',
       confidenceNum:   0,
-      coverage: [],
+      coverage:        [],
       orientationPoints: [
         `${countryName} does not have an available intelligence record on the public dashboard.`,
         'Return to the globe or choose another jurisdiction.',
@@ -148,15 +149,54 @@ function deriveBriefMeta(state: DashboardPanelState, countryName: string): Brief
   return map[state]
 }
 
+// Map ia_signal commercial_impact + type → dashboard tone colour
+function signalTone(impact: string, type: string): string {
+  if (type === 'regulatory_change' || type === 'documentation_readiness') return 'green'
+  if (impact === 'high')   return 'green'
+  if (impact === 'medium') return 'gold'
+  if (type === 'buyer_demand' || type === 'importer_activity' || type === 'distributor_activity') return 'blue'
+  return 'slate'
+}
+
+// Map ia_signal stage → public label (no internal jargon)
+function stageLabel(stage: string): string {
+  const labels: Record<string, string> = {
+    new:                       'New',
+    needs_review:              'Active',
+    qualified:                 'Qualified',
+    converted_to_opportunity:  'Opportunity',
+    linked_to_counterparty:    'Matched',
+    linked_to_market_pathway:  'Pathway',
+    archived:                  'Archived',
+  }
+  return labels[stage] ?? stage
+}
+
+const TONE_DOT: Record<string, string> = {
+  green: '#5dcaa5', blue: '#7ec8f7', gold: '#f4d27a',
+  amber: '#fbbf24', slate: 'rgba(255,255,255,0.25)', red: '#f87171',
+}
+
 export default async function IntelligencePage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
 
-  const panel = country.panels.intelligence
-  const badge = getDashboardStatusBadge(panel.state)
-  const meta  = deriveBriefMeta(panel.state, country.displayName)
+  const panel  = country.panels.intelligence
+  const badge  = getDashboardStatusBadge(panel.state)
+  const meta   = deriveBriefMeta(panel.state, country.displayName)
   const showConfidenceBar = meta.confidenceNum > 0
+
+  // ── Live signals from IA DB ───────────────────────────────────────────────
+  const signalsResult = await listIaSignalsByMarket(country.displayName)
+  const liveSignals   = signalsResult.ok
+    ? signalsResult.data.filter(s => s.stage !== 'archived')
+    : []
+  const hasLiveSignals = liveSignals.length > 0
+
+  const highImpact  = liveSignals.filter(s => s.commercialImpact === 'high').length
+  const medImpact   = liveSignals.filter(s => s.commercialImpact === 'medium').length
+  const qualified   = liveSignals.filter(s => s.stage === 'qualified' || s.stage === 'converted_to_opportunity').length
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -188,12 +228,19 @@ export default async function IntelligencePage({ params }: Props) {
             </p>
             <h1 className="font-serif text-2xl font-semibold text-white">Country Intelligence</h1>
           </div>
-          <span
-            className="shrink-0 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.12em]"
-            style={{ background: TONE_BG[badge.tone], borderColor: TONE_BORDER[badge.tone], color: TONE_TEXT[badge.tone] }}
-          >
-            {badge.label}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span
+              className="shrink-0 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.12em]"
+              style={{ background: TONE_BG[badge.tone], borderColor: TONE_BORDER[badge.tone], color: TONE_TEXT[badge.tone] }}
+            >
+              {badge.label}
+            </span>
+            {hasLiveSignals && (
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-emerald-400">
+                {liveSignals.length} live signal{liveSignals.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Brief metadata row */}
@@ -246,8 +293,6 @@ export default async function IntelligencePage({ params }: Props) {
 
       {/* ── Two-column: methodology + coverage ── */}
       <div className="mb-5 grid gap-3 lg:grid-cols-2">
-
-        {/* Methodology */}
         <div
           className="rounded-2xl p-4"
           style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.1)' }}
@@ -260,7 +305,6 @@ export default async function IntelligencePage({ params }: Props) {
           </p>
         </div>
 
-        {/* Coverage tracker */}
         {meta.coverage.length > 0 && (
           <div
             className="rounded-2xl p-4"
@@ -294,6 +338,89 @@ export default async function IntelligencePage({ params }: Props) {
         )}
       </div>
 
+      {/* ── Live intelligence signals ── */}
+      {hasLiveSignals && (
+        <div className="mb-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
+              Live intelligence signals
+            </p>
+            <div className="flex gap-3 text-[10px]">
+              {highImpact > 0 && <span className="text-emerald-400">{highImpact} high impact</span>}
+              {qualified > 0  && <span className="text-purple-400">{qualified} qualified</span>}
+              {medImpact > 0  && <span style={{ color: 'rgba(243,240,234,0.35)' }}>{medImpact} medium</span>}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {liveSignals.map(sig => {
+              const tone = signalTone(sig.commercialImpact, sig.type)
+              return (
+                <div
+                  key={sig.id}
+                  className="flex items-start gap-3 rounded-xl px-4 py-3"
+                  style={{ background: 'rgba(7,15,30,0.65)', border: '1px solid rgba(255,255,255,0.07)' }}
+                >
+                  <span
+                    className="mt-1 h-2 w-2 flex-shrink-0 rounded-full"
+                    style={{ background: TONE_DOT[tone] ?? TONE_DOT.slate }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-1 flex flex-wrap items-baseline gap-2">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[8px] uppercase tracking-[0.1em]"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)' }}
+                      >
+                        {sig.type.replace(/_/g, ' ')}
+                      </span>
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[8px] uppercase tracking-[0.1em]"
+                        style={{
+                          background: sig.commercialImpact === 'high' ? 'rgba(93,202,165,0.1)' : 'rgba(255,255,255,0.04)',
+                          color: sig.commercialImpact === 'high' ? '#5dcaa5' : 'rgba(255,255,255,0.25)',
+                        }}
+                      >
+                        {sig.commercialImpact} impact
+                      </span>
+                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>{sig.detectedAt}</span>
+                      <span
+                        className="text-[9px] uppercase tracking-[0.08em]"
+                        style={{ color: 'rgba(255,255,255,0.2)' }}
+                      >
+                        {stageLabel(sig.stage)}
+                      </span>
+                    </div>
+                    <p className="text-[12px] leading-relaxed text-white">{sig.title}</p>
+                    <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.45)' }}>
+                      {sig.summary}
+                    </p>
+                    <p className="mt-1.5 text-[10px]" style={{ color: 'rgba(198,165,90,0.45)' }}>
+                      Source: {sig.sourceName}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-semibold" style={{ color: TONE_DOT[tone] }}>{sig.confidence}%</p>
+                    <p className="text-[9px] uppercase tracking-[0.08em]" style={{ color: 'rgba(255,255,255,0.2)' }}>conf.</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No signals state for live/partial countries */}
+      {!hasLiveSignals && (panel.state === 'live' || panel.state === 'partial') && (
+        <div
+          className="mb-5 rounded-2xl p-4"
+          style={{ background: 'rgba(7,15,30,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <p className="text-[12px]" style={{ color: 'rgba(243,240,234,0.35)' }}>
+            No active intelligence signals for {country.displayName} at this time.
+          </p>
+        </div>
+      )}
+
       {/* ── Actions ── */}
       <div className="mb-8 flex flex-wrap gap-2.5">
         <Link
@@ -319,13 +446,11 @@ export default async function IntelligencePage({ params }: Props) {
         </Link>
       </div>
 
-      {/* Back */}
       <div className="pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <Link href={country.dashboardPath} className="text-[11px] transition-opacity hover:opacity-70" style={{ color: 'rgba(198,165,90,0.38)' }}>
           ← {country.displayName} overview
         </Link>
       </div>
-
     </div>
   )
 }
