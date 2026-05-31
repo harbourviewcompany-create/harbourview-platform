@@ -1,41 +1,108 @@
-import type { UsedSurplusListing } from '@/lib/fixtures/types'
+// lib/scrapers/types.ts
+// Unified type system for the Harbourview scraper ingestion engine.
+// Covers all marketplace categories — not just used-surplus.
 
-export type ScraperParserType = 'json-ld-product' | 'html-card' | 'manual-html'
+export type ScraperParserType = 'json-ld-product' | 'html-card' | 'html-table' | 'json-api' | 'rss-feed' | 'manual-html'
 
 export type ScraperSourceStatus = 'enabled' | 'disabled' | 'needs-review'
+
+export type ScraperCategory =
+  | 'used_surplus'
+  | 'processing_equipment'
+  | 'cultivation_equipment'
+  | 'packaging'
+  | 'consumables'
+  | 'labs_testing'
+  | 'logistics'
+  | 'professional_services'
+  | 'genetics'
+  | 'cannabis_inventory'
+  | 'new_products'
+  | 'services'
+  | 'business_opportunities'
+  | 'export_ready'
+  | 'import_demand'
+  | 'distressed_inventory'
+  | 'distressed_businesses'
 
 export interface ScraperSource {
   id: string
   name: string
   url: string
-  category: 'used-surplus'
+  searchUrl?: string          // URL to fetch for listings (may differ from homepage)
+  category: ScraperCategory
   parserType: ScraperParserType
   status: ScraperSourceStatus
   cadenceHours: number
+  region: string
   notes?: string
+  selectors?: {               // CSS selectors for html-card parsers
+    container?: string
+    title?: string
+    description?: string
+    price?: string
+    location?: string
+    link?: string
+  }
 }
 
-export interface ScrapedListingCandidate {
+export interface RawScrapedItem {
+  sourceId: string
+  sourceName: string
+  sourceUrl: string           // URL of the specific listing page (private — never public)
+  rawTitle: string
+  rawDescription: string
+  rawPrice?: string
+  rawLocation?: string
+  rawCondition?: string
+  rawHtml?: string            // trimmed HTML snippet for AI normalisation
+  discoveredAt: string
+}
+
+export interface AINormalisedListing {
+  title: string               // public-safe title
+  description: string         // public-safe description (no source/seller identity)
+  category: ScraperCategory
+  productType: string
+  region: string              // 'north_america' | 'europe' | etc
+  locationCountry?: string
+  priceAmount?: number
+  priceCurrency?: string
+  condition?: string
+  sellerType: string          // 'other' | 'wholesaler' | 'distributor' etc
+  tags: string[]
+  confidence: number          // 0-1
+  publicSafe: boolean         // AI judgement: is this safe to show without editing?
+  redactionNote?: string      // if publicSafe=false, why
+}
+
+export interface ScrapedCandidate {
   sourceId: string
   sourceName: string
   sourceUrl: string
-  title: string
-  description: string
-  price?: string
-  currency?: string
-  location?: string
-  condition?: 'used' | 'refurbished' | 'surplus'
-  imageUrl?: string
-  tags: string[]
+  sourceFingerprint: string   // sha256 of sourceUrl — deduplication key
+  raw: RawScrapedItem
+  normalised: AINormalisedListing
   discoveredAt: string
-  confidence: number
 }
 
-export interface ScrapeResult {
+export interface ScrapeRunResult {
   source: ScraperSource
-  status: 'skipped' | 'fetched' | 'failed'
-  reason?: string
-  candidates: ScrapedListingCandidate[]
+  status: 'ok' | 'skipped' | 'failed' | 'rate_limited'
+  candidatesFound: number
+  candidatesInserted: number
+  candidatesSkipped: number   // deduplication hits
+  durationMs: number
+  error?: string
 }
 
-export type PublicUsedSurplusProjection = Omit<UsedSurplusListing, 'contactEmail'>
+export interface ScrapeRunSummary {
+  runId: string
+  startedAt: string
+  completedAt: string
+  totalCandidates: number
+  totalInserted: number
+  totalSkipped: number
+  totalFailed: number
+  sourceResults: ScrapeRunResult[]
+}
