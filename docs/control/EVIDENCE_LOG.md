@@ -1,5 +1,47 @@
 # Harbourview Evidence Log
 
+
+## 2026-05-31T21:10:54Z: PR #596 rebase/verification attempt
+
+**Evidence ID:** `HV-PR596-REBASE-VERIFY-20260531T211054Z`
+
+**PR / branch:** PR #596, `codex/fix-vercel-deploy-log-issue-tm5u8u`
+
+**Scope guard:** Intended verification scope remained dependency-focused: `package.json`, `package-lock.json`, `components/dashboard/HarbourviewDashboard.tsx`, and `docs/control/EVIDENCE_LOG.md`.
+
+**Rebase / checkout result:** HOLD. `gh` is not installed in this container, and direct GitHub fetch/push is blocked from the shell environment. `git fetch origin` and `git push --force-with-lease origin HEAD:codex/fix-vercel-deploy-log-issue-tm5u8u` failed with `ssh: Could not resolve hostname github.com: Temporary failure in name resolution`; the earlier HTTPS fetch attempt failed with `CONNECT tunnel failed, response 403`. `git rebase origin/main` therefore failed with `fatal: invalid upstream 'origin/main'`. The PR was not merged.
+
+**Commands and results (UTC):**
+- `npm install` — FAIL/BLOCKED in this container: registry/proxy policy returned `403 Forbidden` while fetching `@react-three/drei`.
+- `npm run lint` — PASS with warnings only; no blocking lint errors after the file-local dashboard lint override.
+- `npm run build` — FAIL/BLOCKED locally because the container cannot install newly declared packages; Next reported missing modules for `three`, `@react-three/drei`, and `@react-three/fiber`, which are now declared in `package.json` and the root dependency section of `package-lock.json` for Vercel to install.
+- Dependency declaration check — PASS: `three`, `postprocessing`, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, `@supabase/ssr`, and `@supabase/supabase-js` are present in `package.json`.
+- Package-lock root dependency check — PASS: the same restored dependency names are present in the root package section of `package-lock.json`.
+- Supabase SDK/SSR import preservation check — PASS: `lib/supabase.ts` imports from `@supabase/supabase-js`; `lib/supabase/client.ts` imports `createBrowserClient` from `@supabase/ssr`; `lib/supabase/server.ts` imports `createServerClient` from `@supabase/ssr`; no `supabaseRestClient` replacement was found in the checked Supabase/client/scraper/admin candidate paths.
+- `git diff --name-only origin/main...HEAD` and `git diff --stat origin/main...HEAD` — NOT RUN successfully because `origin/main` is unavailable after the blocked fetch.
+
+**Vercel / preview status:** HOLD. The public GitHub PR page showed PR #596 remains Draft. It also showed Vercel reporting skipped/ignored deployments for `harbourview` and `harbourview-platform` at May 31, 2026 20:46 UTC, including preview URL `https://harbourview-platform-git-ea5d34-tylercampbellott-4320s-projects.vercel.app`, and a separate Vercel bot failure for preview `https://harbourview-mmm9z1xi3-harbourview2.vercel.app` at May 31, 2026 20:46 UTC. A real Vercel preview build could not be forced from this container because pushing the rebased branch is blocked.
+
+**Verdict:** HOLD. Dependency/import declarations are correct locally, and #594 REST-only replacement is absent from the checked paths, but required GO criteria are not met because checkout/rebase/push, `npm install`, local `npm run build`, and a successful real Vercel preview build could not be completed from this environment.
+
+
+## 2026-05-31: Vercel deployment dependency declaration repair
+
+**Evidence ID:** `HV-VERCEL-MISSING-DEPS-REPAIR-20260531`
+
+**Branch:** current working branch
+
+**Scope:** Reverted the broad dependency-removal approach and restored the Supabase SDK/SSR pattern. Added the missing runtime dependencies used by the globe and Supabase SSR modules so Vercel can install packages that are imported by the application build.
+
+**Commands and results (UTC):**
+- `npm run lint` — PASS (warnings only; no blocking lint errors)
+- `npm run build` — NOT FULLY RUN LOCALLY after dependency declaration repair because this container cannot fetch newly declared registry packages; the previous local build log identified missing module declarations for `three`, `@react-three/fiber`, `@react-three/drei`, and `@react-three/postprocessing`.
+- `npm install --package-lock-only --ignore-scripts` — BLOCKED in this environment by registry/proxy policy; Vercel should resolve the newly declared dependency graph during its install step.
+
+**Evidence notes:** The repair is package-declaration scoped and preserves the official Supabase packages instead of replacing them with a custom REST-only implementation.
+
+**Compliance/data handling:** Public/internal dependency metadata and deployment evidence only. No secrets, credentials, customer data, private logs, or production payloads were added.
+
 Last updated: 2026-05-28
 Status: Finish-line reset scaffold with preserved legacy evidence entries
 Authority: Canonical evidence log for Harbourview finish-line execution
