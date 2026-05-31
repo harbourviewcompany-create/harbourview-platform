@@ -2,21 +2,23 @@
 
 import { useRef } from 'react'
 import { Sphere } from '@react-three/drei'
-import { MeshStandardMaterial, Color } from 'three'
+import { MeshPhysicalMaterial, Color } from 'three'
 
-// Fresnel rim via onBeforeCompile — no shaderMaterial, no extend, fiber v9 safe.
-// Injects into Three.js standard shader pipeline at build time.
+// MeshPhysicalMaterial adds a clearcoat layer — a second, sharper specular
+// highlight that sits above the base roughness surface. On the ocean this reads
+// as the reflective glassy skin of water over a dark deep-sea body.
 function createOceanMaterial() {
-  const mat = new MeshStandardMaterial({
+  const mat = new MeshPhysicalMaterial({
     color: new Color('#030c18'),
     emissive: new Color('#0e1f35'),
     emissiveIntensity: 0.24,
-    roughness: 0.88,
-    metalness: 0.06,
+    roughness: 0.72,
+    metalness: 0.04,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.08,
   })
 
   mat.onBeforeCompile = (shader) => {
-    // Pass view-space position to fragment shader
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
       `#include <common>
@@ -27,8 +29,6 @@ function createOceanMaterial() {
       `#include <worldpos_vertex>
        vViewPos = -(modelViewMatrix * vec4(position, 1.0)).xyz;`
     )
-
-    // Fresnel rim + hemisphere shadow in fragment shader
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
       `#include <common>
@@ -46,7 +46,6 @@ function createOceanMaterial() {
        float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), uRimPower);
        gl_FragColor.rgb += uRimColor * fresnel * uRimStrength;`
     )
-
     shader.uniforms.uRimColor = { value: new Color(0.06, 0.12, 0.28) }
     shader.uniforms.uRimStrength = { value: 1.4 }
     shader.uniforms.uRimPower = { value: 3.4 }
@@ -57,10 +56,11 @@ function createOceanMaterial() {
 }
 
 export function OceanSphere() {
-  const matRef = useRef<MeshStandardMaterial | null>(null)
+  const matRef = useRef<MeshPhysicalMaterial | null>(null)
 
+  // 64×64: indistinguishable from 96×96 at globe camera distances, saves ~4 900 triangles.
   return (
-    <Sphere args={[2.35, 96, 96]}>
+    <Sphere args={[2.35, 64, 64]}>
       <primitive
         object={(() => {
           if (!matRef.current) matRef.current = createOceanMaterial()
