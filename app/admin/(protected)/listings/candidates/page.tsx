@@ -3,30 +3,46 @@
 // Shows needs_review candidates with approve/reject actions.
 
 import { requireAdminAuth } from '@/lib/auth/adminGuard'
-import { createClient } from '@supabase/supabase-js'
+import { fetchAdminSupabaseJson } from '@/lib/supabase/adminDataClient'
 import CandidateReviewCard from './CandidateReviewCard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  return createClient(url, key, { auth: { persistSession: false } })
+// Shape returned by Supabase for marketplace_candidates rows.
+// Extend as columns are added — 'unknown' fields degrade gracefully.
+interface CandidateRow {
+  id: string
+  status: string
+  title_public_draft: string | null
+  title_internal: string | null
+  description_public_draft: string | null
+  description_internal: string | null
+  marketplace_category: string | null
+  product_type: string | null
+  region: string | null
+  country: string | null
+  price_raw: string | null
+  price_amount: number | null
+  price_currency: string | null
+  condition: string | null
+  seller_type: string | null
+  source_name: string | null
+  source_url: string | null
+  confidence: number | null
+  discovered_at: string | null
+  reviewed_at: string | null
+  ai_normalised: Record<string, unknown> | null
 }
 
 export default async function CandidatesPage() {
   await requireAdminAuth()
 
-  const supabase = getServiceClient()
-  const { data: candidates } = await supabase
-    .from('marketplace_candidates')
-    .select('*')
-    .eq('status', 'needs_review')
-    .order('discovered_at', { ascending: false })
-    .limit(100)
+  const result = await fetchAdminSupabaseJson<CandidateRow[]>(
+    '/rest/v1/marketplace_candidates?status=eq.needs_review&order=discovered_at.desc&limit=100',
+  )
 
-  const queue = candidates ?? []
+  const queue: CandidateRow[] = result.ok ? (result.data ?? []) : []
 
   return (
     <section>
@@ -55,8 +71,21 @@ export default async function CandidatesPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          {queue.map((candidate) => (
-            <CandidateReviewCard key={candidate.id} candidate={candidate} />
+          {queue.map((candidate: CandidateRow) => (
+            <CandidateReviewCard
+              key={candidate.id}
+              candidate={{
+                ...candidate,
+                source_name: candidate.source_name ?? '',
+                source_url: candidate.source_url ?? '',
+                marketplace_category: candidate.marketplace_category ?? '',
+                title_internal: candidate.title_internal ?? '',
+                title_public_draft: candidate.title_public_draft ?? '',
+                description_internal: candidate.description_internal ?? '',
+                description_public_draft: candidate.description_public_draft ?? '',
+                discovered_at: candidate.discovered_at ?? new Date().toISOString(),
+              }}
+            />
           ))}
         </div>
       )}

@@ -1,32 +1,40 @@
 // lib/scrapers/ingestor.ts
 // Inserts normalised candidates into marketplace_candidates with status='needs_review'.
-// Uses service-role Supabase client — never anon.
+// Uses raw PostgREST fetch with service-role key — no @supabase/supabase-js dependency.
 
-import { createClient } from '@supabase/supabase-js'
+import 'server-only'
 import type { RawScrapedItem, AINormalisedListing } from './types'
 import { generateFingerprint } from './deduplication'
 
-function getServiceClient() {
+function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase env vars missing for scraper ingestor')
-  return createClient(url, key, { auth: { persistSession: false } })
+  return { url, key }
+}
+
+function serviceHeaders(key: string, extra?: Record<string, string>) {
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...extra,
+  }
 }
 
 /** Fetch all existing fingerprints from the DB for deduplication. */
 export async function fetchExistingFingerprints(): Promise<Set<string>> {
-  const supabase = getServiceClient()
-  const { data, error } = await supabase
-    .from('marketplace_candidates')
-    .select('source_fingerprint')
-    .not('source_fingerprint', 'is', null)
-
-  if (error) {
-    console.warn('scraper_ingestor: failed to fetch fingerprints:', error.message)
+  const { url, key } = getSupabaseConfig()
+  const res = await fetch(
+    `${url}/rest/v1/marketplace_candidates?select=source_fingerprint&source_fingerprint=not.is.null`,
+    { headers: serviceHeaders(key), cache: 'no-store' },
+  )
+  if (!res.ok) {
+    console.warn('scraper_ingestor: failed to fetch fingerprints:', res.status)
     return new Set()
   }
-
-  return new Set((data ?? []).map((r: { source_fingerprint: string }) => r.source_fingerprint))
+  const data = (await res.json()) as { source_fingerprint: string }[]
+  return new Set(data.map((r) => r.source_fingerprint))
 }
 
 export interface InsertResult {
@@ -39,7 +47,7 @@ export async function insertCandidates(
 ): Promise<InsertResult> {
   if (pairs.length === 0) return { inserted: 0, errors: 0 }
 
-  const supabase = getServiceClient()
+  const { url, key } = getSupabaseConfig()
   let inserted = 0
   let errors = 0
 
@@ -73,12 +81,22 @@ export async function insertCandidates(
       discovered_at: raw.discoveredAt,
     }
 
-    const { error } = await supabase
-      .from('marketplace_candidates')
-      .upsert(record, { onConflict: 'source_fingerprint', ignoreDuplicates: true })
+    // PostgREST upsert: on_conflict= specifies the unique column; ignore-duplicates
+    // means conflicting rows are silently skipped (equivalent to ignoreDuplicates: true).
+    const res = await fetch(
+      `${url}/rest/v1/marketplace_candidates?on_conflict=source_fingerprint`,
+      {
+        method: 'POST',
+        headers: serviceHeaders(key, {
+          Prefer: 'resolution=ignore-duplicates,return=minimal',
+        }),
+        body: JSON.stringify(record),
+      },
+    )
 
-    if (error) {
-      console.warn(`scraper_ingestor: insert error for "${raw.rawTitle}":`, error.message)
+    if (!res.ok) {
+      const text = await res.text()
+      console.warn(`scraper_ingestor: insert error for "${raw.rawTitle}":`, text)
       errors++
     } else {
       inserted++
