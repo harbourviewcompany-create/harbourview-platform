@@ -5,6 +5,9 @@ import { REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constant
 import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import { EmptyState, FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
+// Force dynamic rendering — page fetches live Supabase data at request time
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Cannabis Regulatory Signals — Policy & Market Change Monitoring',
   description:
