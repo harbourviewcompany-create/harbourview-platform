@@ -11,7 +11,7 @@ const C = {
   green:'#6FCF7D', greenBg:'rgba(111,207,125,0.12)', red:'#D65C4A',
 };
 
-const TAGS = {
+const TAGS: Record<string, [string, string, string]> = {
   'Equipment':            ['rgba(59,130,160,0.18)',  '#5DAFC8', 'rgba(59,130,160,0.30)'],
   'Verified Seller':      ['rgba(74,154,107,0.18)',  '#6FCF7D', 'rgba(74,154,107,0.30)'],
   'Excellent Condition':  ['rgba(255,255,255,0.06)', '#8A949E', 'rgba(255,255,255,0.10)'],
@@ -289,7 +289,7 @@ const EduCard = ({item}: {item: {icon: string; title: string; desc: string}}) =>
 );
 
 // ═══ OUTSIDE CLICK HOOK ════════════════════════════════════════════════
-function useOutside(ref: RefObject<HTMLElement>, fn: () => void) {
+function useOutside<T extends HTMLElement>(ref: RefObject<T | null>, fn: () => void) {
   useEffect(()=>{
     const h=(e: MouseEvent)=>{if(ref.current&&!ref.current.contains(e.target as Node))fn();};
     document.addEventListener('mousedown',h);
@@ -404,7 +404,7 @@ function Desktop({activeNav,setActiveNav,country,setCountry,role,setRole,activeC
 
   const filtered=listings.filter(l=>{
     const q=search.toLowerCase();
-    const catMap={consumables:'Consumables',cannabis:'Cannabis',equipment:'Equipment',distressed:'Distressed Equipment',services:'Services'};
+    const catMap: Record<string,string>={consumables:'Consumables',cannabis:'Cannabis',equipment:'Equipment',distressed:'Distressed Equipment',services:'Services'};
     const cm=!activeCat||l.cat===catMap[activeCat];
     const tm=!q||l.title.toLowerCase().includes(q)||l.cat.toLowerCase().includes(q)||l.loc.toLowerCase().includes(q)||l.tags.some(t=>t.toLowerCase().includes(q));
     return cm&&tm;
