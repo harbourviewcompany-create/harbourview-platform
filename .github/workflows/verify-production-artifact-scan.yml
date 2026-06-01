@@ -14,7 +14,7 @@ on:
       domains:
         description: Comma-separated production domains to scan
         required: true
-        default: https://harbourview-nu.vercel.app,https://harbourview-14bdr4iuk-harbourviewnetwork.vercel.app
+        default: https://harbourview.vercel.app,https://harbourview-14bdr4iuk-harbourviewnetwork.vercel.app
       protected_domains:
         description: Comma-separated domains where 401/403 is expected because deployment protection is enabled
         required: true
