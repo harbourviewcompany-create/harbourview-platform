@@ -35,62 +35,60 @@ export function resolveCountryMaterialState({
     oceanBase: hvTokens.globe.oceanBase,
     plateBase: hvTokens.globe.plateBase,
     borderColor: hvTokens.globe.borderMutedGold,
-    // Emissive: dark gold at moderate intensity fills shadow side so it reads as
-    // dark gold, not black. Lower than before so lighting contrast (not uniform
-    // self-glow) creates the 3D depth.
-    emissive: '#6b5222',
-    emissiveIntensity: 0.38,
-    // Higher metalness + lower roughness = tighter specular lobe = visible hot
-    // spot on lit face, soft falloff on tangents, emissive-filled shadows.
-    // This gradient reads as polished 3D metal rather than a flat gold disc.
-    roughness: 0.28,
-    metalness: 0.52,
-    // Clearcoat adds a second sharp reflection layer — makes specular highlight
-    // look like polished metal rather than painted matte.
+    emissive: '#3d2508',
+    emissiveIntensity: 0.26,
+    roughness: 0.3,
+    metalness: 0.78,
     clearcoat: 0.42,
-    clearcoatRoughness: 0.22,
+    clearcoatRoughness: 0.26,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
   if (layerId === 'opportunity_heat') {
     base.emissive = '#9d7a3d'
-    base.emissiveIntensity = 0.22
+    base.emissiveIntensity = 0.24
   }
 
   if (layerId === 'documentation_burden') {
     base.plateBase = '#18202b'
     base.borderColor = '#8b7550'
     base.emissive = '#463521'
+    base.emissiveIntensity = 0.2
   }
 
   switch (visualState) {
     case 'focused':
       return {
         ...base,
-        plateBase: '#d4b870',
+        plateBase: '#d9bf78',
+        borderColor: '#f0d28a',
         emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.55,
-        roughness: 0.32,
-        metalness: 0.72,
+        emissiveIntensity: 0.64,
+        roughness: 0.34,
+        metalness: 0.66,
+        clearcoat: 0.48,
+        clearcoatRoughness: 0.28,
       }
     case 'selected':
       return {
         ...base,
-        plateBase: hvTokens.globe.plateSelected,
-        borderColor: hvTokens.globe.borderMutedGoldSoft,
+        plateBase: '#b79a5a',
+        borderColor: '#fff0b0',
         emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.48,
-        roughness: 0.42,
-        metalness: 0.42,
-        clearcoat: 0.44,
-        clearcoatRoughness: 0.3,
+        emissiveIntensity: 0.58,
+        roughness: 0.46,
+        metalness: 0.38,
+        clearcoat: 0.46,
+        clearcoatRoughness: 0.32,
       }
     case 'multi_market':
       return {
         ...base,
         plateBase: '#13253a',
+        borderColor: '#d8be76',
         emissive: '#d2b26b',
-        emissiveIntensity: 0.48,
+        emissiveIntensity: 0.5,
+        metalness: 0.56,
       }
     case 'disabled':
       return {
