@@ -2,7 +2,7 @@ import 'server-only'
 import { listIaSignals } from '@/lib/intelligence-automation/db'
 import { automationSignals } from '@/lib/intelligence-automation/fixtures'
 import type { AutomationSignal } from '@/lib/intelligence-automation/types'
-import type { RoleId } from '@/types/globe-router'
+import type { DashboardSignal } from './dashboardShared'
 
 // ── Signal tag display mapping ────────────────────────────────────────────────
 export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -158,6 +158,14 @@ const STATUS_DATA: Record<string, CountryStatusBar> = {
   LU: { status:'Request Only',   statusColor:'#6F7A86', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Limited',     activityColor:'#B8C0C8', score:40, adultUse:'Legal',      medicalUse:'Legal'     },
 }
 
+const EMPTY_STATUS: CountryStatusBar = {
+  status: 'Select Market', statusColor: '#6F7A86',
+  opportunity: 'Not Selected', opportunityColor: '#6F7A86',
+  regulatory: 'Not Selected', regulatoryColor: '#6F7A86',
+  activity: 'No Market Selected', activityColor: '#6F7A86',
+  score: 0, adultUse: '—', medicalUse: '—',
+}
+
 const FALLBACK_STATUS: CountryStatusBar = {
   status: 'Intelligence Pending', statusColor: '#6F7A86',
   opportunity: 'Under Assessment', opportunityColor: '#6F7A86',
@@ -166,6 +174,11 @@ const FALLBACK_STATUS: CountryStatusBar = {
   score: 0, adultUse: '—', medicalUse: '—',
 }
 
-export function getCountryStatusBar(iso2: string): CountryStatusBar {
+export function getEmptyCountryStatusBar(): CountryStatusBar {
+  return EMPTY_STATUS
+}
+
+export function getCountryStatusBar(iso2: string | null | undefined): CountryStatusBar {
+  if (!iso2) return EMPTY_STATUS
   return STATUS_DATA[iso2.toUpperCase()] ?? FALLBACK_STATUS
 }
