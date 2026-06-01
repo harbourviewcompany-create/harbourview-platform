@@ -37,7 +37,7 @@ export default async function DashboardPage() {
   }
 
   // ── Derive status bar and edu categories from stored prefs ──
-  const countryBar = getCountryStatusBar(countryIso2 ?? 'DE')
+  const countryBar = getCountryStatusBar(countryIso2)
   const eduCategories = getEduCategoriesForRole(roleId ?? undefined)
 
   return (
