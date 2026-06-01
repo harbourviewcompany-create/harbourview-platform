@@ -36,18 +36,18 @@ export function CountryGlobeLabel({ iso2 }: { iso2: string }) {
     >
       <div
         style={{
-          background: 'rgba(1,5,13,0.82)',
-          border: '1px solid rgba(198,165,90,0.38)',
-          borderRadius: '6px',
-          padding: '3px 9px',
-          fontSize: '11px',
+          background: 'linear-gradient(180deg, rgba(5,12,24,0.88), rgba(2,6,14,0.78))',
+          border: '1px solid rgba(216,190,118,0.28)',
+          borderRadius: '999px',
+          padding: '4px 10px',
+          fontSize: '10px',
           fontWeight: 500,
           letterSpacing: '0.08em',
-          color: '#f5e8c0',
+          color: '#f7e8bd',
           whiteSpace: 'nowrap',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(10px) saturate(130%)',
+          WebkitBackdropFilter: 'blur(10px) saturate(130%)',
+          boxShadow: '0 10px 28px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08)',
           // Translate up so the label sits above the plate centroid
           transform: 'translateY(-18px)',
         }}

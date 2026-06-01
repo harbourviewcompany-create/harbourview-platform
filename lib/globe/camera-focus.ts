@@ -58,7 +58,7 @@ export function createCountryFocusPose(
   })
 
   const focusDistance = country.bbox ? bboxFocusDistance(country.bbox) : DEFAULT_FOCUS_DISTANCE
-  const targetDistance = clamp(options.targetDistanceMax ?? DEFAULT_TARGET_DISTANCE, 0.5, DEFAULT_TARGET_DISTANCE)
+  const targetDistance = clamp(options.targetDistanceMax ?? DEFAULT_TARGET_DISTANCE, 0.24, DEFAULT_TARGET_DISTANCE)
 
   const [wx, wy, wz] = applyGlobeGroupRotation(vector.x, vector.y, vector.z)
   return {

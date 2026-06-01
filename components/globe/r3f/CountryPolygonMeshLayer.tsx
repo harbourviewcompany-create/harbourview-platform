@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
@@ -9,10 +10,12 @@ import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION } from '@/lib/globe/globe-plate-config'
+import { GLOBE_RADIUS, lonLatToVector3, vector3ToArray } from '@/lib/globe/globe-geometry'
 import type { GlobeLayerId } from '@/types/globe-router'
 const BORDER_METAL = '#c6a55a'
-const SELECTED_ACCENT = '#d4b93c'
-const SPECULAR_CAP = 0.32
+const SELECTED_ACCENT = '#f1d48a'
+const SPECULAR_CAP = 0.46
+const SELECTED_EDGE_RADIUS = GLOBE_RADIUS + PLATE_LIFT + 0.004 + SELECTED_EXTRUSION
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
 // inflated invisible hit mesh so they're tappable on mobile.
@@ -28,6 +31,53 @@ const globeEntries = [
   ...canadaProvinces,
   ...usStates,
 ]
+
+
+function buildEntryEdgeGeometry(entry: (typeof globeEntries)[number]) {
+  const positions: number[] = []
+
+  for (const polygon of entry.polygons) {
+    for (const ring of polygon.rings) {
+      if (ring.kind !== 'outer') continue
+      const points = ring.points
+      for (let i = 0; i < points.length; i++) {
+        const [aLon, aLat] = points[i]
+        const [bLon, bLat] = points[(i + 1) % points.length]
+        positions.push(...vector3ToArray(lonLatToVector3(aLon, aLat, SELECTED_EDGE_RADIUS)))
+        positions.push(...vector3ToArray(lonLatToVector3(bLon, bLat, SELECTED_EDGE_RADIUS)))
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  return geometry
+}
+
+function SelectedMarketPlateEdge({ entry }: { entry: (typeof globeEntries)[number] }) {
+  const geometry = useMemo(() => buildEntryEdgeGeometry(entry), [entry])
+  const material = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: new THREE.Color('#fff0bd'),
+        transparent: true,
+        opacity: 0.82,
+        depthTest: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [],
+  )
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose()
+      material.dispose()
+    }
+  }, [geometry, material])
+
+  return <lineSegments geometry={geometry} material={material} renderOrder={28} />
+}
 
 function HoverPulseMesh({
   geometry,
@@ -80,7 +130,7 @@ function HoverPulseMesh({
   return (
     <>
       {/* Visual mesh — renders the country plate */}
-      <mesh geometry={geometry}>
+      <mesh geometry={geometry} renderOrder={12}>
         <meshPhysicalMaterial
           ref={matRef}
           color={color}
@@ -91,6 +141,13 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
+          specularColor="#fff2c8"
+          specularIntensity={0.72}
+          iridescence={0.05}
+          sheen={0.08}
+          sheenColor="#fff0bd"
+          depthTest
+          depthWrite
         />
       </mesh>
       {/* Hit mesh — inflated invisible surface for pointer events.
@@ -204,23 +261,25 @@ export function CountryPolygonMeshLayer({
         const material = resolveCountryMaterialState({ visualState, layerId: activeLayerId })
 
         return (
-          <HoverPulseMesh
-            key={entry.iso3}
-            geometry={activeGeometry}
-            hitGeometry={isSelected ? undefined : hitGeometry}
-            color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
-            emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
-            emissiveIntensity={material.emissiveIntensity}
-            roughness={material.roughness}
-            metalness={material.metalness}
-            clearcoat={material.clearcoat}
-            clearcoatRoughness={material.clearcoatRoughness}
-            reflectivity={SPECULAR_CAP}
-            isFocused={focusedCountryIso2 === entry.iso2}
-            onPointerEnter={() => onHoverCountry?.(entry.iso2)}
-            onPointerLeave={() => onHoverCountry?.(undefined)}
-            onClick={() => onSelectCountry?.(entry.iso2)}
-          />
+          <group key={entry.iso3}>
+            <HoverPulseMesh
+              geometry={activeGeometry}
+              hitGeometry={isSelected ? undefined : hitGeometry}
+              color={visualState === 'selected' ? SELECTED_ACCENT : material.plateBase}
+              emissive={visualState === 'selected' ? BORDER_METAL : material.emissive}
+              emissiveIntensity={material.emissiveIntensity}
+              roughness={material.roughness}
+              metalness={material.metalness}
+              clearcoat={material.clearcoat}
+              clearcoatRoughness={material.clearcoatRoughness}
+              reflectivity={SPECULAR_CAP}
+              isFocused={focusedCountryIso2 === entry.iso2}
+              onPointerEnter={() => onHoverCountry?.(entry.iso2)}
+              onPointerLeave={() => onHoverCountry?.(undefined)}
+              onClick={() => onSelectCountry?.(entry.iso2)}
+            />
+            {isSelected ? <SelectedMarketPlateEdge entry={entry} /> : null}
+          </group>
         )
       })}
     </group>

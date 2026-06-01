@@ -11,8 +11,8 @@ function createOceanMaterial() {
     color: new Color('#030c18'),
     emissive: new Color('#0e1f35'),
     emissiveIntensity: 0.24,
-    roughness: 0.88,
-    metalness: 0.06,
+    roughness: 0.7,
+    metalness: 0.18,
   })
 
   mat.onBeforeCompile = (shader) => {
@@ -47,9 +47,9 @@ function createOceanMaterial() {
        gl_FragColor.rgb += uRimColor * fresnel * uRimStrength;`
     )
 
-    shader.uniforms.uRimColor = { value: new Color(0.06, 0.12, 0.28) }
-    shader.uniforms.uRimStrength = { value: 1.4 }
-    shader.uniforms.uRimPower = { value: 3.4 }
+    shader.uniforms.uRimColor = { value: new Color(0.035, 0.09, 0.2) }
+    shader.uniforms.uRimStrength = { value: 0.42 }
+    shader.uniforms.uRimPower = { value: 4.8 }
   }
 
   mat.needsUpdate = true

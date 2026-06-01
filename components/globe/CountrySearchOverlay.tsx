@@ -82,7 +82,7 @@ export function CountrySearchOverlay({
   }
 
   return (
-    <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 max-h-[min(72svh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-hidden rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[380px] sm:-translate-x-1/2">
+    <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 max-h-[min(72svh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-hidden rounded-[26px] border border-[#d8be76]/24 bg-[#020812]/88 p-3 text-white shadow-[0_24px_80px_rgba(0,0,0,0.64),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl sm:left-1/2 sm:right-auto sm:w-[380px] sm:-translate-x-1/2">
       <div className="flex items-center gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#d8be76]">Harbourview</p>
       </div>
@@ -103,7 +103,7 @@ export function CountrySearchOverlay({
           aria-activedescendant={hasQuery && highlightedCountry ? `country-option-${highlightedCountry.iso2}` : undefined}
           autoComplete="off"
           placeholder="Search countries or U.S. states"
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-white/[0.07] px-4 text-sm text-white outline-none placeholder:text-white/44 focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
+          className="min-h-11 w-full rounded-full border border-[#c6a55a]/20 bg-[#071321]/92 px-4 text-sm text-white outline-none placeholder:text-white/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] focus:border-[#d8be76] focus-visible:ring-2 focus-visible:ring-[#d8be76] focus-visible:ring-offset-2 focus-visible:ring-offset-[#030b16]"
         />
       </label>
       <p id="country-search-help" className="sr-only">
@@ -111,7 +111,7 @@ export function CountrySearchOverlay({
       </p>
 
       {hasQuery ? (
-        <div id="country-search-results" role="listbox" aria-label="Matching markets" className="mt-2 max-h-[calc(72svh-7.25rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#c6a55a]/14 bg-black/28 p-1 [-webkit-overflow-scrolling:touch]">
+        <div id="country-search-results" role="listbox" aria-label="Matching markets" className="mt-2 max-h-[calc(72svh-7.25rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#c6a55a]/14 bg-[#020711]/86 p-1 [-webkit-overflow-scrolling:touch]">
           {matches.map((country, index) => (
             <button
               id={`country-option-${country.iso2}`}
@@ -121,7 +121,7 @@ export function CountrySearchOverlay({
               onClick={() => selectCountry(country.iso2)}
               role="option"
               aria-selected={index === highlightedIndex}
-              className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm text-white/76 hover:bg-white/[0.07] focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-white/[0.1]' : ''}`}
+              className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm text-white/76 hover:bg-[#d8be76]/10 focus-visible:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8be76] ${index === highlightedIndex ? 'bg-[#d8be76]/12' : ''}`}
             >
               <span className="min-w-0">
                 <span className="block truncate">{country.name}</span>

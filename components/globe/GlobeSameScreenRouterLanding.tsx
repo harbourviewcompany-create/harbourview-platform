@@ -138,9 +138,6 @@ export function GlobeSameScreenRouterLanding() {
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
   const countryBrief = useCountryBrief(state.selectedCountryIso2)
-  const selectedCountryName = state.mode === 'multi_market'
-    ? `${state.selectedCountryIso2s.length || 0} markets`
-    : getCountryName(state.selectedCountryIso2)
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
@@ -194,9 +191,9 @@ export function GlobeSameScreenRouterLanding() {
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
 
-      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
-        <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Select a country and your role. Harbourview will route you to the right market intelligence.
+      <div className="pointer-events-none fixed inset-x-4 top-[112px] z-20 sm:left-8 sm:right-auto sm:top-[132px] sm:w-[410px]">
+        <p className="max-w-sm rounded-2xl border border-[#d8be76]/14 bg-[#020812]/38 px-4 py-3 text-sm leading-6 text-white/70 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-md">
+          Select a market and role. Harbourview routes you to marketplace access, intelligence, and operating workflows.
         </p>
       </div>
 

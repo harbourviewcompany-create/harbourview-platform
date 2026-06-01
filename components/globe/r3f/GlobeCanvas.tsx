@@ -6,7 +6,6 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
-import { AtmosphereGlow } from './AtmosphereGlow'
 import { AtmosphereLayer } from './AtmosphereLayer'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
@@ -106,11 +105,11 @@ export function GlobeCanvas({
 
         {/* Lights: drop the sunset HDRI (CDN hit, warm cast) in favour of
             a hemisphere light that reads as cold deep space. */}
-        <ambientLight intensity={0.48} color="#fff4d6" />
-        <directionalLight position={[4, 3, 5]} intensity={1.9} color="#fff8e8" />
-        <directionalLight position={[-3, 1, -4]} intensity={0.35} color="#d4c060" />
-        <directionalLight position={[-4, -1, -3]} intensity={0.55} color="#c8a030" />
-        <hemisphereLight args={['#1a2840', '#030a14', 0.45]} />
+        <ambientLight intensity={0.22} color="#f8ead0" />
+        <directionalLight position={[4.5, 3.2, 5.4]} intensity={2.35} color="#fff7e5" />
+        <directionalLight position={[-3.8, 1.4, -4.4]} intensity={0.42} color="#f1c96d" />
+        <directionalLight position={[0.2, -3.4, 2.2]} intensity={0.24} color="#7ea8ff" />
+        <hemisphereLight args={['#17294a', '#020611', 0.34]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
@@ -124,12 +123,10 @@ export function GlobeCanvas({
             speed={0}
           />
 
-          {/* Atmosphere glow: BackSide Fresnel sphere, sits outside the rotating group */}
+          {/* Single restrained cobalt atmospheric rim, kept outside country plates to avoid transparent shell artifacts. */}
           <AtmosphereLayer />
 
           <group rotation={[0.12, -0.8, 0]}>
-            {/* Atmosphere halo — rendered outside the ocean sphere */}
-            <AtmosphereGlow />
             <OceanSphere />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
@@ -158,6 +155,8 @@ export function GlobeCanvas({
           dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
           rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
           zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
+          minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
+          maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
           minDistance={distanceLimits.min}
           maxDistance={distanceLimits.max}
           minPolarAngle={polarLimits.min}
