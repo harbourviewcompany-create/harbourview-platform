@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run test:globe-router && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
-    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-foundation.test.ts tests/globe-polygon-rendering.test.ts tests/globe-natural-earth-countries.test.ts && node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs",
+    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-foundation.test.ts tests/globe-polygon-rendering.test.ts tests/globe-natural-earth-countries.test.ts tests/globe-visual-state.test.ts && node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs",
     "test:visibility": "node scripts/test-public-provenance-visibility.mjs && node scripts/test-business-opportunities-public-leakage.mjs",
     "test:listing-quality": "node scripts/test-listing-quality.mjs",
     "test:public-images": "node scripts/test-public-image-assets.mjs",
@@ -30,7 +30,7 @@
     "test:intelligence-globe-leakage": "node scripts/test-intelligence-globe-public-leakage.mjs",
     "test:used-surplus-public-leakage": "node scripts/test-used-surplus-public-leakage.mjs",
     "test:genetics-profile-redaction": "node scripts/test-genetics-profile-redaction.mjs",
-    "test:genetics-routing": "npx tsx scripts/test-genetics-routing-logic.mjs",
+    "test:genetics-routing": "node scripts/test-genetics-routing-logic.mjs",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:e2e": "npx -y -p @playwright/test@1.54.0 playwright test",
     "test:full-scope:script-uniqueness": "node scripts/test-package-script-uniqueness.mjs",
@@ -65,25 +65,18 @@
     "test:public-copy-dedup": "node scripts/test-public-copy-dedup.mjs",
     "source-import:build": "tsx scripts/source-import/build-source-import-batches.ts",
     "source-import:push": "tsx scripts/source-import/push-source-import-batches.ts",
-    "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts",
-    "test:har37": "node scripts/test-har37-public-ia.mjs",
-    "test:har39-40": "node scripts/test-har39-har40-public-surfaces.mjs",
-    "test:intake-safety": "node scripts/test-intake-workflow-safety.mjs",
-    "test:smoke-route-guard": "node scripts/test-smoke-marketplace-route-guard.mjs"
+    "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
-    "@react-three/postprocessing": "^2.16.2",
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.49.1",
     "next": "^15.3.1",
-    "postprocessing": "^6.36.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.174.0",
-    "zod": "^4.1.5"
+    "zod": "^4.1.5",
+    "@react-three/postprocessing": "^2.16.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
