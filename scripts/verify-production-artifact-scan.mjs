@@ -49,7 +49,7 @@ const SEED_PAGE_ROUTES = [
 ];
 
 const DEFAULT_DOMAINS = [
-  'https://harbourview-nu.vercel.app',
+  'https://harbourview.vercel.app',
   'https://harbourview-14bdr4iuk-harbourviewnetwork.vercel.app',
 ];
 

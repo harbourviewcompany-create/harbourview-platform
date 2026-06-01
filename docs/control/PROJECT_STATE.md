@@ -10,7 +10,7 @@ This file tracks durable project readiness state for Harbourview Marketplace.
 
 **Canonical repo:** `harbourviewcompany-create/harbourview-platform`
 
-**Canonical production domain:** `https://harbourview-nu.vercel.app`
+**Canonical production domain:** `https://harbourview.vercel.app`
 
 **Canonical Vercel project:** `harbourview` under Vercel team `harbourviewnetwork`
 
@@ -19,7 +19,7 @@ This file tracks durable project readiness state for Harbourview Marketplace.
 **Current HOLD gates after this replacement recovery PR:**
 
 - Fresh canonical Vercel production deployment proof from current `main` is still required after merge.
-- Production public leakage probe must pass against `https://harbourview-nu.vercel.app`.
+- Production public leakage probe must pass against `https://harbourview.vercel.app`.
 - Anonymous `/admin` and nested `/admin/*` denial must be re-proven against canonical production.
 - Marketplace browser smoke must be run against the canonical production domain with explicit write/cleanup gates.
 - GitHub secret mapping for the canonical Vercel project remains unresolved.
@@ -49,9 +49,9 @@ This file tracks durable project readiness state for Harbourview Marketplace.
 
 **Contradictions / drift:**
 
-- Current canonical production domain is `https://harbourview-nu.vercel.app`.
+- Current canonical production domain is `https://harbourview.vercel.app`.
 - Earlier durable marketplace smoke and environment-hygiene evidence in this file used `https://harbourview-platform.vercel.app`.
-- Earlier canonical-domain recovery text used `https://harbourview.vercel.app`; that value is superseded by the 2026-05-17 registry state.
+- Earlier canonical-domain recovery text is aligned with the 2026-05-17 registry state for `https://harbourview.vercel.app`.
 
 **Remaining HOLD items:**
 
@@ -59,7 +59,7 @@ This file tracks durable project readiness state for Harbourview Marketplace.
 - Branch protection and stale status contexts.
 - Preview/staging safety and Supabase environment separation.
 - Live Supabase RLS verification.
-- Current production public leakage pass against `https://harbourview-nu.vercel.app`.
+- Current production public leakage pass against `https://harbourview.vercel.app`.
 - Current anonymous admin denial proof and full role matrix.
 - Current canonical-domain route map and smoke evidence.
 
@@ -94,7 +94,7 @@ No schema, RLS, admin auth, adminGuard or capture route changes.
 - Production URL: `https://harbourview-platform.vercel.app`
 - Job conclusion: `success`
 
-**Current domain-drift note:** The production URL above is historical evidence for `https://harbourview-platform.vercel.app`. The canonical production domain is now `https://harbourview-nu.vercel.app`; do not reuse this historical pass as current canonical-domain proof without rerunning and recording verification against the canonical domain.
+**Current domain-drift note:** The production URL above is historical evidence for `https://harbourview-platform.vercel.app`. The canonical production domain is now `https://harbourview.vercel.app`; do not reuse this historical pass as current canonical-domain proof without rerunning and recording verification against the canonical domain.
 
 **Inquiry types verified**
 
@@ -108,7 +108,7 @@ All three smoke rows were marked `closed` after verification.
 
 **Operational impact**
 
-This evidence is retained as historical proof only. Current production verification must target `https://harbourview-nu.vercel.app`.
+This evidence is retained as historical proof only. Current production verification must target `https://harbourview.vercel.app`.
 
 ## Vercel/Supabase environment hygiene
 
@@ -128,7 +128,7 @@ This evidence is retained as historical proof only. Current production verificat
 - Result artifact status: `passed`
 - Result artifact exit code: `0`
 
-**Current domain-drift note:** The production URL above predates the canonical domain `https://harbourview-nu.vercel.app`. Treat the environment-hygiene result as durable historical evidence only for the recorded workflow, branch, commit and URL.
+**Current domain-drift note:** The production URL above predates the canonical domain `https://harbourview.vercel.app`. Treat the environment-hygiene result as durable historical evidence only for the recorded workflow, branch, commit and URL.
 
 **Canonical environment conclusion**
 

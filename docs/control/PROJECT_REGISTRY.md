@@ -22,7 +22,7 @@ This registry is the source-of-truth map for Harbourview-related projects across
 
 **Verified canonical Vercel state:**
 
-- Canonical production domain: `https://harbourview-nu.vercel.app`.
+- Canonical production domain: `https://harbourview.vercel.app`.
 - Vercel project ID: `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`.
 - Vercel team ID: `team_zFcrpEaH7xxVPfFlj9yAKMZf`.
 - Vercel team slug: `harbourviewnetwork`.
@@ -35,9 +35,8 @@ This registry is the source-of-truth map for Harbourview-related projects across
 - Repository visibility: private.
 - Verified date: 2026-05-17.
 
-**Superseded stale canonical entries:**
+**Superseded stale deployment and account entries:**
 
-- `https://harbourview.vercel.app` is not the current canonical production domain for this registry state.
 - Deployment ID `F57SDFLwW` is superseded.
 - Deployment URL `https://harbourview-5npukawm2-harbourviewnetwork.vercel.app` is superseded.
 - Deployment commit `e67fbee` is superseded.
@@ -50,7 +49,7 @@ This registry is the source-of-truth map for Harbourview-related projects across
 - Branch protection and stale status contexts.
 - Preview/staging safety and Supabase environment separation.
 - Live Supabase RLS verification.
-- Current canonical-domain public leakage pass against `https://harbourview-nu.vercel.app`.
+- Current canonical-domain public leakage pass against `https://harbourview.vercel.app`.
 - Current anonymous admin denial proof and full role matrix.
 - Current canonical-domain route map and smoke evidence.
 - Fresh production deployment proof after any merge to `main`.
@@ -60,7 +59,7 @@ This registry is the source-of-truth map for Harbourview-related projects across
 | Decision Area | Current Decision | Decision Status | Notes |
 |---|---|---|---|
 | Canonical production app | `harbourview-platform` | Confirmed canonical app | Main Harbourview platform repo with marketplace, intelligence, admin, intake and public platform surface. |
-| Canonical production domain | `https://harbourview-nu.vercel.app` | Confirmed canonical production domain | Verified through the 2026-05-17 Vercel connector state recorded in Notion dispatch `DSP-10`. |
+| Canonical production domain | `https://harbourview.vercel.app` | Confirmed canonical production domain | Verified through the 2026-05-17 Vercel connector state recorded in Notion dispatch `DSP-10`. |
 | Canonical Vercel project | `harbourview` | Confirmed canonical Vercel project mapping | Project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; team ID `team_zFcrpEaH7xxVPfFlj9yAKMZf`; team slug `harbourviewnetwork`; GitHub source `harbourviewcompany-create/harbourview-platform`; branch `main`; production commit `2ee3105e236122083d3fb86a16ca3c8811cce440`. |
 | Canonical production database | `Harbourview Marketplace` / `zvxdgdkukjrrwamdpqrg` | Provisional canonical | Contains marketplace tables, inquiries, role model, source intake, candidates and signal-engine migrations. Confirm live RLS state separately before any production write path or migration. |
 | Parallel network build | `harbourview-network` | Incubation | Private repo with newer control structure. It must feed or replace the canonical app only after explicit decision. |
@@ -73,7 +72,7 @@ Evidence source: 2026-05-17 verified Vercel connector state recorded in Notion d
 
 | Field | Confirmed Value | Status |
 |---|---|---|
-| Production domain | `https://harbourview-nu.vercel.app` | GO |
+| Production domain | `https://harbourview.vercel.app` | GO |
 | Production deployment URL | `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | GO |
 | Vercel project name | `harbourview` | GO |
 | Vercel project ID | `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` | GO |
@@ -93,22 +92,22 @@ Evidence source: 2026-05-17 verified Vercel connector state recorded in Notion d
 
 ## Confirmed Runtime Route Evidence
 
-Prior operator-pasted runtime logs confirmed successful requests against the previously tracked production domain on May 12. Those route results remain historical evidence only and must not be reused as current canonical-domain proof for `https://harbourview-nu.vercel.app` without a fresh verification run.
+Prior operator-pasted runtime logs confirmed successful requests against the previously tracked production domain on May 12. Those route results remain historical evidence only and must not be reused as current canonical-domain proof for `https://harbourview.vercel.app` without a fresh verification run.
 
 | Route | Historical Status | Current Registry Read |
 |---|---:|---|
-| `/` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/signals` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/contact` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/about` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/marketplace` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/intelligence` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/marketplace/wanted` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/network/clinical-education` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/intake` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/legal/terms` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/legal/privacy` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
-| `/marketplace/sell` | 200 | Re-verify against `https://harbourview-nu.vercel.app`. |
+| `/` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/signals` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/contact` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/about` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/marketplace` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/intelligence` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/marketplace/wanted` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/network/clinical-education` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/intake` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/legal/terms` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/legal/privacy` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/marketplace/sell` | 200 | Re-verify against `https://harbourview.vercel.app`. |
 
 ## Active Preview Branch Evidence
 
@@ -122,18 +121,18 @@ The earlier Vercel dashboard review showed active preview branches tied to `harb
 | Vercel Team ID | GO | `team_zFcrpEaH7xxVPfFlj9yAKMZf` recorded from verified connector state. |
 | GitHub secret mapping | HOLD | Confirm `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` point to `team_zFcrpEaH7xxVPfFlj9yAKMZf` and `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`. |
 | Stale branch-protection contexts | HOLD | Confirm required GitHub checks do not require stale Vercel/Netlify contexts. |
-| Anonymous `/admin` denial | HOLD | Confirm anonymous `/admin` is denied and does not leak admin/private content on `https://harbourview-nu.vercel.app`. |
-| Public leakage scan | HOLD | Confirm production public pages do not expose forbidden provenance, evidence, internal review, source, availability or authorization fields on `https://harbourview-nu.vercel.app`. |
+| Anonymous `/admin` denial | HOLD | Confirm anonymous `/admin` is denied and does not leak admin/private content on `https://harbourview.vercel.app`. |
+| Public leakage scan | HOLD | Confirm production public pages do not expose forbidden provenance, evidence, internal review, source, availability or authorization fields on `https://harbourview.vercel.app`. |
 | Remaining marketplace category routes | HOLD | Confirm production `200` or intended redirect/not-found behavior for `/marketplace/consumables`, `/marketplace/new-products`, `/marketplace/used-surplus`, `/marketplace/services`, `/marketplace/business-opportunities` and other active category routes. |
 | Production checklist | HOLD | Decide whether Web Analytics and Speed Insights are intentionally disabled or should be enabled. |
 | Active preview branch sprawl | HOLD | Review before deleting branches, disconnecting previews or changing branch protection. |
-| Domain/default drift | HOLD | Verification defaults and docs must be reconciled with `https://harbourview-nu.vercel.app` after HAR-22 merge if PR #316 still contains older default-domain text. |
+| Domain/default drift | HOLD | Verification defaults and docs must be reconciled with `https://harbourview.vercel.app` after HAR-22 merge if PR #316 still contains older default-domain text. |
 
 ## Master Project Register
 
 | System | Project Name | Canonical Status | Purpose | GitHub Repo | Vercel Project | Supabase Project Ref | Production URL | Visibility | Current Risk | Disposition | Owner | Next Action | Decision Needed |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| GitHub / App / Vercel | Harbourview Platform | Confirmed canonical production app and Vercel mapping | Main Harbourview marketplace, intelligence, admin, intake and public platform surface | `harbourviewcompany-create/harbourview-platform` | `harbourview` under Vercel team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; production branch `main`; production commit `2ee3105e236122083d3fb86a16ca3c8811cce440` | `zvxdgdkukjrrwamdpqrg` likely target | `https://harbourview-nu.vercel.app`; deployment URL `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Private repo | GitHub secret mapping, stale branch-protection contexts, anonymous `/admin` denial, public leakage scan, remaining marketplace category route evidence, incomplete production checklist, preview-branch sprawl and verification-default drift remain unresolved | Keep and stabilize as canonical | Tyler / Harbourview | Close remaining HOLD gates without modifying runtime code unless separately approved | Confirm GitHub secrets, branch-protection contexts, admin denial, leakage scan, category routes and preview cleanup plan |
+| GitHub / App / Vercel | Harbourview Platform | Confirmed canonical production app and Vercel mapping | Main Harbourview marketplace, intelligence, admin, intake and public platform surface | `harbourviewcompany-create/harbourview-platform` | `harbourview` under Vercel team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; production branch `main`; production commit `2ee3105e236122083d3fb86a16ca3c8811cce440` | `zvxdgdkukjrrwamdpqrg` likely target | `https://harbourview.vercel.app`; deployment URL `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Private repo | GitHub secret mapping, stale branch-protection contexts, anonymous `/admin` denial, public leakage scan, remaining marketplace category route evidence, incomplete production checklist, preview-branch sprawl and verification-default drift remain unresolved | Keep and stabilize as canonical | Tyler / Harbourview | Close remaining HOLD gates without modifying runtime code unless separately approved | Confirm GitHub secrets, branch-protection contexts, admin denial, leakage scan, category routes and preview cleanup plan |
 | GitHub / App | Harbourview Network | Incubation / replacement candidate | Newer private Harbourview Network architecture and app foundation | `harbourviewcompany-create/harbourview-network` | Not visible in this registry update | Not confirmed | None confirmed | Private repo | Could duplicate `harbourview-platform` work and split execution if treated as parallel production | Keep as architecture feeder or controlled replacement candidate | Tyler / Harbourview | Decide whether it feeds `harbourview-platform` or becomes future canonical repo | Decide merge-forward vs. replacement strategy |
 | GitHub / App / Vercel | Chatbot | Separate active deployed product | AI/chat application deployed to Vercel | `harbourviewcompany-create/chatbot` | `chatbot` | None found | `chatbot-harbourviewnetwork.vercel.app` and related Vercel domains | Private repo; Vercel project visible in earlier audit context | May cause operator confusion if treated as Harbourview platform deployment target | Keep separate unless intentionally integrated | Tyler / Harbourview | Document deployment/env requirements and confirm whether it belongs inside Harbourview Network | Decide standalone vs. integrated product |
 | GitHub / Local Tool | Local AI Chatbot | Non-canonical / misnamed | Windows-first local chatbot using browser fallback and optional Ollama | `harbourviewcompany-create/Harbourview` | Not visible | None | None | Private repo | Misleading repo name can cause operator confusion and agent mistakes | Rename to `local-ai-chatbot` or archive | Tyler | Rename/archive after preserving useful files | Confirm rename/archive |
@@ -141,7 +140,7 @@ The earlier Vercel dashboard review showed active preview branches tied to `harb
 | GitHub / Webhook | HV Telnyx Webhook | Unknown / review required | Unknown Telnyx webhook utility | `harbourviewcompany-create/hv-telnyx-webhook` | Not visible | None | None | Public repo | Public webhook repo may expose operational assumptions even if no secrets are present | Inspect immediately; likely make private or archive | Tyler | Audit files, secrets history, deployment linkage and Telnyx usage | Decide active/private/archive |
 | Supabase / Database | Harbourview Marketplace | Provisional canonical production database | Marketplace data, inquiries, admin role model, source intake, candidate workflow, signal-engine migrations | Expected consumer: `harbourview-platform` | Not directly applicable | `zvxdgdkukjrrwamdpqrg` | Supabase API URL should remain controlled | Supabase project active | Mixed migration history, public SECURITY DEFINER smoke RPC warnings, anon insert warning, JWT-disabled edge function, extension in public schema, live RLS state still requires current verification | Keep and harden | Tyler / Harbourview | Run DB hardening PR/migration plan and document intentional deny-by-default tables | Confirm as canonical production DB |
 | Supabase / Database | Legacy Signal Project | Legacy/prototype pending inspection | Early signal/editorial/source/dossier schema; 430 signal rows | No confirmed GitHub repo | Not directly applicable | `fgdrvqqezdiraqyuofte` | None | Supabase project active | No migrations found; unclear ownership; data may be stranded or duplicated | Freeze except read-only inspection; migrate or archive later | Tyler / Harbourview | Export/inspect schema and sample rows, then decide migration into canonical DB | Decide migrate, archive, or keep as sandbox |
-| Vercel / Deployment | Harbourview Vercel Target | Confirmed canonical production target | Production deployment target for Harbourview Platform | `harbourviewcompany-create/harbourview-platform` | `harbourview` under team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; team ID `team_zFcrpEaH7xxVPfFlj9yAKMZf` | Expected DB: `zvxdgdkukjrrwamdpqrg` | `https://harbourview-nu.vercel.app`; `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Public production deployment | GitHub secret mapping and stale context cleanup remain unresolved | Keep as canonical deployment target | Tyler / Harbourview | Confirm GitHub secrets, branch protection and production safety scans | None for production domain/project/team IDs; remaining controls still required |
+| Vercel / Deployment | Harbourview Vercel Target | Confirmed canonical production target | Production deployment target for Harbourview Platform | `harbourviewcompany-create/harbourview-platform` | `harbourview` under team `harbourviewnetwork`; project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`; team ID `team_zFcrpEaH7xxVPfFlj9yAKMZf` | Expected DB: `zvxdgdkukjrrwamdpqrg` | `https://harbourview.vercel.app`; `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` | Public production deployment | GitHub secret mapping and stale context cleanup remain unresolved | Keep as canonical deployment target | Tyler / Harbourview | Confirm GitHub secrets, branch protection and production safety scans | None for production domain/project/team IDs; remaining controls still required |
 | Vercel / Deployment | Chatbot Vercel Project | Active separate deployment | Production deployment for chatbot app | `harbourviewcompany-create/chatbot` | `chatbot` | None found | `chatbot-harbourviewnetwork.vercel.app` | Visible in earlier Vercel team audit context | Must not be confused with canonical Harbourview production target | Keep separate | Tyler / Harbourview | Document env, domains and whether it should be under Harbourview product umbrella | Decide naming/domain strategy |
 
 ## External Deployment Context Classification
@@ -165,8 +164,8 @@ The earlier Vercel dashboard review showed active preview branches tied to `harb
 5. Public/private boundaries must be verified before merge for any repo or route touching marketplace, admin, intelligence, signal, source, candidate, inquiry or lead data.
 6. External deployment/status contexts must not be treated as complete canonical proof unless the registry identifies the backing project, workspace/team, linked repo, branch, domains, Project ID, Team ID and required GitHub secret mapping.
 7. Operator-pasted dashboard evidence may establish a registry mapping, but unresolved machine-verifiable controls must remain listed as HOLD gates until independently checked.
-8. Historical evidence tied to older Harbourview domains must not be reused as current canonical-domain evidence for `https://harbourview-nu.vercel.app` without a fresh verification run.
-9. **Production artifact source of truth:** production release artifacts are the outputs produced by the canonical Vercel production pipeline for `harbourviewcompany-create/harbourview-platform` on `main` (project `harbourview`, team `harbourviewnetwork`, domain `https://harbourview-nu.vercel.app`); local Node builds (`npm run build`) and Cloudflare/OpenNext commands (`npm run preview`, `npm run deploy`, `npm run upload`) are validation or alternate-runtime workflows and must not be treated as canonical production evidence unless this registry is explicitly updated.
+8. Historical evidence tied to older Harbourview domains must not be reused as current canonical-domain evidence for `https://harbourview.vercel.app` without a fresh verification run.
+9. **Production artifact source of truth:** production release artifacts are the outputs produced by the canonical Vercel production pipeline for `harbourviewcompany-create/harbourview-platform` on `main` (project `harbourview`, team `harbourviewnetwork`, domain `https://harbourview.vercel.app`); local Node builds (`npm run build`) and Cloudflare/OpenNext commands (`npm run preview`, `npm run deploy`, `npm run upload`) are validation or alternate-runtime workflows and must not be treated as canonical production evidence unless this registry is explicitly updated.
 
 ## Supabase Control Notes
 
@@ -215,10 +214,10 @@ Control rule: no new writes until this project is classified. Export schema and 
 
 - GitHub secret mapping for `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` is not confirmed against the canonical Vercel team/project IDs.
 - Stale branch-protection contexts are not resolved, including possible stale Vercel and Netlify checks.
-- Anonymous `/admin` denial has not been confirmed against `https://harbourview-nu.vercel.app`.
-- Production public leakage scan has not been confirmed against `https://harbourview-nu.vercel.app`.
-- Current canonical-domain smoke evidence has not been recorded for `https://harbourview-nu.vercel.app`.
-- Remaining marketplace category routes have not been confirmed against `https://harbourview-nu.vercel.app`: `/marketplace/consumables`, `/marketplace/new-products`, `/marketplace/used-surplus`, `/marketplace/services`, `/marketplace/business-opportunities`.
+- Anonymous `/admin` denial has not been confirmed against `https://harbourview.vercel.app`.
+- Production public leakage scan has not been confirmed against `https://harbourview.vercel.app`.
+- Current canonical-domain smoke evidence has not been recorded for `https://harbourview.vercel.app`.
+- Remaining marketplace category routes have not been confirmed against `https://harbourview.vercel.app`: `/marketplace/consumables`, `/marketplace/new-products`, `/marketplace/used-surplus`, `/marketplace/services`, `/marketplace/business-opportunities`.
 - Production checklist remains incomplete or not classified: Web Analytics and Speed Insights.
 - Active preview branch sprawl requires separate cleanup review before deletion or branch-protection changes.
 - `harbourview-platform` has active PR debt and stale/superseded branches.
@@ -234,7 +233,7 @@ Control rule: no new writes until this project is classified. Export schema and 
 - Treat `harbourviewcompany-create/harbourview-platform` on `main` as the canonical Harbourview production app source.
 - Treat Vercel project `harbourview` under team `harbourviewnetwork` / `team_zFcrpEaH7xxVPfFlj9yAKMZf` as the canonical Harbourview Vercel production project.
 - Treat Vercel project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` as the canonical Harbourview Vercel project ID.
-- Treat `https://harbourview-nu.vercel.app` as the canonical Harbourview production domain.
+- Treat `https://harbourview.vercel.app` as the canonical Harbourview production domain.
 - Treat `https://harbourview-4p247811y-harbourviewnetwork.vercel.app` as the latest production deployment URL from the verified Vercel connector state.
 - Treat deployment `dpl_4k2qicqtkwXKQD6CZkgKSDoZ9qoG` at commit `2ee3105e236122083d3fb86a16ca3c8811cce440` as the latest recorded production deployment evidence from the verified Vercel connector state.
 - Use `zvxdgdkukjrrwamdpqrg` as provisional canonical database for control purposes.
