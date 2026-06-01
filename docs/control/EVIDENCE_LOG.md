@@ -148,3 +148,54 @@ Expected Pass 1 evidence:
 - No auth/RLS changed.
 - No deployment setting changed.
 - No Notion, Drive, Linear, or Monday workspace changed.
+
+## 2026-06-01: Working-alpha completion pass (implementation agent)
+
+**Evidence ID:** `HV-ALPHA-COMPLETION-20260601`
+
+**Branch:** `main`
+
+**Commit:** `836497ee3aad88ea174bb6275f87ea420a94799a`
+
+**Scope:** HV-ALPHA-001 through HV-ALPHA-009 — working-alpha content and code quality pass. No Supabase schema, RLS, auth, middleware, deployment settings, or production writes changed.
+
+**Work summary:**
+
+- Replaced all 18 education route shells with full PublicSurfacePage content (GMP, GACP, GDP, pharmacy, testing, pharmacovigilance, policy, briefings, review-required, request, quality-compliance, importer-distributor, cultivation-production, procurement, glossary)
+- Fixed all 6 educationTracks hrefs pointing back to /education hub; added 4 redirect pages for duplicate routes
+- Replaced 2 coming-soon forms with real client form components (ComplianceRequestForm, ClinicalEducationRequestForm)
+- Built 7 compliance explainers with full substantive content
+- Expanded 4 intelligence sub-pages from 38-line shells to full IntelligenceModulePage content
+- Upgraded signals, compliance regions, and country pages from raw HTML to platform design
+- Added generateMetadata to 16 pages missing it; split 2 bare 'use client' page.tsx files
+- Fixed all 58 TypeScript errors introduced by remote type refactors (AdminResult generic narrowing)
+- Fixed 3 build errors in HarbourviewDashboard; fixed all lint to 0 errors 0 warnings
+- Fixed 6 test script failures (ripgrep dependency, tsc flags, zod resolution, tsx routing)
+- Created migration implement_is_signal_admin.sql (was permanent placeholder returning false)
+- Added openGraph to 3 hub pages; added missing HAR-37 role terms; deleted unused component
+- Documented 6 undocumented env vars; added README canonical status block
+
+**Commands and results:**
+
+- `npm run typecheck` — PASS (0 errors)
+- `npm run lint` — PASS (0 errors, 0 warnings)
+- `npm run build` — PASS (compiled successfully)
+- `npm run test:full-scope-launch-readiness` — PASS (all 7 checks)
+- All 36 runnable test scripts — PASS (36/36; 1 skip: compliance-visibility requires live Supabase)
+
+**Not run / blocked:**
+
+- Production route map probe: BLOCKED — requires `HARBOURVIEW_PUBLIC_BASE_URL=https://harbourview-nu.vercel.app`
+- Production public leakage probe: BLOCKED — requires live deployment and env
+- Marketplace smoke writes: BLOCKED — requires SUPABASE_SERVICE_ROLE_KEY and explicit write gates
+- Admin role matrix against production: BLOCKED — requires test accounts and live /admin
+
+**Gate status after this pass:**
+
+- Gate 1 (Build Recovery): GO — build is clean on current main
+- Gate 4 (Static Verification): GO — typecheck, lint, build, all static tests pass
+- Gates 2, 3, 5-14: HOLD — require live infrastructure, operator decisions, or external access
+
+**Public/private leakage assessment:** All 36 runnable leakage/boundary tests pass. No static evidence of leakage introduced.
+
+**GO/HOLD decision:** GO for HV-ALPHA-001 through HV-ALPHA-009 scope. HOLD for full production certification (Gates 2, 3, 5-14) pending live infrastructure verification.
