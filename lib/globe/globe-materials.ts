@@ -38,23 +38,23 @@ export function resolveCountryMaterialState({
     // Emissive: dark gold at moderate intensity fills shadow side so it reads as
     // dark gold, not black. Lower than before so lighting contrast (not uniform
     // self-glow) creates the 3D depth.
-    emissive: '#6b5222',
-    emissiveIntensity: 0.38,
+    emissive: '#3f2a08',
+    emissiveIntensity: 0.16,
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.
-    roughness: 0.28,
-    metalness: 0.52,
+    roughness: 0.26,
+    metalness: 0.92,
     // Clearcoat adds a second sharp reflection layer — makes specular highlight
     // look like polished metal rather than painted matte.
-    clearcoat: 0.42,
-    clearcoatRoughness: 0.22,
+    clearcoat: 0.58,
+    clearcoatRoughness: 0.18,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
   if (layerId === 'opportunity_heat') {
-    base.emissive = '#9d7a3d'
-    base.emissiveIntensity = 0.22
+    base.emissive = '#6f4e16'
+    base.emissiveIntensity = 0.14
   }
 
   if (layerId === 'documentation_burden') {
@@ -67,30 +67,32 @@ export function resolveCountryMaterialState({
     case 'focused':
       return {
         ...base,
-        plateBase: '#d4b870',
-        emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.55,
-        roughness: 0.32,
-        metalness: 0.72,
+        plateBase: '#caa75a',
+        emissive: '#7f5d1c',
+        emissiveIntensity: 0.22,
+        roughness: 0.24,
+        metalness: 0.94,
+        clearcoat: 0.62,
+        clearcoatRoughness: 0.16,
       }
     case 'selected':
       return {
         ...base,
         plateBase: hvTokens.globe.plateSelected,
         borderColor: hvTokens.globe.borderMutedGoldSoft,
-        emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.48,
-        roughness: 0.42,
-        metalness: 0.42,
-        clearcoat: 0.44,
-        clearcoatRoughness: 0.3,
+        emissive: '#8e671f',
+        emissiveIntensity: 0.26,
+        roughness: 0.21,
+        metalness: 0.96,
+        clearcoat: 0.68,
+        clearcoatRoughness: 0.14,
       }
     case 'multi_market':
       return {
         ...base,
         plateBase: '#13253a',
         emissive: '#d2b26b',
-        emissiveIntensity: 0.48,
+        emissiveIntensity: 0.24,
       }
     case 'disabled':
       return {
