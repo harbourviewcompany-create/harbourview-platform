@@ -5,14 +5,18 @@
 | Field | Value |
 |---|---|
 | Canonical status | Active — production platform |
-| Production domain | `https://harbourview-nu.vercel.app` |
+| Production domain | `https://harbourview.vercel.app` |
 | Production branch | `main` |
 | Vercel project ID | `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` |
 | Vercel team | `harbourviewnetwork` |
 | Deployment target | Vercel (auto-deploy on push to `main`) |
 | Database target | Supabase (see `docs/control/PROJECT_REGISTRY.md`) |
 | Owner | `harbourviewcompany-create` |
-| Safe next action | Push to `main` — auto-deploys to production |
+| Safe next action | Push to `main`, then verify the production deployment at `https://harbourview.vercel.app` |
+
+## Production verification rule
+
+After every production push, verify the active deployment through Vercel and confirm that the production alias resolves to `https://harbourview.vercel.app`. Do not treat preview URLs, stale deployment URLs, or branch deployment URLs as the canonical production target.
 
 Harbourview is a Next.js App Router platform for the public Harbourview Network experience and protected admin workflows.
 
