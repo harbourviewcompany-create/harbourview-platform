@@ -11,7 +11,9 @@ export interface DashboardRouteContext {
   mode?: GlobeRouterMode
   countries: string[]
   globeRoleId?: RoleId
+  roleLabel?: string
   intentId?: IntentId
+  intentLabel?: string
   layerId?: GlobeLayerId
 }
 
@@ -40,6 +42,28 @@ const regulatoryRoleIds = new Set<RoleId>([
   'logistics_customs',
 ])
 
+const medicalIntentIds = new Set<IntentId>([
+  'understand_medical_rules',
+  'treatment_channel_basics',
+  'country_specific_guidance',
+  'pharmacy_channel_rules',
+  'product_dispensing_constraints',
+  'country_specific_education',
+])
+
+const regulatoryIntentIds = new Set<IntentId>([
+  'understand_import_rules',
+  'screen_import_pathways',
+  'testing_requirements',
+  'quality_documentation',
+  'licensing_market_access',
+  'documentation_burden',
+  'country_specific_constraints',
+  'regulatory_framework',
+  'track_signals',
+  'import_export_help',
+])
+
 const dashboardRoleLabels: Record<DashboardRole, string> = {
   commercial_operator: 'Commercial Operator',
   medical_professional: 'Medical Professional',
@@ -65,11 +89,24 @@ function isGlobeRouterMode(value?: string): value is GlobeRouterMode {
   return value === 'single_market' || value === 'multi_market' || value === 'not_sure'
 }
 
-export function mapGlobeRoleToDashboardRole(roleId?: RoleId): DashboardRole {
-  if (!roleId) return DEFAULT_DASHBOARD_CONTEXT.role
-  if (medicalRoleIds.has(roleId)) return 'medical_professional'
-  if (regulatoryRoleIds.has(roleId)) return 'regulatory_legal'
+function titleCaseToken(value?: string) {
+  return value
+    ?.split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+export function mapGlobeRouteToDashboardRole(roleId?: RoleId, intentId?: IntentId): DashboardRole {
+  if (roleId && medicalRoleIds.has(roleId)) return 'medical_professional'
+  if (intentId && medicalIntentIds.has(intentId)) return 'medical_professional'
+  if (roleId && regulatoryRoleIds.has(roleId)) return 'regulatory_legal'
+  if (intentId && regulatoryIntentIds.has(intentId)) return 'regulatory_legal'
   return 'commercial_operator'
+}
+
+export function mapGlobeRoleToDashboardRole(roleId?: RoleId): DashboardRole {
+  return mapGlobeRouteToDashboardRole(roleId)
 }
 
 export function getDashboardRoleLabel(role: DashboardRole) {
@@ -92,6 +129,7 @@ export function parseDashboardGlobeRouteContext(params: SearchParamsLike): Dashb
   const intentId = readTrimmedParam(params, 'intent') as IntentId | undefined
   const layerId = readTrimmedParam(params, 'layer') as GlobeLayerId | undefined
   const mode = isGlobeRouterMode(rawMode) ? rawMode : undefined
+  const role = mapGlobeRouteToDashboardRole(globeRoleId, intentId)
 
   if (!countryIso2) {
     return {
@@ -100,21 +138,25 @@ export function parseDashboardGlobeRouteContext(params: SearchParamsLike): Dashb
       mode,
       countries,
       globeRoleId,
+      roleLabel: titleCaseToken(globeRoleId),
       intentId,
+      intentLabel: titleCaseToken(intentId),
       layerId,
-      role: mapGlobeRoleToDashboardRole(globeRoleId),
+      role,
     }
   }
 
   return {
     countryIso2,
     countryName: getCountryName(countryIso2),
-    role: mapGlobeRoleToDashboardRole(globeRoleId),
+    role,
     source,
     mode,
     countries: countries.length ? countries : [countryIso2],
     globeRoleId,
+    roleLabel: titleCaseToken(globeRoleId),
     intentId,
+    intentLabel: titleCaseToken(intentId),
     layerId,
   }
 }

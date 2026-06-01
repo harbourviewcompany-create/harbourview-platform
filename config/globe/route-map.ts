@@ -15,12 +15,20 @@ export const globeRouteManifest: GlobeRouteManifestEntry[] = [
 
   // Education destinations
   { path: '/education',                         availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
-  { path: '/education/export-import',           availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/export-import-readiness', availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
   { path: '/education/gmp',                     availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
-  { path: '/education/clinical',                availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/gacp',                    availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/gdp',                     availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/pharmaceutical-medical-cannabis', availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
   { path: '/education/pharmacy',                availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
-  { path: '/education/compliance',              availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/compliance-readiness',    availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
   { path: '/education/testing',                 availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/quality-compliance',      availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/importer-distributor',    availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/cultivation-production',  availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/procurement',             availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/pharmacovigilance',       availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
+  { path: '/education/policy',                  availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
 
   // Intelligence destinations
   { path: '/intelligence',                      availability: 'available', fallbackPath: '/intake', confirmedAvailable: true },
@@ -49,9 +57,10 @@ export const COUNTRY_DASHBOARD_SECTION_ALWAYS_AVAILABLE = true
 
 export const destinationBasePathMap: Record<DestinationType, string> = {
   // Education destinations: resolved to /dashboard/country/[slug]/education by
-  // the route resolver when a country is selected; falls back to /education otherwise.
-  medical_education:    '/education/clinical',
-  regulatory_education: '/education/compliance',
+  // the route resolver when a country is selected; falls back to current public
+  // education spine routes when no country section is available.
+  medical_education:    '/education/pharmaceutical-medical-cannabis',
+  regulatory_education: '/education/compliance-readiness',
 
   // Market signals
   signals:              '/signals',
@@ -65,4 +74,3 @@ export const destinationBasePathMap: Record<DestinationType, string> = {
   request_intro:        '/contact',
   routing_review:       '/intake',
 }
-
