@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { Component, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -20,7 +21,35 @@ import { RoleChipSelector } from './RoleChipSelector'
 import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
-import CanvasErrorBoundary from '@/components/harbourview/globe/CanvasErrorBoundary'
+
+type LandingGlobeErrorBoundaryProps = {
+  children: ReactNode
+  fallback: ReactNode
+}
+
+type LandingGlobeErrorBoundaryState = {
+  hasError: boolean
+}
+
+class LandingGlobeErrorBoundary extends Component<LandingGlobeErrorBoundaryProps, LandingGlobeErrorBoundaryState> {
+  state: LandingGlobeErrorBoundaryState = { hasError: false }
+
+  static getDerivedStateFromError(): LandingGlobeErrorBoundaryState {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Harbourview landing globe render failed — showing non-SVG fallback', error)
+    }
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback
+
+    return this.props.children
+  }
+}
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -139,9 +168,6 @@ export function GlobeSameScreenRouterLanding() {
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
   const countryBrief = useCountryBrief(state.selectedCountryIso2)
-  const selectedCountryName = state.mode === 'multi_market'
-    ? `${state.selectedCountryIso2s.length || 0} markets`
-    : getCountryName(state.selectedCountryIso2)
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
@@ -173,7 +199,7 @@ export function GlobeSameScreenRouterLanding() {
       {fallbackReason ? (
         <PremiumStaticGlobeFallback reason={fallbackReason} />
       ) : (
-        <CanvasErrorBoundary>
+        <LandingGlobeErrorBoundary fallback={<PremiumStaticGlobeFallback reason="webgl-unavailable" />}>
           <GlobeCanvas
             selectedCountryIso2={state.selectedCountryIso2}
             selectedCountryIso2s={state.selectedCountryIso2s}
@@ -183,7 +209,7 @@ export function GlobeSameScreenRouterLanding() {
             onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
             onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
           />
-        </CanvasErrorBoundary>
+        </LandingGlobeErrorBoundary>
       )}
 
       <CountrySearchOverlay
