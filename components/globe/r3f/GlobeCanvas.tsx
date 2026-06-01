@@ -7,7 +7,6 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { AtmosphereGlow } from './AtmosphereGlow'
-import { AtmosphereLayer } from './AtmosphereLayer'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
@@ -104,13 +103,13 @@ export function GlobeCanvas({
       >
         <color attach="background" args={['#01050d']} />
 
-        {/* Lights: drop the sunset HDRI (CDN hit, warm cast) in favour of
-            a hemisphere light that reads as cold deep space. */}
-        <ambientLight intensity={0.48} color="#fff4d6" />
-        <directionalLight position={[4, 3, 5]} intensity={1.9} color="#fff8e8" />
-        <directionalLight position={[-3, 1, -4]} intensity={0.35} color="#d4c060" />
-        <directionalLight position={[-4, -1, -3]} intensity={0.55} color="#c8a030" />
-        <hemisphereLight args={['#1a2840', '#030a14', 0.45]} />
+        {/* Premium controlled studio lighting: narrow warm key + cool fill to
+            create champagne highlights without washing continents flat. */}
+        <ambientLight intensity={0.2} color="#f0d59a" />
+        <directionalLight position={[3.8, 2.6, 4.8]} intensity={2.35} color="#fff3d5" />
+        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.22} color="#6f8fc8" />
+        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.28} color="#8a5f18" />
+        <hemisphereLight args={['#14233a', '#02060d', 0.28]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
@@ -124,11 +123,8 @@ export function GlobeCanvas({
             speed={0}
           />
 
-          {/* Atmosphere glow: BackSide Fresnel sphere, sits outside the rotating group */}
-          <AtmosphereLayer />
-
           <group rotation={[0.12, -0.8, 0]}>
-            {/* Atmosphere halo — rendered outside the ocean sphere */}
+            {/* Single restrained cobalt atmospheric rim — no second neon shell. */}
             <AtmosphereGlow />
             <OceanSphere />
             <CountryPolygonMeshLayer
@@ -164,6 +160,9 @@ export function GlobeCanvas({
           maxPolarAngle={polarLimits.max}
           autoRotate={shouldAutoRotate}
           autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
+          enableZoom={GLOBE_CAMERA_CONFIG.enableZoom}
+          minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
+          maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
         />
       </Canvas>
     </div>
