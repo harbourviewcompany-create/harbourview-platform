@@ -15,10 +15,12 @@ const TYPE_KEY_BY_LABEL: Record<string, MarketplaceListingTypeKey> = {
   'Featured Network Opportunity': 'featured_network_opportunity',
   Consumables: 'consumables',
   'Cultivation Equipment': 'cultivation_equipment',
+  'Processing Equipment': 'processing_equipment',
   'Distressed Inventory': 'distressed_inventory',
   'Distressed Businesses': 'distressed_businesses',
   'Genetics Program': 'genetics_program',
   'Qualified Access Request': 'qualified_access_request',
+  'Education Resource': 'education_resource',
 }
 
 function renderField(field: MarketplaceIntakeField) {
