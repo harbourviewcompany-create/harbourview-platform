@@ -1,5 +1,19 @@
 # Harbourview Platform
 
+## Repository status
+
+| Field | Value |
+|---|---|
+| Canonical status | Active — production platform |
+| Production domain | `https://harbourview-nu.vercel.app` |
+| Production branch | `main` |
+| Vercel project ID | `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` |
+| Vercel team | `harbourviewnetwork` |
+| Deployment target | Vercel (auto-deploy on push to `main`) |
+| Database target | Supabase (see `docs/control/PROJECT_REGISTRY.md`) |
+| Owner | `harbourviewcompany-create` |
+| Safe next action | Push to `main` — auto-deploys to production |
+
 Harbourview is a Next.js App Router platform for the public Harbourview Network experience and protected admin workflows.
 
 ## Project registry

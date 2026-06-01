@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error.message }, { status: 500 })
+      return NextResponse.json({ error: (result as any).error.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })

@@ -186,7 +186,8 @@ async function adminPatch(
   patch: Record<string, unknown>,
 ): Promise<AdminDataResult<unknown>> {
   const client = getAdminDataClient()
-  if (!client.ok) return client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any
   const response = await fetch(
     `${client.data.url}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`,
     {
@@ -219,7 +220,8 @@ async function adminInsert<T>(
   row: Record<string, unknown>,
 ): Promise<AdminDataResult<T>> {
   const client = getAdminDataClient()
-  if (!client.ok) return client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any
   const response = await fetch(`${client.data.url}/rest/v1/${table}?select=*`, {
     method: 'POST',
     headers: {

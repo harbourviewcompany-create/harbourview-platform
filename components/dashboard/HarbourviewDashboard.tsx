@@ -42,11 +42,11 @@ const mkListings = (ct: {c1:string;c2:string;c3:string;cur:string}) => [
 ];
 
 const mkSignals = (name: string) => [
-  {id:1,icon:'📋',headline:`${name}: government reviews cannabis export licensing framework.`,   tag:'REGULATION',ts:['rgba(74,154,107,0.18)','#6FCF7D','rgba(74,154,107,0.35)'], time:'2h ago', hot:true },
-  {id:2,icon:'📈',headline:'Extraction equipment demand rising across APAC & EU markets.',        tag:'MARKET',    ts:['rgba(59,130,160,0.18)','#5DAFC8','rgba(59,130,160,0.35)'], time:'6h ago', hot:false},
-  {id:3,icon:'🌿',headline:'New GMP guidance released for medicinal cannabis manufacturers.',      tag:'COMPLIANCE',ts:['rgba(217,164,65,0.18)','#D9A441','rgba(217,164,65,0.35)'], time:'1d ago', hot:false},
-  {id:4,icon:'🤝',headline:'AU-NZ trade discussions may expand cannabis product access.',          tag:'TRADE',     ts:['rgba(139,95,168,0.18)','#B07ED4','rgba(139,95,168,0.35)'], time:'2d ago', hot:false},
-  {id:5,icon:'💰',headline:'Investor interest in regional cultivation infrastructure rising.',     tag:'INVESTMENT',ts:['rgba(184,115,51,0.18)','#D49560','rgba(184,115,51,0.35)'], time:'3d ago', hot:false},
+  {id:1,icon:'📋',headline:`${name}: government reviews cannabis export licensing framework.`,   tag:'REGULATION',ts: ['rgba(74,154,107,0.18)','#6FCF7D','rgba(74,154,107,0.35)'] as [string, string, string], time:'2h ago', hot:true },
+  {id:2,icon:'📈',headline:'Extraction equipment demand rising across APAC & EU markets.',        tag:'MARKET',    ts: ['rgba(59,130,160,0.18)','#5DAFC8','rgba(59,130,160,0.35)'] as [string, string, string], time:'6h ago', hot:false},
+  {id:3,icon:'🌿',headline:'New GMP guidance released for medicinal cannabis manufacturers.',      tag:'COMPLIANCE',ts: ['rgba(217,164,65,0.18)','#D9A441','rgba(217,164,65,0.35)'] as [string, string, string], time:'1d ago', hot:false},
+  {id:4,icon:'🤝',headline:'AU-NZ trade discussions may expand cannabis product access.',          tag:'TRADE',     ts: ['rgba(139,95,168,0.18)','#B07ED4','rgba(139,95,168,0.35)'] as [string, string, string], time:'2d ago', hot:false},
+  {id:5,icon:'💰',headline:'Investor interest in regional cultivation infrastructure rising.',     tag:'INVESTMENT',ts: ['rgba(184,115,51,0.18)','#D49560','rgba(184,115,51,0.35)'] as [string, string, string], time:'3d ago', hot:false},
 ];
 
 const NOTIFS = [
