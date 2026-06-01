@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCountryStatusBar } from '@/lib/dashboard/dashboardServerData'
+import { getCountryStatusBar, getEmptyCountryStatusBar } from '@/lib/dashboard/dashboardServerData'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const iso2 = req.nextUrl.searchParams.get('iso2') ?? 'DE'
-  const bar = getCountryStatusBar(iso2)
+  const rawIso2 = req.nextUrl.searchParams.get('iso2')
+  const iso2 = rawIso2?.trim().toUpperCase()
+  const bar = iso2 ? getCountryStatusBar(iso2) : getEmptyCountryStatusBar()
   return NextResponse.json(bar)
 }
