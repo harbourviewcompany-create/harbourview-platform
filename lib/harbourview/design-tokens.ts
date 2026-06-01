@@ -11,12 +11,12 @@ export const hvTokens = {
   globe: {
     oceanBase: '#07121f',
     oceanEmissive: '#10253c',
-    plateBase: '#C6A55A',
-    plateSelected: '#e8c96a',
-    borderMutedGold: '#c6a55a',
-    borderMutedGoldSoft: '#bfa36a',
-    sidewallDark: '#101722',
+    plateBase: '#9f7828',
+    plateSelected: '#f0d58a',
+    borderMutedGold: '#b79245',
+    borderMutedGoldSoft: '#f1d99a',
+    sidewallDark: '#211706',
     sidewallDisabled: '#0d1218',
-    selectedAccent: '#f2dc88',
+    selectedAccent: '#fff1bd',
   },
 }

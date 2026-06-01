@@ -1,13 +1,15 @@
 'use client'
 
-import { Suspense, useRef } from 'react'
+import { Suspense, useCallback, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls, Stars } from '@react-three/drei'
+import { OrbitControls, Stars } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
+import { AtmosphereGlow } from './AtmosphereGlow'
 import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
+import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
@@ -59,10 +61,33 @@ export function GlobeCanvas({
     ? GLOBE_CAMERA_CONFIG.polarByState.country
     : GLOBE_CAMERA_CONFIG.polarByState.selected
 
+  // Wrap hover callbacks to also invalidate the canvas so frameloop="demand"
+  // re-renders when pointer enters/leaves a country plate.
+  const invalidateRef = useRef<(() => void) | null>(null)
+  const handleHoverCountry = useCallback(
+    (iso2?: string) => {
+      invalidateRef.current?.()
+      onHoverCountry?.(iso2)
+    },
+    [onHoverCountry],
+  )
+
+  // Auto-rotate only when nothing is hovered or selected
+  const isHovering = !!focusedCountryIso2
+  const isSelected = !!selectedCountryIso2
+  const shouldAutoRotate = !isHovering && !isSelected
+
   return (
-    <div className={className ?? 'absolute inset-0 pointer-events-none'}>
+    <div
+      className={className ?? 'absolute inset-0 pointer-events-none'}
+      // Pointer cursor whenever a country plate is hovered
+      style={{ cursor: isHovering ? 'pointer' : 'default' }}
+    >
       <Canvas
         className="h-full w-full pointer-events-auto"
+        // Only render when something changes — saves GPU on idle.
+        // Components that animate must call state.invalidate() inside useFrame.
+        frameloop="demand"
         dpr={[1, 1.75]}
         aria-label="Harbourview country globe"
         camera={{
@@ -71,40 +96,49 @@ export function GlobeCanvas({
           far: GLOBE_CAMERA_CONFIG.far,
           position: GLOBE_CAMERA_CONFIG.initialPosition,
         }}
+        onCreated={(state) => {
+          // Expose invalidate so pointer callbacks above can request a frame.
+          invalidateRef.current = state.invalidate
+        }}
       >
         <color attach="background" args={['#01050d']} />
-        <ambientLight intensity={0.16} color="#ffe8c0" />
-        <directionalLight position={[4, 3, 5]} intensity={1.8} color="#fff8e8" />
-        <directionalLight position={[-3, 1, -4]} intensity={0.55} color="#c8a040" />
+
+        {/* Premium controlled studio lighting: narrow warm key + cool fill to
+            create champagne highlights without washing continents flat. */}
+        <ambientLight intensity={0.2} color="#f0d59a" />
+        <directionalLight position={[3.8, 2.6, 4.8]} intensity={2.35} color="#fff3d5" />
+        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.22} color="#6f8fc8" />
+        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.28} color="#8a5f18" />
+        <hemisphereLight args={['#14233a', '#02060d', 0.28]} />
 
         <Suspense fallback={null}>
-          <Environment preset="sunset" />
-
+          {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
           <Stars
             radius={18}
             depth={6}
-            count={350}
-            factor={0.85}
+            count={3500}
+            factor={1.2}
             saturation={0}
             fade
             speed={0}
           />
 
           <group rotation={[0.12, -0.8, 0]}>
+            {/* Single restrained cobalt atmospheric rim — no second neon shell. */}
+            <AtmosphereGlow />
             <OceanSphere />
-            <CountryBorderLayer
-              selectedCountryIso2={selectedCountryIso2}
-              selectedCountryIso2s={selectedCountryIso2s}
-              focusedCountryIso2={focusedCountryIso2}
-            />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={focusedCountryIso2}
               activeLayerId={activeLayerId}
-              onHoverCountry={onHoverCountry}
+              onHoverCountry={handleHoverCountry}
               onSelectCountry={onSelectCountry}
             />
+            {/* Border strokes render after polygon plates so U.S. subdivisions remain legible on mobile. */}
+            <CountryBorderLayer />
+            {/* Hover label — floats above the plate centroid while hovering */}
+            {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
@@ -124,6 +158,11 @@ export function GlobeCanvas({
           maxDistance={distanceLimits.max}
           minPolarAngle={polarLimits.min}
           maxPolarAngle={polarLimits.max}
+          autoRotate={shouldAutoRotate}
+          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
+          enableZoom={GLOBE_CAMERA_CONFIG.enableZoom}
+          minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
+          maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
         />
       </Canvas>
     </div>
