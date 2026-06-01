@@ -23,7 +23,7 @@ function assertNoForbiddenStrings(dom: string, label: string) {
 describe('public DOM forbidden string guardrails', () => {
   it('keeps homepage globe search and intent results DOM public-safe', () => {
     const searchHtml = renderToStaticMarkup(
-      <CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />,
+      <CountrySearchOverlay onSelectCountry={() => undefined} />,
     )
     const resultHtml = renderToStaticMarkup(
       <IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />,
@@ -39,7 +39,7 @@ describe('public DOM forbidden string guardrails', () => {
   })
 
   it('covers homepage and marketplace surfaces as route-level DOM checks', () => {
-    const homepageSearchHtml = renderToStaticMarkup(<CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />)
+    const homepageSearchHtml = renderToStaticMarkup(<CountrySearchOverlay onSelectCountry={() => undefined} />)
     const homepageResultsHtml = renderToStaticMarkup(<IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />)
     const marketCardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={publicMarketplaceListings[1]} />)
 

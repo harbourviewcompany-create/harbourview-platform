@@ -5,11 +5,9 @@ import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/c
 export function GlobeFallbackCountrySelector({
   selectedCountryIso2,
   onSelectCountry,
-  onNotSure,
 }: {
   selectedCountryIso2?: string
   onSelectCountry: (countryIso2: string) => void
-  onNotSure: () => void
 }) {
   return (
     <div className="rounded-[28px] border border-[#c6a55a]/18 bg-[#030b16]/82 p-4 text-white backdrop-blur-xl">
@@ -34,9 +32,6 @@ export function GlobeFallbackCountrySelector({
           </button>
         ))}
       </div>
-      <button type="button" onClick={onNotSure} className="mt-3 min-h-11 w-full rounded-full border border-[#c6a55a]/20 text-xs font-semibold uppercase tracking-[0.14em] text-white/72">
-        I’m not sure yet
-      </button>
     </div>
   )
 }

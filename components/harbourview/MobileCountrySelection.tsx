@@ -14,26 +14,22 @@ const CandidateBGlobe = dynamic(
   { ssr: false, loading: () => null },
 )
 
-type SelectedPath = 'country' | 'not_sure' | 'multi_market'
+type SelectedPath = 'country'
 
 type State = {
   selectedCountryIso2: string | null
-  selectedPath: SelectedPath
   labelVisible: boolean
 }
 
 type Action =
   | { type: 'SELECT_COUNTRY'; iso2: string }
-  | { type: 'SELECT_PATH'; path: SelectedPath }
   | { type: 'HIDE_LABEL' }
   | { type: 'SHOW_LABEL' }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SELECT_COUNTRY':
-      return { ...state, selectedCountryIso2: action.iso2, selectedPath: 'country', labelVisible: true }
-    case 'SELECT_PATH':
-      return { ...state, selectedPath: action.path }
+      return { ...state, selectedCountryIso2: action.iso2, labelVisible: true }
     case 'HIDE_LABEL':
       return { ...state, labelVisible: false }
     case 'SHOW_LABEL':
@@ -56,7 +52,6 @@ export function MobileCountrySelection({
 }: MobileCountrySelectionProps) {
   const [state, dispatch] = useReducer(reducer, {
     selectedCountryIso2: initialCountry,
-    selectedPath: 'country',
     labelVisible: true,
   })
 
@@ -85,7 +80,7 @@ export function MobileCountrySelection({
 
   const handleContinue = () => {
     if (onContinue) {
-      onContinue(state.selectedCountryIso2, state.selectedPath as any)
+      onContinue(state.selectedCountryIso2, 'country')
     }
   }
 
@@ -212,9 +207,7 @@ export function MobileCountrySelection({
       <CountrySelectionSheet
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryName={selectedCountryName}
-        selectedPath={state.selectedPath as any}
         onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
-        onSelectPath={(path) => dispatch({ type: 'SELECT_PATH', path: path as any })}
         onContinue={handleContinue}
       />
     </main>
