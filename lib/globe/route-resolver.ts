@@ -86,47 +86,18 @@ function resolveCountrySectionPath(
   return `/dashboard/country/${country.slug}/${section}`
 }
 
-// Resolve any role directly to the country dashboard when a slug is available.
-// This is the primary path for all single-market role selections without an intent.
-function resolveCountryDashboardPath(input: GlobeRouteInput): string | null {
-  if (!input.countryIso2 || input.mode === 'multi_market') return null
-  const country = getCountryByIso2(input.countryIso2)
-  if (!country) return null
-  return `/dashboard/country/${country.slug}`
-}
-
-// Resolve a country iso2 that may be a province (CA-XX) or US state (US-XX) to its dashboard slug.
-function resolveCountryOrProvinceDashboardSlug(iso2: string): string | null {
-  // Province: CA-XX -> /dashboard/country/[province-slug]
-  if (iso2.startsWith('CA-')) {
-    const province = canadaProvinceByIso2[iso2]
-    return province ? `/dashboard/country/${province.slug}` : `/dashboard/country/canada`
-  }
-  // US state: US-XX -> /dashboard/country/[state-slug]
-  if (iso2.startsWith('US-')) {
-    const state = usStateByIso2[iso2]
-    return state ? `/dashboard/country/${state.slug}` : `/dashboard/country/united-states`
-  }
-  const country = getCountryByIso2(iso2)
-  return country ? `/dashboard/country/${country.slug}` : null
-}
-
 export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
   const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? mapRoleToDestinationType(input.roleId)
 
-  // 1. Single-market without intent — go straight to the country dashboard.
-  //    The shell reads the role query param and adapts its content accordingly.
+  // 1. Single-market without intent — land on the main /dashboard commercial OS.
+  //    Country and role are passed as query params; the dashboard page reads them
+  //    and seeds UniversalDashboard directly, bypassing the Supabase prefs lookup.
   if (!input.intentId && input.countryIso2 && input.mode !== 'multi_market') {
-    // Handle province iso2 (CA-XX) directly
-    const directSlug = input.countryIso2 ? resolveCountryOrProvinceDashboardSlug(input.countryIso2) : null
-    const dashboardPath = directSlug ?? resolveCountryDashboardPath(input)
-    if (dashboardPath) {
-      return {
-        status: 'resolved',
-        href: appendGlobeQuery(dashboardPath, input),
-        destinationType,
-      }
+    return {
+      status: 'resolved',
+      href: appendGlobeQuery('/dashboard', input),
+      destinationType,
     }
   }
 
@@ -189,4 +160,3 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
 export function useRouteResolver() {
   return resolveGlobeRoute
 }
-
