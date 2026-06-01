@@ -191,30 +191,19 @@ function ensureWinding(pts: [number, number][], clockwise: boolean): [number, nu
 }
 
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
-  if (!country?.polygons || !Array.isArray(country.polygons)) return []
   return country.polygons
     .map((polygon) => {
-      if (!polygon?.rings || !Array.isArray(polygon.rings)) return null
-      const outerRing = polygon.rings.find((r) => r?.kind === 'outer')
-      if (!outerRing?.points || !Array.isArray(outerRing.points)) return null
+      const outerRing = polygon.rings.find((r) => r.kind === 'outer')
+      if (!outerRing) return null
 
-      // Guard: filter out any undefined/non-array points before normalising
-      const validPoints = outerRing.points.filter(
-        (p): p is [number, number] => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])
-      )
-      const rawOuter = normalizeRing(validPoints)
+      const rawOuter = normalizeRing(outerRing.points)
       if (rawOuter.length < 3) return null
 
       const referenceLongitude = rawOuter[0][0]
       const outer = ensureWinding(normalizeLongitudesAround(rawOuter, referenceLongitude), false)
       const holes = polygon.rings
-        .filter((r) => r?.kind === 'hole' && Array.isArray(r.points))
-        .map((r) => {
-          const validHolePts = r.points.filter(
-            (p): p is [number, number] => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])
-          )
-          return normalizeLongitudesAround(normalizeRing(validHolePts), referenceLongitude)
-        })
+        .filter((r) => r.kind === 'hole')
+        .map((r) => normalizeLongitudesAround(normalizeRing(r.points), referenceLongitude))
         .map((r) => ensureWinding(r, true))
         .filter((r) => r.length >= 3)
       return { outer, holes }

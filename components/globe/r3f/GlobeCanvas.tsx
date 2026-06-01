@@ -4,9 +4,6 @@ import { Suspense, useCallback, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { EffectComposer, SSAO, Bloom, Vignette } from '@react-three/postprocessing'
-import { BlendFunction } from 'postprocessing'
-import { ACESFilmicToneMapping } from 'three'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { AtmosphereGlow } from './AtmosphereGlow'
@@ -101,10 +98,6 @@ export function GlobeCanvas({
           position: GLOBE_CAMERA_CONFIG.initialPosition,
         }}
         onCreated={(state) => {
-          // ACES Filmic tone mapping — whole-scene response curve.
-          // Richer shadow detail, compressed highlights, graded look.
-          state.gl.toneMapping = ACESFilmicToneMapping
-          state.gl.toneMappingExposure = 1.05
           // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
@@ -120,13 +113,13 @@ export function GlobeCanvas({
         <hemisphereLight args={['#1a2840', '#030a14', 0.45]} />
 
         <Suspense fallback={null}>
-          {/* 3 500 stars — blue-white with varied brightness, reads as deep space */}
+          {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
           <Stars
             radius={18}
             depth={6}
             count={3500}
-            factor={1.8}
-            saturation={0.5}
+            factor={1.2}
+            saturation={0}
             fade
             speed={0}
           />
@@ -172,50 +165,6 @@ export function GlobeCanvas({
           autoRotate={shouldAutoRotate}
           autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
         />
-
-        {/*
-          Post-processing effects — composed in a single render pass.
-          multisampling={0}: MSAA disabled (required for SSAO normal-pass).
-          enableNormalPass: provides the normal buffer SSAO needs for depth-aware occlusion.
-        */}
-        <EffectComposer multisampling={0} enableNormalPass>
-          {/*
-            SSAO — darkens the concave seams between raised country plates.
-            radius=18: ~18px screen-space sampling radius, tuned to plate-edge scale.
-            intensity=2.5: strong enough to see in the valleys, not so much it muddies flats.
-            luminanceInfluence=0.9: keeps bright (lit) plate faces mostly unaffected.
-          */}
-          <SSAO
-            blendFunction={BlendFunction.MULTIPLY}
-            samples={16}
-            rings={4}
-            luminanceInfluence={0.9}
-            radius={18}
-            bias={0.5}
-            intensity={2.5}
-            worldDistanceThreshold={0.4}
-            worldDistanceFalloff={0.1}
-            worldProximityThreshold={0.06}
-            worldProximityFalloff={0.04}
-          />
-          {/*
-            Bloom — selected/hovered plates pulse above luminanceThreshold so their
-            emissive glow bleeds into adjacent pixels, reading as internal light.
-            mipmapBlur produces a natural, high-quality bloom without ringing.
-          */}
-          <Bloom
-            luminanceThreshold={0.78}
-            luminanceSmoothing={0.2}
-            intensity={0.5}
-            radius={0.7}
-            mipmapBlur
-          />
-          {/*
-            Vignette — darkens screen edges, pushes attention inward to the globe.
-            offset/darkness tuned to feel like ambient edge fall-off, not a heavy frame.
-          */}
-          <Vignette eskil={false} offset={0.22} darkness={0.65} />
-        </EffectComposer>
       </Canvas>
     </div>
   )
