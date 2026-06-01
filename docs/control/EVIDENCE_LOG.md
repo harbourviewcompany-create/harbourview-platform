@@ -185,7 +185,7 @@ Expected Pass 1 evidence:
 
 **Not run / blocked:**
 
-- Production route map probe: BLOCKED — requires `HARBOURVIEW_PUBLIC_BASE_URL=https://harbourview-nu.vercel.app`
+- Production route map probe: BLOCKED — requires `HARBOURVIEW_PUBLIC_BASE_URL=https://harbourview.vercel.app`
 - Production public leakage probe: BLOCKED — requires live deployment and env
 - Marketplace smoke writes: BLOCKED — requires SUPABASE_SERVICE_ROLE_KEY and explicit write gates
 - Admin role matrix against production: BLOCKED — requires test accounts and live /admin
