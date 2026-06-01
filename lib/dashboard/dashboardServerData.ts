@@ -30,16 +30,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}w ago`
 }
 
-export type DashboardSignal = {
-  id: string
-  title: string
-  type: string
-  market: string
-  tag: { label: string; color: string; bg: string; border: string }
-  timeAgo: string
-  confidence: number
-  commercialImpact: string
-}
+export type { DashboardSignal } from './dashboardShared'
 
 function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSignal[] {
   return signals
@@ -68,28 +59,7 @@ export async function fetchDashboardSignals(limit = 8): Promise<DashboardSignal[
 }
 
 // ── Role display mapping ──────────────────────────────────────────────────────
-export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {
-  doctor_prescriber:          { label: 'Doctor / Prescriber',      short: 'Doctor'      },
-  pharmacist:                 { label: 'Pharmacist',               short: 'Pharmacist'  },
-  budtender:                  { label: 'Budtender',                short: 'Budtender'   },
-  cultivator_producer:        { label: 'Cultivator / Producer',    short: 'Cultivator'  },
-  geneticist_breeder:         { label: 'Geneticist / Breeder',     short: 'Geneticist'  },
-  processor_extractor:        { label: 'Processor / Extractor',    short: 'Processor'   },
-  lab_qa:                     { label: 'Lab / QA',                 short: 'Lab/QA'      },
-  importer:                   { label: 'Importer / Buyer',         short: 'Importer'    },
-  exporter:                   { label: 'Exporter / Supplier',      short: 'Exporter'    },
-  distributor_wholesaler:     { label: 'Distributor / Wholesaler', short: 'Distributor' },
-  clinic_healthcare_operator: { label: 'Clinic / Healthcare Op.',  short: 'Clinic Op.'  },
-  retail_operator:            { label: 'Retail Operator',          short: 'Retail'      },
-  regulatory_compliance:      { label: 'Regulatory / Compliance',  short: 'Compliance'  },
-  legal_advisory:             { label: 'Legal / Advisory',         short: 'Legal'       },
-  investor_operator:          { label: 'Investor / Operator',      short: 'Investor'    },
-  government_regulator:       { label: 'Government Regulator',     short: 'Regulator'   },
-  patient_caregiver_education:{ label: 'Patient / Caregiver',      short: 'Patient Ed.' },
-  gmp_quality:                { label: 'GMP / Quality',            short: 'GMP/QA'      },
-  logistics_customs:          { label: 'Logistics / Customs',      short: 'Logistics'   },
-  not_sure:                   { label: 'Not Sure Yet',             short: 'General'     },
-}
+export { ROLE_PROFILES } from './dashboardShared'
 
 // ── Education categories per role ─────────────────────────────────────────────
 const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: string }[]> = {

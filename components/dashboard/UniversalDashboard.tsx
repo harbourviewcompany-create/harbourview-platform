@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, type RefObject } from 'react'
 import type { RoleId } from '@/types/globe-router'
-import type { DashboardSignal } from '@/lib/dashboard/dashboardServerData'
-import { ROLE_PROFILES } from '@/lib/dashboard/dashboardServerData'
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 const C = {
