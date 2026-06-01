@@ -8,8 +8,10 @@ import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
 import dynamic from 'next/dynamic'
 
-// GlobeCanvas (R3F/Three.js country mesh) replaced with stable WebGL sphere
-// Use HarbourviewGlobeClientLoader for decorative background globe
+const GlobeCanvas = dynamic(() => import('./r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })), {
+  ssr: false,
+  loading: () => null,
+})
 import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
@@ -18,14 +20,6 @@ import { RoleChipSelector } from './RoleChipSelector'
 import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
-// SSR-safe: HarbourviewGlobeClientLoader accesses WebGL/document — must not run on server
-const HarbourviewGlobeClientLoader = dynamic(
-  () =>
-    import('@/components/harbourview/globe/HarbourviewGlobeClientLoader').then(
-      (m) => ({ default: m.HarbourviewGlobeClientLoader }),
-    ),
-  { ssr: false },
-)
 import CanvasErrorBoundary from '@/components/harbourview/globe/CanvasErrorBoundary'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
@@ -179,9 +173,17 @@ export function GlobeSameScreenRouterLanding() {
       {fallbackReason ? (
         <PremiumStaticGlobeFallback reason={fallbackReason} />
       ) : (
-        <div className="absolute inset-0 pointer-events-none">
-          <HarbourviewGlobeClientLoader />
-        </div>
+        <CanvasErrorBoundary>
+          <GlobeCanvas
+            selectedCountryIso2={state.selectedCountryIso2}
+            selectedCountryIso2s={state.selectedCountryIso2s}
+            focusedCountryIso2={state.focusedCountryIso2}
+            activeLayerId={state.activeLayerId ?? 'country_select'}
+            routerStep={state.step}
+            onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+            onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+          />
+        </CanvasErrorBoundary>
       )}
 
       <CountrySearchOverlay
