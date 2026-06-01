@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect, useRef, useCallback, type RefObject } from 'react'
 import type { RoleId } from '@/types/globe-router'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -583,7 +584,7 @@ export default function UniversalDashboard({ signals, eduCategories, countryBar:
                     <div style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(59,130,160,0.12)', border: '1px solid rgba(59,130,160,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🌐</div>
                     <span style={{ color: C.gold, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase' }}>Explore the Globe</span>
                   </div>
-                  <a href="/" style={{ background: 'none', border: 'none', color: C.gold, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>View Globe →</a>
+                  <Link href="/" style={{ background: 'none', border: 'none', color: C.gold, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>View Globe →</Link>
                 </div>
                 <div style={{ borderRadius: 10, overflow: 'hidden', background: 'radial-gradient(ellipse at 28% 50%, rgba(59,130,160,0.22) 0%, rgba(6,16,26,0.96) 55%, #02070D 100%)', border: `1px solid ${C.bGold}`, padding: '14px', position: 'relative', minHeight: 90 }}>
                   <div style={{ position: 'absolute', right: -18, bottom: -18, width: 100, height: 100, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, rgba(59,130,160,0.35), rgba(13,30,48,0.6) 55%, transparent)', border: '1px solid rgba(59,130,160,0.18)' }} />
@@ -592,7 +593,7 @@ export default function UniversalDashboard({ signals, eduCategories, countryBar:
                   ))}
                   <div style={{ color: C.ts, fontSize: 11, fontWeight: 500, marginBottom: 2 }}>See opportunity across 100+ markets.</div>
                   <div style={{ color: C.tp, fontSize: 12, fontWeight: 600, lineHeight: 1.3, marginBottom: 9 }}>Track signals. Connect globally.</div>
-                  <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(217,164,65,0.10)', border: `1px solid ${C.bGold}`, borderRadius: 7, padding: '6px 12px', color: C.gold, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textDecoration: 'none' }}>⊙ VIEW GLOBE</a>
+                  <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(217,164,65,0.10)', border: `1px solid ${C.bGold}`, borderRadius: 7, padding: '6px 12px', color: C.gold, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.04em', textDecoration: 'none' }}>⊙ VIEW GLOBE</Link>
                 </div>
               </div>
 
