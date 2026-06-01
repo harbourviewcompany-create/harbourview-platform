@@ -17,6 +17,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Platform',
     items: [
+      { label: 'Operator Dashboard', href: '/dashboard' },
       { label: 'Platform Map', href: '/platform' },
       { label: 'Network', href: '/network' },
       { label: 'Professionals', href: '/professionals' },
