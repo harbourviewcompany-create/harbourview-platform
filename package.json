@@ -65,7 +65,11 @@
     "test:public-copy-dedup": "node scripts/test-public-copy-dedup.mjs",
     "source-import:build": "tsx scripts/source-import/build-source-import-batches.ts",
     "source-import:push": "tsx scripts/source-import/push-source-import-batches.ts",
-    "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts"
+    "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts",
+    "test:har37": "node scripts/test-har37-public-ia.mjs",
+    "test:har39-40": "node scripts/test-har39-har40-public-surfaces.mjs",
+    "test:intake-safety": "node scripts/test-intake-workflow-safety.mjs",
+    "test:smoke-route-guard": "node scripts/test-smoke-marketplace-route-guard.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",

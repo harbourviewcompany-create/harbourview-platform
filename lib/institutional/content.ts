@@ -155,7 +155,7 @@ export const hubPages: Record<string, InstitutionalPageContent> = {
     eyebrow: 'Controlled commercial network',
     title: 'Harbourview Network',
     description:
-      'Role-specific discovery for regulated cannabis operators, buyers, sellers, exporters, importers, distributors, professionals, institutions and adjacent stakeholders.',
+      'Role-specific discovery for regulated cannabis operators, buyers, sellers, exporters, importers, distributors, service providers, testing providers, logistics, labs, enthusiasts, professionals, institutions and adjacent stakeholders.',
     primaryCta: { label: 'Enter Exchange', href: '/marketplace' },
     secondaryCta: { label: 'Join Network', href: '/intake' },
     boundary: PUBLIC_PRIVATE_BOUNDARY,
