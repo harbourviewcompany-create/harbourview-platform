@@ -27,11 +27,11 @@ function buildFallbackIntakeHref(state: GlobeRouterState) {
   const params = new URLSearchParams()
 
   params.set('source', 'globe_router')
-  params.set('mode', 'single_market')
+  params.set('mode', state.mode)
 
   if (state.selectedCountryIso2) params.set('country', state.selectedCountryIso2)
   if (state.selectedCountryIso2s.length) params.set('countries', state.selectedCountryIso2s.join(','))
-  if (state.selectedRoleId && state.selectedRoleId !== 'not_sure') params.set('role', state.selectedRoleId)
+  if (state.selectedRoleId) params.set('role', state.selectedRoleId)
   if (state.activeLayerId) params.set('layer', state.activeLayerId)
   if (state.requestedPath) params.set('requestedPath', state.requestedPath)
 
@@ -41,7 +41,12 @@ function buildFallbackIntakeHref(state: GlobeRouterState) {
 function getFallbackContextItems(state: GlobeRouterState) {
   const items: { label: string; value: string }[] = []
 
-  if (state.selectedCountryIso2) {
+  if (state.mode === 'multi_market' && state.selectedCountryIso2s.length > 0) {
+    items.push({
+      label: 'Markets',
+      value: state.selectedCountryIso2s.map((countryIso2) => getCountryName(countryIso2)).join(', '),
+    })
+  } else if (state.selectedCountryIso2) {
     items.push({ label: 'Country', value: getCountryName(state.selectedCountryIso2) })
   }
 
@@ -171,7 +176,7 @@ export function GlobeSameScreenRouterLanding() {
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
           onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-          onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SELECT', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
         />
       )}
 
@@ -180,23 +185,26 @@ export function GlobeSameScreenRouterLanding() {
           dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })
           setSrAnnouncement(`Country selected: ${getCountryName(countryIso2)}.`)
         }}
+        onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
         onAnnouncement={setSrAnnouncement}
       />
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
 
-      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
-        <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Select a country and your role. Harbourview will route you to the right market intelligence.
+      <div className="pointer-events-none fixed inset-x-4 top-[112px] z-20 sm:left-7 sm:right-auto sm:top-[118px] sm:w-[360px] lg:top-[128px]">
+        <p className="max-w-[21rem] rounded-2xl border border-[#d8be76]/14 bg-[#020812]/48 px-4 py-3 text-sm leading-6 text-[#f5f1e8]/76 shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur-md">
+          Select a market and role. Harbourview routes you to marketplace access, intelligence, and operating workflows.
         </p>
       </div>
 
       {state.step === 'role' ? (
-        <RouterBottomSheet eyebrow={countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
+        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
           {countryBrief.status === 'loading' && <CountryBriefPanelSkeleton />}
           {countryBrief.status === 'ok' && <CountryBriefPanel brief={countryBrief.data} />}
           <RoleChipSelector
             countryIso2={state.selectedCountryIso2}
+            countryIso2s={state.selectedCountryIso2s}
+            mode={state.mode}
             searchQuery={state.roleSearchQuery}
             selectedRoleId={state.selectedRoleId}
             onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
