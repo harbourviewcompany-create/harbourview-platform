@@ -60,7 +60,6 @@ export type ComplianceCountry = {
   relatedExplainers: string[]
   complianceBoundary?: string
   disclaimer: string
-  complianceBoundary?: string
 }
 
 export type ComplianceExplainer = {

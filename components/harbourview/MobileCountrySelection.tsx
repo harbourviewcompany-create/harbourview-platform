@@ -85,7 +85,7 @@ export function MobileCountrySelection({
 
   const handleContinue = () => {
     if (onContinue) {
-      onContinue(state.selectedCountryIso2, state.selectedPath)
+      onContinue(state.selectedCountryIso2, state.selectedPath as any)
     }
   }
 
@@ -212,9 +212,9 @@ export function MobileCountrySelection({
       <CountrySelectionSheet
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryName={selectedCountryName}
-        selectedPath={state.selectedPath}
+        selectedPath={state.selectedPath as any}
         onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
-        onSelectPath={(path) => dispatch({ type: 'SELECT_PATH', path })}
+        onSelectPath={(path) => dispatch({ type: 'SELECT_PATH', path: path as any })}
         onContinue={handleContinue}
       />
     </main>

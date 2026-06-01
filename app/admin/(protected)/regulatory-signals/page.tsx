@@ -22,7 +22,7 @@ export default async function RegulatorySignalsAdminPage() {
       </div>
 
       {!result.ok ? (
-        <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">{result.error.message}</div>
+        <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">{(result as any).error.message}</div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]">
           <table className="w-full min-w-[920px] text-left text-sm">

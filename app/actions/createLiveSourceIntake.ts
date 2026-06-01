@@ -10,7 +10,7 @@ export async function createLiveSourceIntake(formData: FormData): Promise<void> 
   const result = await createManualSourceIntake(formData, auth.user.id);
 
   if (!result.ok) {
-    redirect(`/admin/sources/new?error=${encodeURIComponent(result.error.message)}`);
+    redirect(`/admin/sources/new?error=${encodeURIComponent((result as any).error.message)}`);
   }
 
   revalidatePath('/admin/sources');

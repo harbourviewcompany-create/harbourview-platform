@@ -24,7 +24,8 @@ function requestFailed(message: string): AdminDataError {
 
 async function serviceRequest<T>(path: string, init: RequestInit = {}): Promise<AdminResult<T>> {
   const client = getAdminDataClient();
-  if (!client.ok) return client;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any;
 
   const response = await fetch(`${client.data.url}${path}`, {
     ...init,

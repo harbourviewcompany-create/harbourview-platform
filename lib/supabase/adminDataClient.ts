@@ -48,7 +48,8 @@ export function getAdminDataClient(): AdminDataResult<AdminDataClient> {
 
 export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminDataResult<T>> {
   const client = getAdminDataClient();
-  if (!client.ok) return client;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any;
 
   const response = await fetch(`${client.data.url}${path}`, {
     headers: {
@@ -109,4 +110,11 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
       },
     };
   }
+}
+
+/** Type-safe error accessor for AdminDataResult after !result.ok check */
+export function getAdminError(result: AdminDataResult<unknown>): AdminDataError {
+  if (result.ok) throw new Error('getAdminError called on ok result')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (result as any).error
 }

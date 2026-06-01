@@ -20,7 +20,8 @@ function readBoolean(formData: FormData, key: string) {
 
 async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<AdminResult<T>> {
   const client = getAdminDataClient()
-  if (!client.ok) return client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any
 
   const response = await fetch(`${client.data.url}${path}`, {
     ...init,
@@ -123,15 +124,15 @@ export async function transitionRegulatorySignalStatus(id: string, toStatus: str
   if (!current.ok) return current
   if (!current.data) return { ok: false as const, error: requestFailed('Regulatory Signal not found.') }
 
-  if (toStatus === 'published') assertPublicationGate(current.data)
+  if (toStatus === 'published') assertPublicationGate(current.data as any)
 
   const updated = await adminRequest<RegulatorySignalRecord[]>(`/rest/v1/regulatory_signals.signals?id=eq.${encodeURIComponent(id)}&select=*`, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       review_status: toStatus,
-      published_at: toStatus === 'published' ? new Date().toISOString() : current.data.published_at,
-      published_by: toStatus === 'published' ? userId : current.data.published_by,
+      published_at: toStatus === 'published' ? new Date().toISOString() : (current.data as any).published_at,
+      published_by: toStatus === 'published' ? userId : (current.data as any).published_by,
       updated_by: userId,
       last_reviewed_at: new Date().toISOString(),
     }),
@@ -140,13 +141,13 @@ export async function transitionRegulatorySignalStatus(id: string, toStatus: str
 
   await adminRequest('/rest/v1/regulatory_signals.review_events', {
     method: 'POST',
-    body: JSON.stringify({ signal_id: id, event_type: toStatus === 'published' ? 'published' : 'updated', from_status: current.data.review_status, to_status: toStatus, actor_id: userId, note: note || null }),
+    body: JSON.stringify({ signal_id: id, event_type: toStatus === 'published' ? 'published' : 'updated', from_status: (current.data as any).review_status, to_status: toStatus, actor_id: userId, note: note || null }),
   })
 
   if (toStatus === 'published') {
     await adminRequest('/rest/v1/regulatory_signals.publication_events', {
       method: 'POST',
-      body: JSON.stringify({ signal_id: id, action: 'published', public_url: `/signals/${current.data.slug}`, actor_id: userId, note: note || null }),
+      body: JSON.stringify({ signal_id: id, action: 'published', public_url: `/signals/${(current.data as any).slug}`, actor_id: userId, note: note || null }),
     })
   }
 

@@ -55,7 +55,7 @@ export default async function CandidateDetailPage({
   const result = await getCandidateDetail(id);
 
   if (!result.ok) {
-    return <section className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">{result.error.message}</section>;
+    return <section className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">{(result as any).error.message}</section>;
   }
 
   const { candidate, snapshot, source, events } = result.data;

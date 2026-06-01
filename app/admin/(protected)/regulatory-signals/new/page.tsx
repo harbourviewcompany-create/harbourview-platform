@@ -8,7 +8,7 @@ async function createSignalAction(formData: FormData) {
   'use server'
   const auth = await requireAdminAuth()
   const result = await createRegulatorySignal(formData, auth.user.id)
-  if (!result.ok) throw new Error(result.error.message)
+  if (!result.ok) throw new Error((result as any).error.message)
   redirect('/admin/regulatory-signals')
 }
 

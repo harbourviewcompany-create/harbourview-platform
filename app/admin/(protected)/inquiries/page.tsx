@@ -88,7 +88,7 @@ async function getInquiries(): Promise<{ inquiries: MarketplaceInquiry[]; error:
     '/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id,review_status,priority,last_contacted_at,next_follow_up_at&limit=100',
   );
 
-  if (!result.ok) return { inquiries: [], error: result.error };
+  if (!result.ok) return { inquiries: [], error: (result as any).error };
   return { inquiries: result.data, error: null };
 }
 

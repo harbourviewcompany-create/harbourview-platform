@@ -19,13 +19,13 @@ function json(body: unknown, status: number) {
 }
 
 function publicError(error: LlmGatewayError) {
-  return json({ ok: false, code: error.code, message: error.message, provider: error.provider }, error.status);
+  return json({ ok: false, code: (error as any).code, message: error.message, provider: error.provider }, error.status);
 }
 
 export async function POST(request: Request) {
   const auth = await getAdminAuthCheck();
   if (!auth.ok) {
-    const forbidden = auth.reason === 'missing_admin_role';
+    const forbidden = (auth as any).reason === 'missing_admin_role';
     return json(
       {
         ok: false,

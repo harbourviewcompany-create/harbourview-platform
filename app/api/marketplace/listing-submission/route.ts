@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     const listingType = parsed.data.listingType
     const validation = validateListingSubmission(parsed.data)
     if (!validation.ok) {
-      logListingSubmissionDiagnostic(validation.code)
+      logListingSubmissionDiagnostic((validation as any).code)
       return json('error', validation.message, 400)
     }
 

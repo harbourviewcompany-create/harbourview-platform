@@ -8,7 +8,7 @@ async function createSourceAction(formData: FormData) {
   'use server'
   const auth = await requireAdminAuth()
   const result = await createRegulatorySource(formData, auth.user.id)
-  if (!result.ok) throw new Error(result.error.message)
+  if (!result.ok) throw new Error((result as any).error.message)
   redirect('/admin/regulatory-signals/sources')
 }
 
@@ -39,7 +39,7 @@ export default async function RegulatorySourcesPage() {
       </form>
 
       {!sources.ok ? (
-        <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">{sources.error.message}</div>
+        <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">{(sources as any).error.message}</div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]">
           <table className="w-full min-w-[760px] text-left text-sm">

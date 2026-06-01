@@ -10,9 +10,7 @@ import type { MarketplaceCandidate, SourceRegistryRow, SourceSnapshotRow, Candid
 
 const MAX_TEXT_LENGTH = 8000;
 
-type AdminResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: AdminDataError };
+type AdminResult<T> = import('@/lib/supabase/adminDataClient').AdminDataResult<T>;
 
 function requestFailed(message: string): AdminDataError {
   return { code: 'request_failed', message };
@@ -61,7 +59,8 @@ function validateManualUrl(value: string) {
 
 async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<AdminResult<T>> {
   const client = getAdminDataClient();
-  if (!client.ok) return client;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any;
 
   const response = await fetch(`${client.data.url}${path}`, {
     ...init,
@@ -121,7 +120,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
       }),
     },
   );
-  if (!sourceResult.ok) return sourceResult;
+  if (!sourceResult.ok) return sourceResult as any;
   const source = sourceResult.data[0];
 
   const snapshotResult = await adminRequest<SourceSnapshotRow[]>(
@@ -141,7 +140,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
       }),
     },
   );
-  if (!snapshotResult.ok) return snapshotResult;
+  if (!snapshotResult.ok) return snapshotResult as any;
   const snapshot = snapshotResult.data[0];
 
   const candidateResult = await adminRequest<MarketplaceCandidate[]>(
@@ -177,7 +176,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
       }),
     },
   );
-  if (!candidateResult.ok) return candidateResult;
+  if (!candidateResult.ok) return candidateResult as any;
   const candidate = candidateResult.data[0];
 
   const eventResult = await adminRequest<CandidateReviewEvent[]>(
@@ -194,7 +193,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
       }),
     },
   );
-  if (!eventResult.ok) return eventResult;
+  if (!eventResult.ok) return eventResult as any;
 
   return { ok: true, data: { source, snapshot, candidate } };
 }

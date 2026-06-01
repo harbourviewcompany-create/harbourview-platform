@@ -220,7 +220,7 @@ export async function requireAdminAuth() {
   const result = await getAdminAuthCheck();
   if (result.ok) return result.auth;
 
-  if (result.reason === 'missing_access_token' || result.reason === 'invalid_access_token') {
+  if ((result as any).reason === 'missing_access_token' || (result as any).reason === 'invalid_access_token') {
     unauthorized();
   }
 

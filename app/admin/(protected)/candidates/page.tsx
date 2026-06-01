@@ -30,7 +30,7 @@ export default async function CandidatesPage() {
 
       {!configured || result?.ok === false ? (
         <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-          {result && !result.ok ? result.error.message : 'Admin candidate review is not configured. Set SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true.'}
+          {result && !result.ok ? (result as any).error.message : 'Admin candidate review is not configured. Set SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true.'}
         </div>
       ) : null}
 

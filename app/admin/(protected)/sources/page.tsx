@@ -31,7 +31,7 @@ export default async function AdminSourcesPage() {
 
       {!configured || sources?.ok === false ? (
         <div className="rounded-2xl border border-red-300/30 bg-red-950/20 p-5 text-sm text-red-100">
-          {sources && !sources.ok ? sources.error.message : 'Admin source intake is not configured. Set SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true.'}
+          {sources && !sources.ok ? (sources as any).error.message : 'Admin source intake is not configured. Set SUPABASE_SERVICE_ROLE_KEY and HARBOURVIEW_ADMIN_REVIEW_ENABLED=true.'}
         </div>
       ) : null}
 

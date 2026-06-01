@@ -58,7 +58,7 @@ async function getInquiry(id: string): Promise<{ inquiry: MarketplaceInquiry | n
     `/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   );
 
-  if (!result.ok) return { inquiry: null, error: result.error };
+  if (!result.ok) return { inquiry: null, error: (result as any).error };
   return { inquiry: result.data[0] ?? null, error: null };
 }
 

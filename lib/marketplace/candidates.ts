@@ -106,9 +106,7 @@ export type CandidateDetail = {
   events: CandidateReviewEvent[];
 };
 
-type AdminResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: AdminDataError };
+type AdminResult<T> = import('@/lib/supabase/adminDataClient').AdminDataResult<T>;
 
 function requestFailed(message: string): AdminDataError {
   return { code: 'request_failed', message };
@@ -120,7 +118,8 @@ function isCandidateStatus(value: string): value is CandidateStatus {
 
 async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<AdminResult<T>> {
   const client = getAdminDataClient();
-  if (!client.ok) return client;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!client.ok) return client as any;
 
   const response = await fetch(`${client.data.url}${path}`, {
     ...init,
@@ -153,14 +152,14 @@ export async function getSourceDetail(id: string): Promise<AdminResult<{ source:
   const sourceResult = await adminRequest<SourceRegistryRow[]>(
     `/rest/v1/source_registry?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   );
-  if (!sourceResult.ok) return sourceResult;
+  if (!sourceResult.ok) return sourceResult as any;
   const source = sourceResult.data[0];
   if (!source) return { ok: false, error: requestFailed('Source not found.') };
 
   const snapshotsResult = await adminRequest<SourceSnapshotRow[]>(
     `/rest/v1/source_snapshots?source_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.desc`,
   );
-  if (!snapshotsResult.ok) return snapshotsResult;
+  if (!snapshotsResult.ok) return snapshotsResult as any;
 
   const snapshotIds = snapshotsResult.data.map((snapshot) => snapshot.id);
   const candidates = snapshotIds.length
@@ -168,7 +167,7 @@ export async function getSourceDetail(id: string): Promise<AdminResult<{ source:
         `/rest/v1/marketplace_candidates?snapshot_id=in.(${snapshotIds.map((snapshotId) => `"${snapshotId}"`).join(',')})&select=*&order=created_at.desc`,
       )
     : { ok: true as const, data: [] };
-  if (!candidates.ok) return candidates;
+  if (!candidates.ok) return candidates as any;
 
   return { ok: true, data: { source, snapshots: snapshotsResult.data, candidates: candidates.data } };
 }
@@ -185,7 +184,7 @@ export async function getCandidateDetail(id: string): Promise<AdminResult<Candid
   const candidateResult = await adminRequest<MarketplaceCandidate[]>(
     `/rest/v1/marketplace_candidates?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   );
-  if (!candidateResult.ok) return candidateResult;
+  if (!candidateResult.ok) return candidateResult as any;
   const candidate = candidateResult.data[0];
   if (!candidate) return { ok: false, error: requestFailed('Candidate not found.') };
 
@@ -196,14 +195,14 @@ export async function getCandidateDetail(id: string): Promise<AdminResult<Candid
     const snapshotResult = await adminRequest<SourceSnapshotRow[]>(
       `/rest/v1/source_snapshots?id=eq.${encodeURIComponent(candidate.snapshot_id)}&select=*&limit=1`,
     );
-    if (!snapshotResult.ok) return snapshotResult;
+    if (!snapshotResult.ok) return snapshotResult as any;
     snapshot = snapshotResult.data[0] ?? null;
 
     if (snapshot?.source_id) {
       const sourceResult = await adminRequest<SourceRegistryRow[]>(
         `/rest/v1/source_registry?id=eq.${encodeURIComponent(snapshot.source_id)}&select=*&limit=1`,
       );
-      if (!sourceResult.ok) return sourceResult;
+      if (!sourceResult.ok) return sourceResult as any;
       source = sourceResult.data[0] ?? null;
     }
   }
@@ -211,7 +210,7 @@ export async function getCandidateDetail(id: string): Promise<AdminResult<Candid
   const eventsResult = await adminRequest<CandidateReviewEvent[]>(
     `/rest/v1/candidate_review_events?candidate_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.desc`,
   );
-  if (!eventsResult.ok) return eventsResult;
+  if (!eventsResult.ok) return eventsResult as any;
 
   return { ok: true, data: { candidate, snapshot, source, events: eventsResult.data } };
 }
@@ -248,7 +247,7 @@ export async function updateCandidateStatus({
   if (!isCandidateStatus(toStatus)) return { ok: false, error: requestFailed('Invalid candidate status.') };
 
   const detail = await getCandidateDetail(id);
-  if (!detail.ok) return detail;
+  if (!detail.ok) return detail as any;
   const candidate = detail.data.candidate;
   const allowed = ALLOWED_TRANSITIONS[candidate.status] || [];
 
@@ -292,7 +291,7 @@ export async function updateCandidateStatus({
       body: JSON.stringify(patch),
     },
   );
-  if (!updateResult.ok) return updateResult;
+  if (!updateResult.ok) return updateResult as any;
 
   const eventResult = await adminRequest<CandidateReviewEvent[]>(
     '/rest/v1/candidate_review_events?select=*',
@@ -309,7 +308,7 @@ export async function updateCandidateStatus({
       }),
     },
   );
-  if (!eventResult.ok) return eventResult;
+  if (!eventResult.ok) return eventResult as any;
 
   return { ok: true, data: updateResult.data[0] };
 }

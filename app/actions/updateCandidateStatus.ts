@@ -24,7 +24,7 @@ export async function updateMarketplaceCandidateStatus(formData: FormData): Prom
   });
 
   if (!result.ok) {
-    redirect(`/admin/candidates/${id}?error=${encodeURIComponent(result.error.message)}`);
+    redirect(`/admin/candidates/${id}?error=${encodeURIComponent((result as any).error.message)}`);
   }
 
   revalidatePath('/admin/candidates');

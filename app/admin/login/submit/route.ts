@@ -19,9 +19,9 @@ export async function POST(request: Request) {
 
   const result = await signInAdminOperator(email, credential);
   if (!result.ok) {
-    const error = result.reason === 'missing_admin_role'
+    const error = (result as any).reason === 'missing_admin_role'
       ? 'forbidden'
-      : result.reason === 'auth_unavailable'
+      : (result as any).reason === 'auth_unavailable'
         ? 'unavailable'
         : 'invalid';
     const response = redirectTo(request, `/admin/login?error=${error}`);
