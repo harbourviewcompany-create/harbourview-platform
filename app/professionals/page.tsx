@@ -5,6 +5,10 @@ import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from 
 export const metadata: Metadata = {
   title: 'Professionals | Harbourview',
   description: 'Professional network entry points for clinical, legal, regulatory, commercial, scientific and institutional stakeholders.',
+  openGraph: {
+    title: 'Harbourview Professionals',
+    description: 'Controlled intelligence, reviewed introductions and compliance support for regulated cannabis professionals, institutions and investors.',
+  },
 }
 
 const roles = [

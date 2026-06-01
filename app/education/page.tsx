@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: 'Education',
   description:
     'Non-promotional professional education for clinical, pharmacy, quality, commercial, regulatory and institutional stakeholders.',
+  openGraph: {
+    title: 'Harbourview Education',
+    description: 'Non-promotional professional education for regulated cannabis operators, quality professionals, importers, distributors and institutional participants.',
+  },
 }
 
 const educationSpineRoutes = [

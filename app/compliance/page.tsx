@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: 'Compliance Pathways | Harbourview',
   description:
     'Public-safe compliance orientation and pathway intelligence for regulated cannabis operators. Informational only and not legal advice.',
+  openGraph: {
+    title: 'Harbourview Compliance',
+    description: 'Public-safe compliance orientation for regulated cannabis market access, import/export documentation, quality systems and audit readiness.',
+  },
 }
 
 export default function CompliancePage() {
