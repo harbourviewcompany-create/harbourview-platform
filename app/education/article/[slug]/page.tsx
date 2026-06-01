@@ -1,14 +1,11 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: 'Education Article | Harbourview Education',
   description: 'Professional education article from Harbourview. Non-promotional and subject to editorial review and source discipline.',
 }
 
-export default async function EducationArticlePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
-
+export default async function EducationArticlePage() {
   return (
     <main className="bg-[#020814] text-white min-h-screen">
       <section className="py-20">

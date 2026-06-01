@@ -11,7 +11,6 @@ function requestFailed(message: string): AdminDataError {
 export async function networkAdminRequest<T>(path: string, init: RequestInit = {}): Promise<NetworkAdminResult<T>> {
   await requireAdminAuth()
   const client = getAdminDataClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!client.ok) return client as any
 
   const response = await fetch(`${client.data.url}${path}`, {

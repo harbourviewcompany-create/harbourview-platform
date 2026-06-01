@@ -30,8 +30,6 @@ import {
 } from './fixtures'
 
 // ── Type mappings: Supabase row → typed domain object ─────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSource(r: any): AutomationSource {
   return {
     id: r.id,
@@ -46,8 +44,6 @@ function rowToSource(r: any): AutomationSource {
     notes: r.notes ?? undefined,
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSignal(r: any): AutomationSignal {
   return {
     id: r.id,
@@ -65,8 +61,6 @@ function rowToSignal(r: any): AutomationSignal {
     reviewedAt: r.reviewed_at ?? undefined,
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToCounterparty(r: any): RelationshipMemoryRecord {
   return {
     id: r.id,
@@ -83,8 +77,6 @@ function rowToCounterparty(r: any): RelationshipMemoryRecord {
     notes: r.notes ?? undefined,
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToScoring(r: any): ScoringRecord {
   return {
     id: r.id,
@@ -102,8 +94,6 @@ function rowToScoring(r: any): ScoringRecord {
     scoreDrivers: r.score_drivers ?? [],
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToAgentTask(r: any): AgentWorkItem {
   return {
     id: r.id,
@@ -120,8 +110,6 @@ function rowToAgentTask(r: any): AgentWorkItem {
     createdAt: r.created_at ? r.created_at.slice(0, 10) : '',
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToEvidence(r: any): EvidenceVaultEntry {
   return {
     id: r.id,
@@ -135,8 +123,6 @@ function rowToEvidence(r: any): EvidenceVaultEntry {
     notes: r.notes ?? undefined,
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToGraphEntity(r: any): GraphEntity {
   return {
     id: r.id,
@@ -149,8 +135,6 @@ function rowToGraphEntity(r: any): GraphEntity {
     lastActivity: r.last_activity ?? undefined,
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToGraphEdge(r: any): GraphEdge {
   return {
     id: r.id,
@@ -162,8 +146,6 @@ function rowToGraphEdge(r: any): GraphEdge {
     createdAt: r.created_at ? r.created_at.slice(0, 10) : '',
   }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToFeedback(r: any): FeedbackEvent {
   return {
     id: r.id,
@@ -186,8 +168,7 @@ async function adminPatch(
   patch: Record<string, unknown>,
 ): Promise<AdminDataResult<unknown>> {
   const client = getAdminDataClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!client.ok) return client as any
+    if (!client.ok) return client as any
   const response = await fetch(
     `${client.data.url}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`,
     {
@@ -220,8 +201,7 @@ async function adminInsert<T>(
   row: Record<string, unknown>,
 ): Promise<AdminDataResult<T>> {
   const client = getAdminDataClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!client.ok) return client as any
+    if (!client.ok) return client as any
   const response = await fetch(`${client.data.url}/rest/v1/${table}?select=*`, {
     method: 'POST',
     headers: {

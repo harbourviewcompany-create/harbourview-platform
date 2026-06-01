@@ -20,7 +20,6 @@ function readBoolean(formData: FormData, key: string) {
 
 async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<AdminResult<T>> {
   const client = getAdminDataClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!client.ok) return client as any
 
   const response = await fetch(`${client.data.url}${path}`, {

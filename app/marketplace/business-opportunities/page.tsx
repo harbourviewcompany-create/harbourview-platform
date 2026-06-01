@@ -93,7 +93,7 @@ function EmptyState() {
 
 export default async function BusinessOpportunitiesPage() {
   const listings = await getPublicListingsByCategory('business_opportunities')
-  const liveOpportunities = await getLiveBusinessOpportunities(businessOpportunities)
+  const liveFeed = await getLiveBusinessOpportunities(businessOpportunities)
 
   return (
     <>
@@ -152,7 +152,7 @@ export default async function BusinessOpportunitiesPage() {
 
       <section className="bg-[#020814] py-12 sm:py-16 lg:py-18">
         <div className="page-container">
-          {listings.length === 0 ? <EmptyState /> : (
+          {listings.length === 0 && liveFeed.listings.length === 0 ? <EmptyState /> : (
             <>
               <div className="mb-8 flex flex-col gap-5 sm:mb-10 lg:flex-row lg:items-end lg:justify-between">
                 <div>

@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicRegulatorySignalBySlug } from '@/lib/regulatory-signals/public'
 import { REGULATORY_SIGNAL_TYPE_LABELS, REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
-import { PublicCard, PublicSection } from '@/components/PublicUi'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

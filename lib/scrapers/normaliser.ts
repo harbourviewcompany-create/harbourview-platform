@@ -3,7 +3,7 @@
 // structured, public-safe listing fields.
 // Uses claude-sonnet-4-20250514 via the Anthropic API.
 
-import type { RawScrapedItem, AINormalisedListing, ScraperCategory } from './types'
+import type { RawScrapedItem, AINormalisedListing } from './types'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-20250514'
