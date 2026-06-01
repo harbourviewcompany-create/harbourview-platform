@@ -38,7 +38,7 @@ export async function PATCH(
     const result = await advanceIaSignalStage(id, stage as SignalStage, auth.user.id)
 
     if (!result.ok) {
-      return NextResponse.json({ error: (result as any).error.message }, { status: 500 })
+      return NextResponse.json({ error: result.error.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, signalId: id, stage })

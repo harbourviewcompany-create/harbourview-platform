@@ -41,7 +41,7 @@ export async function PATCH(
     )
 
     if (!result.ok) {
-      return NextResponse.json({ error: (result as any).error.message }, { status: 500 })
+      return NextResponse.json({ error: result.error.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, taskId: id, status })
