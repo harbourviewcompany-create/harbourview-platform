@@ -2,8 +2,6 @@ import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
 import { getCountryByIso2 } from '@/lib/dashboard/countries'
-import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
-import { usStateByIso2 } from '@/data/globe/us-state-profiles'
 import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
 
 // Maps globe role IDs to destination types when no intent is selected.
