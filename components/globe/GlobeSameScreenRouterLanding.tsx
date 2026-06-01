@@ -20,7 +20,6 @@ import { RoleChipSelector } from './RoleChipSelector'
 import { CountryBriefPanel, CountryBriefPanelSkeleton } from './CountryBriefPanel'
 import { useCountryBrief } from '@/hooks/useCountryBrief'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
-import CanvasErrorBoundary from '@/components/harbourview/globe/CanvasErrorBoundary'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -173,17 +172,15 @@ export function GlobeSameScreenRouterLanding() {
       {fallbackReason ? (
         <PremiumStaticGlobeFallback reason={fallbackReason} />
       ) : (
-        <CanvasErrorBoundary>
-          <GlobeCanvas
-            selectedCountryIso2={state.selectedCountryIso2}
-            selectedCountryIso2s={state.selectedCountryIso2s}
-            focusedCountryIso2={state.focusedCountryIso2}
-            activeLayerId={state.activeLayerId ?? 'country_select'}
-            routerStep={state.step}
-            onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-            onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
-          />
-        </CanvasErrorBoundary>
+        <GlobeCanvas
+          selectedCountryIso2={state.selectedCountryIso2}
+          selectedCountryIso2s={state.selectedCountryIso2s}
+          focusedCountryIso2={state.focusedCountryIso2}
+          activeLayerId={state.activeLayerId ?? 'country_select'}
+          routerStep={state.step}
+          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+        />
       )}
 
       <CountrySearchOverlay
