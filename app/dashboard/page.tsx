@@ -10,17 +10,20 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
+// Next.js 15: searchParams is a Promise and must be awaited
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  // ── URL params win (sourced from globe router) ──
-  const urlCountry = typeof searchParams.country === 'string'
-    ? searchParams.country.toUpperCase()
+  const params = await searchParams
+
+  // URL params win (sourced from globe router)
+  const urlCountry = typeof params.country === 'string'
+    ? params.country.toUpperCase()
     : null
-  const urlRole = typeof searchParams.role === 'string'
-    ? searchParams.role
+  const urlRole = typeof params.role === 'string'
+    ? params.role
     : null
 
   // ── Fetch signals (live from Supabase, falls back to fixtures) ──
