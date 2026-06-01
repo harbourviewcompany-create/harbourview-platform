@@ -1,6 +1,6 @@
 'use client'
 
-import { getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
+import { getCountryRoleProfile } from '@/config/globe/country-role-profiles'
 import { roleProfileMap, roleProfiles } from '@/config/globe/role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import type { RoleId, RoleProfile } from '@/types/globe-router'
@@ -11,27 +11,21 @@ function isRoleProfile(role: RoleProfile | undefined): role is RoleProfile {
 
 export function RoleChipSelector({
   countryIso2,
-  countryIso2s,
-  mode,
   searchQuery,
   selectedRoleId,
   onSearchChange,
   onSelectRole,
 }: {
   countryIso2?: string
-  countryIso2s: string[]
-  mode: string
   searchQuery: string
   selectedRoleId?: RoleId
   onSearchChange: (query: string) => void
   onSelectRole: (roleId: RoleId) => void
 }) {
   const profile = getCountryRoleProfile(countryIso2)
-  const visibleRoleIds = mode === 'multi_market'
-    ? getMultiMarketRoleIds(countryIso2s).slice(0, 11)
-    : profile.primaryRoleIds
+  const visibleRoleIds = profile.primaryRoleIds.filter((roleId) => roleId !== 'not_sure')
   const searchedRoles = roleProfiles.filter((role) =>
-    tokenMatchesSearch(searchQuery, [role.label, role.shortLabel, role.description, ...role.aliases]),
+    role.id !== 'not_sure' && tokenMatchesSearch(searchQuery, [role.label, role.shortLabel, role.description, ...role.aliases]),
   )
   const rolesToRender = searchQuery
     ? searchedRoles
@@ -70,14 +64,7 @@ export function RoleChipSelector({
           </button>
         )) : (
           <div className="rounded-2xl border border-[#c6a55a]/18 bg-white/[0.04] p-4 text-sm text-white/64">
-            <p>We can still route this. Describe your role or choose Not sure.</p>
-            <button
-              type="button"
-              onClick={() => onSelectRole('not_sure')}
-              className="mt-3 min-h-11 rounded-full border border-[#c6a55a]/28 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5f1e8]"
-            >
-              Not sure
-            </button>
+            <p>No matching supported roles found. Refine your search to choose a listed role.</p>
           </div>
         )}
       </div>

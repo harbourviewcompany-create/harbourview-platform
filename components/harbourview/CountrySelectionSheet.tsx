@@ -3,25 +3,19 @@
 import { useMemo, useState } from 'react'
 import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/country-role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
-import { CheckCircleIcon, GlobeIcon, QuestionCircleIcon, SearchIcon } from './icons'
-
-type SelectedPath = 'country' | 'not_sure' | 'multi_market'
+import { CheckCircleIcon, SearchIcon } from './icons'
 
 interface CountrySelectionSheetProps {
   selectedCountryIso2: string | null
   selectedCountryName: string | null
-  selectedPath: SelectedPath
   onSelectCountry: (iso2: string) => void
-  onSelectPath: (path: SelectedPath) => void
   onContinue: () => void
 }
 
 export function CountrySelectionSheet({
   selectedCountryIso2,
   selectedCountryName,
-  selectedPath,
   onSelectCountry,
-  onSelectPath,
   onContinue,
 }: CountrySelectionSheetProps) {
   const [query, setQuery] = useState('')
@@ -33,7 +27,7 @@ export function CountrySelectionSheet({
       .slice(0, 6)
   }, [query])
 
-  const canContinue = selectedCountryIso2 !== null || selectedPath !== 'country'
+  const canContinue = selectedCountryIso2 !== null
 
   return (
     <section
@@ -147,7 +141,6 @@ export function CountrySelectionSheet({
                   type="button"
                   onClick={() => {
                     onSelectCountry(country.iso2)
-                    onSelectPath('country')
                     setQuery('')
                   }}
                   style={{
@@ -170,59 +163,6 @@ export function CountrySelectionSheet({
             ))}
           </ul>
         )}
-      </div>
-
-      {/* Helper buttons */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <button
-          type="button"
-          aria-label="I'm not sure yet"
-          aria-pressed={selectedPath === 'not_sure'}
-          onClick={() => onSelectPath(selectedPath === 'not_sure' ? 'country' : 'not_sure')}
-          style={{
-            height: 56,
-            borderRadius: 16,
-            border: `1px solid ${selectedPath === 'not_sure' ? 'rgba(240,211,154,0.5)' : 'rgba(220,231,242,0.14)'}`,
-            background: selectedPath === 'not_sure' ? 'rgba(240,211,154,0.08)' : 'rgba(255,255,255,0.03)',
-            color: 'var(--hv-text-secondary)',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            transition: 'border-color 180ms, background 180ms',
-          }}
-        >
-          <QuestionCircleIcon style={{ color: 'var(--hv-champagne-400)', flexShrink: 0 }} />
-          I&apos;m not sure yet
-        </button>
-
-        <button
-          type="button"
-          aria-label="This is multi-market"
-          aria-pressed={selectedPath === 'multi_market'}
-          onClick={() => onSelectPath(selectedPath === 'multi_market' ? 'country' : 'multi_market')}
-          style={{
-            height: 56,
-            borderRadius: 16,
-            border: `1px solid ${selectedPath === 'multi_market' ? 'rgba(240,211,154,0.5)' : 'rgba(220,231,242,0.14)'}`,
-            background: selectedPath === 'multi_market' ? 'rgba(240,211,154,0.08)' : 'rgba(255,255,255,0.03)',
-            color: 'var(--hv-text-secondary)',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            transition: 'border-color 180ms, background 180ms',
-          }}
-        >
-          <GlobeIcon style={{ color: 'var(--hv-champagne-400)', flexShrink: 0 }} />
-          This is multi-market
-        </button>
       </div>
 
       {/* Selected row */}

@@ -27,11 +27,11 @@ function buildFallbackIntakeHref(state: GlobeRouterState) {
   const params = new URLSearchParams()
 
   params.set('source', 'globe_router')
-  params.set('mode', state.mode)
+  params.set('mode', 'single_market')
 
   if (state.selectedCountryIso2) params.set('country', state.selectedCountryIso2)
   if (state.selectedCountryIso2s.length) params.set('countries', state.selectedCountryIso2s.join(','))
-  if (state.selectedRoleId) params.set('role', state.selectedRoleId)
+  if (state.selectedRoleId && state.selectedRoleId !== 'not_sure') params.set('role', state.selectedRoleId)
   if (state.activeLayerId) params.set('layer', state.activeLayerId)
   if (state.requestedPath) params.set('requestedPath', state.requestedPath)
 
@@ -41,12 +41,7 @@ function buildFallbackIntakeHref(state: GlobeRouterState) {
 function getFallbackContextItems(state: GlobeRouterState) {
   const items: { label: string; value: string }[] = []
 
-  if (state.mode === 'multi_market' && state.selectedCountryIso2s.length > 0) {
-    items.push({
-      label: 'Markets',
-      value: state.selectedCountryIso2s.map((countryIso2) => getCountryName(countryIso2)).join(', '),
-    })
-  } else if (state.selectedCountryIso2) {
+  if (state.selectedCountryIso2) {
     items.push({ label: 'Country', value: getCountryName(state.selectedCountryIso2) })
   }
 
@@ -138,9 +133,6 @@ export function GlobeSameScreenRouterLanding() {
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
   const countryBrief = useCountryBrief(state.selectedCountryIso2)
-  const selectedCountryName = state.mode === 'multi_market'
-    ? `${state.selectedCountryIso2s.length || 0} markets`
-    : getCountryName(state.selectedCountryIso2)
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
@@ -179,7 +171,7 @@ export function GlobeSameScreenRouterLanding() {
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
           onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+          onSelectCountry={(countryIso2) => dispatch({ type: 'COUNTRY_SELECT', countryIso2 })}
         />
       )}
 
@@ -188,7 +180,6 @@ export function GlobeSameScreenRouterLanding() {
           dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })
           setSrAnnouncement(`Country selected: ${getCountryName(countryIso2)}.`)
         }}
-        onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
         onAnnouncement={setSrAnnouncement}
       />
 
@@ -201,13 +192,11 @@ export function GlobeSameScreenRouterLanding() {
       </div>
 
       {state.step === 'role' ? (
-        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
+        <RouterBottomSheet eyebrow={countryOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected country'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
           {countryBrief.status === 'loading' && <CountryBriefPanelSkeleton />}
           {countryBrief.status === 'ok' && <CountryBriefPanel brief={countryBrief.data} />}
           <RoleChipSelector
             countryIso2={state.selectedCountryIso2}
-            countryIso2s={state.selectedCountryIso2s}
-            mode={state.mode}
             searchQuery={state.roleSearchQuery}
             selectedRoleId={state.selectedRoleId}
             onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}

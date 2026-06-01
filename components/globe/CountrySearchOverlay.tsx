@@ -6,11 +6,9 @@ import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 
 export function CountrySearchOverlay({
   onSelectCountry,
-  onNotSure,
   onAnnouncement,
 }: {
   onSelectCountry: (countryIso2: string) => void
-  onNotSure: () => void
   onAnnouncement?: (message: string) => void
 }) {
   const [query, setQuery] = useState('')
@@ -42,22 +40,16 @@ export function CountrySearchOverlay({
     if (selected) onAnnouncement?.(`Selected ${selected.name}.`)
   }
 
-  const clearAndClose = () => {
-    if (hasQuery) {
-      setQuery('')
-      setHighlightedIndex(0)
-      onAnnouncement?.('Market search cleared.')
-      return
-    }
-
-    onAnnouncement?.('Market search closed.')
-    onNotSure()
+  const clearSearch = () => {
+    setQuery('')
+    setHighlightedIndex(0)
+    onAnnouncement?.('Country search cleared.')
   }
 
   const handleQueryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
-      clearAndClose()
+      clearSearch()
       return
     }
 
@@ -83,7 +75,7 @@ export function CountrySearchOverlay({
 
   return (
     <div className="pointer-events-auto fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 max-h-[min(72svh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-hidden rounded-[26px] border border-[#c6a55a]/20 bg-[#030b16]/68 p-3 text-white shadow-[0_20px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[380px] sm:-translate-x-1/2">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#d8be76]">Harbourview</p>
       </div>
 

@@ -21,11 +21,8 @@ try {
   const searchInput = page.getByPlaceholder('Search countries')
   await assert.doesNotReject(() => searchInput.waitFor({ state: 'visible', timeout: 20_000 }))
 
-  const navButton = page.getByRole('button', { name: /i’m not sure yet/i })
-  await navButton.click()
-
-  const multiMarketCta = page.getByRole('button', { name: /multi-market/i })
-  await multiMarketCta.click()
+  await searchInput.fill('Germany')
+  await page.getByRole('option', { name: /Germany/i }).click()
 
   const roleSearch = page.getByPlaceholder('Search roles')
   await assert.doesNotReject(() => roleSearch.waitFor({ state: 'visible', timeout: 20_000 }))
@@ -34,6 +31,8 @@ try {
   const pointerEvents = await canvas.evaluate((el) => window.getComputedStyle(el).pointerEvents)
   assert.equal(pointerEvents, 'none', 'Globe canvas should not capture pointer events outside country step')
 
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+  await searchInput.waitFor({ state: 'visible', timeout: 20_000 })
   await searchInput.fill('a')
   const dropdown = page.locator('div').filter({ has: page.getByRole('button', { name: /Afghanistan/i }) }).first()
   await assert.doesNotReject(() => dropdown.waitFor({ state: 'visible', timeout: 10_000 }))
