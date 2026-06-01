@@ -203,8 +203,6 @@ export function GlobeSameScreenRouterLanding() {
           {countryBrief.status === 'ok' && <CountryBriefPanel brief={countryBrief.data} />}
           <RoleChipSelector
             countryIso2={state.selectedCountryIso2}
-            countryIso2s={state.selectedCountryIso2s}
-            mode={state.mode}
             searchQuery={state.roleSearchQuery}
             selectedRoleId={state.selectedRoleId}
             onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
