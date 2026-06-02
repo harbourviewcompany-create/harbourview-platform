@@ -71,7 +71,7 @@ const ROLE_CAT_PRIORITY: Partial<Record<string, string[]>> = {
 const DEFAULT_CAT_ORDER = ['Consumables', 'Cannabis', 'Equipment', 'Distressed Equipment', 'Services']
 
 function getCatOrder(roleId: string | null): string[] {
-  return (roleId && ROLE_CAT_PRIORITY[roleId]) ?? DEFAULT_CAT_ORDER
+  return (roleId ? ROLE_CAT_PRIORITY[roleId] : undefined) ?? DEFAULT_CAT_ORDER
 }
 
 const ALL_LISTINGS = (cur: string, c1: string, c2: string, c3: string) => [
