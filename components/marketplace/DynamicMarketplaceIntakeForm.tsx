@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from 'react'
 import { MARKETPLACE_LISTING_TYPE_OPTIONS, resolveMarketplaceListingTypeOption } from '@/lib/marketplace/listingTypeOptions'
+import type { MarketplaceListingTypeOption } from '@/lib/marketplace/listingTypeOptions'
 import { getFieldsetsForListingType, type MarketplaceIntakeField } from '@/lib/marketplace/intakeFieldsets'
 import type { MarketplaceListingTypeKey } from '@/lib/marketplace/marketplaceTypes'
 
@@ -33,7 +34,7 @@ function renderField(field: MarketplaceIntakeField) {
 
 export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: string }) {
   const resolvedDefault = resolveMarketplaceListingTypeOption(defaultType) ?? 'Used / Surplus Equipment'
-  const [listingType, setListingType] = useState(resolvedDefault)
+  const [listingType, setListingType] = useState<MarketplaceListingTypeOption>(resolvedDefault)
   const [status, setStatus] = useState<string | null>(null)
   const typeKey = TYPE_KEY_BY_LABEL[listingType] ?? 'used_surplus_equipment'
   const fieldsets = useMemo(() => getFieldsetsForListingType(typeKey), [typeKey])
@@ -52,7 +53,8 @@ export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: st
       `listing_type: ${listingType}`,
       `category_key: ${typeKey}`,
       ...Object.entries(details).filter(([key]) => !['contact_name', 'contact_email', 'contact_company', 'contact_phone', 'message', 'hp_field'].includes(key)).map(([key, value]) => `${key}: ${value}`),
-    ].join('\n')
+    ].join('
+')
     const response = await fetch('/api/marketplace/capture', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -77,7 +79,7 @@ export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: st
       <input type="text" name="hp_field" className="hidden" tabIndex={-1} autoComplete="off" />
       <div><p className="text-xs uppercase tracking-[0.28em] text-[#C6A55A]">Private marketplace intake</p><h2 className="mt-2 text-2xl font-semibold text-[#F5F1E8]">Submit supply, assets, services, or wanted demand</h2><p className="mt-3 text-sm leading-6 text-[#F5F1E8]/65">Submissions enter Harbourview operator review first. They do not publish automatically and private details stay off public pages.</p></div>
       <div className="grid gap-4 md:grid-cols-2"><label className="block text-sm text-[#F5F1E8]/75">Contact name<input name="contact_name" required className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Business email<input name="contact_email" type="email" required className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Company<input name="contact_company" className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Phone<input name="contact_phone" className={inputCls} /></label></div>
-      <div className="grid gap-4 md:grid-cols-2"><label className="block text-sm text-[#F5F1E8]/75">Listing type<select name="listing_type" value={listingType} onChange={(event) => setListingType(event.target.value)} className={inputCls}>{MARKETPLACE_LISTING_TYPE_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label><label className="block text-sm text-[#F5F1E8]/75">Price / budget / range<input name="price_or_budget" className={inputCls} /></label></div>
+      <div className="grid gap-4 md:grid-cols-2"><label className="block text-sm text-[#F5F1E8]/75">Listing type<select name="listing_type" value={listingType} onChange={(event) => setListingType(event.target.value as MarketplaceListingTypeOption)} className={inputCls}>{MARKETPLACE_LISTING_TYPE_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label><label className="block text-sm text-[#F5F1E8]/75">Price / budget / range<input name="price_or_budget" className={inputCls} /></label></div>
       <label className="block text-sm text-[#F5F1E8]/75">Title<input name="title" required className={inputCls} /></label>
       <label className="block text-sm text-[#F5F1E8]/75">Description<textarea name="message" rows={5} required className={inputCls} /></label>
       {fieldsets.map((fieldset) => <section key={fieldset.key} className="space-y-4 rounded-2xl border border-[#C6A55A]/10 bg-[#061322]/45 p-4"><h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-[#C6A55A]">{fieldset.label}</h3><div className="grid gap-4 md:grid-cols-2">{fieldset.fields.map(renderField)}</div></section>)}
@@ -85,3 +87,4 @@ export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: st
     </form>
   )
 }
+
