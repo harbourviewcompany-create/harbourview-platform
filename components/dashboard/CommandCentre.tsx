@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { getCountryByIso2 } from '@/lib/dashboard/countries'
 import Link from 'next/link'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -147,7 +148,29 @@ export default function CommandCentre({
   initialRoleId,
   wantedCount = 4,
 }: Props) {
-  const defaultCountry = COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0]
+  // Resolve country from full registry first, then fall back to the static COUNTRIES list.
+  // This ensures any ISO2 from the globe (MX, JP, ZA, etc.) is honoured instead of
+  // silently falling back to Australia (COUNTRIES[0]).
+  const defaultCountry = useMemo(() => {
+    if (initialCountryIso2) {
+      const fromList = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
+      if (fromList) return fromList
+      // Country is outside the static list — build a minimal entry from the registry
+      const reg = getCountryByIso2(initialCountryIso2)
+      if (reg) {
+        return {
+          iso2: reg.iso2,
+          label: reg.displayName,
+          cur: '',
+          c1: reg.displayName,
+          c2: '',
+          c3: '',
+        }
+      }
+    }
+    return COUNTRIES[0]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const defaultRegions = REGIONS[defaultCountry.iso2] ?? []
 
   const [country, setCountry] = useState(defaultCountry)
