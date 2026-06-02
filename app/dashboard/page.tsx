@@ -39,6 +39,8 @@ function normalizeCountryParam(raw: string | null): string | null {
   if (!raw) return null
   const first = raw.split(',')[0]?.trim().toUpperCase()
   if (!first) return null
+
+  // Globe routes sometimes pass regional IDs such as CA-QC; the dashboard state is ISO2.
   const iso2 = first.match(/^[A-Z]{2}/)?.[0] ?? null
   return iso2 && iso2.length === 2 ? iso2 : null
 }
@@ -57,6 +59,7 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams
 
+  // Globe router URL params override stored preferences. Support both country and countries.
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
 
