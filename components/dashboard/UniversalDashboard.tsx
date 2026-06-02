@@ -53,13 +53,47 @@ export interface UniversalDashboardProps {
 }
 
 // ─── Static fixture listings ─────────────────────────────────────────────────
-const mkListings = (cur: string, c1: string, c2: string, c3: string) => [
-  { id: 1, cat: 'Equipment',          title: 'Stainless Steel Mixing Tank 500L',  desc: 'Food grade 316 SS mixing tank. Excellent condition.', tags: ['Equipment', 'Verified Seller', 'Excellent Condition'], loc: c1, price: `${cur} $8,750`   },
-  { id: 2, cat: 'Cannabis',           title: 'Premium Flower – Indoor Grown',      desc: 'Top shelf indoor grown flower. Lab tested & certified.',tags: ['Cannabis', 'Verified Seller', 'Lab Tested'],           loc: c2, price: `${cur} $4,200 / kg`},
-  { id: 3, cat: 'Consumables',        title: 'Nutrient Solution Starter Kit',      desc: 'Complete 3-part nutrient solution kit.',               tags: ['Consumables', 'New', 'Verified Seller'],               loc: c3, price: `${cur} $320`       },
-  { id: 4, cat: 'Distressed Equipment', title: 'Distressed Extraction Equipment', desc: 'Falling film evaporator. Needs minor refurbishment.',   tags: ['Distressed Equipment', 'Verified Seller'],             loc: c2, price: `${cur} $12,500`   },
-  { id: 5, cat: 'Business Opportunity', title: 'Turnkey Greenhouse Facility',      desc: '1,200m² greenhouse with climate systems.',             tags: ['Business Opportunity', 'Verified Seller'],             loc: c1, price: `${cur} $950,000`  },
+// ── Role-priority listing order ───────────────────────────────────────────────
+// Categories surfaced first depend on the user's role. Falls back to default order.
+const ROLE_CAT_PRIORITY: Partial<Record<string, string[]>> = {
+  lab_qa:                 ['Equipment', 'Consumables', 'Services', 'Cannabis', 'Distressed Equipment'],
+  gmp_quality:            ['Equipment', 'Consumables', 'Services', 'Cannabis', 'Distressed Equipment'],
+  processor_extractor:    ['Equipment', 'Distressed Equipment', 'Consumables', 'Cannabis', 'Services'],
+  cultivator_producer:    ['Cannabis', 'Consumables', 'Equipment', 'Distressed Equipment', 'Services'],
+  geneticist_breeder:     ['Cannabis', 'Consumables', 'Services', 'Equipment', 'Distressed Equipment'],
+  importer:               ['Cannabis', 'Equipment', 'Distressed Equipment', 'Consumables', 'Services'],
+  exporter:               ['Cannabis', 'Equipment', 'Consumables', 'Services', 'Distressed Equipment'],
+  distributor_wholesaler: ['Cannabis', 'Equipment', 'Consumables', 'Services', 'Distressed Equipment'],
+  investor_operator:      ['Business Opportunity', 'Equipment', 'Distressed Equipment', 'Cannabis', 'Services'],
+  logistics_customs:      ['Equipment', 'Services', 'Consumables', 'Cannabis', 'Distressed Equipment'],
+}
+
+const DEFAULT_CAT_ORDER = ['Consumables', 'Cannabis', 'Equipment', 'Distressed Equipment', 'Services']
+
+function getCatOrder(roleId: string | null): string[] {
+  return (roleId ? ROLE_CAT_PRIORITY[roleId] : undefined) ?? DEFAULT_CAT_ORDER
+}
+
+const ALL_LISTINGS = (cur: string, c1: string, c2: string, c3: string) => [
+  { id: 1, cat: 'Equipment',            title: 'Stainless Steel Mixing Tank 500L',   desc: 'Food grade 316 SS mixing tank. Excellent condition.',  tags: ['Equipment', 'Verified Seller', 'Excellent Condition'], loc: c1, price: `${cur} $8,750`    },
+  { id: 2, cat: 'Cannabis',             title: 'Premium Flower – Indoor Grown',       desc: 'Top shelf indoor grown flower. Lab tested & certified.',tags: ['Cannabis', 'Verified Seller', 'Lab Tested'],           loc: c2, price: `${cur} $4,200 / kg` },
+  { id: 3, cat: 'Consumables',          title: 'Nutrient Solution Starter Kit',       desc: 'Complete 3-part nutrient solution kit.',                tags: ['Consumables', 'New', 'Verified Seller'],               loc: c3, price: `${cur} $320`        },
+  { id: 4, cat: 'Distressed Equipment', title: 'Distressed Extraction Equipment',     desc: 'Falling film evaporator. Needs minor refurbishment.',   tags: ['Distressed Equipment', 'Verified Seller'],             loc: c2, price: `${cur} $12,500`    },
+  { id: 5, cat: 'Business Opportunity', title: 'Turnkey Greenhouse Facility',         desc: '1,200m² greenhouse with climate systems.',              tags: ['Business Opportunity', 'Verified Seller'],             loc: c1, price: `${cur} $950,000`   },
+  { id: 6, cat: 'Equipment',            title: 'HPLC Analytical System',              desc: 'Agilent 1260 Infinity II. Full cannabinoid profiling.',  tags: ['Equipment', 'Lab Tested', 'Verified Seller'],          loc: c1, price: `${cur} $22,000`    },
+  { id: 7, cat: 'Consumables',          title: 'Reference Standard Kit – Cannabinoids', desc: 'USP-grade reference standards for 12 cannabinoids.',  tags: ['Consumables', 'Lab Tested', 'New'],                    loc: c3, price: `${cur} $480`        },
+  { id: 8, cat: 'Services',             title: 'GMP Audit Preparation Service',       desc: 'Pre-inspection readiness assessment by certified QA.',  tags: ['Services', 'Verified Seller'],                         loc: c2, price: 'On enquiry'        },
 ]
+
+function mkListings(cur: string, c1: string, c2: string, c3: string, roleId: string | null) {
+  const all = ALL_LISTINGS(cur, c1, c2, c3)
+  const order = getCatOrder(roleId)
+  return [...all].sort((a, b) => {
+    const ai = order.indexOf(a.cat)
+    const bi = order.indexOf(b.cat)
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+}
 
 const COUNTRIES: CountryOption[] = [
   { iso2: 'DE', flag: '🇩🇪', name: 'Germany',        status: 'Market Open',    statusColor: '#6FCF7D', dashboardStatus: 'live'     },
@@ -107,13 +141,27 @@ const COUNTRY_DATA: Record<string, { cur: string; c1: string; c2: string; c3: st
   LU: { cur: 'EUR', c1: 'Luxembourg City',c2: 'Esch',  c3: 'Differdange'  },
 }
 
-const CATS = [
+const ALL_CATS = [
   { id: 'consumables',  label: 'Consumables', count: '1,248' },
   { id: 'cannabis',     label: 'Cannabis',    count: '892'   },
   { id: 'equipment',    label: 'Equipment',   count: '1,112' },
   { id: 'distressed',   label: 'Distressed',  count: '315'   },
   { id: 'services',     label: 'Services',    count: '674'   },
 ]
+
+const CAT_ID_MAP: Record<string, string> = {
+  consumables: 'Consumables', cannabis: 'Cannabis', equipment: 'Equipment',
+  distressed: 'Distressed Equipment', services: 'Services',
+}
+
+function getSortedCats(roleId: string | null) {
+  const order = getCatOrder(roleId)
+  return [...ALL_CATS].sort((a, b) => {
+    const ai = order.indexOf(CAT_ID_MAP[a.id] ?? '')
+    const bi = order.indexOf(CAT_ID_MAP[b.id] ?? '')
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+}
 
 const NAV_ITEMS = [
   { id: 'dashboard',   label: 'Dashboard',     icon: '⊞'  },
@@ -367,9 +415,9 @@ export default function UniversalDashboard({ signals, eduCategories, countryBar:
   const toggleSave = (id: number) => setSaved(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   const cd = selectedCountry ? (COUNTRY_DATA[selectedCountry.iso2] ?? COUNTRY_DATA['DE']) : COUNTRY_DATA['DE']
-  const listings = mkListings(cd.cur, cd.c1, cd.c2, cd.c3)
+  const listings = mkListings(cd.cur, cd.c1, cd.c2, cd.c3, roleId)
 
-  const catMap: Record<string, string> = { consumables: 'Consumables', cannabis: 'Cannabis', equipment: 'Equipment', distressed: 'Distressed Equipment', services: 'Services' }
+  const catMap = CAT_ID_MAP
   const filtered = listings.filter(l => {
     const q = search.toLowerCase()
     const cm = !activeCat || l.cat === catMap[activeCat]
@@ -455,7 +503,7 @@ export default function UniversalDashboard({ signals, eduCategories, countryBar:
             </div>
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              {CATS.map(cat => (
+              {getSortedCats(roleId).map(cat => (
                 <button key={cat.id} onClick={() => setActiveCat(activeCat === cat.id ? null : cat.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', background: activeCat === cat.id ? C.goldFill : C.bg3, border: `1px solid ${activeCat === cat.id ? C.bGold : C.bDim}`, borderRadius: 7, color: activeCat === cat.id ? C.gold : C.ts, fontSize: 11.5, fontWeight: activeCat === cat.id ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }}>
                   <span style={{ color: activeCat === cat.id ? C.gold : C.tm, fontSize: 10.5, fontWeight: 700 }}>{cat.count}</span><span>{cat.label}</span>

@@ -79,6 +79,46 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
     { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing quality'              },
     { icon: '🔬', title: 'Drug Interactions',      desc: 'Contraindications & safety'         },
   ],
+  lab_qa: [
+    { icon: '🧪', title: 'Testing Standards',      desc: 'COA, potency & contaminant methods' },
+    { icon: '📋', title: 'GMP / ISO Compliance',   desc: 'Lab certification & audit prep'     },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Testing requirements by market'     },
+    { icon: '🔬', title: 'Analytical Methods',     desc: 'HPLC, GC-MS & microbial testing'   },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Jurisdiction testing obligations'   },
+    { icon: '📜', title: 'Documentation',          desc: 'COA templates & chain of custody'   },
+  ],
+  gmp_quality: [
+    { icon: '🏛️', title: 'GMP Standards',          desc: 'EU-GMP, WHO-GMP & equivalents'      },
+    { icon: '📋', title: 'Audit Readiness',        desc: 'Inspection preparation & checklists' },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Quality requirements by market'     },
+    { icon: '🔬', title: 'Analytical Methods',     desc: 'In-process & release testing'       },
+    { icon: '📜', title: 'Quality Documentation',  desc: 'SOPs, batch records & deviations'   },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Market-specific GMP obligations'    },
+  ],
+  cultivator_producer: [
+    { icon: '🌿', title: 'Cultivation Compliance', desc: 'Licence & growing standards'        },
+    { icon: '📋', title: 'GMP for Producers',      desc: 'Post-harvest quality requirements'  },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Production rules by jurisdiction'   },
+    { icon: '🧪', title: 'Testing Requirements',   desc: 'COA & quality benchmarks'           },
+    { icon: '🗺️', title: 'Export Pathways',        desc: 'Market access for flower & extract' },
+    { icon: '📜', title: 'Documentation',          desc: 'Batch records & traceability'       },
+  ],
+  geneticist_breeder: [
+    { icon: '🧬', title: 'Genetics & IP',          desc: 'Variety protection & licensing'     },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Seed & plant material rules'        },
+    { icon: '🌿', title: 'Strain Compliance',      desc: 'THC limits & approved varieties'    },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Market-specific genetics law'       },
+    { icon: '🔬', title: 'Analytical Testing',     desc: 'Cannabinoid & terpene profiling'    },
+    { icon: '📜', title: 'Documentation',          desc: 'COAs, passports & provenance'       },
+  ],
+  processor_extractor: [
+    { icon: '⚗️', title: 'Extraction Compliance',  desc: 'Solvent rules & facility licensing' },
+    { icon: '📋', title: 'GMP for Processors',     desc: 'Manufacturing quality standards'    },
+    { icon: '🧪', title: 'Testing Requirements',   desc: 'Residual solvents & potency'        },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Processing rules by jurisdiction'   },
+    { icon: '🗺️', title: 'Export Pathways',        desc: 'Market access for extracts'         },
+    { icon: '📜', title: 'Documentation',          desc: 'COA, SDS & batch records'           },
+  ],
   importer: [
     { icon: '📦', title: 'Import Frameworks',      desc: 'Licences & pathway requirements'    },
     { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Regulatory framework'               },
@@ -95,13 +135,29 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
     { icon: '🤝', title: 'Trade Partners',         desc: 'Buyer & distributor guidance'       },
     { icon: '📦', title: 'Logistics & Customs',    desc: 'Shipping & GDP requirements'        },
   ],
-  investor_operator: [
-    { icon: '📈', title: 'Market Analysis',        desc: 'Opportunity & risk assessment'      },
-    { icon: '⚖️', title: 'Regulatory Landscape',  desc: 'Policy & law overview'              },
-    { icon: '🏗️', title: 'Operations',             desc: 'Setup & compliance requirements'    },
-    { icon: '🗺️', title: 'Country Rules',          desc: 'Jurisdiction deep-dives'            },
-    { icon: '💼', title: 'Deal Structures',        desc: 'Investment models'                  },
-    { icon: '📊', title: 'Financial Models',       desc: 'Projections & benchmarks'           },
+  distributor_wholesaler: [
+    { icon: '🚚', title: 'Distribution Licences',  desc: 'Wholesale & storage compliance'     },
+    { icon: '📦', title: 'Logistics & GDP',        desc: 'Good distribution practice'         },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Distribution rules by market'       },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Jurisdiction-specific requirements' },
+    { icon: '🏛️', title: 'GMP Standards',          desc: 'Product handling requirements'      },
+    { icon: '📜', title: 'Documentation',          desc: 'Chain of custody & audit trail'     },
+  ],
+  retail_operator: [
+    { icon: '🏪', title: 'Retail Licences',        desc: 'Store authorisation & compliance'   },
+    { icon: '⚖️', title: 'Country Rules',          desc: 'Retail rules by jurisdiction'       },
+    { icon: '💊', title: 'Product Knowledge',      desc: 'Formats, dosing & safety'           },
+    { icon: '📋', title: 'Staff Training',         desc: 'Compliance & customer guidance'     },
+    { icon: '🔍', title: 'Supplier Verification',  desc: 'COA & quality requirements'         },
+    { icon: '📜', title: 'Documentation',          desc: 'Record-keeping & reporting'         },
+  ],
+  clinic_healthcare_operator: [
+    { icon: '🏥', title: 'Clinic Authorisation',   desc: 'Prescribing facility requirements'  },
+    { icon: '🩺', title: 'Clinical Protocols',     desc: 'Patient assessment & follow-up'     },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Healthcare rules by jurisdiction'   },
+    { icon: '💊', title: 'Formulary & Dosing',     desc: 'Product selection & protocols'      },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Medical cannabis access rules'      },
+    { icon: '📜', title: 'Documentation',          desc: 'Patient records & reporting'        },
   ],
   regulatory_compliance: [
     { icon: '⚖️', title: 'Regulatory Frameworks', desc: 'Jurisdiction law & guidance'        },
@@ -110,6 +166,62 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
     { icon: '🏛️', title: 'Audit Readiness',        desc: 'Inspection preparation'             },
     { icon: '📜', title: 'Licence Pathways',       desc: 'Application & renewal'              },
     { icon: '🔍', title: 'Enforcement Trends',     desc: 'Regulatory action monitoring'       },
+  ],
+  legal_advisory: [
+    { icon: '⚖️', title: 'Legal Frameworks',       desc: 'Cannabis law by jurisdiction'       },
+    { icon: '📜', title: 'Licence & Permits',      desc: 'Authorisation pathways'             },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal requirements'        },
+    { icon: '🏛️', title: 'Regulatory Updates',     desc: 'Policy changes & enforcement'       },
+    { icon: '🤝', title: 'Commercial Structures',  desc: 'Contracts & IP considerations'      },
+    { icon: '📋', title: 'Compliance Obligations', desc: 'Ongoing reporting & duties'         },
+  ],
+  investor_operator: [
+    { icon: '📈', title: 'Market Analysis',        desc: 'Opportunity & risk assessment'      },
+    { icon: '⚖️', title: 'Regulatory Landscape',  desc: 'Policy & law overview'              },
+    { icon: '🏗️', title: 'Operations',             desc: 'Setup & compliance requirements'    },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Jurisdiction deep-dives'            },
+    { icon: '💼', title: 'Deal Structures',        desc: 'Investment models'                  },
+    { icon: '📊', title: 'Financial Models',       desc: 'Projections & benchmarks'           },
+  ],
+  government_regulator: [
+    { icon: '🏛️', title: 'Regulatory Frameworks', desc: 'International policy comparison'    },
+    { icon: '⚖️', title: 'Enforcement',            desc: 'Compliance monitoring approaches'   },
+    { icon: '🗺️', title: 'Country Models',         desc: 'Regulatory design benchmarks'       },
+    { icon: '📋', title: 'GMP Standards',          desc: 'Manufacturing oversight'            },
+    { icon: '📊', title: 'Market Data',            desc: 'Supply chain & market metrics'      },
+    { icon: '📜', title: 'Policy Resources',       desc: 'Legislation & treaty references'    },
+  ],
+  logistics_customs: [
+    { icon: '📦', title: 'Import / Export Rules',  desc: 'Controlled substance transport'     },
+    { icon: '🚚', title: 'GDP Compliance',         desc: 'Good distribution practice'         },
+    { icon: '📜', title: 'Customs Documentation',  desc: 'Permits, licences & manifests'      },
+    { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Transport rules by jurisdiction'    },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Border & customs requirements'      },
+    { icon: '🔍', title: 'Enforcement Trends',     desc: 'Customs action monitoring'          },
+  ],
+  budtender: [
+    { icon: '💊', title: 'Product Knowledge',      desc: 'Formats, dosing & effects'         },
+    { icon: '🌿', title: 'Strains & Genetics',     desc: 'Cultivar profiles & terpenes'       },
+    { icon: '⚖️', title: 'Retail Compliance',      desc: 'Local sales rules & obligations'    },
+    { icon: '🩺', title: 'Patient Guidance',       desc: 'Responsible use & contraindications'},
+    { icon: '📋', title: 'Staff Training',         desc: 'Certification & knowledge standards' },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Jurisdiction retail rules'          },
+  ],
+  patient_caregiver_education: [
+    { icon: '🩺', title: 'Patient Guidance',       desc: 'Access pathways & authorisation'    },
+    { icon: '💊', title: 'Dosage & Formats',       desc: 'Product types & dosing basics'      },
+    { icon: '📖', title: 'Clinical Evidence',      desc: 'Conditions & treatment research'    },
+    { icon: '⚖️', title: 'Country Rules',          desc: 'Patient access by jurisdiction'     },
+    { icon: '🔬', title: 'Pharmacology Basics',    desc: 'How cannabinoids work'              },
+    { icon: '🤝', title: 'Support Resources',      desc: 'Caregiver & patient networks'       },
+  ],
+  not_sure: [
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal framework'           },
+    { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Stay audit-ready'                   },
+    { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing compliance'           },
+    { icon: '📖', title: 'Clinical Evidence',      desc: 'Research & trial summaries'         },
+    { icon: '📦', title: 'Trade & Access',         desc: 'Import/export frameworks'            },
+    { icon: '📋', title: 'Getting Started',        desc: 'Orientation for new participants'   },
   ],
 }
 
@@ -181,4 +293,23 @@ export function getEmptyCountryStatusBar(): CountryStatusBar {
 export function getCountryStatusBar(iso2: string | null | undefined): CountryStatusBar {
   if (!iso2) return EMPTY_STATUS
   return STATUS_DATA[iso2.toUpperCase()] ?? FALLBACK_STATUS
+}
+
+// ── Wanted Requests count ─────────────────────────────────────────────────────
+// Reads from Supabase if the table exists; falls back to fixture count.
+// When wanted_requests is promoted to a live table, remove the fixture import.
+import { wantedRequests as wantedFixtures } from '@/lib/fixtures/wanted-requests'
+
+export async function getWantedRequestsCount(): Promise<number> {
+  try {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { count, error } = await supabase
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('listing_type', 'wanted')
+      .eq('status', 'published')
+    if (!error && typeof count === 'number') return count
+  } catch { /* fall through to fixture count */ }
+  return wantedFixtures.length
 }
