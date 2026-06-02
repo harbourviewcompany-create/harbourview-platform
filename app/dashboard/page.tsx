@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { fetchDashboardSignals, getEduCategoriesForRole, getCountryStatusBar, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import TargetDashboard from '@/components/dashboard/TargetDashboard'
+import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
+import CommandCentre from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import type { RoleId } from '@/types/globe-router'
 
@@ -92,14 +92,12 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId = urlRole ?? storedRoleId
 
-  const countryBar = getCountryStatusBar(countryIso2)
   const eduCategories = getEduCategoriesForRole(roleId ?? undefined)
 
   return (
-    <TargetDashboard
+    <CommandCentre
       signals={signals}
       eduCategories={eduCategories}
-      countryBar={countryBar}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}
