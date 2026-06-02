@@ -11,9 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <Suspense>
       <DashboardProvider>
-        <div className="min-h-screen bg-[#03070d]">
-          {children}
-        </div>
+        {children}
       </DashboardProvider>
     </Suspense>
   )
