@@ -3,7 +3,7 @@ import type {
   Listing,
   ListingImage,
   ListingImageStatus,
-} from '@/lib/fixtures/types'
+} from '@/lib/marketplace/listingTypes'
 
 type ListingWithReplyAddress = Listing
 export type BusinessOpportunityWithPublicSlug = BusinessOpportunity & { slug?: string | null }
