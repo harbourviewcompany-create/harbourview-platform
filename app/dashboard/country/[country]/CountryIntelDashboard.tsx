@@ -89,7 +89,7 @@ function MiniGlobe({ lat, lng, layerColor }: { lat: number; lng: number; layerCo
         ctx.beginPath(); let s=false
         for (let lo=-180;lo<=181;lo+=3) {
           const p=proj(lt,lo); if(p.z<-.08){s=false;continue}
-          s?ctx.lineTo(p.sx,p.sy):(ctx.moveTo(p.sx,p.sy),s=true)
+          if(s){ctx.lineTo(p.sx,p.sy)}else{ctx.moveTo(p.sx,p.sy);s=true}
         }
         ctx.strokeStyle=lt===0?'rgba(198,165,90,0.22)':'rgba(198,165,90,0.07)'
         ctx.lineWidth=lt===0?.9:.4; ctx.stroke()
@@ -98,7 +98,7 @@ function MiniGlobe({ lat, lng, layerColor }: { lat: number; lng: number; layerCo
         ctx.beginPath(); let s=false
         for (let lt=-88;lt<=88;lt+=3) {
           const p=proj(lt,lo); if(p.z<-.08){s=false;continue}
-          s?ctx.lineTo(p.sx,p.sy):(ctx.moveTo(p.sx,p.sy),s=true)
+          if(s){ctx.lineTo(p.sx,p.sy)}else{ctx.moveTo(p.sx,p.sy);s=true}
         }
         ctx.strokeStyle='rgba(198,165,90,0.05)'; ctx.lineWidth=.35; ctx.stroke()
       }
@@ -180,7 +180,6 @@ export function CountryIntelDashboard({
     { label:'Operating Readiness',score:record.readiness.readinessScore,   sub:`${record.readiness.gates.length} gates to clear` },
   ]
 
-  const W = 'auto' as const
 
   return (
     <div style={{ minHeight:'100%', background:C.bg0, padding:16, display:'flex', flexDirection:'column', gap:12, fontFamily:"'DM Sans',system-ui,sans-serif" }}>
@@ -521,7 +520,7 @@ export function CountryIntelDashboard({
             <Link
               key={s}
               href={available ? `${country.dashboardPath}/${s}` : '#'}
-              style={{ background:available?C.goldBg:'transparent', border:`1px solid ${available?C.bGold:C.bDim}`, borderRadius:6, padding:'4px 10px', color:available?C.gold:C.tm, fontSize:10.5, textDecoration:'none', fontWeight:available?600:400, opacity:available?1:0.4, pointerEvents:(available?'auto':'none') as const }}
+              style={{ background:available?C.goldBg:'transparent', border:`1px solid ${available?C.bGold:C.bDim}`, borderRadius:6, padding:'4px 10px', color:available?C.gold:C.tm, fontSize:10.5, textDecoration:'none', fontWeight:available?600:400, opacity:available?1:0.4, pointerEvents:(available ? 'auto' : 'none') as 'auto' | 'none' }}
             >
               {s.charAt(0).toUpperCase()+s.slice(1)}
             </Link>
