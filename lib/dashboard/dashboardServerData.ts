@@ -3,6 +3,8 @@ import { listIaSignals } from '@/lib/intelligence-automation/db'
 import { automationSignals } from '@/lib/intelligence-automation/fixtures'
 import type { AutomationSignal } from '@/lib/intelligence-automation/types'
 import type { DashboardSignal } from './dashboardShared'
+import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
+import type { PublicRegulatorySignal } from '@/lib/regulatory-signals/types'
 
 // ── Signal tag display mapping ────────────────────────────────────────────────
 export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -20,6 +22,37 @@ export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: 
   distributor_activity:     { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
 }
 
+// ── Regulatory signal type → tag key ─────────────────────────────────────────
+const REG_TYPE_TO_TAG: Record<string, string> = {
+  regulatory_change:              'regulatory_change',
+  policy_announcement:            'regulatory_change',
+  controlled_substance_scheduling:'regulatory_change',
+  consultation_pending_rule_change:'regulatory_change',
+  court_agency_decision:          'regulatory_change',
+  import_export_pathway:          'new_product_category',   // TRADE
+  customs_trade_requirement:      'new_product_category',   // TRADE
+  licensing_market_access:        'importer_activity',      // MARKET
+  prescription_patient_access:    'importer_activity',      // MARKET
+  hemp_cbd_controlled_cannabinoids:'importer_activity',     // MARKET
+  enforcement_compliance_action:  'documentation_readiness',// COMPLIANCE
+  quality_standard_requirement:   'documentation_readiness',// COMPLIANCE
+}
+
+function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
+  switch (c) {
+    case 'official_confirmed': return 99
+    case 'high':               return 85
+    case 'medium':             return 65
+    case 'low':                return 42
+  }
+}
+
+function impactToCommercial(lvl: PublicRegulatorySignal['impact_level']): string {
+  if (lvl === 'critical' || lvl === 'high') return 'high'
+  if (lvl === 'moderate')                   return 'medium'
+  return 'low'
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const h = Math.floor(diff / 3_600_000)
@@ -30,8 +63,25 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}w ago`
 }
 
+// ── Map PublicRegulatorySignal → DashboardSignal ──────────────────────────────
+function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
+  const tagKey = REG_TYPE_TO_TAG[s.signal_type] ?? 'regulatory_change'
+  const tag    = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
+  return {
+    id:               s.id,
+    title:            s.headline,
+    type:             tagKey,
+    market:           s.country_name ?? s.region ?? '',
+    tag,
+    timeAgo:          timeAgo(s.published_at ?? s.signal_date),
+    confidence:       confidenceToScore(s.confidence),
+    commercialImpact: impactToCommercial(s.impact_level),
+  }
+}
+
 export type { DashboardSignal } from './dashboardShared'
 
+// ── Map AutomationSignal → DashboardSignal ────────────────────────────────────
 function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSignal[] {
   return signals
     .filter(s => s.stage !== 'archived')
@@ -48,13 +98,26 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
     }))
 }
 
+// ── fetchDashboardSignals ─────────────────────────────────────────────────────
+// Priority: regulatory_signals (published + public_safe) → IA signals → fixtures
 export async function fetchDashboardSignals(limit = 8): Promise<DashboardSignal[]> {
+  // 1. Regulatory signals — the properly reviewed, publication-grade source
+  try {
+    const feed = await getPublicRegulatorySignalFeed()
+    if (feed.source === 'live-approved' && feed.signals.length > 0) {
+      return feed.signals.slice(0, limit).map(regulatoryToSignal)
+    }
+  } catch { /* fall through */ }
+
+  // 2. Intelligence-automation signals table
   try {
     const result = await listIaSignals()
     if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
       return shapeSignals(result.data, limit)
     }
   } catch { /* fall through */ }
+
+  // 3. Static fixtures — last resort, should only appear in local dev / cold DB
   return shapeSignals(automationSignals, limit)
 }
 
@@ -296,8 +359,6 @@ export function getCountryStatusBar(iso2: string | null | undefined): CountrySta
 }
 
 // ── Wanted Requests count ─────────────────────────────────────────────────────
-// Reads from Supabase marketplace_candidates for wanted listing count.
-
 export async function getWantedRequestsCount(): Promise<number> {
   try {
     const { createClient } = await import('@/lib/supabase/server')
