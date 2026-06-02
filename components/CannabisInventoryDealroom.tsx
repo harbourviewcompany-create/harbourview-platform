@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { CannabisInventoryListing } from '@/lib/fixtures/types'
+import type { CannabisInventoryListing } from '@/lib/marketplace/listingTypes'
 import ListingCard from './ListingCard'
 
 interface CannabisInventoryDealroomProps {
