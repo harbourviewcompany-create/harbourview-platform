@@ -191,6 +191,16 @@ function ensureWinding(pts: [number, number][], clockwise: boolean): [number, nu
 }
 
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
+  // Use the country centroid as the reference longitude for ALL polygons of this
+  // country. This is the antimeridian fix: without it, a country whose centroid
+  // sits near 100°E (e.g. Russia) but whose eastern sub-polygons start at -179°
+  // would use -179° as the ring reference, causing those polygons to project
+  // near the prime meridian (Africa) instead of the far east (antimeridian).
+  // Centering on the country centroid keeps every polygon within ±180° of the
+  // correct geographic anchor, so Russia's Chukotka renders adjacent to the
+  // main landmass at the antimeridian rather than on the wrong side of the globe.
+  const countryReferenceLon = country.centroid[0]
+
   return country.polygons
     .map((polygon) => {
       const outerRing = polygon.rings.find((r) => r.kind === 'outer')
@@ -199,11 +209,10 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
       const rawOuter = normalizeRing(outerRing.points)
       if (rawOuter.length < 3) return null
 
-      const referenceLongitude = rawOuter[0][0]
-      const outer = ensureWinding(normalizeLongitudesAround(rawOuter, referenceLongitude), false)
+      const outer = ensureWinding(normalizeLongitudesAround(rawOuter, countryReferenceLon), false)
       const holes = polygon.rings
         .filter((r) => r.kind === 'hole')
-        .map((r) => normalizeLongitudesAround(normalizeRing(r.points), referenceLongitude))
+        .map((r) => normalizeLongitudesAround(normalizeRing(r.points), countryReferenceLon))
         .map((r) => ensureWinding(r, true))
         .filter((r) => r.length >= 3)
       return { outer, holes }

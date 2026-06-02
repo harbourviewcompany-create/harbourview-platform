@@ -103,13 +103,15 @@ export function GlobeCanvas({
       >
         <color attach="background" args={['#01050d']} />
 
-        {/* Premium controlled studio lighting: narrow warm key + cool fill to
-            create champagne highlights without washing continents flat. */}
-        <ambientLight intensity={0.2} color="#f0d59a" />
-        <directionalLight position={[3.8, 2.6, 4.8]} intensity={2.35} color="#fff3d5" />
-        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.22} color="#6f8fc8" />
-        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.28} color="#8a5f18" />
-        <hemisphereLight args={['#14233a', '#02060d', 0.28]} />
+        {/* Three-point studio rig: warm key split across two angles to avoid
+            a single blown-out hot spot on high-metalness country plates.
+            Fill from upper-left (cool) + lower-back rim (amber) for 3-D depth. */}
+        <ambientLight intensity={0.28} color="#d4b87a" />
+        <directionalLight position={[3.8, 2.6, 4.8]} intensity={1.1} color="#ffe8b0" />
+        <directionalLight position={[1.2, 3.5, 2.2]} intensity={0.65} color="#ffd98a" />
+        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.25} color="#6f8fc8" />
+        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.32} color="#8a5f18" />
+        <hemisphereLight args={['#14233a', '#02060d', 0.32]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
