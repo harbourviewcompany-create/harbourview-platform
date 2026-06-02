@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { getCountryByIso2 } from '@/lib/dashboard/countries'
+import { countries as ALL_COUNTRIES, getCountryByIso2 } from '@/lib/dashboard/countries'
 import Link from 'next/link'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -16,18 +16,14 @@ type Props = {
 }
 
 // ── Static data ───────────────────────────────────────────────────────────────
-const COUNTRIES = [
-  { iso2:'AU', label:'Australia',      cur:'AUD', c1:'Sydney, AU',      c2:'Melbourne, AU',  c3:'Brisbane, AU'   },
-  { iso2:'CA', label:'Canada',         cur:'CAD', c1:'Toronto, CA',     c2:'Vancouver, CA',  c3:'Montreal, CA'   },
-  { iso2:'DE', label:'Germany',        cur:'EUR', c1:'Berlin, DE',      c2:'Hamburg, DE',    c3:'Munich, DE'     },
-  { iso2:'NL', label:'Netherlands',    cur:'EUR', c1:'Amsterdam, NL',   c2:'Rotterdam, NL',  c3:'Utrecht, NL'    },
-  { iso2:'GB', label:'United Kingdom', cur:'GBP', c1:'London, GB',      c2:'Manchester, GB', c3:'Bristol, GB'    },
-  { iso2:'US', label:'United States',  cur:'USD', c1:'California, US',  c2:'New York, US',   c3:'Colorado, US'   },
-  { iso2:'IL', label:'Israel',         cur:'ILS', c1:'Tel Aviv, IL',    c2:'Jerusalem, IL',  c3:'Haifa, IL'      },
-  { iso2:'PT', label:'Portugal',       cur:'EUR', c1:'Lisbon, PT',      c2:'Porto, PT',      c3:'Faro, PT'       },
-  { iso2:'CH', label:'Switzerland',    cur:'CHF', c1:'Zurich, CH',      c2:'Basel, CH',      c3:'Geneva, CH'     },
-  { iso2:'NZ', label:'New Zealand',    cur:'NZD', c1:'Auckland, NZ',    c2:'Wellington, NZ', c3:'Christchurch,NZ'},
-]
+// Full country list derived from the dashboard registry (200+ countries).
+// Sorted alphabetically — same order as the globe.
+const COUNTRIES = ALL_COUNTRIES.map(c => ({
+  iso2: c.iso2,
+  label: c.displayName,
+  cur: '',
+  c1: '', c2: '', c3: '',
+}))
 
 const REGIONS: Record<string, string[]> = {
   AU:['New South Wales','Victoria','Queensland','Western Australia','South Australia','Northern Territory','Tasmania'],
@@ -148,25 +144,14 @@ export default function CommandCentre({
   initialRoleId,
   wantedCount = 4,
 }: Props) {
-  // Resolve country from full registry first, then fall back to the static COUNTRIES list.
-  // This ensures any ISO2 from the globe (MX, JP, ZA, etc.) is honoured instead of
-  // silently falling back to Australia (COUNTRIES[0]).
+  // Resolve initial country from the full 200+ registry list.
+  // COUNTRIES[0] fallback is Canada (first alphabetically) only when no iso2 provided.
   const defaultCountry = useMemo(() => {
     if (initialCountryIso2) {
-      const fromList = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
-      if (fromList) return fromList
-      // Country is outside the static list — build a minimal entry from the registry
-      const reg = getCountryByIso2(initialCountryIso2)
-      if (reg) {
-        return {
-          iso2: reg.iso2,
-          label: reg.displayName,
-          cur: '',
-          c1: reg.displayName,
-          c2: '',
-          c3: '',
-        }
-      }
+      return COUNTRIES.find(c => c.iso2 === initialCountryIso2)
+        ?? getCountryByIso2(initialCountryIso2)?.iso2
+          ? { iso2: initialCountryIso2, label: getCountryByIso2(initialCountryIso2)!.displayName, cur: '', c1: '', c2: '', c3: '' }
+          : COUNTRIES[0]
     }
     return COUNTRIES[0]
   // eslint-disable-next-line react-hooks/exhaustive-deps
