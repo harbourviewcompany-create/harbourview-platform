@@ -18,13 +18,23 @@ create table if not exists intelligence.country_intelligence_profiles (
 
 alter table intelligence.country_intelligence_profiles enable row level security;
 
-create policy if not exists intelligence_country_public_read
-on intelligence.country_intelligence_profiles
-for select
-using (
-  public_safe = true
-  and publish_to_public = true
-);
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'intelligence'
+      and tablename  = 'country_intelligence_profiles'
+      and policyname = 'intelligence_country_public_read'
+  ) then
+    create policy intelligence_country_public_read
+    on intelligence.country_intelligence_profiles
+    for select
+    using (
+      public_safe = true
+      and publish_to_public = true
+    );
+  end if;
+end $$;
 
 create view if not exists intelligence.public_country_intelligence as
 select
