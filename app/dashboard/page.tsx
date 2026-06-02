@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getCountryStatusBar } from '@/lib/dashboard/dashboardServerData'
-import UniversalDashboard from '@/components/dashboard/UniversalDashboard'
+import TargetDashboard from '@/components/dashboard/TargetDashboard'
+import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import type { RoleId } from '@/types/globe-router'
 
 export const metadata: Metadata = {
   title: 'Dashboard | Harbourview',
@@ -10,7 +12,44 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
-// Next.js 15: searchParams is a Promise and must be awaited
+const ROLE_ALIASES: Record<string, RoleId> = {
+  buyer: 'importer',
+  importer: 'importer',
+  importer_buyer: 'importer',
+  supplier: 'exporter',
+  exporter: 'exporter',
+  seller: 'exporter',
+  producer: 'cultivator_producer',
+  cultivator: 'cultivator_producer',
+  processor: 'processor_extractor',
+  extractor: 'processor_extractor',
+  doctor: 'doctor_prescriber',
+  prescriber: 'doctor_prescriber',
+  pharmacist: 'pharmacist',
+  compliance: 'regulatory_compliance',
+  regulator: 'government_regulator',
+}
+
+function firstParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function normalizeCountryParam(raw: string | null): string | null {
+  if (!raw) return null
+  const first = raw.split(',')[0]?.trim().toUpperCase()
+  if (!first) return null
+  const iso2 = first.match(/^[A-Z]{2}/)?.[0] ?? null
+  return iso2 && iso2.length === 2 ? iso2 : null
+}
+
+function normalizeRoleParam(raw: string | null): string | null {
+  if (!raw) return null
+  const key = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  const resolved = ROLE_ALIASES[key] ?? (key as RoleId)
+  return ROLE_PROFILES[resolved] ? resolved : null
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -18,18 +57,11 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams
 
-  // URL params win (sourced from globe router)
-  const urlCountry = typeof params.country === 'string'
-    ? params.country.toUpperCase()
-    : null
-  const urlRole = typeof params.role === 'string'
-    ? params.role
-    : null
+  const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
+  const urlRole = normalizeRoleParam(firstParam(params.role))
 
-  // ── Fetch signals (live from Supabase, falls back to fixtures) ──
   const signals = await fetchDashboardSignals(8)
 
-  // ── Load user preferences if authenticated ──
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
 
@@ -44,23 +76,21 @@ export default async function DashboardPage({
         .eq('user_id', user.id)
         .single()
 
-      storedCountryIso2 = prefs?.country_iso2 ?? null
-      storedRoleId = prefs?.role_id ?? null
+      storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
+      storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
     }
   } catch {
-    // No auth or prefs table not yet migrated — fine, show picker
+    // No auth or prefs table not yet migrated — show URL context or picker defaults.
   }
 
-  // Globe router URL params override stored prefs
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId = urlRole ?? storedRoleId
 
-  // ── Derive status bar and edu categories from resolved context ──
   const countryBar = getCountryStatusBar(countryIso2)
   const eduCategories = getEduCategoriesForRole(roleId ?? undefined)
 
   return (
-    <UniversalDashboard
+    <TargetDashboard
       signals={signals}
       eduCategories={eduCategories}
       countryBar={countryBar}
