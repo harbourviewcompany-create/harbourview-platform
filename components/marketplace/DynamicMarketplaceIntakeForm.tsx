@@ -53,8 +53,7 @@ export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: st
       `listing_type: ${listingType}`,
       `category_key: ${typeKey}`,
       ...Object.entries(details).filter(([key]) => !['contact_name', 'contact_email', 'contact_company', 'contact_phone', 'message', 'hp_field'].includes(key)).map(([key, value]) => `${key}: ${value}`),
-    ].join('
-')
+    ].join('\n')
     const response = await fetch('/api/marketplace/capture', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
