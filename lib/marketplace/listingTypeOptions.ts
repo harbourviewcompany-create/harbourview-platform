@@ -8,10 +8,12 @@ export const MARKETPLACE_LISTING_TYPE_OPTIONS = [
   'Featured Network Opportunity',
   'Consumables',
   'Cultivation Equipment',
+  'Processing Equipment',
   'Distressed Inventory',
   'Distressed Businesses',
   'Genetics Program',
   'Qualified Access Request',
+  'Education Resource',
 ] as const
 
 export type MarketplaceListingTypeOption = (typeof MARKETPLACE_LISTING_TYPE_OPTIONS)[number]
@@ -42,6 +44,8 @@ const LISTING_TYPE_ALIASES: Record<string, MarketplaceListingTypeOption> = {
   consumables: 'Consumables',
   cultivation: 'Cultivation Equipment',
   cultivation_equipment: 'Cultivation Equipment',
+  processing: 'Processing Equipment',
+  processing_equipment: 'Processing Equipment',
   distressed: 'Distressed Inventory',
   distressed_inventory: 'Distressed Inventory',
   distressed_business: 'Distressed Businesses',
@@ -51,6 +55,8 @@ const LISTING_TYPE_ALIASES: Record<string, MarketplaceListingTypeOption> = {
   qualified: 'Qualified Access Request',
   qualified_access: 'Qualified Access Request',
   qualified_access_request: 'Qualified Access Request',
+  education: 'Education Resource',
+  education_resource: 'Education Resource',
 }
 
 function normalizeTypeInput(value: string) {
