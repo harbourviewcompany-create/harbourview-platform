@@ -145,13 +145,12 @@ export default function CommandCentre({
   wantedCount = 4,
 }: Props) {
   // Resolve initial country from the full 200+ registry list.
-  // COUNTRIES[0] fallback is Canada (first alphabetically) only when no iso2 provided.
+  // COUNTRIES now contains all 200+ registry countries.
+  // Find by iso2 directly — always resolves for any globe selection.
   const defaultCountry = useMemo(() => {
     if (initialCountryIso2) {
-      return COUNTRIES.find(c => c.iso2 === initialCountryIso2)
-        ?? getCountryByIso2(initialCountryIso2)?.iso2
-          ? { iso2: initialCountryIso2, label: getCountryByIso2(initialCountryIso2)!.displayName, cur: '', c1: '', c2: '', c3: '' }
-          : COUNTRIES[0]
+      const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
+      if (found) return found
     }
     return COUNTRIES[0]
   // eslint-disable-next-line react-hooks/exhaustive-deps
