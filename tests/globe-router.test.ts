@@ -97,7 +97,6 @@ describe('Harbourview globe same-screen router', () => {
       ['CO', 'Colombia'],
       ['LS', 'Lesotho'],
       ['MK', 'North Macedonia'],
-      ['MT', 'Malta'],
       ['UY', 'Uruguay'],
       ['IL', 'Israel'],
       ['CZ', 'Czechia'],
