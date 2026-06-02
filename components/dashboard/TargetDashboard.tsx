@@ -42,7 +42,7 @@ const DEFAULT_SUPPLIER_CATS: [string, string, string][] = [
 ]
 
 function getSupplierCats(roleId: string | null): [string, string, string][] {
-  return (roleId && SUPPLIER_CATS[roleId]) ?? DEFAULT_SUPPLIER_CATS
+  return (roleId != null && roleId !== '' && SUPPLIER_CATS[roleId]) || DEFAULT_SUPPLIER_CATS
 }
 
 function buildCats(wantedCount: number) {
