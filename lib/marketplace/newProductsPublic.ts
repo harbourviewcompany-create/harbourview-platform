@@ -1,5 +1,5 @@
 import 'server-only';
-import type { ListingImage, NewProductListing } from '@/lib/fixtures/types';
+import type { ListingImage, NewProductListing } from '@/lib/marketplace/listingTypes';
 import { fetchAdminSupabaseJson } from '@/lib/supabase/adminDataClient';
 import { NEW_PRODUCTS_CATEGORY } from './equipment';
 
