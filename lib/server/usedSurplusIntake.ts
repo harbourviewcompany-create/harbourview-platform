@@ -1,6 +1,5 @@
 import crypto from 'node:crypto'
-import { usedSurplusListings } from '@/lib/fixtures/used-surplus'
-import type { ListingImageStatus, UsedSurplusListing } from '@/lib/fixtures/types'
+import type { ListingImageStatus, UsedSurplusListing } from '@/lib/marketplace/listingTypes'
 
 export interface IntakeCandidate {
   id?: string
@@ -272,9 +271,8 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
 }
 
 function fallbackListings(): UsedSurplusListing[] {
-  return usedSurplusListings.map((listing) => ({
-    ...listing,
-  }))
+  return []
+}))
 }
 
 export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
@@ -291,7 +289,7 @@ export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListi
 
     return publishedListings
   } catch (error) {
-    console.error('[Harbourview] Used surplus Supabase projection failed. Falling back to fixtures.', error)
+    console.error('[Harbourview] Used surplus Supabase projection failed.', error)
     return fallbackListings()
   }
 }
