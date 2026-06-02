@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { AdditiveBlending, BackSide, DoubleSide } from 'three'
+import { AdditiveBlending, BackSide } from 'three'
 import type { MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
@@ -100,7 +100,6 @@ function HoverPulseMesh({
           polygonOffset
           polygonOffsetFactor={-1}
           polygonOffsetUnits={-1}
-          side={DoubleSide}
           onBeforeCompile={(shader) => {
             shader.fragmentShader = shader.fragmentShader.replace(
               '#include <common>',
