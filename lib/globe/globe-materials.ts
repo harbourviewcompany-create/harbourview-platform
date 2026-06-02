@@ -38,8 +38,8 @@ export function resolveCountryMaterialState({
     // Emissive: dark gold at moderate intensity fills shadow side so it reads as
     // dark gold, not black. Lower than before so lighting contrast (not uniform
     // self-glow) creates the 3D depth.
-    emissive: '#3f2a08',
-    emissiveIntensity: 0.16,
+    emissive: '#4a3608',
+    emissiveIntensity: 0.18,
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.
@@ -65,13 +65,13 @@ export function resolveCountryMaterialState({
     case 'focused':
       return {
         ...base,
-        plateBase: '#caa75a',
-        emissive: '#7f5d1c',
+        plateBase: '#D4AF37',
+        emissive: '#7a5c18',
         emissiveIntensity: 0.22,
-        roughness: 0.24,
-        metalness: 0.94,
-        clearcoat: 0.62,
-        clearcoatRoughness: 0.16,
+        roughness: 0.22,
+        metalness: 0.95,
+        clearcoat: 0.64,
+        clearcoatRoughness: 0.14,
       }
     case 'selected':
       return {

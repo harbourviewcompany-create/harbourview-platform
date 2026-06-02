@@ -101,16 +101,16 @@ export function GlobeCanvas({
           invalidateRef.current = state.invalidate
         }}
       >
-        <color attach="background" args={['#01050d']} />
+        <color attach="background" args={['#010810']} />
 
         {/* Original studio rig restored. Key at 2.35 drives the specular sheen.
             Hemisphere and fill raised to lift the unlit shadow side — fixes
             the "too dark" look without touching material metalness/clearcoat. */}
-        <ambientLight intensity={0.38} color="#f0d59a" />
+        <ambientLight intensity={0.58} color="#f0d59a" />
         <directionalLight position={[3.8, 2.6, 4.8]} intensity={2.35} color="#fff3d5" />
-        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.42} color="#6f8fc8" />
-        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.48} color="#8a5f18" />
-        <hemisphereLight args={['#1e3550', '#04090f', 0.52]} />
+        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.52} color="#6f8fc8" />
+        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.54} color="#8a5f18" />
+        <hemisphereLight args={['#1e3550', '#04090f', 0.72]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}

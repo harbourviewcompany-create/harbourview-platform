@@ -103,9 +103,9 @@ export function CountryBorderLayer() {
   const worldMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#b99248'),
+        color: new THREE.Color('#C9A832'),
         transparent: true,
-        opacity: 0.46,
+        opacity: 0.52,
         depthTest: true,
         depthWrite: false,
       }),
@@ -115,9 +115,9 @@ export function CountryBorderLayer() {
   const usMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#d6b96d'),
+        color: new THREE.Color('#D4B847'),
         transparent: true,
-        opacity: 0.32,
+        opacity: 0.38,
         depthTest: true,
         depthWrite: false,
       }),
@@ -127,9 +127,9 @@ export function CountryBorderLayer() {
   const caMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#b99248'),
+        color: new THREE.Color('#C9A832'),
         transparent: true,
-        opacity: 0.32,
+        opacity: 0.38,
         depthTest: true,
         depthWrite: false,
       }),
