@@ -294,3 +294,22 @@ export function getCountryStatusBar(iso2: string | null | undefined): CountrySta
   if (!iso2) return EMPTY_STATUS
   return STATUS_DATA[iso2.toUpperCase()] ?? FALLBACK_STATUS
 }
+
+// ── Wanted Requests count ─────────────────────────────────────────────────────
+// Reads from Supabase if the table exists; falls back to fixture count.
+// When wanted_requests is promoted to a live table, remove the fixture import.
+import { wantedRequests as wantedFixtures } from '@/lib/fixtures/wanted-requests'
+
+export async function getWantedRequestsCount(): Promise<number> {
+  try {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { count, error } = await supabase
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('listing_type', 'wanted')
+      .eq('status', 'published')
+    if (!error && typeof count === 'number') return count
+  } catch { /* fall through to fixture count */ }
+  return wantedFixtures.length
+}
