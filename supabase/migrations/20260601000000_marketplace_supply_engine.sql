@@ -102,6 +102,42 @@ alter table public.marketplace_candidates
   add column if not exists review_due_at timestamptz,
   add column if not exists expires_at timestamptz;
 
+alter table public.marketplace_candidates
+  drop constraint if exists marketplace_candidates_type_check,
+  drop constraint if exists marketplace_candidates_category_check,
+  drop constraint if exists marketplace_candidates_subcategory_check,
+  drop constraint if exists marketplace_candidates_listing_type_check;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.marketplace_candidates'::regclass
+      and conname = 'marketplace_candidates_category_key_check'
+  ) then
+    alter table public.marketplace_candidates
+      add constraint marketplace_candidates_category_key_check
+      check (
+        category_key is null or category_key in (
+          'consumables','packaging','new_products','used_surplus','cultivation_equipment','processing_equipment','lab_testing','logistics','services','professional_services','distressed_inventory','distressed_businesses','business_opportunities','export_ready','import_demand','cannabis_inventory','genetics','wanted_requests','qualified_access','education'
+        )
+      ) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.marketplace_candidates'::regclass
+      and conname = 'marketplace_candidates_publication_status_check'
+  ) then
+    alter table public.marketplace_candidates
+      add constraint marketplace_candidates_publication_status_check
+      check (publication_status in ('not_publishable','draft_public_summary','needs_public_safety_review','approved_public_summary','published','private_only','rejected','archived')) not valid;
+  end if;
+end $$;
+
 create index if not exists marketplace_candidates_supply_engine_queue_idx
   on public.marketplace_candidates (publication_status, verification_status, created_at desc);
 
