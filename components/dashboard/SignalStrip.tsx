@@ -1,40 +1,31 @@
-'use client'
+\'use client\'
 
 import Link from 'next/link'
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
-export interface SignalItem {
-  country: string
-  type: 'regulatory' | 'market' | 'trade' | 'commercial'
-  direction: 'liberalizing' | 'commercial' | 'stable'
-  headline: string
-  time: string
-}
+export type { DashboardSignal }
 
-const SIGNALS: SignalItem[] = [
-  { country: 'Germany',        type: 'regulatory', direction: 'liberalizing', headline: 'BfArM import guidance updated — GMP recognition framework extended to additional third-country exporters',     time: 'May 2026' },
-  { country: 'Australia',      type: 'market',     direction: 'stable',       headline: 'TGA ODC reports continued growth in SAS Category B applications; average approval time 12 days',           time: 'May 2026' },
-  { country: 'Netherlands',    type: 'trade',      direction: 'commercial',   headline: 'Bedrocan expands export volumes into new EU member state distribution agreements',                           time: 'Apr 2026' },
-  { country: 'United Kingdom', type: 'market',     direction: 'stable',       headline: 'MHRA confirms no changes to Schedule 2 import framework; named-patient volumes growing',                    time: 'Apr 2026' },
-  { country: 'Colombia',       type: 'commercial', direction: 'commercial',   headline: 'ProColombia issues export readiness guidance for GMP-certified producers targeting EU markets',              time: 'Mar 2026' },
-  { country: 'Canada',         type: 'regulatory', direction: 'stable',       headline: 'Health Canada publishes updated Export Permit framework — commercial cultivation category clarified',        time: 'Mar 2026' },
-]
-
+// ── Visual mappings ───────────────────────────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
-  regulatory: 'border-sky-500/30 text-sky-400 bg-sky-500/[0.06]',
-  market:     'border-emerald-500/30 text-emerald-400 bg-emerald-500/[0.06]',
-  trade:      'border-amber-500/30 text-amber-400 bg-amber-500/[0.06]',
-  commercial: 'border-yellow-500/30 text-yellow-400 bg-yellow-500/[0.06]',
+  REGULATION:   'border-amber-500/30   text-amber-400   bg-amber-500/[0.06]',
+  MARKET:       'border-emerald-500/30 text-emerald-400 bg-emerald-500/[0.06]',
+  TRADE:        'border-violet-500/30  text-violet-400  bg-violet-500/[0.06]',
+  COMPLIANCE:   'border-sky-500/30     text-sky-400     bg-sky-500/[0.06]',
+  'SUPPLY CHAIN':'border-orange-500/30 text-orange-400  bg-orange-500/[0.06]',
+  INVESTMENT:   'border-blue-500/30    text-blue-400    bg-blue-500/[0.06]',
+  INTEL:        'border-yellow-500/30  text-yellow-400  bg-yellow-500/[0.06]',
 }
 
-const DIR_ICON: Record<string, string> = {
-  liberalizing: '↗',
-  commercial:   '↗',
-  stable:       '→',
+const IMPACT_COLOR: Record<string, string> = {
+  high:   '#5dcaa5',
+  medium: '#f4d27a',
+  low:    'rgba(243,240,234,0.28)',
 }
-const DIR_COLOR: Record<string, string> = {
-  liberalizing: '#5dcaa5',
-  commercial:   '#f4d27a',
-  stable:       'rgba(243,240,234,0.3)',
+
+const IMPACT_ICON: Record<string, string> = {
+  high:   '↗',
+  medium: '→',
+  low:    '→',
 }
 
 function PulseDot() {
@@ -46,7 +37,15 @@ function PulseDot() {
   )
 }
 
-export function SignalStrip() {
+// ── Props ─────────────────────────────────────────────────────────────────────
+export interface SignalStripProps {
+  signals: DashboardSignal[]
+  /** True when signals come from the live database (not fixtures) */
+  isLive?: boolean
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export function SignalStrip({ signals, isLive = false }: SignalStripProps) {
   return (
     <aside
       className="flex flex-col overflow-y-auto px-3.5 py-4"
@@ -57,45 +56,66 @@ export function SignalStrip() {
         <span className="text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
           Market signals
         </span>
-        <span className="flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(93,202,165,0.65)' }}>
-          <PulseDot />
-          <span className="uppercase tracking-[0.1em]">Live</span>
-        </span>
+        {isLive ? (
+          <span className="flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(93,202,165,0.65)' }}>
+            <PulseDot />
+            <span className="uppercase tracking-[0.1em]">Live</span>
+          </span>
+        ) : (
+          <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(243,240,234,0.2)' }}>
+            Updating
+          </span>
+        )}
       </div>
 
       {/* Signal cards */}
-      <div className="flex flex-col gap-2">
-        {SIGNALS.map((s, i) => (
-          <div
-            key={i}
-            className="cursor-pointer rounded-xl p-2.5 transition-all hover:border-[rgba(198,165,90,0.2)]"
-            style={{ background: 'rgba(10,20,38,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            {/* Country + type row */}
-            <div className="mb-1.5 flex items-center justify-between gap-1.5">
-              <span className="truncate text-[9px] font-semibold uppercase tracking-[0.1em]" style={{ color: '#f0d39a' }}>
-                {s.country}
-              </span>
-              <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[7px] uppercase tracking-[0.06em] ${TYPE_COLORS[s.type]}`}>
-                {s.type}
-              </span>
-            </div>
+      {signals.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-center text-[10px]" style={{ color: 'rgba(243,240,234,0.28)' }}>
+            No signals available
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {signals.map((s) => {
+            const tagClass = TYPE_COLORS[s.tag.label] ?? TYPE_COLORS.INTEL
+            const impactColor = IMPACT_COLOR[s.commercialImpact] ?? IMPACT_COLOR.low
+            const impactIcon  = IMPACT_ICON[s.commercialImpact]  ?? '→'
+            return (
+              <div
+                key={s.id}
+                className="cursor-pointer rounded-xl p-2.5 transition-all hover:border-[rgba(198,165,90,0.2)]"
+                style={{ background: 'rgba(10,20,38,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                {/* Market + tag row */}
+                <div className="mb-1.5 flex items-center justify-between gap-1.5">
+                  <span className="truncate text-[9px] font-semibold uppercase tracking-[0.1em]" style={{ color: '#f0d39a' }}>
+                    {s.market}
+                  </span>
+                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[7px] uppercase tracking-[0.06em] ${tagClass}`}>
+                    {s.tag.label}
+                  </span>
+                </div>
 
-            {/* Headline */}
-            <p className="mb-1.5 text-[10px] leading-snug" style={{ color: 'rgba(243,240,234,0.72)' }}>
-              {s.headline}
-            </p>
+                {/* Headline */}
+                <p className="mb-1.5 text-[10px] leading-snug" style={{ color: 'rgba(243,240,234,0.72)' }}>
+                  {s.title}
+                </p>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between">
-              <span className="text-[9px]" style={{ color: 'rgba(243,240,234,0.25)' }}>{s.time}</span>
-              <span className="text-[9px] font-medium" style={{ color: DIR_COLOR[s.direction] }}>
-                {DIR_ICON[s.direction]} {s.direction}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+                {/* Footer */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px]" style={{ color: 'rgba(243,240,234,0.25)' }}>
+                    {s.market} · confidence {s.confidence} · {s.timeAgo}
+                  </span>
+                  <span className="text-[9px] font-medium" style={{ color: impactColor }}>
+                    {impactIcon} {s.commercialImpact}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Footer link */}
       <Link
