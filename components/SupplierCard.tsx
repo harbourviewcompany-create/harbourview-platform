@@ -1,4 +1,12 @@
-import type { Supplier } from '@/lib/fixtures/types'
+// Supplier type — defined inline since fixtures/types is reserved for fixture-only use
+export interface Supplier {
+  id: string
+  name: string
+  description: string
+  categories: string[]
+  location: string
+  website?: string
+}
 import InquiryLink from './InquiryLink'
 
 interface SupplierCardProps {
