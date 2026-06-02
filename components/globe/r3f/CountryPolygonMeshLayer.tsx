@@ -121,8 +121,8 @@ function HoverPulseMesh({
               `#include <dithering_fragment>
                vec3 hvViewDir = normalize(hvViewPosition);
                float hvRim = pow(1.0 - max(dot(normalize(vNormal), hvViewDir), 0.0), 3.2);
-               gl_FragColor.rgb += vec3(1.0, 0.82, 0.42) * hvRim * ${isSelected ? '0.16' : '0.07'};
-               gl_FragColor.rgb = mix(gl_FragColor.rgb * vec3(0.72, 0.58, 0.34), gl_FragColor.rgb, smoothstep(0.18, 0.82, dot(normalize(vNormal), normalize(vec3(0.48, 0.36, 0.80)))));`,
+               gl_FragColor.rgb += vec3(1.0, 0.92, 0.66) * hvRim * ${isSelected ? '0.16' : '0.07'};
+               gl_FragColor.rgb = mix(gl_FragColor.rgb * vec3(0.82, 0.76, 0.58), gl_FragColor.rgb, smoothstep(0.18, 0.82, dot(normalize(vNormal), normalize(vec3(0.48, 0.36, 0.80)))));`,
             )
           }}
         />

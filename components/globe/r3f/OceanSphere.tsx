@@ -8,11 +8,11 @@ import { MeshStandardMaterial, Color } from 'three'
 // Injects into Three.js standard shader pipeline at build time.
 function createOceanMaterial() {
   const mat = new MeshStandardMaterial({
-    color: new Color('#030c18'),
-    emissive: new Color('#0e1f35'),
-    emissiveIntensity: 0.24,
-    roughness: 0.88,
-    metalness: 0.06,
+    color: new Color('#071828'),
+    emissive: new Color('#14283f'),
+    emissiveIntensity: 0.38,
+    roughness: 0.82,
+    metalness: 0.10,
   })
 
   mat.onBeforeCompile = (shader) => {
@@ -47,9 +47,9 @@ function createOceanMaterial() {
        gl_FragColor.rgb += uRimColor * fresnel * uRimStrength;`
     )
 
-    shader.uniforms.uRimColor = { value: new Color(0.035, 0.075, 0.18) }
-    shader.uniforms.uRimStrength = { value: 0.42 }
-    shader.uniforms.uRimPower = { value: 5.8 }
+    shader.uniforms.uRimColor = { value: new Color(0.05, 0.14, 0.34) }
+    shader.uniforms.uRimStrength = { value: 0.56 }
+    shader.uniforms.uRimPower = { value: 5.2 }
   }
 
   mat.needsUpdate = true
