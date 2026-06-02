@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
@@ -12,6 +12,16 @@ import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
+
+// Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
+// OrbitControls does not call state.invalidate() internally, so without this
+// the globe freezes on initial load when nothing has been interacted with yet.
+function AutoRotateInvalidator({ active }: { active: boolean }) {
+  useFrame((state) => {
+    if (active) state.invalidate()
+  })
+  return null
+}
 
 export function getOrbitControlsMotionConfig(prefersReducedMotion: boolean) {
   if (prefersReducedMotion) {
@@ -124,7 +134,7 @@ export function GlobeCanvas({
             speed={0}
           />
 
-          <group rotation={[0.12, -0.8, 0]}>
+          <group rotation={[0.08, 0.3, 0]}>
             {/* Single restrained cobalt atmospheric rim — no second neon shell. */}
             <AtmosphereGlow />
             <OceanSphere />
@@ -148,6 +158,8 @@ export function GlobeCanvas({
           />
         </Suspense>
 
+        {/* Drive frame invalidation while autoRotate is active */}
+        <AutoRotateInvalidator active={shouldAutoRotate} />
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
