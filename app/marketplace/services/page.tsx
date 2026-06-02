@@ -3,8 +3,6 @@ import Link from 'next/link'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
-import { getLiveServiceListings } from '@/lib/marketplace/liveServices'
-import { ContentStatusNotice } from '@/components/ContentStatusNotice'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -102,7 +100,6 @@ function EmptyState() {
 
 export default async function ServicesPage() {
   const listings = await getPublicListingsByCategory('services')
-  const serviceFeed = await getLiveServiceListings()
 
   return (
     <>
@@ -177,18 +174,6 @@ export default async function ServicesPage() {
         </div>
       </section>
 
-      {/* Feed status notice */}
-      <section className="border-b border-gold/10 bg-[#020814] py-6">
-        <div className="page-container">
-          <ContentStatusNotice
-            title={serviceFeed.publicLabel}
-            status={serviceFeed.source === 'live-approved' ? 'admin-backed' : 'fallback-backed'}
-            origin={serviceFeed.source}
-          >
-            {serviceFeed.reviewBoundary}
-          </ContentStatusNotice>
-        </div>
-      </section>
 
       {/* Listings */}
       <section className="bg-[#020814] py-12 sm:py-16 lg:py-18">
