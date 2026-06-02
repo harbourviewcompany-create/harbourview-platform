@@ -1,4 +1,3 @@
-import { serviceListings } from '@/lib/fixtures/services'
 import { projectPublicServiceCandidate } from '@/lib/marketplace/publicServiceProjection'
 import { listApprovedServiceCandidates } from '@/lib/supabase/serviceCandidatesAdmin'
 
@@ -14,7 +13,7 @@ export type ServiceListingFeed = {
     postedDate: string
     category: 'services'
   }>
-  source: 'live-approved' | 'fallback-fixture'
+  source: 'live-approved' | 'empty'
   publicLabel: string
   reviewBoundary: string
 }
@@ -26,7 +25,8 @@ export async function getLiveServiceListings(): Promise<ServiceListingFeed> {
     return {
       source: 'live-approved',
       publicLabel: 'Approved service listings',
-      reviewBoundary: 'These public service summaries were projected from approved service candidates. Contact details, diligence evidence and availability remain private until reviewed routing.',
+      reviewBoundary:
+        'These public service summaries were projected from approved service candidates. Contact details, diligence evidence and availability remain private until reviewed routing.',
       listings: approved.data.map((candidate) => ({
         ...projectPublicServiceCandidate({
           id: candidate.id,
@@ -44,19 +44,10 @@ export async function getLiveServiceListings(): Promise<ServiceListingFeed> {
   }
 
   return {
-    source: 'fallback-fixture',
-    publicLabel: 'Service category orientation',
-    reviewBoundary: 'No approved service-candidate records are currently being displayed. These service cards are fallback orientation only and should not be treated as live provider availability, diligence completion or introduction approval.',
-    listings: serviceListings.map((listing) => ({
-      id: listing.id,
-      title: listing.title,
-      description: listing.description,
-      serviceType: listing.serviceType,
-      deliveryMethod: listing.deliveryMethod,
-      location: listing.location,
-      tags: listing.tags,
-      postedDate: listing.postedDate,
-      category: 'services',
-    })),
+    source: 'empty',
+    publicLabel: 'Service listings',
+    reviewBoundary: '',
+    listings: [],
   }
 }
+
