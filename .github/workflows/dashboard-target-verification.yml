@@ -1,0 +1,181 @@
+name: Dashboard Target Verification
+
+on:
+  push:
+    branches:
+      - preview/dashboard-target-mockup-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-dashboard-target:
+    name: Lint, typecheck, build, smoke, screenshot dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: npm install
+        run: npm install
+
+      - name: npm run lint
+        run: npm run lint
+
+      - name: npm run typecheck
+        run: npm run typecheck
+
+      - name: npm run build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start built Next app
+        run: |
+          npm run start > /tmp/harbourview-dashboard-next.log 2>&1 &
+          echo $! > /tmp/harbourview-dashboard-next.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/dashboard >/tmp/harbourview-dashboard-health.html; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/harbourview-dashboard-next.log
+          exit 1
+
+      - name: Browser smoke and screenshots
+        run: |
+          cat > /tmp/harbourview-dashboard-target-verification.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          import { mkdir, writeFile, readFile } from 'node:fs/promises'
+          import path from 'node:path'
+
+          const baseUrl = 'http://127.0.0.1:3000'
+          const artifactDir = path.resolve('dashboard-target-verification-artifacts')
+          const screenshotDir = path.join(artifactDir, 'screenshots')
+          await mkdir(screenshotDir, { recursive: true })
+
+          const routes = [
+            { name: 'dashboard-default', path: '/dashboard', checks: [/MARKETPLACE & ACCESS/i, /INTEL SIGNALS/i, /EDUCATION HUB/i] },
+            { name: 'dashboard-brazil-importer', path: '/dashboard?country=BR&countries=BR&role=importer&mode=single_market', checks: [/Brazil/i, /BRL/i, /São Paulo|Rio|Brasília/i, /Importer|Buyer/i] },
+          ]
+
+          const viewports = [
+            { name: '1920x1080', width: 1920, height: 1080 },
+            { name: '1440x900', width: 1440, height: 900 },
+            { name: '1366x768', width: 1366, height: 768 },
+            { name: '768x1024', width: 768, height: 1024 },
+            { name: '390x844', width: 390, height: 844 },
+          ]
+
+          const browser = await chromium.launch()
+          const failures = []
+          const consoleErrors = []
+          const screenshots = []
+
+          for (const viewport of viewports) {
+            const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } })
+            const page = await context.newPage()
+
+            page.on('console', msg => {
+              if (msg.type() === 'error') consoleErrors.push(`${viewport.name}: ${msg.text()}`)
+            })
+            page.on('pageerror', err => failures.push(`${viewport.name}: pageerror: ${err.message}`))
+
+            for (const route of routes) {
+              const label = `${viewport.name} ${route.name}`
+              const response = await page.goto(`${baseUrl}${route.path}`, { waitUntil: 'networkidle', timeout: 30000 })
+              const status = response?.status() ?? 0
+              if (status !== 200) failures.push(`${label}: expected HTTP 200, got ${status}`)
+
+              const html = await page.content()
+              for (const pattern of route.checks) {
+                if (!pattern.test(html)) failures.push(`${label}: missing expected content ${pattern}`)
+              }
+
+              const overflow = await page.evaluate(() => ({
+                scrollWidth: document.documentElement.scrollWidth,
+                clientWidth: document.documentElement.clientWidth,
+                bodyScrollWidth: document.body.scrollWidth,
+                bodyClientWidth: document.body.clientWidth,
+              }))
+              if (overflow.scrollWidth > overflow.clientWidth + 2 || overflow.bodyScrollWidth > overflow.bodyClientWidth + 2) {
+                failures.push(`${label}: horizontal overflow ${JSON.stringify(overflow)}`)
+              }
+
+              const screenshotName = `${route.name}-${viewport.name}.png`
+              const screenshotPath = path.join(screenshotDir, screenshotName)
+              await page.screenshot({ path: screenshotPath, fullPage: true })
+              screenshots.push(`dashboard-target-verification-artifacts/screenshots/${screenshotName}`)
+            }
+
+            await context.close()
+          }
+
+          await browser.close()
+
+          const serverLog = await readFile('/tmp/harbourview-dashboard-next.log', 'utf8').catch(() => '')
+          const report = {
+            baseUrl,
+            checkedAt: new Date().toISOString(),
+            routes,
+            viewports,
+            screenshots,
+            consoleErrors,
+            failures,
+            status: failures.length === 0 && consoleErrors.length === 0 ? 'GO' : 'HOLD',
+            serverLogTail: serverLog.split('\n').slice(-80).join('\n'),
+          }
+          await writeFile(path.join(artifactDir, 'dashboard-target-verification-report.json'), JSON.stringify(report, null, 2))
+          await writeFile(path.join(artifactDir, 'dashboard-target-verification-report.md'), [
+            '# Dashboard Target Verification',
+            '',
+            `Status: ${report.status}`,
+            `Checked at: ${report.checkedAt}`,
+            '',
+            '## Screenshots',
+            ...screenshots.map(item => `- ${item}`),
+            '',
+            '## Failures',
+            ...(failures.length ? failures.map(item => `- ${item}`) : ['- None']),
+            '',
+            '## Console errors',
+            ...(consoleErrors.length ? consoleErrors.map(item => `- ${item}`) : ['- None']),
+          ].join('\n'))
+
+          if (failures.length || consoleErrors.length) {
+            console.error(JSON.stringify(report, null, 2))
+            process.exit(1)
+          }
+
+          console.log(JSON.stringify(report, null, 2))
+          EOF
+          node /tmp/harbourview-dashboard-target-verification.mjs
+
+      - name: Upload dashboard verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-target-verification-artifacts
+          path: dashboard-target-verification-artifacts
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-target-server-log
+          path: /tmp/harbourview-dashboard-next.log
+          if-no-files-found: warn
+          retention-days: 14
