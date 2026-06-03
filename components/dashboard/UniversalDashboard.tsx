@@ -183,7 +183,7 @@ function useOutside(ref: RefObject<HTMLElement | null>, fn: () => void) {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) fn() }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [fn])
+  }, [fn, ref])
 }
 
 // ─── Atoms ───────────────────────────────────────────────────────────────────
@@ -412,7 +412,7 @@ export default function UniversalDashboard({ signals, eduCategories, countryBar:
     persistPrefs(selectedCountry?.iso2 ?? null, id)
   }, [selectedCountry, persistPrefs])
 
-  const toggleSave = (id: number) => setSaved(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleSave = (id: number) => setSaved(p => { const n = new Set(p); if (n.has(id)) { n.delete(id) } else { n.add(id) }; return n })
 
   const cd = selectedCountry ? (COUNTRY_DATA[selectedCountry.iso2] ?? COUNTRY_DATA['DE']) : COUNTRY_DATA['DE']
   const listings = mkListings(cd.cur, cd.c1, cd.c2, cd.c3, roleId)
