@@ -22,28 +22,10 @@ type Props = {
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
-const REGIONS: Record<string, string[]> = {
-  AU:['New South Wales','Victoria','Queensland','Western Australia','South Australia','Northern Territory','Tasmania'],
-  CA:['Ontario','Quebec','British Columbia','Alberta','Nova Scotia','Manitoba','Saskatchewan'],
-  DE:['Berlin','Hamburg','Bavaria','North Rhine-Westphalia','Hesse','Saxony'],
-  NL:['North Holland','South Holland','Utrecht','North Brabant','Limburg'],
-  GB:['England','Scotland','Wales','Northern Ireland'],
-  US:['California','New York','Colorado','Illinois','Florida','Texas','Washington'],
-  IL:['Tel Aviv','Jerusalem','Haifa','Beersheba'],
-  PT:['Lisbon','Porto','Algarve','Alentejo','Madeira'],
-  CH:['Zurich','Basel-Stadt','Geneva','Vaud','Bern','Ticino'],
-  NZ:['Auckland','Wellington','Canterbury','Otago','Waikato'],
-}
+import { REGIONS, REGION_LABELS, WARN_REGIONS as WARN_REGIONS_BY_COUNTRY } from '@/lib/dashboard/countryRegions'
 
-const REGION_LABELS: Record<string, string> = {
-  AU:'Australia · state-level rule instrument', CA:'Canada · province-level rule instrument',
-  DE:'Germany · federal-state rule instrument', NL:'Netherlands · province-level rule instrument',
-  GB:'United Kingdom · nation-level rule instrument', US:'United States · state-level rule instrument',
-  IL:'Israel · district-level rule instrument', PT:'Portugal · region-level rule instrument',
-  CH:'Switzerland · canton-level rule instrument', NZ:'New Zealand · region-level rule instrument',
-}
+const WARN_REGIONS = new Set(Object.values(WARN_REGIONS_BY_COUNTRY).flat())
 
-const WARN_REGIONS = new Set(['Queensland','Texas','Ticino','Limburg','Alberta','Northern Ireland','Saxony'])
 
 const VIEW_HREF: Record<MarketView, string> = {
   cannabis: '/marketplace/cannabis-inventory',
