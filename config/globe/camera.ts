@@ -18,7 +18,7 @@ export const GLOBE_CAMERA_CONFIG = {
   },
   selectedTargetDistanceMax: 0.5,
   enablePan: false,
-  enableZoom: true,
+  enableZoom: false,
   enableDamping: true,
   dampingFactor: 0.085,
   rotateSpeed: 0.52,

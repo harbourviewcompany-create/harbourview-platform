@@ -9,11 +9,12 @@ const ATMO_RADIUS = 2.52
 
 function createAtmosphereMaterial() {
   const mat = new MeshBasicMaterial({
-    color: new Color('#1a3a6a'),
+    color: new Color('#183f78'),
     transparent: true,
     opacity: 1,
     side: BackSide,
     depthWrite: false,
+    depthTest: false,
     blending: AdditiveBlending,
   })
 
@@ -43,7 +44,7 @@ function createAtmosphereMaterial() {
       '#include <dithering_fragment>',
       `#include <dithering_fragment>
        float fresnel = pow(1.0 - abs(dot(vNormal, vViewDir)), 4.2);
-       gl_FragColor.a *= fresnel * 0.72;`,
+       gl_FragColor.a *= fresnel * 0.46;`,
     )
   }
 
@@ -55,7 +56,7 @@ export function AtmosphereLayer() {
   const matRef = useRef<MeshBasicMaterial | null>(null)
 
   return (
-    <Sphere args={[ATMO_RADIUS, 64, 64]}>
+    <Sphere args={[ATMO_RADIUS, 64, 64]} renderOrder={60}>
       <primitive
         object={(() => {
           if (!matRef.current) matRef.current = createAtmosphereMaterial()

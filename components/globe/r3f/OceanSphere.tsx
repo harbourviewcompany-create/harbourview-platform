@@ -2,17 +2,19 @@
 
 import { useRef } from 'react'
 import { Sphere } from '@react-three/drei'
-import { MeshStandardMaterial, Color } from 'three'
+import { FrontSide, MeshPhysicalMaterial, Color } from 'three'
 
 // Fresnel rim via onBeforeCompile — no shaderMaterial, no extend, fiber v9 safe.
 // Injects into Three.js standard shader pipeline at build time.
 function createOceanMaterial() {
-  const mat = new MeshStandardMaterial({
-    color: new Color('#071828'),
-    emissive: new Color('#14283f'),
-    emissiveIntensity: 0.38,
-    roughness: 0.82,
-    metalness: 0.10,
+  const mat = new MeshPhysicalMaterial({
+    color: new Color('#020914'),
+    emissive: new Color('#071a30'),
+    emissiveIntensity: 0.18,
+    roughness: 0.76,
+    metalness: 0.03,
+    clearcoat: 0.38,
+    clearcoatRoughness: 0.08,
   })
 
   mat.onBeforeCompile = (shader) => {
@@ -46,12 +48,14 @@ function createOceanMaterial() {
        float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), uRimPower);
        gl_FragColor.rgb += uRimColor * fresnel * uRimStrength;`
     )
-
-    shader.uniforms.uRimColor = { value: new Color(0.05, 0.14, 0.34) }
-    shader.uniforms.uRimStrength = { value: 0.56 }
-    shader.uniforms.uRimPower = { value: 5.2 }
+    shader.uniforms.uRimColor = { value: new Color(0.04, 0.10, 0.22) }
+    shader.uniforms.uRimStrength = { value: 0.9 }
+    shader.uniforms.uRimPower = { value: 3.8 }
   }
 
+  mat.side = FrontSide
+  mat.depthTest = true
+  mat.depthWrite = true
   mat.needsUpdate = true
   return mat
 }
@@ -60,7 +64,7 @@ export function OceanSphere() {
   const matRef = useRef<MeshStandardMaterial | null>(null)
 
   return (
-    <Sphere args={[2.35, 96, 96]}>
+    <Sphere args={[2.35, 64, 64]} renderOrder={10}>
       <primitive
         object={(() => {
           if (!matRef.current) matRef.current = createOceanMaterial()

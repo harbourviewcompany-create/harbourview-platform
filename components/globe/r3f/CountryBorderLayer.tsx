@@ -8,7 +8,7 @@ import { usStates } from '@/data/globe/us-states'
 import { GLOBE_RADIUS, lonLatToVector3, vector3ToArray } from '@/lib/globe/globe-geometry'
 import { BORDER_OFFSET } from '@/lib/globe/globe-plate-config'
 
-// Border lines ride exactly at idle plate surface + z-fight epsilon (0.002).
+// Border lines ride above idle plate surface with explicit depth testing.
 // depthTest=true on every LineSegments hides far-hemisphere borders behind
 // the ocean sphere — no "see-through globe" bleedthrough.
 const BORDER_RADIUS = GLOBE_RADIUS + BORDER_OFFSET
@@ -103,9 +103,9 @@ export function CountryBorderLayer() {
   const worldMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#C9A832'),
+        color: new THREE.Color('#d7bd72'),
         transparent: true,
-        opacity: 0.52,
+        opacity: 0.84,
         depthTest: true,
         depthWrite: false,
       }),
@@ -115,9 +115,9 @@ export function CountryBorderLayer() {
   const usMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#D4B847'),
+        color: new THREE.Color('#f1dfaa'),
         transparent: true,
-        opacity: 0.38,
+        opacity: 0.9,
         depthTest: true,
         depthWrite: false,
       }),
@@ -127,9 +127,9 @@ export function CountryBorderLayer() {
   const caMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#C9A832'),
+        color: new THREE.Color('#d7bd72'),
         transparent: true,
-        opacity: 0.38,
+        opacity: 0.84,
         depthTest: true,
         depthWrite: false,
       }),
