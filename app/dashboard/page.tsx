@@ -1,6 +1,20 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
+import {
+  getPipelineCounts,
+  getWantedListings,
+  getLiveEduTiles,
+  getCountryIntelProfile,
+  getReviewedCounterparties,
+} from '@/lib/dashboard/dashboardLiveData'
+import type {
+  PipelineCounts,
+  WantedListing,
+  LiveEduTile,
+  CountryIntelProfile,
+  ReviewedCounterparty,
+} from '@/lib/dashboard/dashboardLiveData'
 import CommandCentre from '@/components/dashboard/CommandCentre'
 import type { DashboardMarketplaceRows, MarketRow } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -141,11 +155,25 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
 
-  const [signals, wantedCount, marketplaceRows] = await Promise.all([
+  const [
+    signals,
+    wantedCount,
+    marketplaceRows,
+    pipeline,
+    wantedListings,
+    countryIntel,
+    counterparties,
+  ] = await Promise.all([
     fetchDashboardSignals(8),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(),
+    getPipelineCounts(),
+    getWantedListings(),
+    getCountryIntelProfile(urlCountry),
+    getReviewedCounterparties(6),
   ])
+
+
 
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
@@ -172,15 +200,20 @@ export default async function DashboardPage({
   const roleId = urlRole ?? storedRoleId
 
   const eduCategories = getEduCategoriesForRole(roleId ?? undefined)
+  const liveEduTiles: LiveEduTile[] = await getLiveEduTiles(roleId, 6)
 
   return (
     <CommandCentre
       signals={signals}
-      eduCategories={eduCategories}
+      eduCategories={liveEduTiles.length > 0 ? liveEduTiles : eduCategories}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}
       marketplaceRows={marketplaceRows}
+      pipeline={pipeline}
+      wantedListings={wantedListings}
+      countryIntel={countryIntel}
+      counterparties={counterparties}
     />
   )
 }
