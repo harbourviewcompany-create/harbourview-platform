@@ -41,6 +41,7 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
   'new-products':  ['new_products', 'new-products'],
   services:        ['services', 'professional_services', 'logistics', 'lab_testing'],
   opportunities:   ['distressed_businesses', 'distressed_inventory', 'business_opportunities', 'qualified_access', 'wanted_requests'],
+  wanted:          ['wanted_requests', 'wanted'],
 }
 
 function firstParam(value: string | string[] | undefined): string | null {
