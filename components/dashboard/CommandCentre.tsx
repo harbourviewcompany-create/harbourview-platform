@@ -22,7 +22,6 @@ type Props = {
   pipeline?: PipelineCounts
   wantedListings?: WantedListing[]
   countryIntel?: CountryIntelProfile | null
-  counterparties?: ReviewedCounterparty[]
 }
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
@@ -135,7 +134,7 @@ function TrustBar({ str }: { str: string }) {
   return <div className="hv-trust">{str.split('|').map(x => { const [a, c] = x.split(':'); return <i key={x} className={c ?? ''}>{a}</i> })}</div>
 }
 
-export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows, pipeline, wantedListings, countryIntel, counterparties }: Props) {
+export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows, pipeline, wantedListings, countryIntel }: Props) {
   const router = useRouter()
   const defaultCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0], [initialCountryIso2])
   const [country, setCountry] = useState(defaultCountry)
