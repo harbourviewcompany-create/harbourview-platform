@@ -70,7 +70,6 @@ export const REGIONS: Record<string, string[]> = {
   ZW: ['Harare','Bulawayo','Manicaland','Mashonaland Central','Mashonaland East','Mashonaland West','Masvingo','Matabeleland North','Matabeleland South','Midlands'],
   ZM: ['Lusaka','Copperbelt','Eastern','Northern','Southern','Central','Western','Luapula','North-Western','Muchinga'],
   MW: ['Blantyre','Lilongwe','Mzuzu','Zomba','Kasungu','Mangochi','Karonga','Salima','Dedza','Ntcheu'],
-  MK: ['Skopje','Bitola','Kumanovo','Ohrid','Strumica','Tetovo','Veles','Štip','Gostivar','Kičevo'],
   MA: ['Casablanca-Settat','Rabat-Salé-Kénitra','Marrakech-Safi','Fès-Meknès','Tanger-Tétouan-Al Hoceïma','Oriental','Drâa-Tafilalet','Béni Mellal-Khénifra','Guelmim-Oued Noun','Laâyoune-Sakia El Hamra','Dakhla-Oued Ed-Dahab','Souss-Massa'],
   LB: ['Beirut','Mount Lebanon','North Lebanon','South Lebanon','Bekaa','Nabatieh','Akkar','Baalbek-Hermel'],
   TH: ['Bangkok','Chiang Mai','Chiang Rai','Phuket','Koh Samui','Pattaya','Nonthaburi','Udon Thani','Khon Kaen','Nakhon Ratchasima','Chonburi','Rayong','Songkhla','Surat Thani'],

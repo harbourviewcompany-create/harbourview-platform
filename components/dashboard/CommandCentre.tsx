@@ -49,6 +49,7 @@ const VIEW_LABELS: Record<MarketView, string> = {
   'new-products': 'Seeds · formulations · devices · clones · new product lots',
   services: 'GDP logistics · compliance · lab testing · regulatory counsel',
   opportunities: 'Acquisitions · partnerships · licence transfers · distressed assets',
+  wanted: 'Wanted demand · active buyer requests · matched supply',
 }
 
 const VIEW_BLOCK_TITLES: Record<MarketView, string> = {
@@ -68,6 +69,7 @@ const VIEW_TAB_LABELS: Record<MarketView, string> = {
   'new-products': 'New Products',
   services: 'Services',
   opportunities: 'Opportunities',
+  wanted: 'Wanted',
 }
 
 const ROW_DATA: Record<MarketView, MarketRow[]> = {
@@ -106,6 +108,12 @@ const ROW_DATA: Record<MarketView, MarketRow[]> = {
     ['supply','Partnership','Import distribution JV — DACH market entry','Established importer seeking supply partner for Germany, Austria, Switzerland coverage.','JV|partnership|distribution|DACH','VER:ok|PROOF:warn|REG:ok|71:warn|PRIVATE:lock','Express interest','Partnership'],
     ['supply','Licence Transfer','Retail dispensary licence — transfer ready','Existing retail dispensary licence available for assignment. Legal counsel required.','licence|retail|transfer|dispensary','VER:warn|PROOF:warn|REG:warn|55:warn|PRIVATE:lock','Open inquiry','Licence'],
     ['supply','Distressed','Processing facility — lease assignment','GMP-grade processing space available for lease assignment. Equipment included.','distressed|lease|processing|GMP','VER:warn|PROOF:warn|REG:ok|60:warn|PUBLIC','Request details','Lease'],
+  ],
+  wanted: [
+    ['wanted','Flower','Bulk dried flower — 50kg minimum lot','German-licensed importer seeking certified EU-GMP flower. COA required.','wanted|flower|Germany|EU-GMP|buyer','VER:ok|PROOF:ok|REG:ok|88:ok|PUBLIC','Contact buyer','Wanted'],
+    ['wanted','Extraction','CO₂ extraction services — batch capacity','Processor seeking licensed extraction partner. EU or UK facility preferred.','wanted|extraction|services|processor','VER:ok|PROOF:warn|REG:ok|74:warn|PUBLIC','Contact buyer','Wanted'],
+    ['wanted','Equipment','Used cultivation LED system wanted','Facility expansion buyer seeking full LED grow system. Inspection required.','wanted|equipment|cultivation|buyer','VER:ok|PROOF:warn|REG:ok|71:warn|PUBLIC','Contact buyer','Wanted'],
+    ['wanted','Compliance','EU-GMP gap analysis — pre-audit review','Producer seeking accredited compliance consultant for BfArM readiness.','wanted|compliance|GMP|BfArM|audit','VER:ok|PROOF:ok|REG:ok|85:ok|PUBLIC','Contact buyer','Wanted'],
   ],
 }
 
