@@ -36,6 +36,7 @@ export function toPublicMarketplaceListing(listing: MarketplaceListing): PublicM
 // This array is intentionally empty — no static placeholder data.
 export const publicMarketplaceListings: PublicMarketplaceListing[] = [];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getPublicMarketplaceListing(_slug: string): PublicMarketplaceListing | undefined {
   return undefined;
 }
