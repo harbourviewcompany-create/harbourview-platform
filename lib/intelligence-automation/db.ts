@@ -46,13 +46,13 @@ function rowToSource(r: Row): AutomationSource {
   return {
     id: str(r.id),
     name: str(r.name),
-    category: str(r.category),
+    category: str(r.category) as AutomationSource['category'],
     markets: arr(r.markets),
-    reliability: num(r.reliability),
+    reliability: str(r.reliability, 'unverified') as AutomationSource['reliability'],
     lastChecked: str(r.last_checked),
     nextCheck: str(r.next_check),
     signalYield: num(r.signal_yield),
-    status: str(r.status),
+    status: str(r.status, 'needs_review') as AutomationSource['status'],
     notes: typeof r.notes === 'string' ? r.notes : undefined,
   }
 }
@@ -61,14 +61,14 @@ function rowToSignal(r: Row): AutomationSignal {
   return {
     id: str(r.id),
     title: str(r.title),
-    type: str(r.type),
-    stage: str(r.stage) as SignalStage,
+    type: str(r.type) as AutomationSignal['type'],
+    stage: str(r.stage, 'new') as SignalStage,
     sourceId: str(r.source_id),
     sourceName: str(r.source_name),
     market: str(r.market),
     category: str(r.category),
     confidence: num(r.confidence),
-    commercialImpact: str(r.commercial_impact),
+    commercialImpact: str(r.commercial_impact, 'low') as AutomationSignal['commercialImpact'],
     summary: str(r.summary),
     detectedAt: str(r.detected_at),
     reviewedAt: typeof r.reviewed_at === 'string' ? r.reviewed_at : undefined,
@@ -79,7 +79,7 @@ function rowToCounterparty(r: Row): RelationshipMemoryRecord {
   return {
     id: str(r.id),
     name: str(r.name),
-    role: str(r.role),
+    role: str(r.role, 'buyer') as RelationshipMemoryRecord['role'],
     markets: arr(r.markets),
     categories: arr(r.categories),
     needsProfile: typeof r.needs_profile === 'string' ? r.needs_profile : undefined,
@@ -87,7 +87,7 @@ function rowToCounterparty(r: Row): RelationshipMemoryRecord {
     interactionCount: num(r.interaction_count),
     lastInteraction: str(r.last_interaction),
     introductionCount: num(r.introduction_count),
-    documentationStatus: str(r.documentation_status),
+    documentationStatus: str(r.documentation_status, 'missing') as RelationshipMemoryRecord['documentationStatus'],
     notes: typeof r.notes === 'string' ? r.notes : undefined,
   }
 }
@@ -97,13 +97,13 @@ function rowToScoring(r: Row): ScoringRecord {
     id: str(r.id),
     counterpartyId: str(r.counterparty_id),
     counterpartyName: str(r.counterparty_name),
-    counterpartyRole: str(r.counterparty_role),
+    counterpartyRole: str(r.counterparty_role, 'buyer') as ScoringRecord['counterpartyRole'],
     fitScore: num(r.fit_score),
     readinessScore: num(r.readiness_score),
     trustScore: num(r.trust_score),
-    routingPriority: str(r.routing_priority),
-    followUpPriority: str(r.follow_up_priority),
-    introductionPriority: str(r.introduction_priority),
+    routingPriority: str(r.routing_priority, 'low') as ScoringRecord['routingPriority'],
+    followUpPriority: str(r.follow_up_priority, 'when_ready') as ScoringRecord['followUpPriority'],
+    introductionPriority: str(r.introduction_priority, 'not_ready') as ScoringRecord['introductionPriority'],
     marketAccessRelevance: arr(r.market_access_relevance),
     scoredAt: str(r.scored_at),
     scoreDrivers: arr(r.score_drivers),
@@ -113,14 +113,14 @@ function rowToScoring(r: Row): ScoringRecord {
 function rowToAgentTask(r: Row): AgentWorkItem {
   return {
     id: str(r.id),
-    queue: str(r.queue),
+    queue: str(r.queue, 'source_watcher') as AgentWorkItem['queue'],
     title: str(r.title),
     objectType: str(r.object_type),
     objectLabel: str(r.object_label),
-    priority: str(r.priority),
+    priority: str(r.priority, 'low') as AgentWorkItem['priority'],
     suggestedAction: str(r.suggested_action),
     rationale: str(r.rationale),
-    status: str(r.status) as AgentTaskStatus,
+    status: str(r.status, 'pending') as AgentTaskStatus,
     agentLabel: str(r.agent_label),
     nextAction: str(r.next_action),
     createdAt: isoDate(r.created_at),
@@ -131,10 +131,10 @@ function rowToEvidence(r: Row): EvidenceVaultEntry {
   return {
     id: str(r.id),
     title: str(r.title),
-    type: str(r.type),
+    type: str(r.type, 'commercial_note') as EvidenceVaultEntry['type'],
     linkedCounterpartyName: typeof r.linked_counterparty_name === 'string' ? r.linked_counterparty_name : undefined,
     linkedMarket: typeof r.linked_market === 'string' ? r.linked_market : undefined,
-    reviewStatus: str(r.review_status) as EvidenceVaultEntry['reviewStatus'],
+    reviewStatus: str(r.review_status, 'pending') as EvidenceVaultEntry['reviewStatus'],
     addedAt: str(r.added_at),
     tags: arr(r.tags),
     notes: typeof r.notes === 'string' ? r.notes : undefined,
@@ -144,7 +144,7 @@ function rowToEvidence(r: Row): EvidenceVaultEntry {
 function rowToGraphEntity(r: Row): GraphEntity {
   return {
     id: str(r.id),
-    type: str(r.type),
+    type: str(r.type, 'source') as GraphEntity['type'],
     label: str(r.label),
     market: typeof r.market === 'string' ? r.market : undefined,
     category: typeof r.category === 'string' ? r.category : undefined,
@@ -157,10 +157,10 @@ function rowToGraphEntity(r: Row): GraphEntity {
 function rowToGraphEdge(r: Row): GraphEdge {
   return {
     id: str(r.id),
-    type: str(r.type),
+    type: str(r.type, 'generated_signal') as GraphEdge['type'],
     fromLabel: str(r.from_label),
     toLabel: str(r.to_label),
-    strength: num(r.strength),
+    strength: str(r.strength, 'weak') as GraphEdge['strength'],
     evidenced: bool(r.evidenced),
     createdAt: isoDate(r.created_at),
   }
@@ -169,11 +169,11 @@ function rowToGraphEdge(r: Row): GraphEdge {
 function rowToFeedback(r: Row): FeedbackEvent {
   return {
     id: str(r.id),
-    outcomeType: str(r.outcome_type),
+    outcomeType: str(r.outcome_type, 'reviewed') as FeedbackEvent['outcomeType'],
     counterpartyName: typeof r.counterparty_name === 'string' ? r.counterparty_name : undefined,
     market: str(r.market),
     category: str(r.category),
-    scoreImpact: str(r.score_impact) as FeedbackEvent['scoreImpact'],
+    scoreImpact: str(r.score_impact, 'neutral') as FeedbackEvent['scoreImpact'],
     routingImpact: str(r.routing_impact),
     notes: typeof r.notes === 'string' ? r.notes : undefined,
     loggedAt: str(r.logged_at),
