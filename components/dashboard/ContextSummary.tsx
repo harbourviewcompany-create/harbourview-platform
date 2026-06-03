@@ -11,7 +11,7 @@ interface Props {
 
 export function ContextSummary({ onMarketClick }: Props) {
   const { countryIso2, countryName, role, routeContext } = useDashboard()
-  const brief = useCountryBrief(countryIso2)
+  const brief = useCountryBrief(countryIso2 ?? '')
 
   const statuses = brief.status === 'ok' ? [
     brief.data.market_access_status,
@@ -27,7 +27,7 @@ export function ContextSummary({ onMarketClick }: Props) {
       {/* Country + ISO chip */}
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <p className="font-serif text-[16px] leading-tight text-white truncate">
-          {countryName}
+          {countryName ?? 'Choose a market'}
         </p>
         <span
           className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] tracking-[0.1em]"
@@ -37,7 +37,7 @@ export function ContextSummary({ onMarketClick }: Props) {
             color: 'rgba(198,165,90,0.65)',
           }}
         >
-          {countryIso2}
+          {countryIso2 ?? '—'}
         </span>
       </div>
 

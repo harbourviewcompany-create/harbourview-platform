@@ -7,8 +7,8 @@ import { parseDashboardGlobeRouteContext, type DashboardRole, type DashboardRout
 export type { DashboardRole } from './globeRouteContext'
 
 export interface DashboardCtx {
-  countryIso2: string
-  countryName: string
+  countryIso2?: string
+  countryName?: string
   role: DashboardRole
   setCountry: (iso2: string, name: string) => void
   routeContext?: DashboardRouteContext
@@ -24,8 +24,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     () => parseDashboardGlobeRouteContext(new URLSearchParams(searchParamSnapshot)),
     [searchParamSnapshot],
   )
-  const [countryIso2, setCountryIso2] = useState(initialContext.countryIso2)
-  const [countryName, setCountryName] = useState(initialContext.countryName)
+  const [countryIso2, setCountryIso2] = useState<string | undefined>(initialContext.countryIso2)
+  const [countryName, setCountryName] = useState<string | undefined>(initialContext.countryName)
   const [role, setRoleState] = useState<DashboardRole>(initialContext.role)
   const [routeContext, setRouteContext] = useState<DashboardRouteContext | undefined>(initialContext.source ? initialContext : undefined)
 
@@ -44,7 +44,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }
   function setRole(r: DashboardRole) {
     setRoleState(r)
-    setRouteContext(undefined)
+    setRouteContext((current) => current ? { ...current, role: r } : undefined)
   }
 
   return (

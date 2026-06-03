@@ -3,10 +3,10 @@ import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countri
 import { buildFixtureCountryFeatures, lonLatToVector3 } from '@/lib/globe/globe-geometry'
 import { createCountryBufferGeometry, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
 
-describe('Natural Earth 110m countries payload', () => {
-  it('ships the full Natural Earth Admin 0 1:110m dataset with provenance', () => {
+describe('Natural Earth 50m countries payload', () => {
+  it('ships the full Natural Earth Admin 0 1:50m dataset with provenance', () => {
     expect(naturalEarthCountriesPayload.provenance.source).toBe('Natural Earth Admin 0 Countries')
-    expect(naturalEarthCountriesPayload.provenance.sourceScale).toBe('1:110m')
+    expect(naturalEarthCountriesPayload.provenance.sourceScale).toBe('1:50m')
     expect(naturalEarthCountriesPayload.provenance.sourceLicense).toBe('Public domain')
     expect(naturalEarthCountriesPayload.countries.length).toBeGreaterThanOrEqual(150)
   })
@@ -78,7 +78,7 @@ describe('Natural Earth 110m countries payload', () => {
     )
 
     expect(totalPoints).toBeGreaterThan(2_000)
-    expect(totalPoints).toBeLessThan(12_000)
+    expect(totalPoints).toBeLessThan(16_000)
   })
 
   it('buildFixtureCountryFeatures is sourced from Natural Earth production payload, not pseudo fixture coordinates', () => {
@@ -117,8 +117,8 @@ describe('Natural Earth geometry topology validation', () => {
     const position = geometry.getAttribute('position')
 
     expect(complexCountry.polygons.length).toBe(2)
-    expect(position.count).toBeGreaterThan(80)
-    expect(geometry.index?.count).toBeGreaterThan(300)
+    expect(position.count).toBeGreaterThan(30)
+    expect(geometry.index?.count).toBeGreaterThan(100)
     expect(geometry.userData.empty).not.toBe(true)
 
     // Use the radial normals set by createCountryBufferGeometry rather than

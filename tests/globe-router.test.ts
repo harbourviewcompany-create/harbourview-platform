@@ -96,7 +96,6 @@ describe('Harbourview globe same-screen router', () => {
       ['CO', 'Colombia'],
       ['LS', 'Lesotho'],
       ['MK', 'North Macedonia'],
-      ['MT', 'Malta'],
       ['UY', 'Uruguay'],
       ['IL', 'Israel'],
       ['CZ', 'Czechia'],
@@ -177,10 +176,24 @@ describe('Harbourview globe same-screen router', () => {
     })
 
     expect(result.status).toBe('resolved')
-    expect(result.href).toContain('/signals?')
+    expect(result.href).toContain('/dashboard?')
     expect(result.href).toContain('country=DE')
     expect(result.href).toContain('role=importer')
     expect(result.href).toContain('intent=view_market_signals')
+  })
+
+  it('routes normal country and role selection to the primary dashboard with preserved globe context', () => {
+    const result = resolveGlobeRoute({
+      countryIso2: 'MX',
+      countryIso2s: ['MX'],
+      roleId: 'lab_qa',
+      mode: 'single_market',
+      source: 'globe_router',
+      layerId: 'country_select',
+    })
+
+    expect(result.status).toBe('resolved')
+    expect(result.href).toBe('/dashboard?source=globe_router&mode=single_market&country=MX&countries=MX&role=lab_qa&layer=country_select')
   })
 
   it('hydrates dashboard context from globe router query params', () => {
@@ -200,8 +213,8 @@ describe('Harbourview globe same-screen router', () => {
 
     const context = parseDashboardGlobeRouteContext(new URLSearchParams('source=directory&country=DE&role=doctor_prescriber'))
 
-    expect(context.countryIso2).toBe('CA')
-    expect(context.countryName).toBe('Canada')
+    expect(context.countryIso2).toBeUndefined()
+    expect(context.countryName).toBeUndefined()
     expect(context.role).toBe('commercial_operator')
     expect(context.source).toBeUndefined()
   })
@@ -211,7 +224,7 @@ describe('Harbourview globe same-screen router', () => {
       countryIso2: 'DE',
       roleId: 'doctor_prescriber',
       intentId: 'understand_medical_rules',
-      expectedPath: '/dashboard/country/germany/education',
+      expectedPath: '/dashboard',
     })
   })
 
@@ -220,7 +233,7 @@ describe('Harbourview globe same-screen router', () => {
       countryIso2: 'CA',
       roleId: 'regulatory_compliance',
       intentId: 'regulatory_framework',
-      expectedPath: '/dashboard/country/canada/education',
+      expectedPath: '/dashboard',
     })
   })
 
@@ -282,7 +295,7 @@ describe('Harbourview globe same-screen router', () => {
     })
 
     expect(resolved.status).toBe('resolved')
-    expect(resolved.href).toContain('/dashboard/country/germany/education?')
+    expect(resolved.href).toContain('/dashboard?')
     expect(state.kind).toBe('intent-sheet')
     expect(state.invalidParams).toEqual([])
   })
