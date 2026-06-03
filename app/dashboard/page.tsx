@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import CommandCentre from '@/components/dashboard/CommandCentre'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -168,13 +169,18 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, wantedCount, marketplaceRows] = await Promise.all([
+  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles] = await Promise.all([
     fetchDashboardSignals(8),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
+    getPipelineCounts(),
+    getWantedListings(),
+    getCountryIntelProfile(countryIso2),
+    getLiveEduTiles(roleId, 6),
   ])
 
-  const eduCategories = getEduCategoriesForRole(roleId ?? undefined)
+  const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
+  const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
 
   return (
     <CommandCentre
@@ -184,6 +190,9 @@ export default async function DashboardPage({
       initialRoleId={roleId}
       wantedCount={wantedCount}
       marketplaceRows={marketplaceRows}
+      pipeline={pipeline}
+      wantedListings={wantedListings}
+      countryIntel={countryIntel}
     />
   )
 }
