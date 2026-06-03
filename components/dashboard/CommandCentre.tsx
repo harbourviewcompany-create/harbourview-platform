@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import type { PipelineCounts, WantedListing, CountryIntelProfile, ReviewedCounterparty } from '@/lib/dashboard/dashboardLiveData'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 
-export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities'
+export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
 export type MarketRow = [string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Record<MarketView, MarketRow[]>
 
@@ -18,6 +19,10 @@ type Props = {
   initialRoleId?: string | null
   wantedCount?: number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
+  pipeline?: PipelineCounts
+  wantedListings?: WantedListing[]
+  countryIntel?: CountryIntelProfile | null
+  counterparties?: ReviewedCounterparty[]
 }
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
@@ -34,6 +39,7 @@ const VIEW_HREF: Record<MarketView, string> = {
   'new-products': '/marketplace/new-products',
   services: '/marketplace/services',
   opportunities: '/marketplace/business-opportunities',
+  wanted: '/marketplace/wanted',
 }
 
 const VIEW_LABELS: Record<MarketView, string> = {
@@ -52,6 +58,7 @@ const VIEW_BLOCK_TITLES: Record<MarketView, string> = {
   'new-products': 'New products',
   services: 'Services marketplace',
   opportunities: 'Business opportunities',
+  wanted: 'Active wanted requests',
 }
 
 const VIEW_TAB_LABELS: Record<MarketView, string> = {
@@ -120,7 +127,7 @@ function TrustBar({ str }: { str: string }) {
   return <div className="hv-trust">{str.split('|').map(x => { const [a, c] = x.split(':'); return <i key={x} className={c ?? ''}>{a}</i> })}</div>
 }
 
-export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows }: Props) {
+export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows, pipeline, wantedListings, countryIntel, counterparties }: Props) {
   const router = useRouter()
   const defaultCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0], [initialCountryIso2])
   const [country, setCountry] = useState(defaultCountry)
@@ -158,8 +165,20 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
     if (query) router.push(`/marketplace?q=${encodeURIComponent(query)}`)
   }
 
-  const liveRows = marketplaceRows?.[view]
-  const rows = (liveRows && liveRows.length > 0) ? liveRows : ROW_DATA[view]
+  const wantedRows: MarketRow[] = (wantedListings ?? []).map(w => [
+    'wanted',
+    'Wanted Request',
+    w.title,
+    w.summary ?? `Buyer demand — ${w.location_country ?? 'open market'}.`,
+    `wanted|buyer demand|${w.location_country ?? 'global'}`,
+    'VER:ok|PROOF:warn|REG:ok|PUBLIC',
+    'Respond',
+    w.location_region ?? w.location_country ?? 'Open',
+  ] as MarketRow)
+  const liveRows = view === 'wanted' && wantedRows.length > 0
+    ? wantedRows
+    : marketplaceRows?.[view as MarketView]
+  const rows = (liveRows && liveRows.length > 0) ? liveRows : ROW_DATA[view as MarketView] ?? []
   const warn = WARN_REGIONS.has(region)
   const roleLabel = role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.label ?? 'General') : 'General'
   const tierLabel = ['doctor_prescriber','pharmacist','clinic_healthcare_operator'].includes(role) ? 'CLINICAL PARTNER · Education' : 'FREE · Weekly Signals'
@@ -193,7 +212,15 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
         <main className="cc-workspace">
           <section className="cc-panel cc-market">
             <div className="cc-head"><div><h2>Marketplace & Access</h2><small>{VIEW_LABELS[view]}</small></div><div className="cc-head-actions"><Link href="/marketplace/wanted" className="cc-wanted-cta">{wantedCount} Wanted Requests →</Link><Link href={VIEW_HREF[view]} className="cc-soft-btn">View All →</Link></div></div>
-            <div className="cc-view-bar"><div className="cc-views">{(['cannabis','equipment','consumables','new-products','services','opportunities'] as MarketView[]).map(v => <button key={v} className={`cc-view${view === v ? ' active' : ''}`} onClick={() => setView(v)}>{VIEW_TAB_LABELS[v]}</button>)}</div><button className="cc-customize-btn" onClick={() => setDrawerOpen(true)}>Customize</button></div>
+            <div className="cc-view-bar"><div className="cc-views">{(['cannabis','equipment','consumables','new-products','services','opportunities'] as MarketView[]).map(v => <button key={v} className={`cc-view${view === v ? ' active' : ''}`} onClick={() => setView(v)}>{VIEW_TAB_LABELS[v]}</button>)}</div><button className="cc-customize-btn" onClick={() => setDrawerOpen(true)}>Customize</button></div><div className="cc-pipeline">{([
+              {label:'Wanted',val:`${pipeline?.wanted??wantedCount} active`,hot:true},
+              {label:'Matched',val:`${pipeline?.matched??0} pending`,hot:false},
+              {label:'Proof Review',val:`${pipeline?.proof_review??0} open`,hot:false},
+              {label:'Inquiry',val:`${pipeline?.inquiry??0} live`,hot:false},
+              {label:'Deal Room',val:`${pipeline?.deal_room??0} active`,hot:false},
+            ] as {label:string;val:string;hot:boolean}[]).map(p=>(
+              <div key={p.label} className={`cc-pipe${p.hot?' active':''}`}><b>{p.label}</b><span>{p.val}</span></div>
+            ))}</div>
             <div className="cc-market-grid"><div className="cc-market-block"><div className="cc-block-title"><b>{VIEW_BLOCK_TITLES[view]}</b><span>{rows.length} rows · region-filtered</span></div><div className="cc-rows">{rows.map(r => <article key={r[2]} className="cc-row"><div className={`cc-spec ${r[0]}`} /><div><div className="cc-type">{r[1]}</div><h4>{r[2]}</h4><p>{r[3]}</p><TagPills str={r[4]} /><TrustBar str={r[5]} /></div><div className="cc-action-box"><strong>{r[7]}</strong><small>{r[1].toLowerCase()}</small><Link className="cc-row-action" href={VIEW_HREF[view]}>{r[6]}</Link><Link className="cc-secondary" href="/marketplace/wanted">Watch</Link></div></article>)}</div></div></div>
           </section>
 
@@ -203,7 +230,7 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
 
           <section className="cc-col3">
             <div className="cc-panel cc-signals"><div className="cc-head"><div><h3>Weekly Signals</h3><small>Free summaries · paid source trail · marketplace impact</small></div><Link href="/intel-signals" className="cc-link-btn">View All →</Link></div><div className="cc-body"><div className="cc-signal-list">{signals.slice(0, 3).map(s => <article key={s.id} className="cc-signal"><span className={`cc-sev${s.tag.label === 'REGULATION' || s.tag.label === 'COMPLIANCE' ? '' : ' low'}`} /><div><b>{s.title}</b><p>{s.commercialImpact}</p><small>{s.market} · confidence {s.confidence} · {s.timeAgo}</small><div className="cc-impact"><span className="cc-signal-tag" style={{ borderColor: s.tag.border, color: s.tag.color, background: s.tag.bg }}>{s.tag.label}</span> Marketplace impact: {s.commercialImpact.toLowerCase()}</div></div><span className="cc-badge">FREE</span></article>)}<div className="cc-pay-boundary"><b>Intel Plus unlocks</b><p>Source trails, contradiction review, counterparty movement, corridor alerts, regional rule-change monitoring, and saved watch alerts.</p></div></div></div></div>
-            <div className="cc-panel cc-map-panel"><div className="cc-head"><div><h3>{country.label}</h3><small>{REGION_LABELS[country.iso2] ?? 'Region-level rule instrument'}</small></div></div><div className="cc-body cc-map-body"><div className="cc-legend"><span>● Allow</span><span>● Review</span><span>● Restrict</span><span>● Edu required</span></div><div className="cc-map-wrap"><div className="cc-region-grid">{(REGIONS[country.iso2] ?? []).map(r => <button key={r} className={`cc-region-tile${region === r ? ' active' : ''}${WARN_REGIONS.has(r) ? ' warn' : ''}`} onClick={() => setRegion(r)}>{r}</button>)}</div><div className="cc-rules"><b>{region || 'Select a region'}</b><p>{region || country.label} selected. Regional rules filter listings, wanted demand, education modules, and counterparty contact actions.</p><div className="cc-rule-grid"><div><small>Rule status</small><strong>{warn ? 'Review required' : 'Allowed with proof'}</strong></div><div><small>Category impact</small><strong>{warn ? 'Marketplace restricted' : 'Supply + clinical'}</strong></div><div><small>Professional implication</small><strong>{warn ? 'Education before action' : 'Pharmacy guidance'}</strong></div><div><small>Marketplace action</small><strong>{warn ? 'Hold inquiry until review' : 'Proof before inquiry'}</strong></div></div></div></div></div></div>
+            <div className="cc-panel cc-map-panel"><div className="cc-head"><div><h3>{country.label}</h3><small>{REGION_LABELS[country.iso2] ?? 'Region-level rule instrument'}</small></div></div><div className="cc-body cc-map-body"><div className="cc-legend"><span>● Allow</span><span>● Review</span><span>● Restrict</span><span>● Edu required</span></div><div className="cc-map-wrap"><div className="cc-region-grid">{(REGIONS[country.iso2] ?? []).map(r => <button key={r} className={`cc-region-tile${region === r ? ' active' : ''}${WARN_REGIONS.has(r) ? ' warn' : ''}`} onClick={() => setRegion(r)}>{r}</button>)}</div><div className="cc-rules"><b>{region || 'Select a region'}</b><p>{countryIntel?.public_summary ?? `${region || country.label} selected. Regional rules filter listings, wanted demand, education modules, and counterparty contact actions.`}</p><div className="cc-rule-grid"><div><small>Rule status</small><strong>{warn ? 'Review required' : 'Allowed with proof'}</strong></div><div><small>Category impact</small><strong>{warn ? 'Marketplace restricted' : 'Supply + clinical'}</strong></div><div><small>Professional implication</small><strong>{warn ? 'Education before action' : 'Pharmacy guidance'}</strong></div><div><small>Marketplace action</small><strong>{warn ? 'Hold inquiry until review' : 'Proof before inquiry'}</strong></div></div></div></div></div></div>
           </section>
         </main>
 
