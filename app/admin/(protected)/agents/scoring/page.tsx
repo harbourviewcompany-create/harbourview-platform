@@ -1,34 +1,39 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
-import { scoringUpdates, memoryUpdates } from '@/lib/fixtures/agents_fixtures'
+import { listIaScoringRecords, listIaCounterparties } from '@/lib/intelligence-automation/db'
 
-const STATUS: Record<string, string> = {
-  pending: 'bg-zinc-800 text-zinc-300',
-  applied: 'bg-green-950 text-green-400',
-  rejected: 'bg-red-950 text-red-400',
+const DOC_STATUS: Record<string, string> = {
+  complete:    'bg-green-950 text-green-400',
+  partial:     'bg-amber-950 text-amber-400',
+  pending:     'bg-zinc-800 text-zinc-300',
+  not_started: 'bg-zinc-800 text-zinc-500',
 }
-const CONF: Record<string, string> = {
-  high: 'bg-emerald-950 text-emerald-400',
-  medium: 'bg-amber-950 text-amber-400',
-  low: 'bg-zinc-800 text-zinc-400',
+
+function ScoreBar({ score }: { score: number }) {
+  const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-amber-500' : score >= 40 ? 'bg-orange-500' : 'bg-red-500'
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-14 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
+      </div>
+      <span className="text-xs text-zinc-300 font-medium tabular-nums">{score}</span>
+    </div>
+  )
 }
 
 export default async function ScoringMemoryPage() {
   await requireAdminAuth()
 
-  const pendingScores = scoringUpdates.filter(s => s.status === 'pending').length
-  const appliedScores = scoringUpdates.filter(s => s.status === 'applied').length
-  const pendingMemory = memoryUpdates.filter(m => m.status === 'pending').length
-  const appliedMemory = memoryUpdates.filter(m => m.status === 'applied').length
+  const [scoringRes, counterpartiesRes] = await Promise.all([
+    listIaScoringRecords(),
+    listIaCounterparties(),
+  ])
 
-  const sortedScores = [...scoringUpdates].sort((a, b) => {
-    const p: Record<string, number> = { pending: 0, applied: 1, rejected: 2 }
-    return (p[a.status] ?? 9) - (p[b.status] ?? 9)
-  })
-  const sortedMemory = [...memoryUpdates].sort((a, b) => {
-    const p: Record<string, number> = { pending: 0, applied: 1, rejected: 2 }
-    return (p[a.status] ?? 9) - (p[b.status] ?? 9)
-  })
+  const scores       = scoringRes.data       ?? []
+  const counterparties = counterpartiesRes.data ?? []
+
+  const sortedScores = [...scores].sort((a, b) => b.routingPriority - a.routingPriority)
+  const sortedMemory = [...counterparties].sort((a, b) => b.interactionCount - a.interactionCount)
 
   return (
     <div className="p-6 max-w-7xl space-y-8">
@@ -38,95 +43,92 @@ export default async function ScoringMemoryPage() {
           <span>/</span>
           <span className="text-zinc-300">Scoring &amp; Memory</span>
         </div>
-        <h1 className="text-2xl font-bold text-zinc-100">Scoring &amp; Memory Updates</h1>
+        <h1 className="text-2xl font-bold text-zinc-100">Scoring &amp; Memory</h1>
       </div>
 
-      {/* Scoring section */}
+      {/* Scoring */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-300">Counterparty Score Updates</h2>
-          <div className="flex gap-2">
-            <span className="text-xs text-zinc-500">{pendingScores} pending</span>
-            <span className="text-zinc-700">·</span>
-            <span className="text-xs text-zinc-500">{appliedScores} applied</span>
-          </div>
+          <h2 className="text-sm font-semibold text-zinc-300">Counterparty Scores</h2>
+          <span className="text-xs text-zinc-500">{scores.length} records · ranked by routing priority</span>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800">
-                {['Counterparty', 'Score Type', 'Current → Suggested', 'Driver', 'Confidence', 'Suggested', 'Status'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-zinc-400 font-medium text-xs text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/50">
-              {sortedScores.map(s => {
-                const delta = s.suggestedValue - s.currentValue
-                return (
+          {sortedScores.length === 0 ? (
+            <div className="px-4 py-8 text-center text-xs text-zinc-500">No scoring records found.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800">
+                  {['Counterparty', 'Role', 'Fit', 'Readiness', 'Trust', 'Routing Priority', 'Scored At', 'Drivers'].map(h => (
+                    <th key={h} className="px-4 py-2.5 text-zinc-400 font-medium text-xs text-left">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50">
+                {sortedScores.map(s => (
                   <tr key={s.id} className="hover:bg-zinc-800/30 transition-colors">
                     <td className="px-4 py-3 text-zinc-200 text-xs font-medium whitespace-nowrap">{s.counterpartyName}</td>
-                    <td className="px-4 py-3 text-zinc-400 font-mono text-xs">{s.scoreType}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-zinc-400">{s.currentValue}</span>
-                        <span className="text-zinc-600">→</span>
-                        <span className="text-zinc-100 font-semibold">{s.suggestedValue}</span>
-                        <span className={`text-xs font-medium ${delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {delta > 0 ? `+${delta}` : delta}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500 text-xs max-w-64 leading-relaxed">{s.driver}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CONF[s.confidence]}`}>{s.confidence}</span>
-                    </td>
-                    <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{s.suggestedAt}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS[s.status]}`}>{s.status}</span>
+                    <td className="px-4 py-3 text-zinc-400 font-mono text-xs">{s.counterpartyRole}</td>
+                    <td className="px-4 py-3"><ScoreBar score={s.fitScore} /></td>
+                    <td className="px-4 py-3"><ScoreBar score={s.readinessScore} /></td>
+                    <td className="px-4 py-3"><ScoreBar score={s.trustScore} /></td>
+                    <td className="px-4 py-3 text-zinc-200 text-xs font-semibold">{s.routingPriority}</td>
+                    <td className="px-4 py-3 text-zinc-400 text-xs whitespace-nowrap">{s.scoredAt.slice(0, 10)}</td>
+                    <td className="px-4 py-3 text-zinc-500 text-xs max-w-48 leading-relaxed">
+                      {s.scoreDrivers.slice(0, 2).join(' · ')}
                     </td>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 
-      {/* Memory section */}
+      {/* Relationship Memory */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-300">Relationship Memory Updates</h2>
-          <div className="flex gap-2">
-            <span className="text-xs text-zinc-500">{pendingMemory} pending</span>
-            <span className="text-zinc-700">·</span>
-            <span className="text-xs text-zinc-500">{appliedMemory} applied</span>
-          </div>
+          <h2 className="text-sm font-semibold text-zinc-300">Relationship Memory</h2>
+          <span className="text-xs text-zinc-500">{counterparties.length} counterparties tracked</span>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800">
-                {['Counterparty', 'Update Type', 'Previous Value', 'Suggested Value', 'Source', 'Status'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-zinc-400 font-medium text-xs text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/50">
-              {sortedMemory.map(m => (
-                <tr key={m.id} className="hover:bg-zinc-800/30 transition-colors">
-                  <td className="px-4 py-3 text-zinc-200 text-xs font-medium whitespace-nowrap">{m.counterpartyName}</td>
-                  <td className="px-4 py-3 text-zinc-400 font-mono text-xs">{m.updateType}</td>
-                  <td className="px-4 py-3 text-zinc-500 text-xs max-w-48 leading-relaxed">{m.previousValue ?? '—'}</td>
-                  <td className="px-4 py-3 text-zinc-300 text-xs max-w-64 leading-relaxed">{m.suggestedValue}</td>
-                  <td className="px-4 py-3 text-zinc-500 text-xs max-w-40">{m.source}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS[m.status]}`}>{m.status}</span>
-                  </td>
+          {sortedMemory.length === 0 ? (
+            <div className="px-4 py-8 text-center text-xs text-zinc-500">No counterparty records found.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800">
+                  {['Name', 'Role', 'Markets', 'Interactions', 'Intros', 'Doc Status', 'Notes'].map(h => (
+                    <th key={h} className="px-4 py-2.5 text-zinc-400 font-medium text-xs text-left">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50">
+                {sortedMemory.map(m => (
+                  <tr key={m.id} className="hover:bg-zinc-800/30 transition-colors">
+                    <td className="px-4 py-3 text-zinc-200 text-xs font-medium whitespace-nowrap">{m.name}</td>
+                    <td className="px-4 py-3 text-zinc-400 font-mono text-xs">{m.role}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {m.markets.slice(0, 3).map(mk => (
+                          <span key={mk} className="text-xs bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded">{mk}</span>
+                        ))}
+                        {m.markets.length > 3 && <span className="text-xs text-zinc-600">+{m.markets.length - 3}</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300 text-xs font-medium">{m.interactionCount}</td>
+                    <td className="px-4 py-3 text-zinc-300 text-xs font-medium">{m.introductionCount}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DOC_STATUS[m.documentationStatus] ?? 'bg-zinc-800 text-zinc-400'}`}>
+                        {m.documentationStatus.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 text-xs max-w-48">{m.notes ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
     </div>
