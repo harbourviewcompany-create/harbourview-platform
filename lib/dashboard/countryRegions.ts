@@ -111,7 +111,6 @@ export const REGION_LABELS: Record<string, string> = {
   MX: 'Mexico · state-level rule instrument',
   BR: 'Brazil · state-level rule instrument',
   AR: 'Argentina · provincial rule instrument',
-  US: 'United States · state-level rule instrument',
   IN: 'India · state-level rule instrument',
   CO: 'Colombia · departmental rule instrument',
   CL: 'Chile · regional rule instrument',
