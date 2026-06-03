@@ -301,37 +301,16 @@ export function getEduCategoriesForRole(roleId?: string) {
   return ROLE_EDU_CATEGORIES[roleId ?? ''] ?? DEFAULT_EDU
 }
 
-// ── Country status bar data ───────────────────────────────────────────────────
-export type CountryStatusBar = {
-  status: string;       statusColor: string
-  opportunity: string;  opportunityColor: string
-  regulatory: string;   regulatoryColor: string
-  activity: string;     activityColor: string
-  score: number;        adultUse: string; medicalUse: string
-}
+// ── Country status bar data ─────────────────────────────────────────────────────
+// Full ~195-country dataset lives in lib/dashboard/countryStatusData.ts
+// This file re-exports the public surface so callers need no extra imports.
+import {
+  getCountryStatusBar as _getStatusBar,
+  type CountryStatusBar,
+} from '@/lib/dashboard/countryStatusData'
 
-const STATUS_DATA: Record<string, CountryStatusBar> = {
-  DE: { status:'Market Open',    statusColor:'#6FCF7D', opportunity:'Very High', opportunityColor:'#D9A441', regulatory:'Progressive', regulatoryColor:'#6FCF7D', activity:'Very Strong', activityColor:'#D9A441', score:91, adultUse:'Legal',      medicalUse:'Legal'     },
-  AU: { status:'Market Open',    statusColor:'#6FCF7D', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Established', regulatoryColor:'#6FCF7D', activity:'Strong',      activityColor:'#D9A441', score:84, adultUse:'Limited',    medicalUse:'Legal'     },
-  CA: { status:'Market Open',    statusColor:'#6FCF7D', opportunity:'Very High', opportunityColor:'#D9A441', regulatory:'Mature',      regulatoryColor:'#6FCF7D', activity:'Very Strong', activityColor:'#D9A441', score:95, adultUse:'Legal',      medicalUse:'Legal'     },
-  BR: { status:'Developing',     statusColor:'#D9A441', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Growing',     activityColor:'#D9A441', score:68, adultUse:'Restricted', medicalUse:'Limited'   },
-  IL: { status:'Market Open',    statusColor:'#6FCF7D', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Favorable',   regulatoryColor:'#6FCF7D', activity:'Strong',      activityColor:'#D9A441', score:79, adultUse:'Limited',    medicalUse:'Legal'     },
-  FR: { status:'Partial Access', statusColor:'#D9A441', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Moderate',    activityColor:'#B8C0C8', score:54, adultUse:'None',       medicalUse:'Limited'   },
-  IT: { status:'Partial Access', statusColor:'#D9A441', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Developing',  activityColor:'#B8C0C8', score:51, adultUse:'None',       medicalUse:'Limited'   },
-  NL: { status:'Partial Access', statusColor:'#D9A441', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Active',      activityColor:'#D9A441', score:62, adultUse:'Tolerated',  medicalUse:'Legal'     },
-  PT: { status:'Partial Access', statusColor:'#D9A441', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Progressive', regulatoryColor:'#6FCF7D', activity:'Growing',     activityColor:'#D9A441', score:67, adultUse:'Tolerated',  medicalUse:'Legal'     },
-  PL: { status:'Partial Access', statusColor:'#D9A441', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Moderate',    activityColor:'#B8C0C8', score:48, adultUse:'None',       medicalUse:'Limited'   },
-  US: { status:'Complex',        statusColor:'#D9A441', opportunity:'Very High', opportunityColor:'#D9A441', regulatory:'Complex',     regulatoryColor:'#D49560', activity:'Very Strong', activityColor:'#D9A441', score:71, adultUse:'State Only', medicalUse:'State Only'},
-  GB: { status:'Under Review',   statusColor:'#5DAFC8', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Under Review',regulatoryColor:'#5DAFC8', activity:'Developing',  activityColor:'#B8C0C8', score:47, adultUse:'None',       medicalUse:'Limited'   },
-  CZ: { status:'Under Review',   statusColor:'#5DAFC8', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Developing',  activityColor:'#B8C0C8', score:52, adultUse:'None',       medicalUse:'Limited'   },
-  DK: { status:'Under Review',   statusColor:'#5DAFC8', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Developing',  activityColor:'#B8C0C8', score:49, adultUse:'None',       medicalUse:'Limited'   },
-  CH: { status:'Under Review',   statusColor:'#5DAFC8', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Progressive', regulatoryColor:'#6FCF7D', activity:'Moderate',    activityColor:'#B8C0C8', score:55, adultUse:'None',       medicalUse:'Limited'   },
-  NZ: { status:'Market Open',    statusColor:'#6FCF7D', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Favorable',   regulatoryColor:'#6FCF7D', activity:'Strong',      activityColor:'#D9A441', score:78, adultUse:'Limited',    medicalUse:'Legal'     },
-  CO: { status:'Request Only',   statusColor:'#6F7A86', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Developing',  activityColor:'#B8C0C8', score:44, adultUse:'Restricted', medicalUse:'Legal'     },
-  TH: { status:'Partial Access', statusColor:'#D9A441', opportunity:'High',      opportunityColor:'#D9A441', regulatory:'Evolving',    regulatoryColor:'#D9A441', activity:'Growing',     activityColor:'#D9A441', score:65, adultUse:'Restricted', medicalUse:'Legal'     },
-  MT: { status:'Request Only',   statusColor:'#6F7A86', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Limited',     activityColor:'#B8C0C8', score:42, adultUse:'Limited',    medicalUse:'Legal'     },
-  LU: { status:'Request Only',   statusColor:'#6F7A86', opportunity:'Medium',    opportunityColor:'#B8C0C8', regulatory:'Developing',  regulatoryColor:'#D9A441', activity:'Limited',     activityColor:'#B8C0C8', score:40, adultUse:'Legal',      medicalUse:'Legal'     },
-}
+export type { CountryStatusBar }
+export { _getStatusBar as getCountryStatusBar }
 
 const EMPTY_STATUS: CountryStatusBar = {
   status: 'Select Market', statusColor: '#6F7A86',
@@ -341,21 +320,8 @@ const EMPTY_STATUS: CountryStatusBar = {
   score: 0, adultUse: '—', medicalUse: '—',
 }
 
-const FALLBACK_STATUS: CountryStatusBar = {
-  status: 'Intelligence Pending', statusColor: '#6F7A86',
-  opportunity: 'Under Assessment', opportunityColor: '#6F7A86',
-  regulatory: 'Unknown', regulatoryColor: '#6F7A86',
-  activity: 'Limited Data', activityColor: '#6F7A86',
-  score: 0, adultUse: '—', medicalUse: '—',
-}
-
 export function getEmptyCountryStatusBar(): CountryStatusBar {
   return EMPTY_STATUS
-}
-
-export function getCountryStatusBar(iso2: string | null | undefined): CountryStatusBar {
-  if (!iso2) return EMPTY_STATUS
-  return STATUS_DATA[iso2.toUpperCase()] ?? FALLBACK_STATUS
 }
 
 // ── Wanted Requests count ─────────────────────────────────────────────────────
