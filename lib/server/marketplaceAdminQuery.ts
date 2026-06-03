@@ -1,5 +1,5 @@
 import 'server-only'
-import { fetchAdminSupabaseJson } from '@/lib/supabase/adminDataClient'
+import { fetchAdminSupabaseJson, fetchAdminSupabaseJsonMutation } from '@/lib/supabase/adminDataClient'
 import type { AdminDataResult } from '@/lib/supabase/adminDataClient'
 
 export type MarketplaceAdminQueueItem = {
@@ -76,25 +76,20 @@ export async function listAdminPublishedListings(): Promise<AdminDataResult<Admi
 }
 
 export async function publishCandidate(id: string): Promise<AdminDataResult<null>> {
-  // Move candidate to approved_draft + create a live listing record via the publication status path
-  const result = await fetchAdminSupabaseJson<unknown>(
+  const result = await fetchAdminSupabaseJsonMutation<unknown>(
     `/rest/v1/marketplace_candidates?id=eq.${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ publication_status: 'published', status: 'approved_draft' }),
-    } as RequestInit
+    'PATCH',
+    { publication_status: 'published', status: 'approved_draft' },
   )
   if (!result.ok) return result as AdminDataResult<null>
   return { ok: true, data: null }
 }
 
 export async function rejectCandidate(id: string, reason: string): Promise<AdminDataResult<null>> {
-  const result = await fetchAdminSupabaseJson<unknown>(
+  const result = await fetchAdminSupabaseJsonMutation<unknown>(
     `/rest/v1/marketplace_candidates?id=eq.${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'rejected', rejection_reason: reason }),
-    } as RequestInit
+    'PATCH',
+    { status: 'rejected', rejection_reason: reason },
   )
   if (!result.ok) return result as AdminDataResult<null>
   return { ok: true, data: null }
