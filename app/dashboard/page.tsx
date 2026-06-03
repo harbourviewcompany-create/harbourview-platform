@@ -2,7 +2,10 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import CommandCentre from '@/components/dashboard/CommandCentre'
+import type { DashboardMarketplaceRows, MarketRow } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { getPublicListingsByCategory, getPublicListingsBySection } from '@/lib/server/listingsQuery'
+import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { RoleId } from '@/types/globe-router'
 
 export const metadata: Metadata = {
@@ -52,6 +55,81 @@ function normalizeRoleParam(raw: string | null): string | null {
   return ROLE_PROFILES[resolved] ? resolved : null
 }
 
+function safeText(value: string | null | undefined, fallback: string): string {
+  return value && value.trim() ? value.trim() : fallback
+}
+
+function formatTitle(input: string): string {
+  return input
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map(part => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function getListingSpecType(listing: PublicListing): MarketRow[0] {
+  if (listing.marketplace_section === 'equipment' || listing.marketplace_section === 'used_surplus') return 'equip'
+  if (listing.marketplace_section === 'services') return 'service'
+  return 'supply'
+}
+
+function getListingTags(listing: PublicListing): string {
+  const specs = Object.entries(listing.high_level_specs)
+    .slice(0, 3)
+    .map(([key]) => key)
+
+  return [listing.category, listing.subcategory, listing.product_type, listing.location_country, ...specs]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .slice(0, 5)
+    .map(value => value.replace(/\s+/g, '-').toLowerCase())
+    .join('|')
+}
+
+function mapListingToDashboardRow(listing: PublicListing): MarketRow {
+  const typeLabel = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
+  const regionLabel = listing.location_region ?? listing.location_country ?? listing.region
+  const statusLabel = listing.price_display ?? listing.condition ?? (listing.is_featured ? 'Featured' : 'Listed')
+  const tags = getListingTags(listing) || listing.category
+
+  return [
+    getListingSpecType(listing),
+    typeLabel,
+    listing.title,
+    safeText(listing.description, `${typeLabel} listing for ${regionLabel}.`),
+    tags,
+    'VER:ok|PROOF:warn|REG:warn|PUBLIC',
+    'Open listing',
+    statusLabel,
+  ]
+}
+
+async function getDashboardMarketplaceRows(): Promise<Partial<DashboardMarketplaceRows>> {
+  const [
+    cannabis,
+    equipment,
+    consumables,
+    newProducts,
+    services,
+    opportunities,
+  ] = await Promise.all([
+    getPublicListingsByCategory('cannabis_inventory'),
+    getPublicListingsBySection('used_surplus'),
+    getPublicListingsByCategory('consumables'),
+    getPublicListingsByCategory('new_products'),
+    getPublicListingsByCategory('services'),
+    getPublicListingsByCategory('business_opportunities'),
+  ])
+
+  return {
+    cannabis: cannabis.map(mapListingToDashboardRow),
+    equipment: equipment.map(mapListingToDashboardRow),
+    consumables: consumables.map(mapListingToDashboardRow),
+    'new-products': newProducts.map(mapListingToDashboardRow),
+    services: services.map(mapListingToDashboardRow),
+    opportunities: opportunities.map(mapListingToDashboardRow),
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -63,9 +141,10 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
 
-  const [signals, wantedCount] = await Promise.all([
+  const [signals, wantedCount, marketplaceRows] = await Promise.all([
     fetchDashboardSignals(8),
     getWantedRequestsCount(),
+    getDashboardMarketplaceRows(),
   ])
 
   let storedCountryIso2: string | null = null
@@ -101,6 +180,7 @@ export default async function DashboardPage({
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}
+      marketplaceRows={marketplaceRows}
     />
   )
 }
