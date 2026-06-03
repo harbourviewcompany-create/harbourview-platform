@@ -17,17 +17,7 @@ import type {
   SignalStage,
   AgentTaskStatus,
 } from './types'
-import {
-  automationSources,
-  automationSignals,
-  relationshipMemory,
-  scoringRecords,
-  agentQueue,
-  evidenceVault,
-  graphEntities,
-  graphEdges,
-  feedbackEvents,
-} from './fixtures'
+// Fixtures removed — all data comes from Supabase
 
 // ── Type mappings: Supabase row → typed domain object ─────────────────────────
 
