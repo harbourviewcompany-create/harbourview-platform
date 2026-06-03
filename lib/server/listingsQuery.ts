@@ -26,6 +26,9 @@ export type PublicListing = {
   created_at: string
 }
 
+const SELECT_COLS =
+  'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at'
+
 async function queryListings(params: URLSearchParams): Promise<PublicListing[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
   try {
@@ -44,32 +47,66 @@ async function queryListings(params: URLSearchParams): Promise<PublicListing[]> 
   }
 }
 
-const BASE_PARAMS = new URLSearchParams({
-  select:
-    'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at',
-  order: 'is_featured.desc,created_at.desc',
-})
+function baseParams(limit = 12): URLSearchParams {
+  return new URLSearchParams({
+    select: SELECT_COLS,
+    order: 'is_featured.desc,created_at.desc',
+    limit: String(limit),
+  })
+}
 
 export async function getPublicListings(): Promise<PublicListing[]> {
-  return queryListings(new URLSearchParams(BASE_PARAMS))
+  return queryListings(baseParams())
 }
 
 export async function getPublicListingsByCategory(category: string): Promise<PublicListing[]> {
-  const p = new URLSearchParams(BASE_PARAMS)
+  const p = baseParams()
   p.set('category', `eq.${category}`)
   return queryListings(p)
 }
 
 export async function getPublicListingsBySection(section: string): Promise<PublicListing[]> {
-  const p = new URLSearchParams(BASE_PARAMS)
+  const p = baseParams()
   p.set('marketplace_section', `eq.${section}`)
   return queryListings(p)
 }
 
 export async function getPublicListingBySlug(slug: string): Promise<PublicListing | null> {
-  const p = new URLSearchParams(BASE_PARAMS)
+  const p = baseParams()
   p.set('slug', `eq.${slug}`)
   p.set('limit', '1')
   const results = await queryListings(p)
   return results[0] ?? null
+}
+
+/**
+ * Fetch listings for a set of marketplace_section values, optionally filtered
+ * by country ISO2. When countryIso2 is provided, returns rows where
+ * location_country matches OR region is 'global'. Falls back to unfiltered
+ * if the country-scoped query returns nothing.
+ */
+export async function getListingsBySections(
+  sections: string[],
+  countryIso2?: string | null,
+  limit = 12,
+): Promise<PublicListing[]> {
+  if (!sections.length) return []
+
+  const p = baseParams(limit)
+  p.set('marketplace_section', `in.(${sections.join(',')})`)
+
+  if (countryIso2) {
+    p.set('or', `(location_country.ilike.${countryIso2},region.eq.global)`)
+  }
+
+  const rows = await queryListings(p)
+
+  // Country filter returned nothing — fall back to unfiltered
+  if (countryIso2 && rows.length === 0) {
+    const fallback = baseParams(limit)
+    fallback.set('marketplace_section', `in.(${sections.join(',')})`)
+    return queryListings(fallback)
+  }
+
+  return rows
 }
