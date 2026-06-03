@@ -39,13 +39,13 @@ function PulseDot() {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 export interface SignalStripProps {
-  signals: DashboardSignal[]
+  signals?: DashboardSignal[]
   /** True when signals come from the live database (not fixtures) */
   isLive?: boolean
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function SignalStrip({ signals, isLive = false }: SignalStripProps) {
+export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) {
   return (
     <aside
       className="flex flex-col overflow-y-auto px-3.5 py-4"
