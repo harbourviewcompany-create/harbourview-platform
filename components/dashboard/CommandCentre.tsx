@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import type { PipelineCounts, WantedListing, CountryIntelProfile, ReviewedCounterparty } from '@/lib/dashboard/dashboardLiveData'
+import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
