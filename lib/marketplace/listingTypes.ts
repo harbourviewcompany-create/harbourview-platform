@@ -55,3 +55,10 @@ export interface BusinessOpportunity extends Listing {
   licenseType?: string
   state: string
 }
+
+export interface CannabisInventoryListing extends Listing {
+  category: 'cannabis-inventory'
+  strain?: string
+  weightAvailable: string
+  licenseRequired: true
+}
