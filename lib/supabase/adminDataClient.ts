@@ -116,3 +116,39 @@ export function getAdminError(result: AdminDataResult<unknown>): AdminDataError 
   if (result.ok) throw new Error('getAdminError called on ok result')
   return (result as any).error
 }
+
+/** Mutation variant — supports PATCH/POST/DELETE with a body. */
+export async function fetchAdminSupabaseJsonMutation<T>(
+  path: string,
+  method: 'PATCH' | 'POST' | 'DELETE',
+  body: Record<string, unknown>,
+): Promise<AdminDataResult<T>> {
+  const client = getAdminDataClient();
+  if (!client.ok) return client as AdminDataResult<T>;
+
+  const response = await fetch(`${client.data.url}${path}`, {
+    method,
+    headers: {
+      apikey: client.data.serviceRoleKey,
+      Authorization: `Bearer ${client.data.serviceRoleKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: {
+        code: 'request_failed',
+        message: `Supabase mutation returned ${response.status}: ${text.slice(0, 240)}`,
+      },
+    };
+  }
+
+  return { ok: true, data: (text ? JSON.parse(text) : null) as T };
+}
+
