@@ -2,8 +2,11 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import CommandCentre from '@/components/dashboard/CommandCentre'
+import type { MarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import type { RoleId } from '@/types/globe-router'
+import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
+import type { PublicListing } from '@/lib/server/listingsQuery'
 
 export const metadata: Metadata = {
   title: 'Dashboard | Harbourview',
@@ -11,6 +14,85 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = 'force-dynamic'
+
+
+const DASHBOARD_MARKETPLACE_CATEGORIES: Record<MarketView, string> = {
+  cannabis: 'cannabis_inventory',
+  equipment: 'used_surplus',
+  consumables: 'consumables',
+  'new-products': 'new_products',
+  services: 'services',
+  opportunities: 'business_opportunities',
+}
+
+const MARKETPLACE_VIEWS = Object.keys(DASHBOARD_MARKETPLACE_CATEGORIES) as MarketView[]
+
+const SPEC_TYPE_BY_VIEW: Record<MarketView, MarketRow[0]> = {
+  cannabis: 'supply',
+  equipment: 'equip',
+  consumables: 'supply',
+  'new-products': 'supply',
+  services: 'service',
+  opportunities: 'supply',
+}
+
+const ACTION_LABEL_BY_VIEW: Record<MarketView, string> = {
+  cannabis: 'Request proof',
+  equipment: 'Request inspection',
+  consumables: 'Request quote',
+  'new-products': 'Request specs',
+  services: 'Book intro',
+  opportunities: 'Open inquiry',
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function readStringSpec(specs: Record<string, unknown>, key: string): string | null {
+  const value = specs[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function mapListingToMarketRow(listing: PublicListing, view: MarketView): MarketRow {
+  const specs = listing.high_level_specs
+  const typeLabel = listing.product_type ?? listing.subcategory ?? titleCase(listing.category)
+  const tags = [listing.product_type, listing.subcategory, listing.condition, listing.location_country ?? listing.region]
+    .filter((tag): tag is string => Boolean(tag?.trim()))
+    .slice(0, 4)
+    .map(tag => tag.replace(/[_-]+/g, ' '))
+    .join('|')
+  const trustScore = typeof specs.trust_score === 'number' ? specs.trust_score : listing.is_featured ? 82 : 68
+  const trustString = `VER:${listing.is_featured ? 'ok' : 'warn'}|PROOF:warn|REG:warn|${trustScore}:${trustScore >= 80 ? 'ok' : 'warn'}|PUBLIC`
+  const actionLabel = readStringSpec(specs, 'cta_label') ?? ACTION_LABEL_BY_VIEW[view]
+  const statusLabel = listing.price_display ?? listing.condition ?? (listing.is_featured ? 'Featured' : titleCase(listing.seller_type))
+
+  return [
+    SPEC_TYPE_BY_VIEW[view],
+    typeLabel,
+    listing.title,
+    listing.description,
+    tags || titleCase(listing.category),
+    trustString,
+    actionLabel,
+    statusLabel,
+  ]
+}
+
+async function getDashboardMarketplaceRows(): Promise<MarketplaceRows> {
+  const entries = await Promise.all(
+    MARKETPLACE_VIEWS.map(async (view) => {
+      const listings = await getPublicListingsByCategory(DASHBOARD_MARKETPLACE_CATEGORIES[view])
+      return [view, listings.map(listing => mapListingToMarketRow(listing, view))] as const
+    }),
+  )
+
+  return Object.fromEntries(entries) as MarketplaceRows
+}
 
 const ROLE_ALIASES: Record<string, RoleId> = {
   buyer: 'importer',
@@ -63,9 +145,10 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
 
-  const [signals, wantedCount] = await Promise.all([
+  const [signals, wantedCount, marketplaceRows] = await Promise.all([
     fetchDashboardSignals(8),
     getWantedRequestsCount(),
+    getDashboardMarketplaceRows(),
   ])
 
   let storedCountryIso2: string | null = null
@@ -101,6 +184,7 @@ export default async function DashboardPage({
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}
+      marketplaceRows={marketplaceRows}
     />
   )
 }
