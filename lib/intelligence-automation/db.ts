@@ -31,7 +31,6 @@ import {
 
 // ── Type mappings: Supabase row → typed domain object ─────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSource(r: any): AutomationSource {
   return {
     id: r.id,
@@ -47,7 +46,6 @@ function rowToSource(r: any): AutomationSource {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSignal(r: any): AutomationSignal {
   return {
     id: r.id,
@@ -66,7 +64,6 @@ function rowToSignal(r: any): AutomationSignal {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToCounterparty(r: any): RelationshipMemoryRecord {
   return {
     id: r.id,
@@ -84,7 +81,6 @@ function rowToCounterparty(r: any): RelationshipMemoryRecord {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToScoring(r: any): ScoringRecord {
   return {
     id: r.id,
@@ -103,7 +99,6 @@ function rowToScoring(r: any): ScoringRecord {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToAgentTask(r: any): AgentWorkItem {
   return {
     id: r.id,
@@ -121,7 +116,6 @@ function rowToAgentTask(r: any): AgentWorkItem {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToEvidence(r: any): EvidenceVaultEntry {
   return {
     id: r.id,
@@ -136,7 +130,6 @@ function rowToEvidence(r: any): EvidenceVaultEntry {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToGraphEntity(r: any): GraphEntity {
   return {
     id: r.id,
@@ -150,7 +143,6 @@ function rowToGraphEntity(r: any): GraphEntity {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToGraphEdge(r: any): GraphEdge {
   return {
     id: r.id,
@@ -163,7 +155,6 @@ function rowToGraphEdge(r: any): GraphEdge {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToFeedback(r: any): FeedbackEvent {
   return {
     id: r.id,
