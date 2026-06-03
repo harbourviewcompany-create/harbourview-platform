@@ -59,7 +59,7 @@ function readStringSpec(specs: Record<string, unknown>, key: string): string | n
 }
 
 function mapListingToMarketRow(listing: PublicListing, view: MarketView): MarketRow {
-  const specs = listing.high_level_specs
+  const specs = listing.high_level_specs && typeof listing.high_level_specs === 'object' ? listing.high_level_specs : {}
   const typeLabel = listing.product_type ?? listing.subcategory ?? titleCase(listing.category)
   const tags = [listing.product_type, listing.subcategory, listing.condition, listing.location_country ?? listing.region]
     .filter((tag): tag is string => Boolean(tag?.trim()))
@@ -86,8 +86,12 @@ function mapListingToMarketRow(listing: PublicListing, view: MarketView): Market
 async function getDashboardMarketplaceRows(): Promise<MarketplaceRows> {
   const entries = await Promise.all(
     MARKETPLACE_VIEWS.map(async (view) => {
-      const listings = await getPublicListingsByCategory(DASHBOARD_MARKETPLACE_CATEGORIES[view])
-      return [view, listings.map(listing => mapListingToMarketRow(listing, view))] as const
+      try {
+        const listings = await getPublicListingsByCategory(DASHBOARD_MARKETPLACE_CATEGORIES[view])
+        return [view, listings.map(listing => mapListingToMarketRow(listing, view))] as const
+      } catch {
+        return [view, [] as MarketRow[]] as const
+      }
     }),
   )
 
