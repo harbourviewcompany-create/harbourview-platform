@@ -272,7 +272,6 @@ async function getApprovedCandidatesFromSupabase(): Promise<IntakeCandidate[] | 
 
 function fallbackListings(): UsedSurplusListing[] {
   return []
-}))
 }
 
 export async function getApprovedUsedSurplusListings(): Promise<UsedSurplusListing[]> {
