@@ -263,16 +263,14 @@ export async function updateCandidateStatus({
     if (blockers.length) return { ok: false, error: requestFailed(blockers.join(' ')) };
   }
 
-  if (candidate.subcategory && !isConsumablesSubcategory(candidate.subcategory)) {
-    return { ok: false, error: requestFailed('Invalid consumables subcategory.') };
-  }
-
-  if (candidate.listing_type && !isConsumablesListingType(candidate.listing_type)) {
-    return { ok: false, error: requestFailed('Invalid consumables listing type.') };
-  }
-
-  if (candidate.marketplace_category !== CONSUMABLES_CATEGORY) {
-    return { ok: false, error: requestFailed('Invalid marketplace category.') };
+  // Only validate consumables-specific fields when the candidate is actually a consumables listing
+  if (candidate.marketplace_category === CONSUMABLES_CATEGORY) {
+    if (candidate.subcategory && !isConsumablesSubcategory(candidate.subcategory)) {
+      return { ok: false, error: requestFailed('Invalid consumables subcategory.') };
+    }
+    if (candidate.listing_type && !isConsumablesListingType(candidate.listing_type)) {
+      return { ok: false, error: requestFailed('Invalid consumables listing type.') };
+    }
   }
 
   const patch = {
