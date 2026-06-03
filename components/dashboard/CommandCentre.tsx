@@ -48,55 +48,82 @@ const REGION_LABELS: Record<string, string> = {
 
 const WARN_REGIONS = new Set(['Queensland','Texas','Ticino','Limburg','Alberta','Northern Ireland','Saxony'])
 
-type MarketView = 'market' | 'importer' | 'clinical' | 'equipment' | 'signals'
+type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities'
+
+// href for each category tab — links to the live marketplace route
+const VIEW_HREF: Record<MarketView, string> = {
+  'cannabis':       '/marketplace/cannabis-inventory',
+  'equipment':      '/marketplace/used-surplus',
+  'consumables':    '/marketplace/consumables',
+  'new-products':   '/marketplace/new-products',
+  'services':       '/marketplace/services',
+  'opportunities':  '/marketplace/business-opportunities',
+}
 
 const ROW_DATA: Record<MarketView, [string, string, string, string, string, string, string, string][]> = {
-  market:[
-    ['supply','Supply','GMP-ready dried flower batch package','Export-oriented supplier profile with COA, batch record, and document review path.','verified shell|supply|import/export','VER:ok|PROOF:warn|REG:ok|72:warn|PUBLIC','Ask for proof','On enquiry'],
-    ['equip','Equipment','Used extraction and lab equipment lot','Distressed asset listing with inspection requirement and buyer-side verification flag.','equipment|inspection|seller review','VER:warn|PROOF:warn|REG:ok|61:warn|PUBLIC','Request inspection','Request quote'],
-    ['service','Services','GDP logistics partner — import handoff','Regional logistics and customs support for regulated product movement.','reviewed|customs|cold chain','VER:ok|PROOF:ok|REG:warn|78:ok|PUBLIC','Book intro','Service'],
-    ['eduSpec','Education Lead','Pharmacy group onboarding request','Clinician-facing education request tied to country and regional dispensing rules.','education lead|pharmacy|clinical','VER:ok|PROOF:ok|REG:ok|84:ok|PUBLIC','Send packet','Lead'],
-  ],
-  importer:[
-    ['supply','Matched Supply','Verified medical supply candidate','Supplier fit for wanted demand with proof package not yet complete.','matched supply|proof needed|regional check','VER:ok|PROOF:warn|REG:ok|73:warn|PRIVATE:lock','Request intro','Matched'],
-    ['service','Counterparty Intro','Reviewed exporter introduction','Private intro candidate with source notes gated until admin review.','counterparty|intro|private notes','VER:ok|PROOF:warn|REG:warn|64|PRIVATE:lock','Open inquiry','Intro'],
-    ['equip','Equipment','Extraction equipment buyer review','Used equipment lot requires inspection before deal-room movement.','equipment|asset|inspection','VER:warn|PROOF:warn|REG:ok|59:warn|PUBLIC','Ask inspection','Asset'],
-    ['eduSpec','Professional Lead','Pharmacy supply education lead','Buyer demand includes pharmacy-facing education requirement.','education lead|pharmacy|buyer need','VER:ok|PROOF:ok|REG:ok|81:ok|PUBLIC','Send packet','Lead'],
-  ],
-  clinical:[
-    ['eduSpec','Doctor Pathway','Clinician onboarding package','Country-specific access, patient pathway, and product-format education.','doctor|clinical|education','VER:ok|PROOF:ok|REG:ok|88:ok|PUBLIC','Start onboarding','Core'],
-    ['eduSpec','Pharmacist Module','Dispensing and storage education','Region-aware pharmacy workflow and verification steps.','pharmacist|dispensing|regional','VER:ok|PROOF:ok|REG:ok|86:ok|PUBLIC','Invite pharmacy','Core'],
-    ['service','Compliance Session','Professional compliance review','Claim boundaries before professional-facing marketplace action.','compliance|review|required','VER:ok|PROOF:warn|REG:ok|75:warn|PRIVATE:lock','Book session','Review'],
-    ['supply','Clinical Access','Product information request','Professional-safe access pathway without unsupported public claims.','clinical access|product format|education','VER:warn|PROOF:warn|REG:warn|62:warn|PUBLIC','Request packet','Info'],
+  cannabis:[
+    ['supply','Flower','EU-GMP certified dried flower — 100kg lot','COA, batch record, and certificates of analysis attached. Import-ready.','verified|flower|GMP|bulk','VER:ok|PROOF:warn|REG:ok|79:warn|PUBLIC','Request proof','On enquiry'],
+    ['supply','Extract','Full-spectrum CO₂ oil — refined distillate','German-market specification. 92% THC distillate with full terpene retention.','distillate|extract|bulk|verified','VER:ok|PROOF:warn|REG:warn|74:warn|PUBLIC','Request COA','On enquiry'],
+    ['supply','Biomass','Trim and biomass lot — wholesale','Drying-complete biomass available for licensed extractors. Inspection welcome.','biomass|trim|wholesale|licensed','VER:warn|PROOF:warn|REG:ok|61:warn|PUBLIC','Request inspection','Wholesale'],
+    ['supply','Genetics','Stabilised cultivar seed — commercial quantity','Feminised seeds from a licensed breeding programme. Phytosanitary docs available.','genetics|seeds|cultivar|licensed','VER:ok|PROOF:ok|REG:warn|83:ok|PUBLIC','Open inquiry','Genetics'],
   ],
   equipment:[
-    ['equip','Equipment','Used extraction line — inspection ready','Commercial asset listing with buyer diligence and verification workflow.','equipment|inspection|distressed asset','VER:warn|PROOF:warn|REG:ok|67:warn|PUBLIC','Request inspection','Asset'],
-    ['equip','Equipment','Lab instrumentation package','Testing equipment lot with service history pending review.','lab equipment|QA|review','VER:warn|PROOF:warn|REG:ok|63:warn|PUBLIC','Ask records','Asset'],
-    ['service','Service','Equipment verification consultant','Inspection and valuation support for private deal room movement.','service|valuation|verification','VER:ok|PROOF:ok|REG:ok|79:ok|PUBLIC','Book review','Service'],
-    ['supply','Wanted Demand','Buyer seeking extraction equipment','Buyer-side demand can be matched to used/new equipment listings.','wanted|equipment buyer|high intent','VER:ok|PROOF:warn|REG:ok|71:warn|PRIVATE:lock','Respond to demand','Wanted'],
+    ['equip','Cultivation','LED grow system — 200-light commercial lot','Decommissioned licensed facility. Full inspection package and service logs available.','cultivation|LED|commercial|asset','VER:warn|PROOF:warn|REG:ok|67:warn|PUBLIC','Request inspection','Asset'],
+    ['equip','Extraction','Used CO₂ extraction line — inspection ready','Apeks 5L SCFX unit with maintenance history. Buyer diligence and verification workflow.','extraction|CO2|commercial|inspection','VER:warn|PROOF:warn|REG:ok|63:warn|PUBLIC','Ask inspection','Asset'],
+    ['equip','Processing','Ethanol extraction and distillation train','Short-path distillation unit, 50L/day throughput. Priced for fast exit.','processing|distillation|distressed','VER:warn|PROOF:warn|REG:ok|59:warn|PUBLIC','Request records','Asset'],
+    ['equip','Lab','Lab instrumentation package — HPLC + GC-MS','Testing equipment lot with full service history pending review. Import documentation available.','lab|HPLC|GC-MS|QA|review','VER:warn|PROOF:warn|REG:ok|71:warn|PUBLIC','Ask records','Asset'],
   ],
-  signals:[
-    ['service','Intel Action','Source trail review request','Paid review connects weekly signal to marketplace action and watch alerts.','intel plus|source trail|watchlist','VER:ok|PROOF:warn|REG:warn|70:warn|PRIVATE:lock','Unlock trail','Plus'],
-    ['supply','Signal-linked Supply','Supply category affected by weekly signal','Marketplace row surfaced because signal indicates regional relevance.','signal linked|supply|regional','VER:ok|PROOF:warn|REG:warn|69:warn|PUBLIC','Review impact','Signal'],
-    ['eduSpec','Education Lead','Pharmacy signal follow-up','Weekly signal creates education packet opportunity for pharmacy group.','education lead|signal|pharmacy','VER:ok|PROOF:ok|REG:ok|82:ok|PUBLIC','Send packet','Lead'],
-    ['service','Country Rules','Regional rules change watch','Map-linked rule review before a commercial listing or inquiry proceeds.','rules|region|review','VER:warn|PROOF:warn|REG:warn|57:warn|PUBLIC','Open rules','Review'],
+  consumables:[
+    ['supply','Packaging','Child-resistant compliance packaging — EU spec','Stock lot of CR-compliant pouches and bottles. Meets German and UK labelling standards.','packaging|CR|compliance|EU','VER:ok|PROOF:ok|REG:ok|81:ok|PUBLIC','Request samples','In stock'],
+    ['supply','Media','Substrate and growth media — sterile lot','Coco coir, perlite, and nutrient packs. Licensed producer supply. Bulk available.','substrate|media|sterile|bulk','VER:ok|PROOF:warn|REG:ok|74:warn|PUBLIC','Request quote','Bulk'],
+    ['supply','Nutrients','GMP-compliant nutrient line — commercial size','Nutrient concentrates formulated for medical-grade cultivation compliance.','nutrients|GMP|commercial|medical','VER:ok|PROOF:ok|REG:ok|85:ok|PUBLIC','Order samples','Commercial'],
+    ['supply','Solvents','Pharmaceutical-grade ethanol — IDA 99.9%','SDS, CoA, and import permit documentation available. Cold-chain delivery.','ethanol|pharmaceutical|solvent|CoA','VER:ok|PROOF:ok|REG:warn|77:ok|PUBLIC','Request docs','On order'],
+  ],
+  'new-products':[
+    ['supply','Genetics','Stabilised feminised seeds — licensed breeding stock','Phytosanitary certificates and CITES documentation. Export-ready lot.','genetics|seeds|licensed|CITES','VER:ok|PROOF:ok|REG:warn|80:ok|PUBLIC','Open inquiry','Export ready'],
+    ['supply','Formulation','Oil capsule lot — private label ready','Standardised THC:CBD capsules, GMP-compliant. White-label documentation included.','formulation|capsule|private label|GMP','VER:ok|PROOF:warn|REG:warn|72:warn|PUBLIC','Request specs','New product'],
+    ['supply','Clones','Rooted cuttings — certified pathogen-free','Tissue-cultured cuttings from established cultivars. Phytosanitary cert included.','clones|tissue culture|certified|cultivar','VER:ok|PROOF:ok|REG:warn|76:ok|PUBLIC','Request quote','Genetics'],
+    ['supply','Devices','Medical vaporiser — CE-marked, import-ready','CE-marked vaporiser device with device dossier. Suitable for pharmacy channel.','device|vaporiser|CE|pharmacy','VER:ok|PROOF:warn|REG:warn|69:warn|PUBLIC','Request dossier','Device'],
+  ],
+  services:[
+    ['service','Logistics','GDP cold-chain import handoff — EU gateway','Licensed GDP logistics operator covering DE, NL, UK ports. Track and trace included.','GDP|cold chain|customs|logistics','VER:ok|PROOF:ok|REG:warn|78:ok|PUBLIC','Book intro','Service'],
+    ['service','Compliance','GMP gap analysis and audit readiness','Pre-audit consulting for EU-GMP certification. Experienced with BfArM requirements.','compliance|GMP|audit|BfArM','VER:ok|PROOF:ok|REG:ok|88:ok|PUBLIC','Book session','Consulting'],
+    ['service','Labs','ISO 17025 batch testing — third-party COA','Independent lab testing with accredited COA. Potency, pesticides, heavy metals, mycotoxins.','lab|testing|COA|ISO 17025','VER:ok|PROOF:ok|REG:ok|91:ok|PUBLIC','Submit sample','Lab service'],
+    ['service','Legal','Regulatory counsel — import permit and licensing','Experienced regulatory law firm covering Germany, UK, and Brazil import permits.','legal|regulatory|permit|licensing','VER:ok|PROOF:ok|REG:ok|86:ok|PUBLIC','Request intro','Legal'],
+  ],
+  opportunities:[
+    ['supply','Acquisition','Licensed cultivation facility — distressed exit','Full-scale indoor facility with existing EU-GMP certification and inventory. Asset sale.','acquisition|facility|EU-GMP|distressed','VER:warn|PROOF:warn|REG:ok|64:warn|PRIVATE:lock','Open inquiry','M&A'],
+    ['supply','Partnership','Import distribution JV — DACH market entry','Established importer seeking supply partner for Germany, Austria, Switzerland coverage.','JV|partnership|distribution|DACH','VER:ok|PROOF:warn|REG:ok|71:warn|PRIVATE:lock','Express interest','Partnership'],
+    ['supply','Licence Transfer','Retail dispensary licence — transfer ready','Existing retail dispensary licence available for assignment. Legal counsel required.','licence|retail|transfer|dispensary','VER:warn|PROOF:warn|REG:warn|55:warn|PRIVATE:lock','Open inquiry','Licence'],
+    ['supply','Distressed','Processing facility — lease assignment','GMP-grade processing space available for lease assignment. Equipment included.','distressed|lease|processing|GMP','VER:warn|PROOF:warn|REG:ok|60:warn|PUBLIC','Request details','Lease'],
   ],
 }
 
 const VIEW_LABELS: Record<MarketView, string> = {
-  market:'Commercial engine · transaction flow · proof-aware rows',
-  importer:'Importer commercial queue',
-  clinical:'Clinical acquisition · professional education · safe marketplace paths',
-  equipment:'Equipment deals · inspection · verification workflow',
-  signals:'Weekly signals converted into marketplace actions',
+  'cannabis':       'Cannabis inventory · flower · extract · biomass · genetics',
+  'equipment':      'Cultivation · extraction · processing · lab instrumentation',
+  'consumables':    'Packaging · substrates · nutrients · solvents · inputs',
+  'new-products':   'Seeds · formulations · devices · clones · new product lots',
+  'services':       'GDP logistics · compliance · lab testing · regulatory counsel',
+  'opportunities':  'Acquisitions · partnerships · licence transfers · distressed assets',
 }
 
 const VIEW_BLOCK_TITLES: Record<MarketView, string> = {
-  market:'Segmented marketplace',
-  importer:'Importer commercial queue',
-  clinical:'Professional marketplace leads',
-  equipment:'Equipment and asset marketplace',
-  signals:'Signal-linked commercial actions',
+  'cannabis':       'Cannabis inventory',
+  'equipment':      'Equipment marketplace',
+  'consumables':    'Consumables & inputs',
+  'new-products':   'New products',
+  'services':       'Services marketplace',
+  'opportunities':  'Business opportunities',
+}
+
+const VIEW_TAB_LABELS: Record<MarketView, string> = {
+  'cannabis':       'Cannabis',
+  'equipment':      'Equipment',
+  'consumables':    'Consumables',
+  'new-products':   'New Products',
+  'services':       'Services',
+  'opportunities':  'Opportunities',
 }
 
 // ── Role → main action label ──────────────────────────────────────────────────
@@ -160,7 +187,7 @@ export default function CommandCentre({
   const [country, setCountry] = useState(defaultCountry)
   const [region, setRegion] = useState(defaultRegions[0] ?? '')
   const [role, setRole] = useState(initialRoleId ?? '')
-  const [view, setView] = useState<MarketView>('market')
+  const [view, setView] = useState<MarketView>('cannabis')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Persist preferences
@@ -286,17 +313,17 @@ export default function CommandCentre({
               </div>
               <div className="cc-head-actions">
                 <Link href="/marketplace/wanted" className="cc-wanted-cta">{wantedCount} Wanted Requests →</Link>
-                <Link href="/marketplace" className="cc-soft-btn">View All →</Link>
+                <Link href={VIEW_HREF[view]} className="cc-soft-btn">View All →</Link>
               </div>
             </div>
 
             {/* View tabs */}
             <div className="cc-view-bar">
               <div className="cc-views">
-                {(['market','importer','clinical','equipment','signals'] as MarketView[]).map(v => (
+                {(['cannabis','equipment','consumables','new-products','services','opportunities'] as MarketView[]).map(v => (
                   <button key={v} className={`cc-view${view === v ? ' active' : ''}`}
                     onClick={() => setView(v)}>
-                    {{ market:'Market', importer:'Importer', clinical:'Clinical', equipment:'Equipment', signals:'Signals' }[v]}
+                    {VIEW_TAB_LABELS[v]}
                   </button>
                 ))}
               </div>
