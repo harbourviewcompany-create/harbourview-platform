@@ -74,6 +74,9 @@ const fixtureStatusBySlug: Record<string, DashboardPanelState> = {
   thailand:         'request-only',
   malta:            'request-only',
   luxembourg:       'request-only',
+  afghanistan:      'fallback-backed',
+  albania:          'static-orientation',
+  algeria:          'unavailable',
 }
 
 const fixtureSummaries: Record<string, string> = {
@@ -120,6 +123,7 @@ const countryOverrides: Record<string, Partial<CountryDashboardSummary>> = {
   taiwan: { iso2: 'TW', iso3: 'TWN', displayName: 'Taiwan', region: 'Asia', subregion: 'Eastern Asia' },
   'hong-kong': { iso2: 'HK', iso3: 'HKG', displayName: 'Hong Kong', region: 'Asia', subregion: 'Eastern Asia' },
   macau: { iso2: 'MO', iso3: 'MAC', displayName: 'Macau', region: 'Asia', subregion: 'Eastern Asia' },
+  malta: { iso2: 'MT', iso3: 'MLT', displayName: 'Malta', region: 'Europe', subregion: 'Southern Europe', aliases: ['Malta', 'Republic of Malta'] },
 }
 
 const slugAliases: Record<string, string> = {
@@ -185,11 +189,11 @@ function routeAvailabilityFor(state: DashboardPanelState): RouteAvailability {
 }
 
 export function getDashboardCountryHref(slug: string) {
-  return `/dashboard/country/${canonicalSlug(slug)}`
+  return `/intelligence/country/${canonicalSlug(slug)}`
 }
 
 export function getDashboardSectionHref(slug: string, section: DashboardSectionSlug) {
-  return `${getDashboardCountryHref(slug)}/${section}`
+  return `/dashboard/country/${canonicalSlug(slug)}/${section}`
 }
 
 function panelCopy(state: DashboardPanelState, label: string): DashboardPanelCopy {
@@ -262,7 +266,7 @@ const naturalEarthRecords = naturalEarthCountriesPayload.countries.map((country)
   globeFeatureId: country.iso3,
 }))
 
-const supplementalRecords = ['kosovo', 'taiwan', 'hong-kong', 'macau']
+const supplementalRecords = ['kosovo', 'taiwan', 'hong-kong', 'macau', 'malta']
   .map((slug) => countryOverrides[slug])
   .filter((country): country is Partial<CountryDashboardSummary> & { displayName: string; iso2: string; iso3: string } => Boolean(country?.displayName && country.iso2 && country.iso3))
   .map((country) => makeCountry({ displayName: country.displayName, iso2: country.iso2, iso3: country.iso3, region: country.region, subregion: country.subregion, globeFeatureId: country.iso3 }))

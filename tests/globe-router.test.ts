@@ -177,7 +177,7 @@ describe('Harbourview globe same-screen router', () => {
     })
 
     expect(result.status).toBe('resolved')
-    expect(result.href).toContain('/signals?')
+    expect(result.href).toContain('/dashboard?')
     expect(result.href).toContain('country=DE')
     expect(result.href).toContain('role=importer')
     expect(result.href).toContain('intent=view_market_signals')
@@ -211,7 +211,7 @@ describe('Harbourview globe same-screen router', () => {
       countryIso2: 'DE',
       roleId: 'doctor_prescriber',
       intentId: 'understand_medical_rules',
-      expectedPath: '/dashboard/country/germany/education',
+      expectedPath: '/dashboard',
     })
   })
 
@@ -220,7 +220,7 @@ describe('Harbourview globe same-screen router', () => {
       countryIso2: 'CA',
       roleId: 'regulatory_compliance',
       intentId: 'regulatory_framework',
-      expectedPath: '/dashboard/country/canada/education',
+      expectedPath: '/dashboard',
     })
   })
 
@@ -282,7 +282,7 @@ describe('Harbourview globe same-screen router', () => {
     })
 
     expect(resolved.status).toBe('resolved')
-    expect(resolved.href).toContain('/dashboard/country/germany/education?')
+    expect(resolved.href).toContain('/dashboard?')
     expect(state.kind).toBe('intent-sheet')
     expect(state.invalidParams).toEqual([])
   })

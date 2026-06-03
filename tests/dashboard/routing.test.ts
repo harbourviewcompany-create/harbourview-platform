@@ -61,7 +61,7 @@ describe('dashboard country route contract', () => {
   })
 
   it('builds all required section routes', () => {
-    expect(getDashboardCountryHref('germany')).toBe('/dashboard/country/germany')
+    expect(getDashboardCountryHref('germany')).toBe('/intelligence/country/germany')
     expect(dashboardSections.map((section) => getDashboardSectionHref('germany', section))).toEqual([
       '/dashboard/country/germany/market',
       '/dashboard/country/germany/education',

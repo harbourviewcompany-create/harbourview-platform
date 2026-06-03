@@ -1,15 +1,11 @@
 import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
-import { getCountryByIso2 } from '@/lib/dashboard/countries'
-import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
-import { usStateByIso2 } from '@/data/globe/us-state-profiles'
 import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
 
 // Maps globe role IDs to destination types when no intent is selected.
-// Mirrors the DashboardRole logic in lib/dashboard/globeRouteContext.ts so the
-// resolver and the dashboard shell agree on where commercial vs medical vs
-// regulatory professionals land.
+// The destination type remains analytics/context only for globe-originated
+// traffic because /dashboard is the single primary user control center.
 const medicalRoleIds = new Set<RoleId>([
   'doctor_prescriber',
   'pharmacist',
@@ -49,122 +45,18 @@ function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPat
   return `${basePath}?${params.toString()}`
 }
 
-// Resolve education-type destinations to the country dashboard education section.
-// Returns null when no country is available (multi-market / not-sure flows).
-function resolveCountryEducationPath(
-  destinationType: DestinationType,
-  input: GlobeRouteInput,
-): string | null {
-  const isEducation =
-    destinationType === 'medical_education' || destinationType === 'regulatory_education'
-
-  if (!isEducation) return null
-  if (!input.countryIso2) return null
-
-  const country = getCountryByIso2(input.countryIso2)
-  if (!country) return null
-
-  return `/dashboard/country/${country.slug}/education`
-}
-
-// Resolve intelligence destinations to the country intelligence section when a country
-// is known and the section route exists.
-function resolveCountrySectionPath(
-  destinationType: DestinationType,
-  section: 'market' | 'signals' | 'opportunities' | 'intelligence' | 'connections',
-  input: GlobeRouteInput,
-): string | null {
-  if (!input.countryIso2) return null
-  if (input.mode === 'multi_market') return null
-
-  const country = getCountryByIso2(input.countryIso2)
-  if (!country) return null
-
-  const sectionAvailable = country.routeAvailability[section as keyof typeof country.routeAvailability]
-  if (!sectionAvailable) return null
-
-  return `/dashboard/country/${country.slug}/${section}`
-}
-
-// Resolve any role directly to the country dashboard when a slug is available.
-// This is the primary path for all single-market role selections without an intent.
-function resolveCountryDashboardPath(input: GlobeRouteInput): string | null {
-  if (!input.countryIso2 || input.mode === 'multi_market') return null
-  const country = getCountryByIso2(input.countryIso2)
-  if (!country) return null
-  return `/dashboard/country/${country.slug}`
-}
-
-// Resolve a country iso2 that may be a province (CA-XX) or US state (US-XX) to its dashboard slug.
-function resolveCountryOrProvinceDashboardSlug(iso2: string): string | null {
-  // Province: CA-XX -> /dashboard/country/[province-slug]
-  if (iso2.startsWith('CA-')) {
-    const province = canadaProvinceByIso2[iso2]
-    return province ? `/dashboard/country/${province.slug}` : `/dashboard/country/canada`
-  }
-  // US state: US-XX -> /dashboard/country/[state-slug]
-  if (iso2.startsWith('US-')) {
-    const state = usStateByIso2[iso2]
-    return state ? `/dashboard/country/${state.slug}` : `/dashboard/country/united-states`
-  }
-  const country = getCountryByIso2(iso2)
-  return country ? `/dashboard/country/${country.slug}` : null
-}
-
 export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
   const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? mapRoleToDestinationType(input.roleId)
 
-  // 1. Single-market without intent — go straight to the country dashboard.
-  //    The shell reads the role query param and adapts its content accordingly.
-  if (!input.intentId && input.countryIso2 && input.mode !== 'multi_market') {
-    // Handle province iso2 (CA-XX) directly
-    const directSlug = input.countryIso2 ? resolveCountryOrProvinceDashboardSlug(input.countryIso2) : null
-    const dashboardPath = directSlug ?? resolveCountryDashboardPath(input)
-    if (dashboardPath) {
-      return {
-        status: 'resolved',
-        href: appendGlobeQuery(dashboardPath, input),
-        destinationType,
-      }
-    }
-  }
-
-  // 2. Country-specific education — dynamic route, always available when slug resolves.
-  const countryEducationPath = resolveCountryEducationPath(destinationType, input)
-  if (countryEducationPath) {
+  if (input.source === 'globe_router') {
     return {
       status: 'resolved',
-      href: appendGlobeQuery(countryEducationPath, input),
+      href: appendGlobeQuery('/dashboard', input),
       destinationType,
     }
   }
 
-  // 3. Country-specific signals section.
-  if (destinationType === 'signals') {
-    const countrySignalsPath = resolveCountrySectionPath(destinationType, 'signals', input)
-    if (countrySignalsPath) {
-      return {
-        status: 'resolved',
-        href: appendGlobeQuery(countrySignalsPath, input),
-        destinationType,
-      }
-    }
-  }
-
-  // 4. Country-specific opportunities section for marketplace intents.
-  if (destinationType === 'marketplace_services') {
-    const countryOppsPath = resolveCountrySectionPath(destinationType, 'opportunities', input)
-    if (countryOppsPath) {
-      return {
-        status: 'resolved',
-        href: appendGlobeQuery(countryOppsPath, input),
-        destinationType,
-      }
-    }
-  }
-
-  // 5. Standard manifest-backed resolution.
   const requestedPath = destinationBasePathMap[destinationType]
 
   if (!routeExists(requestedPath)) {
@@ -189,4 +81,3 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
 export function useRouteResolver() {
   return resolveGlobeRoute
 }
-
