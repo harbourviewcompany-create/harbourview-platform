@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { countries as ALL_COUNTRIES, getCountryByIso2 } from '@/lib/dashboard/countries'
+import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import Link from 'next/link'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
