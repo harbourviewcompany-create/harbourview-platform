@@ -72,7 +72,7 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
   try {
     const supabase = await createClient()
     // Try modules first — they have audience[] and publication_state
-    let query = supabase
+    const query = supabase
       .from('education_modules')
       .select('slug, title, audience, sensitivity, track_id')
       .eq('publication_state', 'published')
