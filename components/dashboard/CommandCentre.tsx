@@ -7,8 +7,9 @@ import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 
-type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities'
-type MarketRow = [string, string, string, string, string, string, string, string]
+export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities'
+export type MarketRow = [string, string, string, string, string, string, string, string]
+export type DashboardMarketplaceRows = Record<MarketView, MarketRow[]>
 
 type Props = {
   signals: DashboardSignal[]
@@ -16,6 +17,7 @@ type Props = {
   initialCountryIso2?: string | null
   initialRoleId?: string | null
   wantedCount?: number
+  marketplaceRows?: Partial<DashboardMarketplaceRows>
 }
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
@@ -136,7 +138,7 @@ function TrustBar({ str }: { str: string }) {
   return <div className="hv-trust">{str.split('|').map(x => { const [a, c] = x.split(':'); return <i key={x} className={c ?? ''}>{a}</i> })}</div>
 }
 
-export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4 }: Props) {
+export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows }: Props) {
   const router = useRouter()
   const defaultCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0], [initialCountryIso2])
   const [country, setCountry] = useState(defaultCountry)
@@ -174,7 +176,8 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
     if (query) router.push(`/marketplace?q=${encodeURIComponent(query)}`)
   }
 
-  const rows = ROW_DATA[view]
+  const liveRows = marketplaceRows?.[view]
+  const rows = (liveRows && liveRows.length > 0) ? liveRows : ROW_DATA[view]
   const warn = WARN_REGIONS.has(region)
   const roleLabel = role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.label ?? 'General') : 'General'
   const tierLabel = ['doctor_prescriber','pharmacist','clinic_healthcare_operator'].includes(role) ? 'CLINICAL PARTNER · Education' : 'FREE · Weekly Signals'
