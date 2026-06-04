@@ -20,10 +20,10 @@ import type {
 import {
   automationSources,
   automationSignals,
-  counterparties as fixtureCounterparties,
+  relationshipMemory as fixtureCounterparties,
   scoringRecords as fixtureScoringRecords,
-  agentWorkItems as fixtureAgentWorkItems,
-  evidenceEntries as fixtureEvidenceEntries,
+  agentQueue as fixtureAgentWorkItems,
+  evidenceVault as fixtureEvidenceEntries,
   graphEntities as fixtureGraphEntities,
   graphEdges as fixtureGraphEdges,
   feedbackEvents as fixtureFeedbackEvents,
