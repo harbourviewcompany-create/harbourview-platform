@@ -24,7 +24,7 @@ export default async function RoutingPage() {
   await requireAdminAuth()
 
   const result  = await listIaScoringRecords()
-  const records = result.data ?? []
+  const records = result.ok ? result.data : []
 
   const sorted = [...records].sort((a, b) => b.routingPriority - a.routingPriority)
 
