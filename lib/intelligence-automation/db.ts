@@ -206,7 +206,7 @@ const FEEDBACK_PATH     = '/rest/v1/ia_feedback_events?select=*&order=logged_at.
 // ── Typed fixture result helpers ──────────────────────────────────────────────
 function fixtureResult<T>(data: T): AdminDataResult<T> {
   console.warn('[harbourview:ia] falling back to fixture data — DB empty or unreachable')
-  return { ok: true, data, source: 'fixture' }
+  return { ok: true, data }
 }
 
 // ── Public DB accessors ───────────────────────────────────────────────────────
@@ -214,55 +214,55 @@ function fixtureResult<T>(data: T): AdminDataResult<T> {
 export async function listIaSources(): Promise<AdminDataResult<AutomationSource[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(SOURCES_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(automationSources)
-  return { ok: true, data: result.data.map(rowToSource), source: 'db' }
+  return { ok: true, data: result.data.map(rowToSource) }
 }
 
 export async function listIaSignals(): Promise<AdminDataResult<AutomationSignal[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(SIGNALS_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(automationSignals)
-  return { ok: true, data: result.data.map(rowToSignal), source: 'db' }
+  return { ok: true, data: result.data.map(rowToSignal) }
 }
 
 export async function listIaCounterparties(): Promise<AdminDataResult<RelationshipMemoryRecord[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(COUNTERPARTY_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureCounterparties)
-  return { ok: true, data: result.data.map(rowToCounterparty), source: 'db' }
+  return { ok: true, data: result.data.map(rowToCounterparty) }
 }
 
 export async function listIaScoringRecords(): Promise<AdminDataResult<ScoringRecord[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(SCORING_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureScoringRecords)
-  return { ok: true, data: result.data.map(rowToScoring), source: 'db' }
+  return { ok: true, data: result.data.map(rowToScoring) }
 }
 
 export async function listIaAgentTasks(): Promise<AdminDataResult<AgentWorkItem[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(TASKS_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureAgentWorkItems)
-  return { ok: true, data: result.data.map(rowToAgentTask), source: 'db' }
+  return { ok: true, data: result.data.map(rowToAgentTask) }
 }
 
 export async function listIaEvidence(): Promise<AdminDataResult<EvidenceVaultEntry[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(EVIDENCE_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureEvidenceEntries)
-  return { ok: true, data: result.data.map(rowToEvidence), source: 'db' }
+  return { ok: true, data: result.data.map(rowToEvidence) }
 }
 
 export async function listIaGraphEntities(): Promise<AdminDataResult<GraphEntity[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(GRAPH_ENTITY_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureGraphEntities)
-  return { ok: true, data: result.data.map(rowToGraphEntity), source: 'db' }
+  return { ok: true, data: result.data.map(rowToGraphEntity) }
 }
 
 export async function listIaGraphEdges(): Promise<AdminDataResult<GraphEdge[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(GRAPH_EDGE_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureGraphEdges)
-  return { ok: true, data: result.data.map(rowToGraphEdge), source: 'db' }
+  return { ok: true, data: result.data.map(rowToGraphEdge) }
 }
 
 export async function listIaFeedbackEvents(): Promise<AdminDataResult<FeedbackEvent[]>> {
   const result = await fetchAdminSupabaseJson<Row[]>(FEEDBACK_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(fixtureFeedbackEvents)
-  return { ok: true, data: result.data.map(rowToFeedback), source: 'db' }
+  return { ok: true, data: result.data.map(rowToFeedback) }
 }
 
 export async function advanceIaSignalStage(
@@ -294,7 +294,7 @@ export async function advanceIaSignalStage(
     }
   }
 
-  return { ok: true, data: null, source: 'db' }
+  return { ok: true, data: null }
 }
 
 // ── Additional exports required by admin pages and API routes ────────────────
