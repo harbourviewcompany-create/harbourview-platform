@@ -39,10 +39,10 @@ export default async function AgentsHubPage() {
     listIaFeedbackEvents(),
   ])
 
-  const signals  = signalsRes.data  ?? []
-  const tasks    = tasksRes.data    ?? []
-  const sources  = sourcesRes.data  ?? []
-  const feedback = feedbackRes.data ?? []
+  const signals = signalsRes.ok ? signalsRes.data : []
+  const tasks = tasksRes.ok ? tasksRes.data : []
+  const sources = sourcesRes.ok ? sourcesRes.data : []
+  const feedback = feedbackRes.ok ? feedbackRes.data : []
 
   const activeWatchers = sources.filter(s => s.status === 'active').length
   const pendingSignals  = signals.filter(s => s.stage === 'captured' || s.stage === 'review').length
