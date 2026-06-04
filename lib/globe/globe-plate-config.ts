@@ -27,3 +27,6 @@ export const IDLE_PLATE_TOP_OFFSET = PLATE_LIFT + IDLE_EXTRUSION            // 0
 
 /** Border lines ride just above the idle plate surface with production z-fight clearance */
 export const BORDER_OFFSET         = PLATE_LIFT + IDLE_EXTRUSION + 0.006    // 0.090
+
+// Colour used for the additive glow mesh on selected countries.
+export const SELECTED_GLOW = '#f0d98f'

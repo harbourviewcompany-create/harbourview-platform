@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { Sphere } from '@react-three/drei'
-import { FrontSide, MeshPhysicalMaterial, Color } from 'three'
+import { FrontSide, MeshPhysicalMaterial, MeshStandardMaterial, Color } from 'three'
 
 // Fresnel rim via onBeforeCompile — no shaderMaterial, no extend, fiber v9 safe.
 // Injects into Three.js standard shader pipeline at build time.
