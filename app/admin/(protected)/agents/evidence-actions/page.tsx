@@ -30,8 +30,8 @@ export default async function EvidenceActionsPage() {
     listIaAgentTasks(),
   ])
 
-  const evidence = evidenceRes.data ?? []
-  const tasks    = tasksRes.data    ?? []
+  const evidence = evidenceRes.ok ? evidenceRes.data : []
+  const tasks = tasksRes.ok ? tasksRes.data : []
 
   const activeEvidence = evidence.filter(e => e.reviewStatus === 'pending' || e.reviewStatus === 'reviewed')
   const sortedTasks    = [...tasks].sort((a, b) => {
