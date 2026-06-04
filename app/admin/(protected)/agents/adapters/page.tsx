@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaSources } from '@/lib/intelligence-automation/db'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 const STATUS_TO_HEALTH: Record<string, string> = {
   active:    'healthy',
@@ -51,6 +52,8 @@ export default async function AdaptersPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Source Adapters</h1>
       </div>
+
+      <FixtureBanner isFixture={isFixture} />
 
       <div className="flex gap-3 flex-wrap">
         {Object.entries(counts).filter(([, n]) => n > 0).map(([health, n]) => (
