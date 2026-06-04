@@ -31,7 +31,7 @@ export default async function SignalsPage() {
   await requireAdminAuth()
 
   const result  = await listIaSignals()
-  const signals = result.data ?? []
+  const signals = result.ok ? result.data : []
 
   const toStatus = (stage: string) => STAGE_LABEL[stage] ?? 'pending'
 
