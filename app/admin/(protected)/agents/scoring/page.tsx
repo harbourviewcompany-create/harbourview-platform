@@ -29,8 +29,8 @@ export default async function ScoringMemoryPage() {
     listIaCounterparties(),
   ])
 
-  const scores       = scoringRes.data       ?? []
-  const counterparties = counterpartiesRes.data ?? []
+  const scores = scoringRes.ok ? scoringRes.data : []
+  const counterparties = counterpartiesRes.ok ? counterpartiesRes.data : []
 
   const sortedScores = [...scores].sort((a, b) => b.routingPriority - a.routingPriority)
   const sortedMemory = [...counterparties].sort((a, b) => b.interactionCount - a.interactionCount)
