@@ -1,7 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
-import {
 import { FixtureBanner } from '@/components/admin/FixtureBanner'
+import {
   listIaSignals,
   listIaAgentTasks,
   listIaSources,
@@ -55,6 +55,7 @@ export default async function AgentsHubPage() {
     .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
     .slice(0, 6)
 
+  const isFixture = signalsRes.source === 'fixture' || tasksRes.source === 'fixture' || sourcesRes.source === 'fixture' || scoringRes.source === 'fixture' || feedbackRes.source === 'fixture'
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>
@@ -135,6 +136,6 @@ export default async function AgentsHubPage() {
         </div>
       </div>
     </div>
-  )  const isFixture = signalsRes.source === 'fixture' || tasksRes.source === 'fixture' || sourcesRes.source === 'fixture' || scoringRes.source === 'fixture' || feedbackRes.source === 'fixture'
+  )
 
 }
