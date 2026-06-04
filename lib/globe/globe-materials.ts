@@ -22,7 +22,7 @@ export interface GlobeMaterialFallbackState {
   metalness: number
 }
 
-export type GlobeCountryVisualState = 'idle' | 'focused' | 'selected' | 'disabled' | 'multi_market'
+export type GlobeCountryVisualState = 'idle' | 'focused' | 'searchFocused' | 'selected' | 'modalContext' | 'disabled' | 'multi_market'
 
 export function resolveCountryMaterialState({
   visualState,
@@ -38,21 +38,23 @@ export function resolveCountryMaterialState({
     // Emissive: dark gold at moderate intensity fills shadow side so it reads as
     // dark gold, not black. Lower than before so lighting contrast (not uniform
     // self-glow) creates the 3D depth.
-    emissive: '#4a3608',
-    emissiveIntensity: 0.18,
+    emissive: '#7c691f',
+    emissiveIntensity: 0.22,
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.
-    roughness: 0.26,
-    metalness: 0.92,
-    clearcoat: 0.58,
-    clearcoatRoughness: 0.18,
+    roughness: 0.34,
+    metalness: 0.46,
+    // Clearcoat adds a second sharp reflection layer — makes specular highlight
+    // look like polished metal rather than painted matte.
+    clearcoat: 0.34,
+    clearcoatRoughness: 0.24,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
   if (layerId === 'opportunity_heat') {
-    base.emissive = '#6f4e16'
-    base.emissiveIntensity = 0.14
+    base.emissive = '#8f7628'
+    base.emissiveIntensity = 0.18
   }
 
   if (layerId === 'documentation_burden') {
@@ -65,32 +67,34 @@ export function resolveCountryMaterialState({
     case 'focused':
       return {
         ...base,
-        plateBase: '#D4AF37',
-        emissive: '#7a5c18',
-        emissiveIntensity: 0.22,
-        roughness: 0.22,
-        metalness: 0.95,
-        clearcoat: 0.64,
-        clearcoatRoughness: 0.14,
+        plateBase: hvTokens.globe.plateHighlight,
+        borderColor: hvTokens.globe.borderMutedGoldSoft,
+        emissive: hvTokens.globe.selectedAccent,
+        emissiveIntensity: 0.32,
+        roughness: 0.36,
+        metalness: 0.52,
       }
+    case 'searchFocused':
+    case 'modalContext':
     case 'selected':
       return {
         ...base,
         plateBase: hvTokens.globe.plateSelected,
         borderColor: hvTokens.globe.borderMutedGoldSoft,
-        emissive: '#8e671f',
-        emissiveIntensity: 0.26,
-        roughness: 0.21,
-        metalness: 0.96,
-        clearcoat: 0.68,
-        clearcoatRoughness: 0.14,
+        emissive: hvTokens.globe.selectedAccent,
+        emissiveIntensity: 0.34,
+        roughness: 0.38,
+        metalness: 0.5,
+        clearcoat: 0.38,
+        clearcoatRoughness: 0.28,
       }
     case 'multi_market':
       return {
         ...base,
-        plateBase: '#13253a',
-        emissive: '#d2b26b',
-        emissiveIntensity: 0.24,
+        plateBase: '#d9bd6c',
+        borderColor: hvTokens.globe.borderMutedGoldSoft,
+        emissive: '#d8c16e',
+        emissiveIntensity: 0.28,
       }
     case 'disabled':
       return {

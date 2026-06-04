@@ -33,7 +33,7 @@ export function RoleChipSelector({
 
   return (
     <div>
-      <p className="text-sm leading-6 text-white/68">
+      <p className="text-sm leading-6 text-white/78">
         We use this to show the right Harbourview path. Search if your role is not shown.
       </p>
 
@@ -43,7 +43,7 @@ export function RoleChipSelector({
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search roles"
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/24 bg-white/[0.06] px-4 text-sm text-white outline-none placeholder:text-white/42 focus:border-[#d8be76]"
+          className="min-h-11 w-full rounded-full border border-[#e0c77f]/34 bg-[#061323]/86 px-4 text-sm text-[#fff8e6] outline-none placeholder:text-white/62 focus:border-[#f1dfaa] focus-visible:ring-2 focus-visible:ring-[#f1dfaa] focus-visible:ring-offset-2 focus-visible:ring-offset-[#020913]"
         />
       </label>
 
@@ -56,20 +56,27 @@ export function RoleChipSelector({
             onClick={() => onSelectRole(role.id)}
             className={`min-h-11 rounded-full border px-4 text-left text-xs font-semibold tracking-[0.03em] transition ${
               selectedRoleId === role.id
-                ? 'border-[#f3d37a] bg-[#c6a55a]/20 text-[#fff7df]'
-                : 'border-[#c6a55a]/20 bg-white/[0.045] text-white/74 hover:border-[#c6a55a]/48 hover:text-white'
+                ? 'border-[#f1dfaa] bg-[#d7bd72]/22 text-[#fff8e6] shadow-[0_0_18px_rgba(215,189,114,0.12)]'
+                : 'border-[#e0c77f]/28 bg-white/[0.06] text-white/84 hover:border-[#f1dfaa]/58 hover:bg-white/[0.09] hover:text-white'
             }`}
           >
             {role.label}
           </button>
         )) : (
-          <div className="rounded-2xl border border-[#c6a55a]/18 bg-white/[0.04] p-4 text-sm text-white/64">
-            <p>No matching supported roles found. Refine your search to choose a listed role.</p>
+          <div className="rounded-2xl border border-[#e0c77f]/24 bg-white/[0.055] p-4 text-sm text-white/78">
+            <p>We can still route this. Describe your role or choose Not sure.</p>
+            <button
+              type="button"
+              onClick={() => onSelectRole('not_sure')}
+              className="mt-3 min-h-11 rounded-full border border-[#e0c77f]/36 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5f1e8]"
+            >
+              Not sure
+            </button>
           </div>
         )}
       </div>
 
-      <p className="mt-4 text-xs leading-5 text-white/44">No account required to choose a path.</p>
+      <p className="mt-4 text-xs leading-5 text-white/58">No account required to choose a path.</p>
     </div>
   )
 }

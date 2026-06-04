@@ -44,23 +44,23 @@ export function AtmosphereGlow() {
         fragmentShader: FRAG,
         uniforms: {
           // Thin blue-white haze — cold, not warm
-          uGlowColor:   { value: [0.12, 0.32, 0.86] },
+          uGlowColor:   { value: [0.10, 0.27, 0.72] },
           uCoefficient: { value: 0.34 },
-          // Higher power = thinner restrained band at limb; no milky shell
-          uPower:       { value: 7.2 },
+          // Higher power = thinner band at limb; lower = broader haze
+          uPower:       { value: 4.4 },
         },
         blending:    AdditiveBlending,
         side:        FrontSide,
         transparent: true,
         depthWrite:  false,
-        depthTest:   true,
+        depthTest:   false,
       }),
     [],
   )
 
   // 2.5% larger than OceanSphere (r=2.35) for a thin atmospheric rim.
   return (
-    <Sphere args={[2.41, 64, 64]}>
+    <Sphere args={[2.44, 64, 64]} renderOrder={55}>
       <primitive object={material} attach="material" />
     </Sphere>
   )

@@ -4,6 +4,8 @@ import { Suspense, useCallback, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
+import { ACESFilmicToneMapping } from 'three'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { AtmosphereGlow } from './AtmosphereGlow'
@@ -107,20 +109,23 @@ export function GlobeCanvas({
           position: GLOBE_CAMERA_CONFIG.initialPosition,
         }}
         onCreated={(state) => {
+          // ACES Filmic tone mapping — whole-scene response curve.
+          // Richer shadow detail, compressed highlights, graded look.
+          state.gl.toneMapping = ACESFilmicToneMapping
+          state.gl.toneMappingExposure = 0.92
           // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
       >
         <color attach="background" args={['#010810']} />
 
-        {/* Original studio rig restored. Key at 2.35 drives the specular sheen.
-            Hemisphere and fill raised to lift the unlit shadow side — fixes
-            the "too dark" look without touching material metalness/clearcoat. */}
-        <ambientLight intensity={0.58} color="#f0d59a" />
-        <directionalLight position={[3.8, 2.6, 4.8]} intensity={2.35} color="#fff3d5" />
-        <directionalLight position={[-3.4, 1.1, -4.2]} intensity={0.52} color="#6f8fc8" />
-        <directionalLight position={[-4.5, -1.4, -2.5]} intensity={0.54} color="#8a5f18" />
-        <hemisphereLight args={['#1e3550', '#04090f', 0.72]} />
+        {/* Lights: drop the sunset HDRI (CDN hit, warm cast) in favour of
+            a hemisphere light that reads as cold deep space. */}
+        <ambientLight intensity={0.54} color="#fff5dc" />
+        <directionalLight position={[4, 3, 5]} intensity={1.45} color="#fff8e8" />
+        <directionalLight position={[-3, 1, -4]} intensity={0.24} color="#d8ca82" />
+        <directionalLight position={[-4, -1, -3]} intensity={0.28} color="#b8a45f" />
+        <hemisphereLight args={['#192942', '#020812', 0.36]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
@@ -177,6 +182,28 @@ export function GlobeCanvas({
           minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
           maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
         />
+
+        {/* Post-processing effects — restrained bloom and vignette only, with no normal-pass occlusion mask over high-latitude geometry. */}
+        <EffectComposer multisampling={0}>
+          {/* SSAO intentionally removed from production globe: the screen-space normal pass was able to over-darken high-latitude geometry and create crescent-like artifacts during Russia/Arctic rotation. */}
+          {/*
+            Bloom — selected/hovered plates pulse above luminanceThreshold so their
+            emissive glow bleeds into adjacent pixels, reading as internal light.
+            mipmapBlur produces a natural, high-quality bloom without ringing.
+          */}
+          <Bloom
+            luminanceThreshold={0.86}
+            luminanceSmoothing={0.16}
+            intensity={0.18}
+            radius={0.32}
+            mipmapBlur
+          />
+          {/*
+            Vignette — darkens screen edges, pushes attention inward to the globe.
+            offset/darkness tuned to feel like ambient edge fall-off, not a heavy frame.
+          */}
+          <Vignette eskil={false} offset={0.26} darkness={0.46} />
+        </EffectComposer>
       </Canvas>
     </div>
   )

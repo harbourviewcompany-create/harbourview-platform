@@ -120,6 +120,7 @@ const countryOverrides: Record<string, Partial<CountryDashboardSummary>> = {
   taiwan: { iso2: 'TW', iso3: 'TWN', displayName: 'Taiwan', region: 'Asia', subregion: 'Eastern Asia' },
   'hong-kong': { iso2: 'HK', iso3: 'HKG', displayName: 'Hong Kong', region: 'Asia', subregion: 'Eastern Asia' },
   macau: { iso2: 'MO', iso3: 'MAC', displayName: 'Macau', region: 'Asia', subregion: 'Eastern Asia' },
+  malta: { iso2: 'MT', iso3: 'MLT', displayName: 'Malta', region: 'Europe', subregion: 'Southern Europe' },
 }
 
 const slugAliases: Record<string, string> = {
@@ -262,7 +263,7 @@ const naturalEarthRecords = naturalEarthCountriesPayload.countries.map((country)
   globeFeatureId: country.iso3,
 }))
 
-const supplementalRecords = ['kosovo', 'taiwan', 'hong-kong', 'macau']
+const supplementalRecords = ['kosovo', 'taiwan', 'hong-kong', 'macau', 'malta']
   .map((slug) => countryOverrides[slug])
   .filter((country): country is Partial<CountryDashboardSummary> & { displayName: string; iso2: string; iso3: string } => Boolean(country?.displayName && country.iso2 && country.iso3))
   .map((country) => makeCountry({ displayName: country.displayName, iso2: country.iso2, iso3: country.iso3, region: country.region, subregion: country.subregion, globeFeatureId: country.iso3 }))

@@ -2,17 +2,15 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { AdditiveBlending, BackSide } from 'three'
-import type { MeshPhysicalMaterial } from 'three'
+import { FrontSide, BackSide, AdditiveBlending, type MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
-import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION } from '@/lib/globe/globe-plate-config'
+import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
-const SELECTED_GLOW = '#fff0b8'
-const SPECULAR_CAP = 0.46
+const SPECULAR_CAP = 0.24
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
 // inflated invisible hit mesh so they're tappable on mobile.
@@ -66,8 +64,8 @@ function HoverPulseMesh({
   const targetRef = useRef(emissiveIntensity)
 
   useEffect(() => {
-    targetRef.current = isFocused || isSelected ? Math.max(emissiveIntensity, isSelected ? 0.3 : 0.24) : emissiveIntensity
-  }, [isFocused, isSelected, emissiveIntensity])
+    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
+  }, [isFocused, emissiveIntensity])
 
   useFrame((state, delta) => {
     if (!matRef.current) return
@@ -81,8 +79,8 @@ function HoverPulseMesh({
 
   return (
     <>
-      {/* Visual mesh — renders the country plate */}
-      <mesh geometry={geometry}>
+      {/* Visual mesh — renders the country plate. Polygon offset and stable renderOrder keep selected and idle plates above the ocean without fighting boundary strokes. */}
+      <mesh geometry={geometry} renderOrder={20}>
         <meshPhysicalMaterial
           ref={matRef}
           color={color}
@@ -93,38 +91,12 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
-          specularIntensity={isSelected ? 0.78 : 0.58}
-          specularColor={isSelected ? '#fff4cf' : '#f4d889'}
+          side={FrontSide}
           depthTest
           depthWrite
           polygonOffset
           polygonOffsetFactor={-1}
           polygonOffsetUnits={-1}
-          onBeforeCompile={(shader) => {
-            shader.fragmentShader = shader.fragmentShader.replace(
-              '#include <common>',
-              `#include <common>
-               varying vec3 hvViewPosition;`,
-            )
-            shader.vertexShader = shader.vertexShader.replace(
-              '#include <common>',
-              `#include <common>
-               varying vec3 hvViewPosition;`,
-            )
-            shader.vertexShader = shader.vertexShader.replace(
-              '#include <worldpos_vertex>',
-              `#include <worldpos_vertex>
-               hvViewPosition = -(modelViewMatrix * vec4(position, 1.0)).xyz;`,
-            )
-            shader.fragmentShader = shader.fragmentShader.replace(
-              '#include <dithering_fragment>',
-              `#include <dithering_fragment>
-               vec3 hvViewDir = normalize(hvViewPosition);
-               float hvRim = pow(1.0 - max(dot(normalize(vNormal), hvViewDir), 0.0), 3.2);
-               gl_FragColor.rgb += vec3(1.0, 0.92, 0.66) * hvRim * ${isSelected ? '0.16' : '0.07'};
-               gl_FragColor.rgb = mix(gl_FragColor.rgb * vec3(0.82, 0.76, 0.58), gl_FragColor.rgb, smoothstep(0.18, 0.82, dot(normalize(vNormal), normalize(vec3(0.48, 0.36, 0.80)))));`,
-            )
-          }}
         />
       </mesh>
       {isSelected ? (
@@ -146,6 +118,7 @@ function HoverPulseMesh({
       <mesh
         geometry={hitGeometry ?? geometry}
         visible={false}
+        renderOrder={40}
         onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
         onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
         onClick={(e) => { e.stopPropagation(); onClick() }}
@@ -239,7 +212,7 @@ export function CountryPolygonMeshLayer({
   }, [extrudedGeometries])
 
   return (
-    <group userData={{ layer: 'country-polygon-meshes' }}>
+    <group renderOrder={20} userData={{ layer: 'country-polygon-meshes' }}>
       {idleGeometries.map(({ entry, geometry, hitGeometry }) => {
         const isSelected = selectedSet.has(entry.iso2)
         const activeGeometry = isSelected ? extrudedGeometries.get(entry.iso2) ?? geometry : geometry
