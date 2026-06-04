@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaSources } from '@/lib/intelligence-automation/db'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 const STATUS: Record<string, string> = {
   active:    'bg-green-950 text-green-400',
@@ -34,6 +35,8 @@ export default async function WatchersPage() {
           <h1 className="text-2xl font-bold text-zinc-100">Intelligence Watchers</h1>
         </div>
       </div>
+
+      <FixtureBanner isFixture={isFixture} />
 
       <div className="flex gap-3 flex-wrap">
         {Object.entries(counts).map(([status, n]) => (
