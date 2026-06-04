@@ -13,7 +13,7 @@ export default async function WatchersPage() {
   await requireAdminAuth()
 
   const result  = await listIaSources()
-  const sources = result.data ?? []
+  const sources = result.ok ? result.data : []
 
   const counts = {
     active:    sources.filter(s => s.status === 'active').length,
