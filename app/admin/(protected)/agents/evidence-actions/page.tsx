@@ -59,7 +59,7 @@ export default async function EvidenceActionsPage() {
           <div className="flex gap-3 text-xs text-zinc-500">
             <span>{evidence.filter(e => e.reviewStatus === 'pending').length} pending</span>
             <span>·</span>
-            <span>{evidence.filter(e => e.reviewStatus === 'approved').length} approved</span>
+            <span>{evidence.filter(e => e.reviewStatus === 'reviewed').length} approved</span>
             <span>·</span>
             <span>{evidence.length} total</span>
           </div>
