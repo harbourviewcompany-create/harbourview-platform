@@ -87,6 +87,7 @@ export const WARN_REGIONS: Record<string, string[]> = {
   CO: ['Chocó','Caquetá','Putumayo','Vichada','Guainía'],
   IN: ['Rajasthan','Uttar Pradesh','Bihar'],
   ZA: ['Northern Cape','Free State'],
+  AF: ['Kabul','Herat','Kandahar','Balkh','Nangarhar','Kunduz','Takhar','Badakhshan','Baghlan','Helmand'],  // all provinces review-gated
 }
 
 // ── Region labels — shown in the country rules panel header ───────────────────
@@ -197,7 +198,6 @@ export const REGION_LABELS: Record<string, string> = {
   IR: 'Iran · prohibition',
   IQ: 'Iraq · prohibition',
   SY: 'Syria · prohibition',
-  AF: 'Afghanistan · prohibition',
   PK: 'Pakistan · prohibition',
   MY: 'Malaysia · prohibition',
   ID: 'Indonesia · prohibition',
@@ -224,4 +224,5 @@ export const REGION_LABELS: Record<string, string> = {
   TW: 'Taiwan · prohibition',
   HK: 'Hong Kong · prohibition',
   MO: 'Macau · prohibition',
+  AF: 'Afghanistan · national framework with provincial operating risk',
 }
