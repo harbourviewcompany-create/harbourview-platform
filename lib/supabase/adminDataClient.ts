@@ -11,8 +11,10 @@ export type AdminDataError = {
   message: string;
 };
 
+export type AdminDataSource = 'db' | 'fixture';
+
 export type AdminDataResult<T> =
-  | { ok: true; data: T }
+  | { ok: true; data: T; source?: AdminDataSource }
   | { ok: false; error: AdminDataError };
 
 export function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
