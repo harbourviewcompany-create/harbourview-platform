@@ -1,172 +1,53 @@
 -- =============================================================================
--- public.countries — primary country intelligence table
--- Queried by: hooks/useAllCountries.ts, hooks/useCountryBrief.ts,
---             lib/server/countriesQuery.ts (intelligence pages + globe)
--- Previously missing: intelligence.country_intelligence_profiles was created
--- but never exposed under the expected public.countries name/schema.
+-- countries_add_opportunity_score_v1
+-- Adds opportunity_score integer column to public.countries.
+--
+-- Root cause: hooks/useAllCountries and useCountryBrief selected this column
+-- in their PostgREST query; its absence caused a silent 400 error on every
+-- call, falling back to fixture data for the globe intel layer,
+-- intelligence pages, and country-brief grid.
+--
+-- The public.countries table and its seed data already exist (migrations
+-- create_countries_table @ 20260523155437 and seed_countries_core_markets_v1
+-- @ 20260524103625). This migration is purely additive.
 -- =============================================================================
 
-create table if not exists public.countries (
-  id                    uuid        primary key default gen_random_uuid(),
-  country_name          text        not null,
-  country_slug          text        not null unique,
-  iso_alpha2            text        not null unique,
-  iso_alpha3            text,
-  region                text,
-  subregion             text,
-  market_access_status  text        not null default 'unknown',
-  medical_status        text        not null default 'unknown',
-  adult_use_status      text        not null default 'unknown',
-  import_status         text        not null default 'unknown',
-  export_status         text        not null default 'unknown',
-  signals_status        text        not null default 'unknown',
-  opportunity_status    text        not null default 'unknown',
-  public_summary        text,
-  data_completeness     text        not null default 'seed',
-  last_updated_label    text,
-  lat                   double precision,
-  lng                   double precision,
-  opportunity_categories text[],
-  trade_roles            text[],
-  regulator_label        text,
-  created_at            timestamptz not null default now(),
-  updated_at            timestamptz not null default now()
-);
+alter table public.countries
+  add column if not exists opportunity_score integer not null default 0;
 
--- RLS: public read, no public write
-alter table public.countries enable row level security;
+-- Back-fill from market_access_status
+update public.countries set opportunity_score = case market_access_status::text
+  when 'open'       then 95
+  when 'active'     then 82
+  when 'regulated'  then 64
+  when 'emerging'   then 52
+  when 'limited'    then 36
+  when 'restricted' then 22
+  when 'unknown'    then 10
+  else 10
+end
+where opportunity_score = 0;
 
-do $$ begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'countries'
-      and policyname = 'countries_public_read'
-  ) then
-    create policy countries_public_read
-      on public.countries
-      for select
-      using (true);
-  end if;
-end $$;
-
--- Trigger: keep updated_at current
-create or replace function public.countries_set_updated_at()
+-- Keep in sync on future status changes
+create or replace function public.sync_opportunity_score()
 returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end;
+begin
+  new.opportunity_score := case new.market_access_status::text
+    when 'open'       then 95
+    when 'active'     then 82
+    when 'regulated'  then 64
+    when 'emerging'   then 52
+    when 'limited'    then 36
+    when 'restricted' then 22
+    when 'unknown'    then 10
+    else 10
+  end;
+  return new;
+end;
 $$;
 
-drop trigger if exists countries_updated_at on public.countries;
-create trigger countries_updated_at
-  before update on public.countries
-  for each row execute function public.countries_set_updated_at();
-
--- =============================================================================
--- Seed: 6 priority alpha-coverage countries from lib/intelligence/country-fixtures.json
--- Status values: open | active | regulated | emerging | limited | restricted | unknown
--- data_completeness: full | seed | fixture
--- =============================================================================
-
-insert into public.countries (
-  country_name, country_slug, iso_alpha2, iso_alpha3,
-  region, subregion,
-  market_access_status, medical_status, adult_use_status,
-  import_status, export_status, signals_status, opportunity_status,
-  public_summary, data_completeness, last_updated_label,
-  lat, lng, opportunity_categories, trade_roles, regulator_label
-) values
-(
-  'Germany', 'germany', 'DE', 'DEU',
-  'Europe', 'Western Europe',
-  'active', 'active', 'emerging',
-  'active', 'unknown', 'active', 'active',
-  'Priority European access market. Alpha source material indicates a large medical channel, import relevance and controlled adult-use evolution. Public use requires analyst review before presenting country-specific route claims.',
-  'seed', 'June 2026',
-  51.0, 10.0,
-  ARRAY['medical import pathway','pharmacy channel intelligence','EU-GMP supply qualification','pilot-program monitoring'],
-  ARRAY['import market','buyer demand signal'],
-  'BfArM / regional authorities'
-),
-(
-  'United Kingdom', 'united-kingdom', 'GB', 'GBR',
-  'Europe', 'Northern Europe',
-  'active', 'active', 'restricted',
-  'active', 'unknown', 'emerging', 'emerging',
-  'Medical access market with import and specialist-prescribing relevance. Alpha source content should be treated as directional until regulator and market-pathway fields are revalidated.',
-  'seed', 'June 2026',
-  54.0, -2.0,
-  ARRAY['medical access monitoring','import pathway review','clinic and pharmacy channel mapping'],
-  ARRAY['import market'],
-  'Home Office / MHRA'
-),
-(
-  'Canada', 'canada', 'CA', 'CAN',
-  'North America', 'Northern America',
-  'open', 'open', 'open',
-  'unknown', 'active', 'active', 'active',
-  'Established regulated producer and export-origin market. Public fixture keeps only high-level market role and excludes non-public commercial counterparties, commercial terms, direct contact details and evidence records.',
-  'full', 'June 2026',
-  56.0, -106.0,
-  ARRAY['export-origin qualification','licensed producer screening','bulk supply discovery','regulatory export documentation review'],
-  ARRAY['export market','supply origin'],
-  'Health Canada'
-),
-(
-  'Colombia', 'colombia', 'CO', 'COL',
-  'South America', 'South America',
-  'emerging', 'emerging', 'restricted',
-  'unknown', 'emerging', 'emerging', 'emerging',
-  'Regional cultivation and export-origin candidate. Alpha signal material is quarantined from public output pending evidence review and date-stamped policy validation.',
-  'seed', 'June 2026',
-  4.6, -74.1,
-  ARRAY['cultivation pathway review','export-origin screening','Latin America policy monitoring'],
-  ARRAY['export market','supply origin'],
-  'Ministry of Health / INVIMA'
-),
-(
-  'Brazil', 'brazil', 'BR', 'BRA',
-  'South America', 'South America',
-  'emerging', 'limited', 'restricted',
-  'active', 'unknown', 'emerging', 'emerging',
-  'Large medical-access market with evolving policy and import relevance. Keep public presentation conservative until current regulator and product-access rules are rechecked.',
-  'seed', 'June 2026',
-  -14.2, -51.9,
-  ARRAY['medical access monitoring','import pathway review','policy change tracking'],
-  ARRAY['import market','buyer demand signal'],
-  'ANVISA'
-),
-(
-  'Australia', 'australia', 'AU', 'AUS',
-  'Oceania', 'Australia and New Zealand',
-  'active', 'active', 'emerging',
-  'active', 'unknown', 'active', 'active',
-  'Established TGA-regulated medical market with active import pathway. Specialist prescribing channel and growing patient population. Export pathway limited; primary role as import destination and clinical-use market.',
-  'seed', 'June 2026',
-  -25.3, 133.8,
-  ARRAY['medical import pathway','TGA regulatory monitoring','prescriber and clinic channel mapping','pharmacy access review'],
-  ARRAY['import market','buyer demand signal'],
-  'TGA / ODC'
-)
-on conflict (iso_alpha2) do update set
-  country_name          = excluded.country_name,
-  country_slug          = excluded.country_slug,
-  region                = excluded.region,
-  subregion             = excluded.subregion,
-  market_access_status  = excluded.market_access_status,
-  medical_status        = excluded.medical_status,
-  adult_use_status      = excluded.adult_use_status,
-  import_status         = excluded.import_status,
-  export_status         = excluded.export_status,
-  signals_status        = excluded.signals_status,
-  opportunity_status    = excluded.opportunity_status,
-  public_summary        = excluded.public_summary,
-  data_completeness     = excluded.data_completeness,
-  last_updated_label    = excluded.last_updated_label,
-  lat                   = excluded.lat,
-  lng                   = excluded.lng,
-  opportunity_categories = excluded.opportunity_categories,
-  trade_roles           = excluded.trade_roles,
-  regulator_label       = excluded.regulator_label,
-  updated_at            = now();
-
--- Grant read access to anon and authenticated roles
-grant select on public.countries to anon, authenticated;
+drop trigger if exists sync_opportunity_score_trigger on public.countries;
+create trigger sync_opportunity_score_trigger
+  before insert or update of market_access_status
+  on public.countries
+  for each row execute function public.sync_opportunity_score();
