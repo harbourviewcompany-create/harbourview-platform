@@ -12,10 +12,12 @@ export const metadata: Metadata = {
 export default async function SellPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>
+  searchParams: Promise<{ type?: string; headline?: string; markets?: string }>
 }) {
   const params = await searchParams
   const initialListingType = resolveMarketplaceListingTypeOption(params.type)
+  const initialHeadline = params.headline ?? ''
+  const initialMarkets = params.markets ?? ''
   const isWanted = initialListingType === 'Wanted Request'
 
   return (
@@ -45,7 +47,7 @@ export default async function SellPage({
               Harbourview reviews category fit, authority, commercial relevance, public/private boundaries and routing context before any public summary, buyer inquiry or commercial introduction is created.
             </p>
           </PublicCard>
-          <DynamicMarketplaceIntakeForm defaultType={initialListingType} />
+          <DynamicMarketplaceIntakeForm defaultType={initialListingType} defaultHeadline={initialHeadline} defaultMarkets={initialMarkets} />
         </div>
       </PublicSection>
     </>

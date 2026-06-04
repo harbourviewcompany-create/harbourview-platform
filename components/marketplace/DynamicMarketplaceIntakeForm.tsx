@@ -32,7 +32,7 @@ function renderField(field: MarketplaceIntakeField) {
   return <label key={field.name} className="block text-sm text-[#F5F1E8]/75">{field.label}<input name={field.name} placeholder={field.placeholder} className={cls} /></label>
 }
 
-export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: string }) {
+export function DynamicMarketplaceIntakeForm({ defaultType, defaultHeadline = '', defaultMarkets = '' }: { defaultType?: string; defaultHeadline?: string; defaultMarkets?: string }) {
   const resolvedDefault = resolveMarketplaceListingTypeOption(defaultType) ?? 'Used / Surplus Equipment'
   const [listingType, setListingType] = useState<MarketplaceListingTypeOption>(resolvedDefault)
   const [status, setStatus] = useState<string | null>(null)
@@ -77,7 +77,18 @@ export function DynamicMarketplaceIntakeForm({ defaultType }: { defaultType?: st
     <form onSubmit={submit} className="space-y-8 rounded-3xl border border-[#C6A55A]/20 bg-[#0B1A2F]/90 p-6 shadow-2xl shadow-black/30">
       <input type="text" name="hp_field" className="hidden" tabIndex={-1} autoComplete="off" />
       <div><p className="text-xs uppercase tracking-[0.28em] text-[#C6A55A]">Private marketplace intake</p><h2 className="mt-2 text-2xl font-semibold text-[#F5F1E8]">Submit supply, assets, services, or wanted demand</h2><p className="mt-3 text-sm leading-6 text-[#F5F1E8]/65">Submissions enter Harbourview operator review first. They do not publish automatically and private details stay off public pages.</p></div>
-      <div className="grid gap-4 md:grid-cols-2"><label className="block text-sm text-[#F5F1E8]/75">Contact name<input name="contact_name" required className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Business email<input name="contact_email" type="email" required className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Company<input name="contact_company" className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Phone<input name="contact_phone" className={inputCls} /></label></div>
+      <div className="grid gap-4 md:grid-cols-2">
+      {defaultHeadline && (
+        <label className="col-span-2 block text-sm text-[#F5F1E8]/75">Listing headline
+          <input name="listing_headline" defaultValue={defaultHeadline} className={inputCls} />
+        </label>
+      )}
+      {defaultMarkets && (
+        <label className="col-span-2 block text-sm text-[#F5F1E8]/75">Target markets
+          <input name="target_markets" defaultValue={defaultMarkets} className={inputCls} />
+        </label>
+      )}
+      <label className="block text-sm text-[#F5F1E8]/75">Contact name<input name="contact_name" required className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Business email<input name="contact_email" type="email" required className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Company<input name="contact_company" className={inputCls} /></label><label className="block text-sm text-[#F5F1E8]/75">Phone<input name="contact_phone" className={inputCls} /></label></div>
       <div className="grid gap-4 md:grid-cols-2"><label className="block text-sm text-[#F5F1E8]/75">Listing type<select name="listing_type" value={listingType} onChange={(event) => setListingType(event.target.value as MarketplaceListingTypeOption)} className={inputCls}>{MARKETPLACE_LISTING_TYPE_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label><label className="block text-sm text-[#F5F1E8]/75">Price / budget / range<input name="price_or_budget" className={inputCls} /></label></div>
       <label className="block text-sm text-[#F5F1E8]/75">Title<input name="title" required className={inputCls} /></label>
       <label className="block text-sm text-[#F5F1E8]/75">Description<textarea name="message" rows={5} required className={inputCls} /></label>

@@ -61,7 +61,9 @@ export async function getPublicListings(): Promise<PublicListing[]> {
 
 export async function getPublicListingsByCategory(category: string): Promise<PublicListing[]> {
   const p = baseParams()
-  p.set('category', `eq.${category}`)
+  // Normalize URL-style slugs (cannabis-inventory) to DB enum format (cannabis_inventory)
+  const normalized = category.replace(/-/g, '_')
+  p.set('category', `eq.${normalized}`)
   return queryListings(p)
 }
 

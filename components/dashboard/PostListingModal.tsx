@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface Props {
   open: boolean
@@ -9,18 +9,24 @@ interface Props {
 }
 
 const LISTING_TYPES = [
-  'Supply — flower / biomass',
-  'Supply — extracts / oil',
-  'Supply — genetics / seeds',
-  'Supply — finished products',
-  'Demand — procurement request',
-  'Equipment — new',
-  'Equipment — distressed / surplus',
-  'Business opportunity',
-  'Services',
+  { label: 'Supply — flower / biomass',        type: 'cannabis-inventory' },
+  { label: 'Supply — extracts / oil',           type: 'cannabis-inventory' },
+  { label: 'Supply — genetics / seeds',         type: 'new-products' },
+  { label: 'Supply — finished products',        type: 'new-products' },
+  { label: 'Demand — procurement request',      type: 'wanted' },
+  { label: 'Equipment — new',                   type: 'used-surplus' },
+  { label: 'Equipment — distressed / surplus',  type: 'used-surplus' },
+  { label: 'Consumables & inputs',              type: 'consumables' },
+  { label: 'Business opportunity',              type: 'business-opportunities' },
+  { label: 'Services',                          type: 'services' },
 ]
 
 export function PostListingModal({ open, onClose }: Props) {
+  const router = useRouter()
+  const [listingType, setListingType] = useState(LISTING_TYPES[0])
+  const [headline, setHeadline] = useState('')
+  const [markets, setMarkets] = useState('')
+
   useEffect(() => {
     if (!open) return
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -29,6 +35,16 @@ export function PostListingModal({ open, onClose }: Props) {
   }, [open, onClose])
 
   if (!open) return null
+
+  const handleProceed = () => {
+    const params = new URLSearchParams({ type: listingType.type })
+    if (headline.trim()) params.set('headline', headline.trim())
+    if (markets.trim()) params.set('markets', markets.trim())
+    router.push(`/marketplace/sell?${params.toString()}`)
+    onClose()
+  }
+
+  const isWanted = listingType.type === 'wanted'
 
   return (
     <div
@@ -41,31 +57,37 @@ export function PostListingModal({ open, onClose }: Props) {
         style={{ background: 'var(--hv-bg-900, #06101B)', border: '1px solid rgba(198,165,90,0.22)' }}
       >
         <h2 className="mb-1.5 font-serif text-[18px]" style={{ color: 'var(--hv-text-primary)' }}>
-          Post a listing
+          {isWanted ? 'Post wanted demand' : 'Post a listing'}
         </h2>
         <p className="mb-5 text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.5)' }}>
-          Listings are reviewed by Harbourview before publication. A subscription is required to activate posting and be visible to counterparties.
+          {isWanted
+            ? 'Describe what you need to source. Harbourview reviews before routing supply responses privately.'
+            : 'Listings are reviewed by Harbourview before publication. Contact details are never public.'}
         </p>
 
         <div className="mb-4">
           <label className="mb-1.5 block text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--hv-champagne-400)' }}>
-            Listing type
+            Type
           </label>
           <select
+            value={listingType.label}
+            onChange={e => setListingType(LISTING_TYPES.find(t => t.label === e.target.value) ?? LISTING_TYPES[0])}
             className="w-full rounded-lg bg-white/[0.05] px-3 py-2.5 text-[13px] outline-none"
             style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--hv-text-primary)' }}
           >
-            {LISTING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            {LISTING_TYPES.map(t => <option key={t.label} value={t.label}>{t.label}</option>)}
           </select>
         </div>
 
         <div className="mb-4">
           <label className="mb-1.5 block text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--hv-champagne-400)' }}>
-            Headline
+            {isWanted ? 'What do you need?' : 'Headline'}
           </label>
           <input
             type="text"
-            placeholder="e.g. EU-GMP certified flower, 500kg available, Canada origin"
+            value={headline}
+            onChange={e => setHeadline(e.target.value)}
+            placeholder={isWanted ? 'e.g. EU-GMP flower, 100kg/month, Germany' : 'e.g. EU-GMP certified flower, 500kg available, Canada origin'}
             className="w-full rounded-lg bg-white/[0.05] px-3 py-2.5 text-[13px] outline-none placeholder:opacity-40"
             style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--hv-text-primary)' }}
           />
@@ -73,10 +95,12 @@ export function PostListingModal({ open, onClose }: Props) {
 
         <div className="mb-6">
           <label className="mb-1.5 block text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--hv-champagne-400)' }}>
-            Target markets
+            {isWanted ? 'Target supply region' : 'Target markets'}
           </label>
           <input
             type="text"
+            value={markets}
+            onChange={e => setMarkets(e.target.value)}
             placeholder="e.g. Germany, Netherlands, Australia"
             className="w-full rounded-lg bg-white/[0.05] px-3 py-2.5 text-[13px] outline-none placeholder:opacity-40"
             style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--hv-text-primary)' }}
@@ -91,13 +115,13 @@ export function PostListingModal({ open, onClose }: Props) {
           >
             Cancel
           </button>
-          <Link
-            href="/marketplace/sell"
-            className="flex flex-[2] items-center justify-center rounded-xl py-2.5 text-[13px] transition-all"
+          <button
+            onClick={handleProceed}
+            className="flex flex-[2] items-center justify-center rounded-xl py-2.5 text-[13px] font-semibold transition-all"
             style={{ border: '1px solid rgba(198,165,90,0.35)', background: 'rgba(198,165,90,0.12)', color: 'var(--hv-champagne-300)' }}
           >
-            Subscribe to post →
-          </Link>
+            Continue to submission →
+          </button>
         </div>
       </div>
     </div>
