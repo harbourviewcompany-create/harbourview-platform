@@ -141,7 +141,7 @@ export default function ClinicalEducationRequestForm() {
     <form ref={formRef} onSubmit={handleSubmit} noValidate className="rounded-sm border border-gold/10 bg-[#071425] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.26)] sm:p-7 space-y-5">
       {/* Honeypot */}
       <div className="hidden" aria-hidden="true">
-        <input name="hp" type="text" tabIndex={-1} autoComplete="off" />
+        <input name="hp_field" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -157,7 +157,7 @@ export default function ClinicalEducationRequestForm() {
         </div>
         <div>
           <label className={labelClass} htmlFor="cer-org">Organisation</label>
-          <input id="cer-org" name="organization" type="text" autoComplete="organization" className={fieldClass} placeholder="Hospital, clinic, university…" />
+          <input id="cer-org" name="organization" type="text" autoComplete="organization" className={fieldClass} placeholder="Hospital, clinic, universityâ¦" />
         </div>
         <div>
           <label className={labelClass} htmlFor="cer-country">Country</label>
@@ -219,7 +219,7 @@ export default function ClinicalEducationRequestForm() {
         disabled={isPending}
         className="w-full rounded-full bg-gold px-6 py-3 text-sm font-semibold text-navy transition-colors hover:bg-[#d6b76d] disabled:opacity-50"
       >
-        {isPending ? 'Submitting…' : 'Submit Education Request'}
+        {isPending ? 'Submittingâ¦' : 'Submit Education Request'}
       </button>
     </form>
   )
