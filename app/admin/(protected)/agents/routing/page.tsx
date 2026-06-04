@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaScoringRecords } from '@/lib/intelligence-automation/db'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-amber-500' : 'bg-zinc-600'
@@ -46,6 +47,8 @@ export default async function RoutingPage() {
         <h1 className="text-2xl font-bold text-zinc-100">Predictive Routing</h1>
         <p className="text-sm text-zinc-500 mt-1">Counterparties ranked by routing priority score — highest introduction and commercial fit first.</p>
       </div>
+
+      <FixtureBanner isFixture={isFixture} />
 
       <div className="flex gap-3 flex-wrap">
         {Object.entries(counts).filter(([, n]) => n > 0).map(([tier, n]) => {
