@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaScoringRecords, listIaCounterparties } from '@/lib/intelligence-automation/db'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 const DOC_STATUS: Record<string, string> = {
   complete:    'bg-green-950 text-green-400',
@@ -45,6 +46,8 @@ export default async function ScoringMemoryPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Scoring &amp; Memory</h1>
       </div>
+
+      <FixtureBanner isFixture={isFixture} />
 
       {/* Scoring */}
       <section className="space-y-4">
@@ -132,5 +135,6 @@ export default async function ScoringMemoryPage() {
         </div>
       </section>
     </div>
-  )
+  )  const isFixture = scoringRes.source === 'fixture' || counterpartiesRes.source === 'fixture'
+
 }
