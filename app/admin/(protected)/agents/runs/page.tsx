@@ -21,7 +21,7 @@ export default async function AgentRunsPage() {
   await requireAdminAuth()
 
   const result   = await listIaFeedbackEvents()
-  const events   = result.data ?? []
+  const events = result.ok ? result.data : []
   const sorted   = [...events].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
 
   const byOutcome = events.reduce<Record<string, number>>((acc, e) => {
