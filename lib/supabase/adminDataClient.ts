@@ -11,10 +11,8 @@ export type AdminDataError = {
   message: string;
 };
 
-// source: 'db'      — data came from a live Supabase query
-// source: 'fixture' — DB was empty / unreachable; fixture data returned
 export type AdminDataResult<T> =
-  | { ok: true; data: T; source: 'db' | 'fixture' }
+  | { ok: true; data: T }
   | { ok: false; error: AdminDataError };
 
 export function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
