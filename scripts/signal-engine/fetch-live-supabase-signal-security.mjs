@@ -35,9 +35,16 @@ function parseArgs(argv) {
 
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i]
-    if (arg === '--out') args.out = argv[++i]
-    else if (arg === '--start') args.start = argv[++i]
-    else if (arg === '--end') args.end = argv[++i]
+    if (arg === '--out') {
+      if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error('--out requires a value')
+      args.out = argv[++i]
+    } else if (arg === '--start') {
+      if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error('--start requires a value')
+      args.start = argv[++i]
+    } else if (arg === '--end') {
+      if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error('--end requires a value')
+      args.end = argv[++i]
+    }
     else if (arg === '--skip-logs') args.skipLogs = true
     else if (arg === '--skip-advisors') args.skipAdvisors = true
     else if (arg === '--help') {

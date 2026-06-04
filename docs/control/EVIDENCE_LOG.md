@@ -258,9 +258,9 @@ Expected Pass 1 evidence:
 - Browser e2e/screenshot verification remains environment-blocked until Playwright or an equivalent browser runner is available.
 
 - Added a Signal Engine-only hardening migration that moves the admin RLS helper into a non-exposed `private` schema, pins `search_path`, forces RLS on the 14 canonical Signal Engine tables, rewrites policies to the private helper, and drops the exposed public helper functions.
-- Added a live Supabase Management API evidence collector for security advisors and Signal Engine-filtered logs with redaction.
-- Added a local static verifier for the hardening workspace.
-- Added an execution plan covering evidence capture, migration execution, post-change advisor verification, rollback, and acceptance criteria.
+- Included a live Supabase Management API evidence collector for security advisors and Signal Engine-filtered logs with redaction.
+- Included a local static verifier for the hardening workspace.
+- Documented an execution plan covering evidence capture, migration execution, post-change advisor verification, rollback, and acceptance criteria.
 
 **Commands and results (UTC):**
 

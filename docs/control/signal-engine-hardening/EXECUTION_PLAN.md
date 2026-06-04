@@ -101,8 +101,18 @@ The migration does the following:
 
 3. Apply only the Signal Engine hardening migration to project `zvxdgdkukjrrwamdpqrg` using the team-approved Supabase migration workflow:
 
+   **First, dry-run to confirm only the intended migration is staged:**
+
    ```bash
    supabase link --project-ref zvxdgdkukjrrwamdpqrg
+   supabase db push --dry-run
+   ```
+
+   Review the dry-run output. Verify that **only** `20260603000000_harden_signal_engine_security.sql` is listed. If any unexpected accumulated migrations appear, stop, identify their source, and resolve before proceeding.
+
+   **If and only if the dry-run shows only the intended migration:**
+
+   ```bash
    supabase db push
    ```
 

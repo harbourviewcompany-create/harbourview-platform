@@ -52,7 +52,13 @@ assert(migration.includes('with check (private.is_signal_admin())'), 'Admin writ
 assert(!/public\.marketplace|marketplace_[a-z_]+/i.test(migration), 'Signal Engine hardening migration must not touch marketplace objects')
 
 for (const table of requiredTables) {
-  assert(migration.includes(`public.${table} force row level security`), `Missing FORCE RLS for ${table}`)
+  // Match the exact ALTER TABLE DDL statement to prevent false positives from comments or
+  // strings that happen to contain the table name followed by "force row level security".
+  const forceRlsPattern = new RegExp(
+    `alter\\s+table\\s+public\\.${table}\\s+force\\s+row\\s+level\\s+security`,
+    'i',
+  )
+  assert(forceRlsPattern.test(migration), `Missing FORCE RLS ALTER TABLE for ${table}`)
 }
 
 assert(plan.includes('zvxdgdkukjrrwamdpqrg'), 'Execution plan must name the canonical Supabase project ref')
