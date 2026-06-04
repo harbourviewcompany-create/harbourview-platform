@@ -11,11 +11,13 @@ export type AdminDataError = {
   message: string;
 };
 
+// source: 'db'      — data came from a live Supabase query
+// source: 'fixture' — DB was empty / unreachable; fixture data returned
 export type AdminDataResult<T> =
-  | { ok: true; data: T }
+  | { ok: true; data: T; source: 'db' | 'fixture' }
   | { ok: false; error: AdminDataError };
 
-export function getAdminDataClient(): AdminDataResult<AdminDataClient> {
+export function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
   if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') {
     return {
       ok: false,
@@ -48,7 +50,7 @@ export function getAdminDataClient(): AdminDataResult<AdminDataClient> {
 
 export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminDataResult<T>> {
   const client = getAdminDataClient();
-  if (!client.ok) return client as any;
+  if (!client.ok) return client;
 
   const response = await fetch(`${client.data.url}${path}`, {
     headers: {
@@ -78,20 +80,12 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
     };
   }
 
-  // Intentionally preserve prior behavior: empty 2xx response bodies are treated as `null` payloads
-  // so callers relying on PostgREST 204/empty responses continue to work without shape changes.
   if (!text) {
-    return {
-      ok: true,
-      data: null as T,
-    };
+    return { ok: true, data: null as T, source: 'db' };
   }
 
   try {
-    return {
-      ok: true,
-      data: JSON.parse(text) as T,
-    };
+    return { ok: true, data: JSON.parse(text) as T, source: 'db' };
   } catch {
     console.error('harbourview_admin_data_request_failed', {
       status: response.status,
@@ -114,7 +108,7 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
 /** Type-safe error accessor for AdminDataResult after !result.ok check */
 export function getAdminError(result: AdminDataResult<unknown>): AdminDataError {
   if (result.ok) throw new Error('getAdminError called on ok result')
-  return (result as any).error
+  return (result as Extract<AdminDataResult<unknown>, { ok: false }>).error
 }
 
 /** Mutation variant — supports PATCH/POST/DELETE with a body. */
@@ -124,7 +118,7 @@ export async function fetchAdminSupabaseJsonMutation<T>(
   body: Record<string, unknown>,
 ): Promise<AdminDataResult<T>> {
   const client = getAdminDataClient();
-  if (!client.ok) return client as AdminDataResult<T>;
+  if (!client.ok) return client;
 
   const response = await fetch(`${client.data.url}${path}`, {
     method,
@@ -149,6 +143,5 @@ export async function fetchAdminSupabaseJsonMutation<T>(
     };
   }
 
-  return { ok: true, data: (text ? JSON.parse(text) : null) as T };
+  return { ok: true, data: (text ? JSON.parse(text) : null) as T, source: 'db' };
 }
-
