@@ -20,7 +20,7 @@ export default async function QueuesPage() {
   await requireAdminAuth()
 
   const result = await listIaAgentTasks()
-  const items  = result.data ?? []
+  const items = result.ok ? result.data : []
 
   const active = items.filter(i => ['pending', 'in_progress'].includes(i.status))
   const sorted = [...active].sort((a, b) => {
