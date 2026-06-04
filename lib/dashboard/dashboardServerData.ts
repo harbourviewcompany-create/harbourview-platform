@@ -1,6 +1,5 @@
 import 'server-only'
 import { listIaSignals } from '@/lib/intelligence-automation/db'
-import { automationSignals } from '@/lib/intelligence-automation/fixtures'
 import type { AutomationSignal } from '@/lib/intelligence-automation/types'
 import type { DashboardSignal } from './dashboardShared'
 import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
@@ -117,8 +116,8 @@ export async function fetchDashboardSignals(limit = 8): Promise<DashboardSignal[
     }
   } catch { /* fall through */ }
 
-  // 3. Static fixtures — last resort, should only appear in local dev / cold DB
-  return shapeSignals(automationSignals, limit)
+  // 3. No live signals yet — return empty array; dashboard shows empty state
+  return []
 }
 
 // ── Role display mapping ──────────────────────────────────────────────────────
