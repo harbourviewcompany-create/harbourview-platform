@@ -46,10 +46,10 @@ export default async function AgentsHubPage() {
   const feedback = feedbackRes.ok ? feedbackRes.data : []
 
   const activeWatchers = sources.filter(s => s.status === 'active').length
-  const pendingSignals  = signals.filter(s => s.stage === 'captured' || s.stage === 'review').length
+  const pendingSignals  = signals.filter(s => s.stage === 'new' || s.stage === 'needs_review').length
   const urgentQueue     = tasks.filter(i => i.priority === 'urgent' && ['pending', 'in_progress'].includes(i.status)).length
   const activeQueue     = tasks.filter(i => ['pending', 'in_progress'].includes(i.status)).length
-  const degradedSources = sources.filter(s => s.status === 'paused' || s.status === 'error').length
+  const degradedSources = sources.filter(s => s.status === 'paused' || s.status === 'deprecated').length
 
   const recentEvents = [...feedback]
     .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())

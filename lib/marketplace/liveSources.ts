@@ -77,7 +77,7 @@ async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<Ad
     return { ok: false, error: requestFailed(`Supabase returned ${response.status}: ${text.slice(0, 240)}`) };
   }
 
-  return { ok: true, data: (text ? JSON.parse(text) : null) as T };
+  return { ok: true, data: (text ? JSON.parse(text) : null) as T, source: 'db' as const };
 }
 
 export async function createManualSourceIntake(formData: FormData, userId: string): Promise<AdminResult<{ source: SourceRegistryRow; snapshot: SourceSnapshotRow; candidate: MarketplaceCandidate }>> {
@@ -194,5 +194,5 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
   );
   if (!eventResult.ok) return eventResult as any;
 
-  return { ok: true, data: { source, snapshot, candidate } };
+  return { ok: true, data: { source, snapshot, candidate }, source: 'db' as const };
 }

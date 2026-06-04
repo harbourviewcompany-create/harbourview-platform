@@ -3,6 +3,13 @@ import Link from 'next/link'
 import { listIaScoringRecords } from '@/lib/intelligence-automation/db'
 import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
+// Map string priority to numeric representation for display/sorting
+function priorityNum(p: string): number {
+  if (p === 'high')   return 80
+  if (p === 'medium') return 50
+  return 20
+}
+
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-amber-500' : 'bg-zinc-600'
   return (
@@ -27,13 +34,13 @@ export default async function RoutingPage() {
   const result  = await listIaScoringRecords()
   const records = result.ok ? result.data : []
 
-  const sorted = [...records].sort((a, b) => b.routingPriority - a.routingPriority)
+  const sorted = [...records].sort((a, b) => priorityNum(b.routingPriority) - priorityNum(a.routingPriority))
 
   const counts = {
-    urgent: records.filter(r => r.routingPriority >= 80).length,
-    high:   records.filter(r => r.routingPriority >= 60 && r.routingPriority < 80).length,
-    medium: records.filter(r => r.routingPriority >= 40 && r.routingPriority < 60).length,
-    low:    records.filter(r => r.routingPriority < 40).length,
+    urgent: records.filter(r => priorityNum(r.routingPriority) >= 80).length,
+    high:   records.filter(r => { const n = priorityNum(r.routingPriority); return n >= 60 && n < 80 }).length,
+    medium: records.filter(r => { const n = priorityNum(r.routingPriority); return n >= 40 && n < 60 }).length,
+    low:    records.filter(r => priorityNum(r.routingPriority) < 40).length,
   }
 
   return (
@@ -70,7 +77,7 @@ export default async function RoutingPage() {
         {sorted.length === 0 ? (
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-8 text-center text-xs text-zinc-500">No scoring records found.</div>
         ) : sorted.map(r => {
-          const tier = TIER_LABEL(r.routingPriority)
+          const tier = TIER_LABEL(priorityNum(r.routingPriority))
           return (
             <div key={r.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
               <div className="flex items-start gap-4">
@@ -91,11 +98,11 @@ export default async function RoutingPage() {
                     <div className="flex-shrink-0 text-right space-y-1">
                       <div className="flex items-center gap-2 justify-end">
                         <span className="text-xs text-zinc-600">Routing</span>
-                        <ScoreBar score={r.routingPriority} />
+                        <ScoreBar score={priorityNum(r.routingPriority)} />
                       </div>
                       <div className="flex items-center gap-2 justify-end">
                         <span className="text-xs text-zinc-600">Intro</span>
-                        <ScoreBar score={r.introductionPriority} />
+                        <ScoreBar score={priorityNum(r.introductionPriority)} />
                       </div>
                       <div className="text-xs text-zinc-600 mt-1">{r.scoredAt.slice(0, 10)}</div>
                     </div>

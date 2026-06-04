@@ -17,10 +17,10 @@ export default async function WatchersPage() {
   const sources = result.ok ? result.data : []
 
   const counts = {
-    active:    sources.filter(s => s.status === 'active').length,
-    paused:    sources.filter(s => s.status === 'paused').length,
-    error:     sources.filter(s => s.status === 'error').length,
-    scheduled: sources.filter(s => s.status === 'scheduled').length,
+    active:      sources.filter(s => s.status === 'active').length,
+    paused:      sources.filter(s => s.status === 'paused').length,
+    needs_review: sources.filter(s => s.status === 'needs_review').length,
+    deprecated:  sources.filter(s => s.status === 'deprecated').length,
   }
 
   return (

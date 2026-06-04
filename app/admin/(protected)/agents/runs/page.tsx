@@ -84,10 +84,10 @@ export default async function AgentRunsPage() {
                   <td className="px-4 py-3 text-zinc-400 text-xs">{r.market}</td>
                   <td className="px-4 py-3 text-zinc-500 text-xs">{r.category}</td>
                   <td className={`px-4 py-3 text-xs text-right font-medium ${SCORE_IMPACT_COLOR(r.scoreImpact?.toString())}`}>
-                    {r.scoreImpact !== undefined ? (r.scoreImpact > 0 ? `+${r.scoreImpact}` : r.scoreImpact) : '—'}
+                    {r.scoreImpact !== undefined ? (r.scoreImpact === 'positive' ? `+${r.scoreImpact}` : r.scoreImpact) : '—'}
                   </td>
                   <td className={`px-4 py-3 text-xs text-right font-medium ${SCORE_IMPACT_COLOR(r.routingImpact?.toString())}`}>
-                    {r.routingImpact !== undefined ? (r.routingImpact > 0 ? `+${r.routingImpact}` : r.routingImpact) : '—'}
+                    {r.routingImpact ? r.routingImpact : '—'}
                   </td>
                   <td className="px-4 py-3 text-zinc-500 text-xs max-w-64">{r.notes ?? '—'}</td>
                 </tr>

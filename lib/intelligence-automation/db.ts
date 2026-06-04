@@ -17,6 +17,7 @@ import type {
   SignalStage,
   AgentTaskStatus,
 } from './types'
+import type { SignalCandidate } from '@/lib/signals/types'
 import {
   automationSources,
   automationSignals,
@@ -112,9 +113,9 @@ function rowToScoring(r: Row): ScoringRecord {
     fitScore: num(r.fit_score),
     readinessScore: num(r.readiness_score),
     trustScore: num(r.trust_score),
-    routingPriority: num(r.routing_priority),
-    followUpPriority: num(r.follow_up_priority),
-    introductionPriority: num(r.introduction_priority),
+    routingPriority: str(r.routing_priority, 'low') as ScoringRecord['routingPriority'],
+    followUpPriority: str(r.follow_up_priority, 'when_ready') as ScoringRecord['followUpPriority'],
+    introductionPriority: str(r.introduction_priority, 'not_ready') as ScoringRecord['introductionPriority'],
     marketAccessRelevance: arr(r.market_access_relevance),
     scoredAt: str(r.scored_at),
     scoreDrivers: arr(r.score_drivers),
@@ -157,23 +158,22 @@ function rowToGraphEntity(r: Row): GraphEntity {
     id: str(r.id),
     type: str(r.type, 'source') as GraphEntity['type'],
     label: str(r.label),
-    markets: arr(r.markets),
-    categories: arr(r.categories),
-    trustScore: num(r.trust_score),
-    activeStatus: str(r.active_status, 'monitoring') as GraphEntity['activeStatus'],
-    notes: typeof r.notes === 'string' ? r.notes : undefined,
+    market: typeof r.market === 'string' ? r.market : undefined,
+    category: typeof r.category === 'string' ? r.category : undefined,
+    connectionCount: num(r.connection_count),
+    signalCount: num(r.signal_count),
+    lastActivity: typeof r.last_activity === 'string' ? r.last_activity : undefined,
   }
 }
 
 function rowToGraphEdge(r: Row): GraphEdge {
   return {
     id: str(r.id),
-    fromEntityId: str(r.from_entity_id),
-    toEntityId: str(r.to_entity_id),
-    relationshipType: str(r.relationship_type) as GraphEdge['relationshipType'],
-    strength: num(r.strength),
-    market: str(r.market),
-    notes: typeof r.notes === 'string' ? r.notes : undefined,
+    type: str(r.type) as GraphEdge['type'],
+    fromLabel: str(r.from_label),
+    toLabel: str(r.to_label),
+    strength: str(r.strength, 'weak') as GraphEdge['strength'],
+    evidenced: bool(r.evidenced),
     createdAt: str(r.created_at),
   }
 }
@@ -181,12 +181,12 @@ function rowToGraphEdge(r: Row): GraphEdge {
 function rowToFeedback(r: Row): FeedbackEvent {
   return {
     id: str(r.id),
-    outcomeType: str(r.outcome_type, 'signal_validated') as FeedbackEvent['outcomeType'],
+    outcomeType: str(r.outcome_type, 'ignored') as FeedbackEvent['outcomeType'],
     counterpartyName: typeof r.counterparty_name === 'string' ? r.counterparty_name : undefined,
     market: str(r.market),
     category: str(r.category),
-    scoreImpact: typeof r.score_impact === 'number' ? r.score_impact : undefined,
-    routingImpact: typeof r.routing_impact === 'number' ? r.routing_impact : undefined,
+    scoreImpact: str(r.score_impact, 'neutral') as FeedbackEvent['scoreImpact'],
+    routingImpact: str(r.routing_impact),
     notes: typeof r.notes === 'string' ? r.notes : undefined,
     loggedAt: str(r.logged_at),
   }
@@ -265,9 +265,209 @@ export async function listIaFeedbackEvents(): Promise<AdminDataResult<FeedbackEv
   return { ok: true, data: result.data.map(rowToFeedback) }
 }
 
+// ── Market-scoped signal queries ──────────────────────────────────────────────
+
+export async function listIaSignalsByMarket(
+  market: string,
+): Promise<AdminDataResult<AutomationSignal[]>> {
+  const encoded = encodeURIComponent(market)
+  const result = await fetchAdminSupabaseJson<Row[]>(
+    `/rest/v1/ia_signals?market=eq.${encoded}&select=*&order=detected_at.desc&limit=100`,
+  )
+  if (!result.ok || !result.data?.length) return fixtureResult([])
+  return { ok: true, data: result.data.map(rowToSignal), source: 'db' }
+}
+
+export async function countIaSignalsByMarket(market: string): Promise<number> {
+  const encoded = encodeURIComponent(market)
+  const result = await fetchAdminSupabaseJson<Row[]>(
+    `/rest/v1/ia_signals?market=eq.${encoded}&select=id&limit=500`,
+  )
+  if (!result.ok || !result.data) return 0
+  return result.data.length
+}
+
+// ── Signal candidates ─────────────────────────────────────────────────────────
+
+function rowToSignalCandidate(r: Row): SignalCandidate {
+  return r as unknown as SignalCandidate
+}
+
+export async function listSignalCandidates(): Promise<AdminDataResult<SignalCandidate[]>> {
+  const result = await fetchAdminSupabaseJson<Row[]>(
+    '/rest/v1/signal_candidates?select=*&order=created_at.desc&limit=200',
+  )
+  if (!result.ok) return fixtureResult([])
+  if (!result.data?.length) return { ok: true, data: [], source: 'db' }
+  return { ok: true, data: result.data.map(rowToSignalCandidate), source: 'db' }
+}
+
+export async function advanceSignalCandidateStatus(
+  candidateId: string,
+  status: string,
+  reviewNotes?: string,
+): Promise<AdminDataResult<null>> {
+  const client = getAdminDataClient()
+  if (!client.ok) return client
+
+  const body: Record<string, unknown> = { status, reviewed_at: new Date().toISOString() }
+  if (reviewNotes) body.review_notes = reviewNotes
+
+  const response = await fetch(
+    `${client.data.url}/rest/v1/signal_candidates?id=eq.${encodeURIComponent(candidateId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: client.data.serviceRoleKey,
+        Authorization: `Bearer ${client.data.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    },
+  )
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: { code: 'request_failed', message: `Signal candidate update returned ${response.status}` },
+    }
+  }
+  return { ok: true, data: null, source: 'db' }
+}
+
+// ── Agent task mutations ──────────────────────────────────────────────────────
+
+export async function updateIaAgentTaskStatus(
+  taskId: string,
+  status: AgentTaskStatus,
+  notes?: string,
+  _updatedBy?: string,
+): Promise<AdminDataResult<null>> {
+  const client = getAdminDataClient()
+  if (!client.ok) return client
+
+  const body: Record<string, unknown> = { status }
+  if (notes) body.notes = notes
+
+  const response = await fetch(
+    `${client.data.url}/rest/v1/ia_agent_tasks?id=eq.${encodeURIComponent(taskId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: client.data.serviceRoleKey,
+        Authorization: `Bearer ${client.data.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    },
+  )
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: { code: 'request_failed', message: `Agent task update returned ${response.status}` },
+    }
+  }
+  return { ok: true, data: null, source: 'db' }
+}
+
+// ── Evidence mutations ────────────────────────────────────────────────────────
+
+export async function updateIaEvidenceReviewStatus(
+  evidenceId: string,
+  reviewStatus: EvidenceVaultEntry['reviewStatus'],
+  _reviewedBy?: string,
+): Promise<AdminDataResult<null>> {
+  const client = getAdminDataClient()
+  if (!client.ok) return client
+
+  const response = await fetch(
+    `${client.data.url}/rest/v1/ia_evidence?id=eq.${encodeURIComponent(evidenceId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: client.data.serviceRoleKey,
+        Authorization: `Bearer ${client.data.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ review_status: reviewStatus, reviewed_at: new Date().toISOString() }),
+      cache: 'no-store',
+    },
+  )
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: { code: 'request_failed', message: `Evidence review update returned ${response.status}` },
+    }
+  }
+  return { ok: true, data: null, source: 'db' }
+}
+
+// ── Feedback mutations ────────────────────────────────────────────────────────
+
+interface LogFeedbackInput {
+  outcomeType: string
+  counterpartyName?: string
+  market: string
+  category: string
+  scoreImpact: 'positive' | 'negative' | 'neutral'
+  routingImpact: string
+  notes?: string
+  loggedBy: string
+}
+
+export async function logIaFeedbackEvent(
+  input: LogFeedbackInput,
+): Promise<AdminDataResult<null>> {
+  const client = getAdminDataClient()
+  if (!client.ok) return client
+
+  const response = await fetch(
+    `${client.data.url}/rest/v1/ia_feedback_events`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: client.data.serviceRoleKey,
+        Authorization: `Bearer ${client.data.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        outcome_type: input.outcomeType,
+        counterparty_name: input.counterpartyName ?? null,
+        market: input.market,
+        category: input.category,
+        score_impact: input.scoreImpact,
+        routing_impact: input.routingImpact,
+        notes: input.notes ?? null,
+        logged_by: input.loggedBy,
+        logged_at: new Date().toISOString(),
+      }),
+      cache: 'no-store',
+    },
+  )
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: { code: 'request_failed', message: `Feedback log returned ${response.status}` },
+    }
+  }
+  return { ok: true, data: null, source: 'db' }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function advanceIaSignalStage(
   signalId: string,
   stage: SignalStage,
+  _updatedBy?: string,
 ): Promise<AdminDataResult<null>> {
   const client = getAdminDataClient()
   if (!client.ok) return client

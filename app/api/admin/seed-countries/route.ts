@@ -50,7 +50,7 @@ export async function POST() {
       trade_roles:           fixture.tradeRole,
       regulator_label:       fixture.regulatorLabel ?? null,
     }
-  }).filter(Boolean)
+  }).filter((r): r is NonNullable<typeof r> => r !== null)
 
   const { error, count } = await supabase
     .from('countries')

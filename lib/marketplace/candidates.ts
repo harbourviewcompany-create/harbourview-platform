@@ -136,7 +136,7 @@ async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<Ad
     return { ok: false, error: requestFailed(`Supabase returned ${response.status}: ${text.slice(0, 240)}`) };
   }
 
-  return { ok: true, data: (text ? JSON.parse(text) : null) as T };
+  return { ok: true, data: (text ? JSON.parse(text) : null) as T, source: 'db' as const };
 }
 
 export async function listSources(): Promise<AdminResult<SourceRegistryRow[]>> {
@@ -165,10 +165,10 @@ export async function getSourceDetail(id: string): Promise<AdminResult<{ source:
     ? await adminRequest<MarketplaceCandidate[]>(
         `/rest/v1/marketplace_candidates?snapshot_id=in.(${snapshotIds.map((snapshotId) => `"${snapshotId}"`).join(',')})&select=*&order=created_at.desc`,
       )
-    : { ok: true as const, data: [] };
+    : { ok: true as const, data: [], source: 'db' as const };
   if (!candidates.ok) return candidates as any;
 
-  return { ok: true, data: { source, snapshots: snapshotsResult.data, candidates: candidates.data } };
+  return { ok: true, data: { source, snapshots: snapshotsResult.data, candidates: candidates.data }, source: 'db' as const };
 }
 
 export async function listCandidates(): Promise<AdminResult<MarketplaceCandidate[]>> {
@@ -211,7 +211,7 @@ export async function getCandidateDetail(id: string): Promise<AdminResult<Candid
   );
   if (!eventsResult.ok) return eventsResult as any;
 
-  return { ok: true, data: { candidate, snapshot, source, events: eventsResult.data } };
+  return { ok: true, data: { candidate, snapshot, source, events: eventsResult.data }, source: 'db' as const };
 }
 
 const ALLOWED_TRANSITIONS: Record<CandidateStatus, CandidateStatus[]> = {
@@ -307,5 +307,5 @@ export async function updateCandidateStatus({
   );
   if (!eventResult.ok) return eventResult as any;
 
-  return { ok: true, data: updateResult.data[0] };
+  return { ok: true, data: updateResult.data[0], source: 'db' as const };
 }

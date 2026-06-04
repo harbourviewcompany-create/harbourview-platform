@@ -82,7 +82,7 @@ export async function publishCandidate(id: string): Promise<AdminDataResult<null
     { publication_status: 'published', status: 'approved_draft' },
   )
   if (!result.ok) return result as AdminDataResult<null>
-  return { ok: true, data: null }
+  return { ok: true, data: null, source: 'db' as const }
 }
 
 export async function rejectCandidate(id: string, reason: string): Promise<AdminDataResult<null>> {
@@ -92,7 +92,7 @@ export async function rejectCandidate(id: string, reason: string): Promise<Admin
     { status: 'rejected', rejection_reason: reason },
   )
   if (!result.ok) return result as AdminDataResult<null>
-  return { ok: true, data: null }
+  return { ok: true, data: null, source: 'db' as const }
 }
 
 export function summarizeQueue(items: MarketplaceAdminQueueItem[]) {
