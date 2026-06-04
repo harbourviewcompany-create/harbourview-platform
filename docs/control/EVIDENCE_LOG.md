@@ -256,3 +256,26 @@ Expected Pass 1 evidence:
 **Operational conclusion:**
 - Build/typecheck/configured unit test blockers from the prior globe hardening pass are resolved locally.
 - Browser e2e/screenshot verification remains environment-blocked until Playwright or an equivalent browser runner is available.
+
+- Added a Signal Engine-only hardening migration that moves the admin RLS helper into a non-exposed `private` schema, pins `search_path`, forces RLS on the 14 canonical Signal Engine tables, rewrites policies to the private helper, and drops the exposed public helper functions.
+- Included a live Supabase Management API evidence collector for security advisors and Signal Engine-filtered logs with redaction.
+- Included a local static verifier for the hardening workspace.
+- Documented an execution plan covering evidence capture, migration execution, post-change advisor verification, rollback, and acceptance criteria.
+
+**Commands and results (UTC):**
+
+- `node scripts/signal-engine/verify-signal-engine-hardening.mjs` — PASS
+- `node scripts/signal-engine/fetch-live-supabase-signal-security.mjs --skip-logs --out /tmp/should-not-write.json` — BLOCKED as expected without `SUPABASE_ACCESS_TOKEN`; no live advisor/log evidence was written.
+- `npm run lint` — PASS
+- `npm run check:migrations` — FAIL on pre-existing duplicate migration prefix `20260601000000` for marketplace supply engine and dashboard preferences migrations; not introduced by this workspace.
+- `npm run test -- --passWithNoTests` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; not introduced by this workspace.
+- `npm run typecheck` — FAIL on current dashboard `CommandCentre` export/prop mismatch; not introduced by this workspace.
+- `npm run build` — FAIL on the same current dashboard `CommandCentre` export mismatch after successful compilation; not introduced by this workspace.
+- `node scripts/secret-scan.mjs` — PASS
+
+**Not run / blocked:**
+
+- Live Supabase advisor/log capture: BLOCKED because `SUPABASE_ACCESS_TOKEN` is not present in the agent environment.
+- Supabase migration push: NOT RUN from this environment; apply through the team-approved Supabase workflow after pre-change evidence capture.
+
+**Compliance & data handling:** No secrets, raw Supabase logs, JWTs, API keys, or private user data were committed. The live capture script redacts token-like and project REST path content before writing evidence files.
