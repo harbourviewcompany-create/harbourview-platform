@@ -112,9 +112,9 @@ function rowToScoring(r: Row): ScoringRecord {
     fitScore: num(r.fit_score),
     readinessScore: num(r.readiness_score),
     trustScore: num(r.trust_score),
-    routingPriority: num(r.routing_priority),
-    followUpPriority: num(r.follow_up_priority),
-    introductionPriority: num(r.introduction_priority),
+    routingPriority: str(r.routing_priority, 'low') as ScoringRecord['routingPriority'],
+    followUpPriority: str(r.follow_up_priority, 'when_ready') as ScoringRecord['followUpPriority'],
+    introductionPriority: str(r.introduction_priority, 'not_ready') as ScoringRecord['introductionPriority'],
     marketAccessRelevance: arr(r.market_access_relevance),
     scoredAt: str(r.scored_at),
     scoreDrivers: arr(r.score_drivers),
@@ -157,23 +157,22 @@ function rowToGraphEntity(r: Row): GraphEntity {
     id: str(r.id),
     type: str(r.type, 'source') as GraphEntity['type'],
     label: str(r.label),
-    markets: arr(r.markets),
-    categories: arr(r.categories),
-    trustScore: num(r.trust_score),
-    activeStatus: str(r.active_status, 'monitoring') as GraphEntity['activeStatus'],
-    notes: typeof r.notes === 'string' ? r.notes : undefined,
+    market: typeof r.market === 'string' ? r.market : undefined,
+    category: typeof r.category === 'string' ? r.category : undefined,
+    connectionCount: num(r.connection_count),
+    signalCount: num(r.signal_count),
+    lastActivity: typeof r.last_activity === 'string' ? r.last_activity : undefined,
   }
 }
 
 function rowToGraphEdge(r: Row): GraphEdge {
   return {
     id: str(r.id),
-    fromEntityId: str(r.from_entity_id),
-    toEntityId: str(r.to_entity_id),
-    relationshipType: str(r.relationship_type) as GraphEdge['relationshipType'],
-    strength: num(r.strength),
-    market: str(r.market),
-    notes: typeof r.notes === 'string' ? r.notes : undefined,
+    type: str(r.type, 'generated_signal') as GraphEdge['type'],
+    fromLabel: str(r.from_label),
+    toLabel: str(r.to_label),
+    strength: str(r.strength, 'weak') as GraphEdge['strength'],
+    evidenced: bool(r.evidenced),
     createdAt: str(r.created_at),
   }
 }
@@ -181,12 +180,12 @@ function rowToGraphEdge(r: Row): GraphEdge {
 function rowToFeedback(r: Row): FeedbackEvent {
   return {
     id: str(r.id),
-    outcomeType: str(r.outcome_type, 'signal_validated') as FeedbackEvent['outcomeType'],
+    outcomeType: str(r.outcome_type, 'reviewed') as FeedbackEvent['outcomeType'],
     counterpartyName: typeof r.counterparty_name === 'string' ? r.counterparty_name : undefined,
     market: str(r.market),
     category: str(r.category),
-    scoreImpact: typeof r.score_impact === 'number' ? r.score_impact : undefined,
-    routingImpact: typeof r.routing_impact === 'number' ? r.routing_impact : undefined,
+    scoreImpact: str(r.score_impact, 'neutral') as FeedbackEvent['scoreImpact'],
+    routingImpact: str(r.routing_impact),
     notes: typeof r.notes === 'string' ? r.notes : undefined,
     loggedAt: str(r.logged_at),
   }
