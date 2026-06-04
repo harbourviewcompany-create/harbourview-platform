@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaEvidence, listIaAgentTasks } from '@/lib/intelligence-automation/db'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 const EVIDENCE_STATUS: Record<string, string> = {
   pending:  'bg-zinc-800 text-zinc-300',
@@ -51,6 +52,8 @@ export default async function EvidenceActionsPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Evidence &amp; Actions</h1>
       </div>
+
+      <FixtureBanner isFixture={isFixture} />
 
       {/* Evidence Vault */}
       <section className="space-y-4">
@@ -152,5 +155,6 @@ export default async function EvidenceActionsPage() {
         </div>
       </section>
     </div>
-  )
+  )  const isFixture = evidenceRes.source === 'fixture' || tasksRes.source === 'fixture'
+
 }
