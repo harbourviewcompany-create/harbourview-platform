@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaSignals } from '@/lib/intelligence-automation/db'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 const STAGE_LABEL: Record<string, string> = {
   captured: 'pending',
@@ -59,6 +60,8 @@ export default async function SignalsPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Extracted Signals</h1>
       </div>
+
+      <FixtureBanner isFixture={isFixture} />
 
       <div className="flex gap-3 flex-wrap">
         {Object.entries(counts).map(([status, n]) => (
