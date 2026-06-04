@@ -57,6 +57,18 @@ export function DealDashboardClient({ records: initialRecords, events }: Props) 
     }
   }
 
+  if (records.length === 0) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-[#080f1a] p-12 text-center">
+        <p className="text-lg font-semibold text-[#f5f1e8]">No deal records yet</p>
+        <p className="mt-2 text-sm text-white/45">
+          Deal records appear here when introductions are made via the routing pipeline.
+          The genetics_routing_records table is empty.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid gap-4 md:grid-cols-4">
