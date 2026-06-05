@@ -13,7 +13,7 @@ export type AdminDataError = {
 
 export type AdminDataResult<T> =
   | { ok: true; data: T; source: 'db' | 'fixture' }
-  | { ok: false; error: AdminDataError };
+  | { ok: false; error: AdminDataError; source?: string };
 
 export function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
   if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') {
