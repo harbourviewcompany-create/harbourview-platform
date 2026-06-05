@@ -38,8 +38,6 @@ export default async function AdaptersPage() {
     const p: Record<string, number> = { error: 0, degraded: 1, not_tested: 2, healthy: 3 }
     return (p[a.health] ?? 9) - (p[b.health] ?? 9)
   })
-
-  const isFixture = result.source === 'fixture'
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>
