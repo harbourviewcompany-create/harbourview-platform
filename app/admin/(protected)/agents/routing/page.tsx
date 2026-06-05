@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaScoringRecords } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 // Map string priority to numeric representation for display/sorting
 function priorityNum(p: string): number {
   if (p === 'high')   return 80
@@ -33,7 +31,6 @@ export default async function RoutingPage() {
 
   const result  = await listIaScoringRecords()
   const records = result.ok ? result.data : []
-  const isFixture = result.ok && result.source === 'fixture'
 
   const sorted = [...records].sort((a, b) => priorityNum(b.routingPriority) - priorityNum(a.routingPriority))
 
@@ -55,10 +52,7 @@ export default async function RoutingPage() {
         <h1 className="text-2xl font-bold text-zinc-100">Predictive Routing</h1>
         <p className="text-sm text-zinc-500 mt-1">Counterparties ranked by routing priority score — highest introduction and commercial fit first.</p>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="flex gap-3 flex-wrap">
+<div className="flex gap-3 flex-wrap">
         {Object.entries(counts).filter(([, n]) => n > 0).map(([tier, n]) => {
           const { label, cls } = TIER_LABEL(tier === 'urgent' ? 80 : tier === 'high' ? 60 : tier === 'medium' ? 40 : 0)
           return (
