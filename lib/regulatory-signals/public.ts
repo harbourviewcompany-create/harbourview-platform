@@ -57,10 +57,10 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
     regulator_name: typeof r.source === 'string' ? r.source : null,
     signal_date: dateStr,
     source_tier: 'tier_2_professional',
-    source_type: 'industry_intelligence',
+    source_type: 'specialist_publication' as const,
     canonical_source_url: typeof r.url === 'string' ? r.url : null,
-    public_summary: typeof r.summary === 'string' ? r.summary : null,
-    public_implication: null,
+    public_summary: typeof r.summary === 'string' ? r.summary : 'No summary available.',
+    public_implication: 'Review this signal for commercial relevance to your jurisdiction.',
     published_at: dateStr,
     last_reviewed_at: dateStr,
   }

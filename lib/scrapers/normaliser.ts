@@ -68,18 +68,18 @@ function rawPassthrough(items: RawScrapedItem[], reason: string): AINormalisedLi
     category: inferCategory(item.sourceId),
     productType: item.rawTitle.split(' ').slice(0, 5).join(' '),
     region: 'north_america',
-    locationCountry: item.rawLocation ?? null,
+    locationCountry: item.rawLocation ?? undefined,
     priceAmount: item.rawPrice
-      ? parseFloat(item.rawPrice.replace(/[^0-9.]/g, '')) || null
-      : null,
+      ? parseFloat(item.rawPrice.replace(/[^0-9.]/g, '')) || undefined
+      : undefined,
     priceCurrency: item.rawPrice?.includes('CAD')
       ? 'CAD'
       : item.rawPrice?.includes('EUR')
       ? 'EUR'
       : item.rawPrice
       ? 'USD'
-      : null,
-    condition: item.rawCondition ?? null,
+      : undefined,
+    condition: item.rawCondition ?? undefined,
     sellerType: 'other',
     tags: [],
     confidence: 0.25,

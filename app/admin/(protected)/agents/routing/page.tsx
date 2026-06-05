@@ -1,6 +1,7 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaScoringRecords } from '@/lib/intelligence-automation/db'
+import type { ScoringRecord } from '@/lib/intelligence-automation/types'
 // ia_scoring_records stores routing/follow_up/introduction_priority
 // as text ('high'|'medium'|'low') — convert for display
 function priorityToScore(p: string | undefined): number {
@@ -38,16 +39,16 @@ export default async function RoutingPage() {
   await requireAdminAuth()
 
   const result  = await listIaScoringRecords()
-  const records = result.data ?? []
+  const records = result.ok ? result.data : []
 
   const sorted = [...records].sort((a, b) =>
     priorityToScore(b.routingPriority) - priorityToScore(a.routingPriority)
   )
 
   const counts = {
-    high:   records.filter(r => r.routingPriority === 'high').length,
-    medium: records.filter(r => r.routingPriority === 'medium').length,
-    low:    records.filter(r => r.routingPriority === 'low' || !r.routingPriority).length,
+    high:   records.filter((r: ScoringRecord) => r.routingPriority === 'high').length,
+    medium: records.filter((r: ScoringRecord) => r.routingPriority === 'medium').length,
+    low:    records.filter((r: ScoringRecord) => r.routingPriority === 'low' || !r.routingPriority).length,
   }
 
   return (
@@ -79,7 +80,7 @@ export default async function RoutingPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-8 text-center text-xs text-zinc-500">
             No scoring records found.
           </div>
-        ) : sorted.map(r => (
+        ) : sorted.map((r: ScoringRecord) => (
           <div key={r.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 pt-0.5">
@@ -91,7 +92,7 @@ export default async function RoutingPage() {
                     <div className="text-zinc-100 text-sm font-semibold">{r.counterpartyName}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-zinc-500 font-mono">{r.counterpartyRole}</span>
-                      {r.marketAccessRelevance.slice(0, 2).map(m => (
+                      {r.marketAccessRelevance.slice(0, 2).map((m: string) => (
                         <span key={m} className="text-xs bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">{m}</span>
                       ))}
                     </div>
@@ -128,7 +129,7 @@ export default async function RoutingPage() {
                 </div>
                 {r.scoreDrivers.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {r.scoreDrivers.map(d => (
+                    {r.scoreDrivers.map((d: string) => (
                       <span key={d} className="text-xs bg-zinc-800/60 text-zinc-500 px-2 py-0.5 rounded font-mono">{d}</span>
                     ))}
                   </div>
