@@ -13,8 +13,10 @@ export type AdminDataError = {
 
 // source: 'db'      — data came from a live Supabase query
 // source: 'fixture' — DB was empty / unreachable; fixture data returned
+export type AdminDataSource = 'db' | 'fixture';
+
 export type AdminDataResult<T> =
-  | { ok: true; data: T }
+  | { ok: true; data: T; source?: AdminDataSource }
   | { ok: false; error: AdminDataError };
 
 // Auth is already enforced by requireAdminAuth() on every admin page.
