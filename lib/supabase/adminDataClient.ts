@@ -20,7 +20,7 @@ export type AdminDataResult<T> =
 // Auth is already enforced by requireAdminAuth() on every admin page.
 // The only runtime requirement here is SUPABASE_SERVICE_ROLE_KEY — without it
 // we cannot bypass RLS on IA tables and must fall back to fixtures.
-function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
+export function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!serviceRoleKey) {
     return {
