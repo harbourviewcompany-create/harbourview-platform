@@ -33,6 +33,7 @@ function deriveEducationTracks(state: DashboardPanelState): TrackData {
       patient: {
         available: true,
         label: 'Patient education context available for review. No patient education context (subject to review) or registration claim is made on this public surface without source-backed review. Patient registration, consent protocols, and product education materials are subject to jurisdiction-specific review.',
+        detail: 'Patient-facing materials are subject to jurisdiction-specific review. No registration, consent, or patient program claim is made on this public surface without source-backed review.',
       },
       operator: {
         available: true,

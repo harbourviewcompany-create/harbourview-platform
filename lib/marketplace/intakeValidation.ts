@@ -16,7 +16,7 @@ export const captureInquiryTypeSchema = z.enum([
   'genetics_access_request',
   'genetics_program_submission',
   'contact_general',
-, 'clinical_education_request'])
+  'clinical_education_request'])
 
 const botFrictionFields = {
   hp_field: z.string().optional().default(''),

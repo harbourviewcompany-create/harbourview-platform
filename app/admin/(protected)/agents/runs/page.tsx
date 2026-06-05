@@ -23,6 +23,7 @@ export default async function AgentRunsPage() {
 
   const result   = await listIaFeedbackEvents()
   const events = result.ok ? result.data : []
+  const isFixture = result.ok && result.source === 'fixture'
   const sorted   = [...events].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
 
   const byOutcome = events.reduce<Record<string, number>>((acc, e) => {

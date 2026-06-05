@@ -15,6 +15,7 @@ export default async function WatchersPage() {
 
   const result  = await listIaSources()
   const sources = result.ok ? result.data : []
+  const isFixture = result.ok && result.source === 'fixture'
 
   const counts = {
     active:      sources.filter(s => s.status === 'active').length,

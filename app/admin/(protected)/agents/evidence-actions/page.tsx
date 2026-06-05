@@ -42,7 +42,7 @@ export default async function EvidenceActionsPage() {
     return (pp[a.priority] ?? 9) - (pp[b.priority] ?? 9)
   })
 
-  const isFixture = evidenceRes.source === 'fixture' || tasksRes.source === 'fixture'
+  const isFixture = (evidenceRes.ok && evidenceRes.source === 'fixture') || (tasksRes.ok && tasksRes.source === 'fixture')
   return (
     <div className="p-6 max-w-7xl space-y-8">
       <div>

@@ -12,7 +12,6 @@ const DOC_STATUS: Record<string, string> = {
 
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-amber-500' : score >= 40 ? 'bg-orange-500' : 'bg-red-500'
-  const isFixture = scoringRes.source === 'fixture' || counterpartiesRes.source === 'fixture'
   return (
     <div className="flex items-center gap-2">
       <div className="w-14 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
@@ -33,6 +32,8 @@ export default async function ScoringMemoryPage() {
 
   const scores = scoringRes.ok ? scoringRes.data : []
   const counterparties = counterpartiesRes.ok ? counterpartiesRes.data : []
+
+  const isFixture = scoringRes.ok && scoringRes.source === 'fixture' || counterpartiesRes.ok && counterpartiesRes.source === 'fixture'
 
   const sortedScores = [...scores].sort((a, b) => {
     const order = { high: 2, medium: 1, low: 0 }

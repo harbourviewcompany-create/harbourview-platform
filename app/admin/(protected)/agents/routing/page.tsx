@@ -33,6 +33,7 @@ export default async function RoutingPage() {
 
   const result  = await listIaScoringRecords()
   const records = result.ok ? result.data : []
+  const isFixture = result.ok && result.source === 'fixture'
 
   const sorted = [...records].sort((a, b) => priorityNum(b.routingPriority) - priorityNum(a.routingPriority))
 

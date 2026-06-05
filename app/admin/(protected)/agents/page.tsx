@@ -55,7 +55,7 @@ export default async function AgentsHubPage() {
     .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
     .slice(0, 6)
 
-  const isFixture = signalsRes.source === 'fixture' || tasksRes.source === 'fixture' || sourcesRes.source === 'fixture' || scoringRes.source === 'fixture' || feedbackRes.source === 'fixture'
+  const isFixture = (signalsRes.ok && signalsRes.source === 'fixture') || (tasksRes.ok && tasksRes.source === 'fixture') || (sourcesRes.ok && sourcesRes.source === 'fixture') || (scoringRes.ok && scoringRes.source === 'fixture') || (feedbackRes.ok && feedbackRes.source === 'fixture')
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>

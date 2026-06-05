@@ -27,7 +27,7 @@ export default async function AdaptersPage() {
 
   const result  = await listIaSources()
   const sources = result.ok ? result.data : []
-
+  const isFixture = result.ok && result.source === 'fixture'
   const withHealth = sources.map(s => ({ ...s, health: STATUS_TO_HEALTH[s.status] ?? 'not_tested' }))
 
   const counts = {

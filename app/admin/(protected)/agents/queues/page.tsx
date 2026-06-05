@@ -22,6 +22,7 @@ export default async function QueuesPage() {
 
   const result = await listIaAgentTasks()
   const items = result.ok ? result.data : []
+  const isFixture = result.ok && result.source === 'fixture'
 
   const active = items.filter(i => ['pending', 'in_progress'].includes(i.status))
   const sorted = [...active].sort((a, b) => {

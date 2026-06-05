@@ -50,7 +50,7 @@ export default async function SignalsPage() {
     return (cp[a.confidence] ?? 9) - (cp[b.confidence] ?? 9)
   })
 
-  const isFixture = result.source === 'fixture'
+  const isFixture = result.ok && result.source === 'fixture'
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>
