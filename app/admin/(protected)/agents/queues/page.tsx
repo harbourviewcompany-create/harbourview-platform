@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaAgentTasks } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const PRIORITY: Record<string, string> = {
   urgent: 'bg-red-950 text-red-400',
   high:   'bg-orange-950 text-orange-400',
@@ -22,7 +20,6 @@ export default async function QueuesPage() {
 
   const result = await listIaAgentTasks()
   const items = result.ok ? result.data : []
-  const isFixture = result.ok && result.source === 'fixture'
 
   const active = items.filter(i => ['pending', 'in_progress'].includes(i.status))
   const sorted = [...active].sort((a, b) => {
@@ -49,10 +46,7 @@ export default async function QueuesPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Agent Queue</h1>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="flex gap-3 flex-wrap">
+<div className="flex gap-3 flex-wrap">
         {[
           { label: 'urgent',      value: counts.urgent,      cls: 'bg-red-950 text-red-400' },
           { label: 'pending',     value: counts.pending,     cls: 'bg-zinc-800 text-zinc-300' },
