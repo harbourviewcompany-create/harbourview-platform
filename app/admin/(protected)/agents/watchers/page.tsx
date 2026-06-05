@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaSources } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const STATUS: Record<string, string> = {
   active:    'bg-green-950 text-green-400',
   paused:    'bg-amber-950 text-amber-400',
@@ -15,7 +13,6 @@ export default async function WatchersPage() {
 
   const result  = await listIaSources()
   const sources = result.ok ? result.data : []
-  const isFixture = result.ok && result.source === 'fixture'
 
   const counts = {
     active:      sources.filter(s => s.status === 'active').length,
@@ -36,10 +33,7 @@ export default async function WatchersPage() {
           <h1 className="text-2xl font-bold text-zinc-100">Intelligence Watchers</h1>
         </div>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="flex gap-3 flex-wrap">
+<div className="flex gap-3 flex-wrap">
         {Object.entries(counts).map(([status, n]) => (
           <div key={status} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS[status]}`}>{status}</span>
