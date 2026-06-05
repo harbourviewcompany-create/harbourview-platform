@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaSignals } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const STAGE_LABEL: Record<string, string> = {
   captured: 'pending',
   review:   'pending',
@@ -49,8 +47,6 @@ export default async function SignalsPage() {
     if (a.stage !== b.stage) return (p[a.stage] ?? 9) - (p[b.stage] ?? 9)
     return (cp[a.confidence] ?? 9) - (cp[b.confidence] ?? 9)
   })
-
-  const isFixture = result.ok && result.source === 'fixture'
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>
@@ -61,10 +57,7 @@ export default async function SignalsPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Extracted Signals</h1>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="flex gap-3 flex-wrap">
+<div className="flex gap-3 flex-wrap">
         {Object.entries(counts).map(([status, n]) => (
           <div key={status} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${REVIEW[status]}`}>{status}</span>
