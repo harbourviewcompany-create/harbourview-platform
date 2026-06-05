@@ -4,7 +4,7 @@
 
 import { getEnabledSources } from './sources'
 import { fetchSourceHtml } from './fetcher'
-import { parseHtmlCards } from './parser'
+import { parseSource } from './parser'
 import { normaliseWithAI } from './normaliser'
 import { deduplicateItems } from './deduplication'
 import { fetchExistingFingerprints, insertCandidates } from './ingestor'
@@ -55,8 +55,8 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
       continue
     }
 
-    // Parse
-    const rawItems = parseHtmlCards(fetchResult.html!, source).slice(0, MAX_ITEMS_PER_SOURCE)
+    // Parse — dispatches to rss-feed, html-table, or html-card parser
+    const rawItems = parseSource(fetchResult.html!, source).slice(0, MAX_ITEMS_PER_SOURCE)
 
     // Deduplicate
     const { fresh, duplicateCount } = deduplicateItems(rawItems, existingFingerprints)
@@ -74,14 +74,14 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
       continue
     }
 
-    // Normalise via AI
+    // Normalise via AI (with automatic passthrough fallback if key is missing/invalid)
     const normalisedItems = await normaliseWithAI(fresh)
 
-    // Pair raw + normalised (zip by index — same order guaranteed)
+    // Pair raw + normalised, filter low-confidence
     const pairs = fresh
       .slice(0, normalisedItems.length)
       .map((raw, i) => ({ raw, normalised: normalisedItems[i] }))
-      .filter(({ normalised }) => normalised.confidence >= 0.4) // drop low-confidence
+      .filter(({ normalised }) => normalised.confidence >= 0.25) // 0.25 catches passthrough items too
 
     // Ingest
     const { inserted, errors } = await insertCandidates(pairs)
