@@ -7,32 +7,27 @@ type AdminDataClient = {
 };
 
 export type AdminDataError = {
-  code: 'admin_review_disabled' | 'service_role_missing' | 'request_failed';
+  code: 'service_role_missing' | 'request_failed';
   message: string;
 };
 
+// source: 'db'      — data came from a live Supabase query
+// source: 'fixture' — DB was empty / unreachable; fixture data returned
 export type AdminDataResult<T> =
   | { ok: true; data: T; source: 'db' | 'fixture' }
-  | { ok: false; error: AdminDataError; source?: string };
+  | { ok: false; error: AdminDataError };
 
-export function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
-  if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') {
-    return {
-      ok: false,
-      error: {
-        code: 'admin_review_disabled',
-        message: 'Admin inquiry review is disabled. Set HARBOURVIEW_ADMIN_REVIEW_ENABLED=true in the server environment.',
-      },
-    };
-  }
-
+// Auth is already enforced by requireAdminAuth() on every admin page.
+// The only runtime requirement here is SUPABASE_SERVICE_ROLE_KEY — without it
+// we cannot bypass RLS on IA tables and must fall back to fixtures.
+function getAdminDataClient(): { ok: true; data: AdminDataClient } | { ok: false; error: AdminDataError } {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!serviceRoleKey) {
     return {
       ok: false,
       error: {
         code: 'service_role_missing',
-        message: 'Admin inquiry review requires SUPABASE_SERVICE_ROLE_KEY in the server environment.',
+        message: 'SUPABASE_SERVICE_ROLE_KEY is not set. Add it to Vercel environment variables (Production + Preview). IA admin pages will show fixture data until it is configured.',
       },
     };
   }
@@ -61,55 +56,39 @@ export async function fetchAdminSupabaseJson<T>(path: string): Promise<AdminData
 
   const text = await response.text();
   const bodyPreview = text.slice(0, 240);
+
   if (!response.ok) {
-    console.error('harbourview_admin_data_request_failed', {
+    console.error('[harbourview:admin] supabase request failed', {
       status: response.status,
-      statusText: response.statusText,
       path,
       body: bodyPreview,
     });
-
     return {
       ok: false,
-      error: {
-        code: 'request_failed',
-        message: `Admin inquiry review could not read Supabase data. Supabase returned ${response.status}.`,
-      },
+      error: { code: 'request_failed', message: `Supabase returned ${response.status} for ${path}` },
     };
   }
 
-  if (!text) {
-    return { ok: true, data: null as T, source: 'db' };
-  }
+  if (!text) return { ok: true, data: null as T, source: 'db' };
 
   try {
     return { ok: true, data: JSON.parse(text) as T, source: 'db' };
   } catch {
-    console.error('harbourview_admin_data_request_failed', {
-      status: response.status,
-      statusText: response.statusText,
-      path,
-      body: bodyPreview,
-      parseError: 'invalid_json',
-    });
-
+    console.error('[harbourview:admin] invalid JSON from supabase', { path, body: bodyPreview });
     return {
       ok: false,
-      error: {
-        code: 'request_failed',
-        message: 'Admin inquiry review received invalid JSON from Supabase upstream.',
-      },
+      error: { code: 'request_failed', message: 'Supabase returned invalid JSON' },
     };
   }
 }
 
-/** Type-safe error accessor for AdminDataResult after !result.ok check */
+/** Type-safe error accessor */
 export function getAdminError(result: AdminDataResult<unknown>): AdminDataError {
-  if (result.ok) throw new Error('getAdminError called on ok result')
-  return (result as Extract<AdminDataResult<unknown>, { ok: false }>).error
+  if (result.ok) throw new Error('getAdminError called on ok result');
+  return (result as Extract<AdminDataResult<unknown>, { ok: false }>).error;
 }
 
-/** Mutation variant — supports PATCH/POST/DELETE with a body. */
+/** Mutation variant — PATCH/POST/DELETE with body */
 export async function fetchAdminSupabaseJsonMutation<T>(
   path: string,
   method: 'PATCH' | 'POST' | 'DELETE',
@@ -134,10 +113,7 @@ export async function fetchAdminSupabaseJsonMutation<T>(
   if (!response.ok) {
     return {
       ok: false,
-      error: {
-        code: 'request_failed',
-        message: `Supabase mutation returned ${response.status}: ${text.slice(0, 240)}`,
-      },
+      error: { code: 'request_failed', message: `Supabase mutation returned ${response.status}: ${text.slice(0, 240)}` },
     };
   }
 
