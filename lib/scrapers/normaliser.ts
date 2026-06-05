@@ -1,9 +1,9 @@
 // lib/scrapers/normaliser.ts
 // AI-powered normaliser. Sends raw scraped items to Claude and returns
 // structured, public-safe listing fields.
-// Uses claude-sonnet-4-20250514 via the Anthropic API.
+// Falls back to raw passthrough if the API key is missing, unpaid, or errors.
 
-import type { RawScrapedItem, AINormalisedListing } from './types'
+import type { RawScrapedItem, AINormalisedListing, ScraperCategory } from './types'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-20250514'
@@ -47,13 +47,59 @@ Return JSON with this exact shape:
 }
 `
 
+/** Heuristic category mapping from source ID — used in raw passthrough mode */
+function inferCategory(sourceId: string): ScraperCategory {
+  if (sourceId.includes('packaging') || sourceId.includes('dragon') || sourceId.includes('mj-wholesale') || sourceId.includes('medlock')) return 'packaging'
+  if (sourceId.includes('lab') || sourceId.includes('certified') || sourceId.includes('labstat') || sourceId.includes('anab')) return 'labs_testing'
+  if (sourceId.includes('logistic') || sourceId.includes('transport') || sourceId.includes('ziing') || sourceId.includes('mmm')) return 'logistics'
+  if (sourceId.includes('service') || sourceId.includes('strateg') || sourceId.includes('holland') || sourceId.includes('verdant')) return 'professional_services'
+  if (sourceId.includes('cultivation') || sourceId.includes('grower') || sourceId.includes('horticulture')) return 'cultivation_equipment'
+  if (sourceId.includes('processing') || sourceId.includes('machinio') || sourceId.includes('bidspotter')) return 'processing_equipment'
+  if (sourceId.includes('eu-gmp') || sourceId.includes('export')) return 'export_ready'
+  return 'used_surplus'
+}
+
+/** Raw passthrough — no AI, requires manual review before anything publishes */
+function rawPassthrough(items: RawScrapedItem[], reason: string): AINormalisedListing[] {
+  console.warn(`scraper_normaliser: passthrough mode — ${reason}`)
+  return items.map((item) => ({
+    title: item.rawTitle,
+    description: item.rawDescription || item.rawTitle,
+    category: inferCategory(item.sourceId),
+    productType: item.rawTitle.split(' ').slice(0, 5).join(' '),
+    region: 'north_america',
+    locationCountry: item.rawLocation ?? null,
+    priceAmount: item.rawPrice
+      ? parseFloat(item.rawPrice.replace(/[^0-9.]/g, '')) || null
+      : null,
+    priceCurrency: item.rawPrice?.includes('CAD')
+      ? 'CAD'
+      : item.rawPrice?.includes('EUR')
+      ? 'EUR'
+      : item.rawPrice
+      ? 'USD'
+      : null,
+    condition: item.rawCondition ?? null,
+    sellerType: 'other',
+    tags: [],
+    confidence: 0.25,
+    publicSafe: false,
+    redactionNote: `Raw passthrough (${reason}) — manual review required before publishing.`,
+  }))
+}
+
+/** Check whether an HTTP status means the API key is dead/unpaid */
+function isAuthOrBillingError(status: number): boolean {
+  return status === 401 || status === 402 || status === 403
+}
+
 export async function normaliseWithAI(
   items: RawScrapedItem[],
 ): Promise<AINormalisedListing[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY
+
   if (!apiKey) {
-    console.warn('scraper_normaliser: ANTHROPIC_API_KEY not set — returning empty normalisations')
-    return []
+    return rawPassthrough(items, 'no ANTHROPIC_API_KEY set')
   }
 
   const results: AINormalisedListing[] = []
@@ -75,23 +121,36 @@ export async function normaliseWithAI(
         }),
       })
 
+      // API key dead or unpaid — fall back entire remaining batch immediately
+      if (isAuthOrBillingError(response.status)) {
+        const errText = await response.text().catch(() => '')
+        console.warn(
+          `scraper_normaliser: API key invalid or unpaid (HTTP ${response.status}) — switching to raw passthrough for remaining ${items.length - results.length} items`,
+          errText.slice(0, 200),
+        )
+        const remaining = items.slice(results.length)
+        return [...results, ...rawPassthrough(remaining, `API key error ${response.status}`)]
+      }
+
+      // Other non-2xx (rate limit, server error) — skip this item, continue
       if (!response.ok) {
-        console.warn(`scraper_normaliser: API error ${response.status} for item "${item.rawTitle}"`)
+        console.warn(`scraper_normaliser: API error ${response.status} for "${item.rawTitle}" — skipping item`)
+        // Push a passthrough for just this item so we don't lose it
+        results.push(...rawPassthrough([item], `API error ${response.status}`))
         continue
       }
 
       const data = await response.json()
       const text = data?.content?.[0]?.text ?? ''
-
-      // Strip any accidental markdown fences
       const clean = text.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean) as AINormalisedListing
       results.push(parsed)
     } catch (err) {
       console.warn(
-        `scraper_normaliser: failed to normalise "${item.rawTitle}":`,
+        `scraper_normaliser: exception for "${item.rawTitle}" — pushing raw passthrough:`,
         err instanceof Error ? err.message : String(err),
       )
+      results.push(...rawPassthrough([item], 'exception during normalisation'))
     }
   }
 
