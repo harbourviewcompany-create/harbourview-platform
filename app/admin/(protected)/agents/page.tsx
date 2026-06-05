@@ -1,6 +1,5 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
 import {
   listIaSignals,
   listIaAgentTasks,
@@ -54,18 +53,13 @@ export default async function AgentsHubPage() {
   const recentEvents = [...feedback]
     .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
     .slice(0, 6)
-
-  const isFixture = (signalsRes.ok && signalsRes.source === 'fixture') || (tasksRes.ok && tasksRes.source === 'fixture') || (sourcesRes.ok && sourcesRes.source === 'fixture') || (scoringRes.ok && scoringRes.source === 'fixture') || (feedbackRes.ok && feedbackRes.source === 'fixture')
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-100">Intelligence Agents</h1>
         <p className="text-sm text-zinc-500 mt-1">Watcher management, signal review, scoring updates, routing, and execution tasks.</p>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Active Sources',    value: activeWatchers, sub: `of ${sources.length} total` },
           { label: 'Pending Signals',   value: pendingSignals,  sub: 'awaiting review' },
