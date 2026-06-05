@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaFeedbackEvents } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const OUTCOME_COLORS: Record<string, string> = {
   introduction_made:    'bg-green-950 text-green-400',
   signal_validated:     'bg-blue-950 text-blue-400',
@@ -23,7 +21,6 @@ export default async function AgentRunsPage() {
 
   const result   = await listIaFeedbackEvents()
   const events = result.ok ? result.data : []
-  const isFixture = result.ok && result.source === 'fixture'
   const sorted   = [...events].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
 
   const byOutcome = events.reduce<Record<string, number>>((acc, e) => {
@@ -43,10 +40,7 @@ export default async function AgentRunsPage() {
         <h1 className="text-2xl font-bold text-zinc-100">Intelligence Event Log</h1>
         <p className="text-sm text-zinc-500 mt-1">Logged outcomes, feedback events, and scoring impacts from agent operations.</p>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total Events',      value: events.length },
           { label: 'Outcome Types',     value: Object.keys(byOutcome).length },
