@@ -28,8 +28,6 @@ export default async function AgentRunsPage() {
     return acc
   }, {})
   const topOutcome = Object.entries(byOutcome).sort((a, b) => b[1] - a[1])[0]
-
-  const isFixture = result.source === 'fixture'
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>
