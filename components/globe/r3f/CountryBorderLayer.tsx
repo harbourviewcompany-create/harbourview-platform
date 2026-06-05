@@ -100,12 +100,24 @@ export function CountryBorderLayer() {
   // 1 CSS-pixel borders are crisp and cartographically appropriate.
   // -------------------------------------------------------------------------
 
+  const borderShadowMat = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: new THREE.Color('#4f3212'),
+        transparent: true,
+        opacity: 0.62,
+        depthTest: true,
+        depthWrite: false,
+      }),
+    [],
+  )
+
   const worldMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#d7bd72'),
+        color: new THREE.Color('#f3d88a'),
         transparent: true,
-        opacity: 0.84,
+        opacity: 0.82,
         depthTest: true,
         depthWrite: false,
       }),
@@ -115,9 +127,9 @@ export function CountryBorderLayer() {
   const usMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#f1dfaa'),
+        color: new THREE.Color('#fff0b8'),
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.92,
         depthTest: true,
         depthWrite: false,
       }),
@@ -127,9 +139,9 @@ export function CountryBorderLayer() {
   const caMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#d7bd72'),
+        color: new THREE.Color('#f3d88a'),
         transparent: true,
-        opacity: 0.84,
+        opacity: 0.82,
         depthTest: true,
         depthWrite: false,
       }),
@@ -138,6 +150,10 @@ export function CountryBorderLayer() {
 
   return (
     <group renderOrder={30} userData={{ layer: 'country-and-subdivision-borders' }}>
+      {/* Bronze underlay creates the darker machined groove beside the reflective edge. */}
+      <lineSegments geometry={worldGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
+      <lineSegments geometry={usGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
+      <lineSegments geometry={caGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
       {/* All world country borders — 1 draw call */}
       <lineSegments
         geometry={worldGeom}

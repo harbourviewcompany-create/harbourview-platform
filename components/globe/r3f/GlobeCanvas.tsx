@@ -118,13 +118,13 @@ export function GlobeCanvas({
       >
         <color attach="background" args={['#010810']} />
 
-        {/* Lights: drop the sunset HDRI (CDN hit, warm cast) in favour of
-            a hemisphere light that reads as cold deep space. */}
-        <ambientLight intensity={0.54} color="#fff5dc" />
-        <directionalLight position={[4, 3, 5]} intensity={1.45} color="#fff8e8" />
-        <directionalLight position={[-3, 1, -4]} intensity={0.24} color="#d8ca82" />
-        <directionalLight position={[-4, -1, -3]} intensity={0.28} color="#b8a45f" />
-        <hemisphereLight args={['#192942', '#020812', 0.36]} />
+        {/* Metallic plate lighting: low ambient to avoid flat gold, a strong
+            champagne key, and soft bronze/cool rim fills for reflective falloff. */}
+        <ambientLight intensity={0.24} color="#f4dfad" />
+        <directionalLight position={[5.5, 3.8, 4.2]} intensity={2.35} color="#fff3c4" />
+        <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.46} color="#c99f4a" />
+        <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.32} color="#8fa7c8" />
+        <hemisphereLight args={['#243b5e', '#080409', 0.42]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
