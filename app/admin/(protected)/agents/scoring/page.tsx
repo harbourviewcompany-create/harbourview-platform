@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaScoringRecords, listIaCounterparties } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const DOC_STATUS: Record<string, string> = {
   complete:    'bg-green-950 text-green-400',
   partial:     'bg-amber-950 text-amber-400',
@@ -33,8 +31,6 @@ export default async function ScoringMemoryPage() {
   const scores = scoringRes.ok ? scoringRes.data : []
   const counterparties = counterpartiesRes.ok ? counterpartiesRes.data : []
 
-  const isFixture = scoringRes.ok && scoringRes.source === 'fixture' || counterpartiesRes.ok && counterpartiesRes.source === 'fixture'
-
   const sortedScores = [...scores].sort((a, b) => {
     const order = { high: 2, medium: 1, low: 0 }
     return (order[b.routingPriority as keyof typeof order] ?? 0) - (order[a.routingPriority as keyof typeof order] ?? 0)
@@ -51,10 +47,7 @@ export default async function ScoringMemoryPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Scoring &amp; Memory</h1>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      {/* Scoring */}
+{/* Scoring */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-300">Counterparty Scores</h2>
