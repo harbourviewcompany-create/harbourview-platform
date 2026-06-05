@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaEvidence, listIaAgentTasks } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const EVIDENCE_STATUS: Record<string, string> = {
   pending:  'bg-zinc-800 text-zinc-300',
   reviewed: 'bg-blue-950 text-blue-400',
@@ -41,8 +39,6 @@ export default async function EvidenceActionsPage() {
     if (a.status !== b.status) return (sp[a.status] ?? 9) - (sp[b.status] ?? 9)
     return (pp[a.priority] ?? 9) - (pp[b.priority] ?? 9)
   })
-
-  const isFixture = (evidenceRes.ok && evidenceRes.source === 'fixture') || (tasksRes.ok && tasksRes.source === 'fixture')
   return (
     <div className="p-6 max-w-7xl space-y-8">
       <div>
@@ -53,10 +49,7 @@ export default async function EvidenceActionsPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Evidence &amp; Actions</h1>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      {/* Evidence Vault */}
+{/* Evidence Vault */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-300">Evidence Vault</h2>
