@@ -1,4 +1,3 @@
-'use server'
 import { requireAdminAuth } from '@/lib/auth/adminGuard'
 import { getAdminDataClient } from '@/lib/supabase/adminDataClient'
 import IntakeQueueClient from './IntakeQueueClient'
