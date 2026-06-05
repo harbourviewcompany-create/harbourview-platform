@@ -6,14 +6,16 @@ type AdminDataClient = {
   serviceRoleKey: string;
 };
 
+export type AdminDataSource = 'db' | 'fixture' | 'offline' | 'error';
+
 export type AdminDataError = {
   code: 'admin_review_disabled' | 'service_role_missing' | 'request_failed';
   message: string;
 };
 
 export type AdminDataResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: AdminDataError };
+  | { ok: true; data: T; source?: AdminDataSource }
+  | { ok: false; error: AdminDataError; source?: AdminDataSource };
 
 export function getAdminDataClient(): AdminDataResult<AdminDataClient> {
   if (process.env.HARBOURVIEW_ADMIN_REVIEW_ENABLED !== 'true') {
