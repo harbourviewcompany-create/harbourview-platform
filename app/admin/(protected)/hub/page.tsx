@@ -5,6 +5,7 @@ import { getAdminDataClient } from '@/lib/supabase/adminDataClient';
 export const dynamic = 'force-dynamic';
 
 const dashboardCards = [
+  { title: 'Intake Queue', href: '/admin/marketplace/intake-queue', eyebrow: 'Seller submissions', description: 'Review and approve incoming seller submissions from the marketplace intake form. Approve to publish live listings.', status: 'Live — Supabase backed' },
   { title: 'Marketplace inquiries', href: '/admin/inquiries', eyebrow: 'Inbound queue', description: 'Review buyer requests, seller submissions, quote routing requests and operator response status.', status: 'Supabase-backed when admin review is enabled' },
   { title: 'Listing provenance', href: '/admin/listings', eyebrow: 'Private review', description: 'Inspect internal source, evidence, availability and seller authorization context before public exposure.', status: 'Protected provenance surface' },
   { title: 'Deal dashboard', href: '/admin/deal-dashboard', eyebrow: 'Introduction routing', description: 'Monitor active genetics-routing introductions, stalled deals, prime-score opportunities and deal status movement.', status: 'Admin/operator mutation path required' },

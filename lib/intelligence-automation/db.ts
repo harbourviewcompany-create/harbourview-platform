@@ -169,7 +169,7 @@ function rowToGraphEntity(r: Row): GraphEntity {
 function rowToGraphEdge(r: Row): GraphEdge {
   return {
     id: str(r.id),
-    type: str(r.type) as GraphEdge['type'],
+    type: str(r.type, 'generated_signal') as GraphEdge['type'],
     fromLabel: str(r.from_label),
     toLabel: str(r.to_label),
     strength: str(r.strength, 'weak') as GraphEdge['strength'],
