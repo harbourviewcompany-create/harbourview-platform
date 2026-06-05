@@ -386,7 +386,7 @@ export async function updateIaEvidenceReviewStatus(
   if (!client.ok) return client
 
   const response = await fetch(
-    `${client.data.url}/rest/v1/ia_evidence?id=eq.${encodeURIComponent(evidenceId)}`,
+    `${client.data.url}/rest/v1/ia_evidence_vault?id=eq.${encodeURIComponent(evidenceId)}`,
     {
       method: 'PATCH',
       headers: {
