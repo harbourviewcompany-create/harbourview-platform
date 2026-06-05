@@ -273,13 +273,7 @@ export const scraperSources: ScraperSource[] = [
     region: 'europe',
     notes: 'EMA official EU GMP compliance database. Authoritative for EU export-ready qualification.',
   },
-]
 
-export function getEnabledSources(): ScraperSource[] {
-  return scraperSources.filter((s) => s.status === 'enabled')
-}
-
-export function getSourcesByCategory(category: string): ScraperSource[
 
   // ── US STATE REGULATORY DATABASES ──────────────────────────────────────────
   {
@@ -944,9 +938,11 @@ export function getSourcesByCategory(category: string): ScraperSource[
     region: 'europe',
     notes: 'European-focused cannabis intelligence. Free executive summaries and public reports on EU, APAC, LatAm regulatory developments.',
   },
-
-
 ]
- {
+export function getEnabledSources(): ScraperSource[] {
+  return scraperSources.filter((s) => s.status === 'enabled')
+}
+
+export function getSourcesByCategory(category: string): ScraperSource[] {
   return scraperSources.filter((s) => s.category === category && s.status !== 'disabled')
 }
