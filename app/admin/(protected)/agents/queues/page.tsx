@@ -36,6 +36,7 @@ export default async function QueuesPage() {
 
   const deferred = items.filter(i => i.status === 'deferred')
 
+  const isFixture = result.source === 'fixture'
   return (
     <div className="p-6 max-w-7xl space-y-6">
       <div>

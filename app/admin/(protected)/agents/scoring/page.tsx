@@ -31,6 +31,7 @@ export default async function ScoringMemoryPage() {
   const scores = scoringRes.ok ? scoringRes.data : []
   const counterparties = counterpartiesRes.ok ? counterpartiesRes.data : []
 
+  const isFixture = (scoringRes.source === 'fixture') || (counterpartiesRes.source === 'fixture')
   const sortedScores = [...scores].sort((a, b) => {
     const order = { high: 2, medium: 1, low: 0 }
     return (order[b.routingPriority as keyof typeof order] ?? 0) - (order[a.routingPriority as keyof typeof order] ?? 0)

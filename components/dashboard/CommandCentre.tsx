@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -184,7 +183,7 @@ function getRegionalIntel(country: { iso2: string; label: string }, region: stri
   }
 }
 
-export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows, pipeline: _pipeline, wantedListings: _wantedListings, countryIntel: _countryIntel }: Props) {
+export default function CommandCentre({ signals, eduCategories, initialCountryIso2, initialRoleId, wantedCount = 4, marketplaceRows }: Props) {
   const router = useRouter()
   const defaultCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0], [initialCountryIso2])
   const [country, setCountry] = useState(defaultCountry)
@@ -233,7 +232,8 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
     if (event.key !== 'Enter') return
     const query = event.currentTarget.value.trim()
     setSearch(query)
-    openPanel('search', query || 'Empty search')
+    if (query) router.push(`/marketplace?q=${encodeURIComponent(query)}`)
+    else openPanel('search', 'Empty search')
   }
 
   const queueRequest = (kind: 'proof' | 'coa', item: string) => {

@@ -4,7 +4,6 @@ import { Suspense, useCallback, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { ACESFilmicToneMapping } from 'three'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
@@ -184,26 +183,6 @@ export function GlobeCanvas({
         />
 
         {/* Post-processing effects — restrained bloom and vignette only, with no normal-pass occlusion mask over high-latitude geometry. */}
-        <EffectComposer multisampling={0}>
-          {/* SSAO intentionally removed from production globe: the screen-space normal pass was able to over-darken high-latitude geometry and create crescent-like artifacts during Russia/Arctic rotation. */}
-          {/*
-            Bloom — selected/hovered plates pulse above luminanceThreshold so their
-            emissive glow bleeds into adjacent pixels, reading as internal light.
-            mipmapBlur produces a natural, high-quality bloom without ringing.
-          */}
-          <Bloom
-            luminanceThreshold={0.86}
-            luminanceSmoothing={0.16}
-            intensity={0.18}
-            radius={0.32}
-            mipmapBlur
-          />
-          {/*
-            Vignette — darkens screen edges, pushes attention inward to the globe.
-            offset/darkness tuned to feel like ambient edge fall-off, not a heavy frame.
-          */}
-          <Vignette eskil={false} offset={0.26} darkness={0.46} />
-        </EffectComposer>
       </Canvas>
     </div>
   )
