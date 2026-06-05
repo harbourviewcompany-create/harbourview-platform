@@ -55,8 +55,8 @@ function baseParams(limit = 12): URLSearchParams {
   })
 }
 
-export async function getPublicListings(): Promise<PublicListing[]> {
-  return queryListings(baseParams())
+export async function getPublicListings(limit = 20): Promise<PublicListing[]> {
+  return queryListings(baseParams(limit))
 }
 
 export async function getPublicListingsByCategory(category: string): Promise<PublicListing[]> {
