@@ -1,8 +1,6 @@
 import { requireAdminAuth } from '@/lib/admin-auth'
 import Link from 'next/link'
 import { listIaSources } from '@/lib/intelligence-automation/db'
-import { FixtureBanner } from '@/components/admin/FixtureBanner'
-
 const STATUS_TO_HEALTH: Record<string, string> = {
   active:    'healthy',
   paused:    'degraded',
@@ -27,7 +25,6 @@ export default async function AdaptersPage() {
 
   const result  = await listIaSources()
   const sources = result.ok ? result.data : []
-  const isFixture = result.ok && result.source === 'fixture'
   const withHealth = sources.map(s => ({ ...s, health: STATUS_TO_HEALTH[s.status] ?? 'not_tested' }))
 
   const counts = {
@@ -52,10 +49,7 @@ export default async function AdaptersPage() {
         </div>
         <h1 className="text-2xl font-bold text-zinc-100">Source Adapters</h1>
       </div>
-
-      <FixtureBanner isFixture={isFixture} />
-
-      <div className="flex gap-3 flex-wrap">
+<div className="flex gap-3 flex-wrap">
         {Object.entries(counts).filter(([, n]) => n > 0).map(([health, n]) => (
           <div key={health} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${HEALTH[health]}`}>{health.replace('_', ' ')}</span>
