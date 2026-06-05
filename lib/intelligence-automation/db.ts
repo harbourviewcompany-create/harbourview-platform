@@ -198,7 +198,7 @@ const SIGNALS_PATH      = '/rest/v1/ia_signals?select=*&order=detected_at.desc&l
 const COUNTERPARTY_PATH = '/rest/v1/ia_counterparties?select=*&order=name.asc&limit=200'
 const SCORING_PATH      = '/rest/v1/ia_scoring_records?select=*&order=routing_priority.desc&limit=200'
 const TASKS_PATH        = '/rest/v1/ia_agent_tasks?select=*&order=created_at.desc&limit=200'
-const EVIDENCE_PATH     = '/rest/v1/ia_evidence?select=*&order=added_at.desc&limit=200'
+const EVIDENCE_PATH     = '/rest/v1/ia_evidence_vault?select=*&order=added_at.desc&limit=200'
 const GRAPH_ENTITY_PATH = '/rest/v1/ia_graph_entities?select=*&order=label.asc&limit=500'
 const GRAPH_EDGE_PATH   = '/rest/v1/ia_graph_edges?select=*&limit=1000'
 const FEEDBACK_PATH     = '/rest/v1/ia_feedback_events?select=*&order=logged_at.desc&limit=200'
