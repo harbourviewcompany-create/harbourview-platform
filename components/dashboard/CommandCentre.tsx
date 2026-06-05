@@ -63,50 +63,6 @@ const VIEW_TAB_LABELS: Record<MarketView, string> = {
   wanted: 'Wanted',
 }
 
-const ROW_DATA: Record<MarketView, MarketRow[]> = {
-  cannabis: [
-    ['supply','Flower','EU-GMP certified dried flower — 100kg lot','COA, batch record, and certificates of analysis attached. Import-ready.','verified|flower|GMP|bulk','VER:ok|PROOF:warn|REG:ok|79:warn|PUBLIC','Request proof','On enquiry'],
-    ['supply','Extract','Full-spectrum CO₂ oil — refined distillate','German-market specification. 92% THC distillate with full terpene retention.','distillate|extract|bulk|verified','VER:ok|PROOF:warn|REG:warn|74:warn|PUBLIC','Request COA','On enquiry'],
-    ['supply','Biomass','Trim and biomass lot — wholesale','Drying-complete biomass available for licensed extractors. Inspection welcome.','biomass|trim|wholesale|licensed','VER:warn|PROOF:warn|REG:ok|61:warn|PUBLIC','Request inspection','Wholesale'],
-    ['supply','Genetics','Stabilised cultivar seed — commercial quantity','Feminised seeds from a licensed breeding programme. Phytosanitary docs available.','genetics|seeds|cultivar|licensed','VER:ok|PROOF:ok|REG:warn|83:ok|PUBLIC','Open inquiry','Genetics'],
-  ],
-  equipment: [
-    ['equip','Cultivation','LED grow system — 200-light commercial lot','Decommissioned licensed facility. Full inspection package and service logs available.','cultivation|LED|commercial|asset','VER:warn|PROOF:warn|REG:ok|67:warn|PUBLIC','Request inspection','Asset'],
-    ['equip','Extraction','Used CO₂ extraction line — inspection ready','Apeks 5L SCFX unit with maintenance history. Buyer diligence and verification workflow.','extraction|CO2|commercial|inspection','VER:warn|PROOF:warn|REG:ok|63:warn|PUBLIC','Ask inspection','Asset'],
-    ['equip','Processing','Ethanol extraction and distillation train','Short-path distillation unit, 50L/day throughput. Priced for fast exit.','processing|distillation|distressed','VER:warn|PROOF:warn|REG:ok|59:warn|PUBLIC','Request records','Asset'],
-    ['equip','Lab','Lab instrumentation package — HPLC + GC-MS','Testing equipment lot with full service history pending review. Import documentation available.','lab|HPLC|GC-MS|QA|review','VER:warn|PROOF:warn|REG:ok|71:warn|PUBLIC','Ask records','Asset'],
-  ],
-  consumables: [
-    ['supply','Packaging','Child-resistant compliance packaging — EU spec','Stock lot of CR-compliant pouches and bottles. Meets German and UK labelling standards.','packaging|CR|compliance|EU','VER:ok|PROOF:ok|REG:ok|81:ok|PUBLIC','Request samples','In stock'],
-    ['supply','Media','Substrate and growth media — sterile lot','Coco coir, perlite, and nutrient packs. Licensed producer supply. Bulk available.','substrate|media|sterile|bulk','VER:ok|PROOF:warn|REG:ok|74:warn|PUBLIC','Request quote','Bulk'],
-    ['supply','Nutrients','GMP-compliant nutrient line — commercial size','Nutrient concentrates formulated for medical-grade cultivation compliance.','nutrients|GMP|commercial|medical','VER:ok|PROOF:ok|REG:ok|85:ok|PUBLIC','Order samples','Commercial'],
-    ['supply','Solvents','Pharmaceutical-grade ethanol — IDA 99.9%','SDS, CoA, and import permit documentation available. Cold-chain delivery.','ethanol|pharmaceutical|solvent|CoA','VER:ok|PROOF:ok|REG:warn|77:ok|PUBLIC','Request docs','On order'],
-  ],
-  'new-products': [
-    ['supply','Genetics','Stabilised feminised seeds — licensed breeding stock','Phytosanitary certificates and CITES documentation. Export-ready lot.','genetics|seeds|licensed|CITES','VER:ok|PROOF:ok|REG:warn|80:ok|PUBLIC','Open inquiry','Export ready'],
-    ['supply','Formulation','Oil capsule lot — private label ready','Standardised THC:CBD capsules, GMP-compliant. White-label documentation included.','formulation|capsule|private label|GMP','VER:ok|PROOF:warn|REG:warn|72:warn|PUBLIC','Request specs','New product'],
-    ['supply','Clones','Rooted cuttings — certified pathogen-free','Tissue-cultured cuttings from established cultivars. Phytosanitary cert included.','clones|tissue culture|certified|cultivar','VER:ok|PROOF:ok|REG:warn|76:ok','Request quote','Genetics'],
-    ['supply','Devices','Medical vaporiser — CE-marked, import-ready','CE-marked vaporiser device with device dossier. Suitable for pharmacy channel.','device|vaporiser|CE|pharmacy','VER:ok|PROOF:warn|REG:warn|69:warn|PUBLIC','Request dossier','Device'],
-  ],
-  services: [
-    ['service','Logistics','GDP cold-chain import handoff — EU gateway','Licensed GDP logistics operator covering DE, NL, UK ports. Track and trace included.','GDP|cold chain|customs|logistics','VER:ok|PROOF:ok|REG:warn|78:ok|PUBLIC','Book intro','Service'],
-    ['service','Compliance','GMP gap analysis and audit readiness','Pre-audit consulting for EU-GMP certification. Experienced with BfArM requirements.','compliance|GMP|audit|BfArM','VER:ok|PROOF:ok|REG:ok|88:ok','Book session','Consulting'],
-    ['service','Labs','ISO 17025 batch testing — third-party COA','Independent lab testing with accredited COA. Potency, pesticides, heavy metals, mycotoxins.','lab|testing|COA|ISO 17025','VER:ok|PROOF:ok|REG:ok|91:ok','Submit sample','Lab service'],
-    ['service','Legal','Regulatory counsel — import permit and licensing','Experienced regulatory law firm covering Germany, UK, and Brazil import permits.','legal|regulatory|permit|licensing','VER:ok|PROOF:ok|REG:ok|86:ok','Request intro','Legal'],
-  ],
-  opportunities: [
-    ['supply','Acquisition','Licensed cultivation facility — distressed exit','Full-scale indoor facility with existing EU-GMP certification and inventory. Asset sale.','acquisition|facility|EU-GMP|distressed','VER:warn|PROOF:warn|REG:ok|64:warn|PRIVATE:lock','Open inquiry','M&A'],
-    ['supply','Partnership','Import distribution JV — DACH market entry','Established importer seeking supply partner for Germany, Austria, Switzerland coverage.','JV|partnership|distribution|DACH','VER:ok|PROOF:warn|REG:ok|71:warn|PRIVATE:lock','Express interest','Partnership'],
-    ['supply','Licence Transfer','Retail dispensary licence — transfer ready','Existing retail dispensary licence available for assignment. Legal counsel required.','licence|retail|transfer|dispensary','VER:warn|PROOF:warn|REG:warn|55:warn|PRIVATE:lock','Open inquiry','Licence'],
-    ['supply','Distressed','Processing facility — lease assignment','GMP-grade processing space available for lease assignment. Equipment included.','distressed|lease|processing|GMP','VER:warn|PROOF:warn|REG:ok|60:warn|PUBLIC','Request details','Lease'],
-  ],
-  wanted: [
-    ['demand','Flower','EU-GMP dried flower — 500kg ongoing demand','Licensed European importer seeking consistent supply of certified dried flower.','wanted|flower|EU-GMP|demand','VER:ok|PROOF:ok|REG:ok|85:ok|PUBLIC','Match supply','Active'],
-    ['demand','Extract','Full-spectrum extract — recurring order','German dispensary network seeking reliable extract supplier for monthly fulfilment.','wanted|extract|recurring|Germany','VER:ok|PROOF:warn|REG:warn|74:warn|PUBLIC','Submit offer','Recurring'],
-    ['demand','Equipment','CO\u2082 extraction unit — sourcing request','Licensed processor seeking used or new CO\u2082 extraction equipment.','wanted|equipment|extraction|sourcing','VER:warn|PROOF:warn|REG:ok|61:warn|PUBLIC','Submit listing','Sourcing'],
-    ['demand','Services','GDP cold-chain logistics — ongoing contract','Multi-jurisdiction importer seeking GDP logistics partner for EU and UK lanes.','wanted|logistics|GDP|contract','VER:ok|PROOF:ok|REG:ok|80:ok|PUBLIC','Submit intro','Ongoing'],
-  ],
-}
 
 function getMainAction(roleId: string | null): string {
   if (!roleId) return 'Post Wanted Demand'
@@ -177,7 +133,7 @@ function getRegionalIntel(country: { iso2: string; label: string }, region: stri
     ruleStatus: region ? (warn ? 'Review required' : 'Allowed with proof') : 'National context only',
     marketplaceImpact: region ? (warn ? 'Marketplace restricted' : 'Supply + clinical routes visible') : 'Regional marketplace impact unavailable',
     roleImpact: region ? (warn ? 'Education before action' : `${roleLabel} can proceed through proof gates`) : 'Role impact unavailable until regional data is configured',
-    confidence: region ? 'Fixture-backed regional rule status · source trail pending' : 'No regional source data configured',
+    confidence: region ? 'Regional rule status · source trail in review' : 'No regional source data configured',
     nextAction: region ? (warn ? 'Open source review before inquiry.' : 'Request proof before counterparty contact.') : 'Use country-level search or request intel coverage.',
     empty: !region,
   }
@@ -254,7 +210,7 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
     openPanel('watchlist', item)
   }
 
-  const rows = marketplaceRows?.[view]?.length ? marketplaceRows[view]! : ROW_DATA[view]
+  const rows = marketplaceRows?.[view] ?? []
   const warn = WARN_REGIONS.has(region)
   const roleLabel = role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.label ?? 'General') : 'General'
   const roleModules = ROLE_FIRST_MODULES[role] ?? DEFAULT_ROLE_MODULES
@@ -320,7 +276,7 @@ export default function CommandCentre({ signals, eduCategories, initialCountryIs
           <section className="cc-panel cc-market">
             <div className="cc-head"><div><h2>Marketplace & Access</h2><small>{VIEW_LABELS[view]}</small></div><div className="cc-head-actions"><button className="cc-wanted-cta" onClick={() => openPanel('wanted')}>{wantedCount} Wanted Requests →</button><button className="cc-soft-btn" onClick={() => openPanel('marketplace')}>View All →</button></div></div>
             <div className="cc-view-bar"><div className="cc-views">{(['cannabis','equipment','consumables','new-products','services','opportunities'] as MarketView[]).map(v => <button key={v} className={`cc-view${view === v ? ' active' : ''}`} onClick={() => setView(v)}>{VIEW_TAB_LABELS[v]}</button>)}</div></div>
-            <div className="cc-market-grid"><div className="cc-market-block"><div className="cc-block-title"><b>{VIEW_BLOCK_TITLES[view]}</b><span>{rows.length} rows · region-filtered</span></div><div className="cc-rows">{rows.map(row => <article key={row[2]} className="cc-row"><div className={`cc-spec ${row[0]}`} /><div><div className="cc-type">{row[1]}</div><h4>{row[2]}</h4><p>{row[3]}</p><TagPills str={row[4]} /><TrustBar str={row[5]} /></div><div className="cc-action-box"><strong>{row[7]}</strong><small>{row[1].toLowerCase()}</small><button className="cc-row-action" onClick={() => queueRequest(getRequestKind(row[6]), row[2])}>{row[6]}</button><button className={`cc-secondary${watching.has(row[2]) ? ' active' : ''}`} onClick={() => toggleWatch(row[2])}>{watching.has(row[2]) ? 'Watching' : 'Watch'}</button></div></article>)}</div></div></div>
+            <div className="cc-market-grid"><div className="cc-market-block"><div className="cc-block-title"><b>{VIEW_BLOCK_TITLES[view]}</b><span>{rows.length > 0 ? `${rows.length} rows · region-filtered` : 'No listings yet'}</span></div><div className="cc-rows">{rows.length === 0 ? <div className="cc-empty-state"><p>No live listings for this category yet.</p><a href="/marketplace/sell" className="cc-empty-cta">Submit a listing →</a></div> : rows.map(row => <article key={row[2]} className="cc-row"><div className={`cc-spec ${row[0]}`} /><div><div className="cc-type">{row[1]}</div><h4>{row[2]}</h4><p>{row[3]}</p><TagPills str={row[4]} /><TrustBar str={row[5]} /></div><div className="cc-action-box"><strong>{row[7]}</strong><small>{row[1].toLowerCase()}</small><button className="cc-row-action" onClick={() => queueRequest(getRequestKind(row[6]), row[2])}>{row[6]}</button><button className={`cc-secondary${watching.has(row[2]) ? ' active' : ''}`} onClick={() => toggleWatch(row[2])}>{watching.has(row[2]) ? 'Watching' : 'Watch'}</button></div></article>)}</div></div></div>
           </section>
 
           <section className="cc-col2">
