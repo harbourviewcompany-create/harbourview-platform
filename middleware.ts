@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
 
 const CACHE_BYPASS_VALUE =
   'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
@@ -45,38 +46,50 @@ export async function middleware(request: NextRequest) {
   )
 
   if (isProtected) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    let supabaseUrl = ''
+    let supabasePublicKey = ''
 
-    if (supabaseUrl && supabaseAnonKey) {
-      let response = NextResponse.next({ request })
-
-      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-            response = NextResponse.next({ request })
-            cookiesToSet.forEach(({ name, value, options }) =>
-              response.cookies.set(name, value, options)
-            )
-          },
-        },
+    try {
+      supabaseUrl = getSupabaseUrl()
+      supabasePublicKey = getSupabasePublicClientKey()
+    } catch (error) {
+      console.error('[harbourview:auth] Supabase public auth configuration rejected', {
+        message: error instanceof Error ? error.message : 'Unknown Supabase configuration error',
       })
 
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        const loginUrl = request.nextUrl.clone()
-        loginUrl.pathname = '/login'
-        loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
-        return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
-      }
-
-      return applyNoStoreHeaders(response)
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
+      return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
+
+    let response = NextResponse.next({ request })
+
+    const supabase = createServerClient(supabaseUrl, supabasePublicKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    })
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
+      return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
+    }
+
+    return applyNoStoreHeaders(response)
   }
 
   return applyNoStoreHeaders(NextResponse.next())
