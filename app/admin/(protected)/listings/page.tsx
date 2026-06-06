@@ -53,6 +53,10 @@ function CandidateRow({ c }: { c: MarketplaceAdminQueueItem }) {
   const region = (c as any).region || c.region || '—'
   const restricted = (c as any).restricted_item
   const licenceReview = (c as any).requires_license_review
+  const listing = {
+    ...(c as any),
+    sourceType: (c as any).sourceType || (c as any).source_type,
+  }
 
   return (
     <tr className="border-t border-white/8 align-top transition hover:bg-white/[0.02]">
@@ -64,7 +68,7 @@ function CandidateRow({ c }: { c: MarketplaceAdminQueueItem }) {
           {licenceReview && <span className="rounded-full border border-amber-400/35 px-2 py-0.5 text-[10px] text-amber-200">Licence review</span>}
         </div>
       {/* Provenance — required for admin review workflow */}
-      {((c as any).sourceUrl || (c as any).sourceName || (c as any).provenanceSummary || (c as any).internalReviewNotes) && (
+      {(listing.sourceUrl || listing.sourceName || listing.sourceType || listing.sourceEvidence || listing.provenanceSummary || listing.internalReviewNotes) && (
         <details className="mt-3 border-t border-white/8 pt-3">
           <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35 hover:text-white/55 select-none">
             Provenance summary
@@ -85,7 +89,13 @@ function CandidateRow({ c }: { c: MarketplaceAdminQueueItem }) {
                 <span>{(c as any).sourceName}</span>
               </div>
             )}
-            {(c as any).provenanceSummary && (
+            {listing.sourceType && (
+              <div className="flex items-start gap-2">
+                <span className="w-28 shrink-0 text-white/30">Source type</span>
+                <span>{listing.sourceType}</span>
+              </div>
+            )}
+            {listing.provenanceSummary && (
               <div className="flex items-start gap-2">
                 <span className="w-28 shrink-0 text-white/30">Provenance summary</span>
                 <span>{(c as any).provenanceSummary}</span>
