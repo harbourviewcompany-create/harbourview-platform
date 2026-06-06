@@ -6,11 +6,12 @@ export const metadata: Metadata = {
   description: 'Sign in to your Harbourview account to access market intelligence, the reviewed marketplace, and your dashboard.',
 }
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string; next?: string; message?: string }
+  searchParams: Promise<{ error?: string; next?: string; message?: string }>
 }) {
+  const { error, next, message } = await searchParams
   return (
     <main className="min-h-screen bg-[#020814] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -28,9 +29,9 @@ export default function LoginPage({
         </div>
 
         <LoginForm
-          error={searchParams.error}
-          next={searchParams.next}
-          message={searchParams.message}
+          error={error}
+          next={next}
+          message={message}
         />
 
         <p className="mt-8 text-center text-xs text-[#F5F1E8]/30">
