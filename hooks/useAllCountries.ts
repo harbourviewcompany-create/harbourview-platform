@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 import { countryOptions } from '@/config/globe/country-role-profiles'
+import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
 
 export interface CountryRow {
   iso_alpha2: string
@@ -50,9 +51,14 @@ export function useAllCountries(): State {
 
   useEffect(() => {
     if (_cache) { setState({ status: 'ok', data: _cache }); return }
-    const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) {
+
+    let url = ''
+    let key = ''
+
+    try {
+      url = getSupabaseUrl()
+      key = getSupabasePublicClientKey()
+    } catch {
       _cache = fixtureCountryRows
       setState({ status: 'ok', data: fixtureCountryRows })
       return
