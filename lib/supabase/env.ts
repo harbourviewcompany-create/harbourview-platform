@@ -3,7 +3,16 @@ const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
 
 function readEnv(name: string) {
-  return process.env[name]?.trim() || ''
+  switch (name) {
+    case 'NEXT_PUBLIC_SUPABASE_URL':
+      return process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || ''
+    case 'NEXT_PUBLIC_SUPABASE_ANON_KEY':
+      return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || ''
+    case 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY':
+      return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+    default:
+      return ''
+  }
 }
 
 function requireEnv(name: string) {
