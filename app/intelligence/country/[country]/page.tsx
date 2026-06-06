@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { dashboardSections, resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 
-export default async function CountryIntelligenceDrilldownPage({ params }: { params: Promise<{ country: string }> | { country: string } }) {
+export default async function CountryIntelligenceDrilldownPage({ params }: { params: Promise<{ country: string }> }) {
   const { country: countryParam } = await params
   const country = resolveCountryRouteParam(countryParam)
   if (!country) notFound()
