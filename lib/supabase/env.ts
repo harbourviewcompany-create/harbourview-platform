@@ -129,6 +129,10 @@ export function requireSupabasePublishableKey() {
   return assertBrowserSafeSupabaseKey(value, readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
+export function getSupabasePublicClientKey() {
+  return requireSupabasePublishableKey()
+}
+
 export function getSupabaseEnvStatus() {
   const url = readEnv('NEXT_PUBLIC_SUPABASE_URL')
   const anonKey = readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
