@@ -279,3 +279,30 @@ Expected Pass 1 evidence:
 - Supabase migration push: NOT RUN from this environment; apply through the team-approved Supabase workflow after pre-change evidence capture.
 
 **Compliance & data handling:** No secrets, raw Supabase logs, JWTs, API keys, or private user data were committed. The live capture script redacts token-like and project REST path content before writing evidence files.
+
+## 2026-06-06 — Supabase + Airtable Integration Foundation
+
+**Scope:** Added Harbourview integration contract migrations, public/private DTO allowlists, server/browser Supabase client helpers, and a dry-run-first Airtable sync Edge Function foundation. No production Airtable sync was run and no Airtable writeback was attempted.
+
+**Commands and results (UTC):**
+
+- `npm run typecheck` — PASS after excluding Deno Edge Function sources from the Next.js `tsc` project.
+- `npm run lint` — PASS with pre-existing warnings in `app/vault/page.tsx`.
+- `npm run test -- --passWithNoTests` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; unrelated to this integration foundation.
+- `npm run build` — FAIL on pre-existing Next.js `app/login/page.tsx` `searchParams` type mismatch after successful compilation; unrelated to this integration foundation.
+- `npx supabase --version` — PASS (`2.105.0`).
+- `npx supabase status` — BLOCKED because Docker daemon is unavailable.
+- `npx supabase db reset` — BLOCKED because Docker daemon is unavailable.
+- `npx supabase migration list` — BLOCKED because the project is not linked to a Supabase project ref in this workspace.
+- `npx supabase db lint` — BLOCKED because local Postgres at `127.0.0.1:54322` is unavailable.
+- `grep -R "SUPABASE_SERVICE_ROLE_KEY\|service_role" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.vercel .` — REVIEWED; matches are server/admin/test/docs/migration references, with new application helper isolated in `lib/harbourview/supabase/service-role.ts` using `server-only`.
+- `deno --version` and local `deno run supabase/functions/airtable-sync/index.ts` — BLOCKED because Deno is not installed in the workspace.
+
+**Evidence notes:**
+
+- RLS enablement is installed in `supabase/migrations/20260606090300_hv_integration_rls_policies.sql` for all 18 Harbourview base tables.
+- Public DTO views are allowlisted in `supabase/migrations/20260606090200_hv_integration_indexes_views.sql` and the TypeScript allowlist is in `lib/harbourview/dto/allowlists.ts`.
+- Static DTO leakage check reported no forbidden fields in public view select lists.
+- Airtable writeback remained disabled and was not run.
+
+**Operational conclusion:** CONFIG_HOLD. Code and static checks are complete, but local Supabase/Docker and Deno runtime are unavailable, so migration apply, database lint, RLS runtime queries, and dry-run function invocation could not be completed in this environment.
