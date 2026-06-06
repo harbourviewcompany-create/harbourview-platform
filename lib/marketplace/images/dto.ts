@@ -108,6 +108,7 @@ export const ADMIN_MARKETPLACE_IMAGE_COLUMNS = [
 export function toPublicMarketplaceImageDTO(row: MarketplaceItemImageRow): PublicMarketplaceImageDTO | null {
   if (!isPublicRenderableMarketplaceImage(row)) return null;
   if (row.image_class === 'ADMIN_PRIVATE_EVIDENCE') return null;
+  if (!row.public_url) return null;
 
   return {
     id: row.id,
