@@ -6,7 +6,7 @@ export type PublicMarketplaceImageDTO = {
   itemId: string;
   role: MarketplaceImageRole;
   imageClass: Exclude<MarketplaceImageClass, 'ADMIN_PRIVATE_EVIDENCE'>;
-  publicUrl: string;
+  publicUrl: string | null;
   thumbnailUrl: string | null;
   heroUrl: string | null;
   galleryUrl: string | null;
