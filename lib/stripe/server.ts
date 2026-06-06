@@ -1,11 +1,25 @@
 import 'server-only'
 import Stripe from 'stripe'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-05-27.dahlia',
+// Lazy singleton — instantiated on first call, not at module load.
+// Prevents build-time crash when STRIPE_SECRET_KEY is not yet in Vercel env vars.
+let _stripe: Stripe | null = null
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) throw new Error('STRIPE_SECRET_KEY is not set — add it in Vercel project settings.')
+    _stripe = new Stripe(key, { apiVersion: '2026-05-27.dahlia' })
+  }
+  return _stripe
+}
+
+// Proxy keeps the `stripe.xxx` call pattern working without eager init
+export const stripe = new Proxy({} as Stripe, {
+  get(_t, prop) { return getStripe()[prop as keyof Stripe] },
 })
 
-// ── Price IDs — set these in Vercel env vars after creating products in Stripe ─
+// ── Price IDs — set in Vercel env vars after creating products in Stripe ──────
 export const PRICES = {
   intel_monthly:    process.env.STRIPE_PRICE_INTEL_MONTHLY    ?? '',
   intel_annual:     process.env.STRIPE_PRICE_INTEL_ANNUAL     ?? '',
@@ -48,15 +62,14 @@ export const TIER_DISPLAY = {
 export async function getOrCreateStripeCustomer(
   userId: string,
   email: string,
-  name?: string
+  name?: string,
 ): Promise<string> {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  // Check if customer already exists
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('stripe_customer_id')
@@ -65,14 +78,12 @@ export async function getOrCreateStripeCustomer(
 
   if (profile?.stripe_customer_id) return profile.stripe_customer_id
 
-  // Create new Stripe customer
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     email,
     name: name ?? undefined,
     metadata: { supabase_user_id: userId },
   })
 
-  // Store on profile
   await supabase
     .from('user_profiles')
     .upsert({ id: userId, email, stripe_customer_id: customer.id })
