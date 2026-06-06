@@ -97,7 +97,6 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
         contact_phone: phone || null,
         inquiry_type: inquiryType,
         message: submissionMessage,
-        status: 'received',
       },
       'Inquiry received. Harbourview will review the request before any introduction or seller contact. [INQUIRY_OK]',
       'QUOTE',

@@ -83,8 +83,7 @@ export default function SubmitGeneticsProgramPage() {
             breeder, country, email, website, programType,
             targetMarkets, programDescription, publicInfo, privateInfo, commercialContext,
           }),
-          status: 'received',
-        },
+          },
         'Program submission received. Harbourview will review materials before any profile or commercial pathway is made public.',
         'GENETICS',
       )

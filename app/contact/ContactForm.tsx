@@ -45,8 +45,7 @@ export default function ContactForm() {
           contact_phone: null,
           inquiry_type: 'contact_general',
           message: `Subject: ${subject}\n\n${message}`,
-          status: 'received',
-        },
+          },
         'Message received. Harbourview will review your inquiry before follow-up.',
         'CONTACT',
       )

@@ -116,8 +116,7 @@ export default function QuoteRequestForm() {
             intendedUse,
             requirements,
           }),
-          status: 'received',
-        },
+          },
         'Inquiry received. Harbourview will review it before coordinating any routed introduction or transaction follow-up. [QUOTE_OK]',
         'QUOTE'
       )

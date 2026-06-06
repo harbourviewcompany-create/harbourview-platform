@@ -81,8 +81,7 @@ export default function RequestGeneticsAccessPage() {
             name, company, country, operatorType, licenceStatus,
             targetMarket, timeline, profileOfInterest, requestDetail, confidentialityNotes,
           }),
-          status: 'received',
-        },
+          },
         'Access request received. Harbourview will review it before any genetics holder is contacted.',
         'GENETICS',
       )

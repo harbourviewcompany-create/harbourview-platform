@@ -90,7 +90,6 @@ export default function IntakeForm({ initialListingType, submitLabel = 'Submit L
         contact_phone: null,
         inquiry_type: listingType === 'Wanted Request' ? 'wanted_request_submission' : 'listing_submission',
         message: buildSubmissionMessage({ listingType, title, price, location, description }),
-        status: 'received',
       },
       'Listing submission received. Harbourview will review it before publication or counterparty routing. [LISTING_SUBMISSION_OK]',
       'LISTING_SUBMISSION'

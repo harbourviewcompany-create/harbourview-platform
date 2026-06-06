@@ -98,7 +98,6 @@ export default function ConsumablesRequestForm() {
         contact_phone: phone || null,
         inquiry_type: 'quote_request',
         message: buildConsumablesMessage({ productCategory, quantity, targetMarket, company, phone, details }),
-        status: 'received',
       },
       'Consumables request received. Harbourview will review it before response or supplier routing. [CONSUMABLES_REQUEST_OK]',
       'QUOTE'

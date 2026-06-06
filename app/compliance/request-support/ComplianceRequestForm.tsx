@@ -81,8 +81,7 @@ export default function ComplianceRequestForm() {
           contact_phone: null,
           inquiry_type: 'compliance_support',
           message: buildMessage({ supportType, targetCountries, details }),
-          status: 'received',
-        },
+          },
         'Request received. Harbourview will review your compliance support request before follow-up.',
         'CONTACT',
       )

@@ -111,8 +111,7 @@ export default function ClinicalEducationRequestForm() {
             formatsOfInterest,
             details,
           }),
-          status: 'received',
-        },
+          },
         'Education request received. Harbourview will review your request and follow up with appropriate professional education.',
         'CONTACT',
       )

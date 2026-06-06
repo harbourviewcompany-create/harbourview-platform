@@ -77,7 +77,6 @@ export default function ConfidentialIntakeForm() {
         contact_phone: null,
         inquiry_type: 'sourcing_mandate',
         message: buildIntakeMessage({ discussionType, message }),
-        status: 'received',
       },
       'Confidential intake received. Harbourview will review it and respond directly. [CAPTURE_OK]',
       'CONFIDENTIAL_INTAKE'
