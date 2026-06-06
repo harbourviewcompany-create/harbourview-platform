@@ -13,11 +13,11 @@ import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy
 export const metadata: Metadata = {
   title: 'Exchange | Harbourview',
   description:
-    'Harbourview Exchange is a controlled commercial request-routing layer for regulated cannabis products, inputs, services, wanted requests, and reviewed private intake. Public pages show safe summaries only; routing is not automatic.',
+    'Harbourview Exchange is a controlled commercial request-routing layer for regulated market categories, inputs, services, wanted requests, and reviewed private intake. Public pages show safe summaries only; routing is not automatic.',
   openGraph: {
     title: 'Harbourview Exchange',
     description:
-      'A controlled commercial request-routing layer for regulated cannabis categories, wanted requests, and reviewed private intake. Public visibility and introductions are not automatic.',
+      'A controlled commercial request-routing layer for regulated market categories, wanted requests, and reviewed private intake. Public visibility and introductions are not automatic.',
   },
 }
 
@@ -28,7 +28,7 @@ const processCards = [
   },
   {
     title: 'Buyers and suppliers inquire',
-    body: 'Participants browse public-safe summaries and submit inquiries through Harbourview. Public pages do not expose private contact details, source evidence or sensitive commercial context.',
+    body: 'Participants browse public-safe summaries and submit inquiries through Harbourview. Public pages do not expose private contact details, sensitive review material or commercial context.',
   },
   {
     title: 'Harbourview reviews',
@@ -53,7 +53,7 @@ export default function MarketplacePage() {
         ]}
       >
         <p>
-          Harbourview Exchange routes serious regulated-cannabis submissions, wanted requests and commercial inquiries through reviewed private workflows. Public pages provide category orientation and safe summaries; they do not prove live liquidity, guarantee access or publish private counterparties.
+          Harbourview Exchange routes serious regulated-market submissions, wanted requests and commercial inquiries through reviewed private workflows. Public pages provide category orientation and safe summaries; they do not prove live liquidity, guarantee access or publish private counterparties.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
           {MARKETPLACE_CONFIDENTIALITY_CAVEAT}
