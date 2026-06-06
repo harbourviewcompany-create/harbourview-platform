@@ -13,11 +13,11 @@ import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy
 export const metadata: Metadata = {
   title: 'Exchange | Harbourview',
   description:
-    'Harbourview Network is a controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
+    'Harbourview Exchange is a controlled commercial request-routing layer for regulated cannabis products, inputs, services, wanted requests, and reviewed private intake. Public pages show safe summaries only; routing is not automatic.',
   openGraph: {
-    title: 'Harbourview Network',
+    title: 'Harbourview Exchange',
     description:
-      'A controlled commercial network for regulated cannabis products, inputs, services, wanted requests, qualified introductions and country-specific access pathways.',
+      'A controlled commercial request-routing layer for regulated cannabis categories, wanted requests, and reviewed private intake. Public visibility and introductions are not automatic.',
   },
 }
 
@@ -28,11 +28,11 @@ const processCards = [
   },
   {
     title: 'Buyers and suppliers inquire',
-    body: 'Participants browse public summaries and submit inquiries through Harbourview. Public pages do not expose private contact details or sensitive commercial context.',
+    body: 'Participants browse public-safe summaries and submit inquiries through Harbourview. Public pages do not expose private contact details, source evidence or sensitive commercial context.',
   },
   {
     title: 'Harbourview reviews',
-    body: 'Harbourview reviews category fit, commercial relevance and routing context before any counterparty contact, response or introduction is coordinated.',
+    body: 'Harbourview reviews category fit, public-summary safety, commercial relevance and routing context before any counterparty contact, response or introduction is considered.',
   },
   {
     title: 'Private routing follows',
@@ -45,7 +45,7 @@ export default function MarketplacePage() {
     <>
       <PublicHero
         eyebrow="Harbourview Exchange"
-        title="Controlled commercial access for reviewed opportunities and requests."
+        title="Controlled commercial intake for reviewed opportunities and requests."
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
           { label: 'Explore Categories', href: '#categories', variant: 'secondary' },
@@ -53,7 +53,7 @@ export default function MarketplacePage() {
         ]}
       >
         <p>
-          Harbourview Network connects qualified participants through reviewed opportunities, wanted requests, qualified introductions, commercial intelligence and relationship-led market access.
+          Harbourview Exchange routes serious regulated-cannabis submissions, wanted requests and commercial inquiries through reviewed private workflows. Public pages provide category orientation and safe summaries; they do not prove live liquidity, guarantee access or publish private counterparties.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
           {MARKETPLACE_CONFIDENTIALITY_CAVEAT}
@@ -63,7 +63,7 @@ export default function MarketplacePage() {
       <PublicSection tone="dark">
         <SectionHeader
           eyebrow="Controlled network workflow"
-          title="Review and qualification before introduction."
+          title="Review and qualification before any introduction."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {processCards.map((card) => (
@@ -79,7 +79,7 @@ export default function MarketplacePage() {
       <PublicSection id="categories" tone="navy">
         <SectionHeader
           eyebrow="Network categories"
-          title="Explore reviewed commercial access categories."
+          title="Explore reviewed commercial-intake categories."
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {marketplaceCategoryCapabilityMap.map((cat) => (
@@ -95,13 +95,13 @@ export default function MarketplacePage() {
 
       <FooterCta
         eyebrow="Submit to Harbourview"
-        title="Have an opportunity, introduction request or wanted request to submit?"
+        title="Have an opportunity, review request or wanted request to submit?"
         actions={[
           { label: 'Submit Opportunity', href: '/marketplace/sell' },
           { label: 'Create Wanted Request', href: '/marketplace/sell?type=wanted', variant: 'secondary' },
         ]}
       >
-        Submit supply, services, business opportunities, buyer requirements or introduction requests for Harbourview Network review. Public visibility and routing are not automatic.
+        Submit supply, services, business opportunities, buyer requirements or introduction requests for Harbourview review. Public visibility and routing are not automatic.
       </FooterCta>
     </>
   )

@@ -76,14 +76,29 @@ export default async function CandidateDetailPage({
           <p className="text-xs uppercase tracking-[0.24em] text-[#C6A55A]">{candidate.marketplace_category}</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">{candidate.title_internal || candidate.title_public_draft || 'Untitled candidate'}</h2>
           <p className="mt-2 text-sm text-[#F5F1E8]/60">
-            Status: {candidate.status}. Approved draft is private and does not publish a public listing.
+            Status: {candidate.status}. Approved draft remains private and does not publish a public listing.
           </p>
 
-          {draftBlockers.length ? (
-            <div className="mt-5 rounded-xl border border-amber-300/30 bg-amber-950/20 p-4 text-sm text-amber-100">
-              {draftBlockers.map((blocker) => <p key={blocker}>{blocker}</p>)}
-            </div>
-          ) : null}
+          <div className="mt-5 rounded-2xl border border-[#C6A55A]/20 bg-black/20 p-4" data-testid="candidate-workflow-spine">
+            <p className="text-xs uppercase tracking-[0.2em] text-[#C6A55A]">Manual-source workflow</p>
+            <ol className="mt-3 grid gap-2 text-sm text-[#F5F1E8]/70 md:grid-cols-4">
+              <li><span className="font-semibold text-[#F5F1E8]">1. Source</span><br />Private URL registry</li>
+              <li><span className="font-semibold text-[#F5F1E8]">2. Snapshot</span><br />Manual captured text/hash</li>
+              <li><span className="font-semibold text-[#F5F1E8]">3. Candidate</span><br />Private review draft</li>
+              <li><span className="font-semibold text-[#F5F1E8]">4. Review event</span><br />Status audit trail</li>
+            </ol>
+          </div>
+
+          <div className={`mt-5 rounded-xl border p-4 text-sm ${draftBlockers.length ? 'border-amber-300/35 bg-amber-950/20 text-amber-100' : 'border-emerald-300/25 bg-emerald-950/10 text-emerald-100'}`} data-testid="candidate-approval-blockers">
+            <p className="font-semibold">Approval blockers</p>
+            {draftBlockers.length ? (
+              <ul className="mt-3 list-disc space-y-1 pl-5">
+                {draftBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+              </ul>
+            ) : (
+              <p className="mt-2 text-[#F5F1E8]/65">No V0 consumables blockers detected. Approval as draft still remains private and requires manual operator judgment.</p>
+            )}
+          </div>
 
           <dl className="mt-6 grid gap-3 md:grid-cols-2">
             <Value label="Source URL">{source?.source_url}</Value>
@@ -122,11 +137,11 @@ export default async function CandidateDetailPage({
         <aside className="space-y-5">
           <section className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-5">
             <h3 className="font-semibold">Review actions</h3>
-            <p className="mt-2 text-sm text-[#F5F1E8]/60">No action publishes publicly.</p>
+            <p className="mt-2 text-sm text-[#F5F1E8]/60">No action publishes publicly. Approved draft is a private admin state only.</p>
             <div className="mt-4 grid gap-3">
               <ActionForm id={candidate.id} toStatus="needs_review" label="Mark needs review" />
               <ActionForm id={candidate.id} toStatus="needs_verification" label="Mark needs verification" />
-              <ActionForm id={candidate.id} toStatus="approved_draft" label="Approve as draft only" />
+              <ActionForm id={candidate.id} toStatus="approved_draft" label="Approve as private draft only" />
               <ActionForm id={candidate.id} toStatus="rejected" label="Reject" />
               <ActionForm id={candidate.id} toStatus="archived" label="Archive" />
             </div>
