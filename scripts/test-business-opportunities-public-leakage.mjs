@@ -1,19 +1,26 @@
 import { readFileSync } from 'node:fs'
 
-const PUBLIC_FILES = [
+const PUBLIC_RENDER_FILES = [
   'app/marketplace/business-opportunities/page.tsx',
-  'lib/marketplace/liveOpportunities.ts',
   'components/ListingCard.tsx',
 ]
 
-const REQUIRED_PUBLIC_PIPELINE_PATTERNS = [
-  /getLiveBusinessOpportunities/,
-  /normalizeBusinessOpportunity/,
-  /sanitizeBusinessOpportunity/,
-  /reviewStatus\s*===\s*['"]approved['"]/,
-  /publicationStatus\s*===\s*['"]published['"]/,
-  /visibility\s*===\s*['"]public['"]/,
-  /expiresAt/,
+const PUBLIC_PIPELINE_FILES = [
+  'app/marketplace/business-opportunities/page.tsx',
+  'lib/server/listingsQuery.ts',
+]
+
+const REQUIRED_PAGE_PIPELINE_PATTERNS = [
+  /getPublicListingsByCategory/,
+  /getPublicListingsByCategory\(['"]business_opportunities['"]\)/,
+]
+
+const REQUIRED_QUERY_PIPELINE_PATTERNS = [
+  /TARGET_PUBLIC_VIEW\s*=\s*['"]marketplace_public_listings_v1['"]/,
+  /SELECT_COLS/,
+  /NEXT_PUBLIC_SUPABASE_ANON_KEY/,
+  /category.*eq\.\$\{normalized\}/s,
+  /category\.replace\(\/\-\/g, ['"]_['"]\)/,
 ]
 
 const FORBIDDEN_PUBLIC_RENDER_PATTERNS = [
@@ -31,9 +38,22 @@ const FORBIDDEN_PUBLIC_RENDER_PATTERNS = [
   /source snapshots/i,
 ]
 
-const ALLOWED_INTERNAL_ADAPTER_PATTERNS = [
-  /contactEmail: fallbackContactEmail/,
+const FORBIDDEN_PUBLIC_PIPELINE_PATTERNS = [
+  ...FORBIDDEN_PUBLIC_RENDER_PATTERNS,
+  /privateContactEmail/,
+  /source_registry/,
+  /source_snapshots/,
+  /marketplace_candidates/,
+  /candidate_review_events/,
+  /captured_url/,
+  /captured_text/,
+  /raw_html_hash/,
+  /review_notes/,
+  /reviewed_by/,
+  /SUPABASE_SERVICE_ROLE_KEY/,
+  /service_role/,
 ]
+
 
 function read(path) {
   return readFileSync(path, 'utf8')
@@ -41,34 +61,26 @@ function read(path) {
 
 const failures = []
 const pageContent = read('app/marketplace/business-opportunities/page.tsx')
-const adapterContent = read('lib/marketplace/liveOpportunities.ts')
-const listingCardContent = read('components/ListingCard.tsx')
-const publicRenderContent = `${pageContent}\n${listingCardContent}`
+const publicRenderContent = PUBLIC_RENDER_FILES.map(read).join('\n')
+const publicPipelineContent = PUBLIC_PIPELINE_FILES.map(read).join('\n')
 
-for (const pattern of REQUIRED_PUBLIC_PIPELINE_PATTERNS) {
-  if (!pattern.test(adapterContent)) failures.push(`Business Opportunities pipeline missing required guard: ${pattern}`)
+for (const pattern of REQUIRED_PAGE_PIPELINE_PATTERNS) {
+  if (!pattern.test(pageContent)) failures.push(`Business Opportunities page missing current public listings pipeline: ${pattern}`)
 }
 
+for (const pattern of REQUIRED_QUERY_PIPELINE_PATTERNS) {
+  if (!pattern.test(publicPipelineContent)) failures.push(`Business Opportunities public listings query missing required guard: ${pattern}`)
+}
 for (const pattern of FORBIDDEN_PUBLIC_RENDER_PATTERNS) {
   if (pattern.test(publicRenderContent)) failures.push(`Business Opportunities public render leakage: ${pattern}`)
 }
 
-for (const pattern of FORBIDDEN_PUBLIC_RENDER_PATTERNS) {
-  const adapterMatches = adapterContent.match(new RegExp(pattern.source, pattern.flags.replace('g', '')))
-  if (adapterMatches && !ALLOWED_INTERNAL_ADAPTER_PATTERNS.some((allowed) => allowed.test(adapterMatches[0]))) {
-    if (['/sourceUrl/', '/sourceName/', '/licenceEvidence/', '/licenseEvidence/', '/provenance/', '/diligenceStatus/', '/internalNotes/'].includes(pattern.toString())) {
-      failures.push(`Business Opportunities adapter should not declare private field for public projection: ${pattern}`)
-    }
-  }
+for (const pattern of FORBIDDEN_PUBLIC_PIPELINE_PATTERNS) {
+  if (pattern.test(publicPipelineContent)) failures.push(`Business Opportunities public listings pipeline exposes private field: ${pattern}`)
 }
 
-if (!/image:\s*imageSrc\s*\?/.test(adapterContent)) {
-  failures.push('Business Opportunities adapter missing reviewed image projection gate')
-}
-
-if (!/getLiveBusinessOpportunities\(businessOpportunities\)/.test(pageContent) &&
-    !/getPublicListingsByCategory\(/.test(pageContent)) {
-  failures.push('Business Opportunities page is not wired to the reviewed live feed adapter')
+if (/getLiveBusinessOpportunities\(businessOpportunities\)/.test(pageContent)) {
+  failures.push('Business Opportunities page should use the canonical public listings view, not the legacy live feed adapter')
 }
 
 if (failures.length) {
@@ -77,7 +89,7 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('ok business opportunities page uses reviewed live feed adapter')
-console.log('ok business opportunities adapter filters approved, published, public and unexpired records')
+console.log('ok business opportunities page uses canonical marketplace_public_listings_v1 public listings pipeline')
+console.log('ok business opportunities public query projects only public listing fields through the anon public view')
 console.log('ok business opportunities public render files omit source, contact, provenance, evidence, diligence and internal-note fields')
-console.log('ok business opportunities public projection does not map private source or review fields')
+console.log('ok business opportunities public pipeline does not map private source or review fields')
