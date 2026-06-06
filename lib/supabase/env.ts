@@ -3,7 +3,16 @@ const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
 
 function readEnv(name: string) {
-  return process.env[name]?.trim() || ''
+  switch (name) {
+    case 'NEXT_PUBLIC_SUPABASE_URL':
+      return process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || ''
+    case 'NEXT_PUBLIC_SUPABASE_ANON_KEY':
+      return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || ''
+    case 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY':
+      return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+    default:
+      return ''
+  }
 }
 
 function requireEnv(name: string) {
@@ -54,6 +63,44 @@ function parseHostnameSafely(url: string) {
   }
 }
 
+function decodeJwtPayload(value: string): Record<string, unknown> | null {
+  const parts = value.split('.')
+  if (parts.length < 2) return null
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+    return JSON.parse(globalThis.atob(padded)) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+export function isSupabaseSecretKey(value: string) {
+  const key = value.trim()
+  if (!key) return false
+  if (key.startsWith('sb_secret_')) return true
+
+  const payload = decodeJwtPayload(key)
+  return payload?.role === 'service_role'
+}
+
+export function assertBrowserSafeSupabaseKey(value: string, sourceName: string) {
+  const key = value.trim()
+
+  if (!key) {
+    throw new Error(`Missing browser-safe Supabase public key: ${sourceName}`)
+  }
+
+  if (isSupabaseSecretKey(key)) {
+    throw new Error(
+      `Forbidden Supabase secret/service-role key in browser/public client configuration: ${sourceName}. Use a Supabase publishable key or anon key, never a secret or service-role key.`
+    )
+  }
+
+  return key
+}
+
 export function getExpectedSupabaseProjectRef() {
   return EXPECTED_SUPABASE_PROJECT_REF
 }
@@ -76,25 +123,33 @@ export function getSupabaseUrl() {
 }
 
 export function getSupabaseAnonKey() {
-  return requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  return assertBrowserSafeSupabaseKey(requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'), 'NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
 export function getSupabasePublishableKey() {
-  return readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
+  return readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
 export function requireSupabasePublishableKey() {
   const value = getSupabasePublishableKey()
   if (!value) {
-    throw new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
+    throw new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
-  return value
+  return assertBrowserSafeSupabaseKey(value, readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY')
+}
+
+export function getSupabasePublicClientKey() {
+  return requireSupabasePublishableKey()
 }
 
 export function getSupabaseEnvStatus() {
   const url = readEnv('NEXT_PUBLIC_SUPABASE_URL')
-  const hasAnonKey = Boolean(readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'))
-  const hasPublishableKey = Boolean(readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'))
+  const anonKey = readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  const publishableKey = readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
+  const publicClientKey = publishableKey || anonKey
+  const hasAnonKey = Boolean(anonKey)
+  const hasPublishableKey = Boolean(publishableKey)
+  const invalidPublicClientKey = Boolean(publicClientKey && isSupabaseSecretKey(publicClientKey))
   const normalizedUrl = url ? normalizeUrl(url) : ''
   const resolvedUrl = resolveLockedSupabaseUrl(url)
   let rawHost: string | null = null
@@ -106,7 +161,10 @@ export function getSupabaseEnvStatus() {
   const urlUsesExpectedProject = Boolean(rawHost && rawHost === EXPECTED_SUPABASE_HOST)
   const missing = [
     !hasAnonKey && !hasPublishableKey
-      ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+      ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY'
+      : '',
+    invalidPublicClientKey
+      ? 'Supabase browser key is secret/service-role; use NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or a real anon key'
       : '',
   ].filter(Boolean)
 
@@ -133,5 +191,7 @@ export function getSupabaseEnvStatus() {
     hasUrl: Boolean(url),
     hasAnonKey,
     hasPublishableKey,
+    publicClientKeySource: hasPublishableKey ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY' : hasAnonKey ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : null,
+    invalidPublicClientKey,
   }
 }

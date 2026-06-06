@@ -1,4 +1,4 @@
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { getSupabasePublicClientKey, resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 export type InquiryInsertPayload = {
   listing_id: string | null;
@@ -13,13 +13,14 @@ export type InquiryInsertPayload = {
 };
 
 export function getMarketplaceInquirySupabaseConfig() {
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!anonKey) return null;
-
-  return {
-    url: resolveLockedSupabaseUrl(),
-    anonKey,
-  };
+  try {
+    return {
+      url: resolveLockedSupabaseUrl(),
+      anonKey: getSupabasePublicClientKey(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function formatSupabaseDiagnosticContext() {
