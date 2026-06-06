@@ -86,8 +86,8 @@ export async function promoteInquiryToListing(
     public_visibility: true,
     seller_type: VALID_SELLER_TYPES.includes(sellerType as typeof VALID_SELLER_TYPES[number])
       ? sellerType : 'other',
-    seller_name: sellerName,
-    seller_verified: false,
+    legal_entity: sellerName,
+    
     region,
     location_country: country || null,
     price_amount: priceRaw ? parseFloat(priceRaw) : null,
