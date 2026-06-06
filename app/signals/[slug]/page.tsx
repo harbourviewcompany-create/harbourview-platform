@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicRegulatorySignalBySlug } from '@/lib/regulatory-signals/public'
 import { REGULATORY_SIGNAL_TYPE_LABELS, REGULATORY_SIGNALS_DISCLAIMER } from '@/lib/regulatory-signals/constants'
+import TierGate from '@/components/stripe/TierGate'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -97,18 +98,22 @@ export default async function RegulatorySignalDetailPage({ params }: { params: P
             )}
           </div>
 
-          {/* Source */}
+          {/* Source — Intel Plus gated */}
           {signal.canonical_source_url && (
             <div className="mt-8">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/30">Source reference</p>
-              <a
-                href={signal.canonical_source_url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-xs text-gold/50 underline underline-offset-2 hover:text-gold transition-colors break-all"
-              >
-                {signal.canonical_source_url}
-              </a>
+              <TierGate required="intel" label="Source trail access requires Intel Plus">
+                <div className="rounded-xl border border-white/8 bg-white/[0.02] p-5">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/30">Source reference</p>
+                  <a
+                    href={signal.canonical_source_url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-xs text-gold/50 underline underline-offset-2 hover:text-gold transition-colors break-all"
+                  >
+                    {signal.canonical_source_url}
+                  </a>
+                </div>
+              </TierGate>
             </div>
           )}
 

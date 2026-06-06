@@ -2,6 +2,10 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { getUserTier } from '@/lib/stripe/tier'
+import { TIER_DISPLAY } from '@/lib/stripe/server'
+import UpgradeButton from '@/components/stripe/UpgradeButton'
+import ManageBillingButton from '@/components/stripe/ManageBillingButton'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -10,27 +14,6 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = 'force-dynamic'
-
-const TIERS = [
-  {
-    id: 'free',
-    label: 'Free',
-    features: ['Weekly signal summaries', 'Marketplace browse', 'Country access overview', 'Education hub access'],
-    cta: null,
-  },
-  {
-    id: 'intel',
-    label: 'Intel Plus',
-    features: ['Source trail access', 'Contradiction review', 'Counterparty movement alerts', 'Corridor monitoring', 'Regional rule-change alerts', 'Saved watchlists'],
-    cta: { label: 'Upgrade to Intel Plus', href: '/intake?type=intel-plus' },
-  },
-  {
-    id: 'operator',
-    label: 'Operator',
-    features: ['Everything in Intel Plus', 'Reviewed counterparty introductions', 'Deal room access', 'Proof review workflow', 'Priority market queue'],
-    cta: { label: 'Apply for Operator Access', href: '/intake?type=operator' },
-  },
-]
 
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -64,6 +47,8 @@ export default async function AccountPage() {
   } catch {
     // No auth or prefs table not yet migrated
   }
+
+  const userTier = await getUserTier()
 
   const country = countryIso2
     ? ALL_COUNTRIES.find(c => c.iso2 === countryIso2)
@@ -140,38 +125,69 @@ export default async function AccountPage() {
 
         {/* Subscription */}
         <section className="mb-8">
-          <h2 className="mb-4 font-semibold" style={{ color: '#f7efe1' }}>Subscription tiers</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold" style={{ color: '#f7efe1' }}>Subscription</h2>
+            {userTier !== 'free' && <ManageBillingButton />}
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {TIERS.map((tier, i) => (
-              <div
-                key={tier.id}
-                className="rounded-2xl p-5"
-                style={{
-                  background: i === 0 ? '#0b1929' : 'rgba(217,175,99,.06)',
-                  border: i === 0 ? '1px solid rgba(232,240,248,.115)' : '1px solid rgba(217,175,99,.28)',
-                }}
-              >
-                {i === 0 && (
-                  <span className="mb-3 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest" style={{ background: 'rgba(116,210,142,.15)', color: '#74d28e' }}>
-                    Current
-                  </span>
-                )}
-                <h3 className="mb-3 font-semibold" style={{ color: '#f7efe1' }}>{tier.label}</h3>
-                <ul className="mb-4 space-y-1.5">
-                  {tier.features.map(f => (
-                    <li key={f} className="flex items-start gap-2 text-xs" style={{ color: '#9aa8b6' }}>
-                      <span style={{ color: i === 0 ? '#627282' : '#d9af63', marginTop: 2 }}>✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                {tier.cta && (
-                  <Link href={tier.cta.href} className="mt-auto block rounded-xl px-4 py-2 text-center text-xs font-semibold transition-all" style={{ background: 'linear-gradient(135deg,#f3cf86,#d9af63)', color: '#07111d' }}>
-                    {tier.cta.label}
-                  </Link>
-                )}
-              </div>
-            ))}
+            {/* Free */}
+            <div className="rounded-2xl p-5" style={{ background: '#0b1929', border: userTier === 'free' ? '1px solid rgba(217,175,99,.5)' : '1px solid rgba(232,240,248,.115)' }}>
+              {userTier === 'free' && (
+                <span className="mb-3 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest" style={{ background: 'rgba(116,210,142,.15)', color: '#74d28e' }}>
+                  Current
+                </span>
+              )}
+              <h3 className="mb-3 font-semibold" style={{ color: '#f7efe1' }}>Free</h3>
+              <ul className="mb-4 space-y-1.5">
+                {['Weekly signal summaries', 'Marketplace browse', 'Country access overview', 'Education hub access'].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs" style={{ color: '#9aa8b6' }}>
+                    <span style={{ color: '#74d28e', marginTop: 1 }}>✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Intel Plus */}
+            <div className="rounded-2xl p-5" style={{ background: 'rgba(217,175,99,.06)', border: userTier === 'intel' ? '2px solid rgba(217,175,99,.6)' : '1px solid rgba(217,175,99,.28)' }}>
+              {userTier === 'intel' && (
+                <span className="mb-3 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest" style={{ background: 'rgba(116,210,142,.15)', color: '#74d28e' }}>
+                  Current plan
+                </span>
+              )}
+              <h3 className="mb-1 font-semibold" style={{ color: '#f7efe1' }}>Intel Plus</h3>
+              <p className="mb-3 text-xs" style={{ color: '#d9af63' }}>USD $149 / mo</p>
+              <ul className="mb-4 space-y-1.5">
+                {TIER_DISPLAY.intel.features.map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs" style={{ color: '#9aa8b6' }}>
+                    <span style={{ color: '#d9af63', marginTop: 1 }}>✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              {userTier === 'free' && (
+                <UpgradeButton priceKey="intel_monthly" label="Upgrade to Intel Plus" className="mt-auto w-full rounded-xl px-4 py-2 text-center text-xs font-semibold transition-all" style={{ background: 'linear-gradient(135deg,#f3cf86,#d9af63)', color: '#07111d' }} />
+              )}
+            </div>
+
+            {/* Operator */}
+            <div className="rounded-2xl p-5" style={{ background: 'rgba(217,175,99,.06)', border: userTier === 'operator' ? '2px solid rgba(217,175,99,.6)' : '1px solid rgba(217,175,99,.28)' }}>
+              {userTier === 'operator' && (
+                <span className="mb-3 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest" style={{ background: 'rgba(116,210,142,.15)', color: '#74d28e' }}>
+                  Current plan
+                </span>
+              )}
+              <h3 className="mb-1 font-semibold" style={{ color: '#f7efe1' }}>Operator</h3>
+              <p className="mb-3 text-xs" style={{ color: '#d9af63' }}>USD $490 / mo</p>
+              <ul className="mb-4 space-y-1.5">
+                {TIER_DISPLAY.operator.features.map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs" style={{ color: '#9aa8b6' }}>
+                    <span style={{ color: '#d9af63', marginTop: 1 }}>✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              {userTier !== 'operator' && (
+                <UpgradeButton priceKey="operator_monthly" label="Upgrade to Operator" className="mt-auto w-full rounded-xl px-4 py-2 text-center text-xs font-semibold transition-all" style={{ background: 'linear-gradient(135deg,#f3cf86,#d9af63)', color: '#07111d' }} />
+              )}
+            </div>
           </div>
         </section>
 
