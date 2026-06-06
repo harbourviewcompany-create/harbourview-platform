@@ -8,9 +8,10 @@ import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
+import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
-const SPECULAR_CAP = 0.24
+const SPECULAR_CAP = 0.42
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
 // inflated invisible hit mesh so they're tappable on mobile.
@@ -67,6 +68,10 @@ function HoverPulseMesh({
     targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
   }, [isFocused, emissiveIntensity])
 
+  const metallicGoldShader = useMemo(() => {
+    return (shader: MetallicGoldShader) => applyMetallicGoldShader(shader, { isFocused, isSelected })
+  }, [isFocused, isSelected])
+
   useFrame((state, delta) => {
     if (!matRef.current) return
     const cur = matRef.current.emissiveIntensity
@@ -91,6 +96,15 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
+          envMapIntensity={isSelected ? 1.18 : isFocused ? 1.02 : 0.86}
+          specularIntensity={isSelected ? 1.05 : isFocused ? 0.96 : 0.82}
+          sheen={isSelected ? 0.32 : 0.18}
+          sheenColor={isSelected ? '#fff0b8' : '#d5a642'}
+          sheenRoughness={0.42}
+          iridescence={isSelected ? 0.12 : 0.06}
+          iridescenceIOR={1.35}
+          onBeforeCompile={metallicGoldShader}
+          customProgramCacheKey={() => getMetallicGoldProgramCacheKey({ isFocused, isSelected })}
           side={FrontSide}
           depthTest
           depthWrite
@@ -100,17 +114,30 @@ function HoverPulseMesh({
         />
       </mesh>
       {isSelected ? (
-        <mesh geometry={geometry} scale={1.004} renderOrder={24}>
-          <meshBasicMaterial
-            color={SELECTED_GLOW}
-            transparent
-            opacity={0.18}
-            blending={AdditiveBlending}
-            side={BackSide}
-            depthTest
-            depthWrite={false}
-          />
-        </mesh>
+        <>
+          <mesh geometry={geometry} scale={1.004} renderOrder={24}>
+            <meshBasicMaterial
+              color={SELECTED_GLOW}
+              transparent
+              opacity={0.12}
+              blending={AdditiveBlending}
+              side={BackSide}
+              depthTest
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh geometry={geometry} scale={1.0018} renderOrder={25}>
+            <meshBasicMaterial
+              color="#fff0b8"
+              transparent
+              opacity={0.075}
+              blending={AdditiveBlending}
+              side={FrontSide}
+              depthTest
+              depthWrite={false}
+            />
+          </mesh>
+        </>
       ) : null}
       {/* Hit mesh — inflated invisible surface for pointer events.
           For large countries this is the same geometry. For small countries
@@ -149,7 +176,7 @@ export function CountryPolygonMeshLayer({
         geometry: createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
-          geometryMode: 'surface',
+          geometryMode: 'extruded',
         }),
         // Inflated hit geometry for small countries — larger plateLift pushes it
         // slightly above the visual mesh so raycasting hits it first
@@ -198,7 +225,7 @@ export function CountryPolygonMeshLayer({
         createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT + 0.002,
           extrusionHeight: SELECTED_EXTRUSION,
-          geometryMode: 'surface',
+          geometryMode: 'extruded',
         }),
       )
     }

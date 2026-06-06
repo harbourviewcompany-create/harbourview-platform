@@ -43,12 +43,12 @@ export function resolveCountryMaterialState({
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.
-    roughness: 0.34,
-    metalness: 0.46,
+    roughness: 0.27,
+    metalness: 0.88,
     // Clearcoat adds a second sharp reflection layer — makes specular highlight
     // look like polished metal rather than painted matte.
-    clearcoat: 0.34,
-    clearcoatRoughness: 0.24,
+    clearcoat: 0.56,
+    clearcoatRoughness: 0.18,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
@@ -71,8 +71,10 @@ export function resolveCountryMaterialState({
         borderColor: hvTokens.globe.borderMutedGoldSoft,
         emissive: hvTokens.globe.selectedAccent,
         emissiveIntensity: 0.32,
-        roughness: 0.36,
-        metalness: 0.52,
+        roughness: 0.24,
+        metalness: 0.92,
+        clearcoat: 0.62,
+        clearcoatRoughness: 0.16,
       }
     case 'searchFocused':
     case 'modalContext':
@@ -83,10 +85,10 @@ export function resolveCountryMaterialState({
         borderColor: hvTokens.globe.borderMutedGoldSoft,
         emissive: hvTokens.globe.selectedAccent,
         emissiveIntensity: 0.34,
-        roughness: 0.38,
-        metalness: 0.5,
-        clearcoat: 0.38,
-        clearcoatRoughness: 0.28,
+        roughness: 0.2,
+        metalness: 0.94,
+        clearcoat: 0.72,
+        clearcoatRoughness: 0.14,
       }
     case 'multi_market':
       return {
@@ -95,6 +97,9 @@ export function resolveCountryMaterialState({
         borderColor: hvTokens.globe.borderMutedGoldSoft,
         emissive: '#d8c16e',
         emissiveIntensity: 0.28,
+        roughness: 0.25,
+        metalness: 0.9,
+        clearcoat: 0.58,
       }
     case 'disabled':
       return {
