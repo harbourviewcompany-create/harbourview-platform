@@ -64,43 +64,43 @@ function CandidateRow({ c }: { c: MarketplaceAdminQueueItem }) {
           {licenceReview && <span className="rounded-full border border-amber-400/35 px-2 py-0.5 text-[10px] text-amber-200">Licence review</span>}
         </div>
       {/* Provenance — required for admin review workflow */}
-      {(listing.sourceUrl || listing.sourceName || listing.provenanceSummary || listing.internalReviewNotes) && (
+      {((c as any).sourceUrl || (c as any).sourceName || (c as any).provenanceSummary || (c as any).internalReviewNotes) && (
         <details className="mt-3 border-t border-white/8 pt-3">
           <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35 hover:text-white/55 select-none">
             Provenance summary
           </summary>
           <div className="mt-2 grid gap-1.5 text-[11px] text-white/50">
-            {listing.sourceUrl && (
+            {(c as any).sourceUrl && (
               <div className="flex items-start gap-2">
                 <span className="w-28 shrink-0 text-white/30">View source listing</span>
-                <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer"
+                <a href={(c as any).sourceUrl} target="_blank" rel="noopener noreferrer"
                    className="truncate text-sky-400/70 hover:text-sky-300 transition-colors">
-                  {listing.sourceName || listing.sourceUrl}
+                  {(c as any).sourceName || (c as any).sourceUrl}
                 </a>
               </div>
             )}
-            {listing.sourceName && !listing.sourceUrl && (
+            {(c as any).sourceName && !(c as any).sourceUrl && (
               <div className="flex items-start gap-2">
                 <span className="w-28 shrink-0 text-white/30">Evidence captured</span>
-                <span>{listing.sourceName}</span>
+                <span>{(c as any).sourceName}</span>
               </div>
             )}
-            {listing.provenanceSummary && (
+            {(c as any).provenanceSummary && (
               <div className="flex items-start gap-2">
                 <span className="w-28 shrink-0 text-white/30">Provenance summary</span>
-                <span>{listing.provenanceSummary}</span>
+                <span>{(c as any).provenanceSummary}</span>
               </div>
             )}
-            {listing.internalReviewNotes && (
+            {(c as any).internalReviewNotes && (
               <div className="flex items-start gap-2">
                 <span className="w-28 shrink-0 text-white/30">Internal review notes</span>
-                <span>{listing.internalReviewNotes}</span>
+                <span>{(c as any).internalReviewNotes}</span>
               </div>
             )}
-            {listing.sourceEvidence && (
+            {(c as any).sourceEvidence && (
               <div className="flex items-start gap-2">
                 <span className="w-28 shrink-0 text-white/30">Evidence captured</span>
-                <span>{listing.sourceEvidence}</span>
+                <span>{(c as any).sourceEvidence}</span>
               </div>
             )}
           </div>
