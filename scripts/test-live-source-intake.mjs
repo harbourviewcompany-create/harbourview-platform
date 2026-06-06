@@ -48,6 +48,9 @@ for (const term of ['flower', 'trim', 'biomass', 'extract', 'oil', 'distillate',
   assert(consumables.toLowerCase().includes(term), `excluded keyword guard must include ${term}`);
 }
 
+assert(consumables.includes('This candidate is restricted in V0 and cannot be approved for public marketplace use.'), 'restricted_item candidates must be blocked from approved_draft in V0');
+assert(consumables.includes('This candidate requires licence review and cannot be approved for public marketplace use in V0.'), 'requires_license_review candidates must be blocked from approved_draft in V0');
+
 assert(liveSources.includes("fetch_status: 'skipped'"), 'source intake must create skipped snapshots');
 assert(liveSources.includes('Automatic fetch deferred in V0'), 'source intake must document automatic fetch deferral');
 assert(liveSources.includes("['http:', 'https:']"), 'source intake must accept only http/https URLs');
@@ -67,6 +70,7 @@ for (const [from, to] of [
   assert(candidates.includes(from) && candidates.includes(to), `candidate workflow must include ${from} -> ${to}`);
 }
 assert(candidates.includes('Rejected candidates require a note'), 'rejected transition must require a note');
+assert(candidates.includes("if (toStatus === 'approved_draft')"), 'approved_draft transition must have a dedicated blocker gate');
 assert(candidates.includes('getDraftApprovalBlockers(candidate)'), 'approved draft must use blocker review');
 assert(candidates.includes('candidate_review_events'), 'status changes must write candidate_review_events');
 assert(!candidates.toLowerCase().includes('publish public listing'), 'candidate helper must not publish public listings');
@@ -80,6 +84,12 @@ for (const [name, content] of [
 ]) {
   assert(content.includes('await requireAdminAuth()'), `${name} must directly guard render`);
 }
+
+assert(candidateDetailPage.includes('data-testid="candidate-workflow-spine"'), 'candidate detail must expose source -> snapshot -> candidate -> review event workflow label');
+assert(candidateDetailPage.includes('data-testid="candidate-approval-blockers"'), 'candidate detail must expose approval blockers in a dedicated panel');
+assert(candidateDetailPage.includes('Approved draft remains private and does not publish a public listing.'), 'candidate detail must state approved_draft does not publish publicly');
+assert(candidateDetailPage.includes('No action publishes publicly. Approved draft is a private admin state only.'), 'candidate review actions must state that no action publishes publicly');
+assert(candidateDetailPage.includes('Approve as private draft only'), 'approved_draft action label must avoid public-publication implication');
 
 assert(publicConsumablesPage.includes('Consumables & Operating Supplies'), 'public consumables page must use full category label');
 assert(publicConsumablesFixture.includes('Inquiry Required'), 'public consumables fixture must use safe inquiry label');
@@ -97,4 +107,5 @@ if (failures.length) {
 console.log('ok live source intake migration creates private RLS tables');
 console.log('ok source intake is manual-only and admin/operator guarded');
 console.log('ok candidate workflow blocks unsafe approved_draft and never publishes');
+console.log('ok candidate detail labels source -> snapshot -> candidate -> review event workflow');
 console.log('ok consumables category uses public-safe labels and allowed subcategories');
