@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useCallback, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { ACESFilmicToneMapping } from 'three'
+import { ACESFilmicToneMapping, PMREMGenerator } from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import { OceanSphere } from './OceanSphere'
 import { AtmosphereGlow } from './AtmosphereGlow'
@@ -21,6 +22,28 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   useFrame((state) => {
     if (active) state.invalidate()
   })
+  return null
+}
+
+function MetallicEnvironment() {
+  const { gl, scene } = useThree()
+
+  useEffect(() => {
+    const pmremGenerator = new PMREMGenerator(gl)
+    const roomEnvironment = new RoomEnvironment()
+    const environmentMap = pmremGenerator.fromScene(roomEnvironment, 0.04).texture
+    const previousEnvironment = scene.environment
+
+    scene.environment = environmentMap
+
+    return () => {
+      scene.environment = previousEnvironment
+      environmentMap.dispose()
+      roomEnvironment.dispose()
+      pmremGenerator.dispose()
+    }
+  }, [gl, scene])
+
   return null
 }
 
@@ -117,6 +140,7 @@ export function GlobeCanvas({
         }}
       >
         <color attach="background" args={['#010810']} />
+        <MetallicEnvironment />
 
         {/* Metallic plate lighting: low ambient to avoid flat gold, a strong
             champagne key, and soft bronze/cool rim fills for reflective falloff. */}
