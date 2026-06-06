@@ -21,7 +21,7 @@ const CAPTURE_FIELD_ALLOWLIST = [
   'contact_phone',
   'inquiry_type',
   'message',
-  'review_status',
+  'status',
 ] as const;
 
 type CaptureDiagnosticCode =
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
     contact_phone: contactPhone || null,
     inquiry_type: inquiryType,
     message,
-    review_status: 'received',
+    status: 'received',
   };
   const insertFieldKeys = Object.keys(payload).sort();
 
