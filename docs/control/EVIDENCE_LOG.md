@@ -306,3 +306,27 @@ Expected Pass 1 evidence:
 - Airtable writeback remained disabled and was not run.
 
 **Operational conclusion:** CONFIG_HOLD. Code and static checks are complete, but local Supabase/Docker and Deno runtime are unavailable, so migration apply, database lint, RLS runtime queries, and dry-run function invocation could not be completed in this environment.
+
+## 2026-06-06 — Hostile security audit
+
+**Scope:** Hostile source audit of Harbourview application routes, admin guardrails, service-role usage, dependency posture, and public/private data exposure risks. No production traffic, live Supabase writes, brute force, or destructive testing was performed.
+
+**Commands and results (UTC):**
+
+- `git status --short && git remote -v && cat .git/config` — PASS; clean pre-audit working tree and no configured Git remote URL in the local checkout.
+- `find . -maxdepth 2 -type f | sed 's#^./##' | sort | head -200` — PASS; top-level repository structure reviewed without recursive large-tree listing.
+- `find app -maxdepth 4 -type f | sort` and `find lib -maxdepth 3 -type f | sort` — PASS; application/API/security-relevant files mapped.
+- `python - <<'PY' ... Path('app/api').rglob('route.ts') ... PY` — PASS; identified service-role API routes without admin guard calls.
+- `rg -n "SUPABASE_SERVICE_ROLE_KEY|createClient\(|requireAdminAuth|getAdminAuthCheck|csrf|rateLimit|Authorization|x-cron|CRON|secret" app lib scripts --glob '!node_modules'` — PASS; auth, service-role, rate-limit, and secret-touching paths reviewed.
+- `npm run test:secret-scan` — PASS; no high-confidence secret literals found.
+- `npm audit --omit=dev` — FAIL; moderate PostCSS advisory inherited through Next.
+- `npm run lint:docs` — FAIL; no `lint:docs` script exists in `package.json`.
+- `npm run test -- --passWithNoTests` — FAIL; pre-existing globe foundation expectations fail for camera defaults and azimuth limits.
+
+**Evidence artifacts:**
+
+- Audit report: `docs/control/HOSTILE_AUDIT_2026-06-06.md`.
+
+**Compliance & data handling:** No secrets, private Supabase logs, JWTs, customer data, credentials, or production payloads were used or committed. The audit relied on local source review, package metadata, static scans, and local command output.
+
+**Operational conclusion:** RELEASE HOLD until unauthenticated service-role-backed genetics mutation routes are patched, public genetics intake returns a narrow DTO, fail-open operational routes are hardened, dependency audit is resolved or risk-accepted, and test drift is cleared.
