@@ -4,11 +4,11 @@ import { ShellWrapper } from '@/components/ShellWrapper'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Harbourview | Regulated Cannabis Market Access & Intelligence',
+    default: 'Harbourview | Regulated Cannabis Market Routing & Intelligence',
     template: '%s | Harbourview',
   },
   description:
-    "Harbourview gives serious operators in regulated cannabis markets the intelligence, introductions, and access pathways that aren't available publicly.",
+    'Harbourview helps serious operators in regulated cannabis markets route reviewed commercial requests, review public-safe intelligence, and begin controlled intake. Coverage is partial and reviewed as available.',
   openGraph: {
     siteName: 'Harbourview',
     type: 'website',
