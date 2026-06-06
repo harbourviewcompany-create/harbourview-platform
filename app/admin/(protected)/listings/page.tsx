@@ -53,6 +53,7 @@ function CandidateRow({ c }: { c: MarketplaceAdminQueueItem }) {
   const region = (c as any).region || c.region || '—'
   const restricted = (c as any).restricted_item
   const licenceReview = (c as any).requires_license_review
+  const listing = c as any
 
   return (
     <tr className="border-t border-white/8 align-top transition hover:bg-white/[0.02]">
