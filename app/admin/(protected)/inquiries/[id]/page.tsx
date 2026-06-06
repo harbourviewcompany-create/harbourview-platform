@@ -11,6 +11,7 @@ import {
   reviewStatusLabels,
   REVIEW_STATUSES,
 } from '@/lib/marketplace/inquiryWorkflow';
+import { PromoteToListingForm } from '@/components/admin/PromoteToListingForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,6 +124,16 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#C6A55A]">Message</h3>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#F5F1E8]/80">{inquiry.message}</p>
           </div>
+
+          {inquiry.inquiry_type === 'listing_submission' && !inquiry.listing_id && (
+            <div className="mt-6">
+              <PromoteToListingForm
+                inquiryId={inquiry.id}
+                prefillName={inquiry.contact_company ?? inquiry.contact_name}
+                prefillMessage={inquiry.message}
+              />
+            </div>
+          )}
 
           <div className="mt-6 rounded-2xl border border-[#C6A55A]/25 bg-black/20 p-5">
             <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
