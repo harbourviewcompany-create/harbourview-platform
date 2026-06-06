@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 import { countryOptions } from '@/config/globe/country-role-profiles'
+import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
 
 export type CountryBrief = {
   iso_alpha2: string
@@ -59,9 +60,13 @@ export function useCountryBrief(iso2: string | null | undefined): BriefState {
     if (cached) { setState({ status: 'ok', data: cached }); return }
 
     const fixture = fixtureBriefMap.get(iso2)
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) {
+    let url = ''
+    let key = ''
+
+    try {
+      url = getSupabaseUrl()
+      key = getSupabasePublicClientKey()
+    } catch {
       if (fixture) {
         cache.set(iso2, fixture)
         setState({ status: 'ok', data: fixture })
