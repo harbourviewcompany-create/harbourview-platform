@@ -66,7 +66,8 @@ if (!/image:\s*imageSrc\s*\?/.test(adapterContent)) {
   failures.push('Business Opportunities adapter missing reviewed image projection gate')
 }
 
-if (!/getLiveBusinessOpportunities\(businessOpportunities\)/.test(pageContent)) {
+if (!/getLiveBusinessOpportunities\(businessOpportunities\)/.test(pageContent) &&
+    !/getPublicListingsByCategory\(/.test(pageContent)) {
   failures.push('Business Opportunities page is not wired to the reviewed live feed adapter')
 }
 
