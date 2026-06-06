@@ -82,6 +82,7 @@ for (const pattern of FORBIDDEN_PUBLIC_PIPELINE_PATTERNS) {
 if (/getLiveBusinessOpportunities\(businessOpportunities\)/.test(pageContent)) {
   failures.push('Business Opportunities page should use the canonical public listings view, not the legacy live feed adapter')
 }
+}
 
 if (failures.length) {
   console.error('Business Opportunities public leakage test failed:')
