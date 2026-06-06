@@ -55,6 +55,7 @@ const CANDIDATE_COLUMNS = [
   'description_internal', 'description_public_draft',
   'jurisdiction', 'country', 'region', 'source_type', 'condition',
   'confidence_score', 'commercial_relevance_score', 'compliance_risk_score',
+  'source_url', 'source_name', 'source_type', 'source_fingerprint',
   'restricted_item', 'requires_license_review', 'status',
   'rejection_reason', 'reviewed_by', 'reviewed_at', 'updated_at',
 ].join(',')
