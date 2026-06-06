@@ -29,7 +29,7 @@ const PUBLIC_RENDER_FILES = [
   'lib/fixtures/types.ts',
 ]
 
-const ADMIN_FILES = ['app/admin/(protected)/listings/page.tsx']
+const ADMIN_FILES = ['app/admin/(protected)/candidates/[id]/page.tsx', 'lib/marketplace/candidates.ts']
 
 const ADMIN_GUARD_FILES = ['app/admin/(protected)/layout.tsx', 'lib/auth/adminGuard.ts']
 
@@ -159,16 +159,22 @@ const PUBLIC_PROJECTION_FORBIDDEN_PATTERNS = [
 ]
 
 const ADMIN_REQUIRED_PATTERNS = [
-  /View source listing/i,
-  /Evidence captured/i,
-  /Provenance summary/i,
-  /Internal review notes/i,
-  /listing\.sourceUrl/,
-  /listing\.sourceName/,
-  /listing\.sourceType/,
-  /listing\.sourceEvidence/,
-  /listing\.provenanceSummary/,
-  /listing\.internalReviewNotes/,
+  /requireAdminAuth/,
+  /getCandidateDetail/,
+  /Manual-source workflow/i,
+  /Source URL/i,
+  /Captured text excerpt/i,
+  /Internal description/i,
+  /Review events/i,
+  /Review note/i,
+  /source\?\.source_url/,
+  /snapshot\?\.captured_text/,
+  /candidate\.description_internal/,
+  /candidate\.reviewed_by/,
+  /event\.note/,
+  /source_snapshots/,
+  /source_registry/,
+  /candidate_review_events/,
 ]
 
 const ADMIN_GUARD_REQUIRED_PATTERNS = [
@@ -238,5 +244,5 @@ if (failures.length) {
 
 console.log('ok public listing render files and fixtures do not expose source/provenance/contactEmail fields')
 console.log('ok public listing projection omits internal source/provenance/contactEmail fields')
-console.log('ok admin listing review retains source/provenance/evidence fields')
+console.log('ok protected candidate detail route retains admin-only source, snapshot and review evidence visibility')
 console.log('ok admin provenance route uses server-side role guard')
