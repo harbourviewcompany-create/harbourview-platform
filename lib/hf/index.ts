@@ -30,7 +30,7 @@ export {
   type HfModelRepoId,
   type RepoVerificationResult,
 } from './repos';
-export { HfClient, getHfClient, _resetHfClientForTest } from './client';
+export { HfClient, getHfClient, _resetHfClientForTest, type HfClientConfig } from './client';
 export { hfLog, type HfLogLevel, type HfLogEntry } from './logging';
 
 // Intentionally NOT exported from skeleton (not yet implemented):
