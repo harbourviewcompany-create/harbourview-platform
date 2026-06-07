@@ -14,7 +14,8 @@ function stripHtml(raw: string): string {
     .replace(/&quot;/g, '"').replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&apos;|&#39;/g, "'").replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ').trim().slice(0, 180)
+    .replace(/\/?\$[A-Z]{2,8}(?:\.[A-Z]{2,4})?/g, '')
+    .replace(/\s{2,}/g, ' ').trim().slice(0, 180)
 }
 
 // ── Signal tag display mapping ────────────────────────────────────────────────
