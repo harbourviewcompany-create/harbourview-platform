@@ -2,7 +2,7 @@
 
 **Status: HOLD for execution. Approved for design ratification only.**
 Last updated: 2026-06-07
-Inspection basis: Live Supabase schema + full GitHub repo inspection (main @ 726930d)
+Inspection basis: Live Supabase schema + full GitHub repo inspection (main @ 726930d) + HF org verification
 
 ---
 
@@ -10,13 +10,34 @@ Inspection basis: Live Supabase schema + full GitHub repo inspection (main @ 726
 
 | ID | Decision | Selected value | Evidence | Status |
 |---|---|---|---|---|
-| D1 | Hugging Face org slug | TBD: `harbourview-ai` or fallback | HF org creation screen / slug availability check | **HOLD** |
-| D2 | Vector store | **pgvector in Supabase** (`zvxdgdkukjrrwamdpqrg`) | `public.hv_embeddings` table, HNSW indexes confirmed live. `hv_search.search_documents` in migration 20260606. BGE-M3 requires additive `vector(1024)` column — migration not yet written. | **CONDITIONAL GO** |
-| D3 | Role mapping | `reviewer` → `analyst`, `model-ops` → `operator`, `marketplace-reviewer` → `operator`, `education-reviewer` → `operator` (document scope) | `lib/auth/adminRoles.ts`: roles are `admin`, `operator`, `analyst`, `viewer`. No `reviewer` or `model-ops` exist. Mapping is an approximation — must be documented here before Ticket 3. | **HOLD — write mapping decision** |
-| D4 | Vercel timeout / compute strategy | TBD | `vercel.json` has no `maxDuration`. `next.config.ts` uses `output: standalone`. Repo has `open-next.config.ts`, `wrangler.jsonc`, `netlify.toml` — multi-target. `hv_processing_jobs` async queue confirmed in Supabase. No queue worker found in repo. Heavy model calls (Qwen3-30B) must go through the job queue, not synchronous routes. | **HOLD — confirm deployment target + wire worker** |
-| D5 | Chunking strategy | TBD | `hv_embeddings.chunk_index` and `chunk_text` columns exist. No window size, overlap, or splitter defined anywhere. | **HOLD — define parameters** |
-| D6 | Repo structure | **Single Next.js 15 app. No `packages/` directory.** | Confirmed via full tree inspection. Module path in design packet (`/packages/harbourview-ai`) is WRONG. Correct path: `/lib/hf/` following `lib/llm/` convention. | **RESOLVED** |
-| D7 | Release-candidate repo naming | `harbourview-ai/hv-release-candidates-private` | Original name `hv-public-safe-facts` is rejected. No HF org exists yet — apply correct name at org creation. | **HOLD — pending D1** |
+| D1 | Hugging Face org slug | **`Harbourview`** (already exists at huggingface.co/Harbourview) | HF profile page verified. Free plan. 1 member (TYLEROTT). 0 public repos. | **RESOLVED** |
+| D2 | Vector store | **pgvector in Supabase** (`zvxdgdkukjrrwamdpqrg`) | `public.hv_embeddings` table, HNSW indexes confirmed live. BGE-M3 requires additive `vector(1024)` column — migration not yet written. | **CONDITIONAL GO — migration pending** |
+| D3 | Role mapping | `reviewer` → `analyst`, `model-ops` → `operator`, `marketplace-reviewer` → `operator`, `education-reviewer` → `operator` | `lib/auth/adminRoles.ts` has: `admin`, `operator`, `analyst`, `viewer`. No `reviewer` or `model-ops` exist. Mapping is an approximation — must be confirmed before Ticket 3. | **HOLD — confirm mapping** |
+| D4 | Vercel timeout / compute strategy | TBD | `vercel.json` has no `maxDuration`. Repo is multi-target (Vercel + OpenNext + Wrangler + Netlify). `hv_processing_jobs` async queue confirmed in Supabase. No queue worker found in repo. Heavy model calls (Qwen3-30B) must use the job queue. | **HOLD — confirm deployment target + wire worker** |
+| D5 | Chunking strategy | TBD | `hv_embeddings.chunk_index` and `chunk_text` columns exist. No window size, overlap, or splitter defined. | **HOLD — define parameters** |
+| D6 | Repo structure | **Single Next.js 15 app. No `packages/` directory.** | Confirmed via full tree. Design packet path `/packages/harbourview-ai` is wrong. Correct: `/lib/hf/` following `lib/llm/` convention. | **RESOLVED** |
+| D7 | Release-candidate repo naming | `Harbourview/hv-release-candidates-private` | Original name `hv-public-safe-facts` rejected. Org slug is `Harbourview` (not `harbourview-ai`). Apply correct name at repo creation. | **RESOLVED — apply at Ticket 2** |
+
+---
+
+## HF plan tier — impact on design packet
+
+**Current plan: Free.**
+Resource groups, SSO, and audit logs are Team/Enterprise-only features.
+
+| Design packet feature | Available on Free? | Status |
+|---|---|---|
+| Private repos | Yes | Available now |
+| Private Spaces | Yes | Available now |
+| Private Inference Endpoints | Yes (billed per hour) | Available now |
+| Resource groups (`rg-core-admin`, etc.) | **No — Team/Enterprise only** | **BLOCKED until upgrade** |
+| SSO | **No — Enterprise only** | **BLOCKED until upgrade** |
+| Audit logs | **No — Team/Enterprise only** | **BLOCKED until upgrade** |
+| Organization access control (per-member role) | Basic only on Free | Partial |
+
+**Immediate consequence:** Tickets 1's resource group sub-tasks cannot execute on the current plan.
+Ticket 1 scope on Free plan = org settings + default visibility + member roles only.
+Resource groups are deferred until a Team/Enterprise upgrade decision is made.
 
 ---
 
@@ -38,27 +59,26 @@ Inspection basis: Live Supabase schema + full GitHub repo inspection (main @ 726
 
 ---
 
-## Known blockers before any ticket can execute
+## Known blockers before code tickets can execute
 
 ### BLOCKER-1 — `hv_core.current_role()` JWT hook missing
 
-The new `hv_*` schema RLS model reads `hv_role` from the JWT via `hv_core.current_role()`.
+The `hv_*` schema RLS model reads `hv_role` from the JWT via `hv_core.current_role()`.
 No `custom_access_token` Supabase hook exists in the repo.
-Without it, `hv_role` is never in user tokens. `is_operator_or_admin()` returns false for all users.
+Without it, `is_operator_or_admin()` returns false for all authenticated users.
 All `hv_core`, `hv_private`, `hv_commercial`, `hv_marketplace` RLS policies silently deny authenticated users.
 
-**Options:**
+Options:
 - (a) Add a Supabase `custom_access_token` hook migration that reads `hv_core.app_profiles.hv_role` and injects it into the JWT. Correct long-term approach.
-- (b) Document that all HF server routes use the service_role client exclusively. Add guard that throws if service_role key is absent. Faster, higher privilege.
+- (b) All HF server routes use service_role client exclusively. Add guard that throws if service_role key is absent. Faster, higher privilege.
 
-**Decision required here before Ticket 3.**
-
+**Decision required before Ticket 3.**
 Selected option: TBD
 
 ### BLOCKER-2 — BGE-M3 1024-dim column does not exist
 
 `hv_embeddings` has `embedding vector(1536)` and `embedding_384 vector(384)`.
-BGE-M3 outputs 1024-dim vectors. Migration required before Ticket 4:
+BGE-M3 outputs 1024-dim vectors. Required migration before Ticket 7:
 
 ```sql
 ALTER TABLE hv_embeddings ADD COLUMN embedding_1024 vector(1024);
@@ -74,10 +94,8 @@ CREATE INDEX idx_hv_embeddings_hnsw_1024
 Migration `20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql`
 revokes anon EXECUTE from `hv_requeue_failed_embed_jobs`, `hv_audit_publication`,
 `hv_audit_review_decision`, `handle_new_user`, `sync_subscription_tier`.
-Live Supabase inspection showed these still callable by anon before this migration's timestamp.
 Confirm this migration is applied to production before any HF integration begins.
-
-Check: Supabase Dashboard → Database → Migrations — verify `20260606210000` is listed as applied.
+Check: Supabase Dashboard → Database → Migrations → verify `20260606210000` is listed as applied.
 
 ---
 
@@ -104,13 +122,34 @@ lib/hf/
 
 ---
 
+## Corrected org slug in all env vars and dataset paths
+
+All references in the design packet to `harbourview-ai/` must be replaced with `Harbourview/`.
+
+```
+HF_ORG=Harbourview
+HF_TOKEN_SERVER=
+HF_ENDPOINT_EMBED_BGE_M3=
+HF_ENDPOINT_RERANK_BGE_V2_M3=
+HF_ENDPOINT_EXTRACT_QWEN3_4B=
+HF_ENDPOINT_EXTRACT_QWEN3_30B=
+HF_DATASET_SOURCE_CORPUS=Harbourview/hv-source-corpus-private
+HF_DATASET_EVALS=Harbourview/hv-eval-sets-private
+HF_DATASET_REVIEWED_FACTS=Harbourview/hv-reviewed-facts-private
+HF_DATASET_RELEASE_CANDIDATES=Harbourview/hv-release-candidates-private
+```
+
+Add to `.env.example` (blank values only) and Vercel project env before Ticket 3.
+
+---
+
 ## Corrected ticket execution order
 
-- **Ticket 0** — This document. Resolve D1–D7. Record BLOCKER-1 decision.
-- **Ticket 1** — HF org + resource groups. Unblocked once D1 confirmed.
-- **Ticket 2** — Private dataset repos using `hv-release-candidates-private`.
-- **Ticket 3** — `lib/hf/serverOnly.ts`, `lib/hf/env.ts`, `lib/hf/client.ts`. Role-protected internal route shell. Blocked until D3 written and BLOCKER-1 decided.
-- **Ticket 4** — Structural public DTO `Pick<>` serializers + tests. Can run in parallel with Ticket 3.
+- **Ticket 0** — This document. D1–D7 resolved/recorded. ✅
+- **Ticket 1** — HF org settings on Free plan (default visibility, member roles). Resource groups deferred until Team/Enterprise upgrade.
+- **Ticket 2** — Private dataset repos using `Harbourview/hv-release-candidates-private`.
+- **Ticket 3** — `lib/hf/serverOnly.ts`, `lib/hf/env.ts`, `lib/hf/client.ts`. Role-protected route shell. Blocked until D3 confirmed and BLOCKER-1 decided.
+- **Ticket 4** — Structural public DTO `Pick<>` serializers + tests. Parallel with Ticket 3.
 - **Ticket 5** — Leakage auditor as second-layer verification.
 - **Ticket 6** — BGE-M3 1024-dim migration + `hv_search_artifacts` update. BLOCKER-2.
 - **Ticket 7** — Embedding pipeline.
@@ -120,41 +159,22 @@ lib/hf/
 - **Ticket 11** — Eval harness with CI gate.
 - **Ticket 12** — Private HF Spaces.
 
-Do not run Tickets 3+ in parallel until Ticket 3 is merged and role protection is verified.
-
----
-
-## Environment variables to add (server-only)
-
-```
-# Hugging Face — server-only. Never NEXT_PUBLIC_*.
-HF_ORG=harbourview-ai
-HF_TOKEN_SERVER=
-HF_ENDPOINT_EMBED_BGE_M3=
-HF_ENDPOINT_RERANK_BGE_V2_M3=
-HF_ENDPOINT_EXTRACT_QWEN3_4B=
-HF_ENDPOINT_EXTRACT_QWEN3_30B=
-HF_DATASET_SOURCE_CORPUS=harbourview-ai/hv-source-corpus-private
-HF_DATASET_EVALS=harbourview-ai/hv-eval-sets-private
-HF_DATASET_REVIEWED_FACTS=harbourview-ai/hv-reviewed-facts-private
-HF_DATASET_RELEASE_CANDIDATES=harbourview-ai/hv-release-candidates-private
-```
-
-Add to `.env.example` (blank values only) and Vercel project env before Ticket 3.
+Do not run Tickets 3+ in parallel until Ticket 3 is merged and route protection is verified.
 
 ---
 
 ## GO rule
 
 GO on full execution is only possible after:
-- [ ] D1–D7 all resolved and recorded above
+- [ ] D3 role mapping confirmed
+- [ ] D4 deployment target + worker strategy confirmed
+- [ ] D5 chunking parameters defined
 - [ ] BLOCKER-1 option selected and actioned
 - [ ] BLOCKER-2 migration written and applied
 - [ ] BLOCKER-3 confirmed applied to production
 - [ ] `lib/hf/` module skeleton merged with `import 'server-only'`
 - [ ] `grep -r "NEXT_PUBLIC_HF" .` returns zero results
-- [ ] Internal route protection verified against actual auth model
 - [ ] DTO `Pick<>` serializers implemented for all HF-facing types
 - [ ] Eval/leakage gates present in CI
 
-**Current verdict: HOLD — Ticket 1 unblocked pending D1 confirmation.**
+**Current verdict: HOLD — Ticket 1 now executable (org confirmed, Free plan scope only).**
