@@ -2,14 +2,12 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import { getCountryIntelProfile, getLiveEduTiles, getPipelineCounts, getWantedListings } from '@/lib/dashboard/dashboardLiveData'
-import { fixtureCountries } from '@/lib/dashboard/countries'
 import CommandCentre from '@/components/dashboard/CommandCentre'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
-import { roleProfiles } from '@/lib/roles/role-profiles'
 import type { RoleId } from '@/types/globe-router'
 
 export const dynamic = 'force-dynamic'
@@ -70,11 +68,6 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
   services: ['services', 'professional_services', 'logistics', 'lab_testing'],
   opportunities: ['distressed_businesses', 'distressed_inventory', 'business_opportunities', 'qualified_access', 'wanted_requests'],
   wanted: ['wanted_requests', 'wanted'],
-}
-
-export function generateStaticParams() {
-  const countrySlugs = fixtureCountries.slice(0, 12).map((country) => country.slug)
-  return countrySlugs.flatMap((countrySlug) => roleProfiles.slice(0, 24).map((role) => ({ countrySlug, roleSlug: role.slug })))
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ countrySlug: string; roleSlug: string }> }): Promise<Metadata> {
