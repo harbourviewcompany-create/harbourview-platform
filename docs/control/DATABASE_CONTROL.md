@@ -97,3 +97,17 @@ Database changes require static route/action review, migration review, RLS revie
 ## Completion criteria
 
 Database work is complete only when environment, SQL/migrations, RLS impact, public/private exposure, tests and production approval status are all recorded.
+
+## 2026-06-07 — Cannabis Data Contract v1.0 P0/P1 Foundation
+
+- **Environment:** local workspace only; no production Supabase push was attempted.
+- **Migration:** `supabase/migrations/20260607120000_cannabis_data_contract_v1_p0_p1.sql`.
+- **Seed:** `supabase/seeds/cannabis_data_contract_v1_taxonomy.sql` seeds taxonomy and coverage matrix only.
+- **Tables affected:** new `cannabis_intelligence` schema with P0/P1 raw intelligence tables for jurisdictions, taxonomies, sources, evidence claims, data gaps, legal regimes, regulators, thresholds, laws, responsibilities, licence types/registers/entities/licences, medical pathways, import/export rules, contradictions, review tasks, and generic fact-evidence links.
+- **RLS impact:** RLS is enabled on every new raw table; anon grants are revoked; no anon-readable raw-table policy is created. Public exposure must use DTO allowlists or future approved public snapshot tables.
+- **Functions/triggers:** coverage-gap generation runs after inserted jurisdictions and records mandatory `data_gaps` for required category/activity pairs without inventing legal facts; updated-at triggers maintain audit timestamps.
+- **Public API routes affected:** none.
+- **Backward compatibility:** additive only; no existing table is dropped, renamed, truncated, or rewritten.
+- **Rollback/forward-fix path:** rollback by reverting the migration before deployment. If already deployed, create a follow-up migration to revoke schema use and drop only the newly introduced `cannabis_intelligence` objects after confirming no production data was populated.
+- **Required tests:** focused Vitest migration/DTO boundary tests, TypeScript compile, lint, build, Supabase migration reset when Docker/local Supabase is available.
+- **Human approval status:** pending release/operator review because local Supabase runtime verification is blocked by unavailable Docker in this workspace.
