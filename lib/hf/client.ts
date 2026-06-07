@@ -1,12 +1,21 @@
 import 'server-only';
 
 import { assertServerOnly } from './serverOnly';
-import { getHfEnv, type HfEnv } from './env';
+import { getHfEnv } from './env';
 import { HfError } from './errors';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+/**
+ * Minimal config the client needs. Satisfied by HfEnv (superset) or a plain
+ * { HF_ORG, HF_TOKEN_SERVER } object in tests.
+ */
+export interface HfClientConfig {
+  HF_ORG: string;
+  HF_TOKEN_SERVER: string;
+}
 
 export interface HfRequestOptions {
   method?: 'GET' | 'POST';
@@ -38,9 +47,9 @@ export class HfClient {
   private readonly org: string;
   private readonly hubBase = 'https://huggingface.co/api';
 
-  constructor(env?: HfEnv) {
+  constructor(config?: HfClientConfig) {
     assertServerOnly();
-    const resolved = env ?? getHfEnv();
+    const resolved = config ?? getHfEnv();
     this.token = resolved.HF_TOKEN_SERVER;
     this.org = resolved.HF_ORG;
   }
@@ -81,7 +90,7 @@ export class HfClient {
 
     let data: T;
     try {
-      data = await resp.json() as T;
+      data = (await resp.json()) as T;
     } catch {
       throw new HfError(
         'HF_OUTPUT_INVALID',
