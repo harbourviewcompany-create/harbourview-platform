@@ -17,7 +17,7 @@ function applyNoStoreHeaders(response: NextResponse) {
 }
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/account', '/vault']
+const PROTECTED_PREFIXES = ['/account', '/vault', '/dashboard', '/admin']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
