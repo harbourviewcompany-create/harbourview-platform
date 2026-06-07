@@ -60,9 +60,6 @@ const COUNTRY_ROLE_TO_DASHBOARD_ROLE: Partial<Record<string, RoleId>> = {
   policy_analyst: 'government_regulator',
   investor: 'investor_operator',
   strategic_acquirer: 'investor_operator',
-  equipment_seller: 'equipment_seller',
-  used_equipment_seller: 'equipment_seller',
-  consultant: 'consultant',
 }
 
 const VIEW_SECTIONS: Record<MarketView, string[]> = {
