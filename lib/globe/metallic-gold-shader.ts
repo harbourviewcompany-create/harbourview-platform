@@ -102,9 +102,9 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
      hvLayeredGold = mix(hvLayeredGold, uBronzeGold, hvFalloff * 0.34);
      hvLayeredGold += uRimGold * hvRim * (0.22 + uMetallicFocus * 0.22);
      hvLayeredGold += uChampagneGold * hvSpec * (0.22 + uMetallicFocus * 0.18);
-     // Hard clamp: prevents any path from blowing the surface out to cream/white.
-     // RGB ceiling of ~0.92/0.80/0.36 maps to a rich warm gold under ACES at 0.78 exposure.
-     hvLayeredGold = clamp(hvLayeredGold, vec3(0.0), vec3(0.92, 0.80, 0.36));
+     // Hard clamp: prevents any path from blowing the surface to cream/white.
+     // At 0.68 ACES exposure: ceiling ~0.88/0.72/0.30 maps to saturated deep gold.
+     hvLayeredGold = clamp(hvLayeredGold, vec3(0.0), vec3(0.88, 0.72, 0.30));
      diffuseColor.rgb = mix(diffuseColor.rgb, hvLayeredGold, 0.88);`,
   )
 }
