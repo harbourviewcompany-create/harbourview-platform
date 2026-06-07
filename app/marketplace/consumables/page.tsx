@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
-import { getPublicListingsByCategory } from '@/lib/server/listingsQuery'
+import { getPublicListingsByCategoryFiltered } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
+import { ConsumablesFilterBar } from '@/components/marketplace/ConsumablesFilterBar'
+import { ListingNotifyWidget } from '@/components/marketplace/ListingNotifyWidget'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -182,8 +185,18 @@ function EmptyState() {
   )
 }
 
-export default async function ConsumablesPage() {
-  const listings = await getPublicListingsByCategory('consumables')
+export default async function ConsumablesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ region?: string; type?: string; q?: string }>
+}) {
+  const params = await searchParams
+  const allListings = await getPublicListingsByCategoryFiltered('consumables', {})
+  const listings = await getPublicListingsByCategoryFiltered('consumables', {
+    region: params.region,
+    productType: params.type,
+    search: params.q,
+  })
 
   return (
     <>
@@ -275,7 +288,7 @@ export default async function ConsumablesPage() {
             <EmptyState />
           ) : (
             <>
-              <div className="mb-8 sm:mb-10">
+              <div className="mb-6 sm:mb-8">
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">
                   Reviewed supply
                 </p>
@@ -283,10 +296,16 @@ export default async function ConsumablesPage() {
                   Current approved listings.
                 </h2>
               </div>
+              <Suspense>
+                <ConsumablesFilterBar totalCount={allListings.length} filteredCount={listings.length} />
+              </Suspense>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {listings.map((listing) => (
                   <ListingCard key={listing.id} listing={listing} />
                 ))}
+              </div>
+              <div className="mt-10">
+                <ListingNotifyWidget category="consumables" />
               </div>
             </>
           )}
@@ -310,8 +329,8 @@ export default async function ConsumablesPage() {
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href="/marketplace/sell" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
-                Submit supply
+              <Link href="/marketplace/sell/consumables" className="btn-marketplace min-h-[52px] justify-center text-center text-sm">
+                Submit consumables supply
               </Link>
               <Link href="/intake" className="btn-intelligence min-h-[52px] justify-center text-center text-sm">
                 Speak confidentially

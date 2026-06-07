@@ -112,3 +112,35 @@ export async function getListingsBySections(
 
   return rows
 }
+
+export type ListingFilters = {
+  region?: string
+  productType?: string
+  search?: string
+}
+
+export async function getPublicListingsByCategoryFiltered(
+  category: string,
+  filters: ListingFilters = {},
+  limit = 60,
+): Promise<PublicListing[]> {
+  const p = baseParams(limit)
+  const normalized = category.replace(/-/g, '_')
+  p.set('category', `eq.${normalized}`)
+  if (filters.region && filters.region !== 'all') {
+    p.set('region', `eq.${filters.region}`)
+  }
+  if (filters.productType && filters.productType !== 'all') {
+    p.set('product_type', `ilike.*${filters.productType.replace(/\s+/g, '*')}*`)
+  }
+  const rows = await queryListings(p)
+  if (filters.search) {
+    const q = filters.search.toLowerCase()
+    return rows.filter(r =>
+      r.title.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      (r.product_type ?? '').toLowerCase().includes(q),
+    )
+  }
+  return rows
+}

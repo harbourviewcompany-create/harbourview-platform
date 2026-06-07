@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { InquiryForm } from '@/components/marketplace/InquiryForm'
+import { ProofOfAvailabilityForm } from '@/components/marketplace/ProofOfAvailabilityForm'
 import { getPublicListingBySlug, type PublicListing } from '@/lib/server/listingsQuery'
 
 export const dynamic = 'force-dynamic'
@@ -105,6 +106,7 @@ export default async function ConsumableDetailPage({ params }: Props) {
           </div>
 
           <InquiryForm listingSlug={listing.slug ?? id} listingTitle={listing.title} ctaLabel={ctaLabel} />
+          <ProofOfAvailabilityForm listingSlug={listing.slug ?? id} listingTitle={listing.title} />
         </div>
       </article>
     </main>
