@@ -330,3 +330,86 @@ Expected Pass 1 evidence:
 **Compliance & data handling:** No secrets, private Supabase logs, JWTs, customer data, credentials, or production payloads were used or committed. The audit relied on local source review, package metadata, static scans, and local command output.
 
 **Operational conclusion:** RELEASE HOLD until unauthenticated service-role-backed genetics mutation routes are patched, public genetics intake returns a narrow DTO, fail-open operational routes are hardened, dependency audit is resolved or risk-accepted, and test drift is cleared.
+
+## 2026-06-07 — Cannabis Data Contract v1.0 P0/P1 Backend Foundation
+
+**Scope:** Added the additive `cannabis_intelligence` schema foundation for Harbourview Global Cannabis Data Contract v1.0 P0/P1 raw intelligence tables, stable system enums, taxonomy/coverage-matrix seed, coverage-gap generation, RLS deny-by-default posture, and TypeScript public DTO allowlists. No production database push was attempted and no fake country/legal/regulator/licence/licensee facts were seeded.
+
+**Commands and results (UTC):**
+
+- `npx vitest run tests/cannabis-data-contract/migration.test.ts tests/cannabis-data-contract/dto.test.ts` — PASS; verifies required enums/tables, confidence/FK/RLS/static anon-deny patterns, provenance/contradiction structures, licence separation, seed taxonomy-only constraints, gap-generation SQL, and public DTO privacy boundaries.
+- `npm run typecheck` — PASS.
+- `npm run lint` — PASS with pre-existing warnings in Stripe webhook, vault, dashboard, and consumables files.
+- `npm run test` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; unrelated to this data-contract change.
+- `npm run build` — PASS with pre-existing lint warnings.
+- `npm run check:migrations` — FAIL on pre-existing duplicate migration prefix `20260601000000`; not introduced by this workspace.
+- `npx supabase --version && npx supabase db reset --local` — BLOCKED after Supabase CLI version `2.105.0` reported because Docker daemon is unavailable in this workspace.
+
+**Evidence notes:**
+
+- Migration file: `supabase/migrations/20260607120000_cannabis_data_contract_v1_p0_p1.sql`.
+- Seed file: `supabase/seeds/cannabis_data_contract_v1_taxonomy.sql`.
+- DTO allowlist: `lib/intelligence/cannabisDataContract.ts`.
+- QA tests: `tests/cannabis-data-contract/migration.test.ts` and `tests/cannabis-data-contract/dto.test.ts`.
+
+**Compliance & data handling:** No secrets, private user data, real customer payloads, or production legal facts were committed. The seed is limited to taxonomy and coverage matrix setup. Raw source paths, extraction logs, reviewer notes, contradiction internals, and private contact data remain excluded from public DTO projections.
+
+**Operational conclusion:** HOLD for production release until local/staging Supabase migration application, runtime RLS/anon-select verification, and pre-existing repository test/migration-check failures are resolved or formally risk-accepted.
+
+## 2026-06-07 — Cannabis Data Contract v1.0 Review Follow-up
+
+**Scope:** Hardened the P0/P1 data-contract migration after review by adding public/private metadata parity to jurisdiction universe fact tables, adding nullable-safe uniqueness for generic fact-evidence links, and generating coverage gaps when required activity/category matrix rows are inserted after jurisdictions already exist.
+
+**Commands and results (UTC):**
+
+- `npx vitest run tests/cannabis-data-contract/migration.test.ts tests/cannabis-data-contract/dto.test.ts` — PASS; 13 focused tests now include jurisdiction fact metadata, matrix-row gap generation, and nullable-safe evidence-link uniqueness checks.
+- `npm run typecheck` — PASS.
+- `npm run lint` — PASS with pre-existing warnings in Stripe webhook, vault, dashboard, and consumables files.
+- `npm run build` — PASS with pre-existing lint warnings.
+
+**Operational conclusion:** HOLD remains for production release until Supabase migration application and runtime RLS/anon-select verification can run in a Docker/local Supabase or staging Supabase environment.
+
+**Additional follow-up checks (UTC):**
+
+- `npm run test` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; unchanged by this backend data-contract follow-up.
+- `npm run check:migrations` — FAIL on pre-existing duplicate migration prefix `20260601000000`; unchanged by this follow-up.
+- `npx supabase db reset --local` — BLOCKED because Docker daemon is unavailable in this workspace.
+- `npm run test:secret-scan` — PASS.
+- `git diff --check` — PASS.
+
+## 2026-06-07 — Cannabis Data Contract P0/P1 Release Verification Re-run
+
+**Scope:** Re-ran release-operator verification on existing PR branch commit `61364501589a3708f493b2c9072b1fe7b06b0e66` without expanding schema scope or touching marketplace/dashboard/auth/payment/public UI. Required patch files were present and the working tree was clean before verification.
+
+**Commands and exact results (UTC):**
+
+- `test -d node_modules` — PASS, exit `0`; install was not needed because dependencies were already present.
+- `npm run typecheck` — PASS, exit `0`.
+- `npm run lint` — PASS, exit `0`, with pre-existing warnings in Stripe webhook, vault, dashboard, and consumables files.
+- `npx vitest run tests/cannabis-data-contract/migration.test.ts tests/cannabis-data-contract/dto.test.ts` — PASS, exit `0`; 13 focused tests passed.
+- `npm run build` — PASS, exit `0`, with pre-existing lint warnings.
+- `npm run test` — FAIL, exit `1`; failure is limited to pre-existing `tests/globe-foundation.test.ts` camera default and azimuth-limit expectations, unrelated to the cannabis data-contract patch.
+- `npm run check:migrations` — FAIL, exit `1`; pre-existing duplicate migration prefix `20260601000000` remains between `20260601000000_marketplace_supply_engine.sql` and `20260601000000_user_dashboard_preferences.sql`.
+- `npm run test:secret-scan` — PASS, exit `0`.
+- `git diff --check` — PASS, exit `0`.
+- `docker --version` — BLOCKED, exit `127`; Docker is not installed/available in this workspace.
+- `npx supabase --version` — PASS, exit `0`, Supabase CLI `2.105.0`.
+- `npx supabase status` — BLOCKED, exit `1`; cannot connect to Docker daemon at `/var/run/docker.sock`.
+- `npx supabase db reset --local` — BLOCKED, exit `1`; cannot inspect service because Docker daemon is unavailable.
+
+**Static Supabase/RLS review:**
+
+- Static migration review found 23 `cannabis_intelligence` raw tables and 23 matching `alter table ... enable row level security` statements.
+- Static review found no missing RLS table, no `create policy ... to anon`, no `using (true)` broad permissive policy, and explicit anon revokes for schema/tables/functions.
+- Runtime migration apply, runtime RLS catalog checks, anon `SELECT` denial checks, and admin/service access checks were **not proven** because local Supabase requires Docker in this workspace.
+
+**DTO/public-private verification:**
+
+- Focused DTO tests passed and verify public projections reject restricted/internal/admin/legal-review/do-not-publish, stale, conflicting, machine-extracted, low-confidence, unlinked, and unresolved-contradiction records.
+- DTO tests verify public projections exclude internal notes, reviewer notes, raw extraction text, archive/raw/screenshot/PDF paths, extraction logs, private contact data, scrape failures, and unverified leads.
+
+**Generated DB types:**
+
+- No approved repo command for generated Supabase DB types was found in `package.json` or project scripts during this verification pass. Generated output was not faked; manual domain DTO/types remain the current bridge.
+
+**Operational conclusion:** HOLD. Static migration/DTO/build checks are satisfactory for the cannabis data-contract patch, but GO is blocked until runtime Supabase migration apply and runtime RLS/anon-denial checks run successfully in a Docker-enabled local Supabase or staging Supabase environment, and repo-wide failures are either fixed or formally accepted by release policy.
