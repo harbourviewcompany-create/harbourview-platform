@@ -27,7 +27,7 @@ export function RouterBottomSheet({
   return (
     <section
       aria-label={title}
-      className={`pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex flex-col rounded-[28px] border border-[#e0c77f]/36 bg-[#020913]/94 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-[0_32px_110px_rgba(0,0,0,0.78),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl sm:inset-x-auto sm:left-1/2 sm:w-[460px] sm:-translate-x-1/2 ${sizeClass}`}
+      className={`pointer-events-auto fixed inset-x-3 bottom-3 z-30 flex flex-col rounded-[28px] border border-[#e0c77f]/36 bg-[#020913]/94 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-[0_32px_110px_rgba(0,0,0,0.78),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl sm:bottom-auto sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:w-[460px] sm:-translate-x-1/2 sm:-translate-y-1/2 ${sizeClass}`}
     >
       {/* aria-modal=false because the globe remains active visual context; focus is manually managed inside sheet controls; screen-reader users can complete the same flow through DOM/fallback controls. */}
       <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-[#f1dfaa]/48" aria-hidden="true" />
