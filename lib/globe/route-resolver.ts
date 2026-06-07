@@ -2,6 +2,7 @@ import { intentProfileMap } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap } from '@/config/globe/route-map'
 import { getRouteFallback, routeExists } from '@/lib/globe/route-exists'
 import { getCountryByIso2 } from '@/lib/dashboard/countries'
+import { getCountryRoleHref } from '@/lib/roles/country-role-resolver'
 import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
 
 // Maps globe role IDs to destination types when no intent is selected.
@@ -23,6 +24,29 @@ const regulatoryRoleIds = new Set<RoleId>([
   'lab_qa',
   'logistics_customs',
 ])
+
+
+const globeRoleToCountryRoleSlug: Partial<Record<RoleId, string>> = {
+  doctor_prescriber: 'doctor',
+  pharmacist: 'pharmacist',
+  budtender: 'retail_buyer',
+  cultivator_producer: 'licensed_cultivator',
+  geneticist_breeder: 'geneticist',
+  processor_extractor: 'processor',
+  lab_qa: 'cannabis_lab',
+  importer: 'importer',
+  exporter: 'exporter',
+  distributor_wholesaler: 'distributor',
+  clinic_healthcare_operator: 'cannabis_clinic_operator',
+  retail_operator: 'retail_buyer',
+  regulatory_compliance: 'compliance_officer',
+  legal_advisory: 'cannabis_lawyer',
+  investor_operator: 'investor',
+  government_regulator: 'regulator',
+  patient_caregiver_education: 'patient_educator',
+  gmp_quality: 'quality_manager',
+  logistics_customs: 'customs_broker',
+}
 
 function mapRoleToDestinationType(roleId?: RoleId): DestinationType {
   if (!roleId || roleId === 'not_sure') return 'routing_review'
@@ -92,6 +116,17 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   //    Country and role are passed as query params; the dashboard page reads them
   //    and seeds UniversalDashboard directly, bypassing the Supabase prefs lookup.
   if (!input.intentId && input.countryIso2 && input.mode !== 'multi_market') {
+    const country = getCountryByIso2(input.countryIso2)
+    const roleSlug = input.roleId ? globeRoleToCountryRoleSlug[input.roleId] : undefined
+
+    if (country && roleSlug) {
+      return {
+        status: 'resolved',
+        href: appendGlobeQuery(getCountryRoleHref(country.slug, roleSlug), input),
+        destinationType,
+      }
+    }
+
     return {
       status: 'resolved',
       href: appendGlobeQuery('/dashboard', input),
