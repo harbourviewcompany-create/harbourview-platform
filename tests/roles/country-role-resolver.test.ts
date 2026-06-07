@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { resolveGlobeRoute } from '@/lib/globe/route-resolver'
 import { roleFamilies } from '@/lib/roles/role-families'
-import { resolveRoleModuleOrder } from '@/lib/roles/role-module-map'
 import { roleProfiles } from '@/lib/roles/role-profiles'
 import { resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import { toCountryRoleDto } from '@/lib/roles/dto'
+
+const publicRoles = roleProfiles.filter((role) => role.family !== 'harbourview_admin_operator')
 
 describe('country-role command center foundation', () => {
   it('seeds every role with a valid family and every family with baseline modules', () => {
@@ -14,13 +15,15 @@ describe('country-role command center foundation', () => {
     for (const family of roleFamilies) expect(family.baselineModules.length).toBeGreaterThan(0)
   })
 
-  it('resolves every seeded role deterministically', () => {
-    for (const role of roleProfiles) {
+  it('resolves every public seeded role deterministically without treating static fixtures as verified evidence', () => {
+    for (const role of publicRoles) {
       const first = resolveCountryRoleDashboard('canada', role.slug)
       const second = resolveCountryRoleDashboard('canada', role.slug)
       expect(first?.role.family).toBe(role.family)
       expect(first?.moduleOrder).toEqual(second?.moduleOrder)
       expect(first?.primaryAction.key).toBe(role.primaryCta)
+      expect(first?.evidence.confidence).toBe('evidence_gap')
+      expect(first?.country.evidenceVerified).toBe(false)
     }
   })
 
@@ -56,18 +59,16 @@ describe('country-role command center foundation', () => {
     expect(dashboard.actions).toEqual(expect.arrayContaining(['request_review', 'submit_evidence', 'track_jurisdiction', 'view_adjacent_markets']))
   })
 
-  it('does not expose private/admin fields outside DTO allowlists', () => {
-    const dashboard = resolveCountryRoleDashboard('canada', 'harbourview_admin')!
-    const publicDto = toCountryRoleDto(dashboard, 'public_guest') as unknown as Record<string, unknown>
+  it('blocks public access to Harbourview admin roles and keeps admin internals inside admin DTO allowlists', () => {
+    expect(resolveCountryRoleDashboard('canada', 'harbourview_admin')).toBeNull()
+    const dashboard = resolveCountryRoleDashboard('canada', 'harbourview_admin', 'harbourview_admin')!
     const adminDto = toCountryRoleDto(dashboard, 'harbourview_admin') as unknown as Record<string, unknown>
-    expect(publicDto.private).toBeUndefined()
-    expect(publicDto.admin).toBeUndefined()
-    expect(JSON.stringify(publicDto)).not.toContain('sourceNotes')
     expect(adminDto.admin).toBeDefined()
     expect(adminDto.private).toBeUndefined()
+    expect(JSON.stringify(adminDto)).not.toContain('sourceNotes')
   })
 
-  it('fails invalid country/role safely and globe routes to country-role URLs', () => {
+  it('fails invalid country/role safely and globe routes public roles to country-role URLs', () => {
     expect(resolveCountryRoleDashboard('not-a-country', 'doctor')).toBeNull()
     expect(resolveCountryRoleDashboard('canada', 'not-a-role')).toBeNull()
     const route = resolveGlobeRoute({ countryIso2: 'CA', roleId: 'doctor_prescriber', mode: 'single_market', source: 'globe_router' })
