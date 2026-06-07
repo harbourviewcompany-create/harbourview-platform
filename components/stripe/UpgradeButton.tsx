@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { PriceKey } from '@/lib/stripe/server'
+import type { PriceKey } from '@/lib/stripe/types'
 
 export default function UpgradeButton({
   priceKey,

@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'vitest'
+import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { naturalEarthFixturePayload } from '@/data/globe/natural-earth-fixture'
 import { bboxFocusDistance, createCountryFocusPose, easeInOutCubic, getInitialCameraPose } from '@/lib/globe/camera-focus'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
 import type { HarbourviewCountryGeometry } from '@/lib/globe/geojson-country-types'
 import { naturalEarthIngestionInternals, transformNaturalEarthCountries } from '@/lib/globe/natural-earth-ingestion'
 import { buildCountryMeshDescriptor } from '@/lib/globe/country-mesh-generation'
-import { createCountryBufferGeometry, estimateCountryTriangleCount, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
+import {
+  createCountryBufferGeometry,
+  estimateCountryTriangleCount,
+  polygonGeometryInternals,
+} from '@/lib/globe/polygon-buffer-geometry'
+
+const longitudeSpan = (longitudes: number[]) => Math.max(...longitudes) - Math.min(...longitudes)
+
+const allNormalizedOuterLongitudes = (country: HarbourviewCountryGeometry) =>
+  polygonGeometryInternals
+    .normalizePolygonTopology(country)
+    .flatMap((polygon) => polygon.outer.map(([lon]) => lon))
 
 describe('Harbourview globe polygon rendering stage', () => {
   it('ships a Natural Earth-derived fixture payload with provenance', () => {
@@ -114,6 +126,55 @@ describe('Harbourview globe polygon rendering stage', () => {
       [1, 0],
       [1, 1],
     ])
+  })
+
+  it('uses minimum circular-span longitude as the antimeridian unwrap anchor for synthetic countries', () => {
+    const antimeridianCountry: HarbourviewCountryGeometry = {
+      iso2: 'AM',
+      iso3: 'AMR',
+      name: 'Antimeridian fixture',
+      centroid: [0, 12],
+      bbox: [-170, 10, 170, 14],
+      source: 'natural-earth-admin-0',
+      polygons: [
+        {
+          rings: [
+            {
+              kind: 'outer',
+              points: [[170, 10], [-170, 10], [-170, 14], [170, 14], [170, 10]],
+            },
+          ],
+        },
+      ],
+    }
+
+    const referenceLongitude =
+      polygonGeometryInternals.countryMinimumCircularSpanReferenceLongitude(antimeridianCountry)
+    const normalizedLongitudes = allNormalizedOuterLongitudes(antimeridianCountry)
+
+    expect(Math.abs(referenceLongitude)).toBeCloseTo(180, 5)
+    expect(longitudeSpan(normalizedLongitudes)).toBeCloseTo(20, 5)
+    expect(normalizedLongitudes.every((lon) => Math.abs(lon) >= 170)).toBe(true)
+  })
+
+  it('keeps generated Natural Earth Russia geometry on a contiguous Asia antimeridian span', () => {
+    const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')
+    expect(russia).toBeTruthy()
+
+    const referenceLongitude = polygonGeometryInternals.countryMinimumCircularSpanReferenceLongitude(
+      russia!,
+    )
+    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)
+    const geometry = createCountryBufferGeometry(russia!, { geometryMode: 'surface' })
+
+    expect(referenceLongitude).toBeGreaterThan(90)
+    expect(referenceLongitude).toBeLessThan(120)
+    expect(longitudeSpan(normalizedLongitudes)).toBeLessThan(180)
+    expect(normalizedLongitudes.some((lon) => lon > 180)).toBe(true)
+    expect(geometry.getAttribute('position').count).toBeGreaterThan(100)
+    expect(geometry.index?.count).toBeGreaterThan(150)
+
+    geometry.dispose()
   })
 
   it('returns empty geometry metadata for invalid country rings', () => {

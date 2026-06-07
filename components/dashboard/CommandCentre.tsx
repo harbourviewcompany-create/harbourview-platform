@@ -46,6 +46,16 @@ type Props = {
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 const WARN_REGIONS = new Set(Object.values(WARN_REGIONS_BY_COUNTRY).flat())
 
+const CATEGORY_MAP: Record<MarketView, string> = {
+  cannabis:       'cannabis-inventory',
+  equipment:      'used-surplus',
+  consumables:    'consumables',
+  'new-products': 'new-products',
+  services:       'services',
+  opportunities:  'business-opportunities',
+  wanted:         'wanted-requests',
+}
+
 const VIEW_LABELS: Record<MarketView, string> = {
   cannabis:      'Cannabis inventory · flower · extract · biomass · genetics',
   equipment:     'Cultivation · extraction · processing · lab instrumentation',
@@ -207,6 +217,66 @@ function TrustBar({ str }: { str: string }) {
 
 // ── KPI pipeline strip with count-up animation ────────────────────────────────
 
+
+const kpis_check = (p: PipelineCounts) => p.wanted === 0 && p.matched === 0 && p.proof_review === 0 && p.inquiry === 0 && p.deal_room === 0
+
+function KpiStrip({ pipeline }: { pipeline: PipelineCounts }) {
+  const [counts, setCounts] = useState<PipelineCounts>({ wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 })
+  const rafRef = useRef<number | null>(null)
+
+  const isEmpty = kpis_check(pipeline)
+
+  useEffect(() => {
+    if (isEmpty) return
+    const duration = 1200
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
+      const ease = 1 - Math.pow(1 - t, 4)
+      setCounts({
+        wanted:       Math.round(pipeline.wanted       * ease),
+        matched:      Math.round(pipeline.matched      * ease),
+        proof_review: Math.round(pipeline.proof_review * ease),
+        inquiry:      Math.round(pipeline.inquiry      * ease),
+        deal_room:    Math.round(pipeline.deal_room    * ease),
+      })
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [pipeline, isEmpty])
+
+  const kpis: { key: keyof PipelineCounts; label: string; color?: string }[] = [
+    { key: 'wanted',       label: 'Wanted',       color: 'var(--cc-violet)' },
+    { key: 'matched',      label: 'Matched',      color: 'var(--cc-green)'  },
+    { key: 'proof_review', label: 'Proof Review', color: 'var(--cc-amber)'  },
+    { key: 'inquiry',      label: 'Inquiry',      color: 'var(--cc-blue)'   },
+    { key: 'deal_room',    label: 'Deal Room',    color: 'var(--cc-gold2)'  },
+  ]
+
+  if (isEmpty) {
+    return (
+      <div className="cc-kpi-strip cc-kpi-empty-state">
+        <span className="cc-kpi-head">PIPELINE</span>
+        <span className="cc-kpi-empty">No active pipeline · submit a listing or post wanted demand to begin</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="cc-kpi-strip">
+      <span className="cc-kpi-head">PIPELINE</span>
+      {kpis.map((k, i) => (
+        <div key={k.key} className="cc-kpi-item">
+          <span className="cc-kpi-num" style={{ color: k.color }}>{counts[k.key]}</span>
+          <span className="cc-kpi-lbl">{k.label}</span>
+          {i < kpis.length - 1 && <span className="cc-kpi-sep" aria-hidden="true" />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Custom styled select dropdown ────────────────────────────────────────────
 type SelectOpt = { value: string; label: string }
 
@@ -299,62 +369,6 @@ function CustomSelect({
 }
 
 const kpis_check = (p: PipelineCounts) => p.wanted === 0 && p.matched === 0 && p.proof_review === 0 && p.inquiry === 0 && p.deal_room === 0
-
-function KpiStrip({ pipeline }: { pipeline: PipelineCounts }) {
-  const [counts, setCounts] = useState<PipelineCounts>({ wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 })
-  const rafRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    const duration = 1200
-    const start = performance.now()
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1)
-      const ease = 1 - Math.pow(1 - t, 4)
-      setCounts({
-        wanted:       Math.round(pipeline.wanted       * ease),
-        matched:      Math.round(pipeline.matched      * ease),
-        proof_review: Math.round(pipeline.proof_review * ease),
-        inquiry:      Math.round(pipeline.inquiry      * ease),
-        deal_room:    Math.round(pipeline.deal_room    * ease),
-      })
-      if (t < 1) rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [pipeline])
-
-  const isEmpty = kpis_check(pipeline)
-
-  if (isEmpty) {
-    return (
-      <div className="cc-kpi-strip cc-kpi-empty-state">
-        <span className="cc-kpi-head">PIPELINE</span>
-        <span className="cc-kpi-empty">No active pipeline · submit a listing or post wanted demand to begin</span>
-      </div>
-    )
-  }
-
-  const kpis: { key: keyof PipelineCounts; label: string; color?: string }[] = [
-    { key: 'wanted',       label: 'Wanted',       color: 'var(--cc-violet)' },
-    { key: 'matched',      label: 'Matched',      color: 'var(--cc-green)'  },
-    { key: 'proof_review', label: 'Proof Review', color: 'var(--cc-amber)'  },
-    { key: 'inquiry',      label: 'Inquiry',      color: 'var(--cc-blue)'   },
-    { key: 'deal_room',    label: 'Deal Room',    color: 'var(--cc-gold2)'  },
-  ]
-
-  return (
-    <div className="cc-kpi-strip">
-      <span className="cc-kpi-head">PIPELINE</span>
-      {kpis.map((k, i) => (
-        <div key={k.key} className="cc-kpi-item">
-          <span className="cc-kpi-num" style={{ color: k.color }}>{counts[k.key]}</span>
-          <span className="cc-kpi-lbl">{k.label}</span>
-          {i < kpis.length - 1 && <span className="cc-kpi-sep" aria-hidden="true" />}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ── SVG sparkline for signal confidence ───────────────────────────────────────
 function MiniSpark({ confidence, idx = 0 }: { confidence: number; idx?: number }) {
@@ -552,6 +566,7 @@ export default function CommandCentre({
   const [region,           setRegion]           = useState((REGIONS[defaultCountry.iso2] ?? [])[0] ?? '')
   const [role,             setRole]             = useState(initialRoleId ?? '')
   const [view,             setView]             = useState<MarketView>('cannabis')
+  const [, setLiveListings]                      = useState<unknown[] | null>(null)
   const [activePanel,      setActivePanel]      = useState<CommandPanel>('marketplace')
   const [panelOpen,        setPanelOpen]        = useState(false)
   const [search,           setSearch]           = useState('')
@@ -590,6 +605,13 @@ export default function CommandCentre({
       setRole(initialRoleId)
     }
   }, [initialRoleId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetch(`/api/dashboard/listings?category=${CATEGORY_MAP[view]}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: unknown[]) => setLiveListings(data.length > 0 ? data : null))
+      .catch(() => setLiveListings(null))
+  }, [view])
 
   const savePreferences = useCallback((patch: { country_iso2?: string; role_id?: string }) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -1282,66 +1304,6 @@ export default function CommandCentre({
       {/* ── Overlays ─────────────────────────────────────────────────── */}
       {panelOpen && <div className="cc-scrim" onClick={() => setPanelOpen(false)} />}
       {renderPanel()}
-
-      {
-/* ── Custom select ───────────────────────────────────────────────────────── */
-.cc-sel { position:relative;height:44px; }
-.cc-sel-lbl {
-  position:absolute;left:11px;top:5px;z-index:1;
-  color:var(--cc-dim);font-size:8px;letter-spacing:.14em;
-  text-transform:uppercase;pointer-events:none;font-family:var(--cc-mono);
-}
-.cc-sel-trigger {
-  width:100%;height:100%;
-  border:1px solid var(--cc-line2);border-radius:12px;
-  background:linear-gradient(180deg,rgba(17,35,53,.9),rgba(7,16,28,.96));
-  color:var(--cc-ink);outline:none;
-  padding:17px 28px 5px 11px;
-  font:inherit;font-size:12px;text-align:left;cursor:pointer;
-  transition:border-color .15s;
-  display:flex;align-items:flex-end;
-}
-.cc-sel-trigger.open,
-.cc-sel-trigger:hover { border-color:rgba(217,175,99,.5); }
-.cc-sel-val { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-bottom:1px; }
-.cc-sel-arrow {
-  position:absolute;right:10px;top:50%;transform:translateY(-50%);
-  color:var(--cc-dim);font-size:7px;pointer-events:none;
-}
-.cc-sel-drop {
-  position:absolute;top:calc(100% + 6px);left:0;min-width:100%;
-  background:linear-gradient(180deg,rgba(10,22,38,.99),rgba(5,13,24,1));
-  border:1px solid rgba(217,175,99,.28);border-radius:14px;
-  box-shadow:0 24px 72px rgba(0,0,0,.68);
-  z-index:500;overflow:hidden;
-  animation:fadeSlideUp .14s ease;
-}
-.cc-sel-search { padding:8px;border-bottom:1px solid var(--cc-line); }
-.cc-sel-search-inp {
-  width:100%;background:rgba(255,255,255,.06);
-  border:1px solid var(--cc-line2);border-radius:8px;
-  color:var(--cc-ink);padding:6px 10px;
-  font:inherit;font-size:11px;outline:none;
-}
-.cc-sel-search-inp:focus { border-color:rgba(217,175,99,.45); }
-.cc-sel-search-inp::placeholder { color:var(--cc-dim); }
-.cc-sel-list {
-  max-height:220px;overflow-y:auto;padding:5px;
-  scrollbar-width:thin;scrollbar-color:var(--cc-line2) transparent;
-}
-.cc-sel-list::-webkit-scrollbar { width:4px; }
-.cc-sel-list::-webkit-scrollbar-thumb { background:var(--cc-line2);border-radius:4px; }
-.cc-sel-opt {
-  width:100%;text-align:left;padding:7px 11px;
-  background:transparent;border:none;border-radius:9px;
-  color:var(--cc-text);font:inherit;font-size:12px;cursor:pointer;
-  transition:background .1s,color .1s;display:block;
-}
-.cc-sel-opt:hover { background:rgba(255,255,255,.06);color:var(--cc-ink); }
-.cc-sel-opt.sel { color:var(--cc-gold2);background:rgba(217,175,99,.1);font-weight:600; }
-.cc-sel-empty { padding:12px;text-align:center;color:var(--cc-dim);font-size:11px; }
-
-/* ── Mobile bottom nav ──────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
         {COMMAND_NAV.slice(0, 5).map(item => (
           <button
