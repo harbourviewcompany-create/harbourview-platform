@@ -368,7 +368,7 @@ function CustomSelect({
   )
 }
 
-const kpis_check = (p: PipelineCounts) => p.wanted === 0 && p.matched === 0 && p.proof_review === 0 && p.inquiry === 0 && p.deal_room === 0
+
 
 // ── SVG sparkline for signal confidence ───────────────────────────────────────
 function MiniSpark({ confidence, idx = 0 }: { confidence: number; idx?: number }) {
