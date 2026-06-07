@@ -67,9 +67,9 @@ export function getInitialQuality(): GlobeQualityLevel {
 }
 
 export const qualityTuning: Record<GlobeQualityLevel, { latitudeBands: number; longitudeBands: number; rotationSpeed: number; maxPixelRatio: number; warmupFrames: number }> = {
-  high: { latitudeBands: 72, longitudeBands: 72, rotationSpeed: 0.000055, maxPixelRatio: 1.6, warmupFrames: 30 },
-  medium: { latitudeBands: 54, longitudeBands: 54, rotationSpeed: 0.000045, maxPixelRatio: 1.4, warmupFrames: 24 },
-  low: { latitudeBands: 36, longitudeBands: 36, rotationSpeed: 0.000032, maxPixelRatio: 1.2, warmupFrames: 16 },
+  high: { latitudeBands: 96, longitudeBands: 96, rotationSpeed: 0.000047, maxPixelRatio: 2, warmupFrames: 36 },
+  medium: { latitudeBands: 72, longitudeBands: 72, rotationSpeed: 0.000041, maxPixelRatio: 1.6, warmupFrames: 30 },
+  low: { latitudeBands: 48, longitudeBands: 48, rotationSpeed: 0.00003, maxPixelRatio: 1.3, warmupFrames: 20 },
   fallback: { latitudeBands: 0, longitudeBands: 0, rotationSpeed: 0, maxPixelRatio: 1, warmupFrames: 0 },
 }
 
