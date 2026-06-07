@@ -8,13 +8,18 @@ import { FrontSide, MeshPhysicalMaterial, MeshStandardMaterial, Color } from 'th
 // Injects into Three.js standard shader pipeline at build time.
 function createOceanMaterial() {
   const mat = new MeshPhysicalMaterial({
-    color: new Color('#020914'),
-    emissive: new Color('#071a30'),
-    emissiveIntensity: 0.18,
-    roughness: 0.76,
-    metalness: 0.03,
-    clearcoat: 0.38,
-    clearcoatRoughness: 0.08,
+    // Deep enamel base — near-black with indigo undertone
+    color: new Color('#010711'),
+    // Deep smoked emissive — visible in shadow without brightening the lit face
+    emissive: new Color('#050f22'),
+    emissiveIntensity: 0.22,
+    // Low roughness → tighter specular, glassier/enamel surface quality
+    roughness: 0.62,
+    // Faint metalness hint → catches environment reflections like deep lacquer
+    metalness: 0.08,
+    // Clearcoat gives second sharp reflection layer — reads as polished enamel
+    clearcoat: 0.52,
+    clearcoatRoughness: 0.06,
   })
 
   mat.onBeforeCompile = (shader) => {
@@ -48,9 +53,9 @@ function createOceanMaterial() {
        float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), uRimPower);
        gl_FragColor.rgb += uRimColor * fresnel * uRimStrength;`
     )
-    shader.uniforms.uRimColor = { value: new Color(0.04, 0.10, 0.22) }
-    shader.uniforms.uRimStrength = { value: 0.9 }
-    shader.uniforms.uRimPower = { value: 3.8 }
+    shader.uniforms.uRimColor = { value: new Color(0.04, 0.12, 0.28) }
+    shader.uniforms.uRimStrength = { value: 1.1 }
+    shader.uniforms.uRimPower = { value: 3.2 }
   }
 
   mat.side = FrontSide

@@ -112,36 +112,39 @@ export function CountryBorderLayer() {
     [],
   )
 
+  // Country borders — primary cartographic hierarchy, authoritative gold
   const worldMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#f3d88a'),
+        color: new THREE.Color('#e8c868'),
         transparent: true,
-        opacity: 0.82,
+        opacity: 0.88,
         depthTest: true,
         depthWrite: false,
       }),
     [],
   )
 
+  // US state borders — subordinate to country borders, lower opacity and darker
   const usMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#fff0b8'),
+        color: new THREE.Color('#b8982a'),
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.56,
         depthTest: true,
         depthWrite: false,
       }),
     [],
   )
 
+  // CA province borders — subordinate, same hierarchy as US states
   const caMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#f3d88a'),
+        color: new THREE.Color('#b8982a'),
         transparent: true,
-        opacity: 0.82,
+        opacity: 0.52,
         depthTest: true,
         depthWrite: false,
       }),

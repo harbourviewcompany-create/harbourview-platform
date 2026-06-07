@@ -36,23 +36,62 @@ export function CountryGlobeLabel({ iso2 }: { iso2: string }) {
     >
       <div
         style={{
-          background: 'rgba(2,9,19,0.9)',
-          border: '1px solid rgba(241,223,170,0.44)',
-          borderRadius: '6px',
-          padding: '3px 9px',
-          fontSize: '11px',
-          fontWeight: 500,
-          letterSpacing: '0.08em',
-          color: '#fff8e6',
-          whiteSpace: 'nowrap',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-          boxShadow: '0 10px 24px rgba(0,0,0,0.54), inset 0 1px 0 rgba(255,255,255,0.08)',
-          // Translate up so the label sits above the plate centroid
-          transform: 'translateY(-18px)',
+          // Premium chip — dark smoked glass base with gold top accent rail
+          position: 'relative',
+          background: 'linear-gradient(160deg, rgba(8,20,38,0.96) 0%, rgba(2,9,19,0.98) 100%)',
+          border: '1px solid rgba(241,209,100,0.38)',
+          borderRadius: '7px',
+          padding: '5px 11px 5px 11px',
+          minWidth: '72px',
+          textAlign: 'center',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.68), 0 2px 8px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.07)',
+          // Translate up so the chip floats cleanly above the plate centroid
+          transform: 'translateY(-22px)',
         }}
       >
-        {name}
+        {/* Gold top accent bar */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: '12px',
+            right: '12px',
+            height: '1.5px',
+            background: 'linear-gradient(90deg, transparent, rgba(212,173,58,0.9) 30%, rgba(212,173,58,0.9) 70%, transparent)',
+            borderRadius: '1px',
+          }}
+        />
+        {/* Eyebrow */}
+        <p
+          style={{
+            margin: 0,
+            fontSize: '8px',
+            fontWeight: 700,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'rgba(212,173,58,0.82)',
+            lineHeight: 1,
+            marginBottom: '3px',
+          }}
+        >
+          Market
+        </p>
+        {/* Country name */}
+        <p
+          style={{
+            margin: 0,
+            fontSize: '11.5px',
+            fontWeight: 600,
+            letterSpacing: '0.04em',
+            color: '#fff8e6',
+            whiteSpace: 'nowrap',
+            lineHeight: 1.1,
+          }}
+        >
+          {name}
+        </p>
       </div>
     </Html>
   )

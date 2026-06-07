@@ -133,8 +133,10 @@ export function GlobeCanvas({
         onCreated={(state) => {
           // ACES Filmic tone mapping — whole-scene response curve.
           // Richer shadow detail, compressed highlights, graded look.
+          // Exposure pulled to 0.78 so ACES knee compresses specular peaks
+          // before they clip to white — highlights feel surface-driven, not pasted.
           state.gl.toneMapping = ACESFilmicToneMapping
-          state.gl.toneMappingExposure = 0.92
+          state.gl.toneMappingExposure = 0.78
           // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
@@ -142,13 +144,14 @@ export function GlobeCanvas({
         <color attach="background" args={['#010810']} />
         <MetallicEnvironment />
 
-        {/* Metallic plate lighting: low ambient to avoid flat gold, a strong
-            champagne key, and soft bronze/cool rim fills for reflective falloff. */}
-        <ambientLight intensity={0.24} color="#f4dfad" />
-        <directionalLight position={[5.5, 3.8, 4.2]} intensity={2.35} color="#fff3c4" />
-        <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.46} color="#c99f4a" />
-        <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.32} color="#8fa7c8" />
-        <hemisphereLight args={['#243b5e', '#080409', 0.42]} />
+        {/* Metallic plate lighting: low ambient to avoid flat gold, a champagne key
+            pulled to 1.55 (was 2.35) so ACES compression kills white-blob specular,
+            soft bronze/cool rim fills for reflective falloff. */}
+        <ambientLight intensity={0.22} color="#f4dfad" />
+        <directionalLight position={[5.5, 3.8, 4.2]} intensity={1.55} color="#fff3c4" />
+        <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.52} color="#c99f4a" />
+        <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.28} color="#8fa7c8" />
+        <hemisphereLight args={['#243b5e', '#080409', 0.48]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}

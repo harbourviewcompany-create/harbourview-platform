@@ -17,9 +17,12 @@ export function getMetallicGoldProgramCacheKey(options: MetallicGoldShaderOption
 
 export function applyMetallicGoldShader(shader: MetallicGoldShader, options: MetallicGoldShaderOptions) {
   shader.uniforms.uAntiqueGold = { value: new Color(options.isSelected ? '#b58623' : '#8a6419') }
-  shader.uniforms.uChampagneGold = { value: new Color(options.isSelected ? '#fff0b8' : '#f7dc8a') }
+  // Champagne gold ceiling lowered — was near-white (#fff0b8/#f7dc8a) which caused
+  // highlights to clip to pale cream under the key light. Now a richer warm gold
+  // that stays metallic even at full specular contribution.
+  shader.uniforms.uChampagneGold = { value: new Color(options.isSelected ? '#e0b830' : '#d4a628') }
   shader.uniforms.uBronzeGold = { value: new Color(options.isSelected ? '#5b3510' : '#3b260e') }
-  shader.uniforms.uRimGold = { value: new Color(options.isSelected || options.isFocused ? '#fff6cf' : '#e8c46b') }
+  shader.uniforms.uRimGold = { value: new Color(options.isSelected || options.isFocused ? '#e8c84a' : '#c8a030') }
   shader.uniforms.uKeyDirection = { value: new Vector3(0.78, 0.42, 0.46) }
   shader.uniforms.uFillDirection = { value: new Vector3(-0.38, 0.64, -0.66) }
   shader.uniforms.uMetallicFocus = { value: options.isSelected ? 1.0 : options.isFocused ? 0.58 : 0.0 }
@@ -93,10 +96,15 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
      float hvNoise = hvValueNoise(vHvMetalWorldPosition * 22.0);
      float hvTexture = (hvBrush * 0.075) + (hvFineBrush * 0.028) + ((hvNoise - 0.5) * 0.085);
      vec3 hvLayeredGold = mix(uBronzeGold, uAntiqueGold, 0.58 + hvFillLight * 0.16 + hvTexture);
-     hvLayeredGold = mix(hvLayeredGold, uChampagneGold, hvKeyLight * 0.34 + hvSpec * 0.42 + uMetallicFocus * 0.10);
+     // Champagne contribution capped: was 0.34/0.42 — now 0.22/0.24 so highlights
+     // stay deep gold rather than washing to pale cream under the key light.
+     hvLayeredGold = mix(hvLayeredGold, uChampagneGold, hvKeyLight * 0.22 + hvSpec * 0.24 + uMetallicFocus * 0.10);
      hvLayeredGold = mix(hvLayeredGold, uBronzeGold, hvFalloff * 0.34);
      hvLayeredGold += uRimGold * hvRim * (0.22 + uMetallicFocus * 0.22);
-     hvLayeredGold += uChampagneGold * hvSpec * (0.34 + uMetallicFocus * 0.24);
+     hvLayeredGold += uChampagneGold * hvSpec * (0.22 + uMetallicFocus * 0.18);
+     // Hard clamp: prevents any path from blowing the surface out to cream/white.
+     // RGB ceiling of ~0.92/0.80/0.36 maps to a rich warm gold under ACES at 0.78 exposure.
+     hvLayeredGold = clamp(hvLayeredGold, vec3(0.0), vec3(0.92, 0.80, 0.36));
      diffuseColor.rgb = mix(diffuseColor.rgb, hvLayeredGold, 0.88);`,
   )
 }

@@ -14,12 +14,14 @@ export const hvTokens = {
     atmosphereBlue: '#1b4f91',
     plateBase: '#b99b3f',
     plateMid: '#d0b35f',
-    plateHighlight: '#f1da93',
-    plateSelected: '#f0d98f',
+    // Hover/focused: richer antique gold — retains metallic identity, does not wash to cream.
+    plateHighlight: '#c8a63d',
+    // Selected: slightly warmer/brighter but still fully metallic — stronger than hover.
+    plateSelected: '#d4ad3a',
     borderMutedGold: '#d7bd72',
     borderMutedGoldSoft: '#f1dfaa',
     sidewallDark: '#111826',
     sidewallDisabled: '#0d1218',
-    selectedAccent: '#fff1bd',
+    selectedAccent: '#c9980a',
   },
 }

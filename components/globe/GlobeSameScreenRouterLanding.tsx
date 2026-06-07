@@ -191,12 +191,6 @@ export function GlobeSameScreenRouterLanding() {
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
 
-      <div className="pointer-events-none fixed inset-x-3 top-[116px] z-20 sm:left-6 sm:right-auto sm:w-[380px]">
-        <p className="max-w-xs text-sm leading-6 text-white/62 drop-shadow-[0_2px_18px_rgba(0,0,0,0.9)]">
-          Search a market, state, or province, then choose your role for the right Harbourview path.
-        </p>
-      </div>
-
       {state.step === 'role' ? (
         <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : allCountryAndProvinceOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected market'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
           {countryBrief.status === 'loading' && <CountryBriefPanelSkeleton />}

@@ -68,9 +68,10 @@ export function resolveCountryMaterialState({
       return {
         ...base,
         plateBase: hvTokens.globe.plateHighlight,
+        // Focused border: bright crisp gold edge-lift — precise, not blobby
         borderColor: hvTokens.globe.borderMutedGoldSoft,
-        emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.32,
+        emissive: '#9a7c12',
+        emissiveIntensity: 0.28,
         roughness: 0.24,
         metalness: 0.92,
         clearcoat: 0.62,
@@ -82,13 +83,14 @@ export function resolveCountryMaterialState({
       return {
         ...base,
         plateBase: hvTokens.globe.plateSelected,
-        borderColor: hvTokens.globe.borderMutedGoldSoft,
+        // Selected border: maximum brightness to feel locked/activated
+        borderColor: '#f4e18e',
         emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.34,
-        roughness: 0.2,
-        metalness: 0.94,
-        clearcoat: 0.72,
-        clearcoatRoughness: 0.14,
+        emissiveIntensity: 0.30,
+        roughness: 0.18,
+        metalness: 0.96,
+        clearcoat: 0.78,
+        clearcoatRoughness: 0.12,
       }
     case 'multi_market':
       return {
