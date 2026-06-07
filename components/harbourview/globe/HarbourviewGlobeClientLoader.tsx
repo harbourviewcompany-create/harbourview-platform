@@ -24,9 +24,11 @@ attribute vec3 aNormal;
 uniform float uRotation;
 uniform float uAspect;
 uniform float uScale;
+uniform float uTime;
 
 varying vec3 vNormal;
 varying vec3 vObjectNormal;
+varying float vDepth;
 
 vec3 rotateX(vec3 point, float angle) {
   float sine = sin(angle);
@@ -51,17 +53,20 @@ vec3 rotateY(vec3 point, float angle) {
 }
 
 void main() {
-  vec3 tiltedPosition = rotateX(aPosition, -0.16);
+  float tilt = -0.16 + sin(uTime * 0.00018) * 0.009;
+  float scale = uScale + sin(uTime * 0.00016) * 0.004;
+  vec3 tiltedPosition = rotateX(aPosition, tilt);
   vec3 rotatedPosition = rotateY(tiltedPosition, uRotation);
-  vec3 tiltedNormal = rotateX(aNormal, -0.16);
+  vec3 tiltedNormal = rotateX(aNormal, tilt);
   vec3 rotatedNormal = rotateY(tiltedNormal, uRotation);
 
   vNormal = normalize(rotatedNormal);
   vObjectNormal = normalize(aNormal);
+  vDepth = rotatedPosition.z;
 
   gl_Position = vec4(
-    rotatedPosition.x * uScale / uAspect,
-    rotatedPosition.y * uScale,
+    rotatedPosition.x * scale / uAspect,
+    rotatedPosition.y * scale,
     rotatedPosition.z * 0.08,
     1.0
   );
@@ -71,37 +76,63 @@ void main() {
 const FRAGMENT_SHADER = `
 precision mediump float;
 
+uniform float uTime;
+
 varying vec3 vNormal;
 varying vec3 vObjectNormal;
+varying float vDepth;
+
+float ringLine(float value, float frequency, float width) {
+  float wave = abs(sin(value * frequency));
+  return smoothstep(1.0 - width, 1.0, wave);
+}
 
 void main() {
   vec3 normal = normalize(vNormal);
-  vec3 lightDirection = normalize(vec3(-0.55, 0.46, 0.74));
-  vec3 secondaryLight = normalize(vec3(0.58, -0.36, 0.72));
+  vec3 objectNormal = normalize(vObjectNormal);
+  vec3 keyLight = normalize(vec3(-0.58, 0.48, 0.72));
+  vec3 fillLight = normalize(vec3(0.42, -0.28, 0.86));
   vec3 viewDirection = normalize(vec3(0.0, 0.0, 1.0));
 
-  float diffuse = max(dot(normal, lightDirection), 0.0);
-  float secondary = max(dot(normal, secondaryLight), 0.0);
-  float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 2.35);
-  float highlight = pow(max(dot(reflect(-lightDirection, normal), viewDirection), 0.0), 18.0);
+  float diffuse = max(dot(normal, keyLight), 0.0);
+  float fill = max(dot(normal, fillLight), 0.0);
+  float face = max(dot(normal, viewDirection), 0.0);
+  float fresnel = pow(1.0 - face, 2.7);
+  float rim = pow(1.0 - face, 4.5);
+  float highlight = pow(max(dot(reflect(-keyLight, normal), viewDirection), 0.0), 28.0);
+  float depthShade = smoothstep(-0.78, 0.42, vDepth);
 
-  float longitude = abs(sin(atan(vObjectNormal.z, vObjectNormal.x) * 18.0));
-  float latitude = abs(sin(asin(vObjectNormal.y) * 16.0));
-  float engraving = smoothstep(0.986, 1.0, max(longitude, latitude));
-  float equator = 1.0 - smoothstep(0.012, 0.048, abs(vObjectNormal.y));
+  float longitudeAngle = atan(objectNormal.z, objectNormal.x);
+  float latitudeAngle = asin(objectNormal.y);
+  float longitude = ringLine(longitudeAngle, 22.0, 0.018);
+  float latitude = ringLine(latitudeAngle, 19.0, 0.02);
+  float fineLongitude = ringLine(longitudeAngle + sin(uTime * 0.00005) * 0.008, 44.0, 0.006);
+  float fineLatitude = ringLine(latitudeAngle, 38.0, 0.006);
+  float engraving = max(max(longitude, latitude) * 0.74, max(fineLongitude, fineLatitude) * 0.28);
+  float equator = 1.0 - smoothstep(0.01, 0.042, abs(objectNormal.y));
+  float polarRestraint = 1.0 - smoothstep(0.82, 0.98, abs(objectNormal.y));
+  float surfaceGrain = sin(objectNormal.x * 33.0 + objectNormal.y * 17.0 + objectNormal.z * 23.0) * 0.5 + 0.5;
 
-  vec3 deepNavy = vec3(0.012, 0.045, 0.09);
-  vec3 enamelNavy = vec3(0.026, 0.105, 0.18);
-  vec3 gold = vec3(0.78, 0.62, 0.32);
-  vec3 offWhite = vec3(0.92, 0.90, 0.84);
+  vec3 abyss = vec3(0.006, 0.024, 0.05);
+  vec3 deepNavy = vec3(0.012, 0.047, 0.092);
+  vec3 enamelNavy = vec3(0.025, 0.112, 0.19);
+  vec3 coolNavy = vec3(0.05, 0.16, 0.25);
+  vec3 oldGold = vec3(0.78, 0.62, 0.32);
+  vec3 paleGold = vec3(1.0, 0.83, 0.46);
+  vec3 ivory = vec3(0.92, 0.9, 0.84);
 
-  vec3 color = mix(deepNavy, enamelNavy, diffuse * 0.78 + secondary * 0.18);
-  color += gold * fresnel * 0.34;
-  color += offWhite * highlight * 0.12;
-  color += gold * engraving * 0.11 * (0.45 + diffuse);
-  color += gold * equator * 0.055;
+  vec3 color = mix(abyss, deepNavy, depthShade);
+  color = mix(color, enamelNavy, diffuse * 0.82 + fill * 0.18);
+  color = mix(color, coolNavy, highlight * 0.32);
+  color += oldGold * fresnel * 0.28;
+  color += paleGold * rim * 0.18;
+  color += ivory * highlight * 0.14;
+  color += oldGold * engraving * polarRestraint * (0.09 + diffuse * 0.09);
+  color += paleGold * equator * 0.045;
+  color += (surfaceGrain - 0.5) * 0.018;
 
-  float alpha = 0.94 + fresnel * 0.05;
+  float edgeFade = smoothstep(0.02, 0.2, face);
+  float alpha = (0.93 + fresnel * 0.055) * edgeFade;
   gl_FragColor = vec4(color, alpha);
 }
 `
@@ -246,7 +277,10 @@ function PremiumWebGLGlobe({ quality, onReady, onError, onBailout }: PremiumWebG
     let frame = 0
     let destroyed = false
     let hasReportedReady = false
+    let hasEvaluatedWarmup = false
     let lastFrameTimestamp: number | null = null
+    let smoothedRotation = 0
+    let frameTimeAverage = 16.7
     const frameTimes: number[] = []
     let program: WebGLProgram | null = null
     let positionBuffer: WebGLBuffer | null = null
@@ -283,12 +317,15 @@ function PremiumWebGLGlobe({ quality, onReady, onError, onBailout }: PremiumWebG
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW)
       gl.enable(gl.DEPTH_TEST)
       gl.enable(gl.BLEND)
+      gl.enable(gl.CULL_FACE)
+      gl.cullFace(gl.BACK)
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
       gl.clearColor(0, 0, 0, 0)
 
       const rotationLocation = gl.getUniformLocation(program, 'uRotation')
       const aspectLocation = gl.getUniformLocation(program, 'uAspect')
       const scaleLocation = gl.getUniformLocation(program, 'uScale')
+      const timeLocation = gl.getUniformLocation(program, 'uTime')
 
       const resize = () => {
         const rect = canvas.getBoundingClientRect()
@@ -306,23 +343,31 @@ function PremiumWebGLGlobe({ quality, onReady, onError, onBailout }: PremiumWebG
       const render = (timestamp: number) => {
         if (destroyed) return
 
-        if (lastFrameTimestamp !== null) {
-          frameTimes.push(timestamp - lastFrameTimestamp)
-        }
-
+        const rawDelta = lastFrameTimestamp === null ? 16.7 : timestamp - lastFrameTimestamp
+        const clampedDelta = Math.max(8, Math.min(rawDelta, 40))
+        frameTimeAverage = frameTimeAverage * 0.88 + clampedDelta * 0.12
+        smoothedRotation += frameTimeAverage * tuning.rotationSpeed
         lastFrameTimestamp = timestamp
 
-        if (frameTimes.length >= tuning.warmupFrames && shouldBailoutToFallback(frameTimes)) {
-          onBailout?.()
-          return
+        if (!hasEvaluatedWarmup) {
+          frameTimes.push(frameTimeAverage)
+
+          if (frameTimes.length >= tuning.warmupFrames) {
+            hasEvaluatedWarmup = true
+            if (shouldBailoutToFallback(frameTimes)) {
+              onBailout?.()
+              return
+            }
+          }
         }
 
         resize()
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
         gl.useProgram(program)
-        gl.uniform1f(rotationLocation, timestamp * tuning.rotationSpeed)
+        gl.uniform1f(rotationLocation, smoothedRotation)
         gl.uniform1f(aspectLocation, Math.max(canvas.width / canvas.height, 0.1))
-        gl.uniform1f(scaleLocation, 0.84)
+        gl.uniform1f(scaleLocation, 0.865)
+        gl.uniform1f(timeLocation, timestamp)
         gl.drawElements(gl.TRIANGLES, sphere.indices.length, gl.UNSIGNED_SHORT, 0)
 
         if (!hasReportedReady) {
