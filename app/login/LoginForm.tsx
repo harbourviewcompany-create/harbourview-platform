@@ -34,30 +34,33 @@ export default function LoginForm({
     setLoading(true)
     setFeedback(null)
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    if (mode === 'signin') {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-      if (err) {
-        setFeedback({ type: 'error', text: err.message })
-        setLoading(false)
+      if (mode === 'signin') {
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+        if (err) {
+          setFeedback({ type: 'error', text: err.message })
+        } else {
+          router.push(next ?? '/dashboard')
+          router.refresh()
+        }
       } else {
-        router.push(next ?? '/dashboard')
-        router.refresh()
+        const { error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
+        })
+        if (err) {
+          setFeedback({ type: 'error', text: err.message })
+        } else {
+          setFeedback({ type: 'success', text: 'Check your email to confirm your account.' })
+        }
       }
-    } else {
-      const { error: err } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
-      })
-      if (err) {
-        setFeedback({ type: 'error', text: err.message })
-        setLoading(false)
-      } else {
-        setFeedback({ type: 'success', text: 'Check your email to confirm your account.' })
-        setLoading(false)
-      }
+    } catch (err) {
+      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Something went wrong. Please try again.' })
+    } finally {
+      setLoading(false)
     }
   }
 
