@@ -5,7 +5,12 @@ import { roleProfileMap } from './role-profiles'
 import { getActionDefinition, evidenceGapActionKeys } from './role-actions'
 import { resolveRoleModuleOrder } from './role-module-map'
 
-const evidenceVerifiedCountrySlugs = new Set(['canada', 'germany', 'australia', 'brazil', 'israel'])
+const adminOnlyRoleFamily = 'harbourview_admin_operator'
+
+function isAdminOnlyRole(roleSlug?: string) {
+  const role = roleSlug ? roleProfileMap[roleSlug] : undefined
+  return role?.family === adminOnlyRoleFamily
+}
 
 const privateFields = {
   counterpartyIntelligence: ['admin-gated counterparty intelligence placeholder'],
@@ -28,12 +33,16 @@ export function resolveCountryRoleDashboard(countrySlug: string, roleSlug: strin
   const country = getCountryBySlug(countrySlug)
   const role = roleProfileMap[roleSlug]
   if (!country || !role) return null
+  if (role.family === adminOnlyRoleFamily && visibility !== 'harbourview_admin') return null
 
-  const evidenceVerified = evidenceVerifiedCountrySlugs.has(country.slug)
+  // No country-role pathway is marked verified until evidence-backed status exists.
+  // Static role routing may be available, but verified evidence must come from a
+  // reviewed source/evidence layer instead of a hardcoded country list.
+  const evidenceVerified = false
   const moduleOrder = resolveRoleModuleOrder(role)
   const actions: ActionKey[] = [role.primaryCta, ...evidenceGapActionKeys]
   return {
-    country: { countrySlug: country.slug, countryName: country.displayName, countryIso2: country.iso2, status: evidenceVerified ? 'available' : 'evidence_gap', available: true, evidenceVerified, requiredEvidence: role.evidenceRequirements, permissionFloor: 'public_guest' },
+    country: { countrySlug: country.slug, countryName: country.displayName, countryIso2: country.iso2, status: evidenceVerified ? 'available' : 'evidence_gap', available: true, evidenceVerified, requiredEvidence: role.evidenceRequirements, permissionFloor: role.family === adminOnlyRoleFamily ? 'harbourview_admin' : 'public_guest' },
     role,
     family: roleFamilyMap[role.family],
     moduleOrder,
@@ -51,6 +60,6 @@ export function resolveCountryRoleDashboard(countrySlug: string, roleSlug: strin
 export function getSafeCountryRoleRedirect(countrySlug?: string, roleSlug?: string) {
   const country = countrySlug ? getCountryBySlug(countrySlug) : countries[0]
   const role = roleSlug ? roleProfileMap[roleSlug] : undefined
-  if (country && role) return getCountryRoleHref(country.slug, role.slug)
+  if (country && role && !isAdminOnlyRole(role.slug)) return getCountryRoleHref(country.slug, role.slug)
   return '/market-selection?reason=invalid-country-role'
 }
