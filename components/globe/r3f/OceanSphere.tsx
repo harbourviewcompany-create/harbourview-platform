@@ -8,18 +8,18 @@ import { FrontSide, MeshPhysicalMaterial, MeshStandardMaterial, Color } from 'th
 // Injects into Three.js standard shader pipeline at build time.
 function createOceanMaterial() {
   const mat = new MeshPhysicalMaterial({
-    // Deep enamel base — near-black with indigo undertone
-    color: new Color('#010711'),
-    // Deep smoked emissive — visible in shadow without brightening the lit face
-    emissive: new Color('#050f22'),
-    emissiveIntensity: 0.22,
-    // Low roughness → tighter specular, glassier/enamel surface quality
-    roughness: 0.62,
-    // Faint metalness hint → catches environment reflections like deep lacquer
-    metalness: 0.08,
-    // Clearcoat gives second sharp reflection layer — reads as polished enamel
-    clearcoat: 0.52,
-    clearcoatRoughness: 0.06,
+    // Deep near-black base — ink/abyss, not silver
+    color: new Color('#010812'),
+    // Very faint deep-blue self-glow only visible in total shadow
+    emissive: new Color('#030b18'),
+    emissiveIntensity: 0.14,
+    // High roughness = matte/deep — NO specular blobs from directional lights.
+    // The ocean should absorb light, not reflect it. Gold land is the specular surface.
+    roughness: 0.94,
+    // Zero metalness — no PBR environment reflections on the ocean at all
+    metalness: 0.0,
+    // No clearcoat — clearcoat was the source of the glossy white blobs on ocean
+    clearcoat: 0.0,
   })
 
   mat.onBeforeCompile = (shader) => {
@@ -53,9 +53,9 @@ function createOceanMaterial() {
        float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), uRimPower);
        gl_FragColor.rgb += uRimColor * fresnel * uRimStrength;`
     )
-    shader.uniforms.uRimColor = { value: new Color(0.04, 0.12, 0.28) }
-    shader.uniforms.uRimStrength = { value: 1.1 }
-    shader.uniforms.uRimPower = { value: 3.2 }
+    shader.uniforms.uRimColor = { value: new Color(0.03, 0.09, 0.22) }
+    shader.uniforms.uRimStrength = { value: 0.62 }
+    shader.uniforms.uRimPower = { value: 4.2 }
   }
 
   mat.side = FrontSide
