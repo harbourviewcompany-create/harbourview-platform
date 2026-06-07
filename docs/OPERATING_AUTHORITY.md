@@ -178,3 +178,56 @@ GO on full execution is only possible after:
 - [ ] Eval/leakage gates present in CI
 
 **Current verdict: HOLD — Ticket 1 now executable (org confirmed, Free plan scope only).**
+
+---
+
+## Ticket 3 Authority Patch
+
+Status date: 2026-06-07
+Applies to: Ticket 3 — `lib/hf/` server-only module skeleton
+
+### D3 — Role Mapping
+
+**Status: RESOLVED FOR TICKET 3 / CONDITIONAL FOR LATER ROUTES**
+
+| HF packet role | Harbourview repo role | Ticket 3 authority |
+|---|---|---|
+| `reviewer` | `analyst` | Can review AI/data outputs where admin/operator-approved review UI exists. |
+| `model-ops` | `operator` | Can manage server-only HF operational checks and repo verification. |
+| `marketplace-reviewer` | `operator` | Can review marketplace enrichment candidates only via protected admin/operator pathways. |
+| `education-reviewer` | `educator` (domain) / `operator` (release) | Education content review and operational release are separate. |
+
+No new application roles authorized in Ticket 3. Ticket 3 must not add public permissions, broaden RLS, or create new role claims. Any future first-class `reviewer`, `model-ops`, `marketplace-reviewer`, or `education-reviewer` role requires a separate auth/RLS migration and explicit approval.
+
+### BLOCKER-1 — `hv_core.current_role()` Strategy
+
+**Status: RESOLVED FOR TICKET 3 / JWT HOOK REMAINS HOLD**
+
+Decision: Ticket 3 uses service-role/server-side access patterns only.
+
+- Ticket 3 creates the `lib/hf/` skeleton with server-only env validation and no user-token-based access to `hv_*` schemas.
+- No browser imports, no public routes, no user-scoped HF access in Ticket 3.
+- Any route that later touches HF or private data must follow the existing `requireAdminAuth()` admin route pattern.
+- User-scoped `hv_*` schema access remains HOLD until a Supabase custom access token hook is implemented and verified.
+- Required guardrail: every module touching `HF_TOKEN_SERVER`, service-role access, private HF repos, or internal data must include `import 'server-only'`.
+
+### BLOCKER-3 — Security Harden Migration
+
+**Status: HOLD / UNCONFIRMED**
+
+Migration `20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql` exists in repo. Production application not confirmed.
+
+- Ticket 3 may proceed as a local/server-only skeleton only — no routes, no ingestion, no queue workers, no production DB writes.
+- Any ticket that creates callable routes or touches live Supabase production data remains HOLD until production application of this migration is confirmed.
+- Verification: Supabase Dashboard → Database → Migrations → confirm `20260606210000` is listed as applied.
+
+### Ticket 3 GO/HOLD
+
+**CONDITIONAL GO** for:
+- `lib/hf/` server-only module skeleton
+- Server-only environment validation
+- Approved private HF repo-name constants
+- Private repo verification helpers
+- Tests: no browser HF env vars, no hardcoded token, no public DTO leakage
+
+**HOLD** for: public routes, `/api/internal/*` creation, ingestion, embedding, extraction, queue workers, BGE-M3 migrations, Qwen endpoint calls, public DTO publishing, user-scoped `hv_*` schema access, production Supabase writes, role/RLS migrations.
