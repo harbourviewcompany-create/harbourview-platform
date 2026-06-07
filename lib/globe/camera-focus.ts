@@ -33,10 +33,11 @@ export function bboxFocusDistance(bbox: [number, number, number, number]): numbe
   return clamp(MIN_FOCUS_DISTANCE + extent * BBOX_DISTANCE_SLOPE, MIN_FOCUS_DISTANCE, MAX_FOCUS_DISTANCE)
 }
 
-// Globe group rotation [rx=0.12, ry=-0.8, rz=0] from GlobeCanvas <group rotation={[0.12,-0.8,0]}>.
+// Globe group rotation [rx=0.08, ry=0.3, rz=0] from GlobeCanvas <group rotation={[0.08, 0.3, 0]}>.
 // Without this the camera targets the country LOCAL position, not WORLD position.
+// IMPORTANT: keep in sync with the <group rotation={...}> in GlobeCanvas.tsx.
 function applyGlobeGroupRotation(x: number, y: number, z: number): [number, number, number] {
-  const rx = 0.12, ry = -0.8
+  const rx = 0.08, ry = 0.3
   const cx = Math.cos(rx), sx = Math.sin(rx)
   const cy = Math.cos(ry), sy = Math.sin(ry)
   const x1 = x, y1 = y * cx - z * sx, z1 = y * sx + z * cx // Rx
