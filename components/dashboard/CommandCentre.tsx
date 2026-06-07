@@ -526,7 +526,7 @@ export default function CommandCentre({
   const toggleWatch = (item: string) => {
     setWatching(prev => {
       const next = new Set(prev)
-      if (next.has(item)) next.delete(item) else next.add(item)
+      if (next.has(item)) { next.delete(item) } else { next.add(item) }
       return next
     })
     openPanel('watchlist', item)
