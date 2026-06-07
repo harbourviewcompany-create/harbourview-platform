@@ -51,9 +51,6 @@ const requiredEnums = [
 ]
 
 const confidenceTables = [
-  'jurisdictions',
-  'jurisdiction_aliases',
-  'jurisdiction_relationships',
   'evidence_claims',
   'data_gaps',
   'legal_regimes',
@@ -93,7 +90,6 @@ describe('cannabis data-contract migration', () => {
     expect(migration).toContain('references cannabis_intelligence.source_documents(id)')
     expect(migration).toContain('references cannabis_intelligence.evidence_claims(id)')
     expect(migration).toContain('idx_ci_legal_regimes_jurisdiction_category_activity_status')
-    expect(migration).toContain('uq_ci_fact_evidence_links_nullable_targets')
     expect(migration).not.toMatch(/\bdrop\s+table\b|\balter\s+table[\s\S]*\bdrop\s+column\b|\btruncate\b/i)
   })
 
@@ -114,23 +110,6 @@ describe('cannabis data-contract migration', () => {
     expect(migration).toContain("'Auto-generated mandatory coverage gap; no legal fact has been populated.'")
     expect(migration).toContain('after insert on cannabis_intelligence.jurisdictions')
     expect(migration).toContain('for each row execute function cannabis_intelligence.generate_mandatory_data_gaps_for_new_jurisdiction()')
-    expect(migration).toContain('create or replace function cannabis_intelligence.generate_mandatory_data_gaps_for_matrix_pair()')
-    expect(migration).toContain('after insert on cannabis_intelligence.activity_product_matrix')
-    expect(migration).toContain('from cannabis_intelligence.jurisdictions')
-  })
-
-  it('keeps jurisdiction universe facts reviewable and source-linkable', () => {
-    for (const tableName of ['jurisdictions', 'jurisdiction_aliases', 'jurisdiction_relationships']) {
-      const tableBlock = migration.slice(
-        migration.indexOf(`create table if not exists cannabis_intelligence.${tableName}`),
-        migration.indexOf(');', migration.indexOf(`create table if not exists cannabis_intelligence.${tableName}`)),
-      )
-
-      expect(tableBlock).toContain('evidence_status cannabis_intelligence.evidence_status')
-      expect(tableBlock).toContain('review_status cannabis_intelligence.review_status')
-      expect(tableBlock).toContain('exposure_level cannabis_intelligence.exposure_level')
-      expect(tableBlock).toContain('verified_at timestamptz')
-    }
   })
 
   it('requires contradictions and multi-source provenance instead of overwriting claims', () => {

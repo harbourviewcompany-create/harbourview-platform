@@ -355,24 +355,3 @@ Expected Pass 1 evidence:
 **Compliance & data handling:** No secrets, private user data, real customer payloads, or production legal facts were committed. The seed is limited to taxonomy and coverage matrix setup. Raw source paths, extraction logs, reviewer notes, contradiction internals, and private contact data remain excluded from public DTO projections.
 
 **Operational conclusion:** HOLD for production release until local/staging Supabase migration application, runtime RLS/anon-select verification, and pre-existing repository test/migration-check failures are resolved or formally risk-accepted.
-
-## 2026-06-07 — Cannabis Data Contract v1.0 Review Follow-up
-
-**Scope:** Hardened the P0/P1 data-contract migration after review by adding public/private metadata parity to jurisdiction universe fact tables, adding nullable-safe uniqueness for generic fact-evidence links, and generating coverage gaps when required activity/category matrix rows are inserted after jurisdictions already exist.
-
-**Commands and results (UTC):**
-
-- `npx vitest run tests/cannabis-data-contract/migration.test.ts tests/cannabis-data-contract/dto.test.ts` — PASS; 13 focused tests now include jurisdiction fact metadata, matrix-row gap generation, and nullable-safe evidence-link uniqueness checks.
-- `npm run typecheck` — PASS.
-- `npm run lint` — PASS with pre-existing warnings in Stripe webhook, vault, dashboard, and consumables files.
-- `npm run build` — PASS with pre-existing lint warnings.
-
-**Operational conclusion:** HOLD remains for production release until Supabase migration application and runtime RLS/anon-select verification can run in a Docker/local Supabase or staging Supabase environment.
-
-**Additional follow-up checks (UTC):**
-
-- `npm run test` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; unchanged by this backend data-contract follow-up.
-- `npm run check:migrations` — FAIL on pre-existing duplicate migration prefix `20260601000000`; unchanged by this follow-up.
-- `npx supabase db reset --local` — BLOCKED because Docker daemon is unavailable in this workspace.
-- `npm run test:secret-scan` — PASS.
-- `git diff --check` — PASS.
