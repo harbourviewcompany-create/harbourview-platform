@@ -71,6 +71,54 @@ function normalizeLongitudes(pts: [number, number][]): [number, number][] {
   return normalizeLongitudesAround(pts, pts[0][0])
 }
 
+function normalizeReferenceLongitude(lon: number) {
+  if (!Number.isFinite(lon)) return 0
+  let normalized = ((lon + 180) % 360 + 360) % 360 - 180
+  if (normalized === -180 && lon > 0) normalized = 180
+  return normalized
+}
+
+function minimumCircularSpanReferenceLongitude(pts: [number, number][]) {
+  if (pts.length === 0) return 0
+
+  const sortedLongitudes = pts
+    .map(([lon]) => ((lon % 360) + 360) % 360)
+    .sort((a, b) => a - b)
+
+  if (sortedLongitudes.length === 1) {
+    return normalizeReferenceLongitude(sortedLongitudes[0])
+  }
+
+  let largestGap = -1
+  let largestGapStartIndex = 0
+  for (let i = 0; i < sortedLongitudes.length; i++) {
+    const current = sortedLongitudes[i]
+    const next = i === sortedLongitudes.length - 1 ? sortedLongitudes[0] + 360 : sortedLongitudes[i + 1]
+    const gap = next - current
+    if (gap > largestGap) {
+      largestGap = gap
+      largestGapStartIndex = i
+    }
+  }
+
+  const spanStart = sortedLongitudes[(largestGapStartIndex + 1) % sortedLongitudes.length]
+  const spanWidth = 360 - largestGap
+  return normalizeReferenceLongitude(spanStart + spanWidth / 2)
+}
+
+function getOuterRingPoints(country: HarbourviewCountryGeometry) {
+  return country.polygons.flatMap((polygon) => {
+    const outerRing = polygon.rings.find((r) => r.kind === 'outer')
+    return outerRing ? normalizeRing(outerRing.points) : []
+  })
+}
+
+function countryMinimumCircularSpanReferenceLongitude(country: HarbourviewCountryGeometry) {
+  const outerPoints = getOuterRingPoints(country)
+  if (outerPoints.length === 0) return normalizeReferenceLongitude(country.centroid[0])
+  return minimumCircularSpanReferenceLongitude(outerPoints)
+}
+
 function projectRingVertices(pts: [number, number][], radius: number): number[] {
   const out: number[] = []
   for (const [lon, lat] of pts) {
@@ -96,7 +144,7 @@ function createTopFanIndices(n: number) {
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
  *
  * Strategy:
- *  1. Normalise longitudes (anti-meridian fix).
+ *  1. Receive country-normalised longitudes (anti-meridian fix).
  *  2. Project to flat 2-D (lon – meanLon, lat) for earcut.
  *  3. Run ShapeUtils.triangulateShape (earcut).
  *  4. Per-triangle 3-D winding correction:
@@ -113,10 +161,8 @@ function createTopFaceWithHoles(
   holesRaw: [number, number][][],
   radius: number,
 ): { positions: number[]; indices: number[] } {
-
-  const referenceLongitude = outerRaw[0]?.[0] ?? 0
-  const outer = normalizeLongitudesAround(outerRaw, referenceLongitude)
-  const holes = holesRaw.map((h) => normalizeLongitudesAround(h, referenceLongitude))
+  const outer = outerRaw
+  const holes = holesRaw
 
   const meanLon = outer.reduce((s, [lon]) => s + lon, 0) / outer.length
   const toV2 = ([lon, lat]: [number, number]) => new Vector2(lon - meanLon, lat)
@@ -191,15 +237,11 @@ function ensureWinding(pts: [number, number][], clockwise: boolean): [number, nu
 }
 
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
-  // Use the country centroid as the reference longitude for ALL polygons of this
-  // country. This is the antimeridian fix: without it, a country whose centroid
-  // sits near 100°E (e.g. Russia) but whose eastern sub-polygons start at -179°
-  // would use -179° as the ring reference, causing those polygons to project
-  // near the prime meridian (Africa) instead of the far east (antimeridian).
-  // Centering on the country centroid keeps every polygon within ±180° of the
-  // correct geographic anchor, so Russia's Chukotka renders adjacent to the
-  // main landmass at the antimeridian rather than on the wrong side of the globe.
-  const countryReferenceLon = country.centroid[0]
+  // Use the minimum circular span of all outer-ring longitudes as the reference
+  // for every polygon in a country. This keeps antimeridian countries (Russia,
+  // USA, Fiji, etc.) in the shortest contiguous longitude strip instead of
+  // trusting centroid longitude or each ring's first point as the unwrap anchor.
+  const countryReferenceLon = countryMinimumCircularSpanReferenceLongitude(country)
 
   return country.polygons
     .map((polygon) => {
@@ -343,6 +385,8 @@ export const polygonGeometryInternals = {
   normalizeRing,
   normalizeLongitudes,
   normalizeLongitudesAround,
+  minimumCircularSpanReferenceLongitude,
+  countryMinimumCircularSpanReferenceLongitude,
   normalizePolygonTopology,
   ringArea2D,
 }
