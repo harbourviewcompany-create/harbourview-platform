@@ -25,16 +25,45 @@ export interface DashboardMarketplaceRows {
 
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted';
 
+interface SignalRow {
+  id: string;
+  title: string;
+  summary?: string;
+  tag?: string;
+  publishedAt?: string;
+  [key: string]: unknown;
+}
+
+interface EduCategory {
+  id: string;
+  label: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+interface PipelineData {
+  stage?: string;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface CountryIntel {
+  iso2?: string;
+  displayName?: string;
+  summary?: string;
+  [key: string]: unknown;
+}
+
 interface CommandCentreProps {
-  signals?: any[];
-  eduCategories?: any[];
+  signals?: SignalRow[];
+  eduCategories?: EduCategory[];
   initialCountryIso2?: string | null;
   initialRoleId?: string | null;
   wantedCount?: number;
   marketplaceRows?: Partial<DashboardMarketplaceRows>;
-  pipeline?: any;
-  wantedListings?: any[];
-  countryIntel?: any;
+  pipeline?: PipelineData;
+  wantedListings?: MarketRow[];
+  countryIntel?: CountryIntel;
 }
 
 export default function CommandCentre({
