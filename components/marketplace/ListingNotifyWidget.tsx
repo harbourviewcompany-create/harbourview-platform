@@ -38,7 +38,7 @@ export function ListingNotifyWidget({ category }: { category: string }) {
   if (done) {
     return (
       <div className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] px-6 py-5 text-sm text-[#C6A55A]">
-        ✓ You'll be notified when new {category} listings are approved.
+        ✓ You&apos;ll be notified when new {category} listings are approved.
       </div>
     )
   }
