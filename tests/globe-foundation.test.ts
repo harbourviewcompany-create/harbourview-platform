@@ -57,9 +57,9 @@ describe('Harbourview globe foundation', () => {
   })
 
   it('defines deterministic globe camera defaults', () => {
-    expect(GLOBE_CAMERA_CONFIG.initialPosition).toEqual([0, 0.6, 7.45])
+    expect(GLOBE_CAMERA_CONFIG.initialPosition).toEqual([0, 0.6, 7.8])
     expect(GLOBE_CAMERA_CONFIG.initialTarget).toEqual([0, 0, 0])
-    expect(GLOBE_CAMERA_CONFIG.fov).toBe(24)
+    expect(GLOBE_CAMERA_CONFIG.fov).toBe(26)
     expect(GLOBE_CAMERA_CONFIG.near).toBe(0.1)
     expect(GLOBE_CAMERA_CONFIG.far).toBe(100)
     expect(GLOBE_CAMERA_CONFIG.rotateSpeed).toBe(0.52)
@@ -76,7 +76,7 @@ describe('Harbourview globe foundation', () => {
 
     expect(GLOBE_CAMERA_CONFIG.minPolarAngle).toBeGreaterThanOrEqual(0)
     expect(GLOBE_CAMERA_CONFIG.maxPolarAngle).toBeLessThanOrEqual(Math.PI)
-    expect(Math.abs(GLOBE_CAMERA_CONFIG.minAzimuthAngle)).toBeLessThanOrEqual(Math.PI)
-    expect(Math.abs(GLOBE_CAMERA_CONFIG.maxAzimuthAngle)).toBeLessThanOrEqual(Math.PI)
+    expect(GLOBE_CAMERA_CONFIG.minAzimuthAngle).toBe(-Infinity)
+    expect(GLOBE_CAMERA_CONFIG.maxAzimuthAngle).toBe(Infinity)
   })
 })
