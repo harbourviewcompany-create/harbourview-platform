@@ -1,12 +1,13 @@
 -- Migration: 20260607000000_stripe_subscriptions_user_profiles
 -- Stripe monetization schema — user_profiles + subscriptions tables
--- Project: zvxdgdkukjrrwamdpqrg
+-- Run on Supabase project: zvxdgdkukjrrwamdpqrg
 
--- 1. user_profiles: Stripe customer ID + tier per auth user
+-- 1. user_profiles
 create table if not exists public.user_profiles (
   id                 uuid primary key references auth.users(id) on delete cascade,
+  email              text,
   stripe_customer_id text unique,
-  tier               text not null default 'free' check (tier in ('free', 'intel_plus')),
+  tier               text not null default 'free' check (tier in ('free', 'intel', 'operator')),
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
@@ -21,12 +22,12 @@ create policy "Service role manages profiles"
   on public.user_profiles for all
   using (auth.role() = 'service_role');
 
--- Auto-create profile row on signup
+-- Auto-create profile on signup
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.user_profiles (id)
-  values (new.id)
+  insert into public.user_profiles (id, email)
+  values (new.id, new.email)
   on conflict (id) do nothing;
   return new;
 end;
@@ -37,12 +38,12 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- 2. subscriptions: mirrors Stripe subscription state (written by webhook)
+-- 2. subscriptions
 create table if not exists public.subscriptions (
-  id                   text primary key,       -- Stripe subscription ID (sub_...)
+  id                   text primary key,
   user_id              uuid not null references auth.users(id) on delete cascade,
   stripe_customer_id   text not null,
-  status               text not null,          -- active | canceled | past_due | trialing
+  status               text not null,
   price_id             text,
   current_period_start timestamptz,
   current_period_end   timestamptz,
@@ -61,11 +62,10 @@ create policy "Service role manages subscriptions"
   on public.subscriptions for all
   using (auth.role() = 'service_role');
 
-create index if not exists subscriptions_user_id_idx       on public.subscriptions(user_id);
-create index if not exists subscriptions_customer_id_idx   on public.subscriptions(stripe_customer_id);
-create index if not exists subscriptions_status_idx        on public.subscriptions(status);
+create index if not exists subscriptions_user_id_idx     on public.subscriptions(user_id);
+create index if not exists subscriptions_customer_id_idx on public.subscriptions(stripe_customer_id);
+create index if not exists subscriptions_status_idx      on public.subscriptions(status);
 
--- updated_at auto-maintenance
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
