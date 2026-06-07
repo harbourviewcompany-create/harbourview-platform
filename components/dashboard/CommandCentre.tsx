@@ -1283,65 +1283,8 @@ export default function CommandCentre({
       {panelOpen && <div className="cc-scrim" onClick={() => setPanelOpen(false)} />}
       {renderPanel()}
 
-      {
-/* ── Custom select ───────────────────────────────────────────────────────── */
-.cc-sel { position:relative;height:44px; }
-.cc-sel-lbl {
-  position:absolute;left:11px;top:5px;z-index:1;
-  color:var(--cc-dim);font-size:8px;letter-spacing:.14em;
-  text-transform:uppercase;pointer-events:none;font-family:var(--cc-mono);
-}
-.cc-sel-trigger {
-  width:100%;height:100%;
-  border:1px solid var(--cc-line2);border-radius:12px;
-  background:linear-gradient(180deg,rgba(17,35,53,.9),rgba(7,16,28,.96));
-  color:var(--cc-ink);outline:none;
-  padding:17px 28px 5px 11px;
-  font:inherit;font-size:12px;text-align:left;cursor:pointer;
-  transition:border-color .15s;
-  display:flex;align-items:flex-end;
-}
-.cc-sel-trigger.open,
-.cc-sel-trigger:hover { border-color:rgba(217,175,99,.5); }
-.cc-sel-val { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-bottom:1px; }
-.cc-sel-arrow {
-  position:absolute;right:10px;top:50%;transform:translateY(-50%);
-  color:var(--cc-dim);font-size:7px;pointer-events:none;
-}
-.cc-sel-drop {
-  position:absolute;top:calc(100% + 6px);left:0;min-width:100%;
-  background:linear-gradient(180deg,rgba(10,22,38,.99),rgba(5,13,24,1));
-  border:1px solid rgba(217,175,99,.28);border-radius:14px;
-  box-shadow:0 24px 72px rgba(0,0,0,.68);
-  z-index:500;overflow:hidden;
-  animation:fadeSlideUp .14s ease;
-}
-.cc-sel-search { padding:8px;border-bottom:1px solid var(--cc-line); }
-.cc-sel-search-inp {
-  width:100%;background:rgba(255,255,255,.06);
-  border:1px solid var(--cc-line2);border-radius:8px;
-  color:var(--cc-ink);padding:6px 10px;
-  font:inherit;font-size:11px;outline:none;
-}
-.cc-sel-search-inp:focus { border-color:rgba(217,175,99,.45); }
-.cc-sel-search-inp::placeholder { color:var(--cc-dim); }
-.cc-sel-list {
-  max-height:220px;overflow-y:auto;padding:5px;
-  scrollbar-width:thin;scrollbar-color:var(--cc-line2) transparent;
-}
-.cc-sel-list::-webkit-scrollbar { width:4px; }
-.cc-sel-list::-webkit-scrollbar-thumb { background:var(--cc-line2);border-radius:4px; }
-.cc-sel-opt {
-  width:100%;text-align:left;padding:7px 11px;
-  background:transparent;border:none;border-radius:9px;
-  color:var(--cc-text);font:inherit;font-size:12px;cursor:pointer;
-  transition:background .1s,color .1s;display:block;
-}
-.cc-sel-opt:hover { background:rgba(255,255,255,.06);color:var(--cc-ink); }
-.cc-sel-opt.sel { color:var(--cc-gold2);background:rgba(217,175,99,.1);font-weight:600; }
-.cc-sel-empty { padding:12px;text-align:center;color:var(--cc-dim);font-size:11px; }
 
-/* ── Mobile bottom nav ──────────────────────────────────────── */}
+      {/* ── Mobile bottom nav ──────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
         {COMMAND_NAV.slice(0, 5).map(item => (
           <button
