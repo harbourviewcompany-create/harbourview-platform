@@ -184,6 +184,7 @@ export default async function DashboardPage({
 
   return (
     <CommandCentre
+      key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}`}
       signals={signals}
       eduCategories={eduCategories}
       initialCountryIso2={countryIso2}

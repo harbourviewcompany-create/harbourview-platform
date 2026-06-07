@@ -484,6 +484,21 @@ export default function CommandCentre({
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  // Sync state when URL-derived props change (globe → dashboard nav doesn't remount)
+  useEffect(() => {
+    const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
+    if (found && found.iso2 !== country.iso2) {
+      setCountry(found)
+      setRegion((REGIONS[found.iso2] ?? [])[0] ?? '')
+    }
+  }, [initialCountryIso2]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (initialRoleId && initialRoleId !== role) {
+      setRole(initialRoleId)
+    }
+  }, [initialRoleId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const savePreferences = useCallback((patch: { country_iso2?: string; role_id?: string }) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
@@ -837,7 +852,7 @@ export default function CommandCentre({
               <select value={region} onChange={e => setRegion(e.target.value)}>
                 {(REGIONS[country.iso2] ?? []).length
                   ? (REGIONS[country.iso2] ?? []).map(r => <option key={r} value={r}>{r}</option>)
-                  : <option value="">Country-level only</option>}
+                  : <option value="">Country-level</option>}
               </select>
             </label>
             <label className="cc-field">
