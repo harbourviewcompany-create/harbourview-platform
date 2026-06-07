@@ -6,8 +6,30 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CountrySearchOverlay } from '@/components/globe/CountrySearchOverlay'
 import { IntentCardGrid } from '@/components/globe/IntentCardGrid'
 import { MarketplaceListingCard } from '@/components/marketplace/MarketplaceListingCard'
-import { publicMarketplaceListings } from '@/lib/marketplace/publicListings'
+import type { PublicMarketplaceListing } from '@/lib/marketplace/publicListings'
 import { FORBIDDEN_PUBLIC_FIELD_NAMES } from '@/lib/intelligence-os/publicSafety'
+
+
+const publicListingFixture: PublicMarketplaceListing = {
+  slug: 'verified-packaging-supply',
+  title: 'Verified packaging supply',
+  section: 'Marketplace',
+  category: 'Consumables',
+  listingType: 'Supplier Lead',
+  price: 'Confirm through Harbourview',
+  location: 'Germany',
+  publicSummary: 'Public-safe packaging availability summary for qualified buyers.',
+  buyerFit: ['Licensed operators', 'Qualified buyers', 'Procurement teams'],
+  complianceNote: 'Harbourview qualification required before commercial handoff.',
+  ctaLabel: 'Request qualification',
+}
+
+const alternatePublicListingFixture: PublicMarketplaceListing = {
+  ...publicListingFixture,
+  slug: 'equipment-introduction',
+  title: 'Equipment introduction',
+  category: 'Equipment',
+}
 
 const USER_PROVIDED_FORBIDDEN_LIST = ['sourceUrl', 'source_url', 'sourceName', 'source_name', 'buyer_demand']
 
@@ -34,14 +56,14 @@ describe('public DOM forbidden string guardrails', () => {
   })
 
   it('keeps marketplace card DOM public-safe', () => {
-    const cardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={publicMarketplaceListings[0]} />)
+    const cardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={publicListingFixture} />)
     assertNoForbiddenStrings(cardHtml, 'marketplace listing card')
   })
 
   it('covers homepage and marketplace surfaces as route-level DOM checks', () => {
     const homepageSearchHtml = renderToStaticMarkup(<CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />)
     const homepageResultsHtml = renderToStaticMarkup(<IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />)
-    const marketCardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={publicMarketplaceListings[1]} />)
+    const marketCardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={alternatePublicListingFixture} />)
 
     assertNoForbiddenStrings(homepageSearchHtml, '/ homepage globe search')
     assertNoForbiddenStrings(homepageResultsHtml, '/ homepage globe results')

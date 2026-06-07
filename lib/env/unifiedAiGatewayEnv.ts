@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { z } from 'zod';
+import { getHuggingFaceConfigStatus } from '@/lib/env/huggingFaceEnv';
 
 const bool = z.enum(['true', 'false']).default('false').transform((value) => value === 'true');
 const intString = z.string().trim().regex(/^\d+$/).transform((value) => Number.parseInt(value, 10));
@@ -49,6 +50,8 @@ export function getUnifiedAiGatewayHealth(rawEnv: NodeJS.ProcessEnv = process.en
   const env = parsed.success ? parsed.data : undefined;
   if (env?.HARBOURVIEW_MARKETPLACE_AI_ENABLED && !env.UNIFIED_AI_GATEWAY_ENABLED) issues.push('Marketplace AI is enabled while the Unified AI Gateway is disabled.');
 
+  const huggingFace = getHuggingFaceConfigStatus(rawEnv);
+
   return {
     ok: issues.length === 0,
     enabled: env?.UNIFIED_AI_GATEWAY_ENABLED ?? rawEnv.UNIFIED_AI_GATEWAY_ENABLED === 'true',
@@ -60,9 +63,11 @@ export function getUnifiedAiGatewayHealth(rawEnv: NodeJS.ProcessEnv = process.en
       defaultProvider: Boolean(rawEnv.UNIFIED_AI_GATEWAY_DEFAULT_PROVIDER?.trim()),
       defaultModel: Boolean(rawEnv.UNIFIED_AI_GATEWAY_DEFAULT_MODEL?.trim()),
       embeddingModel: Boolean(rawEnv.UNIFIED_AI_GATEWAY_EMBEDDING_MODEL?.trim()),
+      huggingFaceOrgSlug: huggingFace.orgSlugConfigured,
       notionToken: Boolean(rawEnv.NOTION_TOKEN?.trim()),
       linearApiKey: Boolean(rawEnv.LINEAR_API_KEY?.trim()),
     },
+    huggingFace,
     limits: {
       timeoutMs: env?.UNIFIED_AI_GATEWAY_TIMEOUT_MS ?? Number.parseInt(rawEnv.UNIFIED_AI_GATEWAY_TIMEOUT_MS || '30000', 10),
       maxRetries: env?.UNIFIED_AI_GATEWAY_MAX_RETRIES ?? Number.parseInt(rawEnv.UNIFIED_AI_GATEWAY_MAX_RETRIES || '2', 10),
