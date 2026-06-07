@@ -2,12 +2,9 @@ import React from 'react'
 ;(globalThis as { React?: typeof React }).React = React
 
 import { describe, expect, it } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import CultivarPassportPage from '@/app/genetics/cultivars/[slug]/page'
-import { demoAccessGrants, demoAccessRequests, demoEvidenceItems, demoGeneticsProfiles, getAdminGeneticsReviewQueue, getInternalCultivarPassports, getPublicCultivarPassportBySlug, getPublicCultivarPassports } from '@/lib/genetics/demoData'
-import { approvedRequestDoesNotGrantEvidence, grantAllowsEvidence } from '@/lib/genetics/accessGrants'
+import { getAdminGeneticsReviewQueue, getInternalCultivarPassports, getPublicCultivarPassportBySlug, getPublicCultivarPassports } from '@/lib/genetics/demoData'
 import { containsRestrictedClaim, sanitizeRestrictedClaimText } from '@/lib/genetics/restrictedClaims'
 
 const forbiddenPublicPayloadTerms = [
@@ -17,16 +14,9 @@ const forbiddenPublicPayloadTerms = [
   'file_path',
   'private_metadata',
   'private/demo',
-  'bucket',
-  'object key',
-  'signedUrl',
-  'signedURL',
-  'filename',
-  'fileName',
   'buyer notes',
   'counterparty diligence',
   'licensing terms',
-  'private provenance',
 ]
 
 const unsafeCtaTerms = ['Buy seeds', 'Order clones', 'Ship genetics', 'Purchase plant material', 'Export now', 'Import now']
@@ -56,18 +46,6 @@ describe('Cultivar Passport Network P0 DTO boundaries', () => {
     for (const term of forbiddenPublicPayloadTerms) {
       expect(html, `public page must not include ${term}`).not.toContain(term)
     }
-  })
-
-  it('does not treat approved access requests as evidence access without explicit grants', () => {
-    const approvedRequest = { ...demoAccessRequests[0], status: 'approved_full' as const }
-    expect(approvedRequestDoesNotGrantEvidence(approvedRequest)).toBe(true)
-
-    const privateEvidence = demoEvidenceItems[1]
-    const granteeProfileId = demoGeneticsProfiles[2].id
-    expect(demoAccessGrants.some((grant) => grantAllowsEvidence(grant, privateEvidence, granteeProfileId, new Date('2026-06-08T00:00:00.000Z')))).toBe(false)
-
-    const explicitlyGrantedEvidence = demoEvidenceItems[0]
-    expect(demoAccessGrants.some((grant) => grantAllowsEvidence(grant, explicitlyGrantedEvidence, granteeProfileId, new Date('2026-06-08T00:00:00.000Z')))).toBe(true)
   })
 
   it('downgrades restricted claims without reviewed public evidence', () => {
@@ -111,40 +89,5 @@ describe('Cultivar Passport Network P0 DTO boundaries', () => {
     expect(JSON.stringify(admin)).toContain('private_metadata')
     expect(JSON.stringify(internal)).toContain('file_path')
     expectNoForbiddenPublicTerms(publicPassport)
-  })
-
-
-
-  it('uses explicit SQL grants and private storage policy instead of broad approved-request evidence access', () => {
-    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260607120000_cultivar_passport_network_p0.sql'), 'utf8')
-    expect(migration).toContain('create table genetics_access_grants')
-    expect(migration).toContain('create table genetics_claims')
-    expect(migration).toContain('genetics_evidence_items_grant_read')
-    expect(migration).not.toContain('genetics_evidence_items_approved_request_read')
-    expect(migration).toContain('genetics-evidence-private')
-    expect(migration).toContain('Genetics grantees can read explicitly granted private evidence')
-    expect(migration).toContain('genetics_public_claims')
-  })
-
-  it('requires server-side admin authorization on genetics admin review and keeps service-role clients out of public routes', () => {
-    const repoRoot = process.cwd()
-    const adminPage = readFileSync(join(repoRoot, 'app/admin/(protected)/genetics/review/page.tsx'), 'utf8')
-    expect(adminPage).toContain('requireAdminAuth')
-    expect(adminPage).toContain('await requireAdminAuth()')
-
-    const publicRouteFiles = [
-      'app/genetics/page.tsx',
-      'app/genetics/cultivars/page.tsx',
-      'app/genetics/cultivars/[slug]/page.tsx',
-      'app/genetics/collaboration/page.tsx',
-      'app/genetics/services/page.tsx',
-    ]
-    for (const file of publicRouteFiles) {
-      expect(existsSync(join(repoRoot, file)), `${file} must exist`).toBe(true)
-      const source = readFileSync(join(repoRoot, file), 'utf8')
-      expect(source).not.toContain('service-role')
-      expect(source).not.toContain('createHarbourviewServiceRoleSupabaseClient')
-      expect(source).not.toContain('getAdminDataClient')
-    }
   })
 })

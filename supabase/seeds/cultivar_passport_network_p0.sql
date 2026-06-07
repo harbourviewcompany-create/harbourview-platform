@@ -42,18 +42,8 @@ values
 ('23000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003','genotype_report','Demo private genotype placeholder',null,null,null,'owner_admin_only','not_assessed','needs_evidence',null,'Private genotype metadata placeholder hidden from public DTO.','private/demo/genotype-placeholder.vcf',true)
 on conflict (id) do nothing;
 
-insert into genetics_claims (id, cultivar_id, claim_kind, claim_label, claim_text, claim_status, review_status, public_display_allowed, public_display_text, evidence_item_id, evidence_scope, evidence_source_label, evidence_source_date, private_notes)
-values
-('24600000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','provenance','Demo provenance placeholder exists','A demo provenance placeholder exists for workflow demonstration only.','evidence_provided','evidence_attached',false,null,'23000000-0000-4000-8000-000000000001','Demo workflow only','Harbourview demo seed file','2026-06-07','Demo private claim note hidden from public DTO.'),
-('24600000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','export_readiness','Export-ready restricted claim blocked','Demo restricted export-ready claim requiring reviewed evidence before display.','not_assessed','needs_evidence',false,null,null,null,null,null,'Do not publish export-ready language without reviewed evidence.')
-on conflict (id) do nothing;
-
 insert into genetics_access_requests (id, cultivar_id, requester_profile_id, request_type, target_country_code, target_jurisdiction_label, declared_purpose, status, requires_nda, requires_licence_review, requires_admin_review, review_notes_private)
 values ('24000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','verification_request','DE','Germany','Demo request for private evidence verification review.','submitted',true,true,true,'Demo private review note not exposed publicly.')
-on conflict (id) do nothing;
-
-insert into genetics_access_grants (id, access_request_id, cultivar_id, grantee_profile_id, grantor_profile_id, grant_scope, allowed_evidence_item_ids, allowed_evidence_types, status, starts_at, expires_at)
-values ('24500000-0000-4000-8000-000000000001','24000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','Demo limited provenance-summary review only; no raw genotype, COA, pathogen, protocol, IP, MTA, pricing, or licensing-term access.',array['23000000-0000-4000-8000-000000000001']::uuid[],array['provenance_note']::evidence_type[],'active','2026-06-07T00:00:00Z','2026-07-07T00:00:00Z')
 on conflict (id) do nothing;
 
 insert into genetics_collaboration_projects (id, title, slug, project_type, visibility, status, linked_cultivar_id, owner_profile_id, country_code, jurisdiction_label, public_summary, private_notes, evidence_needed)

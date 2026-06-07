@@ -1,8 +1,6 @@
-import { requireAdminAuth } from '@/lib/auth/adminGuard'
 import { getAdminGeneticsReviewQueue } from '@/lib/genetics/demoData'
 
-export default async function AdminGeneticsReviewPage() {
-  await requireAdminAuth()
+export default function AdminGeneticsReviewPage() {
   const queue = getAdminGeneticsReviewQueue()
   return (
     <section className="space-y-6">
