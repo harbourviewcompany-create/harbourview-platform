@@ -217,6 +217,66 @@ function TrustBar({ str }: { str: string }) {
 
 // ── KPI pipeline strip with count-up animation ────────────────────────────────
 
+
+const kpis_check = (p: PipelineCounts) => p.wanted === 0 && p.matched === 0 && p.proof_review === 0 && p.inquiry === 0 && p.deal_room === 0
+
+function KpiStrip({ pipeline }: { pipeline: PipelineCounts }) {
+  const [counts, setCounts] = useState<PipelineCounts>({ wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 })
+  const rafRef = useRef<number | null>(null)
+
+  const isEmpty = kpis_check(pipeline)
+
+  useEffect(() => {
+    if (isEmpty) return
+    const duration = 1200
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
+      const ease = 1 - Math.pow(1 - t, 4)
+      setCounts({
+        wanted:       Math.round(pipeline.wanted       * ease),
+        matched:      Math.round(pipeline.matched      * ease),
+        proof_review: Math.round(pipeline.proof_review * ease),
+        inquiry:      Math.round(pipeline.inquiry      * ease),
+        deal_room:    Math.round(pipeline.deal_room    * ease),
+      })
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [pipeline, isEmpty])
+
+  const kpis: { key: keyof PipelineCounts; label: string; color?: string }[] = [
+    { key: 'wanted',       label: 'Wanted',       color: 'var(--cc-violet)' },
+    { key: 'matched',      label: 'Matched',      color: 'var(--cc-green)'  },
+    { key: 'proof_review', label: 'Proof Review', color: 'var(--cc-amber)'  },
+    { key: 'inquiry',      label: 'Inquiry',      color: 'var(--cc-blue)'   },
+    { key: 'deal_room',    label: 'Deal Room',    color: 'var(--cc-gold2)'  },
+  ]
+
+  if (isEmpty) {
+    return (
+      <div className="cc-kpi-strip cc-kpi-empty-state">
+        <span className="cc-kpi-head">PIPELINE</span>
+        <span className="cc-kpi-empty">No active pipeline · submit a listing or post wanted demand to begin</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="cc-kpi-strip">
+      <span className="cc-kpi-head">PIPELINE</span>
+      {kpis.map((k, i) => (
+        <div key={k.key} className="cc-kpi-item">
+          <span className="cc-kpi-num" style={{ color: k.color }}>{counts[k.key]}</span>
+          <span className="cc-kpi-lbl">{k.label}</span>
+          {i < kpis.length - 1 && <span className="cc-kpi-sep" aria-hidden="true" />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Custom styled select dropdown ────────────────────────────────────────────
 type SelectOpt = { value: string; label: string }
 
@@ -990,6 +1050,7 @@ export default function CommandCentre({
         <main className="cc-workspace">
 
           {/* Pipeline KPI strip */}
+          {pipeline && <KpiStrip pipeline={pipeline} />}
 
           {/* Proactive intelligence banner */}
           {banner && (
