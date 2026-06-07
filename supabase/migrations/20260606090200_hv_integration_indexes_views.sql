@@ -75,6 +75,23 @@ where e.public_visibility is true
   and s.public_visibility is true
   and s.sensitivity = 'public';
 
+
+
+create or replace view hv_public.education_resources_public
+with (security_barrier = true)
+as
+select r.id, r.title, r.summary_public, r.content_public, r.source_id, r.evidence_id, r.updated_at
+from hv_education.resources r
+join hv_private.evidence_items e on e.id = r.evidence_id
+where r.public_visibility is true
+  and r.verified_evidence is true
+  and r.claim_review_status = 'approved'
+  and r.sensitivity = 'public'
+  and e.verification_status = 'verified'
+  and e.review_status = 'approved'
+  and e.public_visibility is true
+  and e.sensitivity = 'public';
+
 grant usage on schema hv_public to anon, authenticated;
 grant select on hv_public.jurisdictions_public to anon, authenticated;
 grant select on hv_public.sources_public to anon, authenticated;
@@ -82,3 +99,4 @@ grant select on hv_public.market_signals_public to anon, authenticated;
 grant select on hv_public.marketplace_listings_public to anon, authenticated;
 grant select on hv_public.offers_public to anon, authenticated;
 grant select on hv_public.claim_evidence_public to anon, authenticated;
+grant select on hv_public.education_resources_public to anon, authenticated;

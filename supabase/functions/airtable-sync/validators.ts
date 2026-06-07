@@ -1,4 +1,4 @@
-import type { AirtableRecord, MappedRecord, TableManifest, ValidationError } from './types.ts';
+import type { AirtableRecord, MappedRecord, SyncMode, TableManifest, ValidationError } from './types.ts';
 
 const PRIVATE_PUBLIC_COLUMNS = new Set([
   'private_notes',
@@ -45,4 +45,30 @@ export function validateMappedRecord(mapped: MappedRecord): ValidationError[] {
 export function validateDtoAllowlist(columns: string[]): ValidationError[] {
   const leaked = columns.filter((column) => PRIVATE_PUBLIC_COLUMNS.has(column));
   return leaked.map((column) => ({ table: 'hv_public', message: `Private column ${column} is not allowed in public DTOs.`, severity: 'error' as const }));
+}
+
+
+export function validateModeEligibility(mapped: MappedRecord, mode: SyncMode): ValidationError[] {
+  if (mode === 'dry_run' || mode === 'staging' || mode === 'writeback_test') return [];
+
+  if (mode === 'private_sync') {
+    return mapped.destination.startsWith('hv_private.')
+      ? []
+      : [{ table: mapped.table, recordId: mapped.airtableRecordId, message: 'private_sync may only mutate hv_private destinations.', severity: 'error' }];
+  }
+
+  if (mode === 'public_approved_only') {
+    const status = mapped.payload.verification_status;
+    const review = mapped.payload.review_status;
+    const visibility = mapped.payload.public_visibility;
+    const sensitivity = mapped.payload.sensitivity;
+    const readyToSell = mapped.payload.ready_to_sell;
+    const isOffer = mapped.destination === 'hv_commercial.offers';
+    const eligible = visibility === true && sensitivity === 'public' && status === 'verified' && review === 'approved' && (!isOffer || readyToSell === 'YES');
+    return eligible
+      ? []
+      : [{ table: mapped.table, recordId: mapped.airtableRecordId, message: 'public_approved_only requires verified, approved, public-visibility, public-sensitivity records; offers must also be ready_to_sell=YES.', severity: 'error' }];
+  }
+
+  return [];
 }

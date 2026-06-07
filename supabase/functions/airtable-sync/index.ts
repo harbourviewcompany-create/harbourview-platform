@@ -5,7 +5,7 @@ import { isMutationMode, isWritebackAllowed, resolveAllowedTables, resolveBaseId
 import { mapRecord } from './mappers.ts';
 import { createSupabaseAdmin } from './supabaseAdmin.ts';
 import { upsertMappedRecord } from './upsert.ts';
-import { validateAirtableRecord, validateMappedRecord } from './validators.ts';
+import { validateAirtableRecord, validateMappedRecord, validateModeEligibility } from './validators.ts';
 import { createLogId, persistSyncLog } from './audit.ts';
 import type { SyncRequest, SyncResponse, TableSummary, ValidationError } from './types.ts';
 
@@ -45,7 +45,8 @@ serve(async (request) => {
       const recordErrors = validateAirtableRecord(record, manifest);
       const mapped = await mapRecord(record, manifest);
       const mappedErrors = validateMappedRecord(mapped);
-      const allErrors = [...recordErrors, ...mappedErrors];
+      const modeErrors = validateModeEligibility(mapped, mode);
+      const allErrors = [...recordErrors, ...mappedErrors, ...modeErrors];
       errors.push(...allErrors);
       tableSummary.mapped += 1;
 
@@ -89,7 +90,9 @@ serve(async (request) => {
     logId,
   };
 
-  if (mode !== 'dry_run') {
+  if (mode === 'dry_run') {
+    console.log(JSON.stringify({ event: 'airtable_sync_dry_run', logId, summary, perTable, errorCount: errors.length }));
+  } else {
     await persistSyncLog(client, response);
   }
 

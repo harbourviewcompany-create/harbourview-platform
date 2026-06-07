@@ -22,3 +22,10 @@ select p.id, p.title
 from hv_public.marketplace_listings_public p
 join hv_marketplace.listings l on l.id = p.id
 where l.verification_status <> 'verified' or l.review_status <> 'approved';
+
+
+create or replace view hv_audit.public_education_unapproved_check as
+select p.id, p.title
+from hv_public.education_resources_public p
+join hv_education.resources r on r.id = p.id
+where r.verified_evidence is not true or r.claim_review_status <> 'approved';

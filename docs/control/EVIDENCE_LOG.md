@@ -307,54 +307,14 @@ Expected Pass 1 evidence:
 
 **Operational conclusion:** CONFIG_HOLD. Code and static checks are complete, but local Supabase/Docker and Deno runtime are unavailable, so migration apply, database lint, RLS runtime queries, and dry-run function invocation could not be completed in this environment.
 
-## 2026-06-06 — Hostile security audit
 
-**Scope:** Hostile source audit of Harbourview application routes, admin guardrails, service-role usage, dependency posture, and public/private data exposure risks. No production traffic, live Supabase writes, brute force, or destructive testing was performed.
+## 2026-06-06 — Supabase + Airtable Foundation Follow-up
 
-**Commands and results (UTC):**
-
-- `git status --short && git remote -v && cat .git/config` — PASS; clean pre-audit working tree and no configured Git remote URL in the local checkout.
-- `find . -maxdepth 2 -type f | sed 's#^./##' | sort | head -200` — PASS; top-level repository structure reviewed without recursive large-tree listing.
-- `find app -maxdepth 4 -type f | sort` and `find lib -maxdepth 3 -type f | sort` — PASS; application/API/security-relevant files mapped.
-- `python - <<'PY' ... Path('app/api').rglob('route.ts') ... PY` — PASS; identified service-role API routes without admin guard calls.
-- `rg -n "SUPABASE_SERVICE_ROLE_KEY|createClient\(|requireAdminAuth|getAdminAuthCheck|csrf|rateLimit|Authorization|x-cron|CRON|secret" app lib scripts --glob '!node_modules'` — PASS; auth, service-role, rate-limit, and secret-touching paths reviewed.
-- `npm run test:secret-scan` — PASS; no high-confidence secret literals found.
-- `npm audit --omit=dev` — FAIL; moderate PostCSS advisory inherited through Next.
-- `npm run lint:docs` — FAIL; no `lint:docs` script exists in `package.json`.
-- `npm run test -- --passWithNoTests` — FAIL; pre-existing globe foundation expectations fail for camera defaults and azimuth limits.
-
-**Evidence artifacts:**
-
-- Audit report: `docs/control/HOSTILE_AUDIT_2026-06-06.md`.
-
-**Compliance & data handling:** No secrets, private Supabase logs, JWTs, customer data, credentials, or production payloads were used or committed. The audit relied on local source review, package metadata, static scans, and local command output.
-
-**Operational conclusion:** RELEASE HOLD until unauthenticated service-role-backed genetics mutation routes are patched, public genetics intake returns a narrow DTO, fail-open operational routes are hardened, dependency audit is resolved or risk-accepted, and test drift is cleared.
-
-## 2026-06-06 — Hostile audit remediation pass
-
-**Scope:** Remediated the highest-priority hostile audit findings for unauthenticated service-role genetics mutations, public genetics response overexposure, fail-open cron/smoke operational endpoints, admin-login brute-force/CSRF exposure, and marketplace notification environment drift.
+**Scope:** Tightened the foundation after review by adding `public_approved_only` / `private_sync` mode eligibility validation, console dry-run audit output, and an education-resource public DTO view that enforces verified evidence plus approved claim review.
 
 **Commands and results (UTC):**
 
 - `npm run typecheck` — PASS.
-- `npm run lint` — PASS with pre-existing warnings in `app/vault/page.tsx` for unused `e` variables.
-- `npm run test:admin-guard` — PASS.
-- `node scripts/test-genetics-routing-operations.mjs` — PASS.
-- `node scripts/test-smoke-marketplace-route-guard.mjs` — PASS.
-- `npm run test:secret-scan` — PASS.
-- `npm run build` — PASS with pre-existing `app/vault/page.tsx` lint warnings.
-- `npm run test -- --passWithNoTests` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; not introduced by this remediation pass.
-- `npm run test:genetics-routing` — FAIL because the script imports `lib/introduction-routing/geneticsRouting.js`, which is not present in the TypeScript source checkout; not introduced by this remediation pass.
+- Static DTO leakage check — PASS with `dto_select_leaks= []`.
 
-**Evidence notes:**
-
-- `/api/genetics-routing/actions` and `/api/genetics-routing/operations` now call admin API auth before service-role client creation and validate record IDs/payloads before mutation.
-- `/api/genetics-routing/requests` now returns a narrow public DTO and no longer echoes the full internal routing record.
-- `/api/cron/scrape` now fails closed when `CRON_SECRET` is unset.
-- `/api/smoke/marketplace` now requires `HARBOURVIEW_SMOKE_ROUTE_SECRET` in addition to smoke write/cleanup gates.
-- Admin login now applies IP and email identity rate limits plus same-origin form-post checks.
-
-**Compliance & data handling:** No secrets, private Supabase logs, JWTs, customer data, credentials, or production payloads were used or committed. All tests used static source checks and local build/typecheck execution only.
-
-**Operational conclusion:** APPLICATION SECURITY HOLD PARTIALLY LIFTED for the critical unauthenticated service-role mutation findings. Release remains blocked on dependency-audit posture and pre-existing configured test drift until separately remediated or risk-accepted.
+**Operational conclusion:** CONFIG_HOLD remains because local Supabase/Docker and Deno runtime are unavailable for migration apply, DB lint, runtime RLS queries, and Edge Function invocation.
