@@ -2,16 +2,25 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { FrontSide, BackSide, AdditiveBlending, type MeshPhysicalMaterial } from 'three'
+import {
+  FrontSide,
+  BackSide,
+  AdditiveBlending,
+  type MeshPhysicalMaterial,
+} from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
-import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
-import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW } from '@/lib/globe/globe-plate-config'
+import {
+  PLATE_LIFT,
+  IDLE_EXTRUSION,
+  SELECTED_EXTRUSION,
+  SELECTED_GLOW,
+} from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
-const SPECULAR_CAP = 0.42
+const SPECULAR_CAP = 0.08
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
 // inflated invisible hit mesh so they're tappable on mobile.
@@ -23,7 +32,9 @@ function bboxArea(bbox: [number, number, number, number]) {
 
 // All renderable entries: provinces replace CA, states replace US
 const globeEntries = [
-  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA' && c.iso2 !== 'US'),
+  ...naturalEarthCountriesPayload.countries.filter(
+    (c) => c.iso2 !== 'CA' && c.iso2 !== 'US',
+  ),
   ...canadaProvinces,
   ...usStates,
 ]
@@ -65,12 +76,10 @@ function HoverPulseMesh({
   const targetRef = useRef(emissiveIntensity)
 
   useEffect(() => {
-    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
+    targetRef.current = isFocused
+      ? Math.max(emissiveIntensity, 0.11)
+      : emissiveIntensity
   }, [isFocused, emissiveIntensity])
-
-  const metallicGoldShader = useMemo(() => {
-    return (shader: MetallicGoldShader) => applyMetallicGoldShader(shader, { isFocused, isSelected })
-  }, [isFocused, isSelected])
 
   useFrame((state, delta) => {
     if (!matRef.current) return
@@ -79,7 +88,8 @@ function HoverPulseMesh({
     if (Math.abs(cur - tgt) < 0.001) return
     // Pulse is still animating — request the next frame (#4)
     state.invalidate()
-    matRef.current.emissiveIntensity = cur + (tgt - cur) * Math.min(delta * 9, 1)
+    matRef.current.emissiveIntensity =
+      cur + (tgt - cur) * Math.min(delta * 9, 1)
   })
 
   return (
@@ -96,15 +106,6 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
-          envMapIntensity={isSelected ? 1.18 : isFocused ? 1.02 : 0.86}
-          specularIntensity={isSelected ? 1.05 : isFocused ? 0.96 : 0.82}
-          sheen={isSelected ? 0.32 : 0.18}
-          sheenColor={isSelected ? '#fff0b8' : '#d5a642'}
-          sheenRoughness={0.42}
-          iridescence={isSelected ? 0.12 : 0.06}
-          iridescenceIOR={1.35}
-          onBeforeCompile={metallicGoldShader}
-          customProgramCacheKey={() => getMetallicGoldProgramCacheKey({ isFocused, isSelected })}
           side={FrontSide}
           depthTest
           depthWrite
@@ -114,30 +115,17 @@ function HoverPulseMesh({
         />
       </mesh>
       {isSelected ? (
-        <>
-          <mesh geometry={geometry} scale={1.004} renderOrder={24}>
-            <meshBasicMaterial
-              color={SELECTED_GLOW}
-              transparent
-              opacity={0.12}
-              blending={AdditiveBlending}
-              side={BackSide}
-              depthTest
-              depthWrite={false}
-            />
-          </mesh>
-          <mesh geometry={geometry} scale={1.0018} renderOrder={25}>
-            <meshBasicMaterial
-              color="#fff0b8"
-              transparent
-              opacity={0.075}
-              blending={AdditiveBlending}
-              side={FrontSide}
-              depthTest
-              depthWrite={false}
-            />
-          </mesh>
-        </>
+        <mesh geometry={geometry} scale={1.004} renderOrder={24}>
+          <meshBasicMaterial
+            color={SELECTED_GLOW}
+            transparent
+            opacity={0.055}
+            blending={AdditiveBlending}
+            side={BackSide}
+            depthTest
+            depthWrite={false}
+          />
+        </mesh>
       ) : null}
       {/* Hit mesh — inflated invisible surface for pointer events.
           For large countries this is the same geometry. For small countries
@@ -146,9 +134,18 @@ function HoverPulseMesh({
         geometry={hitGeometry ?? geometry}
         visible={false}
         renderOrder={40}
-        onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
-        onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
-        onClick={(e) => { e.stopPropagation(); onClick() }}
+        onPointerEnter={(e) => {
+          e.stopPropagation()
+          onPointerEnter()
+        }}
+        onPointerLeave={(e) => {
+          e.stopPropagation()
+          onPointerLeave()
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick()
+        }}
       />
     </>
   )
@@ -176,7 +173,7 @@ export function CountryPolygonMeshLayer({
         geometry: createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
-          geometryMode: 'extruded',
+          geometryMode: 'surface',
         }),
         // Inflated hit geometry for small countries — larger plateLift pushes it
         // slightly above the visual mesh so raycasting hits it first
@@ -216,8 +213,12 @@ export function CountryPolygonMeshLayer({
   }, [selectedCountryIso2, selectedCountryIso2s])
 
   const extrudedGeometries = useMemo(() => {
-    if (selectedSet.size === 0) return new Map<string, ReturnType<typeof createCountryBufferGeometry>>()
-    const map = new Map<string, ReturnType<typeof createCountryBufferGeometry>>()
+    if (selectedSet.size === 0)
+      return new Map<string, ReturnType<typeof createCountryBufferGeometry>>()
+    const map = new Map<
+      string,
+      ReturnType<typeof createCountryBufferGeometry>
+    >()
     for (const entry of globeEntries) {
       if (!selectedSet.has(entry.iso2)) continue
       map.set(
@@ -225,7 +226,7 @@ export function CountryPolygonMeshLayer({
         createCountryBufferGeometry(entry, {
           plateLift: PLATE_LIFT + 0.002,
           extrusionHeight: SELECTED_EXTRUSION,
-          geometryMode: 'extruded',
+          geometryMode: 'surface',
         }),
       )
     }
@@ -242,13 +243,18 @@ export function CountryPolygonMeshLayer({
     <group renderOrder={20} userData={{ layer: 'country-polygon-meshes' }}>
       {idleGeometries.map(({ entry, geometry, hitGeometry }) => {
         const isSelected = selectedSet.has(entry.iso2)
-        const activeGeometry = isSelected ? extrudedGeometries.get(entry.iso2) ?? geometry : geometry
+        const activeGeometry = isSelected
+          ? (extrudedGeometries.get(entry.iso2) ?? geometry)
+          : geometry
         const visualState = isSelected
           ? 'selected'
           : focusedCountryIso2 === entry.iso2
             ? 'focused'
             : 'idle'
-        const material = resolveCountryMaterialState({ visualState, layerId: activeLayerId })
+        const material = resolveCountryMaterialState({
+          visualState,
+          layerId: activeLayerId,
+        })
 
         return (
           <HoverPulseMesh
