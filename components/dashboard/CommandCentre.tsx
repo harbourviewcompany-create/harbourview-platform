@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared';
 
 export type MarketRow = [
   string,           // type (supply/equip/service)
@@ -25,15 +26,6 @@ export interface DashboardMarketplaceRows {
 
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted';
 
-interface SignalRow {
-  id: string;
-  title: string;
-  summary?: string;
-  tag?: string;
-  publishedAt?: string;
-  [key: string]: unknown;
-}
-
 interface EduCategory {
   id: string;
   label: string;
@@ -55,7 +47,7 @@ interface CountryIntel {
 }
 
 interface CommandCentreProps {
-  signals?: SignalRow[];
+  signals?: DashboardSignal[];
   eduCategories?: EduCategory[];
   initialCountryIso2?: string | null;
   initialRoleId?: string | null;
