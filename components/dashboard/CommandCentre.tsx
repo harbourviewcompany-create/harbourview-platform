@@ -27,9 +27,9 @@ export interface DashboardMarketplaceRows {
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted';
 
 interface EduCategory {
-  id: string;
-  label: string;
-  description?: string;
+  icon: string;
+  title: string;
+  desc: string;
   [key: string]: unknown;
 }
 
