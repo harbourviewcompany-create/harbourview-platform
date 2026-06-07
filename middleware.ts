@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
+import { getSupabasePublicClientKey as getSupabasePublicClientCredential, getSupabaseUrl } from '@/lib/supabase/env'
 
 const CACHE_BYPASS_VALUE =
   'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
@@ -17,7 +17,7 @@ function applyNoStoreHeaders(response: NextResponse) {
 }
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/account', '/vault']
+const PROTECTED_PREFIXES = ['/account', '/vault', '/dashboard', '/admin']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -47,25 +47,25 @@ export async function middleware(request: NextRequest) {
 
   if (isProtected) {
     let supabaseUrl = ''
-    let supabasePublicKey = ''
+    let supabaseClientCredential = ''
 
     try {
       supabaseUrl = getSupabaseUrl()
-      supabasePublicKey = getSupabasePublicClientKey()
+      supabaseClientCredential = getSupabasePublicClientCredential()
     } catch (error) {
-      console.error('[harbourview:auth] Supabase public auth configuration rejected', {
+      console.error('[harbourview:auth] Supabase browser auth configuration rejected', {
         message: error instanceof Error ? error.message : 'Unknown Supabase configuration error',
       })
 
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
-      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
+      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase credential.')}`
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
     let response = NextResponse.next({ request })
 
-    const supabase = createServerClient(supabaseUrl, supabasePublicKey, {
+    const supabase = createServerClient(supabaseUrl, supabaseClientCredential, {
       cookies: {
         getAll() {
           return request.cookies.getAll()
