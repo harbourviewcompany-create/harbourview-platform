@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
@@ -397,7 +396,7 @@ function CommandPalette({ open, onClose, signals, country, role, onPanel, onView
         </div>
         <div className="cp-results">
           {items.length === 0
-            ? <div className="cp-empty">No results for "{query}"</div>
+            ? <div className="cp-empty">No results for &quot;{query}&quot;</div>
             : items.map((item, idx) => (
               <div key={item.id}>
                 {(idx === 0 || items[idx - 1].group !== item.group) && (
@@ -439,8 +438,6 @@ export default function CommandCentre({
   wantedListings = [],
   countryIntel,
 }: Props) {
-  const router = useRouter()
-
   const defaultCountry = useMemo(
     () => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0],
     [initialCountryIso2],
@@ -747,7 +744,7 @@ export default function CommandCentre({
 
           {activePanel === 'search' && (
             <section className="cc-drawer-card">
-              <b>Search: "{selectedItem || search}"</b>
+              <b>Search: &quot;{selectedItem || search}&quot;</b>
               <p>{filteredRows.length} matching rows in current {VIEW_TAB_LABELS[view]} view.</p>
               <div className="cc-panel-list">
                 {filteredRows.slice(0, 10).map(row => <span key={row[2]}>{row[2]} · {row[7]}</span>)}
