@@ -5,6 +5,18 @@ import type { DashboardSignal } from './dashboardShared'
 import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import type { PublicRegulatorySignal } from '@/lib/regulatory-signals/types'
 
+
+// ── HTML stripping for scraper-sourced titles ────────────────────────────────
+function stripHtml(raw: string): string {
+  return raw
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&apos;|&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 180)
+}
+
 // ── Signal tag display mapping ────────────────────────────────────────────────
 export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   regulatory_change:        { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
@@ -68,7 +80,7 @@ function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
   const tag    = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
   return {
     id:               s.id,
-    title:            s.headline,
+    title:            stripHtml(s.headline),
     type:             tagKey,
     market:           s.country_name ?? s.region ?? '',
     tag,
@@ -87,7 +99,7 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
     .slice(0, limit)
     .map(s => ({
       id: s.id,
-      title: s.title,
+      title: stripHtml(s.title),
       type: s.type,
       market: s.market,
       tag: SIGNAL_TAG_MAP[s.type] ?? { label: 'INTEL', color: '#D9A441', bg: 'rgba(217,164,65,0.12)', border: 'rgba(217,164,65,0.28)' },
