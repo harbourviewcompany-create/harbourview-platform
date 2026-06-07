@@ -206,6 +206,98 @@ function TrustBar({ str }: { str: string }) {
 }
 
 // ── KPI pipeline strip with count-up animation ────────────────────────────────
+
+// ── Custom styled select dropdown ────────────────────────────────────────────
+type SelectOpt = { value: string; label: string }
+
+function CustomSelect({
+  label, value, options, onChange, searchable = false,
+}: {
+  label: string
+  value: string
+  options: SelectOpt[]
+  onChange: (v: string) => void
+  searchable?: boolean
+}) {
+  const [open, setOpen]   = useState(false)
+  const [query, setQuery] = useState('')
+  const rootRef  = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const selected = options.find(o => o.value === value)
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return options
+    const q = query.toLowerCase()
+    return options.filter(o => o.label.toLowerCase().includes(q))
+  }, [options, query])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false); setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (open && searchable) setTimeout(() => inputRef.current?.focus(), 40)
+  }, [open, searchable])
+
+  return (
+    <div className="cc-sel" ref={rootRef}>
+      <span className="cc-sel-lbl">{label}</span>
+      <button
+        type="button"
+        className={`cc-sel-trigger${open ? ' open' : ''}`}
+        onClick={() => { setOpen(o => !o); setQuery('') }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="cc-sel-val">{selected?.label ?? '—'}</span>
+        <span className="cc-sel-arrow" aria-hidden="true">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="cc-sel-drop" role="listbox">
+          {searchable && (
+            <div className="cc-sel-search">
+              <input
+                ref={inputRef}
+                type="text"
+                className="cc-sel-search-inp"
+                placeholder="Search…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Escape' && (setOpen(false), setQuery(''))}
+              />
+            </div>
+          )}
+          <div className="cc-sel-list">
+            {filtered.length === 0
+              ? <div className="cc-sel-empty">No results</div>
+              : filtered.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={opt.value === value}
+                  className={`cc-sel-opt${opt.value === value ? ' sel' : ''}`}
+                  onClick={() => { onChange(opt.value); setOpen(false); setQuery('') }}
+                >
+                  {opt.label}
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const kpis_check = (p: PipelineCounts) => p.wanted === 0 && p.matched === 0 && p.proof_review === 0 && p.inquiry === 0 && p.deal_room === 0
 
 function KpiStrip({ pipeline }: { pipeline: PipelineCounts }) {
@@ -841,29 +933,32 @@ export default function CommandCentre({
           </div>
 
           <div className="cc-context">
-            <label className="cc-field">
-              <span>Country</span>
-              <select value={country.iso2} onChange={e => handleCountryChange(e.target.value)}>
-                {COUNTRIES.map(c => <option key={c.iso2} value={c.iso2}>{c.label}</option>)}
-              </select>
-            </label>
-            <label className="cc-field">
-              <span>Region</span>
-              <select value={region} onChange={e => setRegion(e.target.value)}>
-                {(REGIONS[country.iso2] ?? []).length
-                  ? (REGIONS[country.iso2] ?? []).map(r => <option key={r} value={r}>{r}</option>)
-                  : <option value="">Country-level</option>}
-              </select>
-            </label>
-            <label className="cc-field">
-              <span>Role</span>
-              <select value={role} onChange={e => handleRoleChange(e.target.value)}>
-                <option value="">— select role —</option>
-                {Object.entries(ROLE_PROFILES).map(([id, profile]) => (
-                  <option key={id} value={id}>{profile!.label}</option>
-                ))}
-              </select>
-            </label>
+            <CustomSelect
+              label="Country"
+              value={country.iso2}
+              options={COUNTRIES.map(c => ({ value: c.iso2, label: c.label }))}
+              onChange={handleCountryChange}
+              searchable
+            />
+            <CustomSelect
+              label="Region"
+              value={region}
+              options={
+                (REGIONS[country.iso2] ?? []).length
+                  ? (REGIONS[country.iso2] ?? []).map(r => ({ value: r, label: r }))
+                  : [{ value: '', label: 'Country-level' }]
+              }
+              onChange={setRegion}
+            />
+            <CustomSelect
+              label="Role"
+              value={role}
+              options={[
+                { value: '', label: '— select role —' },
+                ...Object.entries(ROLE_PROFILES).map(([id, p]) => ({ value: id, label: p!.label })),
+              ]}
+              onChange={handleRoleChange}
+            />
             <label className="cc-field">
               <span>Search</span>
               <input
@@ -1188,7 +1283,65 @@ export default function CommandCentre({
       {panelOpen && <div className="cc-scrim" onClick={() => setPanelOpen(false)} />}
       {renderPanel()}
 
-      {/* ── Mobile bottom nav ──────────────────────────────────────── */}
+      {
+/* ── Custom select ───────────────────────────────────────────────────────── */
+.cc-sel { position:relative;height:44px; }
+.cc-sel-lbl {
+  position:absolute;left:11px;top:5px;z-index:1;
+  color:var(--cc-dim);font-size:8px;letter-spacing:.14em;
+  text-transform:uppercase;pointer-events:none;font-family:var(--cc-mono);
+}
+.cc-sel-trigger {
+  width:100%;height:100%;
+  border:1px solid var(--cc-line2);border-radius:12px;
+  background:linear-gradient(180deg,rgba(17,35,53,.9),rgba(7,16,28,.96));
+  color:var(--cc-ink);outline:none;
+  padding:17px 28px 5px 11px;
+  font:inherit;font-size:12px;text-align:left;cursor:pointer;
+  transition:border-color .15s;
+  display:flex;align-items:flex-end;
+}
+.cc-sel-trigger.open,
+.cc-sel-trigger:hover { border-color:rgba(217,175,99,.5); }
+.cc-sel-val { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-bottom:1px; }
+.cc-sel-arrow {
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  color:var(--cc-dim);font-size:7px;pointer-events:none;
+}
+.cc-sel-drop {
+  position:absolute;top:calc(100% + 6px);left:0;min-width:100%;
+  background:linear-gradient(180deg,rgba(10,22,38,.99),rgba(5,13,24,1));
+  border:1px solid rgba(217,175,99,.28);border-radius:14px;
+  box-shadow:0 24px 72px rgba(0,0,0,.68);
+  z-index:500;overflow:hidden;
+  animation:fadeSlideUp .14s ease;
+}
+.cc-sel-search { padding:8px;border-bottom:1px solid var(--cc-line); }
+.cc-sel-search-inp {
+  width:100%;background:rgba(255,255,255,.06);
+  border:1px solid var(--cc-line2);border-radius:8px;
+  color:var(--cc-ink);padding:6px 10px;
+  font:inherit;font-size:11px;outline:none;
+}
+.cc-sel-search-inp:focus { border-color:rgba(217,175,99,.45); }
+.cc-sel-search-inp::placeholder { color:var(--cc-dim); }
+.cc-sel-list {
+  max-height:220px;overflow-y:auto;padding:5px;
+  scrollbar-width:thin;scrollbar-color:var(--cc-line2) transparent;
+}
+.cc-sel-list::-webkit-scrollbar { width:4px; }
+.cc-sel-list::-webkit-scrollbar-thumb { background:var(--cc-line2);border-radius:4px; }
+.cc-sel-opt {
+  width:100%;text-align:left;padding:7px 11px;
+  background:transparent;border:none;border-radius:9px;
+  color:var(--cc-text);font:inherit;font-size:12px;cursor:pointer;
+  transition:background .1s,color .1s;display:block;
+}
+.cc-sel-opt:hover { background:rgba(255,255,255,.06);color:var(--cc-ink); }
+.cc-sel-opt.sel { color:var(--cc-gold2);background:rgba(217,175,99,.1);font-weight:600; }
+.cc-sel-empty { padding:12px;text-align:center;color:var(--cc-dim);font-size:11px; }
+
+/* ── Mobile bottom nav ──────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
         {COMMAND_NAV.slice(0, 5).map(item => (
           <button
@@ -1770,6 +1923,64 @@ const CSS = `
 .cp-footer span { font-size:9px;color:var(--cc-dim);font-family:var(--cc-mono);letter-spacing:.08em; }
 .cp-footer-ctx { margin-left:auto;color:var(--cc-gold);font-family:var(--cc-mono);font-size:9px; }
 
+
+
+/* ── Custom select ───────────────────────────────────────────────────────── */
+.cc-sel { position:relative;height:44px; }
+.cc-sel-lbl {
+  position:absolute;left:11px;top:5px;z-index:1;
+  color:var(--cc-dim);font-size:8px;letter-spacing:.14em;
+  text-transform:uppercase;pointer-events:none;font-family:var(--cc-mono);
+}
+.cc-sel-trigger {
+  width:100%;height:100%;
+  border:1px solid var(--cc-line2);border-radius:12px;
+  background:linear-gradient(180deg,rgba(17,35,53,.9),rgba(7,16,28,.96));
+  color:var(--cc-ink);outline:none;
+  padding:17px 28px 5px 11px;
+  font:inherit;font-size:12px;text-align:left;cursor:pointer;
+  transition:border-color .15s;
+  display:flex;align-items:flex-end;
+}
+.cc-sel-trigger.open,
+.cc-sel-trigger:hover { border-color:rgba(217,175,99,.5); }
+.cc-sel-val { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-bottom:1px; }
+.cc-sel-arrow {
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  color:var(--cc-dim);font-size:7px;pointer-events:none;
+}
+.cc-sel-drop {
+  position:absolute;top:calc(100% + 6px);left:0;min-width:100%;
+  background:linear-gradient(180deg,rgba(10,22,38,.99),rgba(5,13,24,1));
+  border:1px solid rgba(217,175,99,.28);border-radius:14px;
+  box-shadow:0 24px 72px rgba(0,0,0,.68);
+  z-index:500;overflow:hidden;
+  animation:fadeSlideUp .14s ease;
+}
+.cc-sel-search { padding:8px;border-bottom:1px solid var(--cc-line); }
+.cc-sel-search-inp {
+  width:100%;background:rgba(255,255,255,.06);
+  border:1px solid var(--cc-line2);border-radius:8px;
+  color:var(--cc-ink);padding:6px 10px;
+  font:inherit;font-size:11px;outline:none;
+}
+.cc-sel-search-inp:focus { border-color:rgba(217,175,99,.45); }
+.cc-sel-search-inp::placeholder { color:var(--cc-dim); }
+.cc-sel-list {
+  max-height:220px;overflow-y:auto;padding:5px;
+  scrollbar-width:thin;scrollbar-color:var(--cc-line2) transparent;
+}
+.cc-sel-list::-webkit-scrollbar { width:4px; }
+.cc-sel-list::-webkit-scrollbar-thumb { background:var(--cc-line2);border-radius:4px; }
+.cc-sel-opt {
+  width:100%;text-align:left;padding:7px 11px;
+  background:transparent;border:none;border-radius:9px;
+  color:var(--cc-text);font:inherit;font-size:12px;cursor:pointer;
+  transition:background .1s,color .1s;display:block;
+}
+.cc-sel-opt:hover { background:rgba(255,255,255,.06);color:var(--cc-ink); }
+.cc-sel-opt.sel { color:var(--cc-gold2);background:rgba(217,175,99,.1);font-weight:600; }
+.cc-sel-empty { padding:12px;text-align:center;color:var(--cc-dim);font-size:11px; }
 
 /* ── Mobile bottom nav ───────────────────────────────────────────────────── */
 .cc-mob-nav {
