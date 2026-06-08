@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared';
 import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData';
 
-export type MarketRow = [
 export type MarketRow = [string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
