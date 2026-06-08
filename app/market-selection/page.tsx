@@ -12,5 +12,5 @@ export const metadata: Metadata = {
 }
 
 export default function MarketSelectionPage() {
-  return <MobileCountrySelection initialCountry="DE" />
+  return <MobileCountrySelection initialCountry="" />
 }
