@@ -13,7 +13,7 @@ import { HfError } from '../errors';
 
 describe('parseHfEnv', () => {
   it('succeeds with valid token', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: 'hf_test_token_abc' });
+    const result = parseHfEnv({ HF_TOKEN_SERVER: 'hf_test_token_abc' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.HF_ORG).toBe('Harbourview');
@@ -22,22 +22,22 @@ describe('parseHfEnv', () => {
   });
 
   it('fails when HF_TOKEN_SERVER is missing', () => {
-    const result = parseHfEnv({});
+    const result = parseHfEnv({} as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(false);
   });
 
   it('fails when HF_TOKEN_SERVER is empty string', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: '' });
+    const result = parseHfEnv({ HF_TOKEN_SERVER: '' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(false);
   });
 
   it('fails when HF_TOKEN_SERVER is whitespace only', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: '   ' });
+    const result = parseHfEnv({ HF_TOKEN_SERVER: '   ' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(false);
   });
 
   it('defaults HF_ORG to Harbourview', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: 'hf_x' });
+    const result = parseHfEnv({ HF_TOKEN_SERVER: 'hf_x' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.HF_ORG).toBe('Harbourview');
   });
@@ -46,7 +46,7 @@ describe('parseHfEnv', () => {
     const result = parseHfEnv({
       HF_TOKEN_SERVER: 'hf_x',
       HF_ENDPOINT_EMBED_BGE_M3: 'not-a-url',
-    });
+    } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(false);
   });
 
@@ -54,16 +54,16 @@ describe('parseHfEnv', () => {
     const result = parseHfEnv({
       HF_TOKEN_SERVER: 'hf_x',
       HF_ENDPOINT_EMBED_BGE_M3: 'https://xyz.aws.endpoints.huggingface.cloud',
-    });
+    } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(true);
   });
 });
 
 describe('getHfEnv', () => {
   it('throws HfError with code HF_ENV_INVALID when token missing', () => {
-    expect(() => getHfEnv({})).toThrow(HfError);
+    expect(() => getHfEnv({} as unknown as NodeJS.ProcessEnv)).toThrow(HfError);
     try {
-      getHfEnv({});
+      getHfEnv({} as unknown as NodeJS.ProcessEnv);
     } catch (e) {
       expect(e).toBeInstanceOf(HfError);
       expect((e as HfError).code).toBe('HF_ENV_INVALID');
@@ -73,19 +73,19 @@ describe('getHfEnv', () => {
 
 describe('getHfEnvHealth', () => {
   it('returns ok:false when token missing', () => {
-    const h = getHfEnvHealth({});
+    const h = getHfEnvHealth({} as unknown as NodeJS.ProcessEnv);
     expect(h.ok).toBe(false);
     expect(h.issues.length).toBeGreaterThan(0);
   });
 
   it('returns ok:true with valid token', () => {
-    const h = getHfEnvHealth({ HF_TOKEN_SERVER: 'hf_x' });
+    const h = getHfEnvHealth({ HF_TOKEN_SERVER: 'hf_x' } as unknown as NodeJS.ProcessEnv);
     expect(h.ok).toBe(true);
     expect(h.configured.tokenServer).toBe(true);
   });
 
   it('does not expose token value in health output', () => {
-    const h = getHfEnvHealth({ HF_TOKEN_SERVER: 'hf_super_secret' });
+    const h = getHfEnvHealth({ HF_TOKEN_SERVER: 'hf_super_secret' } as unknown as NodeJS.ProcessEnv);
     const serialized = JSON.stringify(h);
     expect(serialized).not.toContain('hf_super_secret');
   });
