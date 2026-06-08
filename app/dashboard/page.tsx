@@ -36,11 +36,11 @@ const ROLE_ALIASES: Record<string, RoleId> = {
 
 // Sections grouped by dashboard MarketView tab
 const VIEW_SECTIONS: Record<MarketView, string[]> = {
-  cannabis:        ['cannabis_inventory', 'export_ready', 'import_demand', 'genetics', 'flower', 'extract', 'biomass'],
+  cannabis:        ['cannabis_inventory', 'export_ready', 'export', 'import_demand', 'genetics', 'flower', 'extract', 'biomass'],
   equipment:       ['cultivation_equipment', 'processing_equipment', 'used_surplus', 'equipment'],
   consumables:     ['consumables', 'packaging'],
   'new-products':  ['new_products', 'new-products'],
-  services:        ['services', 'professional_services', 'logistics', 'lab_testing'],
+  services:        ['services', 'professional_services', 'logistics', 'lab_testing', 'labs_testing'],
   opportunities:   ['distressed_businesses', 'distressed_inventory', 'business_opportunities', 'qualified_access', 'wanted_requests'],
   wanted:          ['wanted_requests', 'wanted'],
 }
