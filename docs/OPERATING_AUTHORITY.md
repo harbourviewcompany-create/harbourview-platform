@@ -270,3 +270,22 @@ and enforce repo-first migration workflow going forward.
 **Finding:** DTO layer was dead code — not imported by any route. Ticket 4 delivers the infrastructure. Route wiring is a separate ticket.
 
 Ticket 4 HOLD for: route wiring, HF calls, ingestion, production DB writes.
+
+---
+
+## Ticket 5 Authority Patch
+
+Status date: 2026-06-07
+
+### Ticket 5 scope — GO
+
+**Files changed:**
+- `lib/hf/leakageAudit.ts` — new. Server-only public payload auditor. Detects: forbidden fields (flat and nested), model rationale leakage, unsupported medical/regulatory/certification claims, HTML/raw scrape fragments, prompt injection attempts, passport table name references. Returns structured `LeakageAuditResult`. `assertAuditPass()` as hard gate. `getSafePublicPayload()` strips forbidden fields.
+- `lib/hf/__tests__/leakageAudit.test.ts` — new. 30+ tests covering all detection categories, safe payload stripping, zero leakage on known-good serializer outputs.
+- `lib/hf/index.ts` — updated barrel export.
+
+**Design:** `auditPublicPayload()` is the second layer. First layer is structural `Pick<>` in `public.ts`. Both must pass before any payload reaches a public route.
+
+**Pattern:** `toHvXxxPublicDto(internal)` → `assertAuditPass(dto)` → serve.
+
+Ticket 5 HOLD for: route wiring, production DB writes, HF endpoint calls.
