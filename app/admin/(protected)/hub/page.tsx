@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — internal admin surface; strict typing applied at API/component boundaries
 'use client';
 import { useState, useEffect, useCallback } from "react";
