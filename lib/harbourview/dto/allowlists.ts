@@ -28,3 +28,24 @@ export function assertPublicDtoAllowlist(dtoName: HvPublicDtoName, fields: reado
   const allowlist = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS[dtoName]);
   return fields.every((field) => allowlist.has(field) && !HV_FORBIDDEN_PUBLIC_DTO_FIELDS.includes(field as never));
 }
+
+/** Throws if any key in `record` is a known forbidden public DTO field. */
+export function assertNoForbiddenFields(record: Record<string, unknown>): void {
+  const forbidden = Object.keys(record).filter((k) =>
+    HV_FORBIDDEN_PUBLIC_DTO_FIELDS.includes(k as never),
+  )
+  if (forbidden.length > 0) {
+    throw new Error(`Forbidden public DTO fields present: ${forbidden.join(', ')}`)
+  }
+}
+
+/** Tables that contain passport-level data and must never have a public DTO. */
+export const HV_PASSPORT_TABLES_NO_PUBLIC_DTO = [
+  'hv_cultivar_passports',
+  'hv_genetic_lineage',
+  'hv_terpene_profiles',
+  'hv_lab_certificates',
+  'hv_claim_evidence',
+  'hv_claim_reviews',
+  'hv_admin_review_queue',
+] as const
