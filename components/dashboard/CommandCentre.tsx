@@ -1,9 +1,14 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import type { DashboardSignal } from '@/lib/dashboard/dashboardShared';
-import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { REGIONS, REGION_LABELS, WARN_REGIONS as WARN_REGIONS_BY_COUNTRY } from '@/lib/dashboard/countryRegions'
 
+// ── Exports consumed by app/dashboard/page.tsx ────────────────────────────────
+export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
 export type MarketRow = [string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
@@ -92,10 +97,138 @@ const COMMAND_NAV: { id: CommandPanel; label: string; icon: string }[] = [
 ]
 
 const ROLE_FIRST_MODULES: Record<string, { icon: string; title: string; desc: string; stage: string }[]> = {
+  // ── Genetics / IP ──────────────────────────────────────────────────────────
   geneticist_breeder: [
     { icon: '🧬', title: 'Cultivar IP and breeding records', desc: 'Provenance logs, phenotyping evidence, lineage records, and export-safe genetic material workflows.', stage: 'Role module 01' },
     { icon: '🌱', title: 'Seed, clone, and tissue culture transfer controls', desc: 'Phytosanitary evidence, chain of custody, and restricted-market genetics movement.', stage: 'Role module 02' },
     { icon: '🔬', title: 'Genetic stability and QA proof pack', desc: 'Build a breeder-ready proof bundle for cultivar claims, lab verification, and counterparty review.', stage: 'Role module 03' },
+    { icon: '⚖️', title: 'IP licensing and commercialisation pathway', desc: 'Structure IP agreements, licence terms, and protected commercialisation routes for verified genetics.', stage: 'Role module 04' },
+  ],
+  // ── Cultivation / Production ───────────────────────────────────────────────
+  cultivator_producer: [
+    { icon: '🌿', title: 'Production readiness and licence verification', desc: 'Confirm licence registry, site readiness, and evidence chain before buyer-facing claims.', stage: 'Role module 01' },
+    { icon: '📋', title: 'GACP / GMP compliance path', desc: 'Map cultivation standards, gap remediation, and audit readiness to your regional framework.', stage: 'Role module 02' },
+    { icon: '📦', title: 'Export-ready supply dossier', desc: 'Assemble phytosanitary, lab, chain-of-custody, and regional permit evidence for export channels.', stage: 'Role module 03' },
+    { icon: '🔗', title: 'Verified buyer routing', desc: 'Role-gated buyer introductions require production readiness and proof gates to be cleared.', stage: 'Role module 04' },
+  ],
+  // ── Processing / Extraction ────────────────────────────────────────────────
+  processor_extractor: [
+    { icon: '⚗️', title: 'Product readiness file', desc: 'Assemble product spec, GMP status, extraction method evidence, and batch release records.', stage: 'Role module 01' },
+    { icon: '📄', title: 'Batch release and COA pathway', desc: 'COA issuance, batch release sign-off, and regulatory submission requirements by region.', stage: 'Role module 02' },
+    { icon: '🏭', title: 'Manufacturing authorisation and GMP', desc: 'Map GMP certification requirements, facility approval process, and audit readiness.', stage: 'Role module 03' },
+    { icon: '🔗', title: 'Distribution and trade access', desc: 'Gate distribution channel access behind product readiness and proof-of-compliance evidence.', stage: 'Role module 04' },
+  ],
+  // ── Trade / Import ─────────────────────────────────────────────────────────
+  importer: [
+    { icon: '🛂', title: 'Import corridor and permit pathway', desc: 'Validate import permits, DEA/authority equivalents, and corridor evidence before supplier contact.', stage: 'Role module 01' },
+    { icon: '✅', title: 'Compliance proof pack for buyers', desc: 'Documents and regulatory checks required before marketplace contact or regional execution.', stage: 'Role module 02' },
+    { icon: '🚢', title: 'Customs, logistics, and cold chain', desc: 'Customs classification, incoterms, cold-chain requirements, and documentation checklist.', stage: 'Role module 03' },
+    { icon: '🔍', title: 'Verified supplier shortlist', desc: 'Evidence-gated supplier routing — only suppliers with proof assets are visible at this gate.', stage: 'Role module 04' },
+  ],
+  // ── Trade / Export ─────────────────────────────────────────────────────────
+  exporter: [
+    { icon: '📤', title: 'Export permit and corridor validation', desc: 'Confirm export authority, GMP equivalence, and per-corridor documentation requirements.', stage: 'Role module 01' },
+    { icon: '📦', title: 'Supplier dossier and trade documentation', desc: 'Assemble COA, GMP file, phytosanitary certificate, and import-country compliance package.', stage: 'Role module 02' },
+    { icon: '🌐', title: 'Target market access review', desc: 'Assess destination-country regulatory status, import quotas, and restricted substance schedules.', stage: 'Role module 03' },
+    { icon: '🤝', title: 'Verified buyer routing', desc: 'Importer introductions gated by corridor evidence, proof pack, and DEA/authority equivalence.', stage: 'Role module 04' },
+  ],
+  // ── Distribution / Wholesale ───────────────────────────────────────────────
+  distributor_wholesaler: [
+    { icon: '🏬', title: 'Distribution licence and coverage map', desc: 'Confirm distribution authority, coverage territory, and permitted product categories.', stage: 'Role module 01' },
+    { icon: '📋', title: 'Procurement and supplier verification', desc: 'Supplier proof pack, COA review, and chain-of-custody documentation before distribution.', stage: 'Role module 02' },
+    { icon: '🚛', title: 'Logistics, custody, and traceability', desc: 'Track-and-trace, cold chain, and handoff documentation requirements by jurisdiction.', stage: 'Role module 03' },
+    { icon: '📊', title: 'Wholesale demand intelligence', desc: 'Region-filtered demand signals, pricing corridor data, and buyer category matching.', stage: 'Role module 04' },
+  ],
+  // ── Medical / Clinical ─────────────────────────────────────────────────────
+  doctor_prescriber: [
+    { icon: '🩺', title: 'Clinical access and prescribing pathway', desc: 'Jurisdiction-specific prescribing authorisation, product schedules, and approved indications.', stage: 'Role module 01' },
+    { icon: '📚', title: 'Evidence-based clinical education', desc: 'Indication-specific clinical evidence, dosing frameworks, and adverse event monitoring.', stage: 'Role module 02' },
+    { icon: '🔒', title: 'Patient access controls', desc: 'Patient registration, formulary access gates, and informed-consent documentation requirements.', stage: 'Role module 03' },
+    { icon: '🏥', title: 'Clinical supplier and pharmacy routing', desc: 'Approved pharmacy and dispensary routing — no direct-to-consumer introductions at this gate.', stage: 'Role module 04' },
+  ],
+  clinic_healthcare_operator: [
+    { icon: '🏥', title: 'Clinic authorisation and operating pathway', desc: 'Facility licence, clinical director credentials, and approved treatment protocol requirements.', stage: 'Role module 01' },
+    { icon: '📚', title: 'Clinician education and training', desc: 'Staff education pathway, prescribing competency requirements, and continuing education.', stage: 'Role module 02' },
+    { icon: '🔗', title: 'Patient access and dispensing integration', desc: 'Patient registry, dispensary integration, and formulary access documentation.', stage: 'Role module 03' },
+    { icon: '📋', title: 'Compliance and reporting obligations', desc: 'Reporting obligations, adverse event documentation, and regulatory audit readiness.', stage: 'Role module 04' },
+  ],
+  // ── Pharmacy / Dispensing ──────────────────────────────────────────────────
+  pharmacist: [
+    { icon: '💊', title: 'Pharmacy dispensing controls', desc: 'Dispensing authorisation, product formulary, and patient safety protocol requirements.', stage: 'Role module 01' },
+    { icon: '📦', title: 'Procurement and COA review', desc: 'Approved supplier sourcing, COA verification, and chain-of-custody documentation.', stage: 'Role module 02' },
+    { icon: '📋', title: 'Medication safety and counselling', desc: 'Patient counselling obligations, drug interaction checks, and adverse event monitoring.', stage: 'Role module 03' },
+    { icon: '🔒', title: 'Controlled substance compliance', desc: 'Schedule control, secure storage requirements, and jurisdiction-specific reporting obligations.', stage: 'Role module 04' },
+  ],
+  // ── Retail ─────────────────────────────────────────────────────────────────
+  retail_operator: [
+    { icon: '🏪', title: 'Retail licence and operating controls', desc: 'Retail authority, zone restrictions, approved product categories, and display compliance.', stage: 'Role module 01' },
+    { icon: '🔞', title: 'Age verification and responsible retail', desc: 'ID verification protocols, age-gate implementation, and staff training requirements.', stage: 'Role module 02' },
+    { icon: '📦', title: 'Approved supplier and procurement pathway', desc: 'Procurement from licensed distributors only — direct import prohibited at retail gate.', stage: 'Role module 03' },
+    { icon: '📊', title: 'Sales reporting and track-and-trace', desc: 'Jurisdiction-specific sales reporting, inventory reconciliation, and seed-to-sale documentation.', stage: 'Role module 04' },
+  ],
+  budtender: [
+    { icon: '🛍️', title: 'Product knowledge and strain education', desc: 'Cannabinoid profiles, terpene education, and responsible consumption guidance frameworks.', stage: 'Role module 01' },
+    { icon: '🗣️', title: 'Customer consultation and responsible retail', desc: 'Safe consultation protocols, contraindication awareness, and intake assessment skills.', stage: 'Role module 02' },
+    { icon: '🔒', title: 'Compliance and controlled substance obligations', desc: 'Age verification, sale limits, jurisdiction-specific restrictions, and refusal policies.', stage: 'Role module 03' },
+  ],
+  // ── Labs / QA ──────────────────────────────────────────────────────────────
+  lab_qa: [
+    { icon: '🔬', title: 'Laboratory accreditation and scope', desc: 'Accreditation pathway, scope of testing, and jurisdiction recognition requirements.', stage: 'Role module 01' },
+    { icon: '📄', title: 'COA issuance and review pathway', desc: 'COA structure, method validation, uncertainty of measurement, and approval controls.', stage: 'Role module 02' },
+    { icon: '✅', title: 'Batch release and quality sign-off', desc: 'Batch release protocols, out-of-specification handling, and regulatory submission requirements.', stage: 'Role module 03' },
+    { icon: '🏆', title: 'Verification services marketplace', desc: 'Offer verified testing, QA, and COA services to marketplace counterparties.', stage: 'Role module 04' },
+  ],
+  gmp_quality: [
+    { icon: '🏭', title: 'GMP certification pathway', desc: 'GMP audit preparation, certification body selection, and gap remediation roadmap.', stage: 'Role module 01' },
+    { icon: '📋', title: 'Quality management system', desc: 'QMS documentation, deviation management, CAPA systems, and change control.', stage: 'Role module 02' },
+    { icon: '📄', title: 'Batch record and release controls', desc: 'Batch record templates, review checklists, and qualified-person sign-off requirements.', stage: 'Role module 03' },
+    { icon: '🔍', title: 'Supplier and raw material qualification', desc: 'Supplier audit, raw material COA review, and approved supplier list management.', stage: 'Role module 04' },
+  ],
+  // ── Regulatory / Legal / Compliance ───────────────────────────────────────
+  regulatory_compliance: [
+    { icon: '⚖️', title: 'Compliance demand and licensing tracker', desc: 'Monitor licensing requirements, renewal schedules, and jurisdiction-specific compliance obligations.', stage: 'Role module 01' },
+    { icon: '📜', title: 'Regulatory framework and jurisdiction map', desc: 'Country-level and state-level rule status, schedule classifications, and recent regulatory changes.', stage: 'Role module 02' },
+    { icon: '🔍', title: 'Audit and inspection readiness', desc: 'Inspection preparation, documentation checklists, and authority engagement protocols.', stage: 'Role module 03' },
+    { icon: '📊', title: 'Regulatory intelligence signals', desc: 'Monitor rule-change signals, consultation periods, and market access updates by corridor.', stage: 'Role module 04' },
+  ],
+  legal_advisory: [
+    { icon: '⚖️', title: 'Cannabis legal framework by jurisdiction', desc: 'Applicable law, licensing regime, corporate structure constraints, and penalty exposure by country.', stage: 'Role module 01' },
+    { icon: '📝', title: 'Contract and agreement frameworks', desc: 'Distribution agreements, supply contracts, IP licences, and joint venture structures.', stage: 'Role module 02' },
+    { icon: '🔒', title: 'AML / KYC and counterparty diligence', desc: 'Know-your-counterparty obligations, AML exposure by corridor, and diligence documentation.', stage: 'Role module 03' },
+    { icon: '📋', title: 'Regulatory advisory demand', desc: 'Active compliance demand from operators in this jurisdiction seeking legal advisory services.', stage: 'Role module 04' },
+  ],
+  // ── Investment / Finance ───────────────────────────────────────────────────
+  investor_operator: [
+    { icon: '📊', title: 'Market readiness and investability review', desc: 'Regulatory stability, market size evidence, and corridor-level investability signal summary.', stage: 'Role module 01' },
+    { icon: '🔍', title: 'Due diligence and deal room', desc: 'Evidence-gated counterparty introductions, diligence package review, and M&A pathway.', stage: 'Role module 02' },
+    { icon: '💰', title: 'Distressed assets and opportunity pipeline', desc: 'Distressed inventory, licence transfers, and strategic acquisition opportunities by jurisdiction.', stage: 'Role module 03' },
+    { icon: '📈', title: 'Intelligence signals and market forecasting', desc: 'Weekly market signals, supply-demand indicators, and regulatory trajectory for investment thesis.', stage: 'Role module 04' },
+  ],
+  // ── Government / Policy ────────────────────────────────────────────────────
+  government_regulator: [
+    { icon: '🏛️', title: 'Evidence coverage and policy map', desc: 'Where Harbourview has sufficient evidence coverage for policy review and public-sector briefing.', stage: 'Role module 01' },
+    { icon: '📋', title: 'Policy brief and regulatory intelligence', desc: 'Regulatory change signals, reform timelines, and comparative jurisdiction policy briefs.', stage: 'Role module 02' },
+    { icon: '🔍', title: 'Licensing and inspection intelligence', desc: 'Active licence counts, inspection findings, and market structure data for this jurisdiction.', stage: 'Role module 03' },
+    { icon: '📊', title: 'Public health and market impact review', desc: 'Evidence-based public health data, consumption patterns, and market access policy impacts.', stage: 'Role module 04' },
+  ],
+  // ── Logistics / Customs ────────────────────────────────────────────────────
+  logistics_customs: [
+    { icon: '🚢', title: 'International logistics and permits', desc: 'Corridor-specific import/export permits, customs authority contacts, and documentation requirements.', stage: 'Role module 01' },
+    { icon: '❄️', title: 'Cold chain and controlled transport', desc: 'Temperature-controlled handling requirements, qualified carrier selection, and chain-of-custody.', stage: 'Role module 02' },
+    { icon: '📋', title: 'Customs classification and compliance', desc: 'HS code classification, controlled substance scheduling, and customs declaration documentation.', stage: 'Role module 03' },
+    { icon: '🗺️', title: 'Corridor demand and operator matching', desc: 'Active operator demand for logistics services filtered by corridor, product type, and volume.', stage: 'Role module 04' },
+  ],
+  // ── Patient / Caregiver ────────────────────────────────────────────────────
+  patient_caregiver_education: [
+    { icon: '📚', title: 'Patient education and access pathway', desc: 'Safe, evidence-based education on approved access pathways, product categories, and healthcare navigation.', stage: 'Role module 01' },
+    { icon: '🩺', title: 'Healthcare professional navigator', desc: 'Find qualified prescribers, clinics, and pharmacies in your jurisdiction.', stage: 'Role module 02' },
+    { icon: '💊', title: 'Product safety and responsible use', desc: 'Evidence-based guidance on forms, dosing principles, and interaction awareness.', stage: 'Role module 03' },
+  ],
+  // ── Not Sure ───────────────────────────────────────────────────────────────
+  not_sure: [
+    { icon: '🧭', title: 'Role discovery and workspace orientation', desc: 'Answer a few questions to surface the right market access pathway, education modules, and actions.', stage: 'Role module 01' },
+    { icon: '📚', title: 'Cannabis market overview by jurisdiction', desc: 'Understand the regulatory framework, market structure, and key roles in your target country.', stage: 'Role module 02' },
+    { icon: '🔍', title: 'Marketplace exploration', desc: 'Browse supply, equipment, services, and wanted demand across the global cannabis marketplace.', stage: 'Role module 03' },
   ],
 }
 
