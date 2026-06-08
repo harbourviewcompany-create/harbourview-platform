@@ -178,3 +178,43 @@ GO on full execution is only possible after:
 - [ ] Eval/leakage gates present in CI
 
 **Current verdict: HOLD — Ticket 1 now executable (org confirmed, Free plan scope only).**
+
+---
+
+## Ticket 4 Authority Patch
+
+Status date: 2026-06-07
+
+### BLOCKER-3 — RESOLVED
+
+Migration `security_harden_anon_functions_and_regulatory_signals_rls` appeared
+twice in production (`20260606230905`, `20260607083616`). Neither run revoked
+EXECUTE from PUBLIC — only from individual roles. Since `anon` inherits PUBLIC,
+all five functions remained callable unauthenticated.
+
+Fix applied via Supabase MCP — migration `fix_revoke_public_execute_security_definer_fns`
+applied 2026-06-07. Verified: all five functions now show `anon_execute: false`,
+`auth_execute: false`, `proacl: {postgres=X/postgres, service_role=X/postgres}`.
+
+BLOCKER-3 status: **RESOLVED**.
+
+### Schema drift — new finding
+
+10 `hv_passport_*` migrations (`20260607145803`–`20260607150001`) are live in Supabase
+production but are NOT in the repo `supabase/migrations/` directory. Applied directly,
+bypassing the migration file workflow.
+
+Action required (separate from HF integration): reverse-engineer passport migrations
+into `supabase/migrations/` and enforce repo-first migration workflow going forward.
+
+### Ticket 4 scope
+
+**Files changed:**
+- `lib/harbourview/dto/internal.ts` — new. Full-field internal types for all entities. Passport tables internal only.
+- `lib/harbourview/dto/public.ts` — rewritten. All public types use `Pick<Internal>`. Explicit serializers. Passport tables excluded.
+- `lib/harbourview/dto/allowlists.ts` — expanded. Forbidden keys cover passport-specific sensitive fields. `enforcePublicDtoAllowlist()` added. `HV_PASSPORT_TABLES_NO_PUBLIC_DTO` added.
+- `lib/harbourview/dto/__tests__/serializers.test.ts` — new. Serializer, forbidden field, and passport exclusion tests.
+
+**Finding:** DTO layer was dead code — not imported by any route. Ticket 4 delivers the infrastructure. Route wiring is a separate ticket.
+
+Ticket 4 HOLD for: route wiring, HF calls, ingestion, production DB writes.
