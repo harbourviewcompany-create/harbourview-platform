@@ -1,12 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getCountryIntelProfile, getLiveEduTiles, getPipelineCounts, getWantedListings } from '@/lib/dashboard/dashboardLiveData'
 import CommandCentre from '@/components/dashboard/CommandCentre'
-import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
-import { getListingsBySections } from '@/lib/server/listingsQuery'
-import type { PublicListing } from '@/lib/server/listingsQuery'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 
@@ -60,15 +55,39 @@ const COUNTRY_ROLE_TO_DASHBOARD_ROLE: Partial<Record<string, RoleId>> = {
   strategic_acquirer: 'investor_operator',
 }
 
-const VIEW_SECTIONS: Record<MarketView, string[]> = {
-  cannabis: ['cannabis_inventory', 'export_ready', 'import_demand', 'genetics', 'flower', 'extract', 'biomass'],
-  equipment: ['cultivation_equipment', 'processing_equipment', 'used_surplus', 'equipment'],
-  consumables: ['consumables', 'packaging'],
-  'new-products': ['new_products', 'new-products'],
-  services: ['services', 'professional_services', 'logistics', 'lab_testing'],
-  opportunities: ['distressed_businesses', 'distressed_inventory', 'business_opportunities', 'qualified_access', 'wanted_requests'],
-  wanted: ['wanted_requests', 'wanted'],
+const ROLE_EDU: Partial<Record<RoleId, { icon: string; title: string; desc: string }[]>> = {
+  exporter: [
+    { icon: '✈️', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
+    { icon: '📜', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
+    { icon: '🗺️', title: 'Market Access', desc: 'Target-market framework review' },
+    { icon: '📦', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
+  ],
+  importer: [
+    { icon: '📦', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
+    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
+    { icon: '🗺️', title: 'Country Rules', desc: 'Market access by jurisdiction' },
+    { icon: '🤝', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
+  ],
+  doctor_prescriber: [
+    { icon: '🩺', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
+    { icon: '⚖️', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
+    { icon: '📖', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
+    { icon: '🔬', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
+  ],
+  pharmacist: [
+    { icon: '💊', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
+    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
+    { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal requirements' },
+    { icon: '📜', title: 'Documentation', desc: 'Supplier packet and COA review' },
+  ],
 }
+
+const DEFAULT_EDU = [
+  { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
+  { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal framework' },
+  { icon: '🏛️', title: 'GMP Standards', desc: 'Manufacturing compliance' },
+  { icon: '📦', title: 'Trade & Access', desc: 'Import/export frameworks' },
+]
 
 export async function generateMetadata({ params }: { params: Promise<{ countrySlug: string; roleSlug: string }> }): Promise<Metadata> {
   const { countrySlug, roleSlug } = await params
@@ -81,75 +100,6 @@ function resolveDashboardRoleId(roleSlug: string): RoleId | null {
   const mapped = COUNTRY_ROLE_TO_DASHBOARD_ROLE[roleSlug]
   if (mapped && ROLE_PROFILES[mapped]) return mapped
   return ROLE_PROFILES[roleSlug as RoleId] ? (roleSlug as RoleId) : null
-}
-
-function safeText(value: string | null | undefined, fallback: string): string {
-  return value && value.trim() ? value.trim() : fallback
-}
-
-function formatTitle(input: string): string {
-  return input
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function getListingSpecType(listing: PublicListing): MarketRow[0] {
-  const section = listing.marketplace_section
-  if (section === 'equipment' || section === 'used_surplus' || section === 'cultivation_equipment' || section === 'processing_equipment') return 'equip'
-  if (section === 'services' || section === 'professional_services' || section === 'logistics' || section === 'lab_testing') return 'service'
-  return 'supply'
-}
-
-function getListingTags(listing: PublicListing): string {
-  const specs = Object.entries(listing.high_level_specs)
-    .slice(0, 3)
-    .map(([key]) => key)
-  return [listing.category, listing.subcategory, listing.product_type, listing.location_country, ...specs]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .slice(0, 5)
-    .map((value) => value.replace(/\s+/g, '-').toLowerCase())
-    .join('|')
-}
-
-function getTrustBar(listing: PublicListing): string {
-  const sellerType = listing.seller_type ?? ''
-  const verified = sellerType === 'verified_seller' || sellerType === 'licensed_operator' ? 'VER:ok' : 'VER:warn'
-  const proof = sellerType === 'verified_seller' ? 'PROOF:ok' : 'PROOF:warn'
-  const specs = listing.high_level_specs ?? {}
-  const regulatory = specs.regulatory_ready ? 'REG:ok' : 'REG:warn'
-  const rawScore = typeof specs.score === 'number' ? specs.score : 0
-  const score = rawScore > 0 ? `${rawScore}:${rawScore >= 80 ? 'ok' : 'warn'}` : null
-  return [verified, proof, regulatory, score, 'PUBLIC'].filter(Boolean).join('|')
-}
-
-function mapListingToDashboardRow(listing: PublicListing): MarketRow {
-  const typeLabel = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
-  const regionLabel = listing.location_region ?? listing.location_country ?? listing.region
-  const statusLabel = listing.price_display ?? listing.condition ?? (listing.is_featured ? 'Featured' : 'Listed')
-  const tags = getListingTags(listing) || listing.category
-
-  return [
-    getListingSpecType(listing),
-    typeLabel,
-    listing.title,
-    safeText(listing.description, `${typeLabel} listing — ${regionLabel}.`),
-    tags,
-    getTrustBar(listing),
-    'Open listing',
-    statusLabel,
-  ]
-}
-
-async function getDashboardMarketplaceRows(countryIso2?: string | null): Promise<Partial<DashboardMarketplaceRows>> {
-  const views = Object.keys(VIEW_SECTIONS) as MarketView[]
-  const results = await Promise.all(
-    views.map((view) => getListingsBySections(VIEW_SECTIONS[view], countryIso2, 8)),
-  )
-  return Object.fromEntries(
-    views.map((view, index) => [view, results[index].map(mapListingToDashboardRow)]),
-  ) as Partial<DashboardMarketplaceRows>
 }
 
 function buildEvidenceGapModule(message?: string) {
@@ -171,19 +121,7 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
 
   const countryIso2 = dashboard.country.countryIso2
   const roleId = resolveDashboardRoleId(dashboard.role.slug)
-
-  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles] = await Promise.all([
-    fetchDashboardSignals(8),
-    getWantedRequestsCount(),
-    getDashboardMarketplaceRows(countryIso2),
-    getPipelineCounts(),
-    getWantedListings(),
-    getCountryIntelProfile(countryIso2),
-    getLiveEduTiles(roleId, 6),
-  ])
-
-  const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
-  const baseEduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
+  const baseEduCategories = roleId ? ROLE_EDU[roleId] ?? DEFAULT_EDU : DEFAULT_EDU
   const eduCategories = dashboard.evidence.confidence === 'evidence_gap'
     ? [buildEvidenceGapModule(dashboard.evidence.message), ...baseEduCategories]
     : baseEduCategories
@@ -191,15 +129,23 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
   return (
     <CommandCentre
       key={`${countryIso2}-${roleId ?? dashboard.role.slug}`}
-      signals={signals}
+      signals={[]}
       eduCategories={eduCategories}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
-      wantedCount={wantedCount}
-      marketplaceRows={marketplaceRows}
-      pipeline={pipeline}
-      wantedListings={wantedListings}
-      countryIntel={countryIntel ?? undefined}
+      wantedCount={0}
+      marketplaceRows={{}}
+      pipeline={{ wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 }}
+      wantedListings={[]}
+      countryIntel={{
+        country_code: countryIso2,
+        country_name: dashboard.country.countryName,
+        public_summary: dashboard.country.evidenceVerified
+          ? `${dashboard.country.countryName} ${dashboard.role.label} dashboard context is available.`
+          : dashboard.evidence.message ?? 'This country-role pathway requires Harbourview evidence review.',
+        commercial_pathway_summary: dashboard.role.priority,
+        review_status: dashboard.admin.reviewState,
+      }}
     />
   )
 }
