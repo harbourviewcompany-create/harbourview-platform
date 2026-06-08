@@ -1,8 +1,9 @@
 /**
  * Canonical plate-geometry heights + LOD thresholds.
  *
- * Single source of truth shared between geometry generation,
- * performance tiers, and reduced-motion.
+ * Single source of truth for geometry generation, performance tiers,
+ * reduced-motion handling, and Douglas-Peucker simplification.
+ * All values are in world units (globe radius ~2.35).
  */
 
 export const PLATE_LIFT        = 0.026
@@ -15,13 +16,15 @@ export const BORDER_OFFSET         = PLATE_LIFT + IDLE_EXTRUSION + 0.006
 
 export const SELECTED_GLOW = '#c89820'
 
-// LOD Simplification thresholds (Douglas-Peucker tolerance in degrees)
+/**
+ * LOD Simplification thresholds using Douglas-Peucker algorithm (tolerance in degrees).
+ * Higher tolerance = more aggressive vertex reduction for background countries.
+ */
 export const LOD_SIMPLIFY_TOLERANCE = {
-  high: 0.0,      // Full detail for selected/focused countries
-  medium: 0.04,   // Balanced for idle on medium perf
-  low: 0.12,      // Aggressive for reduced-motion / low-end
+  high: 0.0,      // No simplification — full detail for selected/focused countries
+  medium: 0.04,   // Moderate reduction for idle countries on medium performance
+  low: 0.12,      // Aggressive reduction for reduced-motion or low-end devices
 } as const
 
 export type LODLevel = keyof typeof LOD_SIMPLIFY_TOLERANCE
-
 export type SimplifyTolerance = typeof LOD_SIMPLIFY_TOLERANCE[LODLevel]
