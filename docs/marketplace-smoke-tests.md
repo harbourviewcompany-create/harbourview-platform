@@ -30,6 +30,7 @@ Optional cleanup requires:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `HARBOURVIEW_SMOKE_CLEANUP=1`
+- `HARBOURVIEW_SMOKE_ROUTE_SECRET=<random smoke caller secret>`
 
 Never print or commit these values. The scripts do not log keys or real PII.
 
@@ -80,6 +81,7 @@ To close smoke rows after insertion, provide the server-only service role key an
 ```bash
 $env:HARBOURVIEW_SMOKE_WRITE = '1'
 $env:HARBOURVIEW_SMOKE_CLEANUP = '1'
+$env:HARBOURVIEW_SMOKE_ROUTE_SECRET = '<random smoke caller secret>'
 npm run smoke:marketplace
 ```
 

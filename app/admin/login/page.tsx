@@ -21,6 +21,7 @@ function getErrorMessage(error: string | undefined) {
   if (error === 'forbidden') return 'This account does not have the admin or operator role required for admin review.';
   if (error === 'unavailable') return 'Admin sign-in is temporarily unavailable. Try again shortly.';
   if (error === 'invalid') return 'The email or password was not accepted.';
+  if (error === 'rate_limited') return 'Too many sign-in attempts. Please wait and try again.';
   return null;
 }
 
