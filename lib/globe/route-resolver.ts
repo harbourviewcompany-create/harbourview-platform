@@ -25,7 +25,6 @@ const regulatoryRoleIds = new Set<RoleId>([
   'logistics_customs',
 ])
 
-
 const globeRoleToCountryRoleSlug: Partial<Record<RoleId, string>> = {
   doctor_prescriber: 'doctor',
   pharmacist: 'pharmacist',
@@ -48,6 +47,28 @@ const globeRoleToCountryRoleSlug: Partial<Record<RoleId, string>> = {
   logistics_customs: 'customs_broker',
 }
 
+const subdivisionParentIso2: Partial<Record<string, string>> = {
+  US: 'US',
+  CA: 'CA',
+}
+
+function getSubdivisionParentIso2(value?: string): string | null {
+  if (!value) return null
+
+  const normalized = value.toUpperCase()
+  const match = /^([A-Z]{2})-[A-Z0-9]{2,3}$/.exec(normalized)
+
+  if (!match) return null
+
+  return subdivisionParentIso2[match[1]] ?? null
+}
+
+function getRegionCode(input: GlobeRouteInput): string | undefined {
+  if (input.mode === 'multi_market') return undefined
+
+  return getSubdivisionParentIso2(input.countryIso2) ? input.countryIso2?.toUpperCase() : undefined
+}
+
 function mapRoleToDestinationType(roleId?: RoleId): DestinationType {
   if (!roleId || roleId === 'not_sure') return 'routing_review'
   if (medicalRoleIds.has(roleId)) return 'medical_education'
@@ -57,6 +78,7 @@ function mapRoleToDestinationType(roleId?: RoleId): DestinationType {
 
 function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPath?: string) {
   const params = new URLSearchParams()
+  const regionCode = getRegionCode(input)
 
   params.set('source', input.source)
   params.set('mode', input.mode)
@@ -64,6 +86,7 @@ function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPat
   if (input.countryIso2) params.set('country', input.countryIso2)
   if (input.countryIso2s?.length) params.set('countries', input.countryIso2s.join(','))
   if (input.roleId) params.set('role', input.roleId)
+  if (regionCode) params.set('region', regionCode)
   if (input.intentId) params.set('intent', input.intentId)
   if (input.layerId) params.set('layer', input.layerId)
   if (requestedPath) params.set('requestedPath', requestedPath)
@@ -83,7 +106,8 @@ function resolveCountryEducationPath(
   if (!isEducation) return null
   if (!input.countryIso2) return null
 
-  const country = getCountryByIso2(input.countryIso2)
+  const normalizedCountryIso2 = getSubdivisionParentIso2(input.countryIso2) ?? input.countryIso2
+  const country = getCountryByIso2(normalizedCountryIso2)
   if (!country) return null
 
   return `/dashboard/country/${country.slug}/education`
@@ -99,7 +123,8 @@ function resolveCountrySectionPath(
   if (!input.countryIso2) return null
   if (input.mode === 'multi_market') return null
 
-  const country = getCountryByIso2(input.countryIso2)
+  const normalizedCountryIso2 = getSubdivisionParentIso2(input.countryIso2) ?? input.countryIso2
+  const country = getCountryByIso2(normalizedCountryIso2)
   if (!country) return null
 
   const sectionAvailable = country.routeAvailability[section as keyof typeof country.routeAvailability]
@@ -112,11 +137,20 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
   const intent = input.intentId ? intentProfileMap[input.intentId] : undefined
   const destinationType: IntentProfile['destinationType'] = intent?.destinationType ?? mapRoleToDestinationType(input.roleId)
 
-  // 1. Single-market without intent — land on the main /dashboard commercial OS.
-  //    Country and role are passed as query params; the dashboard page reads them
-  //    and seeds UniversalDashboard directly, bypassing the Supabase prefs lookup.
-  if (!input.intentId && input.countryIso2 && input.mode !== 'multi_market') {
-    const country = getCountryByIso2(input.countryIso2)
+  if (input.mode === 'multi_market') {
+    return {
+      status: 'resolved',
+      href: appendGlobeQuery('/market-selection', input),
+      destinationType,
+    }
+  }
+
+  // 1. Single-market without intent — land on the canonical country-role dashboard.
+  //    State/province selections are normalized to their parent country for route
+  //    resolution while the original subdivision code is preserved as region context.
+  if (!input.intentId && input.countryIso2) {
+    const normalizedCountryIso2 = getSubdivisionParentIso2(input.countryIso2) ?? input.countryIso2
+    const country = getCountryByIso2(normalizedCountryIso2)
     const roleSlug = input.roleId ? globeRoleToCountryRoleSlug[input.roleId] : undefined
     if (country && roleSlug) {
       return {
