@@ -1,14 +1,10 @@
-'use client'
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
-import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
-import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
-import { REGIONS, REGION_LABELS, WARN_REGIONS as WARN_REGIONS_BY_COUNTRY } from '@/lib/dashboard/countryRegions'
+import React, { useState, useEffect } from 'react';
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared';
+import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData';
 
-// ── Exports consumed by app/dashboard/page.tsx ────────────────────────────────
-export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
+export type MarketRow = [
 export type MarketRow = [string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
