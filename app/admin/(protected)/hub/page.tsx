@@ -1062,11 +1062,17 @@ function Stripe({ toast }) {
 function Actions({ api, toast }) {
   const [results, setResults] = useState({});
   const [running, setRunning] = useState({});
-  const run = async (key, fn) => {
-    setRunning(r=>({...r,[key]:true}));setResults(r=>({...r,[key]:null}));
-    const txt = JSON.stringify(await fn(), null, 2); setResults(r=>({...r,[key]:{ok:true,txt}}));
-    catch(e){setResults(r=>({...r,[key]:{ok:false,txt:e.message}}));}
-    setRunning(r=>({...r,[key]:false}));
+  const run = async (key: string, fn: () => Promise<unknown>) => {
+    setRunning(r => ({...r, [key]: true}));
+    setResults(r => ({...r, [key]: null}));
+    try {
+      const txt = JSON.stringify(await fn(), null, 2);
+      setResults(r => ({...r, [key]: {ok: true, txt}}));
+    } catch (e) {
+      setResults(r => ({...r, [key]: {ok: false, txt: (e as Error).message}}));
+    } finally {
+      setRunning(r => ({...r, [key]: false}));
+    }
   };
   const actions=[
     {key:"promote",title:"Promote Extracted Snapshots",desc:"promote_all_extracted_snapshots()",fn:()=>api.rpc("promote_all_extracted_snapshots")},
