@@ -9,7 +9,8 @@ export interface GlobeExtrusionConfig {
   minimumAreaDeg2: number
   tinyCountryIso2: string[]
   tinyMarkerRadius: number
-  simplifyTolerance?: number // Douglas-Peucker tolerance in degrees
+  /** Douglas-Peucker tolerance in degrees. 0 = no simplification. */
+  simplifyTolerance?: number
 }
 
 const DEFAULT_CONFIG: GlobeExtrusionConfig = {
@@ -23,8 +24,11 @@ const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   simplifyTolerance: 0.0,
 }
 
-// [Existing functions remain - adding simplifyRing here]
-
+/**
+ * Recursive Douglas-Peucker line simplification.
+ * Reduces number of points in polygon rings while preserving overall shape.
+ * Used for LOD on background countries to improve performance.
+ */
 function simplifyRing(pts: [number, number][], tolerance: number = 0.0): [number, number][] {
   if (tolerance <= 0 || pts.length <= 4) return normalizeRing(pts)
 
@@ -58,13 +62,17 @@ function simplifyRing(pts: [number, number][], tolerance: number = 0.0): [number
   return normalizeRing(simplified)
 }
 
-// Updated createTopFaceWithHoles
+/**
+ * Creates top face geometry for a country polygon (with holes).
+ * Applies Douglas-Peucker simplification when tolerance > 0 for LOD.
+ */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
   holesRaw: [number, number][][],
   radius: number,
   simplifyTolerance: number = 0.0,
 ): { positions: number[]; indices: number[] } {
+  // Simplify rings before projection and triangulation — major perf win for complex countries
   const outer = simplifyRing(outerRaw, simplifyTolerance)
   const holes = holesRaw.map(h => simplifyRing(h, simplifyTolerance))
 
@@ -85,7 +93,8 @@ function createTopFaceWithHoles(
     const n = allV2.length
     for (const [a, b, c] of rawTriangles) {
       if (a >= n || b >= n || c >= n) continue
-      // ... (keep the full winding correction logic from original)
+
+      // Winding correction for correct front-face normals on sphere
       const ax = positions[a * 3] , ay = positions[a * 3 + 1], az = positions[a * 3 + 2]
       const bx = positions[b * 3], by = positions[b * 3 + 1], bz = positions[b * 3 + 2]
       const cx = positions[c * 3], cy = positions[c * 3 + 1], cz = positions[c * 3 + 2]
@@ -105,10 +114,11 @@ function createTopFaceWithHoles(
       }
     }
   } catch {
+    // Fallback fan triangulation for degenerate cases
     indices = createTopFanIndices(outer.length)
   }
 
   return { positions, indices }
 }
 
-// Rest of file unchanged
+// Rest of the file (other functions like createCountryBufferGeometry) remains unchanged.
