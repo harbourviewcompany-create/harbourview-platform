@@ -2,15 +2,12 @@
  * lib/hf — HarbourView Hugging Face server-only module
  *
  * EVERY export from this barrel is server-only.
- * Do not import this module in:
- *   - Client components
- *   - Pages without 'use server'
- *   - Any file that may be bundled for the browser
- *   - Public API routes
+ * Do not import this module in client components, pages without 'use server',
+ * any file that may be bundled for the browser, or public API routes.
  *
- * Ticket 3 scope: skeleton only.
- * Embedding, reranking, extraction, and eval modules are not yet implemented.
- * See docs/OPERATING_AUTHORITY.md for ticket execution order.
+ * Ticket 3: skeleton — env, client, repos, logging ✅
+ * Ticket 5: leakage auditor ✅
+ * Tickets 7–12: embedding, reranking, extraction, eval, Spaces — not yet implemented
  */
 
 export { HfError, type HfErrorCode } from './errors';
@@ -30,14 +27,21 @@ export {
   type HfModelRepoId,
   type RepoVerificationResult,
 } from './repos';
-export { HfClient, getHfClient, _resetHfClientForTest, type HfClientConfig } from './client';
+export { HfClient, getHfClient, _resetHfClientForTest } from './client';
 export { hfLog, type HfLogLevel, type HfLogEntry } from './logging';
+export {
+  auditPublicPayload,
+  assertAuditPass,
+  getSafePublicPayload,
+  type LeakageAuditResult,
+  type LeakageAuditStatus,
+  type UnsupportedClaim,
+} from './leakageAudit';
 
-// Intentionally NOT exported from skeleton (not yet implemented):
-// - embeddings.ts
-// - reranker.ts
-// - extraction.ts
-// - leakageAudit.ts
-// - evalRunner.ts
+// Not yet exported (not yet implemented):
+// - embeddings.ts  (Ticket 7)
+// - reranker.ts    (Ticket 8)
+// - extraction.ts  (Ticket 10)
+// - evalRunner.ts  (Ticket 11)
 // - schemas.ts
 // - validators.ts
