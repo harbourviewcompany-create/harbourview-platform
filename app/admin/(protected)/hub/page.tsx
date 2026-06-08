@@ -12,7 +12,7 @@ function mkApi(key: string) {
     "Content-Type": "application/json",
     Prefer: "return=representation",
   };
-  const req = async (url, opts = {}) => {
+  const req = async (url: string, opts: RequestInit = {}) => {
     const r = await fetch(url, { headers: h, ...opts });
     const txt = await r.text();
     let d; try { d = JSON.parse(txt); } catch { d = txt; }
@@ -20,11 +20,11 @@ function mkApi(key: string) {
     return d;
   };
   return {
-    get:   (t, qs="")    => req(`${SB_URL}/rest/v1/${t}${qs?"?"+qs:""}`),
-    patch: (t, qs, body) => req(`${SB_URL}/rest/v1/${t}?${qs}`, { method:"PATCH",  body:JSON.stringify(body) }),
-    post:  (t, body)     => req(`${SB_URL}/rest/v1/${t}`,        { method:"POST",   body:JSON.stringify(body) }),
-    del:   (t, qs)       => req(`${SB_URL}/rest/v1/${t}?${qs}`, { method:"DELETE" }),
-    rpc:   (fn, body={}) => req(`${SB_URL}/rest/v1/rpc/${fn}`,  { method:"POST",   body:JSON.stringify(body) }),
+    get:   (t: string, qs="")    => req(`${SB_URL}/rest/v1/${t}${qs?"?"+qs:""}`),
+    patch: (t: string, qs: string, body: unknown) => req(`${SB_URL}/rest/v1/${t}?${qs}`, { method:"PATCH",  body:JSON.stringify(body) }),
+    post:  (t: string, body: unknown)     => req(`${SB_URL}/rest/v1/${t}`,        { method:"POST",   body:JSON.stringify(body) }),
+    del:   (t: string, qs: string)       => req(`${SB_URL}/rest/v1/${t}?${qs}`, { method:"DELETE" }),
+    rpc:   (fn: string, body: Record<string, unknown>={}) => req(`${SB_URL}/rest/v1/rpc/${fn}`,  { method:"POST",   body:JSON.stringify(body) }),
   };
 }
 
