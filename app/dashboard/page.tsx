@@ -192,7 +192,9 @@ export default async function DashboardPage({
       wantedCount={wantedCount}
       marketplaceRows={marketplaceRows}
       pipeline={pipeline}
+      wantedListings={wantedListings}
       countryIntel={countryIntel ?? undefined}
     />
   )
 }
+
