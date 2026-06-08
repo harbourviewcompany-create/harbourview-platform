@@ -12,8 +12,9 @@ export const metadata: Metadata = {
   },
 }
 
+// Next.js 15: searchParams is now a Promise
 interface PageProps {
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 function firstParam(v: string | string[] | undefined): string | null {
@@ -21,12 +22,14 @@ function firstParam(v: string | string[] | undefined): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null
 }
 
-export default function MarketSelectionPage({ searchParams }: PageProps) {
+export default async function MarketSelectionPage({ searchParams }: PageProps) {
+  const params = await searchParams
+
   // Resolve market from URL params — never fall back to a hardcoded country.
   // country= takes priority; fall back to the first entry of countries=
   const rawCountry =
-    firstParam(searchParams.country) ??
-    firstParam(searchParams.countries)?.split(',')[0]?.trim() ??
+    firstParam(params.country) ??
+    firstParam(params.countries)?.split(',')[0]?.trim() ??
     null
 
   const market = rawCountry ? resolveMarket(rawCountry) : null
