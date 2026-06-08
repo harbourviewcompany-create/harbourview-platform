@@ -44,7 +44,7 @@ export async function getWantedListings(): Promise<WantedListing[]> {
     const { data, error } = await supabase
       .from('listings')
       .select('id, title, summary, location_country, location_region, created_at')
-      .eq('marketplace_section', 'wanted')
+      .eq('marketplace_section', 'wanted_requests')
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
       .limit(12)
