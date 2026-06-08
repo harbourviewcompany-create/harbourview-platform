@@ -52,6 +52,18 @@ function isProductionSmokeTarget() {
   }
 }
 
+
+function requireSmokeRouteSecret(request: Request) {
+  const secret = readEnv('HARBOURVIEW_SMOKE_ROUTE_SECRET')
+  if (!secret) throw new Error('smoke route secret not configured')
+
+  const bearer = request.headers.get('authorization')
+  const headerSecret = request.headers.get('x-harbourview-smoke-secret')
+  if (bearer === `Bearer ${secret}` || headerSecret === secret) return
+
+  throw new Error('smoke route unauthorized')
+}
+
 function getConfig() {
   if (!envEnabled('HARBOURVIEW_SMOKE_WRITE')) throw new Error('smoke writes disabled')
   if (!envEnabled('HARBOURVIEW_SMOKE_CLEANUP')) throw new Error('smoke cleanup disabled')
@@ -111,6 +123,7 @@ async function callRpc(c: { base: string; serviceRoleKey: string }, fn: string, 
 
 export async function POST(request: Request) {
   try {
+    requireSmokeRouteSecret(request)
     const input = parse((await request.json()) as Record<string, unknown>)
     const c = getConfig()
     const fn =

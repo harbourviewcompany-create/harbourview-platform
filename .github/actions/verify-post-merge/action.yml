@@ -1,0 +1,24 @@
+name: 'Post-Merge Verification'
+description: 'Common post-merge checks'
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine comparison base
+      id: base
+      shell: bash
+      env:
+        BEFORE: ${{ github.event.before }}
+      run: |
+        if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+          echo "base=$BEFORE" >> "$GITHUB_OUTPUT"
+        else
+          echo "base=HEAD~1" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: List merged changed files
+      shell: bash
+      run: git diff --name-only "${{ steps.base.outputs.base }}..HEAD"
+
+    - name: Scan for secrets
+      shell: bash
+      run: node scripts/check-no-secret-strings.mjs --base "${{ steps.base.outputs.base }}" --head HEAD

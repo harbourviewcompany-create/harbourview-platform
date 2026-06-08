@@ -178,3 +178,95 @@ GO on full execution is only possible after:
 - [ ] Eval/leakage gates present in CI
 
 **Current verdict: HOLD — Ticket 1 now executable (org confirmed, Free plan scope only).**
+
+---
+
+## Ticket 3 Authority Patch
+
+Status date: 2026-06-07
+Applies to: Ticket 3 — `lib/hf/` server-only module skeleton
+
+### D3 — Role Mapping
+
+**Status: RESOLVED FOR TICKET 3 / CONDITIONAL FOR LATER ROUTES**
+
+| HF packet role | Harbourview repo role | Ticket 3 authority |
+|---|---|---|
+| `reviewer` | `analyst` | Can review AI/data outputs where admin/operator-approved review UI exists. |
+| `model-ops` | `operator` | Can manage server-only HF operational checks and repo verification. |
+| `marketplace-reviewer` | `operator` | Can review marketplace enrichment candidates only via protected admin/operator pathways. |
+| `education-reviewer` | `educator` (domain) / `operator` (release) | Education content review and operational release are separate. |
+
+No new application roles authorized in Ticket 3. Ticket 3 must not add public permissions, broaden RLS, or create new role claims. Any future first-class `reviewer`, `model-ops`, `marketplace-reviewer`, or `education-reviewer` role requires a separate auth/RLS migration and explicit approval.
+
+### BLOCKER-1 — `hv_core.current_role()` Strategy
+
+**Status: RESOLVED FOR TICKET 3 / JWT HOOK REMAINS HOLD**
+
+Decision: Ticket 3 uses service-role/server-side access patterns only.
+
+- Ticket 3 creates the `lib/hf/` skeleton with server-only env validation and no user-token-based access to `hv_*` schemas.
+- No browser imports, no public routes, no user-scoped HF access in Ticket 3.
+- Any route that later touches HF or private data must follow the existing `requireAdminAuth()` admin route pattern.
+- User-scoped `hv_*` schema access remains HOLD until a Supabase custom access token hook is implemented and verified.
+- Required guardrail: every module touching `HF_TOKEN_SERVER`, service-role access, private HF repos, or internal data must include `import 'server-only'`.
+
+### BLOCKER-3 — Security Harden Migration
+
+**Status: HOLD / UNCONFIRMED**
+
+Migration `20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql` exists in repo. Production application not confirmed.
+
+- Ticket 3 may proceed as a local/server-only skeleton only — no routes, no ingestion, no queue workers, no production DB writes.
+- Any ticket that creates callable routes or touches live Supabase production data remains HOLD until production application of this migration is confirmed.
+- Verification: Supabase Dashboard → Database → Migrations → confirm `20260606210000` is listed as applied.
+
+### Ticket 3 GO/HOLD
+
+**CONDITIONAL GO** for:
+- `lib/hf/` server-only module skeleton
+- Server-only environment validation
+- Approved private HF repo-name constants
+- Private repo verification helpers
+- Tests: no browser HF env vars, no hardcoded token, no public DTO leakage
+
+**HOLD** for: public routes, `/api/internal/*` creation, ingestion, embedding, extraction, queue workers, BGE-M3 migrations, Qwen endpoint calls, public DTO publishing, user-scoped `hv_*` schema access, production Supabase writes, role/RLS migrations.
+
+---
+
+## Ticket 4 Authority Patch
+
+Status date: 2026-06-07
+
+### BLOCKER-3 — RESOLVED
+
+Migration `security_harden_anon_functions_and_regulatory_signals_rls` appeared
+twice in production (`20260606230905`, `20260607083616`). Neither run revoked
+EXECUTE from PUBLIC — only from individual roles. Since `anon` inherits PUBLIC,
+all five functions remained callable unauthenticated.
+
+Fix applied via Supabase MCP — migration `fix_revoke_public_execute_security_definer_fns`
+applied 2026-06-07. Verified: all five functions now show `anon_execute: false`,
+`auth_execute: false`, `proacl: {postgres=X/postgres, service_role=X/postgres}`.
+
+BLOCKER-3 status: **RESOLVED**.
+
+### Schema drift — new finding
+
+10 `hv_passport_*` migrations (`20260607145803`–`20260607150001`) are live in Supabase
+production but NOT in `supabase/migrations/`. Applied directly, bypassing repo workflow.
+
+Action required: reverse-engineer passport migrations into `supabase/migrations/`
+and enforce repo-first migration workflow going forward.
+
+### Ticket 4 scope
+
+**Files changed:**
+- `lib/harbourview/dto/internal.ts` — new. Full-field internal types for all entities. Passport tables internal only.
+- `lib/harbourview/dto/public.ts` — rewritten. All public types use `Pick<Internal>`. Explicit serializers. Passport tables explicitly excluded.
+- `lib/harbourview/dto/allowlists.ts` — expanded. Forbidden keys cover passport-specific sensitive fields. `enforcePublicDtoAllowlist()` added. `HV_PASSPORT_TABLES_NO_PUBLIC_DTO` added.
+- `lib/harbourview/dto/__tests__/serializers.test.ts` — new. Serializer, forbidden field, and passport exclusion tests.
+
+**Finding:** DTO layer was dead code — not imported by any route. Ticket 4 delivers the infrastructure. Route wiring is a separate ticket.
+
+Ticket 4 HOLD for: route wiring, HF calls, ingestion, production DB writes.

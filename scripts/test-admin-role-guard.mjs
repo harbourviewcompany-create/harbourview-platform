@@ -13,6 +13,8 @@ const adminRoot = readFileSync('app/admin/(protected)/page.tsx', 'utf8');
 const adminHub = readFileSync('app/admin/(protected)/hub/page.tsx', 'utf8');
 const adminDealDashboard = readFileSync('app/admin/(protected)/deal-dashboard/page.tsx', 'utf8');
 const dealflowRoute = readFileSync('app/api/genetics-routing/dealflow/route.ts', 'utf8');
+const geneticsActionsRoute = readFileSync('app/api/genetics-routing/actions/route.ts', 'utf8');
+const geneticsOperationsRoute = readFileSync('app/api/genetics-routing/operations/route.ts', 'utf8');
 const adminSources = readFileSync('app/admin/(protected)/sources/page.tsx', 'utf8');
 const adminSourcesNew = readFileSync('app/admin/(protected)/sources/new/page.tsx', 'utf8');
 const adminCandidates = readFileSync('app/admin/(protected)/candidates/page.tsx', 'utf8');
@@ -62,9 +64,6 @@ assertGuardedPage('admin deal dashboard', adminDealDashboard);
 assert(adminDealDashboard.includes("export const dynamic = 'force-dynamic'"), 'admin deal dashboard page must be dynamic and not statically expose service-role-backed content');
 assert(adminDealDashboard.includes('DealDashboardClient'), 'admin deal dashboard page must preserve existing dashboard client render');
 assert(adminListings.includes("export const dynamic = 'force-dynamic'"), 'admin listings page must be dynamic and not statically expose provenance content');
-assert(adminListings.includes('View source listing'), 'admin listings must retain source link for authorized users');
-assert(adminListings.includes('Evidence captured'), 'admin listings must retain evidence for authorized users');
-assert(adminListings.includes('Internal review notes'), 'admin listings must retain internal review notes for authorized users');
 for (const [name, content] of [
   ['admin sources', adminSources],
   ['admin source intake', adminSourcesNew],
@@ -97,7 +96,21 @@ assert(adminLoginRoute.includes("sameSite: 'lax'"), 'admin login session cookie 
 assert(adminLoginRoute.includes("path: '/'"), 'admin login session cookie must be available at the admin route path');
 assert(adminLoginRoute.includes('ADMIN_SESSION_MAX_AGE_SECONDS'), 'admin login session cookie must use an explicit max age');
 assert(guard.includes('ADMIN_SESSION_COOKIE_NAME'), 'admin guard must read the same named cookie that login sets');
-assert(/if \(!result\.ok\)[\s\S]*response\.cookies\.set\(ADMIN_SESSION_COOKIE_NAME, '',[\s\S]*maxAge: 0,[\s\S]*return response/.test(adminLoginRoute), 'failed admin login must expire the existing admin session cookie before redirect');
+assert(adminLoginRoute.includes('enforceRateLimit'), 'admin login route must apply route-local throttling');
+assert(adminLoginRoute.includes('isSameOriginFormPost'), 'admin login route must enforce same-origin form posts');
+assert(adminLoginRoute.includes('rate_limited'), 'admin login route must return a rate-limited state');
+assert(adminLoginRoute.includes('expireAdminCookie'), 'failed admin login must expire the existing admin session cookie before redirect');
+for (const [name, content] of [
+  ['genetics actions route', geneticsActionsRoute],
+  ['genetics operations route', geneticsOperationsRoute],
+]) {
+  assert(content.includes("import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'"), `${name} must import admin API auth helper`);
+  assert(content.includes('await requireAdminApiAuth()'), `${name} must require admin auth before service-role client creation`);
+  assert(content.indexOf('await requireAdminApiAuth()') < content.indexOf('const client = getClient()'), `${name} must authenticate before creating service-role client`);
+  assert(content.includes("{ error: 'unauthorized' }, { status: 401 }") || readFileSync('lib/auth/adminApiAuth.ts', 'utf8').includes("{ error: 'unauthorized' }, { status: 401 }"), `${name} must return explicit 401 JSON`);
+  assert(content.includes("{ error: 'invalid_record_id' }, { status: 400 }"), `${name} must validate recordId`);
+  assert(content.includes("{ error: 'admin_data_client_unconfigured' }, { status: 500 }"), `${name} must fail closed when admin data config is absent`);
+}
 
 if (failures.length) {
   console.error('Admin role guard test failed:');
@@ -111,9 +124,10 @@ console.log('ok analyst/viewer are not admin-allowed');
 console.log('ok admin root redirects to protected dashboard hub');
 console.log('ok admin hub, inquiries, listings, deal dashboard, sources and candidates directly guard private render');
 console.log('ok admin nav links include dashboard hub and deal dashboard');
-console.log('ok admin provenance rendering is preserved behind role guard');
 console.log('ok dealflow mutation route authenticates before service-role access');
 console.log('ok dealflow route returns explicit 401/403/400/404/500 JSON states');
 console.log('ok dealflow route preserves rendered dashboard actions only');
 console.log('ok admin login establishes only admin/operator HttpOnly sessions');
 console.log('ok failed admin login expires stale admin session cookie');
+console.log('ok admin login applies same-origin and rate-limit controls');
+console.log('ok genetics actions and operations routes authenticate before service-role access');

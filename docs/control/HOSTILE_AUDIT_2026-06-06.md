@@ -18,9 +18,9 @@ This audit reviewed the Harbourview repository from the perspective of a hostile
 
 ## Executive verdict
 
-**Release posture: HOLD.** Harbourview has meaningful public/private DTO discipline and several admin guardrails, but the current attack surface still contains unauthenticated service-role-backed mutation routes under `/api/genetics-routing/*`. A public caller can hit those endpoints if deployed with the service-role key present and can mutate genetics routing records, create internal event history, assign operators, and overwrite internal notes without proving admin identity. That is the primary hostile finding.
+**Remediation pass status: PARTIAL HOLD.** The follow-up fix pass locked down the unauthenticated service-role genetics mutation routes, narrowed the public genetics intake response, made the cron route fail closed when `CRON_SECRET` is missing, added a caller secret gate to the smoke-verification route, and added app-layer admin-login throttling/same-origin checks. Release posture remains HOLD for unresolved dependency-audit and configured test-suite drift until those are separately cleared.
 
-Second-order risks are operational rather than purely code-level: cron authorization is fail-open when `CRON_SECRET` is absent, smoke-verification routes are public when their write flags are enabled, and the dependency graph currently carries a moderate Next/PostCSS advisory. The audit also found validation/testing drift: the configured sanity test bundle does not pass, so a security fix PR would be hard to distinguish from pre-existing route/globe regressions until those are triaged.
+The original hostile findings remain below as traceability records, with the critical/high application findings now carrying explicit remediation notes.
 
 ## Findings
 
@@ -32,7 +32,7 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 - **Evidence:** The route builds a Supabase client from `SUPABASE_SERVICE_ROLE_KEY` and returns it without any admin guard. The POST handler reads `recordId` and `action` directly from request JSON, maps selected actions to privileged statuses, updates `genetics_routing_records`, inserts a `genetics_routing_events` row, and returns success.
 - **Hostile path:** A public actor who learns or guesses a routing record UUID can flip records to `ready_for_intro` or `introduced`, generating false internal event history and potentially triggering downstream operator workflows if those statuses are trusted elsewhere.
 - **Impact:** Unauthorized manipulation of controlled-genetics deal workflow, corrupted audit trail, and possible business/compliance exposure if introductions are made based on forged state.
-- **Recommended fix:** Require `requireAdminAuth()` at the top of the handler; convert unauthorized/forbidden navigation interrupts to JSON responses; validate request JSON shape; enforce UUID format; allowlist actions; check update and insert errors; add regression tests proving anonymous POST is rejected.
+- **Remediation:** Implemented admin API auth before service-role client creation, JSON 401/403 handling, strict JSON/action/UUID validation, database error checks, and static regression coverage in `scripts/test-admin-role-guard.mjs` and `scripts/test-genetics-routing-operations.mjs`.
 
 ### HV-HA-002 — Unauthenticated service-role genetics operations endpoint can overwrite internal assignment and notes
 
@@ -42,7 +42,7 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 - **Evidence:** The route creates a service-role Supabase client from public URL plus `SUPABASE_SERVICE_ROLE_KEY` without auth, reads `recordId`, `assignedOperator`, `internalNotes`, and date fields from JSON, updates `genetics_routing_records`, inserts an internal event, and returns success without checking database errors.
 - **Hostile path:** A public caller can overwrite operator assignment, internal notes, and follow-up dates on any known routing record. Because the route does not check Supabase update/insert errors, failed writes can still appear successful to clients and monitoring.
 - **Impact:** Silent corruption of deal operations, workflow manipulation, operator impersonation/confusion, and loss of reliability for internal case notes.
-- **Recommended fix:** Require admin/operator auth, validate UUID and allowed field types/lengths, reject unknown fields, check and log database errors with redaction, and add tests for anonymous, malformed, and not-found requests.
+- **Remediation:** Implemented admin API auth before service-role client creation, UUID/type/date/length validation, database update/insert error checks, and static regression coverage in `scripts/test-admin-role-guard.mjs` and `scripts/test-genetics-routing-operations.mjs`.
 
 ### HV-HA-003 — Public genetics request endpoint returns full internal routing record
 
@@ -52,7 +52,7 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 - **Evidence:** The route is public by design, creates a genetics routing record from request JSON, persists it with service-role credentials when configured, and returns `{ success: true, record }` to the caller.
 - **Hostile path:** A submitter can send crafted request data and receive the full server-created routing record, which may include internal scoring, routing metadata, generated IDs, or fields that should be operator-only. If downstream logic adds internal enrichment to the record object, this endpoint will leak it by default.
 - **Impact:** Disclosure of deal-scoring mechanics and internal routing metadata; easier enumeration and targeting of HV-HA-001/HV-HA-002 if returned IDs are later accepted by admin mutation routes.
-- **Recommended fix:** Return a narrow public DTO such as `{ success: true, requestId, message }`; separate public intake creation from internal admin projections; add a forbidden-field regression test similar to existing public leakage tests.
+- **Remediation:** The public route now returns a narrow DTO with `requestId`, `status`, and a reviewed-response message instead of echoing the internal routing record; records now use database-compatible UUIDs.
 
 ### HV-HA-004 — Cron scrape endpoint is fail-open when `CRON_SECRET` is unset
 
@@ -62,7 +62,7 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 - **Evidence:** The handler checks `authorization` only when `CRON_SECRET` is truthy. If the secret is absent, the scrape engine runs for any caller.
 - **Hostile path:** On any preview or production deployment missing `CRON_SECRET`, an unauthenticated caller can repeatedly trigger scraper runs, database writes, downstream digest email attempts, and long-running compute.
 - **Impact:** Cost amplification, data pollution, rate-limit pressure against source sites, noisy operational alerts, and potential accidental production writes from public traffic.
-- **Recommended fix:** Fail closed when `CRON_SECRET` is missing outside local development; require a Vercel cron/user-agent or signed header check as defense-in-depth; add a test that missing secret returns 500/503 rather than running the scraper in deployed environments.
+- **Remediation:** The cron route now returns `503` when `CRON_SECRET` is missing and still returns `401` for incorrect bearer tokens.
 
 ### HV-HA-005 — Smoke marketplace endpoint is public and can query/close smoke inquiries when write flags are enabled
 
@@ -72,7 +72,7 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 - **Evidence:** The route does not require admin auth; it conditionally enables service-role-backed RPC calls based on `HARBOURVIEW_SMOKE_WRITE`, `HARBOURVIEW_SMOKE_CLEANUP`, and production write flags. Input is constrained to `smoke+...@harbourview.local` and marker prefixes, which limits blast radius but does not authenticate the caller.
 - **Hostile path:** If smoke flags are accidentally left enabled, anyone can verify or close matching smoke inquiries and observe row metadata for those test artifacts.
 - **Impact:** Publicly reachable operational test backdoor; low direct customer-data impact due to narrow input validation, but still undesirable for production posture.
-- **Recommended fix:** Require an explicit smoke verification secret or admin auth in addition to environment flags; fail closed in production unless both a secret and explicit production override are present; return only minimal booleans.
+- **Remediation:** The smoke route now requires `HARBOURVIEW_SMOKE_ROUTE_SECRET` via bearer token or `x-harbourview-smoke-secret` before checking write/cleanup gates and service-role configuration.
 
 ### HV-HA-006 — Admin password login has no route-local throttling or CSRF protection
 
@@ -82,7 +82,7 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 - **Evidence:** The route accepts form data, calls Supabase password grant, and sets or clears the admin session cookie. The handler does not apply the repository's rate-limit helper and does not verify a CSRF token or origin.
 - **Hostile path:** An attacker can spray credential attempts through this route until Supabase upstream controls intervene. A cross-site form POST can also force a victim browser to attempt login/logout-like state changes, though `SameSite=Lax` and credential secrecy limit practical escalation.
 - **Impact:** Increased auth noise, potential account lockouts, and reliance on upstream-only throttling rather than app-layer defense.
-- **Recommended fix:** Add IP + email identity throttling, audit-safe login attempt logging, and a double-submit or signed CSRF token for the login form.
+- **Remediation:** The admin login route now applies IP and email-identity rate limits, enforces same-origin `Origin`/`Referer` checks for form posts, and expires stale admin cookies on all failed attempts.
 
 ### HV-HA-007 — Dependency audit currently reports a moderate Next/PostCSS advisory
 
@@ -104,11 +104,11 @@ Second-order risks are operational rather than purely code-level: cron authoriza
 
 ## Prioritized remediation plan
 
-1. **Patch critical genetics routes first:** lock down `/api/genetics-routing/actions` and `/api/genetics-routing/operations` with admin auth and strict validation.
-2. **Narrow public genetics intake response:** return a public DTO only; never echo internal routing records.
-3. **Fail closed operational endpoints:** require `CRON_SECRET` in deployed cron route contexts and add a smoke route secret/admin guard.
-4. **Harden admin login:** add route-local rate limits and CSRF/origin checks.
-5. **Resolve dependency and test drift:** upgrade the vulnerable Next/PostCSS chain safely and fix or intentionally update the globe foundation expectations so security PR validation is trustworthy.
+1. **Remaining:** Resolve dependency and test drift by upgrading the vulnerable Next/PostCSS chain safely and fixing or intentionally updating the globe foundation expectations so security PR validation is trustworthy.
+2. **Remaining:** Add runtime/integration tests for anonymous genetics action/operations POSTs once the route-test harness is available.
+3. **Completed:** Genetics action/operations routes now require admin API auth and strict validation before service-role use.
+4. **Completed:** Public genetics intake now returns a narrow DTO only.
+5. **Completed:** Cron, smoke, and admin-login operational gates now fail closed or throttle suspicious traffic.
 
 ## Validation status
 

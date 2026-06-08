@@ -12,6 +12,8 @@ type MarketplaceInquiryNotification = {
   created_at?: string | null;
 };
 
+const MISSING_NOTIFICATION_PROVIDER = 'MISSING_NOTIFICATION_PROVIDER';
+
 export type NotificationResult =
   | { status: 'sent'; to: string }
   | { status: 'skipped'; reason: 'missing_recipient' }
@@ -61,13 +63,13 @@ function buildEmailHtml(inquiry: MarketplaceInquiryNotification, adminLink: stri
 }
 
 export async function notifyMarketplaceInquiry(inquiry: MarketplaceInquiryNotification): Promise<NotificationResult> {
-  const recipient = process.env.HARBOURVIEW_TO_EMAIL?.trim() || 'Harbourviewcompany@gmail.com';
+  const recipient = process.env.HARBOURVIEW_MARKETPLACE_NOTIFY_EMAIL?.trim() || process.env.HARBOURVIEW_TO_EMAIL?.trim();
   if (!recipient) return { status: 'skipped', reason: 'missing_recipient' };
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   if (!resendApiKey) {
     console.info('harbourview_marketplace_notification_skipped', {
-      reason: 'missing_api_key',
+      reason: MISSING_NOTIFICATION_PROVIDER,
       to: recipient,
     });
     return { status: 'skipped', reason: 'missing_api_key' };

@@ -21,16 +21,28 @@ export async function POST(req: NextRequest) {
     const client = getServiceClient()
 
     if (client) {
-      await persistGeneticsRoutingRecord({ client, record })
-      await persistGeneticsRoutingEvent({
+      const recordResult = await persistGeneticsRoutingRecord({ client, record })
+      if (recordResult.error) {
+        return NextResponse.json({ success: false, error: 'request_persist_failed' }, { status: 500 })
+      }
+
+      const eventResult = await persistGeneticsRoutingEvent({
         client,
         routingRecordId: record.id,
         eventType: 'request_created',
         eventSummary: 'Genetics access request created and scored',
       })
+      if (eventResult.error) {
+        return NextResponse.json({ success: false, error: 'request_event_failed' }, { status: 500 })
+      }
     }
 
-    return NextResponse.json({ success: true, record })
+    return NextResponse.json({
+      success: true,
+      requestId: record.id,
+      status: record.status,
+      message: 'Genetics access request received. Harbourview will review qualification before any controlled introduction.',
+    })
   } catch {
     return NextResponse.json({ success: false, error: 'invalid_request' }, { status: 400 })
   }

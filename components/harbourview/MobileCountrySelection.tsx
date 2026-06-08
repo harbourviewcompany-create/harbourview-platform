@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { getCountryName } from '@/config/globe/country-role-profiles'
+import { resolveMarket } from '@/lib/dashboard/resolveMarket'
 import { HarbourviewWordmark } from './HarbourviewWordmark'
 import { HamburgerIcon } from './icons'
 import { CountryLabel } from './CountryLabel'
@@ -40,19 +41,24 @@ function reducer(state: State, action: Action): State {
 }
 
 interface MobileCountrySelectionProps {
+  /** Pre-selected market code from URL. No default — undefined means unselected. */
   initialCountry?: string
   onContinue?: (iso2: string | null, path: SelectedPath) => void
   enableWebGL?: boolean
 }
 
 export function MobileCountrySelection({
-  initialCountry = 'DE',
+  initialCountry,
   onContinue,
   enableWebGL = true,
 }: MobileCountrySelectionProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [state, dispatch] = useReducer(reducer, {
-    selectedCountryIso2: initialCountry,
-    labelVisible: true,
+    // No stale default — undefined means nothing pre-selected
+    selectedCountryIso2: initialCountry ?? null,
+    labelVisible: initialCountry != null,
   })
 
   const [reducedMotion, setReducedMotion] = useState(false)
@@ -74,15 +80,40 @@ export function MobileCountrySelection({
     }
   }, [state.labelVisible])
 
-  const selectedCountryName = state.selectedCountryIso2
-    ? getCountryName(state.selectedCountryIso2)
+  // Resolve label for any market code (country or subnational)
+  const resolvedMarket = state.selectedCountryIso2
+    ? resolveMarket(state.selectedCountryIso2)
     : null
+  const selectedCountryName = resolvedMarket?.label ?? null
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
+    const iso2 = state.selectedCountryIso2
+    if (!iso2) return
+
     if (onContinue) {
-      onContinue(state.selectedCountryIso2, 'country')
+      onContinue(iso2, 'country')
+      return
     }
-  }
+
+    // Default behaviour: navigate to command-centre dashboard preserving all
+    // URL context (source, mode, role, layer) and the selected market code.
+    const params = new URLSearchParams()
+    params.set('source', searchParams.get('source') ?? 'globe_router')
+    params.set('mode',   searchParams.get('mode')   ?? 'single_market')
+    params.set('country',  iso2)
+    params.set('countries', iso2)
+
+    const role  = searchParams.get('role')
+    const layer = searchParams.get('layer')
+    if (role)  params.set('role',  role)
+    if (layer) params.set('layer', layer)
+
+    router.push(`/dashboard?${params.toString()}`)
+  }, [state.selectedCountryIso2, onContinue, router, searchParams])
+
+  // Determine whether a subnational market is involved (affects sheet copy)
+  const isSubnational =
+    resolvedMarket?.type === 'state' || resolvedMarket?.type === 'province'
 
   return (
     <main
@@ -108,13 +139,7 @@ export function MobileCountrySelection({
 
       {/* Globe layer */}
       {enableWebGL && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 1,
-          }}
-        >
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
           <CandidateBGlobe
             selectedCountryIso2={state.selectedCountryIso2 ?? undefined}
             onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
@@ -147,9 +172,7 @@ export function MobileCountrySelection({
       <header
         style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
+          top: 0, left: 0, right: 0,
           zIndex: 40,
           display: 'flex',
           alignItems: 'center',
@@ -174,8 +197,7 @@ export function MobileCountrySelection({
           type="button"
           aria-label="Open navigation menu"
           style={{
-            width: 44,
-            height: 44,
+            width: 44, height: 44,
             borderRadius: '50%',
             border: '1px solid rgba(214,177,105,0.22)',
             background: 'rgba(5,10,16,0.55)',
@@ -192,7 +214,7 @@ export function MobileCountrySelection({
         </button>
       </header>
 
-      {/* Temporary country label */}
+      {/* Temporary market label */}
       {selectedCountryName && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 15, pointerEvents: 'none' }}>
           <CountryLabel
@@ -207,6 +229,7 @@ export function MobileCountrySelection({
       <CountrySelectionSheet
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryName={selectedCountryName}
+        isSubnational={isSubnational}
         onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
         onContinue={handleContinue}
       />

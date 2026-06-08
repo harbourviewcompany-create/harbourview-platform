@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { GeneticsDrop, geneticsProfiles } from '@/lib/marketplace/geneticsProfiles'
 import { canTriggerGeneticsIntroduction, scoreGeneticsAccessRequest } from './geneticsRouting'
 
@@ -70,7 +71,7 @@ export function createGeneticsRoutingRecord(input: GeneticsAccessSubmission): Ge
   const introductionReady = Boolean(drop && buyerPermissionApproved && holderPermissionApproved && canTriggerGeneticsIntroduction(score.total, drop))
 
   return {
-    id: `${input.profileSlug}-${input.dropId}-${Date.now()}`,
+    id: randomUUID(),
     profileSlug: input.profileSlug,
     dropId: input.dropId,
     requesterCompany: input.company,

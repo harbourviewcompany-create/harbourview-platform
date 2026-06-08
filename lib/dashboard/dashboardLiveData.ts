@@ -16,13 +16,13 @@ export async function getPipelineCounts(): Promise<PipelineCounts> {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('marketplace_inquiries')
-      .select('status')
+      .select('review_status')
     if (error || !data) return fallback
     return data.reduce((acc, row) => {
-      if (row.status === 'received')  acc.inquiry++
-      if (row.status === 'reviewing') acc.proof_review++
-      if (row.status === 'matched')   acc.matched++
-      if (row.status === 'closed')    acc.deal_room++
+      if (row.review_status === 'received')  acc.inquiry++
+      if (row.review_status === 'reviewing') acc.proof_review++
+      if (row.review_status === 'matched')   acc.matched++
+      if (row.review_status === 'closed')    acc.deal_room++
       return acc
     }, { ...fallback })
   } catch { return fallback }
@@ -44,8 +44,8 @@ export async function getWantedListings(): Promise<WantedListing[]> {
     const { data, error } = await supabase
       .from('listings')
       .select('id, title, summary, location_country, location_region, created_at')
-      .eq('listing_type', 'wanted')
-      .eq('status', 'published')
+      .eq('marketplace_section', 'wanted_requests')
+      .eq('status', 'approved')
       .order('created_at', { ascending: false })
       .limit(12)
     if (error || !data) return []
