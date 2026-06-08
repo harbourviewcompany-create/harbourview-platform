@@ -8,6 +8,7 @@ import { CheckCircleIcon, SearchIcon } from './icons'
 interface CountrySelectionSheetProps {
   selectedCountryIso2: string | null
   selectedCountryName: string | null
+  isSubnational?: boolean
   onSelectCountry: (iso2: string) => void
   onContinue: () => void
 }
@@ -15,6 +16,7 @@ interface CountrySelectionSheetProps {
 export function CountrySelectionSheet({
   selectedCountryIso2,
   selectedCountryName,
+  isSubnational = false,
   onSelectCountry,
   onContinue,
 }: CountrySelectionSheetProps) {
@@ -71,7 +73,7 @@ export function CountrySelectionSheet({
           marginBottom: 20,
         }}
       >
-        Select your country{' '}
+        {isSubnational ? 'Select your market' : 'Select your country'}{' '}
         <span style={{ color: 'var(--hv-champagne-400)' }}>to begin.</span>
       </h1>
 
