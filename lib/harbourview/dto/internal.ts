@@ -1,35 +1,41 @@
 /**
  * lib/harbourview/dto/internal.ts
  *
- * Full internal types for all HarbourView entities.
- * These types contain ALL fields — including private, reviewer, provenance,
- * and AI-generated fields that must NEVER appear in public DTOs.
+ * Internal (server-side only) full-field types for every HarbourView entity.
+ * These types represent the complete database row — including all private,
+ * sensitive, and operational fields.
  *
- * Public DTOs are derived from these via Pick<Internal, allowedKeys>.
- * Serializer functions in serializers.ts enforce the structural boundary.
- *
- * NEVER import this file in client components, public route handlers,
- * or any module that could be bundled for the browser.
+ * Rules:
+ * - Never serialize these directly to HTTP responses.
+ * - Never pass to client components.
+ * - Public DTOs are derived from these via Pick<> in public.ts.
+ * - Passport/licence/claim tables have NO public DTO scope yet — internal only.
  */
 
 // ---------------------------------------------------------------------------
-// Existing Supabase-backed internal types
+// Jurisdictions / Countries
 // ---------------------------------------------------------------------------
 
 export type HvJurisdictionInternal = {
   id: string;
   country_name: string;
   iso_code: string | null;
+  iso3: string | null;
   region: string | null;
+  subregion: string | null;
   cannabis_market_status: string | null;
   priority_tier: string | null;
+  internal_score: number | null;
   internal_notes: string | null;
-  reviewer_id: string | null;
-  review_status: string | null;
   sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
-  updated_at: string;
+  data_source: string | null;
   created_at: string;
+  updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Sources / Source Registry
+// ---------------------------------------------------------------------------
 
 export type HvSourceInternal = {
   id: string;
@@ -40,53 +46,74 @@ export type HvSourceInternal = {
   source_type_text: string | null;
   organization_text: string | null;
   jurisdiction_level: string | null;
-  verification_status: string;
+  verification_status: 'verified' | 'unverified' | 'pending' | 'rejected';
+  last_checked: string | null;
+  // Internal-only fields — never expose publicly
+  fetch_method: string | null;
   robots_status: string | null;
   license_status: string | null;
-  raw_source_file: string | null;
-  content_hash: string | null;
+  fetch_credentials_ref: string | null;
+  internal_quality_score: number | null;
+  internal_notes: string | null;
   sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
-  operator_comments: string | null;
-  reviewer_id: string | null;
-  review_notes_private: string | null;
-  last_checked: string | null;
-  updated_at: string;
   created_at: string;
+  updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Market Signals
+// ---------------------------------------------------------------------------
 
 export type HvMarketSignalInternal = {
   id: string;
   jurisdiction_id: string | null;
   title: string;
   summary_public: string | null;
-  summary_private: string | null;
   signal_type: string | null;
   source_id: string | null;
+  // Internal-only fields
+  summary_private: string | null;
+  raw_signal_text: string | null;
   confidence_score: number | null;
+  model_id: string | null;
+  prompt_version: string | null;
+  review_notes_private: string | null;
   reviewer_id: string | null;
-  internal_notes: string | null;
-  sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
   review_status: string | null;
-  updated_at: string;
+  sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
   created_at: string;
+  updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Marketplace Listings
+// ---------------------------------------------------------------------------
 
 export type HvMarketplaceListingInternal = {
   id: string;
   company_id: string | null;
   title: string;
   description_public: string | null;
-  description_private: string | null;
   category: string | null;
   price_public: string | null;
   country_code: string | null;
+  // Internal-only fields
+  description_private: string | null;
+  price_internal: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  contact_name: string | null;
   internal_score: number | null;
-  reviewer_id: string | null;
   review_notes_private: string | null;
+  reviewer_id: string | null;
   sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
-  updated_at: string;
   created_at: string;
+  updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Offers
+// ---------------------------------------------------------------------------
 
 export type HvOfferInternal = {
   id: string;
@@ -94,14 +121,21 @@ export type HvOfferInternal = {
   company_id: string | null;
   title: string;
   description_public: string | null;
-  description_private: string | null;
   category: string | null;
-  internal_score: number | null;
-  reviewer_id: string | null;
+  // Internal-only fields
+  description_private: string | null;
+  price_details: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  internal_notes: string | null;
   sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
-  updated_at: string;
   created_at: string;
+  updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Claim Evidence
+// ---------------------------------------------------------------------------
 
 export type HvClaimEvidenceInternal = {
   id: string;
@@ -111,158 +145,144 @@ export type HvClaimEvidenceInternal = {
   evidence_type: string | null;
   evidence_url: string | null;
   evidence_title: string | null;
-  evidence_notes_private: string | null;
   public_summary: string | null;
+  // Internal-only fields
+  evidence_notes_private: string | null;
+  raw_evidence_text: string | null;
   verification_status: string | null;
   review_status: string | null;
-  sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
   reviewer_id: string | null;
+  public_visibility: boolean;
+  sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
+  created_at: string;
   updated_at: string;
+};
+
+// ---------------------------------------------------------------------------
+// Verification Queue (internal only — no public DTO)
+// ---------------------------------------------------------------------------
+
+export type HvVerificationQueueInternal = {
+  id: string;
+  airtable_record_id: string;
+  destination_table: string;
+  destination_record_id: string | null;
+  queue_status: string;
+  review_notes_private: string | null;
+  operator_comments: string | null;
+  sensitivity: 'internal' | 'confidential' | 'restricted';
+  payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+// ---------------------------------------------------------------------------
+// Passport system (internal only — NO public DTO scope defined yet)
+// Passport tables contain: payment signals, recall flags, deal scores,
+// licence numbers, storage paths, reviewer identities.
+// None of these fields may appear in public output without explicit approval.
+// ---------------------------------------------------------------------------
+
+export type HvPassportInternal = {
+  id: string;
+  org_id: string;
+  completeness_score: number | null;
+  completeness_band: string | null;
+  verification_level: string;
+  export_readiness_score: number | null;
+  export_readiness_band: string | null;
+  import_readiness_score: number | null;
+  deal_readiness_score: number | null;          // competitive intelligence — internal only
+  payment_readiness_signals: Record<string, unknown> | null; // sensitive — internal only
+  recall_exposure_flag: boolean;                // sensitive — internal only
+  public_snapshot: Record<string, unknown> | null;
+  last_computed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HvPassportScoreInternal = {
+  id: string;
+  passport_id: string;
+  dimension: string;
+  score: number | null;
+  max_score: number;
+  confidence: string;    // model-generated — internal only
+  evidence_count: number;
+  flags: Record<string, unknown> | null;  // internal flags — never public
+  computed_at: string;
+};
+
+export type HvLicenceInternal = {
+  id: string;
+  org_id: string;
+  licence_number: string;      // sensitive — never public without explicit approval
+  issuing_authority: string;
+  jurisdiction_country: string;
+  jurisdiction_region: string | null;
+  licence_type: string;
+  permitted_activities: string[] | null;
+  issued_at: string | null;
+  expires_at: string;
+  status: string;
+  evidence_document_id: string | null;
+  verified: boolean;
+  verified_at: string | null;
+  verified_by: string | null;  // reviewer identity — never public
+  created_at: string;
+  updated_at: string;
+};
+
+export type HvEvidenceDocumentInternal = {
+  id: string;
+  org_id: string;
+  document_type: string;
+  display_name: string;
+  storage_path: string;        // file system path — never public
+  file_hash: string | null;    // internal integrity hash — never public
+  file_size_bytes: number | null;
+  mime_type: string | null;
+  uploaded_by: string;         // user identity — never public
+  verification_status: string;
+  verified_by: string | null;  // reviewer identity — never public
+  verified_at: string | null;
+  expiry_date: string | null;
+  is_public: boolean;
   created_at: string;
 };
 
-// ---------------------------------------------------------------------------
-// HF Intelligence Layer internal types
-// ---------------------------------------------------------------------------
-
-export type HvHfSourceRecordInternal = {
-  record_id: string;
-  source_id: string;
-  source_url: string;
-  source_domain: string;
-  source_type: string;
-  jurisdiction_country: string;
-  jurisdiction_region: string | null;
-  language: string;
-  captured_at: string;
-  published_at: string | null;
-  last_seen_at: string;
-  content_hash: string;
-  fetch_status: string;
-  robots_status: string;
-  license_status: string;
-  raw_text_ref: string | null;
-  clean_text: string;
-  html_ref: string | null;
-  pdf_ref: string | null;
-  screenshot_ref: string | null;
-  tables_ref: string | null;
-  extraction_status: string;
-  sensitivity: 'public_source' | 'internal' | 'confidential' | 'restricted';
-  allowed_uses: string[];
-  disallowed_uses: string[];
-  review_status: string;
-  reviewer_id: string | null;
-  evidence_notes: string | null;
-};
-
-export type HvHfEntityCandidateInternal = {
-  candidate_id: string;
-  source_record_id: string;
-  entity_type: string;
-  name: string;
-  normalized_name: string;
-  aliases: string[];
-  country: string | null;
-  region: string | null;
-  website: string | null;
-  emails: string[];
-  phones: string[];
-  addresses: string[];
-  license_numbers: string[];
-  commercial_roles: string[];
-  marketplace_categories: string[];
-  education_categories: string[];
-  regulatory_categories: string[];
-  confidence: number;
-  model_id: string;
-  prompt_version: string;
-  evidence_spans: Array<{ source_record_id: string; quote: string; start_char: number | null; end_char: number | null }>;
-  review_status: string;
-  public_release_allowed: boolean;
-  private_notes: string | null;
-};
-
-export type HvHfReviewedFactInternal = {
-  fact_id: string;
-  entity_id: string;
-  fact_type: string;
-  fact_value: string | object | unknown[];
-  source_record_ids: string[];
-  evidence_quotes: string[];
-  reviewer_id: string;
-  reviewed_at: string;
-  review_decision: 'approved' | 'rejected' | 'superseded';
-  confidence: 'low' | 'medium' | 'high';
-  freshness: 'current' | 'stale' | 'unknown';
-  public_release_class: 'public_safe' | 'internal_only' | 'private_intelligence' | 'restricted';
-  public_summary: string | null;
-  private_notes: string | null;
-  supersedes_fact_ids: string[];
-};
-
-export type HvHfSupplierInternal = {
+export type HvClaimInternal = {
   id: string;
-  display_name: string;
-  normalized_name: string;
-  aliases: string[];
-  country: string | null;
-  region: string | null;
-  website: string | null;
-  emails: string[];
-  phones: string[];
-  addresses: string[];
-  license_numbers: string[];
-  marketplace_roles: string[];
-  categories: string[];
-  public_source_urls: string[];
-  candidate_confidence: number;
-  model_id: string;
-  prompt_version: string;
-  reviewer_id: string | null;
-  private_notes: string | null;
-  source_record_ids: string[];
-  raw_evidence_quotes: string[];
-  review_status: string;
-  public_release_approved_at: string | null;
-  last_reviewed_at: string | null;
+  org_id: string;
+  claim_type: string;
+  claim_text: string;
+  evidence_document_id: string | null;
+  status: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
-export type HvHfMarketplaceEnrichmentInternal = {
-  enrichment_id: string;
-  entity_id: string;
-  listing_id: string | null;
-  enrichment_type: string;
-  candidate_value: string | object | unknown[];
-  confidence: number;
-  source_record_ids: string[];
-  model_id: string;
-  prompt_version: string;
-  review_status: string;
-  commercial_use: string;
-  public_release_allowed: boolean;
-  private_notes: string | null;
+export type HvClaimReviewInternal = {
+  id: string;
+  claim_id: string;
+  reviewed_by: string;   // reviewer identity — never public
+  verdict: string;
+  notes: string | null;  // reviewer notes — never public
+  created_at: string;
 };
 
-export type HvHfEducationInternal = {
-  education_record_id: string;
-  source_record_id: string;
-  topic: string;
-  audience: string[];
-  jurisdictions: string[];
-  summary_candidate: string;
-  claims: Array<{
-    claim_text: string;
-    evidence_quote: string;
-    claim_type: string;
-    risk_class: 'low' | 'medium' | 'high';
-    requires_expert_review: boolean;
-  }>;
-  reviewer_id: string | null;
-  private_notes: string | null;
-  review_status: string;
-  public_release_allowed: boolean;
-  public_summary: string | null;
-  reviewed_at: string | null;
-  source_urls: string[];
+export type HvAdminReviewQueueInternal = {
+  id: string;
+  queue_type: string;
+  target_entity_type: string;
+  target_entity_id: string;
+  org_id: string;
+  assigned_to: string | null;  // reviewer assignment — never public
+  priority: string;
+  status: string;
+  notes: string | null;        // admin notes — never public
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
 };
