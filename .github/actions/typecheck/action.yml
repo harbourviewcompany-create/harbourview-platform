@@ -1,0 +1,8 @@
+name: 'Type Check'
+description: 'Run TypeScript type checking'
+runs:
+  using: 'composite'
+  steps:
+    - name: Type check
+      shell: bash
+      run: npm run typecheck
