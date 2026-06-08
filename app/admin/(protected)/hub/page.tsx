@@ -1064,7 +1064,7 @@ function Actions({ api, toast }) {
   const [running, setRunning] = useState({});
   const run = async (key, fn) => {
     setRunning(r=>({...r,[key]:true}));setResults(r=>({...r,[key]:null}));
-    try{setResults(r=>({...r,[key]:{ok:true,txt:JSON.stringify(await fn(),null,2)}}));}
+    const txt = JSON.stringify(await fn(), null, 2); setResults(r=>({...r,[key]:{ok:true,txt}}));
     catch(e){setResults(r=>({...r,[key]:{ok:false,txt:e.message}}));}
     setRunning(r=>({...r,[key]:false}));
   };
