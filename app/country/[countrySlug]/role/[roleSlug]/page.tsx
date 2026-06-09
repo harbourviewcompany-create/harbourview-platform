@@ -4,6 +4,8 @@ import CommandCentre from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
+import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
+import { getPipelineCounts, getWantedListings, getMarketplaceRows } from '@/lib/dashboard/dashboardLiveData'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,36 +59,36 @@ const COUNTRY_ROLE_TO_DASHBOARD_ROLE: Partial<Record<string, RoleId>> = {
 
 const ROLE_EDU: Partial<Record<RoleId, { icon: string; title: string; desc: string }[]>> = {
   exporter: [
-    { icon: '✈️', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
-    { icon: '📜', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
-    { icon: '🗺️', title: 'Market Access', desc: 'Target-market framework review' },
-    { icon: '📦', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
+    { icon: '\u2708\ufe0f', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
+    { icon: '\ud83d\udcdc', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
+    { icon: '\ud83d\uddfa\ufe0f', title: 'Market Access', desc: 'Target-market framework review' },
+    { icon: '\ud83d\udce6', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
   ],
   importer: [
-    { icon: '📦', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
-    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
-    { icon: '🗺️', title: 'Country Rules', desc: 'Market access by jurisdiction' },
-    { icon: '🤝', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
+    { icon: '\ud83d\udce6', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
+    { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
+    { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Market access by jurisdiction' },
+    { icon: '\ud83e\udd1d', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
   ],
   doctor_prescriber: [
-    { icon: '🩺', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
-    { icon: '⚖️', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
-    { icon: '📖', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
-    { icon: '🔬', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
+    { icon: '\ud83e\ude7a', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
+    { icon: '\u2696\ufe0f', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
+    { icon: '\ud83d\udcd6', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
+    { icon: '\ud83d\udd2c', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
   ],
   pharmacist: [
-    { icon: '💊', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
-    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
-    { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal requirements' },
-    { icon: '📜', title: 'Documentation', desc: 'Supplier packet and COA review' },
+    { icon: '\ud83d\udc8a', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
+    { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
+    { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Regional legal requirements' },
+    { icon: '\ud83d\udcdc', title: 'Documentation', desc: 'Supplier packet and COA review' },
   ],
 }
 
 const DEFAULT_EDU = [
-  { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
-  { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal framework' },
-  { icon: '🏛️', title: 'GMP Standards', desc: 'Manufacturing compliance' },
-  { icon: '📦', title: 'Trade & Access', desc: 'Import/export frameworks' },
+  { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
+  { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Regional legal framework' },
+  { icon: '\ud83c\udfdb\ufe0f', title: 'GMP Standards', desc: 'Manufacturing compliance' },
+  { icon: '\ud83d\udce6', title: 'Trade & Access', desc: 'Import/export frameworks' },
 ]
 
 export async function generateMetadata({ params }: { params: Promise<{ countrySlug: string; roleSlug: string }> }): Promise<Metadata> {
@@ -104,7 +106,7 @@ function resolveDashboardRoleId(roleSlug: string): RoleId | null {
 
 function buildEvidenceGapModule(message?: string) {
   return {
-    icon: '⚠️',
+    icon: '\u26a0\ufe0f',
     title: 'Evidence gap review',
     desc: message ?? 'Harbourview has not fully verified this country-role pathway yet. Use review-gated workflows before treating this market-role path as verified.',
   }
@@ -126,17 +128,26 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
     ? [buildEvidenceGapModule(dashboard.evidence.message), ...baseEduCategories]
     : baseEduCategories
 
+  // Fetch all live data in parallel — failures are handled gracefully inside each helper
+  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows] = await Promise.all([
+    fetchDashboardSignals(8),
+    getPipelineCounts(),
+    getWantedListings(),
+    getWantedRequestsCount(),
+    getMarketplaceRows(countryIso2, 60),
+  ])
+
   return (
     <CommandCentre
       key={`${countryIso2}-${roleId ?? dashboard.role.slug}`}
-      signals={[]}
+      signals={signals}
       eduCategories={eduCategories}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
-      wantedCount={0}
-      marketplaceRows={{}}
-      pipeline={{ wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 }}
-      wantedListings={[]}
+      wantedCount={wantedCount}
+      marketplaceRows={marketplaceRows}
+      pipeline={pipeline}
+      wantedListings={wantedListings}
       countryIntel={{
         country_code: countryIso2,
         country_name: dashboard.country.countryName,
