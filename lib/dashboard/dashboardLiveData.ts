@@ -120,6 +120,18 @@ export type CountryIntelProfile = {
   public_summary: string | null
   commercial_pathway_summary: string | null
   review_status: string
+  // Extended fields from CountryStatus (public.countries table)
+  region: string | null
+  market_access_status: string | null
+  medical_status: string | null
+  adult_use_status: string | null
+  import_status: string | null
+  export_status: string | null
+  opportunity_score: number | null
+  trade_roles: string[] | null
+  opportunity_categories: string[] | null
+  regulator_label: string | null
+  data_completeness: string | null
 }
 
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
@@ -343,3 +355,4 @@ export async function getCountryStatusFromDB(
     return null
   }
 }
+
