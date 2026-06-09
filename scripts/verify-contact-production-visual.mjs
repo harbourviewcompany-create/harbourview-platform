@@ -132,7 +132,7 @@ try {
       { headerBox },
     );
 
-    const hero = page.getByRole('heading', { name: /start a confidential harbourview conversation/i });
+    const hero = page.getByRole('heading', { name: /send harbourview a message/i });
     const heroVisible = await hero.isVisible().catch(() => false);
     const heroBox = heroVisible ? await boundingBox(hero) : null;
     assertCondition(
