@@ -289,3 +289,33 @@ Status date: 2026-06-07
 **Pattern:** `toHvXxxPublicDto(internal)` → `assertAuditPass(dto)` → serve.
 
 Ticket 5 HOLD for: route wiring, production DB writes, HF endpoint calls.
+
+---
+
+## Ticket 6 Authority Patch
+
+Status date: 2026-06-07
+
+### BLOCKER-2 — RESOLVED
+
+Migration `20260607230000_hv_bge_m3_1024_dim_embedding_column_and_search` applied
+to production via Supabase MCP and committed to repo.
+
+Changes applied:
+- `hv_embeddings.embedding_1024 vector(1024)` column added
+- `idx_hv_embeddings_hnsw_1024` HNSW index (m=16, ef_construction=64)
+- `hv_search_artifacts()` updated: new `p_query_embedding_1024` param, 1024-dim branch at priority 2
+- `SET search_path = public, pg_catalog` added to function
+- anon EXECUTE revoked; authenticated + service_role retained
+
+Verified: col_exists=1, index_exists=1, fn_has_1024_param=1, anon_blocked=false, auth_allowed=true.
+
+BLOCKER-2 status: **RESOLVED**.
+D2 (vector store) status: **FULLY RESOLVED** — all three embedding dimensions wired.
+
+### Ticket 7 gate
+
+Ticket 7 (embedding pipeline) requires:
+- [ ] `hv-embed-bge-m3` Inference Endpoint provisioned under Harbourview HF org
+- [ ] `HF_ENDPOINT_EMBED_BGE_M3=<url>` set in Vercel project env
+- [ ] `HF_TOKEN_SERVER=<token>` set in Vercel project env
