@@ -49,3 +49,7 @@ export const HV_PASSPORT_TABLES_NO_PUBLIC_DTO = [
   'hv_claim_reviews',
   'hv_admin_review_queue',
 ] as const
+
+// Aliases for backward compatibility with leakageAudit and other consumers
+export const HV_FORBIDDEN_PUBLIC_KEYS = HV_FORBIDDEN_PUBLIC_DTO_FIELDS
+export type HvForbiddenPublicKey = typeof HV_FORBIDDEN_PUBLIC_DTO_FIELDS[number]
