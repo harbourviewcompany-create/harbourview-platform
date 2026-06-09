@@ -13,7 +13,7 @@ import { HfError } from '../errors';
 
 describe('parseHfEnv', () => {
   it('succeeds with valid token', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: 'hf_test_token_abc' } as unknown as NodeJS.ProcessEnv);
+    const result = parseHfEnv({ HF_TOKEN_SERVER:  'hf_test_token_abc' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.HF_ORG).toBe('Harbourview');
@@ -27,17 +27,17 @@ describe('parseHfEnv', () => {
   });
 
   it('fails when HF_TOKEN_SERVER is empty string', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: '' } as unknown as NodeJS.ProcessEnv);
+    const result = parseHfEnv({ HF_TOKEN_SERVER:  '' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(false);
   });
 
   it('fails when HF_TOKEN_SERVER is whitespace only', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: '   ' } as unknown as NodeJS.ProcessEnv);
+    const result = parseHfEnv({ HF_TOKEN_SERVER:  '   ' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(false);
   });
 
   it('defaults HF_ORG to Harbourview', () => {
-    const result = parseHfEnv({ HF_TOKEN_SERVER: 'hf_x' } as unknown as NodeJS.ProcessEnv);
+    const result = parseHfEnv({ HF_TOKEN_SERVER:  'hf_x' } as unknown as NodeJS.ProcessEnv);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.HF_ORG).toBe('Harbourview');
   });

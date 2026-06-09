@@ -64,7 +64,7 @@ The Supabase Edge Function lives at `supabase/functions/airtable-sync/index.ts` 
 - `dry_run` — default; fetch, map, validate, summarize, and return a log-shaped response with no Supabase mutation and no Airtable writeback.
 - `staging` — mutation-capable for local/non-production Supabase only.
 - `private_sync` — mutation-capable for private review tables only when configured.
-- `public_approved_only` — mutation-capable only for approved public-safe records when configured.
+- `public_approved_only` — mutation-capable only for verified, approved, public-visibility, public-sensitivity records when configured; offers must also be `ready_to_sell=YES`.
 - `writeback_test` — writeback planning mode only; Airtable writeback remains disabled unless explicitly enabled and scoped.
 
 Default request:

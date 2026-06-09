@@ -5,8 +5,8 @@
  * 1. Each serializer returns only the Pick<> fields (structural enforcement test)
  * 2. No internal/private fields appear in serializer output
  * 3. Forbidden field list covers all required sensitive keys
- * 4. assertNoForbiddenFields throws on forbidden input
- * 5. enforcePublicDtoAllowlist throws on disallowed fields
+ * 4. assertPublicDtoAllowlist throws on forbidden input
+ * 5. assertPublicDtoAllowlist throws on disallowed fields
  * 6. Passport tables are absent from all public DTO exports
  */
 
@@ -23,11 +23,10 @@ import {
 
 import {
   HV_PUBLIC_DTO_ALLOWLISTS,
-  HV_FORBIDDEN_PUBLIC_KEYS,
+  HV_FORBIDDEN_PUBLIC_DTO_FIELDS as HV_FORBIDDEN_PUBLIC_KEYS,
   HV_PASSPORT_TABLES_NO_PUBLIC_DTO,
-  assertNoForbiddenFields,
-  enforcePublicDtoAllowlist,
   assertPublicDtoAllowlist,
+  assertNoForbiddenFields,
 } from '../allowlists';
 
 import type {
@@ -269,10 +268,10 @@ describe('toHvClaimEvidencePublicDto', () => {
 });
 
 // ---------------------------------------------------------------------------
-// assertNoForbiddenFields runtime guard
+// assertPublicDtoAllowlist runtime guard
 // ---------------------------------------------------------------------------
 
-describe('assertNoForbiddenFields', () => {
+describe('assertPublicDtoAllowlist', () => {
   it('does not throw on a clean public payload', () => {
     expect(() =>
       assertNoForbiddenFields({ id: '1', title: 'test', updated_at: '2026-01-01' }),
@@ -317,23 +316,23 @@ describe('assertNoForbiddenFields', () => {
 });
 
 // ---------------------------------------------------------------------------
-// enforcePublicDtoAllowlist
+// assertPublicDtoAllowlist
 // ---------------------------------------------------------------------------
 
-describe('enforcePublicDtoAllowlist', () => {
+describe('assertPublicDtoAllowlist', () => {
   it('does not throw on valid jurisdiction payload', () => {
     const payload = toHvJurisdictionPublicDto(jurisdiction) as Record<string, unknown>;
-    expect(() => enforcePublicDtoAllowlist('jurisdictions_public', payload)).not.toThrow();
+    expect(() => assertPublicDtoAllowlist('jurisdictions_public', Object.keys(payload))).not.toThrow();
   });
 
   it('throws when a field outside the allowlist is present', () => {
     const payload = { ...toHvJurisdictionPublicDto(jurisdiction), extra_field: 'sneaky' } as Record<string, unknown>;
-    expect(() => enforcePublicDtoAllowlist('jurisdictions_public', payload)).toThrow(/extra_field/);
+    expect(() => assertPublicDtoAllowlist('jurisdictions_public', Object.keys(payload))).toThrow(/extra_field/);
   });
 
   it('throws when a forbidden field is present even if somehow in payload', () => {
     const payload = { ...toHvJurisdictionPublicDto(jurisdiction), reviewer_id: 'x' } as Record<string, unknown>;
-    expect(() => enforcePublicDtoAllowlist('jurisdictions_public', payload)).toThrow(/reviewer_id/);
+    expect(() => assertPublicDtoAllowlist('jurisdictions_public', Object.keys(payload))).toThrow(/reviewer_id/);
   });
 });
 

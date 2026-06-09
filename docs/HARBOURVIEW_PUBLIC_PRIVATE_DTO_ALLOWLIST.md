@@ -12,6 +12,7 @@ Public DTOs are explicit allowlists. They are not passthroughs of Airtable rows 
 - `hv_public.marketplace_listings_public`
 - `hv_public.offers_public`
 - `hv_public.claim_evidence_public`
+- `hv_public.education_resources_public`
 
 ## Forbidden Public DTO Fields
 
@@ -60,7 +61,7 @@ Public offer DTO rows require:
 
 ### Education / Claims Evidence
 
-Public claim evidence requires:
+Public claim evidence and education-resource DTO rows require:
 
 - verified evidence
 - approved claim review
