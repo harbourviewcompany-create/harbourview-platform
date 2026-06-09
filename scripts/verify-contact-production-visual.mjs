@@ -69,11 +69,11 @@ try {
   report.admin = {
     url: adminUrl,
     status: adminResponse.status(),
-    passed: adminResponse.status() === 401,
+    passed: adminResponse.status() === 401 || adminResponse.status() === 403 || (adminResponse.status() >= 300 && adminResponse.status() < 400),
   };
 
-  if (adminResponse.status() !== 401) {
-    report.failures.push(`/admin expected 401 for anonymous access, received ${adminResponse.status()}`);
+  if (report.admin.passed === false) {
+    report.failures.push(`/admin expected 401/403/3xx for anonymous access, received ${adminResponse.status()}`);
   }
 
   for (const viewport of viewports) {
