@@ -48,10 +48,13 @@ const report = {
 
 await fs.mkdir(screenshotDir, { recursive: true });
 
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
+
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
   ignoreHTTPSErrors: false,
   locale: 'en-US',
+  ...(BYPASS_TOKEN ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': BYPASS_TOKEN } } : {}),
 });
 
 try {
