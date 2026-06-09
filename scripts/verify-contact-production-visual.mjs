@@ -60,7 +60,10 @@ const context = await browser.newContext({
 try {
   const adminResponse = await context.request.get(adminUrl, {
     maxRedirects: 0,
-    headers: cacheBypassHeaders(),
+    headers: {
+      ...cacheBypassHeaders(),
+      ...(BYPASS_TOKEN ? { 'x-vercel-protection-bypass': BYPASS_TOKEN } : {}),
+    },
   });
 
   report.admin = {
@@ -233,7 +236,7 @@ try {
       if (menuButtonVisible) {
         await menuButton.click();
         const expanded = await menuButton.getAttribute('aria-expanded');
-        const requiredLinks = ['Network', 'Intelligence', 'Signals', 'Clinical Education', 'About', 'Contact'];
+        const requiredLinks = ['Marketplace', 'Dashboard', 'Intelligence', 'Education', 'About', 'Contact'];
         const visibleLinks = [];
         for (const link of requiredLinks) {
           const visible = await page.getByRole('link', { name: link }).last().isVisible().catch(() => false);
