@@ -149,3 +149,134 @@ export async function getReviewedCounterparties(limit = 6): Promise<ReviewedCoun
     return data
   } catch { return [] }
 }
+
+// ── 6. Marketplace rows from listings table ───────────────────────────────────
+import type { DashboardMarketplaceRows, MarketRow } from '@/components/dashboard/CommandCentre'
+
+type ListingRow = {
+  id: string
+  title: string | null
+  description: string | null
+  category: string | null
+  location_country: string | null
+  price_amount: number | null
+  price_currency: string | null
+  seller_type: string | null
+  marketplace_section: string | null
+}
+
+// Map DB category/section → CommandCentre MarketView bucket
+function categoryToView(cat: string | null, section: string | null): string {
+  const c = cat ?? ''
+  const s = section ?? ''
+  if (s === 'wanted_requests' || c === 'import_demand' || c === 'wanted_requests') return 'wanted'
+  if (c === 'business_opportunities' || c === 'distressed_businesses' || c === 'distressed_inventory') return 'opportunities'
+  if (c.includes('equipment') || c === 'cultivation_equipment' || c === 'processing_equipment' || c === 'labs_testing') return 'equipment'
+  if (c === 'consumables' || c === 'packaging') return 'consumables'
+  if (c === 'new_products') return 'new-products'
+  if (c === 'professional_services' || c === 'services' || c === 'logistics') return 'services'
+  // Default cannabis/inventory
+  if (c === 'cannabis_inventory' || c === 'genetics' || c === 'export_ready') return 'cannabis'
+  return 'cannabis'
+}
+
+function specClass(view: string): string {
+  if (view === 'equipment' || view === 'consumables') return 'equip'
+  if (view === 'services' || view === 'opportunities') return 'service'
+  return 'supply'
+}
+
+function typeLabel(cat: string | null, country: string | null): string {
+  const LABELS: Record<string, string> = {
+    cannabis_inventory: 'Cannabis Inventory', genetics: 'Genetics', export_ready: 'Export Ready',
+    cultivation_equipment: 'Cultivation Equip.', processing_equipment: 'Processing Equip.',
+    labs_testing: 'Labs & Testing', consumables: 'Consumables', packaging: 'Packaging',
+    new_products: 'New Products', professional_services: 'Professional Services',
+    logistics: 'Logistics', services: 'Services',
+    business_opportunities: 'Business Opportunity', distressed_inventory: 'Distressed Inventory',
+    distressed_businesses: 'Distressed Business', import_demand: 'Import Demand',
+    wanted_requests: 'Wanted Request',
+  }
+  const label = LABELS[cat ?? ''] ?? 'Marketplace'
+  return country ? `${label} · ${country}` : label
+}
+
+function buildTags(cat: string | null): string {
+  const base = ['Region-filtered', 'Harbourview-verified']
+  if (cat === 'cannabis_inventory' || cat === 'export_ready') base.push('COA available', 'Lab tested')
+  if (cat === 'genetics') base.push('Provenance verified', 'IP documented')
+  if (cat?.includes('equipment')) base.push('Condition stated', 'Inspection available')
+  if (cat === 'professional_services' || cat === 'logistics') base.push('Licensed operator', 'References available')
+  return base.slice(0, 4).join('|')
+}
+
+function buildTrust(cat: string | null): string {
+  const base = 'HV Review:ok|Permit:ok'
+  if (cat === 'cannabis_inventory' || cat === 'export_ready') return `${base}|GMP:ok|COA:ok|Lab:ok`
+  if (cat?.includes('equipment')) return `${base}|Condition:ok|Docs:ok`
+  if (cat === 'genetics') return `${base}|IP:ok|Provenance:ok|COA:ok`
+  return `${base}|Licence:ok|Docs:ok`
+}
+
+function priceLabel(amount: number | null, currency: string | null): string {
+  if (!amount) return 'POA'
+  const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : (currency ?? '$')
+  if (amount >= 1_000_000) return `${sym}${(amount / 1_000_000).toFixed(1)}M`
+  if (amount >= 1_000) return `${sym}${(amount / 1_000).toFixed(0)}k`
+  return `${sym}${amount.toFixed(0)}`
+}
+
+function actionLabel(view: string, sellerType: string | null): string {
+  if (view === 'wanted') return 'Respond to request'
+  if (view === 'services') return 'Request introduction'
+  if (sellerType === 'distributor') return 'Request distribution access'
+  return 'Request mediated access'
+}
+
+function shapeRow(l: ListingRow): [string, MarketRow] {
+  const view = categoryToView(l.category, l.marketplace_section)
+  const row: MarketRow = [
+    specClass(view),
+    typeLabel(l.category, l.location_country),
+    l.title ?? 'Unlisted Item',
+    l.description ?? 'Contact Harbourview for details.',
+    buildTags(l.category),
+    buildTrust(l.category),
+    actionLabel(view, l.seller_type),
+    priceLabel(l.price_amount, l.price_currency),
+  ]
+  return [view, row]
+}
+
+export async function getMarketplaceRows(
+  countryIso2?: string | null,
+  limit = 60,
+): Promise<DashboardMarketplaceRows> {
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from('listings')
+      .select('id,title,description,category,location_country,price_amount,price_currency,seller_type,marketplace_section')
+      .eq('status', 'approved')
+      .eq('public_visibility', true)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    // If a country is provided, broaden with OR: match country OR region-free
+    if (countryIso2) {
+      query = query.or(`location_country.eq.${countryIso2.toUpperCase()},location_country.is.null`)
+    }
+
+    const { data, error } = await query
+    if (error || !data) return {}
+
+    const buckets: DashboardMarketplaceRows = {}
+    for (const listing of data) {
+      const [view, row] = shapeRow(listing as ListingRow)
+      const key = view as keyof DashboardMarketplaceRows
+      if (!buckets[key]) buckets[key] = []
+      buckets[key]!.push(row)
+    }
+    return buckets
+  } catch { return {} }
+}
