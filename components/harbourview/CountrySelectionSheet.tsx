@@ -33,7 +33,7 @@ export function CountrySelectionSheet({
 
   return (
     <section
-      aria-label="Select your country to begin"
+      aria-label="Select your market to begin"
       style={{
         position: 'fixed',
         left: 16,
