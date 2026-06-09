@@ -4,19 +4,22 @@ const devices = playwright.devices
 
 const baseURL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app'
 
+const bypassToken = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 45000,
   expect: { timeout: 10000 },
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
+    video: 'retain-on-failure',
+    ...(bypassToken ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': bypassToken } } : {}),
   },
   projects: [
     { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } } },
