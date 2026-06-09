@@ -54,8 +54,11 @@ function normalizeCountryParam(raw: string | null): string | null {
   if (!raw) return null
   const first = raw.split(',')[0]?.trim().toUpperCase()
   if (!first) return null
-  const iso2 = first.match(/^[A-Z]{2}/)?.[0] ?? null
-  return iso2 && iso2.length === 2 ? iso2 : null
+  // Subnational: US-GA → US, CA-ON → CA
+  const subMatch = first.match(/^([A-Z]{2})-[A-Z0-9]{2,3}$/)
+  if (subMatch) return subMatch[1]
+  // Standard ISO2
+  return first.match(/^[A-Z]{2}$/)?.[0] ?? null
 }
 
 function normalizeRoleParam(raw: string | null): string | null {
