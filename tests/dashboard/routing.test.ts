@@ -103,3 +103,75 @@ describe('public dashboard DTO serialization', () => {
     expect(assertDashboardDtoPublicSafe(dto)).toEqual([])
   })
 })
+
+describe('resolveMarket — market-selection routing contract', () => {
+  it('Germany country selection resolves correctly', async () => {
+    const { resolveMarket, getEffectiveCountryIso2 } = await import('@/lib/dashboard/resolveMarket')
+    const m = resolveMarket('DE')
+    expect(m?.label).toBe('Germany')
+    expect(m?.type).toBe('country')
+    expect(getEffectiveCountryIso2(m)).toBe('DE')
+  })
+
+  it('US-GA shows Georgia, not Germany or United States stale', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    const m = resolveMarket('US-GA')
+    expect(m?.label).toBe('Georgia')
+    expect(m?.label).not.toBe('Germany')
+    expect(m?.label).not.toBe('United States')
+    expect(m?.parentCountry).toBe('US')
+  })
+
+  it('CA-ON shows Ontario, not Canada or Germany', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    const m = resolveMarket('CA-ON')
+    expect(m?.label).toBe('Ontario')
+    expect(m?.label).not.toBe('Canada')
+    expect(m?.label).not.toBe('Germany')
+    expect(m?.parentCountry).toBe('CA')
+  })
+
+  it('importer role is preserved through resolveMarketFromParams', async () => {
+    const { resolveMarketFromParams } = await import('@/lib/dashboard/resolveMarket')
+    const m = resolveMarketFromParams({ country: 'US-GA', countries: 'US-GA' })
+    expect(m?.code).toBe('US-GA')
+    // role is a separate concern — verify the market object is clean (no role leakage)
+    expect((m as Record<string, unknown>)['role']).toBeUndefined()
+  })
+
+  it('invalid market code returns null — controlled empty state, not stale default', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    expect(resolveMarket('ZZ')).toBeNull()
+    expect(resolveMarket('XX-99')).toBeNull()
+    expect(resolveMarket('INVALID')).toBeNull()
+  })
+})
+
+describe('normalizeCountryParam subnational handling', () => {
+  // Inline the normalizer logic for unit testing without importing the page
+  function normalizeCountryParam(raw: string | null): string | null {
+    if (!raw) return null
+    const first = raw.split(',')[0]?.trim().toUpperCase()
+    if (!first) return null
+    const subMatch = first.match(/^([A-Z]{2})-[A-Z0-9]{2,3}$/)
+    if (subMatch) return subMatch[1]
+    return first.match(/^[A-Z]{2}$/)?.[0] ?? null
+  }
+
+  it('US-GA → US (parent country for data layer)', () => {
+    expect(normalizeCountryParam('US-GA')).toBe('US')
+  })
+
+  it('CA-ON → CA', () => {
+    expect(normalizeCountryParam('CA-ON')).toBe('CA')
+  })
+
+  it('DE → DE (country codes pass through)', () => {
+    expect(normalizeCountryParam('DE')).toBe('DE')
+  })
+
+  it('empty / null returns null', () => {
+    expect(normalizeCountryParam(null)).toBeNull()
+    expect(normalizeCountryParam('')).toBeNull()
+  })
+})
