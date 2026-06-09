@@ -784,13 +784,27 @@ export default function CommandCentre({
     if (q) openPanel('search', q)
   }
 
-  const queueRequest = (kind: 'proof' | 'coa', item: string) => {
+  const queueRequest = useCallback((kind: 'proof' | 'coa', item: string) => {
     setSelectedItem(item)
     const unavailable = country.iso2 === 'AF' && kind === 'coa'
     if (kind === 'coa')   setCoaState(unavailable ? 'unavailable' : 'queued')
     if (kind === 'proof') setProofState('queued')
     openPanel(kind, item)
-  }
+
+    // Fire and forget — create a marketplace_inquiries record
+    if (!unavailable) {
+      fetch('/api/marketplace/proof-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_title: item,
+          request_type:  kind,
+          country_iso2:  country.iso2,
+          role_id:       role || undefined,
+        }),
+      }).catch(() => { /* non-blocking — UI state already set */ })
+    }
+  }, [country, role, openPanel])
 
   const toggleWatch = (item: string) => {
     setWatching(prev => {
