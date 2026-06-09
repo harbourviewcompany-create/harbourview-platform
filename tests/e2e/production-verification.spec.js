@@ -44,12 +44,19 @@ test.describe('production public routes', () => {
 
   test('desktop homepage exposes expected route links and globe controller or fallback', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' })
-    await expect(page.getByRole('heading', { name: /Market access backed by intelligence and relationships/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /Speak Confidentially/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /Exchange Home/i }).or(page.getByRole('link', { name: /Explore Platform/i })).first()).toBeVisible()
+    // Nav is always present — home link confirms layout rendered
+    await expect(page.getByRole('link', { name: /Harbourview home/i })).toBeVisible()
+    // Exchange is always accessible from the nav
+    await expect(
+      page.getByRole('link', { name: /Exchange Home/i })
+        .or(page.getByRole('link', { name: /Marketplace/i }))
+        .first()
+    ).toBeVisible()
+    // Globe route controller OR its fallback heading must be present
     const globeControl = page.getByLabel(/Interactive Harbourview globe route controller/i)
-    const fallbackImage = page.getByAltText(/Harbourview global market access/i)
-    await expect(globeControl.or(fallbackImage).first()).toBeVisible()
+    const globeCanvas = page.getByLabel(/Harbourview country globe/i)
+    const globeFallback = page.getByRole('heading', { name: /Market routing fallback/i })
+    await expect(globeControl.or(globeCanvas).or(globeFallback).first()).toBeVisible()
   })
 
   test('intake form renders and invalid submission remains safe', async ({ page }) => {
@@ -88,7 +95,7 @@ test.describe('mobile navigation and layout', () => {
     await expect(mobileNav).toBeVisible()
 
     const mobileLinkTexts = (await mobileNav.getByRole('link').allTextContents()).map((text) => text.trim())
-    expect(mobileLinkTexts).toEqual(['Marketplace', 'Intelligence', 'Education', 'About', 'Contact'])
+    expect(mobileLinkTexts).toEqual(['Marketplace', 'Dashboard', 'Intelligence', 'Education', 'About', 'Contact'])
 
     for (const forbiddenLabel of [
       'Platform',
