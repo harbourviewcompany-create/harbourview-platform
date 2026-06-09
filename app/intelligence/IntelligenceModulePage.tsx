@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { PUBLIC_PRIVATE_BOUNDARY } from '@/lib/institutional/content'
 
@@ -17,6 +18,17 @@ export default function IntelligenceModulePage({
 }) {
   return (
     <>
+      <div className="bg-[#020814] px-4 pt-6 md:px-8">
+        <div className="mx-auto max-w-7xl">
+          <Link
+            href="/intelligence"
+            className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#c6a55a]/70 hover:text-[#c6a55a]"
+          >
+            ← Intelligence
+          </Link>
+        </div>
+      </div>
+
       <PublicHero
         eyebrow={content.eyebrow}
         title={content.title}

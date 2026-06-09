@@ -1,31 +1,179 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { dashboardSections, resolveCountryRouteParam } from '@/lib/dashboard/countries'
+import { getPublicCountryBySlug } from '@/lib/server/countriesQuery'
+import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
+import { dashboardSections } from '@/lib/dashboard/countries'
 
-export default async function CountryIntelligenceDrilldownPage({ params }: { params: Promise<{ country: string }> }) {
+const STATUS_COLORS: Record<string, string> = {
+  open: 'text-emerald-300',
+  active: 'text-emerald-400',
+  regulated: 'text-sky-400',
+  emerging: 'text-amber-400',
+  limited: 'text-orange-400',
+  restricted: 'text-red-400',
+  unknown: 'text-white/30',
+}
+
+const STATUS_DOT: Record<string, string> = {
+  open: 'bg-emerald-300',
+  active: 'bg-emerald-400',
+  regulated: 'bg-sky-400',
+  emerging: 'bg-amber-400',
+  limited: 'bg-orange-400',
+  restricted: 'bg-red-400',
+  unknown: 'bg-white/10',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  open: 'Open — legal adult-use and medical',
+  active: 'Active regulated market',
+  regulated: 'Regulated access framework',
+  emerging: 'Emerging — reform underway',
+  limited: 'Limited medical access',
+  restricted: 'Restricted / prohibited',
+  unknown: 'Status unverified',
+}
+
+export default async function CountryIntelligenceDrilldownPage({
+  params,
+}: {
+  params: Promise<{ country: string }>
+}) {
   const { country: countryParam } = await params
-  const country = resolveCountryRouteParam(countryParam)
-  if (!country) notFound()
-  const badge = getDashboardStatusBadge(country.dashboardStatus)
+
+  // Try live Supabase data first
+  const liveCountry = await getPublicCountryBySlug(countryParam)
+
+  if (liveCountry) {
+    const statusColor = STATUS_COLORS[liveCountry.market_access_status] ?? STATUS_COLORS.unknown
+    const statusDot = STATUS_DOT[liveCountry.market_access_status] ?? STATUS_DOT.unknown
+
+    return (
+      <main className="min-h-screen bg-[#020814] px-4 py-10 text-white md:px-8">
+        <div className="mx-auto max-w-5xl">
+          <Link
+            href="/intelligence/country-briefs"
+            className="text-xs uppercase tracking-[0.2em] text-[#c6a55a] hover:underline"
+          >
+            ← Country Briefs
+          </Link>
+
+          <section className="mt-6 rounded-2xl border border-[#c6a55a]/20 bg-[#07101f] p-6 md:p-8">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#c6a55a]/70">
+              Country Intelligence Brief
+            </p>
+            <div className="mt-3 flex items-start gap-3">
+              <div className={`mt-2 h-2.5 w-2.5 flex-shrink-0 rounded-full ${statusDot}`} />
+              <h1 className="text-3xl font-semibold md:text-5xl">{liveCountry.country_name}</h1>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                {liveCountry.iso_alpha2} · {liveCountry.region}
+                {liveCountry.subregion ? ` · ${liveCountry.subregion}` : ''}
+              </span>
+              <span className={`rounded-full border border-white/10 bg-white/5 px-3 py-1 ${statusColor}`}>
+                {STATUS_LABEL[liveCountry.market_access_status] ?? liveCountry.market_access_status}
+              </span>
+              {liveCountry.regulator_label && (
+                <span className="rounded-full border border-[#c6a55a]/20 bg-[#c6a55a]/10 px-3 py-1 text-[#f0d39a]">
+                  {liveCountry.regulator_label}
+                </span>
+              )}
+            </div>
+
+            {liveCountry.public_summary && (
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-white/55">
+                {liveCountry.public_summary}
+              </p>
+            )}
+          </section>
+
+          <section className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+            {[
+              ['Medical', liveCountry.medical_status],
+              ['Adult use', liveCountry.adult_use_status],
+              ['Import', liveCountry.import_status],
+              ['Export', liveCountry.export_status],
+              ['Signals', liveCountry.signals_status],
+            ].map(([label, value]) => (
+              <article
+                key={label}
+                className="rounded-xl border border-white/10 bg-[#07101f] p-4"
+              >
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#c6a55a]/60">{label}</p>
+                <p className={`mt-2 text-sm font-semibold capitalize ${STATUS_COLORS[value ?? 'unknown'] ?? STATUS_COLORS.unknown}`}>
+                  {value ?? 'unknown'}
+                </p>
+              </article>
+            ))}
+          </section>
+
+          <section className="mt-6 rounded-2xl border border-white/10 bg-[#07101f] p-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/66">
+              Intelligence boundary
+            </p>
+            <p className="mt-3 text-sm leading-7 text-white/50">
+              Detailed route intelligence, counterparty review, licensing pathway context and
+              commercial timing analysis are available through reviewed private workflows.
+              This brief is orientation-level only.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href="/contact"
+                className="inline-flex items-center rounded-sm border border-[#c6a55a]/40 bg-[#c6a55a]/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#c6a55a] transition-colors hover:border-[#c6a55a]/70 hover:bg-[#c6a55a]/20"
+              >
+                Request Country Intelligence
+              </Link>
+              <Link
+                href="/intake"
+                className="inline-flex items-center rounded-sm border border-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-white/60 transition-colors hover:border-white/30 hover:text-white/80"
+              >
+                Start Confidential Intake
+              </Link>
+            </div>
+          </section>
+        </div>
+      </main>
+    )
+  }
+
+  // Fall back to dashboard fixture data (covers 191 NE countries)
+  const dashboardCountry = resolveCountryRouteParam(countryParam)
+  if (!dashboardCountry) notFound()
+
+  const badge = getDashboardStatusBadge(dashboardCountry.dashboardStatus)
 
   return (
-    <main className="min-h-screen bg-[#03070d] px-4 py-10 text-white md:px-8">
+    <main className="min-h-screen bg-[#020814] px-4 py-10 text-white md:px-8">
       <div className="mx-auto max-w-5xl">
-        <Link href="/dashboard" className="text-xs uppercase tracking-[0.2em] text-[#c6a55a] hover:underline">← Dashboard control center</Link>
-        <section className="mt-6 rounded-3xl border border-[#c6a55a]/20 bg-[#07101f] p-6 md:p-8">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#c6a55a]/70">Country Intelligence drill-down</p>
-          <h1 className="mt-3 text-3xl font-semibold md:text-5xl">{country.displayName}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/55">{country.publicSummary}</p>
+        <Link
+          href="/intelligence/country-briefs"
+          className="text-xs uppercase tracking-[0.2em] text-[#c6a55a] hover:underline"
+        >
+          ← Country Briefs
+        </Link>
+
+        <section className="mt-6 rounded-2xl border border-[#c6a55a]/20 bg-[#07101f] p-6 md:p-8">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#c6a55a]/70">
+            Country Intelligence Brief
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold md:text-5xl">{dashboardCountry.displayName}</h1>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/55">{dashboardCountry.publicSummary}</p>
           <div className="mt-5 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{country.iso2} · {country.region}</span>
-            <span className="rounded-full border border-[#c6a55a]/20 bg-[#c6a55a]/10 px-3 py-1 text-[#f0d39a]">{badge.label}</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Secondary drill-down, not the dashboard</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+              {dashboardCountry.iso2} · {dashboardCountry.region}
+            </span>
+            <span className="rounded-full border border-[#c6a55a]/20 bg-[#c6a55a]/10 px-3 py-1 text-[#f0d39a]">
+              {badge.label}
+            </span>
           </div>
         </section>
+
         <section className="mt-6 grid gap-3 md:grid-cols-2">
           {dashboardSections.map((section) => {
-            const panel = country.panels[section]
+            const panel = dashboardCountry.panels[section]
             return (
               <article key={section} className="rounded-2xl border border-white/10 bg-[#07101f] p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[#c6a55a]/60">{section}</p>
@@ -34,6 +182,24 @@ export default async function CountryIntelligenceDrilldownPage({ params }: { par
               </article>
             )
           })}
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-white/10 bg-[#07101f] p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/66">
+            Intelligence boundary
+          </p>
+          <p className="mt-3 text-sm leading-7 text-white/50">
+            Detailed country intelligence is pending analyst review for this jurisdiction.
+            Submit an intelligence request to prioritise this market.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href="/contact"
+              className="inline-flex items-center rounded-sm border border-[#c6a55a]/40 bg-[#c6a55a]/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#c6a55a] transition-colors hover:border-[#c6a55a]/70 hover:bg-[#c6a55a]/20"
+            >
+              Request Country Intelligence
+            </Link>
+          </div>
         </section>
       </div>
     </main>
