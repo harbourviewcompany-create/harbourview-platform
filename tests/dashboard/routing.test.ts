@@ -136,7 +136,7 @@ describe('resolveMarket — market-selection routing contract', () => {
     const m = resolveMarketFromParams({ country: 'US-GA', countries: 'US-GA' })
     expect(m?.code).toBe('US-GA')
     // role is a separate concern — verify the market object is clean (no role leakage)
-    expect((m as Record<string, unknown>)['role']).toBeUndefined()
+    expect((m as unknown as Record<string, unknown>)['role']).toBeUndefined()
   })
 
   it('invalid market code returns null — controlled empty state, not stale default', async () => {
