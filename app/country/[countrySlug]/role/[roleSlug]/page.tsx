@@ -128,11 +128,13 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
     ? [buildEvidenceGapModule(dashboard.evidence.message), ...baseEduCategories]
     : baseEduCategories
 
-  // Fetch all live data in parallel — failures are handled gracefully inside each helper
+  // Fetch all live data in parallel — failures are handled gracefully inside each helper.
+  // Pass country context so signals and wanted listings are country-prioritised.
+  const countryName = dashboard.country.countryName
   const [signals, pipeline, wantedListings, wantedCount, marketplaceRows] = await Promise.all([
-    fetchDashboardSignals(8),
+    fetchDashboardSignals(8, countryName),
     getPipelineCounts(),
-    getWantedListings(),
+    getWantedListings(countryIso2),
     getWantedRequestsCount(),
     getMarketplaceRows(countryIso2, 60),
   ])
