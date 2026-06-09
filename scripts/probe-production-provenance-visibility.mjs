@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 
 const explicitBaseUrl = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL;
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
 
 if (!explicitBaseUrl) {
   console.log(JSON.stringify({
@@ -119,6 +120,7 @@ async function probeRoute(route, expectForbidden = false) {
       headers: {
         Accept: 'text/html',
         'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3',
+        ...(BYPASS_TOKEN ? { 'x-vercel-protection-bypass': BYPASS_TOKEN } : {}),
       },
     });
     html = await response.text();
@@ -163,7 +165,7 @@ for (const route of apiRoutes) {
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3' },
+      headers: { 'User-Agent': 'HarbourviewProvenanceVisibilityProbe/1.3', ...(BYPASS_TOKEN ? { 'x-vercel-protection-bypass': BYPASS_TOKEN } : {}) },
     });
     body = await response.text();
   } catch (err) {

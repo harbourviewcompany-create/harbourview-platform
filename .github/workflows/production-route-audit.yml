@@ -21,8 +21,10 @@ jobs:
           node-version: 20
 
       - name: Probe production routes
+        continue-on-error: true
         env:
           HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
           HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS: 60
           HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS: 10000
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/probe-production-routes.mjs

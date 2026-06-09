@@ -37,6 +37,7 @@ const scriptSrcPattern = /<script[^>]+src=["']([^"']+)["'][^>]*>/gi
 const failures = []
 const results = []
 const assets = new Set()
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 async function fetchText(url, accept) {
   const response = await fetch(url, {
@@ -44,7 +45,8 @@ async function fetchText(url, accept) {
     redirect: 'follow',
     headers: {
       Accept: accept,
-      'User-Agent': 'HarbourviewClientBundleProbe/1.0'
+      'User-Agent': 'HarbourviewClientBundleProbe/1.0',
+      ...(BYPASS_TOKEN ? { 'x-vercel-protection-bypass': BYPASS_TOKEN } : {})
     }
   })
   return { response, text: await response.text() }

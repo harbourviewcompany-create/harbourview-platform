@@ -3,6 +3,7 @@
 const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app').replace(/\/$/, '')
 const MAX_ATTEMPTS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS || '30')
 const WAIT_MS = Number(process.env.HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS || '10000')
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 const forbiddenStrings = [
   'View source listing',
@@ -132,6 +133,7 @@ async function fetchRoute(path, attempt) {
       Pragma: 'no-cache',
       Expires: '0',
       'User-Agent': 'HarbourviewProductionRouteAudit/1.0',
+      ...(BYPASS_TOKEN ? { 'x-vercel-protection-bypass': BYPASS_TOKEN } : {}),
     },
   })
   const body = await response.text()
