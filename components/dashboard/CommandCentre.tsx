@@ -684,6 +684,24 @@ export default function CommandCentre({
   const [bannerDismissed,  setBannerDismissed]  = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Restore preferences from localStorage for unauthenticated users
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('hv_dashboard_prefs') ?? '{}')
+      if (stored.country_iso2 && !initialCountryIso2) {
+        const found = COUNTRIES.find(c => c.iso2 === stored.country_iso2)
+        if (found) {
+          setCountry(found)
+          setRegion((REGIONS[found.iso2] ?? [])[0] ?? '')
+        }
+      }
+      if (stored.role_id && !initialRoleId) {
+        setRole(stored.role_id)
+      }
+    } catch { /* localStorage unavailable */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ⌘K / Ctrl+K listener
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -721,6 +739,13 @@ export default function CommandCentre({
   const savePreferences = useCallback((patch: { country_iso2?: string; role_id?: string }) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
+      // Persist to localStorage immediately — available for all users including unauthenticated
+      try {
+        const stored = JSON.parse(localStorage.getItem('hv_dashboard_prefs') ?? '{}')
+        localStorage.setItem('hv_dashboard_prefs', JSON.stringify({ ...stored, ...patch }))
+      } catch { /* localStorage unavailable (SSR, private mode) */ }
+
+      // Also attempt server-side save for authenticated users; 401 is expected and ignored
       fetch('/api/dashboard/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
