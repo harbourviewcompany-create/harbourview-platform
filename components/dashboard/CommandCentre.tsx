@@ -343,66 +343,43 @@ function TrustBar({ str }: { str: string }) {
   )
 }
 
-// ── KPI pipeline strip with count-up animation ────────────────────────────────
+// ── Sidebar pipeline metrics ──────────────────────────────────────────────────
 
+const PIPELINE_LABELS: Record<keyof PipelineCounts, string> = {
+  wanted:       'Wanted',
+  matched:      'Matched',
+  proof_review: 'Proof Review',
+  inquiry:      'Inquiry',
+  deal_room:    'Deal Room',
+}
 
-const kpis_check = (p: PipelineCounts) => p.wanted === 0 && p.matched === 0 && p.proof_review === 0 && p.inquiry === 0 && p.deal_room === 0
+const PIPELINE_COLORS: Record<keyof PipelineCounts, string> = {
+  wanted:       'var(--cc-violet)',
+  matched:      'var(--cc-green)',
+  proof_review: 'var(--cc-amber)',
+  inquiry:      'var(--cc-blue)',
+  deal_room:    'var(--cc-gold2)',
+}
 
-function KpiStrip({ pipeline }: { pipeline: PipelineCounts }) {
-  const [counts, setCounts] = useState<PipelineCounts>({ wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 })
-  const rafRef = useRef<number | null>(null)
+// Which pipeline keys are relevant per role — buyers see demand side, suppliers see supply side
+const ROLE_PIPELINE_KEYS: Partial<Record<string, (keyof PipelineCounts)[]>> = {
+  exporter:              ['matched', 'proof_review', 'deal_room'],
+  cultivator_producer:   ['matched', 'proof_review', 'deal_room'],
+  processor_extractor:   ['matched', 'proof_review', 'deal_room'],
+  geneticist_breeder:    ['matched', 'inquiry', 'deal_room'],
+  importer:              ['wanted', 'matched', 'inquiry'],
+  distributor_wholesaler:['wanted', 'matched', 'deal_room'],
+  retail_operator:       ['wanted', 'matched'],
+  investor_operator:     ['wanted', 'inquiry', 'deal_room'],
+  regulatory_compliance: ['proof_review', 'inquiry'],
+  legal_advisory:        ['proof_review', 'inquiry'],
+  lab_qa:                ['proof_review', 'inquiry'],
+  gmp_quality:           ['proof_review', 'inquiry'],
+  logistics_customs:     ['wanted', 'matched', 'inquiry'],
+}
 
-  const isEmpty = kpis_check(pipeline)
-
-  useEffect(() => {
-    if (isEmpty) return
-    const duration = 1200
-    const start = performance.now()
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1)
-      const ease = 1 - Math.pow(1 - t, 4)
-      setCounts({
-        wanted:       Math.round(pipeline.wanted       * ease),
-        matched:      Math.round(pipeline.matched      * ease),
-        proof_review: Math.round(pipeline.proof_review * ease),
-        inquiry:      Math.round(pipeline.inquiry      * ease),
-        deal_room:    Math.round(pipeline.deal_room    * ease),
-      })
-      if (t < 1) rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [pipeline, isEmpty])
-
-  const kpis: { key: keyof PipelineCounts; label: string; color?: string }[] = [
-    { key: 'wanted',       label: 'Wanted',       color: 'var(--cc-violet)' },
-    { key: 'matched',      label: 'Matched',      color: 'var(--cc-green)'  },
-    { key: 'proof_review', label: 'Proof Review', color: 'var(--cc-amber)'  },
-    { key: 'inquiry',      label: 'Inquiry',      color: 'var(--cc-blue)'   },
-    { key: 'deal_room',    label: 'Deal Room',    color: 'var(--cc-gold2)'  },
-  ]
-
-  if (isEmpty) {
-    return (
-      <div className="cc-kpi-strip cc-kpi-empty-state">
-        <span className="cc-kpi-head">PIPELINE</span>
-        <span className="cc-kpi-empty">No active pipeline · submit a listing or post wanted demand to begin</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="cc-kpi-strip">
-      <span className="cc-kpi-head">PIPELINE</span>
-      {kpis.map((k, i) => (
-        <div key={k.key} className="cc-kpi-item">
-          <span className="cc-kpi-num" style={{ color: k.color }}>{counts[k.key]}</span>
-          <span className="cc-kpi-lbl">{k.label}</span>
-          {i < kpis.length - 1 && <span className="cc-kpi-sep" aria-hidden="true" />}
-        </div>
-      ))}
-    </div>
-  )
+function getRolePipelineKeys(roleId: string): (keyof PipelineCounts)[] {
+  return ROLE_PIPELINE_KEYS[roleId] ?? ['wanted', 'matched']
 }
 
 // ── Custom styled select dropdown ────────────────────────────────────────────
@@ -1159,6 +1136,39 @@ export default function CommandCentre({
 
         {/* ── Sidebar ────────────────────────────────────────────────── */}
         <nav className="cc-sidebar" aria-label="Command centre navigation">
+
+          {/* Role + country context */}
+          <div className="cc-sidebar-ctx">
+            <div className="cc-sidebar-country">{country.label}</div>
+            {role
+              ? <div className="cc-sidebar-role">{ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.short ?? role}</div>
+              : <div className="cc-sidebar-role cc-sidebar-role--empty">Select role</div>
+            }
+          </div>
+
+          {/* Role-specific pipeline metrics */}
+          {pipeline && (
+            <div className="cc-sidebar-metrics">
+              <div className="cc-sidebar-metrics-head">PIPELINE</div>
+              {getRolePipelineKeys(role).map(key => {
+                const val = pipeline[key]
+                return (
+                  <button
+                    key={key}
+                    className={`cc-sidebar-metric${val > 0 ? ' has-value' : ''}`}
+                    onClick={() => openPanel(key === 'wanted' ? 'wanted' : 'marketplace')}
+                  >
+                    <span className="cc-sidebar-metric-num" style={{ color: PIPELINE_COLORS[key] }}>{val}</span>
+                    <span className="cc-sidebar-metric-lbl">{PIPELINE_LABELS[key]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="cc-sidebar-divider" />
+
+          {/* Navigation */}
           {COMMAND_NAV.map(item => (
             <button
               key={item.id}
@@ -1168,7 +1178,7 @@ export default function CommandCentre({
               aria-pressed={activePanel === item.id}
               onClick={() => openPanel(item.id as CommandPanel)}
             >
-              <span aria-hidden="true">{item.icon}</span>
+              <span className="cc-nav-icon" aria-hidden="true">{item.icon}</span>
               <em>{item.label}</em>
             </button>
           ))}
@@ -1176,9 +1186,6 @@ export default function CommandCentre({
 
         {/* ── Workspace ──────────────────────────────────────────────── */}
         <main className="cc-workspace">
-
-          {/* Pipeline KPI strip */}
-          {pipeline && <KpiStrip pipeline={pipeline} />}
 
           {/* Proactive intelligence banner */}
           {banner && (
@@ -1466,7 +1473,6 @@ const CSS = `
 @keyframes sparkDraw    { to   { stroke-dashoffset:0 } }
 @keyframes pulseDot     { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
 @keyframes rowIn        { from { opacity:0; transform:translateX(-4px) } to { opacity:1; transform:translateX(0) } }
-@keyframes kpiReveal    { from { opacity:0; transform:translateY(3px) } to { opacity:1; transform:translateY(0) } }
 @keyframes bannerSlide  { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
 
 :root {
@@ -1496,7 +1502,7 @@ const CSS = `
 .cc-app {
   position:fixed;inset:0;
   display:grid;
-  grid-template-columns:72px minmax(0,1fr);
+  grid-template-columns:200px minmax(0,1fr);
   grid-template-rows:70px minmax(0,1fr) 40px;
   background:linear-gradient(135deg,#030711 0%,#07111d 47%,#030812 100%);
   color:var(--cc-text);
@@ -1589,80 +1595,91 @@ const CSS = `
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .cc-sidebar {
   grid-column:1;grid-row:2/4;z-index:5;
-  padding:14px 9px;
+  padding:12px 10px;
   border-right:1px solid var(--cc-line);
-  background:linear-gradient(180deg,rgba(4,9,18,.8),rgba(3,8,17,.97));
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+  background:linear-gradient(180deg,rgba(4,9,18,.88),rgba(3,8,17,.97));
+  display:flex;flex-direction:column;gap:2px;
+  overflow-y:auto;overflow-x:hidden;
 }
+
+/* Context block */
+.cc-sidebar-ctx {
+  padding:8px 8px 10px;
+  border-bottom:1px solid var(--cc-line);
+  margin-bottom:8px;
+}
+.cc-sidebar-country {
+  color:var(--cc-ink);font-size:13px;font-weight:600;
+  font-family:var(--cc-serif);line-height:1.2;
+}
+.cc-sidebar-role {
+  margin-top:3px;color:var(--cc-gold);
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  font-family:var(--cc-mono);
+}
+.cc-sidebar-role--empty { color:var(--cc-dim); }
+
+/* Pipeline metrics */
+.cc-sidebar-metrics {
+  margin-bottom:4px;
+}
+.cc-sidebar-metrics-head {
+  padding:4px 8px 6px;
+  color:var(--cc-dim);font-size:8px;letter-spacing:.18em;
+  text-transform:uppercase;font-family:var(--cc-mono);
+}
+.cc-sidebar-metric {
+  width:100%;display:flex;align-items:center;
+  padding:6px 8px;border-radius:10px;
+  border:1px solid transparent;background:transparent;
+  cursor:pointer;font:inherit;text-align:left;
+  gap:8px;transition:background .12s,border-color .12s;
+}
+.cc-sidebar-metric:hover { background:rgba(255,255,255,.04);border-color:var(--cc-line); }
+.cc-sidebar-metric.has-value:hover { background:rgba(255,255,255,.06); }
+.cc-sidebar-metric-num {
+  font-family:var(--cc-mono);font-size:18px;font-weight:500;
+  line-height:1;flex-shrink:0;min-width:28px;
+}
+.cc-sidebar-metric-lbl {
+  color:var(--cc-muted);font-size:9px;
+  text-transform:uppercase;letter-spacing:.1em;
+  font-family:var(--cc-mono);line-height:1.3;
+}
+
+.cc-sidebar-divider {
+  height:1px;background:var(--cc-line);
+  margin:6px 0 8px;flex-shrink:0;
+}
+
+/* Nav buttons — full width with inline label */
 .cc-nav-btn {
-  width:50px;height:50px;border-radius:16px;
+  width:100%;height:36px;border-radius:10px;
   border:1px solid transparent;background:transparent;
   color:var(--cc-dim);
-  display:grid;place-items:center;
-  cursor:pointer;position:relative;
-  font-size:17px;
+  display:flex;align-items:center;gap:9px;
+  padding:0 8px;
+  cursor:pointer;font:inherit;font-size:11px;text-align:left;
   transition:color .15s,background .15s,border-color .15s;
+  flex-shrink:0;
 }
-.cc-nav-btn:hover { color:var(--cc-text);background:rgba(255,255,255,.06); }
+.cc-nav-icon { font-size:14px;flex-shrink:0;width:18px;text-align:center; }
+.cc-nav-btn:hover { color:var(--cc-text);background:rgba(255,255,255,.05); }
 .cc-nav-btn.active {
   color:var(--cc-gold2);
-  border-color:rgba(217,175,99,.35);
-  background:rgba(217,175,99,.08);
+  border-color:rgba(217,175,99,.3);
+  background:rgba(217,175,99,.07);
 }
 .cc-nav-btn em {
-  position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);
-  background:rgba(10,22,36,.97);border:1px solid var(--cc-line2);
-  border-radius:10px;padding:6px 11px;white-space:nowrap;
-  font-style:normal;font-size:11px;color:var(--cc-text);
-  z-index:100;opacity:0;pointer-events:none;
-  transition:opacity .12s ease;font-weight:500;
+  font-style:normal;font-size:11px;
+  letter-spacing:.01em;white-space:nowrap;overflow:hidden;
 }
-.cc-nav-btn:hover em { opacity:1; }
 
 /* ── Workspace ───────────────────────────────────────────────────────────── */
 .cc-workspace {
   grid-column:2;grid-row:2;
   display:flex;flex-direction:column;
   min-width:0;min-height:0;overflow:hidden;
-}
-
-/* KPI strip */
-.cc-kpi-strip {
-  flex-shrink:0;height:38px;
-  display:flex;align-items:center;
-  padding:0 16px;gap:0;
-  border-bottom:1px solid var(--cc-line);
-  background:linear-gradient(180deg,rgba(8,18,30,.92),rgba(5,13,23,.96));
-  animation:fadeSlideUp .4s ease;
-}
-.cc-kpi-head {
-  font-family:var(--cc-mono);font-size:8px;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--cc-dim);
-  margin-right:14px;flex-shrink:0;
-}
-.cc-kpi-item {
-  display:flex;align-items:center;gap:6px;
-  padding:0 14px;position:relative;
-  animation:kpiReveal .5s ease both;
-}
-.cc-kpi-item:nth-child(2) { animation-delay:.05s }
-.cc-kpi-item:nth-child(3) { animation-delay:.10s }
-.cc-kpi-item:nth-child(4) { animation-delay:.15s }
-.cc-kpi-item:nth-child(5) { animation-delay:.20s }
-.cc-kpi-item:nth-child(6) { animation-delay:.25s }
-.cc-kpi-num {
-  font-family:var(--cc-mono);font-size:16px;font-weight:500;
-  letter-spacing:-.01em;line-height:1;
-}
-.cc-kpi-lbl {
-  font-size:8px;text-transform:uppercase;letter-spacing:.13em;
-  color:var(--cc-muted);font-family:var(--cc-mono);white-space:nowrap;
-}
-.cc-kpi-empty { flex:1;color:var(--cc-dim);font-size:10px;font-family:var(--cc-mono);font-style:italic; }
-.cc-kpi-empty-state { opacity:.7; }
-.cc-kpi-sep {
-  position:absolute;right:0;top:20%;bottom:20%;
-  width:1px;background:var(--cc-line);
 }
 
 /* Proactive banner */
