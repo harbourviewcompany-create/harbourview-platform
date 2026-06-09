@@ -1,4 +1,6 @@
 import { countryOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
+import { usStateByIso2 } from '@/data/globe/us-state-profiles'
+import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
 import type { GlobeLayerId, GlobeRouterMode, IntentId, RoleId } from '@/types/globe-router'
 
 export type DashboardRole = 'commercial_operator' | 'medical_professional' | 'regulatory_legal'
@@ -81,8 +83,30 @@ function parseCountries(value?: string) {
     : []
 }
 
-function isKnownCountry(countryIso2?: string) {
-  return Boolean(countryIso2 && countryOptionMap[countryIso2])
+/** Accepts country ISO2 (DE), US state (US-GA), or Canadian province (CA-ON). */
+function isKnownMarket(code?: string): boolean {
+  if (!code) return false
+  const upper = code.toUpperCase()
+  return Boolean(countryOptionMap[upper] || usStateByIso2[upper] || canadaProvinceByIso2[upper])
+}
+
+/** For subnational codes return the parent ISO2; for country codes return as-is. */
+function resolveEffectiveIso2(code: string): string {
+  const upper = code.toUpperCase()
+  if (usStateByIso2[upper])       return 'US'
+  if (canadaProvinceByIso2[upper]) return 'CA'
+  return upper
+}
+
+/** Human-readable name for any market code. */
+function resolveMarketLabel(code: string): string {
+  const upper = code.toUpperCase()
+  return usStateByIso2[upper]?.name ?? canadaProvinceByIso2[upper]?.name ?? getCountryName(upper)
+}
+
+// Legacy alias for backward compat
+function isKnownCountry(countryIso2?: string): boolean {
+  return isKnownMarket(countryIso2)
 }
 
 function isGlobeRouterMode(value?: string): value is GlobeRouterMode {
@@ -124,7 +148,8 @@ export function parseDashboardGlobeRouteContext(params: SearchParamsLike): Dashb
   const rawMode = readTrimmedParam(params, 'mode')
   const rawCountry = readTrimmedParam(params, 'country')?.toUpperCase()
   const countries = parseCountries(readTrimmedParam(params, 'countries'))
-  const countryIso2 = isKnownCountry(rawCountry) ? rawCountry : countries.find(isKnownCountry)
+  const rawResolved  = rawCountry && isKnownMarket(rawCountry) ? resolveEffectiveIso2(rawCountry) : null
+  const countryIso2  = rawResolved ?? (countries.find(isKnownMarket) ? resolveEffectiveIso2(countries.find(isKnownMarket)!) : undefined)
   const globeRoleId = readTrimmedParam(params, 'role') as RoleId | undefined
   const intentId = readTrimmedParam(params, 'intent') as IntentId | undefined
   const layerId = readTrimmedParam(params, 'layer') as GlobeLayerId | undefined
@@ -148,7 +173,7 @@ export function parseDashboardGlobeRouteContext(params: SearchParamsLike): Dashb
 
   return {
     countryIso2,
-    countryName: getCountryName(countryIso2),
+    countryName: rawCountry ? resolveMarketLabel(rawCountry) : getCountryName(countryIso2),
     role,
     source,
     mode,
