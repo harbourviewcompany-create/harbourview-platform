@@ -5,7 +5,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getMarketplaceRows } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getMarketplaceRows, getCountryStatusFromDB } from '@/lib/dashboard/dashboardLiveData'
 
 export const dynamic = 'force-dynamic'
 
@@ -131,12 +131,13 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
   // Fetch all live data in parallel — failures are handled gracefully inside each helper.
   // Pass country context so signals and wanted listings are country-prioritised.
   const countryName = dashboard.country.countryName
-  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows] = await Promise.all([
+  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, countryStatus] = await Promise.all([
     fetchDashboardSignals(8, countryName),
     getPipelineCounts(),
     getWantedListings(countryIso2),
     getWantedRequestsCount(),
     getMarketplaceRows(countryIso2, 60),
+    getCountryStatusFromDB(countryIso2),         // ← real DB country record
   ])
 
   return (
@@ -151,11 +152,31 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
       pipeline={pipeline}
       wantedListings={wantedListings}
       countryIntel={{
+        // Core identity (always available from resolver)
         country_code: countryIso2,
-        country_name: dashboard.country.countryName,
-        public_summary: dashboard.country.evidenceVerified
-          ? `${dashboard.country.countryName} ${dashboard.role.label} dashboard context is available.`
-          : dashboard.evidence.message ?? 'This country-role pathway requires Harbourview evidence review.',
+        country_name: countryStatus?.country_name ?? dashboard.country.countryName,
+        region: countryStatus?.region ?? null,
+
+        // Real jurisdiction status from DB (191 countries seeded)
+        market_access_status:  countryStatus?.market_access_status ?? null,
+        medical_status:        countryStatus?.medical_status ?? null,
+        adult_use_status:      countryStatus?.adult_use_status ?? null,
+        import_status:         countryStatus?.import_status ?? null,
+        export_status:         countryStatus?.export_status ?? null,
+        opportunity_score:     countryStatus?.opportunity_score ?? null,
+        trade_roles:           countryStatus?.trade_roles ?? null,
+        opportunity_categories:countryStatus?.opportunity_categories ?? null,
+        regulator_label:       countryStatus?.regulator_label ?? null,
+        data_completeness:     countryStatus?.data_completeness ?? null,
+
+        // Public summary: use DB version if available, fall back to evidence message
+        public_summary: countryStatus?.public_summary
+          ?? (dashboard.country.evidenceVerified
+            ? `${dashboard.country.countryName} ${dashboard.role.label} dashboard context is available.`
+            : dashboard.evidence.message
+            ?? 'This country-role pathway requires Harbourview evidence review.'),
+
+        // Harbourview review layer (from resolver, not DB)
         commercial_pathway_summary: dashboard.role.priority,
         review_status: dashboard.admin.reviewState,
       }}
