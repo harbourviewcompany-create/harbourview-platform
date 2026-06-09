@@ -38,16 +38,30 @@ export type WantedListing = {
   created_at: string
 }
 
-export async function getWantedListings(): Promise<WantedListing[]> {
+export async function getWantedListings(countryIso2?: string | null): Promise<WantedListing[]> {
   try {
     const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('listings')
-      .select('id, title, summary, location_country, location_region, created_at')
-      .eq('marketplace_section', 'wanted_requests')
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .limit(12)
+
+    // Try country-filtered first; fall back to all if empty
+    const buildQuery = (country?: string | null) => {
+      let q = supabase
+        .from('listings')
+        .select('id, title, summary, location_country, location_region, created_at')
+        .eq('marketplace_section', 'wanted_requests')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(12)
+      if (country) q = q.eq('location_country', country.toUpperCase())
+      return q
+    }
+
+    if (countryIso2) {
+      const { data: countryData, error: countryErr } = await buildQuery(countryIso2)
+      if (!countryErr && countryData && countryData.length > 0) return countryData
+    }
+
+    // Global fallback
+    const { data, error } = await buildQuery()
     if (error || !data) return []
     return data
   } catch { return [] }
