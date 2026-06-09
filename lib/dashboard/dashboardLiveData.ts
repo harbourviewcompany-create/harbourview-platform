@@ -19,9 +19,9 @@ export async function getPipelineCounts(): Promise<PipelineCounts> {
       .select('review_status')
     if (error || !data) return fallback
     return data.reduce((acc, row) => {
-      if (row.review_status === 'received')  acc.inquiry++
-      if (row.review_status === 'reviewing') acc.proof_review++
-      if (row.review_status === 'matched')   acc.matched++
+      if (row.review_status === 'received' || row.review_status === 'reviewing') acc.inquiry++
+      if (row.review_status === 'contacted') acc.proof_review++
+      if (row.review_status === 'qualified') acc.matched++
       if (row.review_status === 'closed')    acc.deal_room++
       return acc
     }, { ...fallback })
@@ -74,7 +74,7 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     // Try modules first — they have audience[] and publication_state
     const query = supabase
       .from('education_modules')
-      .select('slug, title, audience, sensitivity, track_id')
+      .select('slug, title, description, audience, sensitivity, track_id')
       .eq('publication_state', 'published')
       .limit(limit * 3) // fetch extra to filter by role
     const { data: modules, error } = await query
