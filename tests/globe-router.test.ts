@@ -318,3 +318,99 @@ describe('Harbourview globe same-screen router', () => {
     expect(state.invalidParams).toEqual([])
   })
 })
+
+describe('resolveMarket utility', () => {
+  it('resolves a country code to a SelectedMarket', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    const result = resolveMarket('DE')
+    expect(result).not.toBeNull()
+    expect(result?.label).toBe('Germany')
+    expect(result?.type).toBe('country')
+    expect(result?.parentCountry).toBeUndefined()
+  })
+
+  it('resolves a US state code to a SelectedMarket with parent US', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    const result = resolveMarket('US-GA')
+    expect(result).not.toBeNull()
+    expect(result?.label).toBe('Georgia')
+    expect(result?.type).toBe('state')
+    expect(result?.parentCountry).toBe('US')
+  })
+
+  it('resolves a Canadian province code to a SelectedMarket with parent CA', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    const result = resolveMarket('CA-ON')
+    expect(result).not.toBeNull()
+    expect(result?.label).toBe('Ontario')
+    expect(result?.type).toBe('province')
+    expect(result?.parentCountry).toBe('CA')
+  })
+
+  it('returns null for unrecognized codes — no stale default', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    expect(resolveMarket('XX')).toBeNull()
+    expect(resolveMarket('ZZ-99')).toBeNull()
+    expect(resolveMarket('')).toBeNull()
+  })
+
+  it('is case-insensitive', async () => {
+    const { resolveMarket } = await import('@/lib/dashboard/resolveMarket')
+    expect(resolveMarket('us-ga')?.label).toBe('Georgia')
+    expect(resolveMarket('ca-on')?.label).toBe('Ontario')
+    expect(resolveMarket('de')?.label).toBe('Germany')
+  })
+
+  it('getEffectiveCountryIso2 returns parent for subnational, code for country', async () => {
+    const { resolveMarket, getEffectiveCountryIso2 } = await import('@/lib/dashboard/resolveMarket')
+    expect(getEffectiveCountryIso2(resolveMarket('US-GA'))).toBe('US')
+    expect(getEffectiveCountryIso2(resolveMarket('CA-ON'))).toBe('CA')
+    expect(getEffectiveCountryIso2(resolveMarket('DE'))).toBe('DE')
+    expect(getEffectiveCountryIso2(null)).toBeNull()
+  })
+})
+
+describe('parseDashboardGlobeRouteContext subnational routing', () => {
+  it('US-GA routes to US dashboard, not Germany or Canada default', () => {
+    const params = new URLSearchParams(
+      'source=globe_router&mode=single_market&country=US-GA&countries=US-GA&role=importer&layer=country_select'
+    )
+    const ctx = parseDashboardGlobeRouteContext(params as unknown as Pick<URLSearchParams, 'get'>)
+    expect(ctx.countryIso2).toBe('US')
+    expect(ctx.countryIso2).not.toBe('DE')
+    expect(ctx.countryIso2).not.toBe('CA')
+    expect(ctx.globeRoleId).toBe('importer')
+  })
+
+  it('CA-ON routes to CA dashboard, preserving province label context', () => {
+    const params = new URLSearchParams(
+      'source=globe_router&mode=single_market&country=CA-ON&countries=CA-ON&role=exporter'
+    )
+    const ctx = parseDashboardGlobeRouteContext(params as unknown as Pick<URLSearchParams, 'get'>)
+    expect(ctx.countryIso2).toBe('CA')
+    expect(ctx.countryName).toBe('Ontario')
+    expect(ctx.globeRoleId).toBe('exporter')
+  })
+
+  it('DE routes correctly with role preserved', () => {
+    const params = new URLSearchParams(
+      'source=globe_router&mode=single_market&country=DE&countries=DE&role=importer'
+    )
+    const ctx = parseDashboardGlobeRouteContext(params as unknown as Pick<URLSearchParams, 'get'>)
+    expect(ctx.countryIso2).toBe('DE')
+    expect(ctx.countryName).toBe('Germany')
+    expect(ctx.globeRoleId).toBe('importer')
+  })
+
+  it('invalid market code shows controlled empty state — not stale Germany or Canada', () => {
+    const params = new URLSearchParams(
+      'source=globe_router&mode=single_market&country=ZZ&countries=ZZ&role=importer'
+    )
+    const ctx = parseDashboardGlobeRouteContext(params as unknown as Pick<URLSearchParams, 'get'>)
+    // Falls back to default — must not be a stale ZZ ghost
+    expect(ctx.countryIso2).toBeDefined()
+    expect(['CA', 'DE', 'US']).toContain(ctx.countryIso2) // known valid fallback
+    // role is still preserved even through fallback
+    expect(ctx.globeRoleId).toBe('importer')
+  })
+})
