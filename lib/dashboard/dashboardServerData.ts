@@ -112,12 +112,34 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
 
 // ── fetchDashboardSignals ─────────────────────────────────────────────────────
 // Priority: regulatory_signals (published + public_safe) → IA signals → fixtures
-export async function fetchDashboardSignals(limit = 8): Promise<DashboardSignal[]> {
+//
+// When countryName is provided, country-relevant signals are surfaced first,
+// with global / other-country signals filling remaining slots.
+export async function fetchDashboardSignals(
+  limit = 8,
+  countryName?: string | null,
+): Promise<DashboardSignal[]> {
   // 1. Regulatory signals — the properly reviewed, publication-grade source
   try {
     const feed = await getPublicRegulatorySignalFeed()
     if (feed.source === 'live-approved' && feed.signals.length > 0) {
-      return feed.signals.slice(0, limit).map(regulatoryToSignal)
+      const all = feed.signals
+
+      if (countryName) {
+        // Prioritise: country match → no country set → everything else
+        const nameLower = countryName.toLowerCase()
+        const countryMatch = all.filter(
+          s => s.country_name?.toLowerCase() === nameLower,
+        )
+        const noCountry = all.filter(s => !s.country_name)
+        const others    = all.filter(
+          s => s.country_name && s.country_name.toLowerCase() !== nameLower,
+        )
+        const prioritised = [...countryMatch, ...noCountry, ...others]
+        return prioritised.slice(0, limit).map(regulatoryToSignal)
+      }
+
+      return all.slice(0, limit).map(regulatoryToSignal)
     }
   } catch { /* fall through */ }
 
@@ -125,7 +147,17 @@ export async function fetchDashboardSignals(limit = 8): Promise<DashboardSignal[
   try {
     const result = await listIaSignals()
     if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
-      return shapeSignals(result.data, limit)
+      const all = result.data.filter(s => s.stage !== 'archived')
+
+      if (countryName) {
+        const nameLower = countryName.toLowerCase()
+        const countryMatch = all.filter(s => s.market?.toLowerCase().includes(nameLower))
+        const others       = all.filter(s => !s.market?.toLowerCase().includes(nameLower))
+        const prioritised  = [...countryMatch, ...others]
+        return shapeSignals(prioritised, limit)
+      }
+
+      return shapeSignals(all, limit)
     }
   } catch { /* fall through */ }
 
