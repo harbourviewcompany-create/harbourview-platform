@@ -28,19 +28,44 @@ export const metadata: Metadata = {
 
 const workflowRoutes = [
   {
-    title: 'Source Engine',
-    href: '/intelligence/source-engine',
-    body: 'Submit market, company, policy, counterparty and route questions into a reviewed public-safe workflow without exposing analyst evidence.',
-  },
-  {
     title: 'Country Briefs',
     href: '/intelligence/country-briefs',
     body: 'Jurisdiction-level regulatory orientation briefs covering access pathway status, licensing structure and commercial route context.',
   },
   {
+    title: 'Regulatory Pathways',
+    href: '/intelligence/regulatory-pathways',
+    body: 'Access model mapping, competent authority roles and pathway framework orientation across medical, pharmaceutical and adult-use markets.',
+  },
+  {
+    title: 'Licensing Pathways',
+    href: '/intelligence/licensing-pathways',
+    body: 'Licence categories, authorisation requirements and pathway questions across cultivation, processing, import, export and distribution.',
+  },
+  {
+    title: 'Logistics & Trade Routes',
+    href: '/intelligence/logistics-trade-routes',
+    body: 'Trade corridor orientation, documentation frameworks, cold chain requirements and qualified operator categories for regulated cannabis corridors.',
+  },
+  {
+    title: 'Counterparty Intelligence',
+    href: '/intelligence/counterparty-intelligence',
+    body: 'Reviewed operator role context, importer/distributor alignment and due diligence orientation without publishing private identities or dossiers.',
+  },
+  {
     title: 'Signals',
-    href: '/contact',
-    body: 'Regulatory signal monitoring, policy development, counterparty intelligence and route-condition tracking for priority jurisdictions.',
+    href: '/signals',
+    body: 'Regulatory signal monitoring, policy development and route-condition tracking for priority jurisdictions.',
+  },
+  {
+    title: 'Watchlists',
+    href: '/intelligence/watchlists',
+    body: 'Controlled tracking of markets, counterparties, categories and routes without turning the public site into a live dossier.',
+  },
+  {
+    title: 'Source Engine',
+    href: '/intelligence/source-engine',
+    body: 'Submit market, company, policy, counterparty and route questions into a reviewed public-safe workflow without exposing analyst evidence.',
   },
 ] as const
 
@@ -110,10 +135,10 @@ export default async function IntelligencePage() {
       )}
 
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="How intelligence requests work" title="Reviewed access without public exposure.">
+        <SectionHeader eyebrow="Intelligence modules" title="Reviewed access without public exposure.">
           Intelligence surfaces are designed to support commercial decision-making without publishing sensitive material.
         </SectionHeader>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {workflowRoutes.map((route) => (
             <PublicLinkCard key={route.href} title={route.title} href={route.href}>
               {route.body}

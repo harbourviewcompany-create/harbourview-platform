@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { PublicCard, PublicHero, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
 import { getPublicCountries, type PublicCountry } from '@/lib/server/countriesQuery'
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
@@ -95,39 +96,48 @@ export default async function CountryBriefsPage() {
           </SectionHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {countries.map((country) => (
-              <PublicCard key={country.id} className="p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-semibold text-white text-base">{country.country_name}</h3>
-                    <p className="text-xs text-white/40">{country.region}</p>
-                  </div>
-                  <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status] ?? 'bg-transparent/20'}`} />
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  {[
-                    ['Medical', country.medical_status],
-                    ['Adult use', country.adult_use_status],
-                    ['Import', country.import_status],
-                    ['Export', country.export_status],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex items-center gap-1.5">
-                      <span className="text-white/30 w-14 flex-shrink-0">{label}</span>
-                      <span className={`capitalize ${ACCESS_COLORS[value ?? 'unknown'] ?? 'text-white/30'}`}>{value}</span>
+              <Link
+                key={country.id}
+                href={`/intelligence/country/${country.country_slug}`}
+                className="block group"
+              >
+                <PublicCard className="p-5 flex flex-col gap-3 transition-colors group-hover:border-gold/30 group-hover:bg-white/[0.03]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-white text-base group-hover:text-gold transition-colors">{country.country_name}</h3>
+                      <p className="text-xs text-white/40">{country.region}</p>
                     </div>
-                  ))}
-                </div>
-                {country.public_summary && (
-                  <p className="text-xs text-white/50 leading-relaxed border-t border-white/10 pt-3 line-clamp-3">
-                    {country.public_summary}
+                    <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${ACCESS_DOT[country.market_access_status] ?? 'bg-transparent/20'}`} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {[
+                      ['Medical', country.medical_status],
+                      ['Adult use', country.adult_use_status],
+                      ['Import', country.import_status],
+                      ['Export', country.export_status],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex items-center gap-1.5">
+                        <span className="text-white/30 w-14 flex-shrink-0">{label}</span>
+                        <span className={`capitalize ${ACCESS_COLORS[value ?? 'unknown'] ?? 'text-white/30'}`}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {country.public_summary && (
+                    <p className="text-xs text-white/50 leading-relaxed border-t border-white/10 pt-3 line-clamp-3">
+                      {country.public_summary}
+                    </p>
+                  )}
+                  {country.regulator_label && (
+                    <p className="text-xs text-white/30">Regulator: {country.regulator_label}</p>
+                  )}
+                  {country.last_updated_label && (
+                    <p className="text-xs text-white/20">Updated {country.last_updated_label}</p>
+                  )}
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold/50 group-hover:text-gold/80 transition-colors">
+                    View brief →
                   </p>
-                )}
-                {country.regulator_label && (
-                  <p className="text-xs text-white/30">Regulator: {country.regulator_label}</p>
-                )}
-                {country.last_updated_label && (
-                  <p className="text-xs text-white/20">Updated {country.last_updated_label}</p>
-                )}
-              </PublicCard>
+                </PublicCard>
+              </Link>
             ))}
           </div>
         </PublicSection>
