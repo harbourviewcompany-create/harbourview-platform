@@ -1,6 +1,6 @@
 import 'server-only';
 import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
-import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
+import { assertBrowserSafeSupabaseKey, resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 
 export const ADMIN_SESSION_COOKIE_NAME = 'hv-admin-session';
 export const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24;
@@ -27,6 +27,16 @@ type AdminLoginResult =
     }
   | { ok: false; reason: 'invalid_credentials' | 'missing_admin_role' | 'auth_unavailable' };
 
+class SupabaseAdminLoginError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'SupabaseAdminLoginError';
+    this.status = status;
+  }
+}
+
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value?.trim()) throw new Error(`Missing required environment variable ${name}`);
@@ -34,10 +44,22 @@ function requireEnv(name: string) {
 }
 
 function resolveSupabaseApiKey() {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  return assertBrowserSafeSupabaseKey(
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY'
   );
+}
+
+function sanitizeSupabaseErrorText(text: string) {
+  return text.replace(/("(?:access_token|refresh_token|password|apikey|api_key|token)"\s*:\s*")[^"]+/gi, '$1[redacted]');
+}
+
+function logAdminLoginFailure(event: string, details: Record<string, unknown>) {
+  console.error(event, {
+    ...details,
+    supabaseHost: new URL(resolveLockedSupabaseUrl()).hostname,
+    keySource: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  });
 }
 
 async function fetchSupabaseJson<T>({
@@ -68,7 +90,10 @@ async function fetchSupabaseJson<T>({
 
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`Supabase admin login request failed ${response.status}: ${text}`);
+    throw new SupabaseAdminLoginError(
+      response.status,
+      `Supabase admin login request failed ${response.status}: ${sanitizeSupabaseErrorText(text)}`
+    );
   }
 
   return text ? JSON.parse(text) as T : null as T;
@@ -97,8 +122,21 @@ export async function signInAdminOperator(email: string, password: string): Prom
         body: JSON.stringify({ email: email.trim(), password }),
       },
     });
-  } catch {
-    return { ok: false, reason: 'invalid_credentials' };
+  } catch (error) {
+    if (error instanceof SupabaseAdminLoginError) {
+      logAdminLoginFailure('harbourview_admin_login_auth_failed', {
+        status: error.status,
+        message: error.message,
+      });
+      return error.status === 400 || error.status === 422
+        ? { ok: false, reason: 'invalid_credentials' }
+        : { ok: false, reason: 'auth_unavailable' };
+    }
+
+    logAdminLoginFailure('harbourview_admin_login_auth_unavailable', {
+      message: error instanceof Error ? error.message : 'Unknown Supabase auth error',
+    });
+    return { ok: false, reason: 'auth_unavailable' };
   }
 
   if (!session?.access_token || !session.user?.id) return { ok: false, reason: 'invalid_credentials' };
@@ -106,7 +144,10 @@ export async function signInAdminOperator(email: string, password: string): Prom
   let roles: AppRole[];
   try {
     roles = await readRolesFromUserRoles(session.user.id, session.access_token);
-  } catch {
+  } catch (error) {
+    logAdminLoginFailure('harbourview_admin_login_role_lookup_failed', {
+      message: error instanceof Error ? error.message : 'Unknown Supabase role lookup error',
+    });
     return { ok: false, reason: 'auth_unavailable' };
   }
 
