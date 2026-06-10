@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import { ALL_COUNTRIES, WARN_REGIONS_BY_COUNTRY } from '@/lib/dashboard/countries'
+import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,7 +49,6 @@ const GlobeCanvas = dynamic(
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
-const WARN_REGIONS = new Set(Object.values(WARN_REGIONS_BY_COUNTRY).flat())
 
 const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',       label: 'Briefing Room',      icon: '◎' },
