@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
@@ -45,16 +45,6 @@ type Props = {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 const WARN_REGIONS = new Set(Object.values(WARN_REGIONS_BY_COUNTRY).flat())
-
-const CATEGORY_MAP: Record<MarketView, string> = {
-  cannabis:       'cannabis-inventory',
-  equipment:      'used-surplus',
-  consumables:    'consumables',
-  'new-products': 'new-products',
-  services:       'services',
-  opportunities:  'business-opportunities',
-  wanted:         'wanted-requests',
-}
 
 const VIEW_LABELS: Record<MarketView, string> = {
   cannabis:      'Cannabis inventory · flower · extract · biomass · genetics',
@@ -650,6 +640,278 @@ function CommandPalette({ open, onClose, signals, country, role, onPanel, onView
   )
 }
 
+// ── DrawerPanel — memoized so it only re-renders when its own props change ─────
+
+type RegionalIntel = ReturnType<typeof getRegionalIntel>
+type LearningItem   = { title: string; stage: string; icon?: string; desc?: string }
+
+interface DrawerPanelProps {
+  activePanel:      CommandPanel
+  panelOpen:        boolean
+  onClose:          () => void
+  view:             MarketView
+  country:          { iso2: string; label: string }
+  region:           string
+  roleLabel:        string
+  tierLabel:        string
+  filteredRows:     MarketRow[]
+  learningPath:     LearningItem[]
+  regionalIntel:    RegionalIntel
+  signals:          DashboardSignal[]
+  wantedListings:   WantedListing[]
+  wantedCount:      number
+  watching:         Set<string>
+  pipeline:         PipelineCounts | undefined
+  notifCount:       number
+  search:           string
+  selectedItem:     string
+  selectedModule:   string
+  proofState:       RequestState
+  coaState:         RequestState
+  onProofState:     (s: RequestState) => void
+  onSelectedItem:   (id: string) => void
+  onSetActivePanel: (p: CommandPanel) => void
+}
+
+const DrawerPanel = React.memo(function DrawerPanel({
+  activePanel, panelOpen, onClose, view, country, region, roleLabel, tierLabel,
+  filteredRows, learningPath, regionalIntel, signals, wantedListings, wantedCount,
+  watching, pipeline, notifCount, search, selectedItem, selectedModule,
+  proofState, coaState, onProofState, onSelectedItem, onSetActivePanel,
+}: DrawerPanelProps) {
+  const requestState = activePanel === 'coa' ? coaState : proofState
+  const panelTitle   = COMMAND_NAV.find(i => i.id === activePanel)?.label ?? activePanel
+
+  return (
+    <aside className={`cc-command-panel${panelOpen ? ' open' : ''}`} aria-label={`${panelTitle} panel`}>
+      <div className="cc-drawer-head">
+        <div>
+          <small>Command centre expansion</small>
+          <h3>{panelTitle}</h3>
+        </div>
+        <button className="cc-close" onClick={onClose} aria-label="Close panel">×</button>
+      </div>
+      <div className="cc-drawer-body">
+
+        {activePanel === 'marketplace' && (
+          <section className="cc-drawer-card">
+            <b>{VIEW_BLOCK_TITLES[view]} expanded</b>
+            <p>{filteredRows.length} {VIEW_TAB_LABELS[view].toLowerCase()} rows · {country.label}{region ? ` / ${region}` : ''}</p>
+            <div className="cc-panel-list">
+              {filteredRows.map(row => <span key={row[2]}>{row[2]} · {row[6]}</span>)}
+            </div>
+            <a href="/marketplace" className="cc-link-external">Full marketplace →</a>
+          </section>
+        )}
+
+        {activePanel === 'education' && (
+          <section className="cc-drawer-card">
+            <b>{roleLabel} learning path</b>
+            <p>Role-specific modules prioritized, then {country.label}{region ? ` / ${region}` : ''} context.</p>
+            <div className="cc-panel-list">
+              {learningPath.map(item => (
+                <span key={`${item.stage}-${item.title}`}>{item.stage}: {item.title}</span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activePanel === 'signals' && (
+          <section className="cc-drawer-card">
+            <b>Weekly Signals · {signals.length} active</b>
+            <p>Source confidence · marketplace impact · operator next actions.</p>
+            <div className="cc-panel-signal-list">
+              {signals.map((signal, i) => (
+                <div key={signal.id} className="cc-panel-signal">
+                  <div className="cc-panel-signal-head">
+                    <span
+                      className="cc-signal-tag"
+                      style={{ borderColor: signal.tag.border, color: signal.tag.color, background: signal.tag.bg }}
+                    >
+                      {signal.tag.label}
+                    </span>
+                    <MiniSpark confidence={signal.confidence} idx={i} />
+                    <span className="cc-conf-num" style={{ color: signal.confidence >= 75 ? 'var(--cc-green)' : 'var(--cc-amber)' }}>
+                      {signal.confidence}%
+                    </span>
+                  </div>
+                  <b className="cc-panel-signal-title">{signal.title}</b>
+                  <p className="cc-panel-signal-impact">{signal.commercialImpact}</p>
+                  <small>{signal.market} · {signal.timeAgo}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activePanel === 'wanted' && (
+          <section className="cc-drawer-card">
+            <b>Wanted Demand — {wantedListings.length > 0 ? `${wantedListings.length} active requests` : `${wantedCount} requests`}</b>
+            <p>Active buyer demand available in this workspace.</p>
+            {wantedListings.length > 0
+              ? (
+                <div className="cc-panel-wanted">
+                  {wantedListings.map(listing => (
+                    <WantedCard
+                      key={listing.id}
+                      listing={listing}
+                      onAction={id => { onSelectedItem(id); onProofState('queued') }}
+                    />
+                  ))}
+                </div>
+              )
+              : (
+                <button className="cc-primary inline" onClick={() => onProofState('queued')}>
+                  Queue wanted demand review
+                </button>
+              )
+            }
+          </section>
+        )}
+
+        {activePanel === 'local-intel' && (
+          <section className="cc-drawer-card">
+            <b>{regionalIntel.title}</b>
+            <p>{regionalIntel.summary}</p>
+            {regionalIntel.intelSummary && regionalIntel.intelSummary !== regionalIntel.summary && (
+              <div className="cc-intel-block">
+                <small>INTEL SUMMARY</small>
+                <p>{regionalIntel.intelSummary}</p>
+              </div>
+            )}
+            {regionalIntel.commercialPathway && (
+              <div className="cc-intel-block accent-blue">
+                <small>COMMERCIAL PATHWAY</small>
+                <p>{regionalIntel.commercialPathway}</p>
+              </div>
+            )}
+            <div className="cc-rule-grid">
+              <div><small>Rule status</small><strong>{regionalIntel.ruleStatus}</strong></div>
+              <div><small>Marketplace impact</small><strong>{regionalIntel.marketplaceImpact}</strong></div>
+              <div><small>Role impact</small><strong>{regionalIntel.roleImpact}</strong></div>
+              <div><small>Confidence / source</small><strong>{regionalIntel.confidence}</strong></div>
+              {regionalIntel.reviewStatus && (
+                <div><small>Intel review status</small><strong>{regionalIntel.reviewStatus}</strong></div>
+              )}
+            </div>
+            <p className="cc-next-action">Next operator action: {regionalIntel.nextAction}</p>
+          </section>
+        )}
+
+        {activePanel === 'watchlist' && (
+          <section className="cc-drawer-card">
+            <b>Watchlist · {watching.size} item{watching.size !== 1 ? 's' : ''}</b>
+            <p>
+              {selectedItem
+                ? `${selectedItem} is ${watching.has(selectedItem) ? 'now watched' : 'removed from watch'} in the ${country.label} workspace.`
+                : `Watching ${watching.size} items in the ${country.label} workspace.`}
+            </p>
+            <div className="cc-panel-list">
+              {Array.from(watching).map(item => (
+                <span key={item} className="cc-watch-item">
+                  <span className="cc-watch-dot" />
+                  {item}
+                </span>
+              ))}
+              {watching.size === 0 && <span>No watched rows yet. Use the Watch button on any listing.</span>}
+            </div>
+          </section>
+        )}
+
+        {(activePanel === 'proof' || activePanel === 'coa') && (
+          <section className="cc-drawer-card">
+            <b>{activePanel === 'coa' ? 'COA request' : 'Proof request'} — {selectedItem}</b>
+            <p>
+              Status:{' '}
+              {requestState === 'queued'
+                ? 'Queued for operator review.'
+                : requestState === 'unavailable'
+                  ? 'Unavailable for this country/region until source review completes.'
+                  : 'Ready to queue.'}
+            </p>
+            <p>Context: {country.label}{region ? ` / ${region}` : ''} · {roleLabel} · {VIEW_TAB_LABELS[view]}</p>
+          </section>
+        )}
+
+        {activePanel === 'module' && (
+          <section className="cc-drawer-card">
+            <b>{selectedModule || 'Education module'}</b>
+            <p>Module open in-dashboard. All context preserved: country, region, role, category.</p>
+          </section>
+        )}
+
+        {activePanel === 'settings' && (
+          <section className="cc-drawer-card">
+            <b>Command Centre settings</b>
+            <p>Saved layout, module priority, proof gates, and workspace density.</p>
+            <div className="cc-settings-grid">
+              <div className="cc-setting-item"><small>Workspace</small><strong>{country.label}{region ? ` · ${region}` : ''}</strong></div>
+              <div className="cc-setting-item"><small>Active role</small><strong>{roleLabel}</strong></div>
+              <div className="cc-setting-item"><small>Tier</small><strong>{tierLabel}</strong></div>
+              <div className="cc-setting-item"><small>Watchlist</small><strong>{watching.size} items</strong></div>
+              {pipeline && <div className="cc-setting-item"><small>Wanted pipeline</small><strong>{pipeline.wanted} requests</strong></div>}
+              {pipeline && <div className="cc-setting-item"><small>Deal room</small><strong>{pipeline.deal_room} active</strong></div>}
+            </div>
+            <button className="cc-primary inline" onClick={() => onSetActivePanel('marketplace')}>Apply layout</button>
+          </section>
+        )}
+
+        {activePanel === 'search' && (
+          <section className="cc-drawer-card">
+            <b>Search: &quot;{selectedItem || search}&quot;</b>
+            <p>{filteredRows.length} matching rows in current {VIEW_TAB_LABELS[view]} view.</p>
+            <div className="cc-panel-list">
+              {filteredRows.slice(0, 10).map(row => <span key={row[2]}>{row[2]} · {row[7]}</span>)}
+            </div>
+            <a
+              href={`/marketplace?q=${encodeURIComponent(search)}`}
+              className="cc-link-external"
+            >
+              Full marketplace search →
+            </a>
+          </section>
+        )}
+
+        {activePanel === 'notifications' && (
+          <section className="cc-drawer-card">
+            <b>Notifications · {notifCount} active</b>
+            <div className="cc-panel-list">
+              {signals.filter(s => s.confidence >= 75).map(s => (
+                <span key={s.id} className="cc-notif-item">
+                  <span className="cc-notif-dot signal" />
+                  {s.title} · {s.market}
+                </span>
+              ))}
+              {(pipeline?.proof_review ?? 0) > 0 && (
+                <span className="cc-notif-item">
+                  <span className="cc-notif-dot pipeline" />
+                  {pipeline!.proof_review} proof request{pipeline!.proof_review > 1 ? 's' : ''} pending review
+                </span>
+              )}
+              {notifCount === 0 && <span>No active notifications.</span>}
+            </div>
+          </section>
+        )}
+
+        {activePanel === 'suppliers' && (
+          <section className="cc-drawer-card">
+            <b>Supplier command surface</b>
+            <p>Supplier discovery filtered by {country.label} and {roleLabel}.</p>
+          </section>
+        )}
+
+        {activePanel === 'account' && (
+          <section className="cc-drawer-card">
+            <b>Account controls</b>
+            <p>Workspace preferences, notification routing, and proof-request defaults.</p>
+          </section>
+        )}
+
+      </div>
+    </aside>
+  )
+})
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function CommandCentre({
   signals,
@@ -671,7 +933,6 @@ export default function CommandCentre({
   const [region,           setRegion]           = useState((REGIONS[defaultCountry.iso2] ?? [])[0] ?? '')
   const [role,             setRole]             = useState(initialRoleId ?? '')
   const [view,             setView]             = useState<MarketView>('cannabis')
-  const [, setLiveListings]                      = useState<unknown[] | null>(null)
   const [activePanel,      setActivePanel]      = useState<CommandPanel>('marketplace')
   const [panelOpen,        setPanelOpen]        = useState(false)
   const [search,           setSearch]           = useState('')
@@ -683,24 +944,6 @@ export default function CommandCentre({
   const [paletteOpen,      setPaletteOpen]      = useState(false)
   const [bannerDismissed,  setBannerDismissed]  = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Restore preferences from localStorage for unauthenticated users
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('hv_dashboard_prefs') ?? '{}')
-      if (stored.country_iso2 && !initialCountryIso2) {
-        const found = COUNTRIES.find(c => c.iso2 === stored.country_iso2)
-        if (found) {
-          setCountry(found)
-          setRegion((REGIONS[found.iso2] ?? [])[0] ?? '')
-        }
-      }
-      if (stored.role_id && !initialRoleId) {
-        setRole(stored.role_id)
-      }
-    } catch { /* localStorage unavailable */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // ⌘K / Ctrl+K listener
   useEffect(() => {
@@ -714,38 +957,9 @@ export default function CommandCentre({
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // Sync state when URL-derived props change (globe → dashboard nav doesn't remount)
-  useEffect(() => {
-    const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
-    if (found && found.iso2 !== country.iso2) {
-      setCountry(found)
-      setRegion((REGIONS[found.iso2] ?? [])[0] ?? '')
-    }
-  }, [initialCountryIso2]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (initialRoleId && initialRoleId !== role) {
-      setRole(initialRoleId)
-    }
-  }, [initialRoleId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    fetch(`/api/dashboard/listings?category=${CATEGORY_MAP[view]}`)
-      .then(r => r.ok ? r.json() : [])
-      .then((data: unknown[]) => setLiveListings(data.length > 0 ? data : null))
-      .catch(() => setLiveListings(null))
-  }, [view])
-
   const savePreferences = useCallback((patch: { country_iso2?: string; role_id?: string }) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      // Persist to localStorage immediately — available for all users including unauthenticated
-      try {
-        const stored = JSON.parse(localStorage.getItem('hv_dashboard_prefs') ?? '{}')
-        localStorage.setItem('hv_dashboard_prefs', JSON.stringify({ ...stored, ...patch }))
-      } catch { /* localStorage unavailable (SSR, private mode) */ }
-
-      // Also attempt server-side save for authenticated users; 401 is expected and ignored
       fetch('/api/dashboard/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -784,27 +998,13 @@ export default function CommandCentre({
     if (q) openPanel('search', q)
   }
 
-  const queueRequest = useCallback((kind: 'proof' | 'coa', item: string) => {
+  const queueRequest = (kind: 'proof' | 'coa', item: string) => {
     setSelectedItem(item)
     const unavailable = country.iso2 === 'AF' && kind === 'coa'
     if (kind === 'coa')   setCoaState(unavailable ? 'unavailable' : 'queued')
     if (kind === 'proof') setProofState('queued')
     openPanel(kind, item)
-
-    // Fire and forget — create a marketplace_inquiries record
-    if (!unavailable) {
-      fetch('/api/marketplace/proof-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listing_title: item,
-          request_type:  kind,
-          country_iso2:  country.iso2,
-          role_id:       role || undefined,
-        }),
-      }).catch(() => { /* non-blocking — UI state already set */ })
-    }
-  }, [country, role, openPanel])
+  }
 
   const toggleWatch = (item: string) => {
     setWatching(prev => {
@@ -828,263 +1028,37 @@ export default function CommandCentre({
     )
   }, [rows, search])
 
-  const warn       = WARN_REGIONS.has(region)
-  const roleLabel  = role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.label ?? 'General') : 'General'
-  const roleModules = ROLE_FIRST_MODULES[role] ?? DEFAULT_ROLE_MODULES
-  const learningPath = [
+  const warn        = useMemo(() => WARN_REGIONS.has(region), [region])
+  const roleLabel   = useMemo(() =>
+    role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.label ?? 'General') : 'General',
+    [role],
+  )
+  const roleModules  = useMemo(() => ROLE_FIRST_MODULES[role] ?? DEFAULT_ROLE_MODULES, [role])
+  const learningPath = useMemo(() => [
     ...roleModules,
     ...eduCategories.map(cat => ({ ...cat, stage: `${country.label}${region ? ` · ${region}` : ''}` })),
-  ]
-  const regionalIntel = getRegionalIntel(country, region, roleLabel, warn, countryIntel)
-  const tierLabel     = ['doctor_prescriber','pharmacist','clinic_healthcare_operator'].includes(role)
-    ? 'CLINICAL PARTNER · Education'
-    : 'FREE · Weekly Signals'
+  ], [roleModules, eduCategories, country.label, region])
 
-  const banner = bannerDismissed
-    ? null
-    : getProactiveBanner(signals, country, watching, pipeline, wantedListings)
-
+  const regionalIntel = useMemo(
+    () => getRegionalIntel(country, region, roleLabel, warn, countryIntel),
+    [country, region, roleLabel, warn, countryIntel],
+  )
+  const tierLabel = useMemo(() =>
+    ['doctor_prescriber','pharmacist','clinic_healthcare_operator'].includes(role)
+      ? 'CLINICAL PARTNER · Education'
+      : 'FREE · Weekly Signals',
+    [role],
+  )
+  const banner = useMemo(() =>
+    bannerDismissed ? null : getProactiveBanner(signals, country, watching, pipeline, wantedListings),
+    [bannerDismissed, signals, country, watching, pipeline, wantedListings],
+  )
   const notifCount = useMemo(() =>
     signals.filter(s => s.confidence >= 75).length + (pipeline?.proof_review ?? 0),
     [signals, pipeline],
   )
 
   // ── Drawer panel renderer ────────────────────────────────────────────────────
-  const renderPanel = () => {
-    const requestState = activePanel === 'coa' ? coaState : proofState
-    const panelTitle   = COMMAND_NAV.find(i => i.id === activePanel)?.label ?? activePanel
-
-    return (
-      <aside className={`cc-command-panel${panelOpen ? ' open' : ''}`} aria-label={`${panelTitle} panel`}>
-        <div className="cc-drawer-head">
-          <div>
-            <small>Command centre expansion</small>
-            <h3>{panelTitle}</h3>
-          </div>
-          <button className="cc-close" onClick={() => setPanelOpen(false)} aria-label="Close panel">×</button>
-        </div>
-        <div className="cc-drawer-body">
-
-          {activePanel === 'marketplace' && (
-            <section className="cc-drawer-card">
-              <b>{VIEW_BLOCK_TITLES[view]} expanded</b>
-              <p>{filteredRows.length} {VIEW_TAB_LABELS[view].toLowerCase()} rows · {country.label}{region ? ` / ${region}` : ''}</p>
-              <div className="cc-panel-list">
-                {filteredRows.map(row => <span key={row[2]}>{row[2]} · {row[6]}</span>)}
-              </div>
-              <a href="/marketplace" className="cc-link-external">Full marketplace →</a>
-            </section>
-          )}
-
-          {activePanel === 'education' && (
-            <section className="cc-drawer-card">
-              <b>{roleLabel} learning path</b>
-              <p>Role-specific modules prioritized, then {country.label}{region ? ` / ${region}` : ''} context.</p>
-              <div className="cc-panel-list">
-                {learningPath.map(item => (
-                  <span key={`${item.stage}-${item.title}`}>{item.stage}: {item.title}</span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {activePanel === 'signals' && (
-            <section className="cc-drawer-card">
-              <b>Weekly Signals · {signals.length} active</b>
-              <p>Source confidence · marketplace impact · operator next actions.</p>
-              <div className="cc-panel-signal-list">
-                {signals.map((signal, i) => (
-                  <div key={signal.id} className="cc-panel-signal">
-                    <div className="cc-panel-signal-head">
-                      <span
-                        className="cc-signal-tag"
-                        style={{ borderColor: signal.tag.border, color: signal.tag.color, background: signal.tag.bg }}
-                      >
-                        {signal.tag.label}
-                      </span>
-                      <MiniSpark confidence={signal.confidence} idx={i} />
-                      <span className="cc-conf-num" style={{ color: signal.confidence >= 75 ? 'var(--cc-green)' : 'var(--cc-amber)' }}>
-                        {signal.confidence}%
-                      </span>
-                    </div>
-                    <b className="cc-panel-signal-title">{signal.title}</b>
-                    <p className="cc-panel-signal-impact">{signal.commercialImpact}</p>
-                    <small>{signal.market} · {signal.timeAgo}</small>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {activePanel === 'wanted' && (
-            <section className="cc-drawer-card">
-              <b>Wanted Demand — {wantedListings.length > 0 ? `${wantedListings.length} active requests` : `${wantedCount} requests`}</b>
-              <p>Active buyer demand available in this workspace.</p>
-              {wantedListings.length > 0
-                ? (
-                  <div className="cc-panel-wanted">
-                    {wantedListings.map(listing => (
-                      <WantedCard
-                        key={listing.id}
-                        listing={listing}
-                        onAction={id => { setSelectedItem(id); setProofState('queued') }}
-                      />
-                    ))}
-                  </div>
-                )
-                : (
-                  <button className="cc-primary inline" onClick={() => setProofState('queued')}>
-                    Queue wanted demand review
-                  </button>
-                )
-              }
-            </section>
-          )}
-
-          {activePanel === 'local-intel' && (
-            <section className="cc-drawer-card">
-              <b>{regionalIntel.title}</b>
-              <p>{regionalIntel.summary}</p>
-              {regionalIntel.intelSummary && regionalIntel.intelSummary !== regionalIntel.summary && (
-                <div className="cc-intel-block">
-                  <small>INTEL SUMMARY</small>
-                  <p>{regionalIntel.intelSummary}</p>
-                </div>
-              )}
-              {regionalIntel.commercialPathway && (
-                <div className="cc-intel-block accent-blue">
-                  <small>COMMERCIAL PATHWAY</small>
-                  <p>{regionalIntel.commercialPathway}</p>
-                </div>
-              )}
-              <div className="cc-rule-grid">
-                <div><small>Rule status</small><strong>{regionalIntel.ruleStatus}</strong></div>
-                <div><small>Marketplace impact</small><strong>{regionalIntel.marketplaceImpact}</strong></div>
-                <div><small>Role impact</small><strong>{regionalIntel.roleImpact}</strong></div>
-                <div><small>Confidence / source</small><strong>{regionalIntel.confidence}</strong></div>
-                {regionalIntel.reviewStatus && (
-                  <div><small>Intel review status</small><strong>{regionalIntel.reviewStatus}</strong></div>
-                )}
-              </div>
-              <p className="cc-next-action">Next operator action: {regionalIntel.nextAction}</p>
-            </section>
-          )}
-
-          {activePanel === 'watchlist' && (
-            <section className="cc-drawer-card">
-              <b>Watchlist · {watching.size} item{watching.size !== 1 ? 's' : ''}</b>
-              <p>
-                {selectedItem
-                  ? `${selectedItem} is ${watching.has(selectedItem) ? 'now watched' : 'removed from watch'} in the ${country.label} workspace.`
-                  : `Watching ${watching.size} items in the ${country.label} workspace.`}
-              </p>
-              <div className="cc-panel-list">
-                {Array.from(watching).map(item => (
-                  <span key={item} className="cc-watch-item">
-                    <span className="cc-watch-dot" />
-                    {item}
-                  </span>
-                ))}
-                {watching.size === 0 && <span>No watched rows yet. Use the Watch button on any listing.</span>}
-              </div>
-            </section>
-          )}
-
-          {(activePanel === 'proof' || activePanel === 'coa') && (
-            <section className="cc-drawer-card">
-              <b>{activePanel === 'coa' ? 'COA request' : 'Proof request'} — {selectedItem}</b>
-              <p>
-                Status:{' '}
-                {requestState === 'queued'
-                  ? 'Queued for operator review.'
-                  : requestState === 'unavailable'
-                    ? 'Unavailable for this country/region until source review completes.'
-                    : 'Ready to queue.'}
-              </p>
-              <p>Context: {country.label}{region ? ` / ${region}` : ''} · {roleLabel} · {VIEW_TAB_LABELS[view]}</p>
-            </section>
-          )}
-
-          {activePanel === 'module' && (
-            <section className="cc-drawer-card">
-              <b>{selectedModule || 'Education module'}</b>
-              <p>Module open in-dashboard. All context preserved: country, region, role, category.</p>
-            </section>
-          )}
-
-          {activePanel === 'settings' && (
-            <section className="cc-drawer-card">
-              <b>Command Centre settings</b>
-              <p>Saved layout, module priority, proof gates, and workspace density.</p>
-              <div className="cc-settings-grid">
-                <div className="cc-setting-item"><small>Workspace</small><strong>{country.label}{region ? ` · ${region}` : ''}</strong></div>
-                <div className="cc-setting-item"><small>Active role</small><strong>{roleLabel}</strong></div>
-                <div className="cc-setting-item"><small>Tier</small><strong>{tierLabel}</strong></div>
-                <div className="cc-setting-item"><small>Watchlist</small><strong>{watching.size} items</strong></div>
-                {pipeline && <div className="cc-setting-item"><small>Wanted pipeline</small><strong>{pipeline.wanted} requests</strong></div>}
-                {pipeline && <div className="cc-setting-item"><small>Deal room</small><strong>{pipeline.deal_room} active</strong></div>}
-              </div>
-              <button className="cc-primary inline" onClick={() => setActivePanel('marketplace')}>Apply layout</button>
-            </section>
-          )}
-
-          {activePanel === 'search' && (
-            <section className="cc-drawer-card">
-              <b>Search: &quot;{selectedItem || search}&quot;</b>
-              <p>{filteredRows.length} matching rows in current {VIEW_TAB_LABELS[view]} view.</p>
-              <div className="cc-panel-list">
-                {filteredRows.slice(0, 10).map(row => <span key={row[2]}>{row[2]} · {row[7]}</span>)}
-              </div>
-              <a
-                href={`/marketplace?q=${encodeURIComponent(search)}`}
-                className="cc-link-external"
-              >
-                Full marketplace search →
-              </a>
-            </section>
-          )}
-
-          {activePanel === 'notifications' && (
-            <section className="cc-drawer-card">
-              <b>Notifications · {notifCount} active</b>
-              <div className="cc-panel-list">
-                {signals.filter(s => s.confidence >= 75).map(s => (
-                  <span key={s.id} className="cc-notif-item">
-                    <span className="cc-notif-dot signal" />
-                    {s.title} · {s.market}
-                  </span>
-                ))}
-                {(pipeline?.proof_review ?? 0) > 0 && (
-                  <span className="cc-notif-item">
-                    <span className="cc-notif-dot pipeline" />
-                    {pipeline!.proof_review} proof request{pipeline!.proof_review > 1 ? 's' : ''} pending review
-                  </span>
-                )}
-                {notifCount === 0 && <span>No active notifications.</span>}
-              </div>
-            </section>
-          )}
-
-          {activePanel === 'suppliers' && (
-            <section className="cc-drawer-card">
-              <b>Supplier command surface</b>
-              <p>Supplier discovery filtered by {country.label} and {roleLabel}.</p>
-            </section>
-          )}
-
-          {activePanel === 'account' && (
-            <section className="cc-drawer-card">
-              <b>Account controls</b>
-              <p>Workspace preferences, notification routing, and proof-request defaults.</p>
-            </section>
-          )}
-
-        </div>
-      </aside>
-    )
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <>
       <style>{CSS}</style>
@@ -1477,7 +1451,33 @@ export default function CommandCentre({
 
       {/* ── Overlays ─────────────────────────────────────────────────── */}
       {panelOpen && <div className="cc-scrim" onClick={() => setPanelOpen(false)} />}
-      {renderPanel()}
+      <DrawerPanel
+        activePanel={activePanel}
+        panelOpen={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        view={view}
+        country={country}
+        region={region}
+        roleLabel={roleLabel}
+        tierLabel={tierLabel}
+        filteredRows={filteredRows}
+        learningPath={learningPath}
+        regionalIntel={regionalIntel}
+        signals={signals}
+        wantedListings={wantedListings}
+        wantedCount={wantedCount}
+        watching={watching}
+        pipeline={pipeline}
+        notifCount={notifCount}
+        search={search}
+        selectedItem={selectedItem}
+        selectedModule={selectedModule}
+        proofState={proofState}
+        coaState={coaState}
+        onProofState={setProofState}
+        onSelectedItem={setSelectedItem}
+        onSetActivePanel={setActivePanel}
+      />
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
         {COMMAND_NAV.slice(0, 5).map(item => (
           <button
