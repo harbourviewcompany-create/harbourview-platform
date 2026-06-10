@@ -75,6 +75,61 @@ const VIEW_TAB_LABELS: Record<MarketView, string> = {
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+/** ISO 3166-1 alpha-2 → unicode flag emoji (covers all 249 UN + territory codes) */
+function isoToFlag(iso2: string): string {
+  return [...iso2.toUpperCase()]
+    .map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 0x41))
+    .join('')
+}
+
+/** URL-safe country slug — mirrors server-side canonicalSlug */
+function toCountrySlug(label: string): string {
+  return label
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/&/g, '-and-')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+// ── Confidence bar derivation ──────────────────────────────────────────────────
+// stub  → ~17%  — placeholder, no reviewed data
+// seed  → ~65%  — seeded status fields, no editorial review
+// other → ~83%  — reviewed/published intel
+function deriveConfidenceBars(intel: CountryIntelProfile | null | undefined): { label: string; pct: number }[] {
+  const completeness = intel?.data_completeness
+  const hasMedical   = intel?.medical_status && intel.medical_status !== 'unknown'
+  const hasRegulator = !!intel?.regulator_label
+  if (!hasMedical || completeness === 'stub') {
+    return [
+      { label: 'Regulatory',        pct: 20 },
+      { label: 'Market Data',       pct: 16 },
+      { label: 'Access Pathway',    pct: 14 },
+      { label: 'Local Intel',       pct: 12 },
+      { label: 'Education Content', pct: 22 },
+    ]
+  }
+  if (completeness === 'seed') {
+    return [
+      { label: 'Regulatory',        pct: hasRegulator ? 72 : 62 },
+      { label: 'Market Data',       pct: 66 },
+      { label: 'Access Pathway',    pct: 60 },
+      { label: 'Local Intel',       pct: 54 },
+      { label: 'Education Content', pct: 70 },
+    ]
+  }
+  return [
+    { label: 'Regulatory',        pct: hasRegulator ? 88 : 80 },
+    { label: 'Market Data',       pct: 82 },
+    { label: 'Access Pathway',    pct: 78 },
+    { label: 'Local Intel',       pct: 76 },
+    { label: 'Education Content', pct: 90 },
+  ]
+}
+
 // ── Status field derivation ───────────────────────────────────────────────────
 // Derives the 5 BriefingRoom status cards from live DB fields.
 //
@@ -205,14 +260,31 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region,
   countryIntel,
   signals,
+  profileHref,
 }: {
   country:     { iso2: string; label: string }
   region:      string
   countryIntel?: CountryIntelProfile | null
   signals:     DashboardSignal[]
+  profileHref: string
 }) {
-  const overall      = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
-  const statusFields  = useMemo(() => deriveStatusFields(countryIntel), [countryIntel])
+  const confidenceBars = useMemo(() => deriveConfidenceBars(countryIntel), [countryIntel])
+  const overall        = overallConfidence(confidenceBars)
+  const statusFields   = useMemo(() => deriveStatusFields(countryIntel), [countryIntel])
+  const watchRegions   = useMemo(() => {
+    const primary = {
+      label:  country.label,
+      status: deriveRegulatoryOutlook(countryIntel).value,
+      star:   true,
+    }
+    const seen = new Set([country.label.toLowerCase()])
+    const others = signals
+      .map(s => s.market)
+      .filter((m): m is string => !!m && !seen.has(m.toLowerCase()) && !!seen.add(m.toLowerCase()))
+      .slice(0, 4)
+      .map(m => ({ label: m, status: 'Signal Activity', star: false }))
+    return [primary, ...others]
+  }, [country, countryIntel, signals])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -229,10 +301,13 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{country.iso2 === 'US' ? '🇺🇸' : country.iso2 === 'CA' ? '🇨🇦' : '🌐'}</div>
+          <div className="cc-jx-flag">{isoToFlag(country.iso2)}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}
+            {countryIntel?.regulator_label && (
+              <div className="cc-jx-regulator">Regulated by {countryIntel.regulator_label}</div>
+            )}
           </div>
         </div>
 
@@ -252,7 +327,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
           ))}
         </div>
 
-        <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
+        <a href={profileHref} className="cc-jx-btn">View Full Jurisdiction Profile →</a>
       </aside>
 
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
@@ -316,7 +391,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               </div>
             </div>
             <div className="cc-confidence-bars">
-              {EVIDENCE_CONFIDENCE_BARS.map(bar => (
+              {confidenceBars.map(bar => (
                 <div key={bar.label} className="cc-conf-bar-row">
                   <span className="cc-conf-bar-lbl">{bar.label}</span>
                   <div className="cc-conf-bar-track">
@@ -333,13 +408,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
         <div className="cc-right-section">
           <div className="cc-right-head">WATCH REGIONS</div>
           <div className="cc-watch-regions">
-            {[
-              { label: country.label, status: 'Active Program', star: true },
-              { label: 'California',  status: 'Active Program',  star: false },
-              { label: 'New York',    status: 'Program Expanding', star: false },
-              { label: 'Texas',       status: 'Legislation Pending', star: false },
-              { label: 'Illinois',    status: 'Market Maturing', star: false },
-            ].map(r => (
+            {watchRegions.map(r => (
               <div key={r.label} className="cc-watch-region-row">
                 <span className="cc-watch-region-star">{r.star ? '★' : '○'}</span>
                 <div className="cc-watch-region-info">
@@ -601,7 +670,13 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} />
+        return <BriefingRoom
+          country={country}
+          region={region}
+          countryIntel={countryIntel}
+          signals={signals}
+          profileHref={`/country/${toCountrySlug(country.label)}/role/${role || 'exporter'}`}
+        />
       case 'access-pathway':
         return <ScaffoldPage title="Access Pathway" {...sharedProps} />
       case 'marketplace':
