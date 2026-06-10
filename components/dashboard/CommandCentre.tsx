@@ -75,13 +75,118 @@ const VIEW_TAB_LABELS: Record<MarketView, string> = {
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
-const PROGRAM_STATUS_FIELDS = [
-  { key: 'program_status',    label: 'Program Status'    },
-  { key: 'patient_access',    label: 'Patient Access'    },
-  { key: 'physician_access',  label: 'Physician Access'  },
-  { key: 'market_dynamics',   label: 'Market Dynamics'   },
-  { key: 'regulatory_outlook',label: 'Regulatory Outlook'},
-] as const
+// ── Status field derivation ───────────────────────────────────────────────────
+// Derives the 5 BriefingRoom status cards from live DB fields.
+//
+// DB value universe (190 countries, June 2026 seed):
+//   market_access_status : open | active | regulated | limited | emerging | restricted | unknown
+//   medical_status       : open | active | limited   | emerging | restricted | unknown
+//   import_status        : active | limited | restricted | unknown
+//   export_status        : active | limited | restricted | unknown
+//   opportunity_score    : 0–100
+//   review_status        : from dashboard resolver (may be 'draft'|'published'|reviewState string)
+//
+// unknown = no Harbourview-reviewed record for this country yet (84 of 190 countries).
+// All functions return '—' value when the country is a stub/unknown — never expose
+// internal data-quality labels to the UI.
+
+type StatusField = { icon: string; label: string; value: string }
+
+// Scale for icons: ↑ = open/very strong  ◎ = active/good  ◐ = moderate  ◑ = limited/developing  ↓ = restricted  ○ = none/unknown
+
+function deriveProgramStatus(intel: CountryIntelProfile | null | undefined): StatusField {
+  switch (intel?.medical_status) {
+    case 'open':       return { icon: '↑', label: 'Program Status', value: 'Unrestricted Medical'  }
+    case 'active':     return { icon: '◎', label: 'Program Status', value: 'Active Medical Program' }
+    case 'limited':    return { icon: '◑', label: 'Program Status', value: 'Limited Access Program' }
+    case 'emerging':   return { icon: '◑', label: 'Program Status', value: 'Emerging Program'       }
+    case 'restricted': return { icon: '↓', label: 'Program Status', value: 'Restricted Access'      }
+    default:           return { icon: '○', label: 'Program Status', value: '—'                      }
+  }
+}
+
+function derivePatientAccess(intel: CountryIntelProfile | null | undefined): StatusField {
+  const med = intel?.medical_status
+  const imp = intel?.import_status
+  // Open-access markets
+  if (med === 'open')                                        return { icon: '↑', label: 'Patient Access', value: 'Unrestricted' }
+  // Active medical — refine by import signal
+  if (med === 'active' && imp === 'active')                  return { icon: '↑', label: 'Patient Access', value: 'Increasing'   }
+  if (med === 'active' && imp === 'limited')                 return { icon: '◐', label: 'Patient Access', value: 'Moderate'     }
+  if (med === 'active' && imp === 'restricted')              return { icon: '◑', label: 'Patient Access', value: 'Regulated'    }
+  if (med === 'active')                                      return { icon: '◐', label: 'Patient Access', value: 'Moderate'     }
+  // Below-active medical statuses
+  if (med === 'limited')                                     return { icon: '◑', label: 'Patient Access', value: 'Limited'      }
+  if (med === 'emerging')                                    return { icon: '◑', label: 'Patient Access', value: 'Developing'   }
+  if (med === 'restricted')                                  return { icon: '↓', label: 'Patient Access', value: 'Restricted'   }
+  // Stub / unknown — clean empty state
+  return                                                            { icon: '○', label: 'Patient Access', value: '—'            }
+}
+
+function derivePhysicianAccess(intel: CountryIntelProfile | null | undefined): StatusField {
+  const med = intel?.medical_status
+  const mkt = intel?.market_access_status
+  if (med === 'open')                                        return { icon: '↑', label: 'Physician Access', value: 'Open'        }
+  if (med === 'active' && (mkt === 'open' || mkt === 'active'))
+                                                             return { icon: '↑', label: 'Physician Access', value: 'Open'        }
+  if (med === 'active' && mkt === 'regulated')               return { icon: '◐', label: 'Physician Access', value: 'Moderate'    }
+  if (med === 'active' && mkt === 'limited')                 return { icon: '◑', label: 'Physician Access', value: 'Limited'     }
+  if (med === 'active' && mkt === 'emerging')                return { icon: '◑', label: 'Physician Access', value: 'Developing'  }
+  if (med === 'active')                                      return { icon: '◐', label: 'Physician Access', value: 'Moderate'    }
+  if (med === 'limited')                                     return { icon: '◑', label: 'Physician Access', value: 'Limited'     }
+  if (med === 'emerging')                                    return { icon: '◑', label: 'Physician Access', value: 'Developing'  }
+  if (med === 'restricted')                                  return { icon: '↓', label: 'Physician Access', value: 'Restricted'  }
+  return                                                            { icon: '○', label: 'Physician Access', value: '—'           }
+}
+
+function deriveMarketDynamics(intel: CountryIntelProfile | null | undefined): StatusField {
+  const mkt   = intel?.market_access_status
+  const score = intel?.opportunity_score ?? 0
+  // Open markets
+  if (mkt === 'open')                                        return { icon: '⊛', label: 'Market Dynamics', value: 'Established' }
+  // Active markets — score-banded
+  if (mkt === 'active' && score >= 75)                       return { icon: '⊛', label: 'Market Dynamics', value: 'Established' }
+  if (mkt === 'active')                                      return { icon: '⊛', label: 'Market Dynamics', value: 'Maturing'    }
+  // Regulated — score-banded
+  if (mkt === 'regulated' && score >= 60)                    return { icon: '⊛', label: 'Market Dynamics', value: 'Maturing'    }
+  if (mkt === 'regulated' && score >= 35)                    return { icon: '⊛', label: 'Market Dynamics', value: 'Developing'  }
+  if (mkt === 'regulated')                                   return { icon: '⊛', label: 'Market Dynamics', value: 'Developing'  }
+  if (mkt === 'limited')                                     return { icon: '⊛', label: 'Market Dynamics', value: 'Limited'     }
+  if (mkt === 'emerging')                                    return { icon: '⊛', label: 'Market Dynamics', value: 'Emerging'    }
+  if (mkt === 'restricted')                                  return { icon: '⊛', label: 'Market Dynamics', value: 'Nascent'     }
+  return                                                            { icon: '○', label: 'Market Dynamics', value: '—'           }
+}
+
+function deriveRegulatoryOutlook(intel: CountryIntelProfile | null | undefined): StatusField {
+  const mkt = intel?.market_access_status
+  const rev = intel?.review_status
+  // review_status from dashboard resolver — use when it's a meaningful published state
+  const SKIP_REV = new Set(['draft', 'pending', 'unknown', 'stub', 'unverified', ''])
+  const reviewLabel = rev && !SKIP_REV.has(rev)
+    ? rev.charAt(0).toUpperCase() + rev.slice(1).replace(/_/g, ' ')
+    : null
+  if (reviewLabel) return { icon: '⊙', label: 'Regulatory Outlook', value: reviewLabel }
+  // Fall back to market_access_status signal
+  switch (mkt) {
+    case 'open':       return { icon: '⊙', label: 'Regulatory Outlook', value: 'Established'  }
+    case 'active':     return { icon: '⊙', label: 'Regulatory Outlook', value: 'Stable'        }
+    case 'regulated':  return { icon: '⊙', label: 'Regulatory Outlook', value: 'Stable'        }
+    case 'limited':    return { icon: '⊙', label: 'Regulatory Outlook', value: 'Evolving'      }
+    case 'emerging':   return { icon: '⊙', label: 'Regulatory Outlook', value: 'Evolving'      }
+    case 'restricted': return { icon: '⊙', label: 'Regulatory Outlook', value: 'Restrictive'   }
+    default:           return { icon: '○', label: 'Regulatory Outlook', value: '—'             }
+  }
+}
+
+function deriveStatusFields(intel: CountryIntelProfile | null | undefined): StatusField[] {
+  return [
+    deriveProgramStatus(intel),
+    derivePatientAccess(intel),
+    derivePhysicianAccess(intel),
+    deriveMarketDynamics(intel),
+    deriveRegulatoryOutlook(intel),
+  ]
+}
 
 const EVIDENCE_CONFIDENCE_BARS = [
   { label: 'Regulatory',        pct: 85 },
@@ -106,7 +211,8 @@ const BriefingRoom = React.memo(function BriefingRoom({
   countryIntel?: CountryIntelProfile | null
   signals:     DashboardSignal[]
 }) {
-  const overall = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
+  const overall      = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
+  const statusFields  = useMemo(() => deriveStatusFields(countryIntel), [countryIntel])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -135,41 +241,15 @@ const BriefingRoom = React.memo(function BriefingRoom({
         )}
 
         <div className="cc-jx-fields">
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">◎</span>
-            <div>
-              <small>Program Status</small>
-              <strong>Active Medical Program</strong>
+          {statusFields.map(({ icon, label, value }: StatusField) => (
+            <div key={label} className="cc-jx-field">
+              <span className={"cc-jx-field-icon" + (value === '—' ? ' cc-jx-field-icon--empty' : '')}>{icon}</span>
+              <div>
+                <small>{label}</small>
+                <strong>{value}</strong>
+              </div>
             </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">↑</span>
-            <div>
-              <small>Patient Access</small>
-              <strong>Increasing</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">◐</span>
-            <div>
-              <small>Physician Access</small>
-              <strong>Moderate</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">⊛</span>
-            <div>
-              <small>Market Dynamics</small>
-              <strong>Maturing</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">⊙</span>
-            <div>
-              <small>Regulatory Outlook</small>
-              <strong>{countryIntel?.review_status ?? 'Stable'}</strong>
-            </div>
-          </div>
+          ))}
         </div>
 
         <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
