@@ -351,7 +351,7 @@ export async function getCountryStatusFromDB(
       .single()
 
     if (error || !data) return null
-    return data as CountryStatus
+    return data as unknown as CountryStatus
   } catch {
     return null
   }
