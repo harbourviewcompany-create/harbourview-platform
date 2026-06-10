@@ -585,7 +585,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <div className="cc-two-main">
         <div className="cc-inner-header">
           <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
-          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview's market access team.</p>
+          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview’s market access team.</p>
         </div>
 
         <div className="cc-mkt-tabs">
@@ -883,7 +883,7 @@ const EducationPage = React.memo(function EducationPage({
               <div className="cc-nba-card-icon">◎</div>
               <div>
                 <strong>Continue {nextModule.title}</strong>
-                <small>You're {nextModule.progress}% complete</small>
+                <small>You&apos;re {nextModule.progress}% complete</small>
                 <p>Finishing this module unlocks the Compliance step and accelerates pathway progression.</p>
               </div>
             </div>
