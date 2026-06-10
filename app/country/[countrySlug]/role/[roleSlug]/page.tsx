@@ -152,12 +152,9 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
       pipeline={pipeline}
       wantedListings={wantedListings}
       countryIntel={{
-        // Core identity (always available from resolver)
-        country_code: countryIso2,
-        country_name: countryStatus?.country_name ?? dashboard.country.countryName,
-        region: countryStatus?.region ?? null,
-
-        // Real jurisdiction status from DB (191 countries seeded)
+        country_code:          countryIso2,
+        country_name:          countryStatus?.country_name ?? dashboard.country.countryName,
+        region:                countryStatus?.region ?? null,
         market_access_status:  countryStatus?.market_access_status ?? null,
         medical_status:        countryStatus?.medical_status ?? null,
         adult_use_status:      countryStatus?.adult_use_status ?? null,
@@ -165,20 +162,16 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
         export_status:         countryStatus?.export_status ?? null,
         opportunity_score:     countryStatus?.opportunity_score ?? null,
         trade_roles:           countryStatus?.trade_roles ?? null,
-        opportunity_categories:countryStatus?.opportunity_categories ?? null,
+        opportunity_categories: countryStatus?.opportunity_categories ?? null,
         regulator_label:       countryStatus?.regulator_label ?? null,
         data_completeness:     countryStatus?.data_completeness ?? null,
-
-        // Public summary: use DB version if available, fall back to evidence message
-        public_summary: countryStatus?.public_summary
+        public_summary:        countryStatus?.public_summary
           ?? (dashboard.country.evidenceVerified
             ? `${dashboard.country.countryName} ${dashboard.role.label} dashboard context is available.`
             : dashboard.evidence.message
             ?? 'This country-role pathway requires Harbourview evidence review.'),
-
-        // Harbourview review layer (from resolver, not DB)
         commercial_pathway_summary: dashboard.role.priority,
-        review_status: dashboard.admin.reviewState,
+        review_status:         dashboard.admin.reviewState,
       }}
     />
   )
