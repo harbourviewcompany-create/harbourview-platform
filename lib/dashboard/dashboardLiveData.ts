@@ -356,3 +356,44 @@ export async function getCountryStatusFromDB(
   }
 }
 
+// ── 7. Country status from DB (191 countries seeded) ─────────────────────────
+export interface CountryStatus {
+  country_name: string
+  iso_alpha2: string
+  region: string | null
+  market_access_status: string | null
+  medical_status: string | null
+  adult_use_status: string | null
+  import_status: string | null
+  export_status: string | null
+  opportunity_score: number | null
+  data_completeness: string | null
+  public_summary: string | null
+  trade_roles: string[] | null
+  opportunity_categories: string[] | null
+  regulator_label: string | null
+}
+
+export async function getCountryStatusFromDB(
+  iso2: string | null | undefined,
+): Promise<CountryStatus | null> {
+  if (!iso2) return null
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('countries')
+      .select(
+        'country_name,iso_alpha2,region,' +
+        'market_access_status,medical_status,adult_use_status,' +
+        'import_status,export_status,opportunity_score,' +
+        'data_completeness,public_summary,' +
+        'trade_roles,opportunity_categories,regulator_label',
+      )
+      .eq('iso_alpha2', iso2.toUpperCase())
+      .single()
+    if (error || !data) return null
+    return data as CountryStatus
+  } catch {
+    return null
+  }
+}
