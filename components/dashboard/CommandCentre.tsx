@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { ALL_COUNTRIES, WARN_REGIONS_BY_COUNTRY } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -24,6 +24,8 @@ type CommandPage =
   | 'signals'
   | 'watchlist'
   | 'settings'
+
+type RequestState = 'idle' | 'queued' | 'unavailable'
 
 type Props = {
   signals:          DashboardSignal[]
@@ -47,6 +49,7 @@ const GlobeCanvas = dynamic(
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
+const WARN_REGIONS = new Set(Object.values(WARN_REGIONS_BY_COUNTRY).flat())
 
 const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',       label: 'Briefing Room',      icon: '◎' },
@@ -61,7 +64,25 @@ const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'settings',       label: 'Settings',           icon: '⊙' },
 ]
 
+const VIEW_TAB_LABELS: Record<MarketView, string> = {
+  cannabis:      'Listings',
+  equipment:     'Equipment',
+  consumables:   'Consumables',
+  'new-products':'New Products',
+  services:      'Services',
+  opportunities: 'Opportunities',
+  wanted:        'Wanted Demand',
+}
+
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
+
+const PROGRAM_STATUS_FIELDS = [
+  { key: 'program_status',    label: 'Program Status'    },
+  { key: 'patient_access',    label: 'Patient Access'    },
+  { key: 'physician_access',  label: 'Physician Access'  },
+  { key: 'market_dynamics',   label: 'Market Dynamics'   },
+  { key: 'regulatory_outlook',label: 'Regulatory Outlook'},
+] as const
 
 const EVIDENCE_CONFIDENCE_BARS = [
   { label: 'Regulatory',        pct: 85 },
@@ -80,15 +101,12 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region,
   countryIntel,
   signals,
-  onCountrySelect,
 }: {
-  country:          { iso2: string; label: string }
-  region:           string
-  countryIntel?:    CountryIntelProfile | null
-  signals:          DashboardSignal[]
-  onCountrySelect?: (iso2: string) => void
+  country:     { iso2: string; label: string }
+  region:      string
+  countryIntel?: CountryIntelProfile | null
+  signals:     DashboardSignal[]
 }) {
-  const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
   const overall = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
@@ -150,7 +168,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
             <span className="cc-jx-field-icon">⊙</span>
             <div>
               <small>Regulatory Outlook</small>
-              <strong>Stable</strong>
+              <strong>{countryIntel?.review_status ?? 'Stable'}</strong>
             </div>
           </div>
         </div>
@@ -165,10 +183,8 @@ const BriefingRoom = React.memo(function BriefingRoom({
             className="absolute inset-0 w-full h-full"
             selectedCountryIso2={country.iso2}
             selectedCountryIso2s={[country.iso2]}
-            focusedCountryIso2={focusedIso2}
+            focusedCountryIso2={undefined}
             activeLayerId="country_select"
-            onHoverCountry={setFocusedIso2}
-            onSelectCountry={onCountrySelect}
           />
           <div className="cc-globe-label">
             {country.label}
@@ -240,11 +256,10 @@ const BriefingRoom = React.memo(function BriefingRoom({
           <div className="cc-watch-regions">
             {[
               { label: country.label, status: 'Active Program', star: true },
-              ...signals
-                .map(s => s.market)
-                .filter((m, i, a) => m !== country.label && a.indexOf(m) === i)
-                .slice(0, 4)
-                .map(m => ({ label: m, status: 'Signal Activity', star: false })),
+              { label: 'California',  status: 'Active Program',  star: false },
+              { label: 'New York',    status: 'Program Expanding', star: false },
+              { label: 'Texas',       status: 'Legislation Pending', star: false },
+              { label: 'Illinois',    status: 'Market Maturing', star: false },
             ].map(r => (
               <div key={r.label} className="cc-watch-region-row">
                 <span className="cc-watch-region-star">{r.star ? '★' : '○'}</span>
@@ -507,7 +522,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} />
       case 'access-pathway':
         return <ScaffoldPage title="Access Pathway" {...sharedProps} />
       case 'marketplace':
@@ -612,7 +627,7 @@ export default function CommandCentre({
               type="button"
               className={`cc-nav-btn${activePage === item.id ? ' active' : ''}`}
               onClick={() => setActivePage(item.id)}
-              aria-current={activePage === item.id ? 'page' : undefined}
+              aria-pressed={activePage === item.id}
             >
               <span className="cc-nav-icon" aria-hidden="true">{item.icon}</span>
               <em>{item.label}</em>
