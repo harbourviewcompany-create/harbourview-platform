@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-
 const ALLOWED = new Set(["org_id","slug","trade_name","org_type","jurisdiction_country","verification_status","verification_level","completeness_band","active_licence_types","public_supported_claims","export_ready","recall_clear","is_public"]);
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!slug) return NextResponse.json({ error: "INVALID_SLUG" }, { status: 400 });
@@ -16,8 +14,5 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     const dto: Record<string, unknown> = {};
     for (const key of Object.keys(raw)) { if (ALLOWED.has(key)) dto[key] = raw[key]; }
     return NextResponse.json({ data: dto, generated_at: snapshot.generated_at }, { status: 200, headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } });
-  } catch (err) {
-    console.error("[public/passport]", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
-  }
+  } catch { return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 }); }
 }
