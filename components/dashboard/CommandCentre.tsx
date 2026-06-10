@@ -77,9 +77,16 @@ const VIEW_TAB_LABELS: Record<MarketView, string> = {
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
-/** ISO 3166-1 alpha-2 → unicode flag emoji (covers all 249 UN + territory codes) */
+/** ISO 3166-1 alpha-2 → unicode flag emoji.
+ *  Handles sovereign codes (MX, GB…), sub-national codes (CA-ON, US-CA, DE-BY, AU-NSW)
+ *  by stripping to the parent, and special cases (GLOBAL) with a fallback glyph.
+ */
 function isoToFlag(iso2: string): string {
-  return [...iso2.toUpperCase()]
+  if (!iso2 || iso2 === 'GLOBAL') return '🌐'
+  // Sub-national: take the parent country prefix (CA-ON → CA, US-CA → US)
+  const code = iso2.includes('-') ? iso2.split('-')[0] : iso2
+  if (code.length !== 2) return '🌐'
+  return [...code.toUpperCase()]
     .map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 0x41))
     .join('')
 }
