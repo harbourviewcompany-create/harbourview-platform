@@ -433,3 +433,6 @@ export function createGlobeRoutingPayload(country: CountryDashboardSummary, sour
     selectedDashboardSection,
   }
 }
+
+// Alias used by CommandCentre.tsx
+export { countries as ALL_COUNTRIES }
