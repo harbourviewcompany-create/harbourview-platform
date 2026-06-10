@@ -1,1489 +1,646 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { countries as ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import dynamic from 'next/dynamic'
+import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import type { PipelineCounts, WantedListing, CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
-import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
-import { REGIONS, REGION_LABELS, WARN_REGIONS as WARN_REGIONS_BY_COUNTRY } from '@/lib/dashboard/countryRegions'
+import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 
-// ── Exports consumed by app/dashboard/page.tsx ────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
 export type MarketRow = [string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
-// ── Internal types ─────────────────────────────────────────────────────────────
-type CommandPanel =
-  | 'marketplace' | 'education' | 'signals' | 'wanted'
-  | 'local-intel' | 'watchlist' | 'proof' | 'coa'
-  | 'module' | 'settings' | 'search' | 'suppliers'
-  | 'account' | 'notifications'
-
-type RequestState = 'idle' | 'queued' | 'unavailable'
-
-type CmdItem = {
-  id: string
-  group: string
-  label: string
-  sub?: string
-  icon?: string
-  action: () => void
-}
+type CommandPage =
+  | 'briefing'
+  | 'access-pathway'
+  | 'marketplace'
+  | 'evidence'
+  | 'education'
+  | 'regulatory'
+  | 'local-intel'
+  | 'signals'
+  | 'watchlist'
+  | 'settings'
 
 type Props = {
-  signals: DashboardSignal[]
-  eduCategories: { icon: string; title: string; desc: string }[]
+  signals:          DashboardSignal[]
+  eduCategories:    { icon: string; title: string; desc: string }[]
   initialCountryIso2?: string | null
-  initialRoleId?: string | null
-  wantedCount?: number
+  initialRoleId?:   string | null
+  wantedCount?:     number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
-  pipeline?: PipelineCounts
-  wantedListings?: WantedListing[]
-  countryIntel?: CountryIntelProfile | null
+  pipeline?:        PipelineCounts
+  wantedListings?:  WantedListing[]
+  countryIntel?:    CountryIntelProfile | null
 }
+
+// ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
+
+const GlobeCanvas = dynamic(
+  () => import('@/components/globe/r3f/GlobeCanvas').then(m => ({ default: m.GlobeCanvas })),
+  { ssr: false, loading: () => <div className="cc-globe-loading" /> },
+)
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
-const WARN_REGIONS = new Set(Object.values(WARN_REGIONS_BY_COUNTRY).flat())
 
-const VIEW_LABELS: Record<MarketView, string> = {
-  cannabis:      'Cannabis inventory · flower · extract · biomass · genetics',
-  equipment:     'Cultivation · extraction · processing · lab instrumentation',
-  consumables:   'Packaging · substrates · nutrients · solvents · inputs',
-  'new-products':'Seeds · formulations · devices · clones · new product lots',
-  services:      'GDP logistics · compliance · lab testing · regulatory counsel',
-  opportunities: 'Acquisitions · partnerships · licence transfers · distressed assets',
-  wanted:        'Wanted demand · active buyer requests · matched supply',
-}
-
-const VIEW_BLOCK_TITLES: Record<MarketView, string> = {
-  cannabis:      'Cannabis inventory',
-  equipment:     'Equipment marketplace',
-  consumables:   'Consumables & inputs',
-  'new-products':'New products',
-  services:      'Services marketplace',
-  opportunities: 'Business opportunities',
-  wanted:        'Active wanted requests',
-}
-
-const VIEW_TAB_LABELS: Record<MarketView, string> = {
-  cannabis:      'Cannabis',
-  equipment:     'Equipment',
-  consumables:   'Consumables',
-  'new-products':'New Products',
-  services:      'Services',
-  opportunities: 'Opportunities',
-  wanted:        'Wanted',
-}
-
-const COMMAND_NAV: { id: CommandPanel; label: string; icon: string }[] = [
-  { id: 'marketplace', label: 'Marketplace',  icon: '⊞' },
-  { id: 'wanted',      label: 'Wanted Demand',icon: '⬇' },
-  { id: 'local-intel', label: 'Local Intel',  icon: '◉' },
-  { id: 'education',   label: 'Education',    icon: '⬡' },
-  { id: 'signals',     label: 'Signals',      icon: '≋' },
-  { id: 'watchlist',   label: 'Watchlist',    icon: '◈' },
-  { id: 'settings',    label: 'Settings',     icon: '⊙' },
+const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
+  { id: 'briefing',       label: 'Briefing Room',      icon: '◎' },
+  { id: 'access-pathway', label: 'Access Pathway',     icon: '⬡' },
+  { id: 'marketplace',    label: 'Marketplace & Access',icon: '⊞' },
+  { id: 'evidence',       label: 'Evidence & Sources', icon: '⊟' },
+  { id: 'education',      label: 'Education Hub',      icon: '⬛' },
+  { id: 'regulatory',     label: 'Regulatory Watch',   icon: '◷' },
+  { id: 'local-intel',    label: 'Local Intel',        icon: '◉' },
+  { id: 'signals',        label: 'Signals',            icon: '≋' },
+  { id: 'watchlist',      label: 'Watchlist',          icon: '◈' },
+  { id: 'settings',       label: 'Settings',           icon: '⊙' },
 ]
 
-const ROLE_FIRST_MODULES: Record<string, { icon: string; title: string; desc: string; stage: string }[]> = {
-  // ── Genetics / IP ──────────────────────────────────────────────────────────
-  geneticist_breeder: [
-    { icon: '🧬', title: 'Cultivar IP and breeding records', desc: 'Provenance logs, phenotyping evidence, lineage records, and export-safe genetic material workflows.', stage: 'Role module 01' },
-    { icon: '🌱', title: 'Seed, clone, and tissue culture transfer controls', desc: 'Phytosanitary evidence, chain of custody, and restricted-market genetics movement.', stage: 'Role module 02' },
-    { icon: '🔬', title: 'Genetic stability and QA proof pack', desc: 'Build a breeder-ready proof bundle for cultivar claims, lab verification, and counterparty review.', stage: 'Role module 03' },
-    { icon: '⚖️', title: 'IP licensing and commercialisation pathway', desc: 'Structure IP agreements, licence terms, and protected commercialisation routes for verified genetics.', stage: 'Role module 04' },
-  ],
-  // ── Cultivation / Production ───────────────────────────────────────────────
-  cultivator_producer: [
-    { icon: '🌿', title: 'Production readiness and licence verification', desc: 'Confirm licence registry, site readiness, and evidence chain before buyer-facing claims.', stage: 'Role module 01' },
-    { icon: '📋', title: 'GACP / GMP compliance path', desc: 'Map cultivation standards, gap remediation, and audit readiness to your regional framework.', stage: 'Role module 02' },
-    { icon: '📦', title: 'Export-ready supply dossier', desc: 'Assemble phytosanitary, lab, chain-of-custody, and regional permit evidence for export channels.', stage: 'Role module 03' },
-    { icon: '🔗', title: 'Verified buyer routing', desc: 'Role-gated buyer introductions require production readiness and proof gates to be cleared.', stage: 'Role module 04' },
-  ],
-  // ── Processing / Extraction ────────────────────────────────────────────────
-  processor_extractor: [
-    { icon: '⚗️', title: 'Product readiness file', desc: 'Assemble product spec, GMP status, extraction method evidence, and batch release records.', stage: 'Role module 01' },
-    { icon: '📄', title: 'Batch release and COA pathway', desc: 'COA issuance, batch release sign-off, and regulatory submission requirements by region.', stage: 'Role module 02' },
-    { icon: '🏭', title: 'Manufacturing authorisation and GMP', desc: 'Map GMP certification requirements, facility approval process, and audit readiness.', stage: 'Role module 03' },
-    { icon: '🔗', title: 'Distribution and trade access', desc: 'Gate distribution channel access behind product readiness and proof-of-compliance evidence.', stage: 'Role module 04' },
-  ],
-  // ── Trade / Import ─────────────────────────────────────────────────────────
-  importer: [
-    { icon: '🛂', title: 'Import corridor and permit pathway', desc: 'Validate import permits, DEA/authority equivalents, and corridor evidence before supplier contact.', stage: 'Role module 01' },
-    { icon: '✅', title: 'Compliance proof pack for buyers', desc: 'Documents and regulatory checks required before marketplace contact or regional execution.', stage: 'Role module 02' },
-    { icon: '🚢', title: 'Customs, logistics, and cold chain', desc: 'Customs classification, incoterms, cold-chain requirements, and documentation checklist.', stage: 'Role module 03' },
-    { icon: '🔍', title: 'Verified supplier shortlist', desc: 'Evidence-gated supplier routing — only suppliers with proof assets are visible at this gate.', stage: 'Role module 04' },
-  ],
-  // ── Trade / Export ─────────────────────────────────────────────────────────
-  exporter: [
-    { icon: '📤', title: 'Export permit and corridor validation', desc: 'Confirm export authority, GMP equivalence, and per-corridor documentation requirements.', stage: 'Role module 01' },
-    { icon: '📦', title: 'Supplier dossier and trade documentation', desc: 'Assemble COA, GMP file, phytosanitary certificate, and import-country compliance package.', stage: 'Role module 02' },
-    { icon: '🌐', title: 'Target market access review', desc: 'Assess destination-country regulatory status, import quotas, and restricted substance schedules.', stage: 'Role module 03' },
-    { icon: '🤝', title: 'Verified buyer routing', desc: 'Importer introductions gated by corridor evidence, proof pack, and DEA/authority equivalence.', stage: 'Role module 04' },
-  ],
-  // ── Distribution / Wholesale ───────────────────────────────────────────────
-  distributor_wholesaler: [
-    { icon: '🏬', title: 'Distribution licence and coverage map', desc: 'Confirm distribution authority, coverage territory, and permitted product categories.', stage: 'Role module 01' },
-    { icon: '📋', title: 'Procurement and supplier verification', desc: 'Supplier proof pack, COA review, and chain-of-custody documentation before distribution.', stage: 'Role module 02' },
-    { icon: '🚛', title: 'Logistics, custody, and traceability', desc: 'Track-and-trace, cold chain, and handoff documentation requirements by jurisdiction.', stage: 'Role module 03' },
-    { icon: '📊', title: 'Wholesale demand intelligence', desc: 'Region-filtered demand signals, pricing corridor data, and buyer category matching.', stage: 'Role module 04' },
-  ],
-  // ── Medical / Clinical ─────────────────────────────────────────────────────
-  doctor_prescriber: [
-    { icon: '🩺', title: 'Clinical access and prescribing pathway', desc: 'Jurisdiction-specific prescribing authorisation, product schedules, and approved indications.', stage: 'Role module 01' },
-    { icon: '📚', title: 'Evidence-based clinical education', desc: 'Indication-specific clinical evidence, dosing frameworks, and adverse event monitoring.', stage: 'Role module 02' },
-    { icon: '🔒', title: 'Patient access controls', desc: 'Patient registration, formulary access gates, and informed-consent documentation requirements.', stage: 'Role module 03' },
-    { icon: '🏥', title: 'Clinical supplier and pharmacy routing', desc: 'Approved pharmacy and dispensary routing — no direct-to-consumer introductions at this gate.', stage: 'Role module 04' },
-  ],
-  clinic_healthcare_operator: [
-    { icon: '🏥', title: 'Clinic authorisation and operating pathway', desc: 'Facility licence, clinical director credentials, and approved treatment protocol requirements.', stage: 'Role module 01' },
-    { icon: '📚', title: 'Clinician education and training', desc: 'Staff education pathway, prescribing competency requirements, and continuing education.', stage: 'Role module 02' },
-    { icon: '🔗', title: 'Patient access and dispensing integration', desc: 'Patient registry, dispensary integration, and formulary access documentation.', stage: 'Role module 03' },
-    { icon: '📋', title: 'Compliance and reporting obligations', desc: 'Reporting obligations, adverse event documentation, and regulatory audit readiness.', stage: 'Role module 04' },
-  ],
-  // ── Pharmacy / Dispensing ──────────────────────────────────────────────────
-  pharmacist: [
-    { icon: '💊', title: 'Pharmacy dispensing controls', desc: 'Dispensing authorisation, product formulary, and patient safety protocol requirements.', stage: 'Role module 01' },
-    { icon: '📦', title: 'Procurement and COA review', desc: 'Approved supplier sourcing, COA verification, and chain-of-custody documentation.', stage: 'Role module 02' },
-    { icon: '📋', title: 'Medication safety and counselling', desc: 'Patient counselling obligations, drug interaction checks, and adverse event monitoring.', stage: 'Role module 03' },
-    { icon: '🔒', title: 'Controlled substance compliance', desc: 'Schedule control, secure storage requirements, and jurisdiction-specific reporting obligations.', stage: 'Role module 04' },
-  ],
-  // ── Retail ─────────────────────────────────────────────────────────────────
-  retail_operator: [
-    { icon: '🏪', title: 'Retail licence and operating controls', desc: 'Retail authority, zone restrictions, approved product categories, and display compliance.', stage: 'Role module 01' },
-    { icon: '🔞', title: 'Age verification and responsible retail', desc: 'ID verification protocols, age-gate implementation, and staff training requirements.', stage: 'Role module 02' },
-    { icon: '📦', title: 'Approved supplier and procurement pathway', desc: 'Procurement from licensed distributors only — direct import prohibited at retail gate.', stage: 'Role module 03' },
-    { icon: '📊', title: 'Sales reporting and track-and-trace', desc: 'Jurisdiction-specific sales reporting, inventory reconciliation, and seed-to-sale documentation.', stage: 'Role module 04' },
-  ],
-  budtender: [
-    { icon: '🛍️', title: 'Product knowledge and strain education', desc: 'Cannabinoid profiles, terpene education, and responsible consumption guidance frameworks.', stage: 'Role module 01' },
-    { icon: '🗣️', title: 'Customer consultation and responsible retail', desc: 'Safe consultation protocols, contraindication awareness, and intake assessment skills.', stage: 'Role module 02' },
-    { icon: '🔒', title: 'Compliance and controlled substance obligations', desc: 'Age verification, sale limits, jurisdiction-specific restrictions, and refusal policies.', stage: 'Role module 03' },
-  ],
-  // ── Labs / QA ──────────────────────────────────────────────────────────────
-  lab_qa: [
-    { icon: '🔬', title: 'Laboratory accreditation and scope', desc: 'Accreditation pathway, scope of testing, and jurisdiction recognition requirements.', stage: 'Role module 01' },
-    { icon: '📄', title: 'COA issuance and review pathway', desc: 'COA structure, method validation, uncertainty of measurement, and approval controls.', stage: 'Role module 02' },
-    { icon: '✅', title: 'Batch release and quality sign-off', desc: 'Batch release protocols, out-of-specification handling, and regulatory submission requirements.', stage: 'Role module 03' },
-    { icon: '🏆', title: 'Verification services marketplace', desc: 'Offer verified testing, QA, and COA services to marketplace counterparties.', stage: 'Role module 04' },
-  ],
-  gmp_quality: [
-    { icon: '🏭', title: 'GMP certification pathway', desc: 'GMP audit preparation, certification body selection, and gap remediation roadmap.', stage: 'Role module 01' },
-    { icon: '📋', title: 'Quality management system', desc: 'QMS documentation, deviation management, CAPA systems, and change control.', stage: 'Role module 02' },
-    { icon: '📄', title: 'Batch record and release controls', desc: 'Batch record templates, review checklists, and qualified-person sign-off requirements.', stage: 'Role module 03' },
-    { icon: '🔍', title: 'Supplier and raw material qualification', desc: 'Supplier audit, raw material COA review, and approved supplier list management.', stage: 'Role module 04' },
-  ],
-  // ── Regulatory / Legal / Compliance ───────────────────────────────────────
-  regulatory_compliance: [
-    { icon: '⚖️', title: 'Compliance demand and licensing tracker', desc: 'Monitor licensing requirements, renewal schedules, and jurisdiction-specific compliance obligations.', stage: 'Role module 01' },
-    { icon: '📜', title: 'Regulatory framework and jurisdiction map', desc: 'Country-level and state-level rule status, schedule classifications, and recent regulatory changes.', stage: 'Role module 02' },
-    { icon: '🔍', title: 'Audit and inspection readiness', desc: 'Inspection preparation, documentation checklists, and authority engagement protocols.', stage: 'Role module 03' },
-    { icon: '📊', title: 'Regulatory intelligence signals', desc: 'Monitor rule-change signals, consultation periods, and market access updates by corridor.', stage: 'Role module 04' },
-  ],
-  legal_advisory: [
-    { icon: '⚖️', title: 'Cannabis legal framework by jurisdiction', desc: 'Applicable law, licensing regime, corporate structure constraints, and penalty exposure by country.', stage: 'Role module 01' },
-    { icon: '📝', title: 'Contract and agreement frameworks', desc: 'Distribution agreements, supply contracts, IP licences, and joint venture structures.', stage: 'Role module 02' },
-    { icon: '🔒', title: 'AML / KYC and counterparty diligence', desc: 'Know-your-counterparty obligations, AML exposure by corridor, and diligence documentation.', stage: 'Role module 03' },
-    { icon: '📋', title: 'Regulatory advisory demand', desc: 'Active compliance demand from operators in this jurisdiction seeking legal advisory services.', stage: 'Role module 04' },
-  ],
-  // ── Investment / Finance ───────────────────────────────────────────────────
-  investor_operator: [
-    { icon: '📊', title: 'Market readiness and investability review', desc: 'Regulatory stability, market size evidence, and corridor-level investability signal summary.', stage: 'Role module 01' },
-    { icon: '🔍', title: 'Due diligence and deal room', desc: 'Evidence-gated counterparty introductions, diligence package review, and M&A pathway.', stage: 'Role module 02' },
-    { icon: '💰', title: 'Distressed assets and opportunity pipeline', desc: 'Distressed inventory, licence transfers, and strategic acquisition opportunities by jurisdiction.', stage: 'Role module 03' },
-    { icon: '📈', title: 'Intelligence signals and market forecasting', desc: 'Weekly market signals, supply-demand indicators, and regulatory trajectory for investment thesis.', stage: 'Role module 04' },
-  ],
-  // ── Government / Policy ────────────────────────────────────────────────────
-  government_regulator: [
-    { icon: '🏛️', title: 'Evidence coverage and policy map', desc: 'Where Harbourview has sufficient evidence coverage for policy review and public-sector briefing.', stage: 'Role module 01' },
-    { icon: '📋', title: 'Policy brief and regulatory intelligence', desc: 'Regulatory change signals, reform timelines, and comparative jurisdiction policy briefs.', stage: 'Role module 02' },
-    { icon: '🔍', title: 'Licensing and inspection intelligence', desc: 'Active licence counts, inspection findings, and market structure data for this jurisdiction.', stage: 'Role module 03' },
-    { icon: '📊', title: 'Public health and market impact review', desc: 'Evidence-based public health data, consumption patterns, and market access policy impacts.', stage: 'Role module 04' },
-  ],
-  // ── Logistics / Customs ────────────────────────────────────────────────────
-  logistics_customs: [
-    { icon: '🚢', title: 'International logistics and permits', desc: 'Corridor-specific import/export permits, customs authority contacts, and documentation requirements.', stage: 'Role module 01' },
-    { icon: '❄️', title: 'Cold chain and controlled transport', desc: 'Temperature-controlled handling requirements, qualified carrier selection, and chain-of-custody.', stage: 'Role module 02' },
-    { icon: '📋', title: 'Customs classification and compliance', desc: 'HS code classification, controlled substance scheduling, and customs declaration documentation.', stage: 'Role module 03' },
-    { icon: '🗺️', title: 'Corridor demand and operator matching', desc: 'Active operator demand for logistics services filtered by corridor, product type, and volume.', stage: 'Role module 04' },
-  ],
-  // ── Patient / Caregiver ────────────────────────────────────────────────────
-  patient_caregiver_education: [
-    { icon: '📚', title: 'Patient education and access pathway', desc: 'Safe, evidence-based education on approved access pathways, product categories, and healthcare navigation.', stage: 'Role module 01' },
-    { icon: '🩺', title: 'Healthcare professional navigator', desc: 'Find qualified prescribers, clinics, and pharmacies in your jurisdiction.', stage: 'Role module 02' },
-    { icon: '💊', title: 'Product safety and responsible use', desc: 'Evidence-based guidance on forms, dosing principles, and interaction awareness.', stage: 'Role module 03' },
-  ],
-  // ── Not Sure ───────────────────────────────────────────────────────────────
-  not_sure: [
-    { icon: '🧭', title: 'Role discovery and workspace orientation', desc: 'Answer a few questions to surface the right market access pathway, education modules, and actions.', stage: 'Role module 01' },
-    { icon: '📚', title: 'Cannabis market overview by jurisdiction', desc: 'Understand the regulatory framework, market structure, and key roles in your target country.', stage: 'Role module 02' },
-    { icon: '🔍', title: 'Marketplace exploration', desc: 'Browse supply, equipment, services, and wanted demand across the global cannabis marketplace.', stage: 'Role module 03' },
-  ],
-}
+// ── BriefingRoom page ─────────────────────────────────────────────────────────
 
-const DEFAULT_ROLE_MODULES = [
-  { icon: '🎯', title: 'Role operating path', desc: 'Role-specific market access, proof gates, and safe next actions for the selected workspace.', stage: 'Role module 01' },
-  { icon: '✅', title: 'Compliance proof pack', desc: 'Documents and checks needed before marketplace contact or regional execution.', stage: 'Role module 02' },
+const EVIDENCE_CONFIDENCE_BARS = [
+  { label: 'Regulatory',        pct: 85 },
+  { label: 'Market Data',       pct: 80 },
+  { label: 'Access Pathway',    pct: 78 },
+  { label: 'Local Intel',       pct: 76 },
+  { label: 'Education Content', pct: 90 },
 ]
 
-// ── Pure helpers ──────────────────────────────────────────────────────────────
-function getMainAction(roleId: string | null): string {
-  if (!roleId) return 'Post Wanted Demand'
-  if (['exporter','cultivator_producer','processor_extractor'].includes(roleId)) return 'Create Supply Listing'
-  if (['doctor_prescriber','clinic_healthcare_operator'].includes(roleId)) return 'Start Clinician Onboarding'
-  if (roleId === 'pharmacist') return 'Open Pharmacy Education'
-  if (['investor_operator','government_regulator'].includes(roleId)) return 'View Opportunities'
-  if (['lab_qa','gmp_quality'].includes(roleId)) return 'Post Lab Services'
-  return 'Post Wanted Demand'
+function overallConfidence(bars: { pct: number }[]) {
+  return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
 }
 
-function getRequestKind(label: string): 'proof' | 'coa' {
-  return label.toLowerCase().includes('coa') ? 'coa' : 'proof'
-}
-
-function getRegionalIntel(
-  country: { iso2: string; label: string },
-  region: string,
-  roleLabel: string,
-  warn: boolean,
-  countryIntel?: CountryIntelProfile | null,
-) {
-  const intelSummary         = countryIntel?.public_summary ?? null
-  const commercialPathway    = countryIntel?.commercial_pathway_summary ?? null
-  const reviewStatus         = countryIntel?.review_status ?? null
-
-  if (country.iso2 === 'AF') {
-    return {
-      title: `${country.label}${region ? ` · ${region}` : ''} Local Intel`,
-      summary: region
-        ? `${region} is operating under a review-gated Afghanistan workspace. Stay intelligence-led until source review completes.`
-        : 'Afghanistan workspace is available with national intelligence, but no province has been selected.',
-      ruleStatus:        'Review-gated / restricted',
-      marketplaceImpact: 'No default transaction path; proof requests queued for analyst review.',
-      roleImpact:        `${roleLabel} actions prioritize provenance, phytosanitary evidence, and non-transactional diligence.`,
-      confidence:        'Limited public-source confidence · analyst verification required',
-      nextAction:        region ? 'Queue proof request or open regional source review.' : 'Select a province to scope source review.',
-      intelSummary, commercialPathway, reviewStatus, empty: !region,
-    }
-  }
-
-  return {
-    title:             `${country.label}${region ? ` · ${region}` : ''} Regional Intelligence`,
-    summary:            intelSummary ?? (region
-      ? `${region} rules are filtering marketplace rows, wanted demand, education modules, and proof-gated counterparty actions.`
-      : `${country.label} has no configured region yet. Use national-level intelligence until regional data is loaded.`),
-    ruleStatus:        region ? (warn ? 'Review required' : 'Allowed with proof') : 'National context only',
-    marketplaceImpact: region ? (warn ? 'Marketplace restricted' : 'Supply + clinical routes visible') : 'Regional impact unavailable',
-    roleImpact:        region ? (warn ? 'Education before action' : `${roleLabel} can proceed through proof gates`) : 'Role impact unavailable until regional data is configured',
-    confidence:        region ? 'Regional rule status · source trail in review' : 'No regional source data configured',
-    nextAction:        region ? (warn ? 'Open source review before inquiry.' : 'Request proof before counterparty contact.') : 'Use country-level search or request intel coverage.',
-    intelSummary, commercialPathway, reviewStatus, empty: !region,
-  }
-}
-
-function getProactiveBanner(
-  signals: DashboardSignal[],
-  country: { iso2: string; label: string },
-  watching: Set<string>,
-  pipeline: PipelineCounts | undefined,
-  wantedListings: WantedListing[],
-): string | null {
-  const countrySignals = signals.filter(s =>
-    s.market.toLowerCase().includes(country.label.toLowerCase()) ||
-    s.market.toLowerCase().includes(country.iso2.toLowerCase())
-  )
-  if (countrySignals.length > 0) {
-    return `${countrySignals.length} active signal${countrySignals.length > 1 ? 's' : ''} for ${country.label} — review before counterparty contact`
-  }
-  if (pipeline && pipeline.proof_review > 0) {
-    return `${pipeline.proof_review} proof request${pipeline.proof_review > 1 ? 's' : ''} pending in your pipeline — action required`
-  }
-  const recentWanted = wantedListings.filter(w => {
-    const h = (Date.now() - new Date(w.created_at).getTime()) / 3_600_000
-    return h < 48 && (w.location_country === country.iso2 || w.location_country === country.label)
-  })
-  if (recentWanted.length > 0) {
-    return `${recentWanted.length} new wanted request${recentWanted.length > 1 ? 's' : ''} in ${country.label} in the last 48h`
-  }
-  if (watching.size >= 3) {
-    return `${watching.size} items in your watchlist — signals and price movement are being monitored`
-  }
-  return null
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function TagPills({ str }: { str: string }) {
-  return (
-    <div className="hv-tags">
-      {str.split('|').map(t => <span key={t} className="hv-tag">{t}</span>)}
-    </div>
-  )
-}
-
-function TrustBar({ str }: { str: string }) {
-  return (
-    <div className="hv-trust">
-      {str.split('|').map(x => {
-        const [a, c] = x.split(':')
-        return <i key={x} className={c ?? ''}>{a}</i>
-      })}
-    </div>
-  )
-}
-
-// ── Sidebar pipeline metrics ──────────────────────────────────────────────────
-
-const PIPELINE_LABELS: Record<keyof PipelineCounts, string> = {
-  wanted:       'Wanted',
-  matched:      'Matched',
-  proof_review: 'Proof Review',
-  inquiry:      'Inquiry',
-  deal_room:    'Deal Room',
-}
-
-const PIPELINE_COLORS: Record<keyof PipelineCounts, string> = {
-  wanted:       'var(--cc-violet)',
-  matched:      'var(--cc-green)',
-  proof_review: 'var(--cc-amber)',
-  inquiry:      'var(--cc-blue)',
-  deal_room:    'var(--cc-gold2)',
-}
-
-// Which pipeline keys are relevant per role — buyers see demand side, suppliers see supply side
-const ROLE_PIPELINE_KEYS: Partial<Record<string, (keyof PipelineCounts)[]>> = {
-  exporter:              ['matched', 'proof_review', 'deal_room'],
-  cultivator_producer:   ['matched', 'proof_review', 'deal_room'],
-  processor_extractor:   ['matched', 'proof_review', 'deal_room'],
-  geneticist_breeder:    ['matched', 'inquiry', 'deal_room'],
-  importer:              ['wanted', 'matched', 'inquiry'],
-  distributor_wholesaler:['wanted', 'matched', 'deal_room'],
-  retail_operator:       ['wanted', 'matched'],
-  investor_operator:     ['wanted', 'inquiry', 'deal_room'],
-  regulatory_compliance: ['proof_review', 'inquiry'],
-  legal_advisory:        ['proof_review', 'inquiry'],
-  lab_qa:                ['proof_review', 'inquiry'],
-  gmp_quality:           ['proof_review', 'inquiry'],
-  logistics_customs:     ['wanted', 'matched', 'inquiry'],
-}
-
-function getRolePipelineKeys(roleId: string): (keyof PipelineCounts)[] {
-  return ROLE_PIPELINE_KEYS[roleId] ?? ['wanted', 'matched']
-}
-
-// ── Custom styled select dropdown ────────────────────────────────────────────
-type SelectOpt = { value: string; label: string }
-
-function CustomSelect({
-  label, value, options, onChange, searchable = false,
+const BriefingRoom = React.memo(function BriefingRoom({
+  country,
+  region,
+  countryIntel,
+  signals,
+  onCountrySelect,
 }: {
-  label: string
-  value: string
-  options: SelectOpt[]
-  onChange: (v: string) => void
-  searchable?: boolean
+  country:          { iso2: string; label: string }
+  region:           string
+  countryIntel?:    CountryIntelProfile | null
+  signals:          DashboardSignal[]
+  onCountrySelect?: (iso2: string) => void
 }) {
-  const [open, setOpen]   = useState(false)
-  const [query, setQuery] = useState('')
-  const rootRef  = useRef<HTMLDivElement>(null)
+  const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
+  const overall = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
+  const recentChanges = useMemo(() =>
+    signals.slice(0, 3).map(s => ({
+      market:  s.market,
+      title:   s.title,
+      timeAgo: s.timeAgo,
+      up:      s.confidence >= 75,
+    })),
+    [signals],
+  )
+
+  return (
+    <div className="cc-page cc-briefing">
+
+      {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
+      <aside className="cc-briefing-left">
+        <div className="cc-jx-brief">
+          <div className="cc-jx-flag">{country.iso2 === 'US' ? '🇺🇸' : country.iso2 === 'CA' ? '🇨🇦' : '🌐'}</div>
+          <div>
+            <div className="cc-jx-country">{country.label}</div>
+            {region && <div className="cc-jx-region">{region}</div>}
+          </div>
+        </div>
+
+        {countryIntel?.public_summary && (
+          <p className="cc-jx-summary">{countryIntel.public_summary}</p>
+        )}
+
+        <div className="cc-jx-fields">
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">◎</span>
+            <div>
+              <small>Program Status</small>
+              <strong>Active Medical Program</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">↑</span>
+            <div>
+              <small>Patient Access</small>
+              <strong>Increasing</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">◐</span>
+            <div>
+              <small>Physician Access</small>
+              <strong>Moderate</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">⊛</span>
+            <div>
+              <small>Market Dynamics</small>
+              <strong>Maturing</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">⊙</span>
+            <div>
+              <small>Regulatory Outlook</small>
+              <strong>Stable</strong>
+            </div>
+          </div>
+        </div>
+
+        <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
+      </aside>
+
+      {/* ── Centre: Globe ─────────────────────────────────────────── */}
+      <div className="cc-briefing-globe">
+        <div className="cc-globe-wrap">
+          <GlobeCanvas
+            className="absolute inset-0 w-full h-full"
+            selectedCountryIso2={country.iso2}
+            selectedCountryIso2s={[country.iso2]}
+            focusedCountryIso2={focusedIso2}
+            activeLayerId="country_select"
+            onHoverCountry={setFocusedIso2}
+            onSelectCountry={onCountrySelect}
+          />
+          <div className="cc-globe-label">
+            {country.label}
+            {region && <span> · {region}</span>}
+          </div>
+          <div className="cc-globe-hint">Click a region to explore · Rotate · Zoom · Drag</div>
+        </div>
+
+        {/* Methodology strip */}
+        <div className="cc-methodology">
+          {[
+            { icon: '◎', label: 'Data Sources',    val: 'Government, regulatory, market & verified industry sources' },
+            { icon: '✓', label: 'Verification',    val: 'Multi-layer review and validation by domain experts' },
+            { icon: '↻', label: 'Update Cadence',  val: 'Regulatory: Real-time · Market: Daily · Intel: Continuous' },
+            { icon: '⊞', label: 'Coverage',        val: '50 U.S. States · 8 Countries · 100+ Data Sources' },
+            { icon: '◷', label: 'Last Updated',    val: `${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` },
+          ].map(item => (
+            <div key={item.label} className="cc-methodology-item">
+              <span className="cc-methodology-icon">{item.icon}</span>
+              <div>
+                <small>{item.label}</small>
+                <span>{item.val}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Right: Evidence confidence + Watch regions ────────────── */}
+      <aside className="cc-briefing-right">
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">EVIDENCE CONFIDENCE <span className="cc-right-info">ⓘ</span></div>
+          <div className="cc-confidence-summary">
+            <div className="cc-confidence-donut">
+              <svg viewBox="0 0 64 64" className="cc-donut-svg">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="7" />
+                <circle
+                  cx="32" cy="32" r="26" fill="none"
+                  stroke="var(--cc-gold)" strokeWidth="7"
+                  strokeDasharray={`${163.4 * overall / 100} 163.4`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 32 32)"
+                  style={{ transition: 'stroke-dasharray .6s ease' }}
+                />
+              </svg>
+              <div className="cc-donut-label">
+                <strong>{overall}%</strong>
+                <small>Overall<br/>Confidence</small>
+              </div>
+            </div>
+            <div className="cc-confidence-bars">
+              {EVIDENCE_CONFIDENCE_BARS.map(bar => (
+                <div key={bar.label} className="cc-conf-bar-row">
+                  <span className="cc-conf-bar-lbl">{bar.label}</span>
+                  <div className="cc-conf-bar-track">
+                    <div className="cc-conf-bar-fill" style={{ width: `${bar.pct}%` }} />
+                  </div>
+                  <span className="cc-conf-bar-pct">{bar.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <a href="#" className="cc-right-link">Confidence methodology →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">WATCH REGIONS</div>
+          <div className="cc-watch-regions">
+            {[
+              { label: country.label, status: 'Active Program', star: true },
+              ...signals
+                .map(s => s.market)
+                .filter((m, i, a) => m !== country.label && a.indexOf(m) === i)
+                .slice(0, 4)
+                .map(m => ({ label: m, status: 'Signal Activity', star: false })),
+            ].map(r => (
+              <div key={r.label} className="cc-watch-region-row">
+                <span className="cc-watch-region-star">{r.star ? '★' : '○'}</span>
+                <div className="cc-watch-region-info">
+                  <strong>{r.label}</strong>
+                  <small>{r.status}</small>
+                </div>
+                <button className="cc-watch-region-btn">View</button>
+              </div>
+            ))}
+          </div>
+          <a href="#" className="cc-right-link">View all jurisdictions →</a>
+        </div>
+
+        {recentChanges.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">RECENT CHANGE NOTES</div>
+            <div className="cc-change-notes">
+              {recentChanges.map((c, i) => (
+                <div key={i} className="cc-change-note">
+                  <span className={`cc-change-arrow ${c.up ? 'up' : 'neutral'}`}>{c.up ? '↑' : '●'}</span>
+                  <div>
+                    <strong>{c.market}</strong>
+                    <small>{c.title}</small>
+                    <span className="cc-change-time">{c.timeAgo}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <a href="#" className="cc-right-link">View all change activity →</a>
+          </div>
+        )}
+      </aside>
+    </div>
+  )
+})
+
+// ── Placeholder pages (scaffolded, real content in next passes) ───────────────
+
+const ScaffoldPage = React.memo(function ScaffoldPage({
+  title, country, region, role,
+}: {
+  title: string
+  country: { label: string }
+  region: string
+  role: string
+}) {
+  return (
+    <div className="cc-page cc-scaffold">
+      <div className="cc-scaffold-inner">
+        <div className="cc-scaffold-icon">◎</div>
+        <h2>{title}</h2>
+        <p>{country.label}{region ? ` · ${region}` : ''} · {role || 'All roles'}</p>
+        <div className="cc-scaffold-note">Full page implementation in progress</div>
+      </div>
+    </div>
+  )
+})
+
+// ── Command palette ───────────────────────────────────────────────────────────
+
+type CmdItem = { id: string; group: string; label: string; sub?: string; icon?: string; action: () => void }
+
+function CommandPalette({
+  open, onClose, country, role, onPage,
+}: {
+  open:    boolean
+  onClose: () => void
+  country: { iso2: string; label: string }
+  role:    string
+  onPage:  (p: CommandPage) => void
+}) {
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const selected = options.find(o => o.value === value)
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return options
-    const q = query.toLowerCase()
-    return options.filter(o => o.label.toLowerCase().includes(q))
-  }, [options, query])
+  const [q, setQ] = useState('')
+  const [idx, setIdx] = useState(0)
 
   useEffect(() => {
-    if (!open) return
+    if (open) { setQ(''); setIdx(0); setTimeout(() => inputRef.current?.focus(), 40) }
+  }, [open])
+
+  const items = useMemo<CmdItem[]>(() => [
+    ...NAV_ITEMS.map(n => ({
+      id: n.id, group: 'Navigation', label: n.label, icon: n.icon,
+      action: () => { onPage(n.id); onClose() },
+    })),
+    { id: 'mkt', group: 'Marketplace', label: 'Browse listings', icon: '⊞',
+      action: () => { onPage('marketplace'); onClose() } },
+    { id: 'sig', group: 'Intelligence', label: 'Weekly signals', icon: '≋',
+      action: () => { onPage('signals'); onClose() } },
+  ], [onPage, onClose])
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return items
+    const lq = q.toLowerCase()
+    return items.filter(i => i.label.toLowerCase().includes(lq) || i.group.toLowerCase().includes(lq))
+  }, [items, q])
+
+  useEffect(() => setIdx(0), [filtered])
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape')    { onClose(); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setIdx(i => Math.min(i + 1, filtered.length - 1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setIdx(i => Math.max(i - 1, 0)) }
+    if (e.key === 'Enter')     { filtered[idx]?.action() }
+  }
+
+  if (!open) return null
+
+  const groups = [...new Set(filtered.map(i => i.group))]
+
+  return (
+    <div className="cp-overlay" onClick={onClose}>
+      <div className="cp-modal" onClick={e => e.stopPropagation()} onKeyDown={handleKey}>
+        <div className="cp-search-row">
+          <span className="cp-search-icon">⌘</span>
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search pages, actions…"
+            className="cp-input"
+          />
+          {q && <button className="cp-clear" onClick={() => setQ('')}>×</button>}
+        </div>
+        <div className="cp-results">
+          {groups.map(group => (
+            <div key={group}>
+              <div className="cp-group-label">{group}</div>
+              {filtered.filter(i => i.group === group).map((item, gi) => {
+                const globalIdx = filtered.indexOf(item)
+                return (
+                  <button
+                    key={item.id}
+                    className={`cp-item${globalIdx === idx ? ' focused' : ''}`}
+                    onMouseEnter={() => setIdx(globalIdx)}
+                    onClick={item.action}
+                  >
+                    {item.icon && <span className="cp-item-icon">{item.icon}</span>}
+                    <span>{item.label}</span>
+                    {item.sub && <small>{item.sub}</small>}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+          {filtered.length === 0 && <div className="cp-empty">No results for &ldquo;{q}&rdquo;</div>}
+        </div>
+        <div className="cp-footer">
+          <span>↑↓ navigate</span>
+          <span>↵ select</span>
+          <span>esc close</span>
+          <span className="cp-footer-ctx">
+            {country.label}{role ? ` · ${ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.short ?? role}` : ''}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── CustomSelect ──────────────────────────────────────────────────────────────
+
+type SelectOpt = { value: string; label: string }
+
+function CustomSelect({ value, options, placeholder, onChange, className }: {
+  value: string; options: SelectOpt[]; placeholder?: string
+  onChange: (v: string) => void; className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const label = options.find(o => o.value === value)?.label ?? placeholder ?? 'Select'
+
+  useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false); setQuery('')
-      }
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
+    if (open) document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  useEffect(() => {
-    if (open && searchable) setTimeout(() => inputRef.current?.focus(), 40)
-  }, [open, searchable])
-
   return (
-    <div className="cc-sel" ref={rootRef}>
-      <span className="cc-sel-lbl">{label}</span>
-      <button
-        type="button"
-        className={`cc-sel-trigger${open ? ' open' : ''}`}
-        onClick={() => { setOpen(o => !o); setQuery('') }}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="cc-sel-val">{selected?.label ?? '—'}</span>
-        <span className="cc-sel-arrow" aria-hidden="true">{open ? '▲' : '▼'}</span>
+    <div ref={rootRef} className={`cc-select${open ? ' open' : ''}${className ? ` ${className}` : ''}`}>
+      <button type="button" className="cc-select-trigger" onClick={() => setOpen(o => !o)} aria-haspopup="listbox">
+        <span>{label}</span>
+        <span className="cc-select-arrow" aria-hidden="true">▾</span>
       </button>
       {open && (
-        <div className="cc-sel-drop" role="listbox">
-          {searchable && (
-            <div className="cc-sel-search">
-              <input
-                ref={inputRef}
-                type="text"
-                className="cc-sel-search-inp"
-                placeholder="Search…"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Escape' && (setOpen(false), setQuery(''))}
-              />
-            </div>
-          )}
-          <div className="cc-sel-list">
-            {filtered.length === 0
-              ? <div className="cc-sel-empty">No results</div>
-              : filtered.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="option"
-                  aria-selected={opt.value === value}
-                  className={`cc-sel-opt${opt.value === value ? ' sel' : ''}`}
-                  onClick={() => { onChange(opt.value); setOpen(false); setQuery('') }}
-                >
-                  {opt.label}
-                </button>
-              ))
-            }
-          </div>
+        <div className="cc-select-dropdown" role="listbox">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              role="option"
+              aria-selected={opt.value === value}
+              className={`cc-select-opt${opt.value === value ? ' selected' : ''}`}
+              onClick={() => { onChange(opt.value); setOpen(false) }}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 
-
-// ── SVG sparkline for signal confidence ───────────────────────────────────────
-function MiniSpark({ confidence, idx = 0 }: { confidence: number; idx?: number }) {
-  const W = 52, H = 22
-  const seed = confidence * 0.01 + idx * 0.7
-  const pts = Array.from({ length: 8 }, (_, i) => {
-    const base = confidence / 100
-    const wave = Math.sin(i * 1.9 + seed) * 0.14 + Math.cos(i * 3.1 + seed * 2) * 0.08
-    return Math.max(0.06, Math.min(0.94, base + wave))
-  })
-  const d = pts.map((p, i) => {
-    const x = (i / (pts.length - 1)) * W
-    const y = H - p * H
-    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-  const stroke = confidence >= 75 ? 'var(--cc-green)' : confidence >= 50 ? 'var(--cc-amber)' : 'var(--cc-red)'
-  const approxLen = W * 1.4
-
-  return (
-    <svg className="cc-spark" width={W} height={H} aria-hidden="true">
-      <path
-        d={d}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{
-          strokeDasharray: approxLen,
-          strokeDashoffset: approxLen,
-          animation: `sparkDraw 1.1s ${idx * 0.12}s ease forwards`,
-        }}
-      />
-    </svg>
-  )
-}
-
-// ── Wanted listing card ────────────────────────────────────────────────────────
-function WantedCard({ listing, onAction }: { listing: WantedListing; onAction: (id: string) => void }) {
-  const ago = useMemo(() => {
-    const ms = Date.now() - new Date(listing.created_at).getTime()
-    const h  = Math.floor(ms / 3_600_000)
-    if (h < 1)  return 'just now'
-    if (h < 24) return `${h}h ago`
-    const d = Math.floor(h / 24)
-    return `${d}d ago`
-  }, [listing.created_at])
-
-  const location = [listing.location_region, listing.location_country].filter(Boolean).join(' · ')
-
-  return (
-    <article className="cc-wanted-card">
-      <div className="cc-wanted-head">
-        <span className="cc-wanted-tag">WANTED</span>
-        {location && <span className="cc-wanted-loc">{location}</span>}
-        <span className="cc-wanted-ago">{ago}</span>
-      </div>
-      <h4 className="cc-wanted-title">{listing.title}</h4>
-      {listing.summary && <p className="cc-wanted-sum">{listing.summary}</p>}
-      <button className="cc-row-action" onClick={() => onAction(listing.id)}>Respond to request</button>
-    </article>
-  )
-}
-
-// ── ⌘K Command Palette ───────────────────────────────────────────────────────
-type PaletteProps = {
-  open: boolean
-  onClose: () => void
-  signals: DashboardSignal[]
-  country: { iso2: string; label: string }
-  role: string
-  onPanel: (panel: CommandPanel, item?: string) => void
-  onView: (v: MarketView) => void
-}
-
-function CommandPalette({ open, onClose, signals, country, role, onPanel, onView }: PaletteProps) {
-  const [query, setQuery] = useState('')
-  const [cursor, setCursor] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (open) {
-      setQuery('')
-      setCursor(0)
-      const t = setTimeout(() => inputRef.current?.focus(), 50)
-      return () => clearTimeout(t)
-    }
-  }, [open])
-
-  const baseItems = useMemo<CmdItem[]>(() => [
-    { id: 'mp',       group: 'Navigate',    label: 'Marketplace command',   icon: '⊞', action: () => onPanel('marketplace') },
-    { id: 'wanted',   group: 'Navigate',    label: 'Wanted demand',         icon: '⬇', action: () => onPanel('wanted')      },
-    { id: 'intel',    group: 'Navigate',    label: 'Local intel',           icon: '◉', action: () => onPanel('local-intel') },
-    { id: 'edu',      group: 'Navigate',    label: 'Education hub',         icon: '⬡', action: () => onPanel('education')   },
-    { id: 'sig',      group: 'Navigate',    label: 'Weekly signals',        icon: '≋', action: () => onPanel('signals')     },
-    { id: 'watch',    group: 'Navigate',    label: 'Watchlist',             icon: '◈', action: () => onPanel('watchlist')   },
-    { id: 'notif',    group: 'Navigate',    label: 'Notifications',         icon: '◐', action: () => onPanel('notifications') },
-    { id: 'v-can',    group: 'Marketplace', label: 'Cannabis inventory',    icon: '🌿', action: () => { onView('cannabis');      onPanel('marketplace') } },
-    { id: 'v-equip',  group: 'Marketplace', label: 'Equipment marketplace', icon: '⚙️', action: () => { onView('equipment');     onPanel('marketplace') } },
-    { id: 'v-svc',    group: 'Marketplace', label: 'Services marketplace',  icon: '📋', action: () => { onView('services');      onPanel('marketplace') } },
-    { id: 'v-opp',    group: 'Marketplace', label: 'Opportunities',         icon: '📊', action: () => { onView('opportunities'); onPanel('marketplace') } },
-  ], [onPanel, onView])
-
-  const items = useMemo<CmdItem[]>(() => {
-    if (!query.trim()) return baseItems
-    const q = query.toLowerCase()
-    const base = baseItems.filter(i => i.label.toLowerCase().includes(q))
-    const sigItems: CmdItem[] = signals
-      .filter(s => s.title.toLowerCase().includes(q) || s.market.toLowerCase().includes(q))
-      .slice(0, 5)
-      .map(s => ({
-        id:     `s-${s.id}`,
-        group:  'Signals',
-        label:  s.title,
-        sub:    `${s.market} · conf ${s.confidence}`,
-        action: () => onPanel('signals', s.title),
-      }))
-    return [...base, ...sigItems]
-  }, [query, baseItems, signals, onPanel])
-
-  const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape')    { onClose(); return }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, items.length - 1)) }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); setCursor(c => Math.max(c - 1, 0)) }
-    if (e.key === 'Enter' && items[cursor]) { items[cursor].action(); onClose() }
-  }
-
-  if (!open) return null
-
-  return (
-    <div className="cp-overlay" onClick={onClose}>
-      <div className="cp-box" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Command palette">
-        <div className="cp-topbar">
-          <span className="cp-search-icon">⌘</span>
-          <input
-            ref={inputRef}
-            className="cp-input"
-            placeholder={`Commands · signals · ${country.label} intel…`}
-            value={query}
-            onChange={e => { setQuery(e.target.value); setCursor(0) }}
-            onKeyDown={handleKey}
-          />
-          <kbd className="cp-esc" onClick={onClose}>ESC</kbd>
-        </div>
-        <div className="cp-results">
-          {items.length === 0
-            ? <div className="cp-empty">No results for &quot;{query}&quot;</div>
-            : items.map((item, idx) => (
-              <div key={item.id}>
-                {(idx === 0 || items[idx - 1].group !== item.group) && (
-                  <div className="cp-group-head">{item.group}</div>
-                )}
-                <button
-                  className={`cp-item${cursor === idx ? ' active' : ''}`}
-                  onClick={() => { item.action(); onClose() }}
-                  onMouseEnter={() => setCursor(idx)}
-                >
-                  {item.icon && <span className="cp-item-icon">{item.icon}</span>}
-                  <span className="cp-item-label">{item.label}</span>
-                  {item.sub && <span className="cp-item-sub">{item.sub}</span>}
-                </button>
-              </div>
-            ))
-          }
-        </div>
-        <div className="cp-footer">
-          <span>↑↓ navigate</span>
-          <span>↵ select</span>
-          <span>esc close</span>
-          <span className="cp-footer-ctx">{country.label}{role ? ` · ${ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.short ?? role}` : ''}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── DrawerPanel — memoized so it only re-renders when its own props change ─────
-
-type RegionalIntel = ReturnType<typeof getRegionalIntel>
-type LearningItem   = { title: string; stage: string; icon?: string; desc?: string }
-
-interface DrawerPanelProps {
-  activePanel:      CommandPanel
-  panelOpen:        boolean
-  onClose:          () => void
-  view:             MarketView
-  country:          { iso2: string; label: string }
-  region:           string
-  roleLabel:        string
-  tierLabel:        string
-  filteredRows:     MarketRow[]
-  learningPath:     LearningItem[]
-  regionalIntel:    RegionalIntel
-  signals:          DashboardSignal[]
-  wantedListings:   WantedListing[]
-  wantedCount:      number
-  watching:         Set<string>
-  pipeline:         PipelineCounts | undefined
-  notifCount:       number
-  search:           string
-  selectedItem:     string
-  selectedModule:   string
-  proofState:       RequestState
-  coaState:         RequestState
-  onProofState:     (s: RequestState) => void
-  onSelectedItem:   (id: string) => void
-  onSetActivePanel: (p: CommandPanel) => void
-}
-
-const DrawerPanel = React.memo(function DrawerPanel({
-  activePanel, panelOpen, onClose, view, country, region, roleLabel, tierLabel,
-  filteredRows, learningPath, regionalIntel, signals, wantedListings, wantedCount,
-  watching, pipeline, notifCount, search, selectedItem, selectedModule,
-  proofState, coaState, onProofState, onSelectedItem, onSetActivePanel,
-}: DrawerPanelProps) {
-  const requestState = activePanel === 'coa' ? coaState : proofState
-  const panelTitle   = COMMAND_NAV.find(i => i.id === activePanel)?.label ?? activePanel
-
-  return (
-    <aside className={`cc-command-panel${panelOpen ? ' open' : ''}`} aria-label={`${panelTitle} panel`}>
-      <div className="cc-drawer-head">
-        <div>
-          <small>Command centre expansion</small>
-          <h3>{panelTitle}</h3>
-        </div>
-        <button className="cc-close" onClick={onClose} aria-label="Close panel">×</button>
-      </div>
-      <div className="cc-drawer-body">
-
-        {activePanel === 'marketplace' && (
-          <section className="cc-drawer-card">
-            <b>{VIEW_BLOCK_TITLES[view]} expanded</b>
-            <p>{filteredRows.length} {VIEW_TAB_LABELS[view].toLowerCase()} rows · {country.label}{region ? ` / ${region}` : ''}</p>
-            <div className="cc-panel-list">
-              {filteredRows.map(row => <span key={row[2]}>{row[2]} · {row[6]}</span>)}
-            </div>
-            <a href="/marketplace" className="cc-link-external">Full marketplace →</a>
-          </section>
-        )}
-
-        {activePanel === 'education' && (
-          <section className="cc-drawer-card">
-            <b>{roleLabel} learning path</b>
-            <p>Role-specific modules prioritized, then {country.label}{region ? ` / ${region}` : ''} context.</p>
-            <div className="cc-panel-list">
-              {learningPath.map(item => (
-                <span key={`${item.stage}-${item.title}`}>{item.stage}: {item.title}</span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {activePanel === 'signals' && (
-          <section className="cc-drawer-card">
-            <b>Weekly Signals · {signals.length} active</b>
-            <p>Source confidence · marketplace impact · operator next actions.</p>
-            <div className="cc-panel-signal-list">
-              {signals.map((signal, i) => (
-                <div key={signal.id} className="cc-panel-signal">
-                  <div className="cc-panel-signal-head">
-                    <span
-                      className="cc-signal-tag"
-                      style={{ borderColor: signal.tag.border, color: signal.tag.color, background: signal.tag.bg }}
-                    >
-                      {signal.tag.label}
-                    </span>
-                    <MiniSpark confidence={signal.confidence} idx={i} />
-                    <span className="cc-conf-num" style={{ color: signal.confidence >= 75 ? 'var(--cc-green)' : 'var(--cc-amber)' }}>
-                      {signal.confidence}%
-                    </span>
-                  </div>
-                  <b className="cc-panel-signal-title">{signal.title}</b>
-                  <p className="cc-panel-signal-impact">{signal.commercialImpact}</p>
-                  <small>{signal.market} · {signal.timeAgo}</small>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {activePanel === 'wanted' && (
-          <section className="cc-drawer-card">
-            <b>Wanted Demand — {wantedListings.length > 0 ? `${wantedListings.length} active requests` : `${wantedCount} requests`}</b>
-            <p>Active buyer demand available in this workspace.</p>
-            {wantedListings.length > 0
-              ? (
-                <div className="cc-panel-wanted">
-                  {wantedListings.map(listing => (
-                    <WantedCard
-                      key={listing.id}
-                      listing={listing}
-                      onAction={id => { onSelectedItem(id); onProofState('queued') }}
-                    />
-                  ))}
-                </div>
-              )
-              : (
-                <button className="cc-primary inline" onClick={() => onProofState('queued')}>
-                  Queue wanted demand review
-                </button>
-              )
-            }
-          </section>
-        )}
-
-        {activePanel === 'local-intel' && (
-          <section className="cc-drawer-card">
-            <b>{regionalIntel.title}</b>
-            <p>{regionalIntel.summary}</p>
-            {regionalIntel.intelSummary && regionalIntel.intelSummary !== regionalIntel.summary && (
-              <div className="cc-intel-block">
-                <small>INTEL SUMMARY</small>
-                <p>{regionalIntel.intelSummary}</p>
-              </div>
-            )}
-            {regionalIntel.commercialPathway && (
-              <div className="cc-intel-block accent-blue">
-                <small>COMMERCIAL PATHWAY</small>
-                <p>{regionalIntel.commercialPathway}</p>
-              </div>
-            )}
-            <div className="cc-rule-grid">
-              <div><small>Rule status</small><strong>{regionalIntel.ruleStatus}</strong></div>
-              <div><small>Marketplace impact</small><strong>{regionalIntel.marketplaceImpact}</strong></div>
-              <div><small>Role impact</small><strong>{regionalIntel.roleImpact}</strong></div>
-              <div><small>Confidence / source</small><strong>{regionalIntel.confidence}</strong></div>
-              {regionalIntel.reviewStatus && (
-                <div><small>Intel review status</small><strong>{regionalIntel.reviewStatus}</strong></div>
-              )}
-            </div>
-            <p className="cc-next-action">Next operator action: {regionalIntel.nextAction}</p>
-          </section>
-        )}
-
-        {activePanel === 'watchlist' && (
-          <section className="cc-drawer-card">
-            <b>Watchlist · {watching.size} item{watching.size !== 1 ? 's' : ''}</b>
-            <p>
-              {selectedItem
-                ? `${selectedItem} is ${watching.has(selectedItem) ? 'now watched' : 'removed from watch'} in the ${country.label} workspace.`
-                : `Watching ${watching.size} items in the ${country.label} workspace.`}
-            </p>
-            <div className="cc-panel-list">
-              {Array.from(watching).map(item => (
-                <span key={item} className="cc-watch-item">
-                  <span className="cc-watch-dot" />
-                  {item}
-                </span>
-              ))}
-              {watching.size === 0 && <span>No watched rows yet. Use the Watch button on any listing.</span>}
-            </div>
-          </section>
-        )}
-
-        {(activePanel === 'proof' || activePanel === 'coa') && (
-          <section className="cc-drawer-card">
-            <b>{activePanel === 'coa' ? 'COA request' : 'Proof request'} — {selectedItem}</b>
-            <p>
-              Status:{' '}
-              {requestState === 'queued'
-                ? 'Queued for operator review.'
-                : requestState === 'unavailable'
-                  ? 'Unavailable for this country/region until source review completes.'
-                  : 'Ready to queue.'}
-            </p>
-            <p>Context: {country.label}{region ? ` / ${region}` : ''} · {roleLabel} · {VIEW_TAB_LABELS[view]}</p>
-          </section>
-        )}
-
-        {activePanel === 'module' && (
-          <section className="cc-drawer-card">
-            <b>{selectedModule || 'Education module'}</b>
-            <p>Module open in-dashboard. All context preserved: country, region, role, category.</p>
-          </section>
-        )}
-
-        {activePanel === 'settings' && (
-          <section className="cc-drawer-card">
-            <b>Command Centre settings</b>
-            <p>Saved layout, module priority, proof gates, and workspace density.</p>
-            <div className="cc-settings-grid">
-              <div className="cc-setting-item"><small>Workspace</small><strong>{country.label}{region ? ` · ${region}` : ''}</strong></div>
-              <div className="cc-setting-item"><small>Active role</small><strong>{roleLabel}</strong></div>
-              <div className="cc-setting-item"><small>Tier</small><strong>{tierLabel}</strong></div>
-              <div className="cc-setting-item"><small>Watchlist</small><strong>{watching.size} items</strong></div>
-              {pipeline && <div className="cc-setting-item"><small>Wanted pipeline</small><strong>{pipeline.wanted} requests</strong></div>}
-              {pipeline && <div className="cc-setting-item"><small>Deal room</small><strong>{pipeline.deal_room} active</strong></div>}
-            </div>
-            <button className="cc-primary inline" onClick={() => onSetActivePanel('marketplace')}>Apply layout</button>
-          </section>
-        )}
-
-        {activePanel === 'search' && (
-          <section className="cc-drawer-card">
-            <b>Search: &quot;{selectedItem || search}&quot;</b>
-            <p>{filteredRows.length} matching rows in current {VIEW_TAB_LABELS[view]} view.</p>
-            <div className="cc-panel-list">
-              {filteredRows.slice(0, 10).map(row => <span key={row[2]}>{row[2]} · {row[7]}</span>)}
-            </div>
-            <a
-              href={`/marketplace?q=${encodeURIComponent(search)}`}
-              className="cc-link-external"
-            >
-              Full marketplace search →
-            </a>
-          </section>
-        )}
-
-        {activePanel === 'notifications' && (
-          <section className="cc-drawer-card">
-            <b>Notifications · {notifCount} active</b>
-            <div className="cc-panel-list">
-              {signals.filter(s => s.confidence >= 75).map(s => (
-                <span key={s.id} className="cc-notif-item">
-                  <span className="cc-notif-dot signal" />
-                  {s.title} · {s.market}
-                </span>
-              ))}
-              {(pipeline?.proof_review ?? 0) > 0 && (
-                <span className="cc-notif-item">
-                  <span className="cc-notif-dot pipeline" />
-                  {pipeline!.proof_review} proof request{pipeline!.proof_review > 1 ? 's' : ''} pending review
-                </span>
-              )}
-              {notifCount === 0 && <span>No active notifications.</span>}
-            </div>
-          </section>
-        )}
-
-        {activePanel === 'suppliers' && (
-          <section className="cc-drawer-card">
-            <b>Supplier command surface</b>
-            <p>Supplier discovery filtered by {country.label} and {roleLabel}.</p>
-          </section>
-        )}
-
-        {activePanel === 'account' && (
-          <section className="cc-drawer-card">
-            <b>Account controls</b>
-            <p>Workspace preferences, notification routing, and proof-request defaults.</p>
-          </section>
-        )}
-
-      </div>
-    </aside>
-  )
-})
-
-// ── Main component ─────────────────────────────────────────────────────────────
 export default function CommandCentre({
   signals,
   eduCategories,
   initialCountryIso2,
   initialRoleId,
-  wantedCount = 4,
+  wantedCount = 0,
   marketplaceRows,
   pipeline,
   wantedListings = [],
   countryIntel,
 }: Props) {
-  const defaultCountry = useMemo(
-    () => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? COUNTRIES[0],
-    [initialCountryIso2],
-  )
+  // ── State ──────────────────────────────────────────────────────────────────
+  const initialCountry = useMemo(() => {
+    const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
+    return found ?? { iso2: 'GLOBAL', label: 'Global Market' }
+  }, [initialCountryIso2])
 
-  const [country,          setCountry]          = useState(defaultCountry)
-  const [region,           setRegion]           = useState((REGIONS[defaultCountry.iso2] ?? [])[0] ?? '')
-  const [role,             setRole]             = useState(initialRoleId ?? '')
-  const [view,             setView]             = useState<MarketView>('cannabis')
-  const [activePanel,      setActivePanel]      = useState<CommandPanel>('marketplace')
-  const [panelOpen,        setPanelOpen]        = useState(false)
-  const [search,           setSearch]           = useState('')
-  const [watching,         setWatching]         = useState<Set<string>>(new Set())
-  const [proofState,       setProofState]       = useState<RequestState>('idle')
-  const [coaState,         setCoaState]         = useState<RequestState>('idle')
-  const [selectedItem,     setSelectedItem]     = useState('')
-  const [selectedModule,   setSelectedModule]   = useState('')
-  const [paletteOpen,      setPaletteOpen]      = useState(false)
-  const [bannerDismissed,  setBannerDismissed]  = useState(false)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [country,      setCountry]     = useState(initialCountry)
+  const [region,       setRegion]      = useState('')
+  const [role,         setRole]        = useState(initialRoleId ?? '')
+  const [activePage,   setActivePage]  = useState<CommandPage>('briefing')
+  const [paletteOpen,  setPaletteOpen] = useState(false)
 
-  // ⌘K / Ctrl+K listener
+  // ⌘K keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setPaletteOpen(p => !p)
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setPaletteOpen(true) }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const savePreferences = useCallback((patch: { country_iso2?: string; role_id?: string }) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      fetch('/api/dashboard/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      }).catch(() => {})
-    }, 600)
-  }, [])
-
-  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
-
-  const openPanel = useCallback((panel: CommandPanel, item?: string) => {
-    if (item) setSelectedItem(item)
-    setActivePanel(panel)
-    setPanelOpen(true)
-  }, [])
-
-  const handleCountryChange = (iso2: string) => {
-    const next       = COUNTRIES.find(c => c.iso2 === iso2) ?? country
-    const nextRegions = REGIONS[iso2] ?? []
-    setCountry(next)
-    setRegion(nextRegions[0] ?? '')
-    setBannerDismissed(false)
-    savePreferences({ country_iso2: iso2 })
-  }
-
-  const handleRoleChange = (nextRole: string) => {
-    setRole(nextRole)
-    savePreferences({ role_id: nextRole })
-  }
-
-  // In-dashboard search — no route push
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter') return
-    const q = e.currentTarget.value.trim()
-    setSearch(q)
-    if (q) openPanel('search', q)
-  }
-
-  const queueRequest = (kind: 'proof' | 'coa', item: string) => {
-    setSelectedItem(item)
-    const unavailable = country.iso2 === 'AF' && kind === 'coa'
-    if (kind === 'coa')   setCoaState(unavailable ? 'unavailable' : 'queued')
-    if (kind === 'proof') setProofState('queued')
-    openPanel(kind, item)
-  }
-
-  const toggleWatch = (item: string) => {
-    setWatching(prev => {
-      const next = new Set(prev)
-      if (next.has(item)) { next.delete(item) } else { next.add(item) }
-      return next
-    })
-    openPanel('watchlist', item)
-  }
-
-  const rows = marketplaceRows?.[view] ?? []
-
-  // In-dashboard filtered rows (no redirect)
-  const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows
-    const q = search.toLowerCase()
-    return rows.filter(r =>
-      r[2].toLowerCase().includes(q) ||
-      r[3].toLowerCase().includes(q) ||
-      r[1].toLowerCase().includes(q),
-    )
-  }, [rows, search])
-
-  const warn        = useMemo(() => WARN_REGIONS.has(region), [region])
-  const roleLabel   = useMemo(() =>
-    role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.label ?? 'General') : 'General',
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const countryOptions = useMemo<SelectOpt[]>(() => COUNTRIES.map(c => ({ value: c.iso2, label: c.label })), [])
+  const roleOptions    = useMemo<SelectOpt[]>(() =>
+    Object.entries(ROLE_PROFILES).map(([k, v]) => ({ value: k, label: v.label })),
+    [],
+  )
+  const roleLabel = useMemo(() =>
+    role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.short ?? role) : '',
     [role],
   )
-  const roleModules  = useMemo(() => ROLE_FIRST_MODULES[role] ?? DEFAULT_ROLE_MODULES, [role])
-  const learningPath = useMemo(() => [
-    ...roleModules,
-    ...eduCategories.map(cat => ({ ...cat, stage: `${country.label}${region ? ` · ${region}` : ''}` })),
-  ], [roleModules, eduCategories, country.label, region])
+  const pageTitle = useMemo(() => NAV_ITEMS.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
-  const regionalIntel = useMemo(
-    () => getRegionalIntel(country, region, roleLabel, warn, countryIntel),
-    [country, region, roleLabel, warn, countryIntel],
-  )
-  const tierLabel = useMemo(() =>
-    ['doctor_prescriber','pharmacist','clinic_healthcare_operator'].includes(role)
-      ? 'CLINICAL PARTNER · Education'
-      : 'FREE · Weekly Signals',
-    [role],
-  )
-  const banner = useMemo(() =>
-    bannerDismissed ? null : getProactiveBanner(signals, country, watching, pipeline, wantedListings),
-    [bannerDismissed, signals, country, watching, pipeline, wantedListings],
-  )
-  const notifCount = useMemo(() =>
-    signals.filter(s => s.confidence >= 75).length + (pipeline?.proof_review ?? 0),
-    [signals, pipeline],
-  )
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleCountryChange = useCallback((iso2: string) => {
+    const found = COUNTRIES.find(c => c.iso2 === iso2)
+    if (found) { setCountry(found); setRegion('') }
+  }, [])
 
-  // ── Drawer panel renderer ────────────────────────────────────────────────────
+  // ── Page renderer ──────────────────────────────────────────────────────────
+  const renderPage = useCallback(() => {
+    const sharedProps = { country, region, role: roleLabel }
+    switch (activePage) {
+      case 'briefing':
+        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+      case 'access-pathway':
+        return <ScaffoldPage title="Access Pathway" {...sharedProps} />
+      case 'marketplace':
+        return <ScaffoldPage title="Marketplace & Access" {...sharedProps} />
+      case 'evidence':
+        return <ScaffoldPage title="Evidence & Sources" {...sharedProps} />
+      case 'education':
+        return <ScaffoldPage title="Education Hub" {...sharedProps} />
+      case 'regulatory':
+        return <ScaffoldPage title="Regulatory Watch" {...sharedProps} />
+      case 'local-intel':
+        return <ScaffoldPage title="Local Intel" {...sharedProps} />
+      case 'signals':
+        return <ScaffoldPage title="Signals" {...sharedProps} />
+      case 'watchlist':
+        return <ScaffoldPage title="Watchlist" {...sharedProps} />
+      case 'settings':
+        return <ScaffoldPage title="Settings" {...sharedProps} />
+      default:
+        return null
+    }
+  }, [activePage, country, region, roleLabel, countryIntel, signals])
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <>
+    <div className="cc-app">
       <style>{CSS}</style>
 
-      <div className="cc-app">
-
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="cc-top">
-          <div className="cc-brand">
-            <strong>HARBOURVIEW</strong>
-            <span>MARKET ACCESS · INTELLIGENCE · EDUCATION</span>
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <header className="cc-header">
+        <div className="cc-header-left">
+          <div className="cc-wordmark">
+            <span className="cc-wordmark-main">HARBOURVIEW</span>
+            <span className="cc-wordmark-sub">COMMAND CENTRE</span>
           </div>
+        </div>
 
-          <div className="cc-context">
+        <div className="cc-header-centre">
+          <div className="cc-breadcrumb">
+            <span className="cc-bc-label">ROUTE CONTEXT</span>
+            <span className="cc-bc-sep">›</span>
             <CustomSelect
-              label="Country"
               value={country.iso2}
-              options={COUNTRIES.map(c => ({ value: c.iso2, label: c.label }))}
+              options={countryOptions}
               onChange={handleCountryChange}
-              searchable
+              className="cc-bc-select"
             />
+            {region && (
+              <>
+                <span className="cc-bc-sep">/</span>
+                <span className="cc-bc-region">{region.toUpperCase()}</span>
+              </>
+            )}
+          </div>
+          <div className="cc-page-title">
+            {pageTitle}
+            {activePage !== 'briefing' && (
+              <button className="cc-change-ctx" onClick={() => setActivePage('briefing')}>
+                Change Context
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="cc-header-right">
+          <div className="cc-role-selector">
+            <span className="cc-role-label">ROLE</span>
             <CustomSelect
-              label="Region"
-              value={region}
-              options={
-                (REGIONS[country.iso2] ?? []).length
-                  ? (REGIONS[country.iso2] ?? []).map(r => ({ value: r, label: r }))
-                  : [{ value: '', label: 'Country-level' }]
-              }
-              onChange={setRegion}
-            />
-            <CustomSelect
-              label="Role"
               value={role}
-              options={[
-                { value: '', label: '— select role —' },
-                ...Object.entries(ROLE_PROFILES).map(([id, p]) => ({ value: id, label: p!.label })),
-              ]}
-              onChange={handleRoleChange}
+              options={roleOptions}
+              placeholder="Select role"
+              onChange={setRole}
+              className="cc-role-select"
             />
-            <label className="cc-field">
-              <span>Search</span>
-              <input
-                type="text"
-                value={search}
-                placeholder="Search listings, intel, education…"
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-              />
-            </label>
           </div>
 
-          <div className="cc-actions">
-            <div className="cc-tier">{tierLabel}</div>
+          <button
+            className="cc-kbd-btn"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Open command palette (⌘K)"
+          >
+            ⌘K
+          </button>
 
-            {/* ⌘K button */}
-            <button
-              className="cc-kbd-btn"
-              onClick={() => setPaletteOpen(true)}
-              aria-label="Open command palette (⌘K)"
-              title="Command palette ⌘K"
-            >
-              <span>⌘K</span>
-            </button>
-
-            {/* Notifications bell */}
-            <button
-              className="cc-icon-btn cc-notif-btn"
-              aria-label={`Open notifications (${notifCount})`}
-              title="Notifications"
-              onClick={() => openPanel('notifications')}
-            >
-              <span className="cc-bell-icon">◐</span>
-              {notifCount > 0 && (
-                <span className="cc-notif-badge">{notifCount > 9 ? '9+' : notifCount}</span>
-              )}
-            </button>
-
-            <button className="cc-soft-btn" onClick={() => openPanel('wanted')}>
-              {wantedCount} Wanted
-            </button>
-            <button className="cc-soft-btn" onClick={() => openPanel('settings')}>Customize</button>
-            <button className="cc-primary" onClick={() => openPanel('wanted')}>
-              {getMainAction(role)}
-            </button>
-          </div>
-        </header>
-
-        {/* ── Sidebar ────────────────────────────────────────────────── */}
-        <nav className="cc-sidebar" aria-label="Command centre navigation">
-
-          {/* Role + country context */}
-          <div className="cc-sidebar-ctx">
-            <div className="cc-sidebar-country">{country.label}</div>
-            {role
-              ? <div className="cc-sidebar-role">{ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.short ?? role}</div>
-              : <div className="cc-sidebar-role cc-sidebar-role--empty">Select role</div>
-            }
-          </div>
-
-          {/* Role-specific pipeline metrics */}
-          {pipeline && (
-            <div className="cc-sidebar-metrics">
-              <div className="cc-sidebar-metrics-head">PIPELINE</div>
-              {getRolePipelineKeys(role).map(key => {
-                const val = pipeline[key]
-                return (
-                  <button
-                    key={key}
-                    className={`cc-sidebar-metric${val > 0 ? ' has-value' : ''}`}
-                    onClick={() => openPanel(key === 'wanted' ? 'wanted' : 'marketplace')}
-                  >
-                    <span className="cc-sidebar-metric-num" style={{ color: PIPELINE_COLORS[key] }}>{val}</span>
-                    <span className="cc-sidebar-metric-lbl">{PIPELINE_LABELS[key]}</span>
-                  </button>
-                )
-              })}
+          <div className="cc-user-chip">
+            <div className="cc-user-avatar">TC</div>
+            <div className="cc-user-info">
+              <strong>Taylor Chambers</strong>
+              <small>Harbourview</small>
             </div>
-          )}
+            <span className="cc-user-arrow">▾</span>
+          </div>
+        </div>
+      </header>
 
-          <div className="cc-sidebar-divider" />
-
-          {/* Navigation */}
-          {COMMAND_NAV.map(item => (
+      {/* ── Sidebar ───────────────────────────────────────────────── */}
+      <nav className="cc-sidebar" aria-label="Command centre navigation">
+        <div className="cc-sidebar-nav">
+          {NAV_ITEMS.map(item => (
             <button
               key={item.id}
               type="button"
-              className={`cc-nav-btn${activePanel === item.id ? ' active' : ''}`}
-              aria-label={item.label}
-              aria-pressed={activePanel === item.id}
-              onClick={() => openPanel(item.id as CommandPanel)}
+              className={`cc-nav-btn${activePage === item.id ? ' active' : ''}`}
+              onClick={() => setActivePage(item.id)}
+              aria-current={activePage === item.id ? 'page' : undefined}
             >
               <span className="cc-nav-icon" aria-hidden="true">{item.icon}</span>
               <em>{item.label}</em>
             </button>
           ))}
-        </nav>
+        </div>
 
-        {/* ── Workspace ──────────────────────────────────────────────── */}
-        <main className="cc-workspace">
-
-          {/* Proactive intelligence banner */}
-          {banner && (
-            <div className="cc-banner">
-              <span className="cc-banner-dot" />
-              <span className="cc-banner-text">{banner}</span>
-              <button className="cc-banner-dismiss" onClick={() => setBannerDismissed(true)} aria-label="Dismiss banner">×</button>
-            </div>
-          )}
-
-          {/* 3-column grid */}
-          <div className="cc-grid">
-
-            {/* ── Col 1: Marketplace ─────────────────────────────────── */}
-            <section className="cc-panel cc-market">
-              <div className="cc-head">
-                <div>
-                  <h2>Marketplace &amp; Access</h2>
-                  <small>{VIEW_LABELS[view]}</small>
-                </div>
-                <div className="cc-head-actions">
-                  <button className="cc-wanted-cta" onClick={() => openPanel('wanted')}>
-                    {wantedCount} Wanted →
-                  </button>
-                  <button className="cc-soft-btn" onClick={() => openPanel('marketplace')}>
-                    View All →
-                  </button>
-                </div>
-              </div>
-
-              <div className="cc-view-bar">
-                <div className="cc-views">
-                  {(['cannabis','equipment','consumables','new-products','services','opportunities'] as MarketView[]).map(v => (
-                    <button key={v} className={`cc-view${view === v ? ' active' : ''}`} onClick={() => setView(v)}>
-                      {VIEW_TAB_LABELS[v]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="cc-market-grid">
-                <div className="cc-market-block">
-                  <div className="cc-block-title">
-                    <b>{VIEW_BLOCK_TITLES[view]}</b>
-                    <span>
-                      {search ? `${filteredRows.length} of ${rows.length} · filtered` : rows.length > 0 ? `${rows.length} rows · region-filtered` : 'No listings yet'}
-                    </span>
-                  </div>
-                  <div className="cc-rows">
-                    {filteredRows.length === 0
-                      ? (
-                        <div className="cc-empty-state">
-                          <p>{search ? `No results for "${search}" in this category.` : 'No live listings for this category yet.'}</p>
-                          {!search && <a href="/marketplace/sell" className="cc-empty-cta">Submit a listing →</a>}
-                          {search && <button className="cc-empty-cta" onClick={() => setSearch('')}>Clear search</button>}
-                        </div>
-                      )
-                      : filteredRows.map((row, i) => (
-                        <article key={row[2]} className="cc-row" style={{ animationDelay: `${i * 45}ms` }}>
-                          <div className={`cc-spec ${row[0]}`} />
-                          <div>
-                            <div className="cc-type">{row[1]}</div>
-                            <h4>{row[2]}</h4>
-                            <p>{row[3]}</p>
-                            <TagPills str={row[4]} />
-                            <TrustBar str={row[5]} />
-                          </div>
-                          <div className="cc-action-box">
-                            <strong>{row[7]}</strong>
-                            <small>{row[1].toLowerCase()}</small>
-                            <button className="cc-row-action" onClick={() => queueRequest(getRequestKind(row[6]), row[2])}>
-                              {row[6]}
-                            </button>
-                            <button
-                              className={`cc-secondary${watching.has(row[2]) ? ' active' : ''}`}
-                              onClick={() => toggleWatch(row[2])}
-                            >
-                              {watching.has(row[2]) ? 'Watching' : 'Watch'}
-                            </button>
-                          </div>
-                        </article>
-                      ))
-                    }
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* ── Col 2: Education ───────────────────────────────────── */}
-            <section className="cc-col2">
-              <div className="cc-panel cc-education">
-                <div className="cc-head">
-                  <div>
-                    <h3>Education Hub</h3>
-                    <small>Role-first learning path</small>
-                  </div>
-                  <button className="cc-link-btn" onClick={() => openPanel('education')}>View All →</button>
-                </div>
-                <div className="cc-body">
-                  <div className="cc-edu-intro">
-                    <strong>{roleLabel} Learning Path</strong>
-                    <p>Role-specific modules prioritized, then {country.label}{region ? ` / ${region}` : ''} context.</p>
-                    {countryIntel?.review_status && (
-                      <div className="cc-edu-intel-badge">
-                        <span className="cc-intel-dot" />
-                        Intel: {countryIntel.review_status} · {country.label}
-                      </div>
-                    )}
-                  </div>
-                  <div className="cc-edu-cards">
-                    {learningPath.slice(0, 5).map(item => (
-                      <div key={`${item.stage}-${item.title}`} className="cc-edu">
-                        <small>{item.stage}</small>
-                        <b>{item.icon} {item.title}</b>
-                        <p>{item.desc}</p>
-                        <button
-                          className="cc-edu-cta"
-                          onClick={() => {
-                            setSelectedModule(item.title)
-                            openPanel('module', item.title)
-                          }}
-                        >
-                          Open module
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* ── Col 3: Signals + Local Intel ───────────────────────── */}
-            <section className="cc-col3">
-
-              <div className="cc-panel cc-signals">
-                <div className="cc-head">
-                  <div>
-                    <h3>Weekly Signals</h3>
-                    <small>Free summaries · paid source trail · marketplace impact</small>
-                  </div>
-                  <button className="cc-link-btn" onClick={() => openPanel('signals')}>View All →</button>
-                </div>
-                <div className="cc-body">
-                  <div className="cc-signal-list">
-                    {signals.slice(0, 3).map((signal, i) => (
-                      <article key={signal.id} className="cc-signal">
-                        <span className={`cc-sev${signal.tag.label === 'REGULATION' || signal.tag.label === 'COMPLIANCE' ? '' : ' low'}`} />
-                        <div>
-                          <div className="cc-signal-top">
-                            <b>{signal.title}</b>
-                            <MiniSpark confidence={signal.confidence} idx={i} />
-                          </div>
-                          <p>{signal.commercialImpact}</p>
-                          <small>{signal.market} · conf {signal.confidence} · {signal.timeAgo}</small>
-                          <div className="cc-impact">
-                            <span
-                              className="cc-signal-tag"
-                              style={{ borderColor: signal.tag.border, color: signal.tag.color, background: signal.tag.bg }}
-                            >
-                              {signal.tag.label}
-                            </span>
-                            {' '}Impact: {signal.commercialImpact.toLowerCase()}
-                          </div>
-                        </div>
-                        <button className="cc-badge" onClick={() => openPanel('signals', signal.title)}>WATCH</button>
-                      </article>
-                    ))}
-                    <div className="cc-pay-boundary">
-                      <b>Intel Plus unlocks</b>
-                      <p>Source trails, contradiction review, counterparty movement, corridor alerts, regional rule-change monitoring, and saved watch alerts.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="cc-panel cc-map-panel">
-                <div className="cc-head">
-                  <div>
-                    <h3>Local Intel</h3>
-                    <small>{REGION_LABELS[country.iso2] ?? 'Country-level intelligence'}</small>
-                  </div>
-                  <button className="cc-link-btn" onClick={() => openPanel('local-intel')}>Open Intel</button>
-                </div>
-                <div className="cc-body cc-map-body">
-                  {/* CountryIntel public summary */}
-                  {countryIntel?.public_summary && (
-                    <div className="cc-country-intel-card">
-                      <div className="cc-country-intel-head">
-                        <span className="cc-country-intel-dot" />
-                        <small>{countryIntel.country_name} · {countryIntel.review_status}</small>
-                      </div>
-                      <p>{countryIntel.public_summary}</p>
-                    </div>
-                  )}
-                  <div className="cc-legend">
-                    <span>● Allow</span>
-                    <span>● Review</span>
-                    <span>● Restrict</span>
-                    <span>● Edu required</span>
-                  </div>
-                  <div className="cc-map-wrap">
-                    <div className="cc-region-grid">
-                      {(REGIONS[country.iso2] ?? []).length
-                        ? (REGIONS[country.iso2] ?? []).map(r => (
-                          <button
-                            key={r}
-                            className={`cc-region-tile${region === r ? ' active' : ''}${WARN_REGIONS.has(r) ? ' warn' : ''}`}
-                            onClick={() => setRegion(r)}
-                          >
-                            {r}
-                          </button>
-                        ))
-                        : <div className="cc-empty-state">No regional tiles configured. Showing country-level intelligence.</div>
-                      }
-                    </div>
-                    <div className="cc-rules">
-                      <b>{regionalIntel.title}</b>
-                      <p>{regionalIntel.summary}</p>
-                      <div className="cc-rule-grid">
-                        <div><small>Rule status</small><strong>{regionalIntel.ruleStatus}</strong></div>
-                        <div><small>Marketplace impact</small><strong>{regionalIntel.marketplaceImpact}</strong></div>
-                        <div><small>Role impact</small><strong>{regionalIntel.roleImpact}</strong></div>
-                        <div><small>Confidence</small><strong>{regionalIntel.confidence}</strong></div>
-                      </div>
-                      <p className="cc-next-action">Next action: {regionalIntel.nextAction}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </section>
+        <div className="cc-sidebar-status">
+          <span className="cc-status-dot" />
+          <div>
+            <strong>System Online</strong>
+            <small>All systems operational</small>
           </div>
-        </main>
+        </div>
+      </nav>
 
-        {/* ── Status bar ─────────────────────────────────────────────── */}
-        <footer className="cc-status">
-          <span><b>LIVE</b> role-aware · region-filtered · proof-gated</span>
-          <span>
-            {pipeline
-              ? `Pipeline: ${pipeline.wanted} wanted · ${pipeline.matched} matched · ${pipeline.deal_room} deal room`
-              : 'Marketplace · Intel Signals · Education'}
-          </span>
-          <span>
-            {watching.size > 0 ? `${watching.size} watched · ` : ''}
-            {search ? `Filtered: "${search}" · ` : ''}
-            All commands resolve in-dashboard
-          </span>
-        </footer>
-      </div>
+      {/* ── Main content ──────────────────────────────────────────── */}
+      <main className="cc-main">
+        {renderPage()}
+      </main>
 
-      {/* ── Overlays ─────────────────────────────────────────────────── */}
-      {panelOpen && <div className="cc-scrim" onClick={() => setPanelOpen(false)} />}
-      <DrawerPanel
-        activePanel={activePanel}
-        panelOpen={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        view={view}
-        country={country}
-        region={region}
-        roleLabel={roleLabel}
-        tierLabel={tierLabel}
-        filteredRows={filteredRows}
-        learningPath={learningPath}
-        regionalIntel={regionalIntel}
-        signals={signals}
-        wantedListings={wantedListings}
-        wantedCount={wantedCount}
-        watching={watching}
-        pipeline={pipeline}
-        notifCount={notifCount}
-        search={search}
-        selectedItem={selectedItem}
-        selectedModule={selectedModule}
-        proofState={proofState}
-        coaState={coaState}
-        onProofState={setProofState}
-        onSelectedItem={setSelectedItem}
-        onSetActivePanel={setActivePanel}
-      />
+      {/* ── Mobile nav ────────────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
-        {COMMAND_NAV.slice(0, 5).map(item => (
+        {NAV_ITEMS.slice(0, 5).map(item => (
           <button
             key={item.id}
-            className={`cc-mob-nav-btn${activePanel === item.id ? ' active' : ''}`}
-            onClick={() => openPanel(item.id as CommandPanel)}
+            className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}
+            onClick={() => setActivePage(item.id)}
           >
             <span aria-hidden="true">{item.icon}</span>
             <em>{item.label}</em>
@@ -1491,684 +648,480 @@ export default function CommandCentre({
         ))}
       </nav>
 
+      {/* ── Command palette ───────────────────────────────────────── */}
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        signals={signals}
         country={country}
         role={role}
-        onPanel={(panel, item) => { openPanel(panel, item); setPaletteOpen(false) }}
-        onView={v => { setView(v); setPaletteOpen(false) }}
+        onPage={setActivePage}
       />
-    </>
+    </div>
   )
 }
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
+
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Cormorant+Garamond:wght@400;500;600&display=swap');
-
-@keyframes fadeSlideUp  { from { opacity:0; transform:translateY(7px) } to { opacity:1; transform:translateY(0) } }
-@keyframes sparkDraw    { to   { stroke-dashoffset:0 } }
-@keyframes pulseDot     { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
-@keyframes rowIn        { from { opacity:0; transform:translateX(-4px) } to { opacity:1; transform:translateX(0) } }
-@keyframes bannerSlide  { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
-
+/* Tokens */
 :root {
-  --cc-bg:#040814;
-  --cc-panel:#0b1929;
-  --cc-ink:#f7efe1;
-  --cc-text:#d8e1e9;
-  --cc-muted:#9aa8b6;
-  --cc-dim:#627282;
-  --cc-line:rgba(232,240,248,.115);
-  --cc-line2:rgba(232,240,248,.18);
-  --cc-gold:#d9af63;
-  --cc-gold2:#f3cf86;
-  --cc-green:#74d28e;
-  --cc-blue:#79b2ea;
-  --cc-red:#e27466;
-  --cc-amber:#e7b053;
-  --cc-violet:#ad92ee;
-  --cc-cyan:#6de3d6;
-  --cc-shadow:0 28px 88px rgba(0,0,0,.44);
-  --cc-sans:"DM Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
-  --cc-serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
-  --cc-mono:"DM Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+  --cc-gold:   #d4a84b;
+  --cc-gold2:  #d9af63;
+  --cc-ink:    #f5f0e8;
+  --cc-text:   rgba(245,240,232,.92);
+  --cc-muted:  rgba(245,240,232,.55);
+  --cc-dim:    rgba(245,240,232,.32);
+  --cc-line:   rgba(255,255,255,.08);
+  --cc-line2:  rgba(255,255,255,.13);
+  --cc-blue:   #5b9bd5;
+  --cc-green:  #4caf82;
+  --cc-amber:  #e6a533;
+  --cc-violet: #9b72d0;
+  --cc-red:    #e05555;
+  --cc-sans:   'Inter', system-ui, sans-serif;
+  --cc-serif:  'Georgia', serif;
+  --cc-mono:   'JetBrains Mono', 'Fira Mono', monospace;
+  --cc-header: 64px;
+  --cc-sidebar:220px;
+  --cc-radius: 12px;
 }
 
-/* ── App shell ──────────────────────────────────────────────────────────── */
+/* Shell */
 .cc-app {
   position:fixed;inset:0;
   display:grid;
-  grid-template-columns:200px minmax(0,1fr);
-  grid-template-rows:70px minmax(0,1fr) 40px;
+  grid-template-columns:var(--cc-sidebar) minmax(0,1fr);
+  grid-template-rows:var(--cc-header) minmax(0,1fr);
   background:linear-gradient(135deg,#030711 0%,#07111d 47%,#030812 100%);
   color:var(--cc-text);
   font-family:var(--cc-sans);
   overflow:hidden;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
-.cc-top {
-  grid-column:1/-1;grid-row:1;z-index:10;
-  display:grid;grid-template-columns:220px minmax(0,1fr) auto;
-  gap:14px;align-items:center;
-  padding:10px 16px;
+/* Header */
+.cc-header {
+  grid-column:1/-1;grid-row:1;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px 0 0;
   border-bottom:1px solid var(--cc-line);
-  background:linear-gradient(180deg,rgba(5,10,20,.97),rgba(6,13,24,.92));
+  background:rgba(3,7,17,.96);
+  backdrop-filter:blur(12px);
+  z-index:20;gap:0;
 }
-.cc-brand strong {
-  display:block;color:var(--cc-gold2);
-  font-family:var(--cc-serif);letter-spacing:.16em;font-size:17px;font-weight:600;
+.cc-header-left {
+  width:var(--cc-sidebar);flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 16px;
+  border-right:1px solid var(--cc-line);
+  height:100%;
 }
-.cc-brand span {
-  display:block;margin-top:2px;color:var(--cc-dim);
-  text-transform:uppercase;letter-spacing:.15em;font-size:8px;white-space:nowrap;
-  font-family:var(--cc-mono);
+.cc-wordmark { display:flex;flex-direction:column;gap:1px; }
+.cc-wordmark-main {
+  font-family:var(--cc-serif);font-size:13px;
+  letter-spacing:.18em;color:var(--cc-gold);
+  font-weight:600;
 }
-.cc-context {
-  display:grid;grid-template-columns:130px 140px 160px minmax(150px,1fr);
-  gap:8px;min-width:0;
+.cc-wordmark-sub {
+  font-family:var(--cc-mono);font-size:7px;
+  letter-spacing:.22em;color:var(--cc-dim);text-transform:uppercase;
 }
-.cc-field { height:44px;position:relative; }
-.cc-field span {
-  position:absolute;left:11px;top:5px;
-  color:var(--cc-dim);font-size:8px;letter-spacing:.14em;
-  text-transform:uppercase;pointer-events:none;z-index:1;
-  font-family:var(--cc-mono);
+.cc-header-centre {
+  flex:1;padding:0 24px;display:flex;flex-direction:column;gap:2px;
 }
-.cc-field select,.cc-field input {
-  width:100%;height:100%;
-  border:1px solid var(--cc-line2);border-radius:12px;
-  background:linear-gradient(180deg,rgba(17,35,53,.9),rgba(7,16,28,.96));
-  color:var(--cc-ink);outline:none;
-  padding:17px 10px 5px 11px;
-  font:inherit;font-size:12px;
-  transition:border-color .15s;
+.cc-breadcrumb {
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--cc-mono);font-size:9px;
+  letter-spacing:.14em;color:var(--cc-dim);text-transform:uppercase;
 }
-.cc-field select:focus,.cc-field input:focus { border-color:rgba(217,175,99,.5); }
-.cc-actions { display:flex;align-items:center;gap:7px;justify-content:flex-end;white-space:nowrap; }
-.cc-tier {
-  height:42px;border:1px solid rgba(217,175,99,.35);border-radius:12px;
-  background:rgba(217,175,99,.07);color:var(--cc-gold2);
-  padding:0 11px;display:flex;align-items:center;
-  font-family:var(--cc-mono);font-size:9px;letter-spacing:.1em;white-space:nowrap;
+.cc-bc-label { color:var(--cc-dim); }
+.cc-bc-sep   { color:var(--cc-dim);opacity:.5; }
+.cc-bc-region{ color:var(--cc-gold);font-weight:600; }
+.cc-bc-select .cc-select-trigger {
+  background:none;border:none;padding:0;
+  color:var(--cc-gold);font-family:var(--cc-mono);
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  cursor:pointer;display:flex;align-items:center;gap:4px;
 }
-.cc-kbd-btn {
-  height:42px;padding:0 12px;border-radius:12px;
-  border:1px solid var(--cc-line2);
-  background:linear-gradient(180deg,rgba(15,31,49,.9),rgba(7,16,28,.98));
-  color:var(--cc-muted);cursor:pointer;font-family:var(--cc-mono);font-size:11px;
-  display:flex;align-items:center;gap:5px;
-  transition:border-color .15s,color .15s;
+.cc-bc-select .cc-select-arrow { font-size:7px;opacity:.6; }
+.cc-page-title {
+  font-family:var(--cc-serif);font-size:22px;font-weight:400;
+  color:var(--cc-ink);letter-spacing:-.01em;
+  display:flex;align-items:center;gap:12px;
 }
-.cc-kbd-btn:hover { border-color:rgba(217,175,99,.5);color:var(--cc-gold2); }
-.cc-icon-btn,.cc-soft-btn,.cc-primary {
-  height:42px;border-radius:12px;border:1px solid var(--cc-line2);
-  background:linear-gradient(180deg,rgba(15,31,49,.9),rgba(7,16,28,.98));
-  color:var(--cc-muted);padding:0 12px;
-  display:inline-flex;align-items:center;gap:7px;
-  cursor:pointer;font:inherit;font-size:12px;text-decoration:none;
-  transition:border-color .15s,transform .1s;
+.cc-change-ctx {
+  font-family:var(--cc-sans);font-size:11px;font-weight:500;
+  padding:3px 10px;border-radius:20px;
+  border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);
+  color:var(--cc-muted);cursor:pointer;
+  transition:background .12s,color .12s;
 }
-.cc-icon-btn { width:42px;padding:0;justify-content:center;position:relative; }
-.cc-notif-btn { font-size:16px; }
-.cc-bell-icon { line-height:1; }
-.cc-notif-badge {
-  position:absolute;right:5px;top:5px;
-  min-width:15px;height:15px;border-radius:999px;
-  background:var(--cc-red);color:#fff;
-  font-size:8px;font-family:var(--cc-mono);font-weight:700;
-  display:flex;align-items:center;justify-content:center;
-  padding:0 3px;
-  animation:fadeSlideUp .25s ease;
-}
-.cc-primary {
-  border-color:rgba(217,175,99,.56);
-  background:linear-gradient(135deg,#f0cc82,#c89136);
-  color:#07111d;font-weight:700;
-}
-.cc-primary:hover,.cc-soft-btn:hover { transform:translateY(-1px); }
+.cc-change-ctx:hover { background:rgba(255,255,255,.08);color:var(--cc-text); }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.cc-header-right {
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+}
+.cc-role-selector {
+  display:flex;flex-direction:column;align-items:flex-end;gap:1px;
+}
+.cc-role-label {
+  font-family:var(--cc-mono);font-size:8px;
+  letter-spacing:.16em;color:var(--cc-dim);text-transform:uppercase;
+}
+.cc-role-select .cc-select-trigger {
+  background:none;border:none;padding:0;cursor:pointer;
+  color:var(--cc-ink);font-size:13px;font-weight:500;
+  display:flex;align-items:center;gap:6px;
+}
+.cc-role-select .cc-select-arrow { color:var(--cc-dim); }
+.cc-kbd-btn {
+  font-family:var(--cc-mono);font-size:10px;
+  padding:5px 10px;border-radius:8px;
+  border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);
+  color:var(--cc-muted);cursor:pointer;
+  transition:background .12s,color .12s;
+}
+.cc-kbd-btn:hover { background:rgba(255,255,255,.08);color:var(--cc-text); }
+.cc-user-chip {
+  display:flex;align-items:center;gap:10px;
+  padding:6px 10px;border-radius:10px;
+  border:1px solid var(--cc-line);background:rgba(255,255,255,.03);
+  cursor:pointer;transition:background .12s;
+}
+.cc-user-chip:hover { background:rgba(255,255,255,.06); }
+.cc-user-avatar {
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--cc-gold),#8b6914);
+  display:grid;place-items:center;
+  font-size:11px;font-weight:700;color:#1a1000;flex-shrink:0;
+}
+.cc-user-info { display:flex;flex-direction:column;gap:1px; }
+.cc-user-info strong { font-size:12px;font-weight:600;color:var(--cc-ink);line-height:1; }
+.cc-user-info small  { font-size:10px;color:var(--cc-dim); }
+.cc-user-arrow { color:var(--cc-dim);font-size:9px; }
+
+/* Sidebar */
 .cc-sidebar {
-  grid-column:1;grid-row:2/4;z-index:5;
+  grid-column:1;grid-row:2;
+  display:flex;flex-direction:column;justify-content:space-between;
   padding:12px 10px;
   border-right:1px solid var(--cc-line);
-  background:linear-gradient(180deg,rgba(4,9,18,.88),rgba(3,8,17,.97));
-  display:flex;flex-direction:column;gap:2px;
-  overflow-y:auto;overflow-x:hidden;
+  background:rgba(3,7,17,.7);
+  overflow-y:auto;
 }
-
-/* Context block */
-.cc-sidebar-ctx {
-  padding:8px 8px 10px;
-  border-bottom:1px solid var(--cc-line);
-  margin-bottom:8px;
-}
-.cc-sidebar-country {
-  color:var(--cc-ink);font-size:13px;font-weight:600;
-  font-family:var(--cc-serif);line-height:1.2;
-}
-.cc-sidebar-role {
-  margin-top:3px;color:var(--cc-gold);
-  font-size:9px;letter-spacing:.14em;text-transform:uppercase;
-  font-family:var(--cc-mono);
-}
-.cc-sidebar-role--empty { color:var(--cc-dim); }
-
-/* Pipeline metrics */
-.cc-sidebar-metrics {
-  margin-bottom:4px;
-}
-.cc-sidebar-metrics-head {
-  padding:4px 8px 6px;
-  color:var(--cc-dim);font-size:8px;letter-spacing:.18em;
-  text-transform:uppercase;font-family:var(--cc-mono);
-}
-.cc-sidebar-metric {
-  width:100%;display:flex;align-items:center;
-  padding:6px 8px;border-radius:10px;
-  border:1px solid transparent;background:transparent;
-  cursor:pointer;font:inherit;text-align:left;
-  gap:8px;transition:background .12s,border-color .12s;
-}
-.cc-sidebar-metric:hover { background:rgba(255,255,255,.04);border-color:var(--cc-line); }
-.cc-sidebar-metric.has-value:hover { background:rgba(255,255,255,.06); }
-.cc-sidebar-metric-num {
-  font-family:var(--cc-mono);font-size:18px;font-weight:500;
-  line-height:1;flex-shrink:0;min-width:28px;
-}
-.cc-sidebar-metric-lbl {
-  color:var(--cc-muted);font-size:9px;
-  text-transform:uppercase;letter-spacing:.1em;
-  font-family:var(--cc-mono);line-height:1.3;
-}
-
-.cc-sidebar-divider {
-  height:1px;background:var(--cc-line);
-  margin:6px 0 8px;flex-shrink:0;
-}
-
-/* Nav buttons — full width with inline label */
+.cc-sidebar-nav { display:flex;flex-direction:column;gap:2px; }
 .cc-nav-btn {
-  width:100%;height:36px;border-radius:10px;
+  width:100%;height:38px;border-radius:10px;
   border:1px solid transparent;background:transparent;
   color:var(--cc-dim);
-  display:flex;align-items:center;gap:9px;
-  padding:0 8px;
+  display:flex;align-items:center;gap:10px;
+  padding:0 10px;
   cursor:pointer;font:inherit;font-size:11px;text-align:left;
   transition:color .15s,background .15s,border-color .15s;
   flex-shrink:0;
 }
-.cc-nav-icon { font-size:14px;flex-shrink:0;width:18px;text-align:center; }
+.cc-nav-icon { font-size:13px;flex-shrink:0;width:16px;text-align:center; }
+.cc-nav-btn em { font-style:normal;font-size:11px;white-space:nowrap;overflow:hidden; }
 .cc-nav-btn:hover { color:var(--cc-text);background:rgba(255,255,255,.05); }
 .cc-nav-btn.active {
   color:var(--cc-gold2);
-  border-color:rgba(217,175,99,.3);
-  background:rgba(217,175,99,.07);
+  border-color:rgba(212,168,75,.25);
+  background:rgba(212,168,75,.07);
 }
-.cc-nav-btn em {
-  font-style:normal;font-size:11px;
-  letter-spacing:.01em;white-space:nowrap;overflow:hidden;
-}
-
-/* ── Workspace ───────────────────────────────────────────────────────────── */
-.cc-workspace {
-  grid-column:2;grid-row:2;
-  display:flex;flex-direction:column;
-  min-width:0;min-height:0;overflow:hidden;
-}
-
-/* Proactive banner */
-.cc-banner {
-  flex-shrink:0;
+.cc-sidebar-status {
   display:flex;align-items:center;gap:10px;
-  padding:7px 16px;
-  background:linear-gradient(90deg,rgba(231,176,83,.07),rgba(231,176,83,.04));
-  border-bottom:1px solid rgba(231,176,83,.18);
-  animation:bannerSlide .3s ease;
-}
-.cc-banner-dot {
-  width:7px;height:7px;border-radius:50%;
-  background:var(--cc-amber);flex-shrink:0;
-  animation:pulseDot 2s infinite;
-}
-.cc-banner-text { flex:1;font-size:11px;color:var(--cc-amber);font-family:var(--cc-mono); }
-.cc-banner-dismiss {
-  background:transparent;border:none;color:var(--cc-dim);
-  cursor:pointer;font-size:16px;padding:0 4px;line-height:1;
-}
-.cc-banner-dismiss:hover { color:var(--cc-muted); }
-
-/* 3-column grid */
-.cc-grid {
-  flex:1;min-height:0;
-  display:grid;
-  grid-template-columns:minmax(540px,2fr) minmax(260px,1fr) minmax(280px,1fr);
-  gap:12px;padding:12px;overflow:hidden;
-}
-
-/* ── Panels ──────────────────────────────────────────────────────────────── */
-.cc-panel {
-  min-width:0;min-height:0;
-  border:1px solid var(--cc-line);border-radius:24px;
-  background:linear-gradient(180deg,rgba(12,28,44,.93),rgba(5,13,23,.96));
-  box-shadow:var(--cc-shadow);overflow:hidden;
-}
-.cc-head {
-  height:58px;padding:0 16px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  border-bottom:1px solid var(--cc-line);
-}
-.cc-head h2,.cc-head h3 { margin:0;color:var(--cc-ink);font-family:var(--cc-serif);font-weight:500; }
-.cc-head h2 { font-size:21px; }
-.cc-head h3 { font-size:16px; }
-.cc-head small {
-  display:block;margin-top:2px;color:var(--cc-dim);
-  font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-family:var(--cc-mono);
-}
-.cc-head-actions { display:flex;gap:7px;align-items:center; }
-.cc-link-btn { color:var(--cc-gold);font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;background:transparent;border:none;cursor:pointer; }
-.cc-wanted-cta {
-  border:1px solid rgba(173,146,238,.42);background:rgba(173,146,238,.08);
-  color:var(--cc-violet);border-radius:9px;padding:5px 11px;
-  font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;font:inherit;
-}
-.cc-body { flex:1;min-height:0;overflow-y:auto;padding:12px; }
-.cc-market,.cc-education,.cc-signals,.cc-map-panel {
-  display:flex;flex-direction:column;min-height:0;
-}
-
-/* Marketplace tab bar */
-.cc-view-bar { position:relative; }
-.cc-view-bar::after { content:""; position:absolute; right:0; top:0; bottom:0; width:32px; background:linear-gradient(to left,rgba(11,25,41,1),transparent); pointer-events:none; }
-.cc-view-bar {
-  border-bottom:1px solid var(--cc-line);padding:7px 14px;
-  display:flex;align-items:center;
-  background:rgba(255,255,255,.016);flex-shrink:0;
-}
-.cc-views { display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px; }
-.cc-views::-webkit-scrollbar{display:none;}
-.cc-view {
-  height:32px;border:1px solid var(--cc-line);border-radius:999px;
-  background:rgba(255,255,255,.024);color:var(--cc-muted);
-  padding:0 11px;white-space:nowrap;font-size:11px;cursor:pointer;font:inherit;
-  transition:background .15s,color .15s,border-color .15s;
-}
-.cc-view.active {
-  color:var(--cc-gold2);border-color:rgba(217,175,99,.42);
-  background:rgba(217,175,99,.09);
-}
-.cc-view:hover:not(.active) { background:rgba(255,255,255,.044);color:var(--cc-text); }
-
-/* Marketplace rows */
-.cc-market-grid { flex:1;min-height:0;overflow:hidden;padding:10px;display:flex;flex-direction:column; }
-.cc-market-block {
-  border:1px solid var(--cc-line);border-radius:18px;
-  background:rgba(255,255,255,.02);overflow:hidden;
-  display:flex;flex-direction:column;flex:1;min-height:0;
-}
-.cc-block-title {
-  padding:9px 13px;border-bottom:1px solid var(--cc-line);
-  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
-}
-.cc-block-title b { color:var(--cc-gold);font-size:10px;letter-spacing:.17em;text-transform:uppercase; }
-.cc-block-title span { font-size:10px;color:var(--cc-dim);font-family:var(--cc-mono); }
-.cc-rows { flex:1;overflow-y:auto;padding:9px;display:grid;gap:9px;align-content:start; }
-.cc-row {
-  border:1px solid var(--cc-line);border-radius:17px;
-  background:linear-gradient(180deg,rgba(18,38,58,.72),rgba(7,17,29,.92));
-  padding:11px;
-  display:grid;grid-template-columns:96px minmax(0,1fr) 138px;gap:11px;align-items:center;
-  animation:rowIn .35s ease both;
-  transition:transform .15s,box-shadow .15s,border-color .15s;
-}
-.cc-row:hover {
-  transform:translateY(-1px);
-  box-shadow:0 6px 24px rgba(0,0,0,.32);
-  border-color:rgba(217,175,99,.22);
-}
-.cc-spec { width:96px;height:76px;border-radius:13px;border:1px solid var(--cc-line2);background:#0a1624; }
-.cc-spec.supply { background:radial-gradient(circle at 32% 28%,rgba(217,175,99,.32),transparent 25%),#0a1624; }
-.cc-spec.equip  { background:repeating-linear-gradient(45deg,rgba(255,255,255,.07) 0 1px,transparent 1px 8px),#0a1624; }
-.cc-spec.service{ background:linear-gradient(135deg,rgba(115,210,141,.16),rgba(122,177,234,.08)),#0a1624; }
-.cc-type { font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--cc-gold);font-family:var(--cc-mono);margin-bottom:3px; }
-.cc-row h4 { margin:0;color:var(--cc-ink);font-size:14px;line-height:1.2;font-family:var(--cc-serif); }
-.cc-row p  { margin:4px 0 0;color:var(--cc-muted);font-size:12px;line-height:1.5;font-family:var(--cc-serif); }
-.hv-tags  { display:flex;gap:5px;flex-wrap:wrap;margin-top:6px; }
-.hv-tag   { height:19px;display:inline-flex;align-items:center;border:1px solid var(--cc-line2);border-radius:999px;padding:0 6px;color:var(--cc-muted);background:rgba(255,255,255,.024);font-size:9px;font-family:var(--cc-mono); }
-.hv-trust { margin-top:6px;display:grid;grid-template-columns:repeat(5,52px);gap:4px; }
-.hv-trust i { font-style:normal;height:18px;border:1px solid rgba(232,239,247,.1);border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--cc-dim);font-size:8px;font-family:var(--cc-mono);background:rgba(255,255,255,.016); }
-.hv-trust i.ok   { color:var(--cc-green); border-color:rgba(115,210,141,.26); }
-.hv-trust i.warn { color:var(--cc-amber); border-color:rgba(230,176,83,.28); }
-.hv-trust i.lock { color:var(--cc-violet);border-color:rgba(173,146,238,.28); }
-.cc-action-box { text-align:right; }
-.cc-action-box strong { display:block;color:var(--cc-ink);font-size:13px; }
-.cc-action-box small  { display:block;color:var(--cc-dim);font-family:var(--cc-mono);font-size:9px;margin-top:2px; }
-.cc-row-action,.cc-secondary,.cc-edu-cta {
-  margin-top:6px;border-radius:9px;
-  border:1px solid rgba(217,175,99,.34);background:rgba(217,175,99,.07);
-  color:var(--cc-gold2);padding:6px 9px;font-size:10px;font-weight:600;
-  display:inline-flex;cursor:pointer;font:inherit;
-  transition:background .15s,transform .1s;
-}
-.cc-row-action:hover,.cc-edu-cta:hover { background:rgba(217,175,99,.14);transform:translateY(-1px); }
-.cc-secondary { border-color:rgba(217,175,99,.28);background:rgba(217,175,99,.04);color:var(--cc-gold);display:flex;justify-content:center; }
-.cc-secondary.active { border-color:rgba(120,215,211,.5);background:rgba(120,215,211,.14);color:var(--cc-cyan);font-weight:600; }
-.cc-empty-state { border:1px dashed var(--cc-line2);border-radius:12px;padding:14px;color:var(--cc-muted);font-size:11px; }
-.cc-empty-cta { color:var(--cc-gold);font-size:11px;cursor:pointer;background:transparent;border:none;display:inline-block;margin-top:6px; }
-
-/* Education */
-.cc-col2,.cc-col3 { display:flex;flex-direction:column;gap:12px;min-height:0;overflow:hidden; }
-.cc-education { flex:1; }
-.cc-education .cc-body { display:flex;flex-direction:column;overflow:hidden; }
-.cc-edu-intro {
-  border:1px solid rgba(217,175,99,.24);border-radius:16px;padding:11px;
-  background:linear-gradient(135deg,rgba(217,175,99,.09),rgba(120,215,211,.04));
-  margin-bottom:9px;flex-shrink:0;
-}
-.cc-edu-intro strong { display:block;color:var(--cc-gold2);font-family:var(--cc-serif);font-weight:500;font-size:16px; }
-.cc-edu-intro p,.cc-edu p,.cc-signal p,.cc-pay-boundary p,.cc-rules p { margin:5px 0 0;color:var(--cc-muted);font-size:13px;line-height:1.5;font-family:var(--cc-serif); }
-.cc-edu-intel-badge {
-  margin-top:8px;display:flex;align-items:center;gap:6px;
-  font-size:10px;color:var(--cc-blue);font-family:var(--cc-mono);
-}
-.cc-intel-dot { width:6px;height:6px;border-radius:50%;background:var(--cc-blue);animation:pulseDot 2.5s infinite; }
-.cc-edu-cards { display:grid;gap:7px;overflow-y:auto;flex:1;min-height:0;align-content:start; }
-.cc-edu { border:1px solid var(--cc-line);border-radius:14px;background:rgba(255,255,255,.024);padding:10px;transition:border-color .15s; }
-.cc-edu:hover { border-color:rgba(217,175,99,.22); }
-.cc-edu small { display:block;color:var(--cc-gold);font-family:var(--cc-mono);font-size:8px;letter-spacing:.13em;text-transform:uppercase;margin-bottom:4px; }
-.cc-edu b { display:block;color:var(--cc-ink);font-size:12px;font-family:var(--cc-serif); }
-
-/* Signals */
-.cc-signals { flex:1.05; }
-.cc-map-panel { flex:.95; }
-.cc-signal-list { display:grid;gap:9px;align-content:start; }
-.cc-signal {
-  border:1px solid var(--cc-line);border-radius:15px;
-  background:rgba(255,255,255,.024);padding:11px;
-  display:grid;grid-template-columns:6px minmax(0,1fr) auto;gap:9px;align-items:start;
-  transition:border-color .15s;
-}
-.cc-signal:hover { border-color:rgba(232,240,248,.22); }
-.cc-sev { height:100%;min-height:54px;border-radius:999px;background:var(--cc-green); }
-.cc-sev.low { background:var(--cc-amber); }
-.cc-signal-top { display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px; }
-.cc-signal b,.cc-pay-boundary b,.cc-rules b { display:block;color:var(--cc-ink);font-size:12px;line-height:1.25;font-family:var(--cc-serif); }
-.cc-signal small { display:block;margin-top:4px;color:var(--cc-dim);font-family:var(--cc-mono);font-size:9px; }
-.cc-impact { margin-top:6px;border:1px solid rgba(217,175,99,.18);border-radius:8px;padding:5px;color:var(--cc-gold2);font-size:9px;background:rgba(217,175,99,.04); }
-.cc-signal-tag { border:1px solid;border-radius:999px;padding:2px 6px;font-family:var(--cc-mono);font-size:8px; }
-.cc-badge { border:1px solid rgba(217,175,99,.3);color:var(--cc-gold);border-radius:999px;padding:3px 7px;font-family:var(--cc-mono);font-size:8px;white-space:nowrap;cursor:pointer;background:transparent; }
-.cc-pay-boundary { margin-top:9px;border:1px solid rgba(173,146,238,.28);border-radius:15px;padding:11px;background:linear-gradient(135deg,rgba(173,146,238,.08),rgba(255,255,255,.02)); }
-.cc-spark { display:block;flex-shrink:0; }
-
-/* Local intel / map */
-.cc-map-body { display:flex;flex-direction:column;gap:8px; }
-.cc-country-intel-card {
-  border:1px solid rgba(122,177,234,.22);border-radius:13px;padding:10px;
-  background:rgba(122,177,234,.04);flex-shrink:0;
-}
-.cc-country-intel-head { display:flex;align-items:center;gap:7px;margin-bottom:6px; }
-.cc-country-intel-dot { width:6px;height:6px;border-radius:50%;background:var(--cc-blue);animation:pulseDot 3s infinite; }
-.cc-country-intel-head small { color:var(--cc-blue);font-family:var(--cc-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase; }
-.cc-country-intel-card p { margin:0;color:var(--cc-muted);font-size:13px;line-height:1.5;font-family:var(--cc-serif); }
-.cc-legend { display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0; }
-.cc-legend span { height:20px;border:1px solid var(--cc-line);border-radius:999px;padding:0 7px;display:inline-flex;align-items:center;font-size:9px;color:var(--cc-muted);font-family:var(--cc-mono); }
-.cc-map-wrap { flex:1;min-height:0;border:1px solid var(--cc-line);border-radius:17px;background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.01));overflow:hidden;display:flex;flex-direction:column; }
-.cc-region-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px;overflow:auto;flex-shrink:0; }
-.cc-region-tile { border:1px solid var(--cc-line);border-radius:11px;background:rgba(122,177,234,.1);color:var(--cc-text);padding:9px;font:inherit;font-size:10px;cursor:pointer;transition:background .15s,border-color .15s; }
-.cc-region-tile.active { background:rgba(217,175,99,.22);border-color:rgba(243,207,134,.75); }
-.cc-region-tile.warn  { box-shadow:inset 0 0 0 1px rgba(226,116,102,.24); }
-.cc-region-tile:hover:not(.active) { background:rgba(255,255,255,.06); }
-.cc-rules { border-top:1px solid var(--cc-line);padding:9px 11px;background:rgba(5,13,23,.76);overflow-y:auto; }
-.cc-rule-grid { display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px; }
-.cc-rule-grid div { border:1px solid var(--cc-line);border-radius:11px;padding:8px;background:rgba(255,255,255,.022); }
-.cc-rule-grid strong { display:block;color:var(--cc-ink);font-size:11px;margin-top:2px; }
-.cc-rule-grid small { display:block;color:var(--cc-muted);font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-family:var(--cc-mono); }
-.cc-next-action { margin-top:9px!important;color:var(--cc-gold2)!important;font-size:11px; }
-
-/* ── Status bar ──────────────────────────────────────────────────────────── */
-.cc-status {
-  grid-column:2/-1;grid-row:3;z-index:5;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;
+  padding:10px 10px;
   border-top:1px solid var(--cc-line);
-  background:linear-gradient(180deg,rgba(4,9,18,.94),rgba(3,8,17,.99));
-  font-size:9px;color:var(--cc-dim);font-family:var(--cc-mono);gap:14px;
+  margin-top:8px;
 }
-.cc-status b { color:var(--cc-green); }
+.cc-status-dot {
+  width:8px;height:8px;border-radius:50%;
+  background:var(--cc-green);flex-shrink:0;
+  box-shadow:0 0 6px var(--cc-green);
+  animation:pulseDot 2.4s ease infinite;
+}
+.cc-sidebar-status strong { display:block;font-size:11px;color:var(--cc-text); }
+.cc-sidebar-status small  { display:block;font-size:9px;color:var(--cc-dim); }
 
-/* ── Scrim ────────────────────────────────────────────────────────────────── */
-.cc-scrim {
-  position:fixed;inset:0;background:rgba(0,0,0,.44);z-index:20;
-  backdrop-filter:blur(2px);
+/* Main */
+.cc-main {
+  grid-column:2;grid-row:2;
+  overflow-y:auto;overflow-x:hidden;
+  background:rgba(4,9,20,.4);
 }
 
-/* ── Command panel drawer ────────────────────────────────────────────────── */
-.cc-command-panel {
-  position:fixed;right:0;top:0;bottom:0;width:440px;max-width:92vw;z-index:30;
-  background:linear-gradient(180deg,rgba(10,22,36,.99),rgba(5,13,24,1));
-  border-left:1px solid var(--cc-line2);
-  box-shadow:-32px 0 96px rgba(0,0,0,.52);
-  transform:translateX(100%);transition:transform .28s cubic-bezier(.25,.46,.45,.94);
-  display:flex;flex-direction:column;
+/* CustomSelect dropdown */
+.cc-select { position:relative; }
+.cc-select-dropdown {
+  position:absolute;top:calc(100% + 6px);left:0;
+  background:#08172a;border:1px solid var(--cc-line2);
+  border-radius:10px;padding:6px;
+  min-width:180px;max-height:260px;overflow-y:auto;
+  z-index:200;box-shadow:0 16px 48px rgba(0,0,0,.7);
 }
-.cc-command-panel.open { transform:translateX(0); }
-.cc-drawer-head { padding:18px 20px;border-bottom:1px solid var(--cc-line);display:flex;align-items:center;justify-content:space-between; }
-.cc-drawer-head small { display:block;color:var(--cc-dim);font-size:9px;text-transform:uppercase;letter-spacing:.16em;font-family:var(--cc-mono); }
-.cc-drawer-head h3 { margin:5px 0 0;color:var(--cc-ink);font-family:var(--cc-serif);font-weight:500;font-size:17px; }
-.cc-close { width:34px;height:34px;border-radius:9px;border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);color:var(--cc-muted);font-size:20px;cursor:pointer;display:grid;place-items:center;flex-shrink:0; }
-.cc-drawer-body { flex:1;overflow:auto;padding:18px 20px;display:grid;gap:14px;align-content:start; }
-.cc-drawer-card { border:1px solid var(--cc-line);border-radius:17px;padding:15px;background:rgba(255,255,255,.02); }
-.cc-drawer-card b { display:block;color:var(--cc-ink);font-size:14px;font-family:var(--cc-serif);margin-bottom:5px; }
-.cc-drawer-card p { margin:0;color:var(--cc-muted);font-size:13px;line-height:1.5;font-family:var(--cc-serif); }
-.cc-panel-list { display:grid;gap:6px;margin-top:11px; }
-.cc-panel-list span { border:1px solid var(--cc-line);border-radius:9px;padding:7px;color:var(--cc-muted);font-size:10px;background:rgba(255,255,255,.022); }
+.cc-select-opt {
+  width:100%;text-align:left;padding:7px 10px;border-radius:7px;
+  border:none;background:transparent;color:var(--cc-text);
+  font:inherit;font-size:12px;cursor:pointer;
+  transition:background .1s;
+}
+.cc-select-opt:hover,.cc-select-opt.selected { background:rgba(255,255,255,.07); }
+.cc-select-opt.selected { color:var(--cc-gold); }
 
-/* Panel signal list */
-.cc-panel-signal-list { display:grid;gap:9px;margin-top:11px; }
-.cc-panel-signal { border:1px solid var(--cc-line);border-radius:13px;padding:10px;background:rgba(255,255,255,.018); }
-.cc-panel-signal-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:7px; }
-.cc-panel-signal-title { display:block;color:var(--cc-ink);font-size:12px;font-family:var(--cc-serif);margin-bottom:3px; }
-.cc-panel-signal-impact { margin:0 0 4px;color:var(--cc-muted);font-size:13px;line-height:1.5;font-family:var(--cc-serif); }
-.cc-conf-num { font-family:var(--cc-mono);font-size:11px;font-weight:500; }
+/* ── Briefing Room ──────────────────────────────────────────────────────────── */
+.cc-page {
+  height:100%;display:flex;
+  animation:fadeSlideUp .3s ease;
+}
+.cc-briefing {
+  display:grid;
+  grid-template-columns:300px minmax(0,1fr) 300px;
+  gap:0;height:100%;
+}
+.cc-briefing-left {
+  padding:24px 20px;
+  border-right:1px solid var(--cc-line);
+  overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+  background:rgba(3,7,17,.5);
+}
+.cc-jx-brief { display:flex;align-items:center;gap:12px; }
+.cc-jx-flag  { font-size:28px;line-height:1; }
+.cc-jx-country {
+  font-family:var(--cc-serif);font-size:20px;
+  color:var(--cc-ink);font-weight:400;
+}
+.cc-jx-region {
+  font-family:var(--cc-mono);font-size:11px;
+  color:var(--cc-gold);letter-spacing:.1em;margin-top:2px;
+}
+.cc-jx-summary {
+  font-size:12px;line-height:1.65;color:var(--cc-muted);
+  border-left:2px solid var(--cc-gold);padding-left:12px;
+}
+.cc-jx-fields { display:flex;flex-direction:column;gap:10px; }
+.cc-jx-field {
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 10px;border-radius:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--cc-line);
+}
+.cc-jx-field-icon {
+  font-size:13px;color:var(--cc-gold);
+  flex-shrink:0;margin-top:1px;
+}
+.cc-jx-field small  { display:block;font-size:9px;color:var(--cc-dim);text-transform:uppercase;letter-spacing:.1em; }
+.cc-jx-field strong { display:block;font-size:12px;color:var(--cc-ink);margin-top:2px; }
+.cc-jx-btn {
+  margin-top:4px;padding:9px 14px;border-radius:8px;
+  border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);
+  color:var(--cc-muted);font:inherit;font-size:11px;cursor:pointer;
+  text-align:left;transition:background .12s,color .12s;
+}
+.cc-jx-btn:hover { background:rgba(255,255,255,.08);color:var(--cc-text); }
 
-/* Wanted cards */
-.cc-panel-wanted { display:grid;gap:9px;margin-top:10px; }
-.cc-wanted-card { border:1px solid rgba(173,146,238,.2);border-radius:14px;padding:11px;background:rgba(173,146,238,.04); }
-.cc-wanted-head { display:flex;align-items:center;gap:7px;margin-bottom:7px; }
-.cc-wanted-tag { font-family:var(--cc-mono);font-size:8px;letter-spacing:.14em;color:var(--cc-violet);border:1px solid rgba(173,146,238,.3);border-radius:999px;padding:2px 7px; }
-.cc-wanted-loc { color:var(--cc-dim);font-size:9px;font-family:var(--cc-mono); }
-.cc-wanted-ago { color:var(--cc-dim);font-size:9px;font-family:var(--cc-mono);margin-left:auto; }
-.cc-wanted-title { margin:0 0 4px;color:var(--cc-ink);font-size:13px;font-family:var(--cc-serif); }
-.cc-wanted-sum { margin:0 0 8px;color:var(--cc-muted);font-size:13px;line-height:1.5;font-family:var(--cc-serif); }
+.cc-briefing-globe {
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.cc-globe-wrap {
+  flex:1;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 50% 45%,rgba(16,42,72,.6),transparent 70%),
+             linear-gradient(180deg,#020814 0%,#010509 100%);
+}
+.cc-globe-loading {
+  position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 45%,rgba(16,42,72,.4),transparent 70%);
+}
+.cc-globe-label {
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%) translateX(120px) translateY(40px);
+  background:rgba(8,18,32,.92);border:1px solid var(--cc-line2);
+  border-radius:8px;padding:5px 12px;
+  font-size:12px;font-weight:500;color:var(--cc-ink);
+  pointer-events:none;white-space:nowrap;
+}
+.cc-globe-hint {
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  font-family:var(--cc-mono);font-size:9px;color:var(--cc-dim);
+  letter-spacing:.12em;pointer-events:none;
+}
+.cc-methodology {
+  display:flex;gap:0;
+  border-top:1px solid var(--cc-line);
+  background:rgba(3,7,17,.7);
+  flex-shrink:0;
+}
+.cc-methodology-item {
+  flex:1;display:flex;align-items:flex-start;gap:8px;
+  padding:12px 14px;
+  border-right:1px solid var(--cc-line);
+}
+.cc-methodology-item:last-child { border-right:none; }
+.cc-methodology-icon { font-size:13px;color:var(--cc-gold);flex-shrink:0;margin-top:1px; }
+.cc-methodology-item small { display:block;font-size:8px;color:var(--cc-dim);text-transform:uppercase;letter-spacing:.12em; }
+.cc-methodology-item span  { display:block;font-size:9px;color:var(--cc-muted);margin-top:2px;line-height:1.4; }
 
-/* Intel blocks */
-.cc-intel-block { margin:10px 0;border:1px solid rgba(122,177,234,.2);border-radius:11px;padding:9px;background:rgba(122,177,234,.04); }
-.cc-intel-block.accent-blue { border-color:rgba(122,177,234,.3);background:rgba(122,177,234,.07); }
-.cc-intel-block small { display:block;color:var(--cc-blue);font-family:var(--cc-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px; }
-.cc-intel-block p { margin:0;color:var(--cc-muted);font-size:13px;line-height:1.5;font-family:var(--cc-serif); }
+.cc-briefing-right {
+  padding:20px 16px;
+  border-left:1px solid var(--cc-line);
+  overflow-y:auto;display:flex;flex-direction:column;gap:20px;
+  background:rgba(3,7,17,.5);
+}
+.cc-right-section { display:flex;flex-direction:column;gap:10px; }
+.cc-right-head {
+  font-family:var(--cc-mono);font-size:9px;
+  letter-spacing:.18em;color:var(--cc-dim);
+  text-transform:uppercase;display:flex;align-items:center;gap:6px;
+}
+.cc-right-info { color:var(--cc-dim);cursor:help; }
+.cc-right-link {
+  font-size:10px;color:var(--cc-gold);
+  background:none;border:none;padding:0;
+  cursor:pointer;text-align:left;
+  transition:opacity .12s;font-family:inherit;
+}
+.cc-right-link:hover { opacity:.75; }
 
-/* Watchlist */
-.cc-watch-item { display:flex;align-items:center;gap:7px;font-size:11px;color:var(--cc-text); }
-.cc-watch-dot  { width:6px;height:6px;border-radius:50%;background:var(--cc-gold);flex-shrink:0; }
+.cc-confidence-summary { display:flex;gap:14px;align-items:flex-start; }
+.cc-confidence-donut   { position:relative;width:72px;height:72px;flex-shrink:0; }
+.cc-donut-svg          { width:100%;height:100%; }
+.cc-donut-label {
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+}
+.cc-donut-label strong { font-size:16px;font-weight:700;color:var(--cc-gold);line-height:1; }
+.cc-donut-label small  { font-size:7px;color:var(--cc-dim);text-align:center;line-height:1.3; }
+.cc-confidence-bars    { flex:1;display:flex;flex-direction:column;gap:6px; }
+.cc-conf-bar-row       { display:flex;align-items:center;gap:6px; }
+.cc-conf-bar-lbl       { font-size:9px;color:var(--cc-muted);width:100px;flex-shrink:0; }
+.cc-conf-bar-track     { flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden; }
+.cc-conf-bar-fill      { height:100%;background:var(--cc-gold);border-radius:2px; }
+.cc-conf-bar-pct       { font-family:var(--cc-mono);font-size:9px;color:var(--cc-muted);width:28px;text-align:right; }
 
-/* Notifications */
-.cc-notif-item { display:flex;align-items:center;gap:8px;font-size:11px;color:var(--cc-text); }
-.cc-notif-dot        { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
-.cc-notif-dot.signal  { background:var(--cc-amber); }
-.cc-notif-dot.pipeline{ background:var(--cc-blue); }
+.cc-watch-regions     { display:flex;flex-direction:column;gap:6px; }
+.cc-watch-region-row  { display:flex;align-items:center;gap:8px; }
+.cc-watch-region-star { color:var(--cc-gold);font-size:11px;flex-shrink:0; }
+.cc-watch-region-info { flex:1; }
+.cc-watch-region-info strong { display:block;font-size:11px;color:var(--cc-ink); }
+.cc-watch-region-info small  { display:block;font-size:9px;color:var(--cc-dim); }
+.cc-watch-region-btn {
+  font-size:9px;padding:3px 8px;border-radius:5px;
+  border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);
+  color:var(--cc-muted);cursor:pointer;font:inherit;
+  transition:background .1s;flex-shrink:0;
+}
+.cc-watch-region-btn:hover { background:rgba(255,255,255,.08);color:var(--cc-text); }
 
-/* Settings grid */
-.cc-settings-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:11px 0; }
-.cc-setting-item { border:1px solid var(--cc-line);border-radius:11px;padding:9px;background:rgba(255,255,255,.022); }
-.cc-setting-item small { display:block;color:var(--cc-muted);font-size:9px;text-transform:uppercase;letter-spacing:.11em;margin-bottom:3px;font-family:var(--cc-mono); }
-.cc-setting-item strong { color:var(--cc-ink);font-size:11px; }
+.cc-change-notes  { display:flex;flex-direction:column;gap:8px; }
+.cc-change-note   { display:flex;gap:8px;align-items:flex-start; }
+.cc-change-arrow  { font-size:12px;flex-shrink:0;margin-top:1px; }
+.cc-change-arrow.up      { color:var(--cc-green); }
+.cc-change-arrow.neutral { color:var(--cc-amber); }
+.cc-change-note strong { display:block;font-size:11px;color:var(--cc-ink); }
+.cc-change-note small  { display:block;font-size:10px;color:var(--cc-muted);line-height:1.4; }
+.cc-change-time        { display:block;font-size:9px;color:var(--cc-dim);margin-top:2px; }
 
-/* External link */
-.cc-link-external { display:inline-block;margin-top:11px;color:var(--cc-gold);font-size:11px;text-decoration:none; }
-.cc-link-external:hover { color:var(--cc-gold2); }
+/* Scaffold placeholder */
+.cc-scaffold {
+  width:100%;display:flex;align-items:center;justify-content:center;
+}
+.cc-scaffold-inner {
+  text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.cc-scaffold-icon { font-size:32px;color:var(--cc-gold);opacity:.4; }
+.cc-scaffold-inner h2 { font-family:var(--cc-serif);font-size:24px;font-weight:400;color:var(--cc-ink); }
+.cc-scaffold-inner p  { font-size:13px;color:var(--cc-muted); }
+.cc-scaffold-note {
+  font-family:var(--cc-mono);font-size:9px;
+  letter-spacing:.14em;color:var(--cc-dim);
+  padding:6px 14px;border-radius:20px;
+  border:1px solid var(--cc-line);background:rgba(255,255,255,.02);
+}
 
-/* Primary inline */
-.cc-primary.inline { height:auto;padding:9px 12px;margin-top:11px;font-size:12px; }
-
-/* ── Command Palette ─────────────────────────────────────────────────────── */
+/* Command palette */
 .cp-overlay {
-  position:fixed;inset:0;z-index:50;
-  background:rgba(0,0,0,.7);backdrop-filter:blur(10px);
-  display:grid;place-items:start center;padding-top:10vh;
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  backdrop-filter:blur(4px);z-index:500;
+  display:grid;place-items:start center;padding-top:80px;
 }
-.cp-box {
-  width:560px;max-width:96vw;
-  background:linear-gradient(180deg,rgba(12,24,40,.99),rgba(6,14,26,1));
-  border:1px solid rgba(232,240,248,.2);border-radius:22px;
-  overflow:hidden;
-  box-shadow:0 52px 120px rgba(0,0,0,.76);
-  animation:fadeSlideUp .18s ease;
+.cp-modal {
+  width:100%;max-width:540px;
+  background:#060f1e;border:1px solid var(--cc-line2);
+  border-radius:14px;overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.8);
 }
-.cp-topbar {
-  display:flex;align-items:center;gap:11px;
-  padding:16px 18px;border-bottom:1px solid var(--cc-line);
+.cp-search-row {
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;border-bottom:1px solid var(--cc-line);
 }
-.cp-search-icon { color:var(--cc-gold);font-size:14px;font-family:var(--cc-mono);flex-shrink:0; }
+.cp-search-icon { color:var(--cc-gold);font-size:14px;flex-shrink:0; }
 .cp-input {
-  flex:1;background:transparent;border:none;outline:none;
-  color:var(--cc-ink);font:inherit;font-size:14px;
+  flex:1;background:none;border:none;outline:none;
+  color:var(--cc-text);font:inherit;font-size:14px;
 }
-.cp-input::placeholder { color:var(--cc-dim); }
-.cp-esc {
-  border:1px solid var(--cc-line2);border-radius:7px;
-  padding:3px 7px;font-family:var(--cc-mono);font-size:9px;
-  color:var(--cc-muted);cursor:pointer;background:rgba(255,255,255,.04);
-  letter-spacing:.1em;
+.cp-clear {
+  background:none;border:none;color:var(--cc-dim);
+  cursor:pointer;font-size:16px;padding:0 4px;
 }
-.cp-results { max-height:380px;overflow-y:auto;padding:8px; }
-.cp-group-head {
-  padding:7px 10px 3px;font-size:8px;text-transform:uppercase;
-  letter-spacing:.16em;color:var(--cc-dim);font-family:var(--cc-mono);
+.cp-results { max-height:340px;overflow-y:auto;padding:8px; }
+.cp-group-label {
+  padding:6px 10px 4px;
+  font-family:var(--cc-mono);font-size:9px;
+  letter-spacing:.16em;color:var(--cc-dim);text-transform:uppercase;
 }
 .cp-item {
-  width:100%;display:flex;align-items:center;gap:9px;
-  padding:9px 10px;border-radius:10px;
-  border:none;background:transparent;color:var(--cc-text);
-  cursor:pointer;font:inherit;font-size:12px;text-align:left;
-  transition:background .1s,color .1s;
+  width:100%;display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;
+  border:none;background:transparent;
+  color:var(--cc-text);font:inherit;font-size:12px;
+  cursor:pointer;text-align:left;
+  transition:background .1s;
 }
-.cp-item.active { background:rgba(217,175,99,.1);color:var(--cc-gold2); }
-.cp-item:hover:not(.active) { background:rgba(255,255,255,.04); }
-.cp-item-icon { font-size:13px;width:20px;text-align:center;flex-shrink:0; }
-.cp-item-label { flex:1; }
-.cp-item-sub { font-size:10px;color:var(--cc-muted);font-family:var(--cc-mono); }
-.cp-empty { padding:24px;text-align:center;color:var(--cc-muted);font-size:12px; }
+.cp-item:hover,.cp-item.focused { background:rgba(255,255,255,.07); }
+.cp-item-icon { color:var(--cc-gold);font-size:13px;flex-shrink:0; }
+.cp-item small { margin-left:auto;color:var(--cc-dim);font-size:10px; }
+.cp-empty { padding:20px;text-align:center;color:var(--cc-dim);font-size:12px; }
 .cp-footer {
-  padding:9px 14px;border-top:1px solid var(--cc-line);
-  display:flex;align-items:center;gap:14px;
+  display:flex;align-items:center;gap:16px;
+  padding:10px 16px;border-top:1px solid var(--cc-line);
+  font-size:10px;color:var(--cc-dim);font-family:var(--cc-mono);
 }
-.cp-footer span { font-size:9px;color:var(--cc-dim);font-family:var(--cc-mono);letter-spacing:.08em; }
-.cp-footer-ctx { margin-left:auto;color:var(--cc-gold);font-family:var(--cc-mono);font-size:9px; }
+.cp-footer-ctx { margin-left:auto;color:var(--cc-muted); }
 
+/* Animations */
+@keyframes fadeSlideUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulseDot    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
 
-
-/* ── Custom select ───────────────────────────────────────────────────────── */
-.cc-sel { position:relative;height:44px; }
-.cc-sel-lbl {
-  position:absolute;left:11px;top:5px;z-index:1;
-  color:var(--cc-dim);font-size:8px;letter-spacing:.14em;
-  text-transform:uppercase;pointer-events:none;font-family:var(--cc-mono);
-}
-.cc-sel-trigger {
-  width:100%;height:100%;
-  border:1px solid var(--cc-line2);border-radius:12px;
-  background:linear-gradient(180deg,rgba(17,35,53,.9),rgba(7,16,28,.96));
-  color:var(--cc-ink);outline:none;
-  padding:17px 28px 5px 11px;
-  font:inherit;font-size:12px;text-align:left;cursor:pointer;
-  transition:border-color .15s;
-  display:flex;align-items:flex-end;
-}
-.cc-sel-trigger.open,
-.cc-sel-trigger:hover { border-color:rgba(217,175,99,.5); }
-.cc-sel-val { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-bottom:1px; }
-.cc-sel-arrow {
-  position:absolute;right:10px;top:50%;transform:translateY(-50%);
-  color:var(--cc-dim);font-size:7px;pointer-events:none;
-}
-.cc-sel-drop {
-  position:absolute;top:calc(100% + 6px);left:0;min-width:100%;
-  background:linear-gradient(180deg,rgba(10,22,38,.99),rgba(5,13,24,1));
-  border:1px solid rgba(217,175,99,.28);border-radius:14px;
-  box-shadow:0 24px 72px rgba(0,0,0,.68);
-  z-index:500;overflow:hidden;
-  animation:fadeSlideUp .14s ease;
-}
-.cc-sel-search { padding:8px;border-bottom:1px solid var(--cc-line); }
-.cc-sel-search-inp {
-  width:100%;background:rgba(255,255,255,.06);
-  border:1px solid var(--cc-line2);border-radius:8px;
-  color:var(--cc-ink);padding:6px 10px;
-  font:inherit;font-size:11px;outline:none;
-}
-.cc-sel-search-inp:focus { border-color:rgba(217,175,99,.45); }
-.cc-sel-search-inp::placeholder { color:var(--cc-dim); }
-.cc-sel-list {
-  max-height:220px;overflow-y:auto;padding:5px;
-  scrollbar-width:thin;scrollbar-color:var(--cc-line2) transparent;
-}
-.cc-sel-list::-webkit-scrollbar { width:4px; }
-.cc-sel-list::-webkit-scrollbar-thumb { background:var(--cc-line2);border-radius:4px; }
-.cc-sel-opt {
-  width:100%;text-align:left;padding:7px 11px;
-  background:transparent;border:none;border-radius:9px;
-  color:var(--cc-text);font:inherit;font-size:12px;cursor:pointer;
-  transition:background .1s,color .1s;display:block;
-}
-.cc-sel-opt:hover { background:rgba(255,255,255,.06);color:var(--cc-ink); }
-.cc-sel-opt.sel { color:var(--cc-gold2);background:rgba(217,175,99,.1);font-weight:600; }
-.cc-sel-empty { padding:12px;text-align:center;color:var(--cc-dim);font-size:11px; }
-
-/* ── Mobile bottom nav ───────────────────────────────────────────────────── */
-.cc-mob-nav {
-  display:none;
-  position:fixed;bottom:0;left:0;right:0;
-  height:56px;
-  background:rgba(4,8,18,.97);
-  border-top:1px solid var(--cc-line2);
-  z-index:40;
-  padding:0 8px env(safe-area-inset-bottom,0);
-  backdrop-filter:blur(12px);
-}
-.cc-mob-nav-btn {
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:3px;
-  background:transparent;border:none;
-  color:var(--cc-dim);cursor:pointer;font:inherit;
-  padding:5px 0;
-  transition:color .15s;
-}
-.cc-mob-nav-btn span { font-size:18px;line-height:1; }
-.cc-mob-nav-btn em { font-style:normal;font-size:8px;text-transform:uppercase;letter-spacing:.09em; }
-.cc-mob-nav-btn.active { color:var(--cc-gold2); }
-
-/* ── Responsive fallback ─────────────────────────────────────────────────── */
-@media(max-width:1180px) {
-  .cc-app { position:relative;min-height:100vh;overflow:auto;display:block; }
-  .cc-top { display:flex;flex-direction:column;align-items:stretch; }
-  .cc-context { grid-template-columns:1fr 1fr; }
+/* Mobile */
+.cc-mob-nav { display:none; }
+@media(max-width:1024px) {
+  .cc-app {
+    grid-template-columns:1fr;
+    grid-template-rows:var(--cc-header) minmax(0,1fr) 56px;
+    position:relative;height:100svh;
+  }
   .cc-sidebar { display:none; }
-  .cc-workspace { display:flex;padding-bottom:64px; }
-  .cc-grid { display:grid;grid-template-columns:1fr;overflow:visible;padding:10px;gap:10px; }
-  .cc-status { display:none; }
-  .cc-row { grid-template-columns:1fr; }
-  .cc-spec { display:none; }
-  .cc-action-box { text-align:left; }
-  .cc-col2,.cc-col3 { overflow:visible; }
-  .cc-command-panel { inset:0;width:100vw;max-width:none;border-left:0; }
-  .cp-box { width:min(92vw,560px); }
-  .cc-mob-nav { display:flex; }
-  .cc-pay-boundary p,.cc-intel-block p,.cc-wanted-sum,.cc-drawer-card p { font-size:14px; }
-  .cc-row h4 { font-size:16px; }
-  .cc-row p { font-size:13px; }
+  .cc-main { grid-column:1; }
+  .cc-mob-nav {
+    display:flex;align-items:stretch;
+    grid-column:1;grid-row:3;
+    border-top:1px solid var(--cc-line);
+    background:rgba(3,7,17,.97);
+  }
+  .cc-mob-nav-btn {
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;border:none;background:none;
+    color:var(--cc-dim);font:inherit;font-size:8px;cursor:pointer;
+    transition:color .12s;padding:6px 4px;
+  }
+  .cc-mob-nav-btn em   { font-style:normal;font-size:7px; }
+  .cc-mob-nav-btn.active { color:var(--cc-gold); }
+  .cc-briefing {
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    height:auto;
+  }
+  .cc-briefing-left,.cc-briefing-right { border:none;border-bottom:1px solid var(--cc-line); }
+  .cc-methodology { flex-wrap:wrap; }
+  .cc-header-right .cc-user-chip { display:none; }
 }
 `
+
