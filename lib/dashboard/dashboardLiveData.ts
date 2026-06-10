@@ -121,6 +121,7 @@ export type CountryIntelProfile = {
   public_summary: string | null
   commercial_pathway_summary: string | null
   review_status: string
+  regulatory_tier?: string | null
   // Extended country status fields — present when fetched from public.countries
   region?: string | null
   market_access_status?: string | null
@@ -140,12 +141,10 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
   try {
     const supabase = await createClient()
     const { data, error } = await supabase
-      .schema('intelligence')
-      .from('country_intelligence_profiles')
-      .select('country_code, country_name, public_summary, commercial_pathway_summary, review_status')
+      .from('country_intel')
+      .select('country_code, country_name, public_summary, commercial_pathway_summary, review_status, regulatory_tier')
       .eq('country_code', iso2.toUpperCase())
-      .eq('public_safe', true)
-      .eq('publish_to_public', true)
+      .eq('review_status', 'active')
       .single()
     if (error || !data) return null
     return data
