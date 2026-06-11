@@ -154,3 +154,52 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
     return data
   } catch { return null }
 }
+
+// ── getCountryStatusFromDB ────────────────────────────────────────────────────
+// Fetches real country status from the countries table (191 countries seeded
+// June 2026) for the countryIntel prop in CommandCentre.
+
+export interface CountryStatus {
+  country_name: string
+  iso_alpha2: string
+  region: string | null
+  subregion: string | null
+  market_access_status: string | null
+  medical_status: string | null
+  adult_use_status: string | null
+  import_status: string | null
+  export_status: string | null
+  signals_status: string | null
+  opportunity_score: number | null
+  data_completeness: string | null
+  public_summary: string | null
+  trade_roles: string[] | null
+  opportunity_categories: string[] | null
+  regulator_label: string | null
+  last_updated_label: string | null
+}
+
+export async function getCountryStatusFromDB(
+  iso2: string | null | undefined,
+): Promise<CountryStatus | null> {
+  if (!iso2) return null
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('countries')
+      .select(
+        'country_name, iso_alpha2, region, subregion, ' +
+        'market_access_status, medical_status, adult_use_status, ' +
+        'import_status, export_status, signals_status, ' +
+        'opportunity_score, data_completeness, public_summary, ' +
+        'trade_roles, opportunity_categories, regulator_label, last_updated_label',
+      )
+      .eq('iso_alpha2', iso2.toUpperCase())
+      .single()
+
+    if (error || !data) return null
+    return data as unknown as CountryStatus
+  } catch {
+    return null
+  }
+}
