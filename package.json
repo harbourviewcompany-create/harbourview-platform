@@ -66,7 +66,12 @@
     "source-import:build": "tsx scripts/source-import/build-source-import-batches.ts",
     "source-import:push": "tsx scripts/source-import/push-source-import-batches.ts",
     "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts",
-    "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts"
+    "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
+    "country-data:validate": "tsx scripts/validate-country-data-package.ts",
+    "country-data:load:dry": "tsx scripts/load-country-data.ts --dry-run",
+    "country-data:load": "tsx scripts/load-country-data.ts",
+    "probe:country-routes": "tsx scripts/probe-country-route-coverage.ts",
+    "probe:country-public-leakage": "tsx scripts/probe-public-country-leakage.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.8",
