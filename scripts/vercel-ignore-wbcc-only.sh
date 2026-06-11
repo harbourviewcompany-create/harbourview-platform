@@ -5,16 +5,11 @@ set -euo pipefail
 #   exit 0 = ignore/skip this Vercel build
 #   exit 1 = continue this Vercel build
 #
-# Deployment-control policy:
-#   - Never suppress production deployments from the canonical project.
-#   - Build production/main, preview/* and deploy/*.
-#   - Skip ordinary feature/*, fix/*, cloudflare/*, vercel/* and bot-generated branches.
-#   - Skip all other unrecognized non-production branches by default.
-#
-# Critical ordering rule:
-#   VERCEL_ENV=production must be checked before URL duplicate detection. Vercel
-#   deployment URLs commonly include the team slug, so URL-based duplicate checks
-#   can otherwise suppress the real production deployment.
+# Harbourview deployment policy:
+#   - Production deployments must always build.
+#   - The canonical Vercel project must build previews for normal PR branches.
+#   - Known duplicate/legacy Harbourview projects must skip non-production builds.
+#   - This script must not block ordinary feature/fix/ops/codex preview branches.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
 commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-${COMMIT_MESSAGE:-}}}"
@@ -24,8 +19,9 @@ project_production_url="${VERCEL_PROJECT_PRODUCTION_URL:-}"
 deployment_url="${VERCEL_URL:-}"
 branch_url="${VERCEL_BRANCH_URL:-}"
 
-# Production deploys are authoritative. Do not let duplicate URL heuristics skip
-# a production build for the canonical Harbourview project.
+canonical_project_id="prj_Zp8HBDstqAAOCN6W7LAElahsq3qS"
+
+# Production deploys are authoritative. Never suppress them.
 if [[ "$vercel_env" == "production" ]]; then
   echo "Vercel ignore: production environment detected; continue build."
   exit 1
@@ -35,6 +31,9 @@ is_known_duplicate_project_id() {
   local candidate="${1:-}"
 
   case "$candidate" in
+    # Current non-canonical WURX Harbourview project.
+    prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ|\
+    # Historical duplicate/legacy Harbourview project ids kept for safety.
     prj_zlwnDnFFs7rJa42QQn1cElFRYY7E|\
     prj_JeAGIr5pjCSSwfAAXaqjXPceDrSW)
       return 0
@@ -51,7 +50,11 @@ is_known_duplicate_url() {
   [[ -z "$candidate" ]] && return 1
 
   case "$candidate" in
-    harbourview-network-*|*.harbourview-network-*|*harbourview-network-*|harbourview-platform-*|*.harbourview-platform-*|*harbourview-platform-*)
+    harbourview-git-*-wurx.vercel.app|\
+    harbourview-*-wurx.vercel.app|\
+    *-wurx.vercel.app|\
+    harbourview-network-*|*.harbourview-network-*|*harbourview-network-*|\
+    harbourview-platform-*|*.harbourview-platform-*|*harbourview-platform-*)
       return 0
       ;;
     *)
@@ -72,30 +75,19 @@ if is_known_duplicate_url "$project_production_url" || is_known_duplicate_url "$
 fi
 
 if [[ -z "$branch" ]]; then
-  echo "Vercel ignore: branch unknown in non-production context; skip build to avoid uncontrolled preview deployment."
+  if [[ "$project_id" == "$canonical_project_id" ]]; then
+    echo "Vercel ignore: canonical project with unknown branch; continue build."
+    exit 1
+  fi
+
+  echo "Vercel ignore: branch unknown in non-production context; skip build to avoid uncontrolled duplicate preview deployment."
   exit 0
 fi
 
-case "$branch" in
-  main)
-    if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
-      echo "Vercel ignore: main commit message requests skip ('$commit_message'); skip build."
-      exit 0
-    fi
-    echo "Vercel ignore: build allowed for branch '$branch'."
-    exit 1
-    ;;
-  preview/*|deploy/*|chatgpt/*)
-    echo "Vercel ignore: build allowed for branch '$branch'."
-    exit 1
-    ;;
-  feature/*|feat/*|fix/*|ops/*|cloudflare/*|vercel/*|dependabot/*|renovate/*|github-actions/*|bot/*|codex/*|admin-*|chore/*|refactor/*|docs/*)
-    echo "Vercel ignore: skipping non-allowlisted branch '$branch'."
-    exit 0
-    ;;
-  *)
-    echo "Vercel ignore: branch '$branch' is not allowlisted; skip build."
-    exit 0
-    ;;
-esac
+if [[ "$branch" == "main" && ( "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ) ]]; then
+  echo "Vercel ignore: main commit message requests skip ('$commit_message'); skip build."
+  exit 0
+fi
 
+echo "Vercel ignore: build allowed for branch '$branch'."
+exit 1
