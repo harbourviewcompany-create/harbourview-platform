@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, WatchlistData, PathwayData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -38,6 +38,8 @@ type Props = {
   pipeline?:        PipelineCounts
   wantedListings?:  WantedListing[]
   countryIntel?:    CountryIntelProfile | null
+  watchlistData?:   WatchlistData | null
+  pathwayData?:     PathwayData | null
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
