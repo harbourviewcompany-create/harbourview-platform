@@ -26,3 +26,27 @@ export async function createClient() {
     }
   )
 }
+
+// ── Passport MVP additions ─────────────────────────────────────────────────
+// These aliases/helpers are used by the passport API routes.
+// createClient remains the canonical export for all existing server components.
+
+/** Alias for createClient — used by passport and org routes */
+export const createSupabaseServerClient = createClient
+
+/** Service-role client for privileged server operations */
+export async function createSupabaseServiceClient() {
+  const { createClient: createSbClient } = await import('@supabase/supabase-js')
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('[harbourview] SUPABASE_SERVICE_ROLE_KEY not configured')
+  return createSbClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+}
+
+/** Returns the authenticated user or null — short-circuits auth boilerplate in route handlers */
+export async function getAuthenticatedUser() {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) return null
+  return user
+}
