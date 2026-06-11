@@ -168,7 +168,7 @@ describe('toHvJurisdictionPublicDto', () => {
 
   it('includes only approved public fields', () => {
     const keys = Object.keys(dto);
-    const allowed = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.jurisdictions_public);
+    const allowed = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.jurisdictions_public));
     expect(keys.every((k) => allowed.has(k))).toBe(true);
   });
 
@@ -193,7 +193,7 @@ describe('toHvSourcePublicDto', () => {
 
   it('includes only approved public fields', () => {
     const keys = Object.keys(dto);
-    const allowed = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.sources_public);
+    const allowed = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.sources_public));
     expect(keys.every((k) => allowed.has(k))).toBe(true);
   });
 
@@ -213,7 +213,7 @@ describe('toHvMarketSignalPublicDto', () => {
 
   it('includes only approved public fields', () => {
     const keys = Object.keys(dto);
-    const allowed = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.market_signals_public);
+    const allowed = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.market_signals_public));
     expect(keys.every((k) => allowed.has(k))).toBe(true);
   });
 
@@ -234,7 +234,7 @@ describe('toHvMarketplaceListingPublicDto', () => {
 
   it('includes only approved public fields', () => {
     const keys = Object.keys(dto);
-    const allowed = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.marketplace_listings_public);
+    const allowed = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.marketplace_listings_public));
     expect(keys.every((k) => allowed.has(k))).toBe(true);
   });
 
@@ -255,7 +255,7 @@ describe('toHvClaimEvidencePublicDto', () => {
 
   it('includes only approved public fields', () => {
     const keys = Object.keys(dto);
-    const allowed = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.claim_evidence_public);
+    const allowed = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.claim_evidence_public));
     expect(keys.every((k) => allowed.has(k))).toBe(true);
   });
 
@@ -380,7 +380,7 @@ describe('Passport tables excluded from public DTOs', () => {
       'verified_by',
       'flags',
     ];
-    const forbidden = new Set<string>(HV_FORBIDDEN_PUBLIC_KEYS);
+    const forbidden = new Set<string>(Array.from(HV_FORBIDDEN_PUBLIC_KEYS));
     for (const f of passportSensitive) {
       expect(forbidden.has(f), `${f} must be in HV_FORBIDDEN_PUBLIC_KEYS`).toBe(true);
     }
@@ -395,28 +395,28 @@ describe('Allowlist consistency', () => {
   it('serializer output keys match jurisdiction allowlist exactly', () => {
     const dto = toHvJurisdictionPublicDto(jurisdiction);
     const actual = new Set(Object.keys(dto));
-    const expected = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.jurisdictions_public);
+    const expected = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.jurisdictions_public));
     expect(actual).toEqual(expected);
   });
 
   it('serializer output keys match source allowlist exactly', () => {
     const dto = toHvSourcePublicDto(source);
     const actual = new Set(Object.keys(dto));
-    const expected = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.sources_public);
+    const expected = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.sources_public));
     expect(actual).toEqual(expected);
   });
 
   it('serializer output keys match signal allowlist exactly', () => {
     const dto = toHvMarketSignalPublicDto(signal);
     const actual = new Set(Object.keys(dto));
-    const expected = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.market_signals_public);
+    const expected = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.market_signals_public));
     expect(actual).toEqual(expected);
   });
 
   it('serializer output keys match listing allowlist exactly', () => {
     const dto = toHvMarketplaceListingPublicDto(listing);
     const actual = new Set(Object.keys(dto));
-    const expected = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS.marketplace_listings_public);
+    const expected = new Set<string>(Array.from(HV_PUBLIC_DTO_ALLOWLISTS.marketplace_listings_public));
     expect(actual).toEqual(expected);
   });
 });
