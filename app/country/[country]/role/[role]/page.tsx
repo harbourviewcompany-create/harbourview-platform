@@ -5,10 +5,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryStatusFromDB } from '@/lib/dashboard/dashboardLiveData'
-import { getListingsBySections } from '@/lib/server/listingsQuery'
-import type { PublicListing } from '@/lib/server/listingsQuery'
-import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import { getMarketplaceRows, getPipelineCounts, getWantedListings, getCountryStatusFromDB } from '@/lib/dashboard/dashboardLiveData'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,89 +59,37 @@ const COUNTRY_ROLE_TO_DASHBOARD_ROLE: Partial<Record<string, RoleId>> = {
 
 const ROLE_EDU: Partial<Record<RoleId, { icon: string; title: string; desc: string }[]>> = {
   exporter: [
-    { icon: '\u2708\ufe0f', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
-    { icon: '\ud83d\udcdc', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
-    { icon: '\ud83d\uddfa\ufe0f', title: 'Market Access', desc: 'Target-market framework review' },
-    { icon: '\ud83d\udce6', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
+    { icon: '✈️', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
+    { icon: '📜', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
+    { icon: '🗺️', title: 'Market Access', desc: 'Target-market framework review' },
+    { icon: '📦', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
   ],
   importer: [
-    { icon: '\ud83d\udce6', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
-    { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
-    { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Market access by jurisdiction' },
-    { icon: '\ud83e\udd1d', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
+    { icon: '📦', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
+    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
+    { icon: '🗺️', title: 'Country Rules', desc: 'Market access by jurisdiction' },
+    { icon: '🤝', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
   ],
   doctor_prescriber: [
-    { icon: '\ud83e\ude7a', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
-    { icon: '\u2696\ufe0f', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
-    { icon: '\ud83d\udcd6', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
-    { icon: '\ud83d\udd2c', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
+    { icon: '🩺', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
+    { icon: '⚖️', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
+    { icon: '📖', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
+    { icon: '🔬', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
   ],
   pharmacist: [
-    { icon: '\ud83d\udc8a', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
-    { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
-    { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Regional legal requirements' },
-    { icon: '\ud83d\udcdc', title: 'Documentation', desc: 'Supplier packet and COA review' },
+    { icon: '💊', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
+    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
+    { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal requirements' },
+    { icon: '📜', title: 'Documentation', desc: 'Supplier packet and COA review' },
   ],
 }
 
 const DEFAULT_EDU = [
-  { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
-  { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Regional legal framework' },
-  { icon: '\ud83c\udfdb\ufe0f', title: 'GMP Standards', desc: 'Manufacturing compliance' },
-  { icon: '\ud83d\udce6', title: 'Trade & Access', desc: 'Import/export frameworks' },
+  { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
+  { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal framework' },
+  { icon: '🏛️', title: 'GMP Standards', desc: 'Manufacturing compliance' },
+  { icon: '📦', title: 'Trade & Access', desc: 'Import/export frameworks' },
 ]
-
-const VIEW_SECTION_MAP: Record<string, MarketView> = {
-  cannabis_inventory: 'cannabis', export_ready: 'cannabis', export: 'cannabis',
-  import_demand: 'cannabis', genetics: 'cannabis', flower: 'cannabis',
-  extract: 'cannabis', biomass: 'cannabis',
-  cultivation_equipment: 'equipment', processing_equipment: 'equipment',
-  used_surplus: 'equipment', equipment: 'equipment',
-  consumables: 'consumables', packaging: 'consumables',
-  new_products: 'new-products', 'new-products': 'new-products',
-  services: 'services', professional_services: 'services',
-  logistics: 'services', lab_testing: 'services', labs_testing: 'services',
-  distressed_businesses: 'opportunities', distressed_inventory: 'opportunities',
-  business_opportunities: 'opportunities', qualified_access: 'opportunities',
-  wanted_requests: 'wanted', wanted: 'wanted',
-}
-
-function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
-  const view = VIEW_SECTION_MAP[l.marketplace_section] ?? 'cannabis'
-  const s = l.marketplace_section
-  const specClass: MarketRow[0] =
-    s.includes('equipment') || s === 'consumables' || s === 'packaging' ? 'equip'
-    : s.includes('service') || s.includes('logistics') || s.includes('lab') ? 'service'
-    : 'supply'
-  const st = l.seller_type ?? ''
-  const ver   = st === 'verified_seller' || st === 'licensed_operator' ? 'VER:ok'   : 'VER:warn'
-  const proof = st === 'verified_seller' ? 'PROOF:ok' : 'PROOF:warn'
-  const reg   = (l.high_level_specs as Record<string, unknown>)?.regulatory_ready ? 'REG:ok' : 'REG:warn'
-  const trust = [ver, proof, reg, 'PUBLIC'].join('|')
-  const action = view === 'wanted' ? 'Respond to request'
-    : view === 'services' ? 'Request introduction'
-    : 'Request mediated access'
-  const status = l.price_display ?? l.condition ?? (l.is_featured ? 'Featured' : 'Listed')
-  const tags = [l.category, l.subcategory, l.product_type, l.location_country]
-    .filter((v): v is string => typeof v === 'string' && v.length > 0)
-    .slice(0, 4).join('|') || l.category
-  return [view, [specClass, l.category, l.title,
-    l.description || `${l.category} listing`, tags, trust, action, status]]
-}
-
-async function getCountryRoleMarketplaceRows(
-  countryIso2: string | null,
-): Promise<Partial<DashboardMarketplaceRows>> {
-  const allSections = Object.keys(VIEW_SECTION_MAP)
-  const listings = await getListingsBySections(allSections, countryIso2, 56)
-  const buckets: Partial<DashboardMarketplaceRows> = {}
-  for (const l of listings) {
-    const [view, row] = mapListingToRow(l)
-    if (!buckets[view]) buckets[view] = []
-    if (buckets[view]!.length < 8) buckets[view]!.push(row)
-  }
-  return buckets
-}
 
 type Props = { params: Promise<{ country: string; role: string }> }
 
@@ -163,10 +108,18 @@ function resolveDashboardRoleId(roleSlug: string): RoleId | null {
 
 function buildEvidenceGapModule(message?: string) {
   return {
-    icon: '\u26a0\ufe0f',
+    icon: '⚠️',
     title: 'Evidence gap review',
     desc: message ?? 'Harbourview has not fully verified this country-role pathway yet. Use review-gated workflows before treating this market-role path as verified.',
   }
+}
+
+function mapAdminReviewStateToPublicLabel(reviewState?: string | null) {
+  if (!reviewState) return 'Review pending'
+  const normalized = reviewState.toLowerCase().replace(/[_-]+/g, ' ')
+  if (normalized === 'approved' || normalized === 'published' || normalized === 'active') return 'Public summary available'
+  if (normalized.includes('evidence') || normalized.includes('gap')) return 'Evidence review pending'
+  return 'Review pending'
 }
 
 export default async function CountryRoleCommandCenterPage({ params }: Props) {
@@ -191,7 +144,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     getPipelineCounts(),
     getWantedListings(countryIso2),
     getWantedRequestsCount(),
-    getCountryRoleMarketplaceRows(countryIso2),
+    getMarketplaceRows(countryIso2, 60),
     getCountryStatusFromDB(countryIso2),
   ])
 
@@ -226,7 +179,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
             : dashboard.evidence.message
             ?? 'This country-role pathway requires Harbourview evidence review.'),
         commercial_pathway_summary: dashboard.role.priority,
-        review_status:         dashboard.admin.reviewState,
+        review_status:         mapAdminReviewStateToPublicLabel(dashboard.admin.reviewState),
       }}
     />
   )
