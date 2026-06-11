@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import CommandCentre from '@/components/dashboard/CommandCentre'
+import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
@@ -62,36 +62,36 @@ const COUNTRY_ROLE_TO_DASHBOARD_ROLE: Partial<Record<string, RoleId>> = {
 
 const ROLE_EDU: Partial<Record<RoleId, { icon: string; title: string; desc: string }[]>> = {
   exporter: [
-    { icon: '\u2708\ufe0f', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
-    { icon: '\ud83d\udcdc', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
-    { icon: '\ud83d\uddfa\ufe0f', title: 'Market Access', desc: 'Target-market framework review' },
-    { icon: '\ud83d\udce6', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
+    { icon: '✈️', title: 'Export Regulations', desc: 'Export licences and pathway requirements' },
+    { icon: '📜', title: 'Documentation', desc: 'COA, GMP and permit requirements' },
+    { icon: '🗺️', title: 'Market Access', desc: 'Target-market framework review' },
+    { icon: '📦', title: 'Logistics & Customs', desc: 'Shipping and GDP requirements' },
   ],
   importer: [
-    { icon: '\ud83d\udce6', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
-    { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
-    { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Market access by jurisdiction' },
-    { icon: '\ud83e\udd1d', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
+    { icon: '📦', title: 'Import Frameworks', desc: 'Import licences and pathway requirements' },
+    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Regulatory framework' },
+    { icon: '🗺️', title: 'Country Rules', desc: 'Market access by jurisdiction' },
+    { icon: '🤝', title: 'Trade & Access', desc: 'Partner and counterparty guidance' },
   ],
   doctor_prescriber: [
-    { icon: '\ud83e\ude7a', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
-    { icon: '\u2696\ufe0f', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
-    { icon: '\ud83d\udcd6', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
-    { icon: '\ud83d\udd2c', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
+    { icon: '🩺', title: 'Prescribing Pathways', desc: 'Clinical protocols and authorisation' },
+    { icon: '⚖️', title: 'Country Rules', desc: 'Jurisdiction-specific law' },
+    { icon: '📖', title: 'Clinical Evidence', desc: 'Research and trial summaries' },
+    { icon: '🔬', title: 'Pharmacology', desc: 'Cannabinoid mechanisms and safety' },
   ],
   pharmacist: [
-    { icon: '\ud83d\udc8a', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
-    { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
-    { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Regional legal requirements' },
-    { icon: '\ud83d\udcdc', title: 'Documentation', desc: 'Supplier packet and COA review' },
+    { icon: '💊', title: 'Dispensing Controls', desc: 'Dispensing and interaction safety' },
+    { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Pharmacy regulatory framework' },
+    { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal requirements' },
+    { icon: '📜', title: 'Documentation', desc: 'Supplier packet and COA review' },
   ],
 }
 
 const DEFAULT_EDU = [
-  { icon: '\u2696\ufe0f', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
-  { icon: '\ud83d\uddfa\ufe0f', title: 'Country Rules', desc: 'Regional legal framework' },
-  { icon: '\ud83c\udfdb\ufe0f', title: 'GMP Standards', desc: 'Manufacturing compliance' },
-  { icon: '\ud83d\udce6', title: 'Trade & Access', desc: 'Import/export frameworks' },
+  { icon: '⚖️', title: 'Compliance & Reg.', desc: 'Stay audit-ready' },
+  { icon: '🗺️', title: 'Country Rules', desc: 'Regional legal framework' },
+  { icon: '🏛️', title: 'GMP Standards', desc: 'Manufacturing compliance' },
+  { icon: '📦', title: 'Trade & Access', desc: 'Import/export frameworks' },
 ]
 
 const VIEW_SECTION_MAP: Record<string, MarketView> = {
@@ -163,7 +163,7 @@ function resolveDashboardRoleId(roleSlug: string): RoleId | null {
 
 function buildEvidenceGapModule(message?: string) {
   return {
-    icon: '\u26a0\ufe0f',
+    icon: '⚠️',
     title: 'Evidence gap review',
     desc: message ?? 'Harbourview has not fully verified this country-role pathway yet. Use review-gated workflows before treating this market-role path as verified.',
   }
@@ -196,7 +196,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
   ])
 
   return (
-    <CommandCentre
+    <DashboardResponsiveShell
       key={`${countryIso2}-${roleId ?? dashboard.role.slug}`}
       signals={signals}
       eduCategories={eduCategories}
