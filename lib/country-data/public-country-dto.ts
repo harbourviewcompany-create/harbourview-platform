@@ -1,58 +1,30 @@
-import { countries as dashboardCountries } from '@/lib/dashboard/countries'
+import { countryIdentityRows, expectedGlobalCountryRouteCount } from './generated-country-identity-rows'
 import type { PublicCountryProfileDto } from './types'
 
-export const expectedGlobalCountryRouteCount = 248
-
 const REVIEW_PENDING = 'review_pending'
-const PUBLIC_SUMMARY = 'Profile initialized from global country/area identifiers. Cannabis, market-access, licensing, import/export, and regulatory authority data require primary-source review before publication.'
+const PUBLIC_SUMMARY = 'Profile initialized from global country/area identifiers. Market-access, licensing, import/export, and authority data require primary-source review before publication.'
 
-function mapDashboardCountry(country: (typeof dashboardCountries)[number]): PublicCountryProfileDto {
-  return {
-    jurisdiction_id: `country_area:${country.iso3}`,
-    slug: country.slug,
-    public_display_name: country.displayName,
-    public_region: country.region ?? null,
-    public_subregion: country.subregion ?? null,
-    public_status_label: 'Country/area profile initialized',
-    medical_cannabis_status_public: REVIEW_PENDING,
-    adult_use_cannabis_status_public: REVIEW_PENDING,
-    hemp_status_public: REVIEW_PENDING,
-    import_export_status_public: REVIEW_PENDING,
-    licensing_status_public: REVIEW_PENDING,
-    public_summary: PUBLIC_SUMMARY,
-    confidence_band_public: 'identity_verified_regulatory_pending',
-    last_identity_verified_at: '2026-06-11',
-    last_regulatory_verified_at: null,
-  }
-}
-
-const mapped = dashboardCountries.map(mapDashboardCountry)
-const hasAntarctica = mapped.some((country) => country.slug === 'antarctica')
-
-const cleanupRows: PublicCountryProfileDto[] = hasAntarctica ? [] : [
-  {
-    jurisdiction_id: 'country_area:ATA',
-    slug: 'antarctica',
-    public_display_name: 'Antarctica',
-    public_region: null,
-    public_subregion: null,
-    public_status_label: 'M49 cleanup profile initialized',
-    medical_cannabis_status_public: REVIEW_PENDING,
-    adult_use_cannabis_status_public: REVIEW_PENDING,
-    hemp_status_public: REVIEW_PENDING,
-    import_export_status_public: REVIEW_PENDING,
-    licensing_status_public: REVIEW_PENDING,
-    public_summary: PUBLIC_SUMMARY,
-    confidence_band_public: 'identity_verified_regulatory_pending',
-    last_identity_verified_at: '2026-06-11',
-    last_regulatory_verified_at: null,
-  },
-]
-
-export const publicCountryProfiles = [...mapped, ...cleanupRows]
-  .sort((a, b) => a.public_display_name.localeCompare(b.public_display_name))
+export const publicCountryProfiles = countryIdentityRows.map((row): PublicCountryProfileDto => ({
+  jurisdiction_id: row[0],
+  slug: row[1],
+  public_display_name: row[2],
+  public_region: row[3],
+  public_subregion: row[4],
+  public_status_label: 'Country/area profile initialized',
+  medical_cannabis_status_public: REVIEW_PENDING,
+  adult_use_cannabis_status_public: REVIEW_PENDING,
+  hemp_status_public: REVIEW_PENDING,
+  import_export_status_public: REVIEW_PENDING,
+  licensing_status_public: REVIEW_PENDING,
+  public_summary: PUBLIC_SUMMARY,
+  confidence_band_public: 'identity_verified_regulatory_pending',
+  last_identity_verified_at: row[5],
+  last_regulatory_verified_at: null,
+}))
 
 const bySlug = new Map(publicCountryProfiles.map((country) => [country.slug, country]))
+
+export { expectedGlobalCountryRouteCount }
 
 export function getPublicCountryProfiles(): readonly PublicCountryProfileDto[] {
   return publicCountryProfiles
