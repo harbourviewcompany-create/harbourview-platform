@@ -63,16 +63,126 @@ const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
-const EVIDENCE_CONFIDENCE_BARS = [
-  { label: 'Regulatory',        pct: 85 },
-  { label: 'Market Data',       pct: 80 },
-  { label: 'Access Pathway',    pct: 78 },
-  { label: 'Local Intel',       pct: 76 },
-  { label: 'Education Content', pct: 90 },
-]
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+/** ISO 3166-1 alpha-2 → unicode flag emoji. Handles sub-national (CA-ON → CA) and GLOBAL fallback */
+function isoToFlag(iso2: string): string {
+  if (!iso2 || iso2 === 'GLOBAL') return '🌐'
+  const code = iso2.includes('-') ? iso2.split('-')[0] : iso2
+  if (code.length !== 2) return '🌐'
+  return [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 0x41)).join('')
+}
+
+/** URL-safe country slug — mirrors server-side canonicalSlug */
+function toCountrySlug(label: string): string {
+  return label.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/&/g, '-and-').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+// Confidence bars derived from data_completeness + field coverage:
+// stub  → ~17%  placeholder | seed → ~65% seeded | other → ~83% reviewed
+function deriveConfidenceBars(intel: CountryIntelProfile | null | undefined): { label: string; pct: number }[] {
+  const c  = intel?.data_completeness
+  const ok = intel?.medical_status && intel.medical_status !== 'unknown'
+  const r  = !!intel?.regulator_label
+  if (!ok || c === 'stub') return [
+    { label: 'Regulatory', pct: 20 }, { label: 'Market Data', pct: 16 },
+    { label: 'Access Pathway', pct: 14 }, { label: 'Local Intel', pct: 12 },
+    { label: 'Education Content', pct: 22 },
+  ]
+  if (c === 'seed') return [
+    { label: 'Regulatory', pct: r ? 72 : 62 }, { label: 'Market Data', pct: 66 },
+    { label: 'Access Pathway', pct: 60 },       { label: 'Local Intel', pct: 54 },
+    { label: 'Education Content', pct: 70 },
+  ]
+  return [
+    { label: 'Regulatory', pct: r ? 88 : 80 }, { label: 'Market Data', pct: 82 },
+    { label: 'Access Pathway', pct: 78 },       { label: 'Local Intel', pct: 76 },
+    { label: 'Education Content', pct: 90 },
+  ]
+}
 
 function overallConfidence(bars: { pct: number }[]) {
   return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
+}
+
+// ── Status field derivation ────────────────────────────────────────────────────
+// Derives 5 BriefingRoom status cards from live DB fields.
+// Value universe: open|active|regulated|limited|emerging|restricted|unknown
+// 'unknown' / null → returns '—' clean empty state (84 stub countries)
+
+type StatusField = { icon: string; label: string; value: string }
+
+function deriveProgramStatus(i: CountryIntelProfile | null | undefined): StatusField {
+  switch (i?.medical_status) {
+    case 'open':       return { icon: '↑', label: 'Program Status', value: 'Unrestricted Medical'  }
+    case 'active':     return { icon: '◎', label: 'Program Status', value: 'Active Medical Program' }
+    case 'limited':    return { icon: '◑', label: 'Program Status', value: 'Limited Access Program' }
+    case 'emerging':   return { icon: '◑', label: 'Program Status', value: 'Emerging Program'       }
+    case 'restricted': return { icon: '↓', label: 'Program Status', value: 'Restricted Access'      }
+    default:           return { icon: '○', label: 'Program Status', value: '—'                      }
+  }
+}
+
+function derivePatientAccess(i: CountryIntelProfile | null | undefined): StatusField {
+  const m = i?.medical_status, p = i?.import_status
+  if (m === 'open')                           return { icon: '↑', label: 'Patient Access', value: 'Unrestricted' }
+  if (m === 'active' && p === 'active')       return { icon: '↑', label: 'Patient Access', value: 'Increasing'   }
+  if (m === 'active' && p === 'limited')      return { icon: '◐', label: 'Patient Access', value: 'Moderate'     }
+  if (m === 'active' && p === 'restricted')   return { icon: '◑', label: 'Patient Access', value: 'Regulated'    }
+  if (m === 'active')                         return { icon: '◐', label: 'Patient Access', value: 'Moderate'     }
+  if (m === 'limited')                        return { icon: '◑', label: 'Patient Access', value: 'Limited'      }
+  if (m === 'emerging')                       return { icon: '◑', label: 'Patient Access', value: 'Developing'   }
+  if (m === 'restricted')                     return { icon: '↓', label: 'Patient Access', value: 'Restricted'   }
+  return                                             { icon: '○', label: 'Patient Access', value: '—'            }
+}
+
+function derivePhysicianAccess(i: CountryIntelProfile | null | undefined): StatusField {
+  const m = i?.medical_status, k = i?.market_access_status
+  if (m === 'open')                                  return { icon: '↑', label: 'Physician Access', value: 'Open'        }
+  if (m === 'active' && (k === 'open'||k === 'active')) return { icon: '↑', label: 'Physician Access', value: 'Open'     }
+  if (m === 'active' && k === 'regulated')           return { icon: '◐', label: 'Physician Access', value: 'Moderate'    }
+  if (m === 'active' && k === 'limited')             return { icon: '◑', label: 'Physician Access', value: 'Limited'     }
+  if (m === 'active' && k === 'emerging')            return { icon: '◑', label: 'Physician Access', value: 'Developing'  }
+  if (m === 'active')                                return { icon: '◐', label: 'Physician Access', value: 'Moderate'    }
+  if (m === 'limited')                               return { icon: '◑', label: 'Physician Access', value: 'Limited'     }
+  if (m === 'emerging')                              return { icon: '◑', label: 'Physician Access', value: 'Developing'  }
+  if (m === 'restricted')                            return { icon: '↓', label: 'Physician Access', value: 'Restricted'  }
+  return                                                    { icon: '○', label: 'Physician Access', value: '—'           }
+}
+
+function deriveMarketDynamics(i: CountryIntelProfile | null | undefined): StatusField {
+  const k = i?.market_access_status, s = i?.opportunity_score ?? 0
+  if (k === 'open')                    return { icon: '⊛', label: 'Market Dynamics', value: 'Established' }
+  if (k === 'active' && s >= 75)       return { icon: '⊛', label: 'Market Dynamics', value: 'Established' }
+  if (k === 'active')                  return { icon: '⊛', label: 'Market Dynamics', value: 'Maturing'    }
+  if (k === 'regulated' && s >= 60)    return { icon: '⊛', label: 'Market Dynamics', value: 'Maturing'    }
+  if (k === 'regulated' && s >= 35)    return { icon: '⊛', label: 'Market Dynamics', value: 'Developing'  }
+  if (k === 'regulated')               return { icon: '⊛', label: 'Market Dynamics', value: 'Developing'  }
+  if (k === 'limited')                 return { icon: '⊛', label: 'Market Dynamics', value: 'Limited'     }
+  if (k === 'emerging')                return { icon: '⊛', label: 'Market Dynamics', value: 'Emerging'    }
+  if (k === 'restricted')              return { icon: '⊛', label: 'Market Dynamics', value: 'Nascent'     }
+  return                                      { icon: '○', label: 'Market Dynamics', value: '—'           }
+}
+
+function deriveRegulatoryOutlook(i: CountryIntelProfile | null | undefined): StatusField {
+  const SKIP = new Set(['draft','pending','unknown','stub','unverified',''])
+  const rev = i?.review_status
+  const label = rev && !SKIP.has(rev) ? rev[0].toUpperCase() + rev.slice(1).replace(/_/g,' ') : null
+  if (label) return { icon: '⊙', label: 'Regulatory Outlook', value: label }
+  switch (i?.market_access_status) {
+    case 'open':       return { icon: '⊙', label: 'Regulatory Outlook', value: 'Established' }
+    case 'active':     return { icon: '⊙', label: 'Regulatory Outlook', value: 'Stable'      }
+    case 'regulated':  return { icon: '⊙', label: 'Regulatory Outlook', value: 'Stable'      }
+    case 'limited':    return { icon: '⊙', label: 'Regulatory Outlook', value: 'Evolving'    }
+    case 'emerging':   return { icon: '⊙', label: 'Regulatory Outlook', value: 'Evolving'    }
+    case 'restricted': return { icon: '⊙', label: 'Regulatory Outlook', value: 'Restrictive' }
+    default:           return { icon: '○', label: 'Regulatory Outlook', value: '—'           }
+  }
+}
+
+function deriveStatusFields(i: CountryIntelProfile | null | undefined): StatusField[] {
+  return [deriveProgramStatus(i), derivePatientAccess(i), derivePhysicianAccess(i), deriveMarketDynamics(i), deriveRegulatoryOutlook(i)]
 }
 
 const BriefingRoom = React.memo(function BriefingRoom({
@@ -81,15 +191,19 @@ const BriefingRoom = React.memo(function BriefingRoom({
   countryIntel,
   signals,
   onCountrySelect,
+  profileHref,
 }: {
   country:          { iso2: string; label: string }
   region:           string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
   onCountrySelect?: (iso2: string) => void
+  profileHref:      string
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
-  const overall = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
+  const confidenceBars = useMemo(() => deriveConfidenceBars(countryIntel), [countryIntel])
+  const overall        = overallConfidence(confidenceBars)
+  const statusFields   = useMemo(() => deriveStatusFields(countryIntel), [countryIntel])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -106,10 +220,13 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{country.iso2 === 'US' ? '🇺🇸' : country.iso2 === 'CA' ? '🇨🇦' : '🌐'}</div>
+          <div className="cc-jx-flag">{isoToFlag(country.iso2)}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}
+            {countryIntel?.regulator_label && (
+              <div className="cc-jx-regulator">Regulated by {countryIntel.regulator_label}</div>
+            )}
           </div>
         </div>
 
@@ -118,44 +235,18 @@ const BriefingRoom = React.memo(function BriefingRoom({
         )}
 
         <div className="cc-jx-fields">
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">◎</span>
-            <div>
-              <small>Program Status</small>
-              <strong>Active Medical Program</strong>
+          {statusFields.map(({ icon, label, value }: StatusField) => (
+            <div key={label} className={"cc-jx-field" + (value === '—' ? ' cc-jx-field--empty' : '')}>
+              <span className="cc-jx-field-icon">{icon}</span>
+              <div>
+                <small>{label}</small>
+                <strong>{value}</strong>
+              </div>
             </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">↑</span>
-            <div>
-              <small>Patient Access</small>
-              <strong>Increasing</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">◐</span>
-            <div>
-              <small>Physician Access</small>
-              <strong>Moderate</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">⊛</span>
-            <div>
-              <small>Market Dynamics</small>
-              <strong>Maturing</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">⊙</span>
-            <div>
-              <small>Regulatory Outlook</small>
-              <strong>Stable</strong>
-            </div>
-          </div>
+          ))}
         </div>
 
-        <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
+        <a href={profileHref} className="cc-jx-btn">View Full Jurisdiction Profile →</a>
       </aside>
 
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
@@ -221,7 +312,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               </div>
             </div>
             <div className="cc-confidence-bars">
-              {EVIDENCE_CONFIDENCE_BARS.map(bar => (
+              {confidenceBars.map(bar => (
                 <div key={bar.label} className="cc-conf-bar-row">
                   <span className="cc-conf-bar-lbl">{bar.label}</span>
                   <div className="cc-conf-bar-track">
@@ -1132,7 +1223,14 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom
+          country={country}
+          region={region}
+          countryIntel={countryIntel}
+          signals={signals}
+          onCountrySelect={handleCountryChange}
+          profileHref={`/country/${toCountrySlug(country.label)}/role/${role || 'exporter'}`}
+        />
       case 'access-pathway':
         return <ScaffoldPage title="Access Pathway" {...sharedProps} />
       case 'marketplace':

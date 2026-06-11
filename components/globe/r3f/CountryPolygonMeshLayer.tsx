@@ -6,6 +6,8 @@ import { FrontSide, BackSide, AdditiveBlending, type MeshPhysicalMaterial } from
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
+import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
+import { australiaStates } from '@/data/globe/australia-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
@@ -23,9 +25,13 @@ function bboxArea(bbox: [number, number, number, number]) {
 
 // All renderable entries: provinces replace CA, states replace US
 const globeEntries = [
-  ...naturalEarthCountriesPayload.countries.filter((c) => c.iso2 !== 'CA' && c.iso2 !== 'US'),
+  ...naturalEarthCountriesPayload.countries.filter(
+    (c) => c.iso2 !== 'CA' && c.iso2 !== 'US' && c.iso2 !== 'DE' && c.iso2 !== 'AU'
+  ),
   ...canadaProvinces,
   ...usStates,
+  ...germanyBundeslaender,
+  ...australiaStates,
 ]
 
 function HoverPulseMesh({
@@ -268,7 +274,7 @@ export function CountryPolygonMeshLayer({
             isSelected={visualState === 'selected'}
             onPointerEnter={() => onHoverCountry?.(entry.iso2)}
             onPointerLeave={() => onHoverCountry?.(undefined)}
-            onClick={() => onSelectCountry?.(entry.iso2)}
+            onClick={() => { onSelectCountry?.(entry.iso2) }}
           />
         )
       })}
