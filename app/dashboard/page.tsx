@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getWatchlistData } from '@/lib/dashboard/dashboardLiveData'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -165,6 +165,7 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole    = normalizeRoleParam(firstParam(params.role))
 
+  let userId:           string | null = null
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
 
@@ -172,6 +173,7 @@ export default async function DashboardPage({
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
+      userId = user.id
       const { data: prefs } = await supabase
         .from('user_dashboard_preferences')
         .select('country_iso2, role_id')
@@ -187,7 +189,7 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles] = await Promise.all([
+  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, watchlistData] = await Promise.all([
     fetchDashboardSignals(8),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
@@ -195,6 +197,8 @@ export default async function DashboardPage({
     getWantedListings(),
     getCountryIntelProfile(countryIso2),
     getLiveEduTiles(roleId, 6),
+    getOrgPathwayProgress(userId, countryIso2, roleId),
+    getWatchlistData(userId),
   ])
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
@@ -212,6 +216,8 @@ export default async function DashboardPage({
       pipeline={pipeline}
       wantedListings={wantedListings}
       countryIntel={countryIntel ?? undefined}
+      pathwayData={pathwayData}
+      watchlistData={watchlistData}
     />
   )
 }
