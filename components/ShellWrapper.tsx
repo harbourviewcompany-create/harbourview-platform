@@ -4,21 +4,20 @@ import { usePathname } from 'next/navigation'
 import Nav from '@/components/Nav'
 import Footer from '@/components/Footer'
 
-const DASHBOARD_ROUTE_PREFIXES = ['/dashboard']
-const COMMAND_CENTRE_ROUTE_PREFIXES = ['/country']
-const NO_CHROME_ROUTES = ['/']
+// Routes that suppress the public marketing shell (nav + footer).
+// /dashboard: operator dashboard
+// /country: Command Centre segment-based jurisdiction routes
+const NO_SHELL_PREFIXES = ['/dashboard', '/country']
 
-function matchesRoutePrefix(pathname: string, prefixes: string[]) {
-  return prefixes.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'))
-}
+// Routes where neither nav nor footer renders — page provides its own chrome.
+const NO_CHROME_ROUTES = ['/']
 
 export function ShellWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isDashboard = matchesRoutePrefix(pathname, DASHBOARD_ROUTE_PREFIXES)
-  const isCommandCentre = matchesRoutePrefix(pathname, COMMAND_CENTRE_ROUTE_PREFIXES)
+  const isNoShell = NO_SHELL_PREFIXES.some(r => pathname === r || pathname.startsWith(r + '/'))
   const isNoChrome = NO_CHROME_ROUTES.includes(pathname)
 
-  if (isDashboard || isCommandCentre || isNoChrome) {
+  if (isNoShell || isNoChrome) {
     return <>{children}</>
   }
 
