@@ -203,3 +203,173 @@ export async function getCountryStatusFromDB(
     return null
   }
 }
+
+// ── 5. Access Pathway data ────────────────────────────────────────────────────
+
+export type PathwayData = {
+  template:            { id: string; name: string; total_steps: number } | null
+  steps:               { id: string; step_number: number; title: string; description: string | null; unlock_condition: string }[]
+  requirements:        { id: string; step_id: string; title: string; description: string | null; evidence_type: string; is_required: boolean; sort_order: number }[]
+  progress:            { current_step: number; status: string; last_action_at: string } | null
+  requirementStatuses: { requirement_id: string; status: 'pending'|'in_review'|'verified'|'rejected'|'waived'; submitted_at: string | null; reviewed_at: string | null }[]
+}
+
+export async function getOrgPathwayProgress(
+  userId:      string | null,
+  countryIso2: string | null,
+  roleId:      string | null,
+): Promise<PathwayData> {
+  const empty: PathwayData = {
+    template: null, steps: [], requirements: [], progress: null, requirementStatuses: [],
+  }
+  if (!userId || !countryIso2 || !roleId) return empty
+  try {
+    const supabase = await createClient()
+
+    // Resolve org
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .single()
+    const orgId = membership?.workspace_id
+    if (!orgId) return empty
+
+    // Pathway template for this country + role
+    const { data: template } = await supabase
+      .from('cc_pathway_templates')
+      .select('id, name, total_steps')
+      .eq('country_iso2', countryIso2.toUpperCase())
+      .eq('role_id', roleId)
+      .single()
+    if (!template) return empty
+
+    // Steps
+    const { data: steps } = await supabase
+      .from('cc_pathway_steps')
+      .select('id, step_number, title, description, unlock_condition')
+      .eq('template_id', template.id)
+      .order('step_number')
+
+    const stepIds = (steps ?? []).map(s => s.id)
+
+    // Requirements
+    const { data: requirements } = stepIds.length
+      ? await supabase
+          .from('cc_pathway_step_requirements')
+          .select('id, step_id, title, description, evidence_type, is_required, sort_order')
+          .in('step_id', stepIds)
+          .order('sort_order')
+      : { data: [] }
+
+    const reqIds = (requirements ?? []).map(r => r.id)
+
+    // Org-level progress
+    const { data: progress } = await supabase
+      .from('cc_org_pathway_progress')
+      .select('current_step, status, last_action_at')
+      .eq('org_id', orgId)
+      .eq('template_id', template.id)
+      .single()
+
+    // Per-requirement statuses
+    const { data: requirementStatuses } = reqIds.length
+      ? await supabase
+          .from('cc_org_requirement_status')
+          .select('requirement_id, status, submitted_at, reviewed_at')
+          .eq('org_id', orgId)
+          .in('requirement_id', reqIds)
+      : { data: [] }
+
+    return {
+      template,
+      steps: steps ?? [],
+      requirements: requirements ?? [],
+      progress: progress ?? null,
+      requirementStatuses: requirementStatuses ?? [],
+    }
+  } catch {
+    return empty
+  }
+}
+
+// ── 6. Watchlist data ─────────────────────────────────────────────────────────
+
+export type WatchlistItem = {
+  id: string; item_type: string; ref_id: string | null
+  title: string; subtitle: string | null; tags: string[]
+  jurisdiction: string | null; confidence_pct: number | null
+  latest_change_at: string | null; latest_change_note: string | null
+  next_action: string | null; watch_status: string
+  created_at: string; updated_at: string
+}
+
+export type WatchRule = {
+  id: string; rule_type: string; keywords: string[]
+}
+
+export type NotificationSummary = {
+  total_alerts: number; awaiting_review: number; resolved: number; snoozed: number
+}
+
+export type WatchlistData = {
+  items:         WatchlistItem[]
+  rules:         WatchRule[]
+  notifications: NotificationSummary
+}
+
+export async function getWatchlistData(
+  userId: string | null,
+): Promise<WatchlistData> {
+  const empty: WatchlistData = {
+    items: [], rules: [],
+    notifications: { total_alerts: 0, awaiting_review: 0, resolved: 0, snoozed: 0 },
+  }
+  if (!userId) return empty
+  try {
+    const supabase = await createClient()
+
+    // Resolve org
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .single()
+    const orgId = membership?.workspace_id
+    if (!orgId) return empty
+
+    const [itemsRes, rulesRes, notifsRes] = await Promise.all([
+      supabase
+        .from('cc_watchlist_items')
+        .select('id, item_type, ref_id, title, subtitle, tags, jurisdiction, confidence_pct, latest_change_at, latest_change_note, next_action, watch_status, created_at, updated_at')
+        .eq('org_id', orgId)
+        .eq('watch_status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('cc_watch_rules')
+        .select('id, rule_type, keywords')
+        .eq('org_id', orgId),
+      supabase
+        .from('cc_watchlist_notifications')
+        .select('status')
+        .eq('org_id', orgId),
+    ])
+
+    const notifs = notifsRes.data ?? []
+    return {
+      items: itemsRes.data ?? [],
+      rules: rulesRes.data ?? [],
+      notifications: {
+        total_alerts:    notifs.filter(n => n.status === 'pending').length,
+        awaiting_review: notifs.filter(n => n.status === 'pending').length,
+        resolved:        notifs.filter(n => n.status === 'resolved').length,
+        snoozed:         notifs.filter(n => n.status === 'snoozed').length,
+      },
+    }
+  } catch {
+    return empty
+  }
+}
