@@ -8,6 +8,7 @@ Updated by ChatGPT on 2026-06-11.
 - Branch: fresh-regulatory-sources-engine
 - Head after public-feed cleanup: ec5093804db559db9333cb84c0b1201102eeedd7
 - Branch was updated using GitHub merge commit f5e64cb13e8b56279f0d15ea8333b026f89166fa before the public-feed cleanup commit.
+- CI trigger-only update: 2026-06-11T16:28:00Z, documentation-only, no product/runtime scope change.
 
 ## Completed in branch
 
@@ -18,6 +19,8 @@ Updated by ChatGPT on 2026-06-11.
 - Added watcher library and seed/check scripts.
 - Added admin signal summary, sources, and review pages.
 - Added watcher unit test file.
+- Added package.json scripts for source-regulatory:seed, source-regulatory:check, and test:regulatory-sources.
+- Hardened lib/regulatory-signals/public.ts to use no-store dynamic public reads and safe empty-state behavior when Supabase public env/data is unavailable.
 
 ## Public DTO/static leakage check
 
@@ -47,19 +50,18 @@ It does not select raw_text, storage_path, watcher errors, analyst notes, privat
 
 ## CI evidence available from GitHub
 
-- Type check workflow: success.
-- Regulatory Signals Verify workflow: failure at Build step after Typecheck passed; downstream regulatory leakage/contract steps were skipped.
-- Vercel harbourview status: success.
-- Netlify harbourview-platform preview: failure.
-- Low-Friction Branch Verification: failure at changed-file scope check.
-- Project Registry Discipline: failure at project registry discipline check.
+- Type check workflow: success on prior PR run before latest trigger-only doc commit.
+- Regulatory Signals Verify workflow: failure at Build step on an older PR merge ref after Typecheck passed; downstream regulatory leakage/contract steps were skipped.
+- Branch Verification workflow: failure at Build step on an older branch head after install, typecheck, public visibility, listing quality, public images, and services public leakage passed.
+- Low-Friction Branch Verification: failure at changed-file scope check, expected for a runtime/schema/package PR.
+- Project Registry Discipline: failure at project registry discipline check because PR registry impact metadata remains incomplete.
 - New Products Equipment workflow: typecheck and public visibility passed; new-products-equipment intake failed.
 
 ## Not completed
 
-- package.json script registration for source-regulatory:seed, source-regulatory:check, and test:regulatory-sources was blocked by the connector write safety layer.
 - Local/runtime commands were not executed in this environment.
 - Supabase seed/check commands were not executed in this environment because no runtime checkout plus Supabase env was available.
+- Current-head GitHub Actions verification for the no-store hardening patch is pending this trigger-only documentation commit.
 
 ## Required manual/runtime commands
 
@@ -75,9 +77,9 @@ HARBOURVIEW_SOURCE_CHECK_LIMIT=5 npx tsx scripts/check-regulatory-sources.ts
 
 HOLD for production merge until:
 
-- package.json scripts are added or explicitly waived,
-- build failure in Regulatory Signals Verify is fixed,
+- build failure in Regulatory Signals Verify is fixed or current-head Build passes,
 - Supabase seed/check evidence proves at least five successful source checks,
 - source_snapshots row count and IDs are captured,
 - draft regulatory signal count and IDs are captured,
-- public DTO leakage test runs after build.
+- public DTO leakage test runs after build,
+- PR registry impact metadata is completed or explicitly waived.
