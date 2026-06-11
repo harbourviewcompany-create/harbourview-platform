@@ -4,20 +4,24 @@
  * Supabase-backed LLM rate limiting.
  *
  * Each user gets a per-minute window tracked in the `llm_rate_limits` table.
- * Uses an atomic upsert so concurrent requests don't race.
+ * Uses an atomic upsert so concurrent requests across serverless instances
+ * are correctly counted (replacing the previous in-memory Map approach).
  *
- * Falls back to the previous in-memory approach if the DB is unreachable —
- * that fallback is per-instance only (serverless limitation), but it prevents
- * hard failures when the DB is temporarily unavailable.
+ * Falls back to in-memory if the DB is unreachable — that fallback is
+ * per-instance only but prevents hard failures during DB outages.
+ *
+ * Note: `server-only` is intentionally omitted here so that tests can import
+ * this module directly in Vitest. The service-role Supabase client (which
+ * carries the secret) is only loaded inside `checkRateLimitDB` via a dynamic
+ * import, and that module carries its own `server-only` guard.
  */
-import 'server-only'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type RateLimitResult = {
   allowed: boolean
   remaining: number
-  resetAt: number
+  resetAt: number  // Unix ms timestamp when the current window resets
 }
 
 // ── Supabase-backed implementation ────────────────────────────────────────────
@@ -32,8 +36,7 @@ function windowStart(now: Date): string {
 }
 
 /**
- * Check and increment the per-user rate limit using an atomic Supabase upsert.
- * Returns null if the DB call fails (caller should fall back).
+ * Atomic DB upsert — returns null on any failure so the caller can fall back.
  */
 async function checkRateLimitDB(
   userId: string,
@@ -41,7 +44,6 @@ async function checkRateLimitDB(
   now: Date,
 ): Promise<RateLimitResult | null> {
   try {
-    // Import lazily to avoid bundling server-only code in unexpected contexts
     const { createHarbourviewServiceRoleSupabaseClient } = await import(
       '@/lib/harbourview/supabase/service-role'
     )
@@ -51,7 +53,6 @@ async function checkRateLimitDB(
     const resetAt = new Date(window)
     resetAt.setUTCMinutes(resetAt.getUTCMinutes() + 1)
 
-    // Atomic upsert: insert count=1, or increment on conflict
     const { data, error } = await supabase.rpc('check_and_increment_llm_rate_limit', {
       p_user_id: userId,
       p_window_start: window,
@@ -64,10 +65,8 @@ async function checkRateLimitDB(
     }
 
     const count: number = data?.count ?? 1
-    const allowed: boolean = count <= limitPerMinute
-
     return {
-      allowed,
+      allowed: count <= limitPerMinute,
       remaining: Math.max(0, limitPerMinute - count),
       resetAt: resetAt.getTime(),
     }
@@ -77,7 +76,7 @@ async function checkRateLimitDB(
   }
 }
 
-// ── In-memory fallback (per-instance only — use only when DB is unavailable) ──
+// ── In-memory fallback ────────────────────────────────────────────────────────
 
 type RateLimitBucket = { resetAt: number; count: number }
 const buckets = new Map<string, RateLimitBucket>()
@@ -85,15 +84,14 @@ const buckets = new Map<string, RateLimitBucket>()
 function checkRateLimitMemory(
   key: string,
   limitPerMinute: number,
-  now: number,
+  nowMs: number,
 ): RateLimitResult {
   const safeLimit = Math.max(1, Math.floor(limitPerMinute))
-  const bucketKey = key.trim() || 'unknown'
-  const existing = buckets.get(bucketKey)
+  const existing = buckets.get(key)
 
-  if (!existing || existing.resetAt <= now) {
-    const resetAt = now + 60_000
-    buckets.set(bucketKey, { resetAt, count: 1 })
+  if (!existing || existing.resetAt <= nowMs) {
+    const resetAt = nowMs + 60_000
+    buckets.set(key, { resetAt, count: 1 })
     return { allowed: true, remaining: safeLimit - 1, resetAt }
   }
 
@@ -109,8 +107,10 @@ function checkRateLimitMemory(
 
 /**
  * Check the per-user LLM rate limit.
- * Uses Supabase for cross-instance accuracy; falls back to in-memory if the
- * DB is unavailable (in-memory is per-instance and resets on cold start).
+ *
+ * @param userId        The authenticated user's ID.
+ * @param limitPerMinute  Maximum requests allowed per 60-second window.
+ * @param now           Override the current time (for testing).
  */
 export async function checkLlmRateLimit(
   userId: string,
@@ -122,7 +122,7 @@ export async function checkLlmRateLimit(
   return checkRateLimitMemory(userId, limitPerMinute, now.getTime())
 }
 
-/** Reset in-memory buckets (test helper only). */
+/** Reset in-memory buckets. Exported for use in unit tests only. */
 export function resetLlmRateLimits() {
   buckets.clear()
 }
