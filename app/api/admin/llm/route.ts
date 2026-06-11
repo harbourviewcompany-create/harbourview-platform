@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return publicError(new LlmGatewayError('LLM_GATEWAY_DISABLED', 'The Harbourview LLM gateway is disabled.', 503));
   }
 
-  const rateLimit = checkLlmRateLimit(auth.auth.user.id, config.rateLimitPerMinute);
+  const rateLimit = await checkLlmRateLimit(auth.auth.user.id, config.rateLimitPerMinute);
   if (!rateLimit.allowed) {
     return json(
       {
