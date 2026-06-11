@@ -14,9 +14,12 @@ interface CountryFocusOptions {
 const DEFAULT_FOCUS_DISTANCE = 6.2
 const DEFAULT_TARGET_DISTANCE = 2.1
 
-const MIN_FOCUS_DISTANCE = 4.4
+// Small countries (Belgium, Luxembourg, etc.) need much tighter zoom.
+// Slope 0.06 gives: Luxembourg(0.8°)→3.2  Belgium(9°)→3.7  Germany(9°)→3.7
+//                   France(13°)→4.0  Spain(18°)→4.3  US(50°)→5.2  Russia(170°)→capped
+const MIN_FOCUS_DISTANCE = 3.2
 const MAX_FOCUS_DISTANCE = 6.8
-const BBOX_DISTANCE_SLOPE = 0.018
+const BBOX_DISTANCE_SLOPE = 0.06
 
 function clamp(value: number, min: number, max: number) {
   if (value < min) return min

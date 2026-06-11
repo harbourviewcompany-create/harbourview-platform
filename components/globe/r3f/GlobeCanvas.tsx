@@ -74,6 +74,7 @@ export function GlobeCanvas({
   focusedCountryIso2,
   activeLayerId,
   routerStep,
+  subNationalIso2s = [],
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -83,6 +84,7 @@ export function GlobeCanvas({
   focusedCountryIso2?: string
   activeLayerId: GlobeLayerId
   routerStep?: GlobeRouterStep
+  subNationalIso2s?: string[]
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
@@ -171,6 +173,7 @@ export function GlobeCanvas({
             <OceanSphere />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
+              subNationalIso2s={subNationalIso2s}
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={focusedCountryIso2}
               activeLayerId={activeLayerId}

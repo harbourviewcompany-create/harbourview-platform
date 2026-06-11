@@ -8,6 +8,26 @@ import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
 import { australiaStates } from '@/data/globe/australia-states'
+
+// Sub-national entries keyed by parent iso2.
+// US is always expanded (state-level cannabis law relevance).
+// All others expand only when explicitly requested (e.g. in BriefingRoom).
+const SUB_NATIONALS: Record<string, (typeof canadaProvinces[number])[]> = {
+  CA: canadaProvinces,
+  US: usStates,
+  DE: germanyBundeslaender,
+  AU: australiaStates,
+}
+
+function buildGlobeEntries(subNationalIso2s: string[]) {
+  const expanded = new Set(subNationalIso2s)
+  expanded.add('US') // US always split
+  const excluded = new Set(Object.keys(SUB_NATIONALS).filter(k => expanded.has(k)))
+  return [
+    ...naturalEarthCountriesPayload.countries.filter(c => !excluded.has(c.iso2)),
+    ...Array.from(expanded).flatMap(iso2 => SUB_NATIONALS[iso2] ?? []),
+  ]
+}
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
@@ -24,15 +44,7 @@ function bboxArea(bbox: [number, number, number, number]) {
 }
 
 // All renderable entries: provinces replace CA, states replace US
-const globeEntries = [
-  ...naturalEarthCountriesPayload.countries.filter(
-    (c) => c.iso2 !== 'CA' && c.iso2 !== 'US' && c.iso2 !== 'DE' && c.iso2 !== 'AU'
-  ),
-  ...canadaProvinces,
-  ...usStates,
-  ...germanyBundeslaender,
-  ...australiaStates,
-]
+// globeEntries is now computed per render via buildGlobeEntries(subNationalIso2s)
 
 function HoverPulseMesh({
   geometry,
@@ -162,6 +174,7 @@ function HoverPulseMesh({
 
 export function CountryPolygonMeshLayer({
   selectedCountryIso2,
+  subNationalIso2s = [],
   focusedCountryIso2,
   selectedCountryIso2s,
   activeLayerId,
@@ -169,12 +182,20 @@ export function CountryPolygonMeshLayer({
   onSelectCountry,
 }: {
   selectedCountryIso2?: string
+  subNationalIso2s?: string[]
   focusedCountryIso2?: string
   selectedCountryIso2s: string[]
   activeLayerId: GlobeLayerId
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
+  const globeEntries = useMemo(
+    () => buildGlobeEntries(subNationalIso2s),
+    // Stringify so a new array ref with same contents doesn't rebuild all geometries
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [subNationalIso2s.slice().sort().join(',')],
+  )
+
   const idleGeometries = useMemo(
     () =>
       globeEntries.map((entry) => ({
@@ -196,7 +217,7 @@ export function CountryPolygonMeshLayer({
               })
             : undefined,
       })),
-    [],
+    [globeEntries],
   )
 
   useEffect(() => {
@@ -237,7 +258,7 @@ export function CountryPolygonMeshLayer({
       )
     }
     return map
-  }, [selectedSet])
+  }, [selectedSet, globeEntries])
 
   useEffect(() => {
     return () => {

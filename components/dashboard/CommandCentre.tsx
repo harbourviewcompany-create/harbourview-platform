@@ -167,6 +167,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
             selectedCountryIso2s={[country.iso2]}
             focusedCountryIso2={focusedIso2}
             activeLayerId="country_select"
+            subNationalIso2s={[country.iso2]}
             onHoverCountry={setFocusedIso2}
             onSelectCountry={onCountrySelect}
           />

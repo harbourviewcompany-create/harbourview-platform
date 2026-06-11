@@ -7,6 +7,8 @@ import { Quaternion, Vector3 } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
+import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
+import { australiaStates } from '@/data/globe/australia-states'
 import {
   createCountryFocusPose,
   easeInOutCubic,
@@ -37,10 +39,22 @@ function findCountryPose(countryIso2?: string, targetDistanceMax?: number): Glob
     if (state) return createCountryFocusPose(state, { targetDistanceMax })
   }
 
-  // Canadian provinces: iso2 starts with 'CA-'
+  // Canadian provinces
   if (countryIso2.startsWith('CA-')) {
     const province = canadaProvinces.find((p) => p.iso2 === countryIso2)
     if (province) return createCountryFocusPose(province, { targetDistanceMax })
+  }
+
+  // German Bundesländer
+  if (countryIso2.startsWith('DE-')) {
+    const land = germanyBundeslaender.find((l) => l.iso2 === countryIso2)
+    if (land) return createCountryFocusPose(land, { targetDistanceMax })
+  }
+
+  // Australian states
+  if (countryIso2.startsWith('AU-')) {
+    const state = australiaStates.find((s) => s.iso2 === countryIso2)
+    if (state) return createCountryFocusPose(state, { targetDistanceMax })
   }
 
   // Sovereign countries

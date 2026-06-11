@@ -4,13 +4,13 @@ export const GLOBE_CAMERA_CONFIG = {
   far: 100,
   initialPosition: [0, 0.6, 7.8] as [number, number, number],
   initialTarget: [0, 0, 0] as [number, number, number],
-  minDistance: 3.85,
+  minDistance: 3.0,
   maxDistance: 7.2,
   minPolarAngle: Math.PI * 0.08,
   maxPolarAngle: Math.PI * 0.92,
   distanceByState: {
     country: { min: 4.75, max: 7.2 },
-    selected: { min: 4.15, max: 5.85 },
+    selected: { min: 3.0, max: 5.85 },
   },
   polarByState: {
     country: { min: Math.PI * 0.16, max: Math.PI * 0.84 },
