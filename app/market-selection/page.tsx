@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { MobileCountrySelection } from '@/components/harbourview/MobileCountrySelection'
 import { resolveMarket } from '@/lib/dashboard/resolveMarket'
 
@@ -37,8 +38,10 @@ export default async function MarketSelectionPage({ searchParams }: PageProps) {
   // Pass the canonical code (uppercased, validated) or undefined (no pre-selection).
   // MobileCountrySelection will handle navigation on Continue via its own router.
   return (
-    <MobileCountrySelection
-      initialCountry={market?.code ?? undefined}
-    />
+    <Suspense fallback={null}>
+      <MobileCountrySelection
+        initialCountry={market?.code ?? undefined}
+      />
+    </Suspense>
   )
 }
