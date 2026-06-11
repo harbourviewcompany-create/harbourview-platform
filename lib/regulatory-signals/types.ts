@@ -47,6 +47,8 @@ export type RegulatoryReviewStatus =
 
 export type RegulatoryConfidence = 'low' | 'medium' | 'high' | 'official_confirmed'
 export type RegulatoryImpactLevel = 'low' | 'moderate' | 'high' | 'critical'
+export type RegulatoryWatchStatus = 'healthy' | 'changed' | 'stale' | 'failing' | 'blocked' | 'manual_review' | 'disabled'
+export type RegulatoryAccessMethod = 'rss' | 'api' | 'html' | 'pdf' | 'manual'
 
 export type RegulatorySignalRecord = {
   id: string
@@ -133,10 +135,50 @@ export type RegulatorySource = {
   language_code: string | null
   crawl_allowed: boolean
   is_active: boolean
+  access_method: RegulatoryAccessMethod | null
+  watch_frequency: string | null
+  watcher_enabled: boolean | null
+  watch_status: RegulatoryWatchStatus | null
+  last_checked_at: string | null
+  last_success_at: string | null
+  last_changed_at: string | null
+  last_error: string | null
+  last_content_hash: string | null
   validation_notes: string | null
   internal_notes: string | null
   created_by: string | null
   updated_by: string | null
   created_at: string
   updated_at: string
+}
+
+export type RegulatorySourceSnapshot = {
+  id: string
+  source_id: string
+  source_url: string
+  title: string | null
+  published_at: string | null
+  captured_at: string
+  raw_text: string | null
+  content_hash: string
+  previous_hash: string | null
+  changed: boolean
+  storage_path: string | null
+  created_at: string
+}
+
+export type RegulatorySourceCheckRun = {
+  id: string
+  source_id: string
+  checked_at: string
+  status: RegulatoryWatchStatus
+  http_status: number | null
+  response_time_ms: number | null
+  content_hash: string | null
+  previous_hash: string | null
+  changed: boolean
+  snapshot_id: string | null
+  signal_id: string | null
+  error_message: string | null
+  created_at: string
 }
