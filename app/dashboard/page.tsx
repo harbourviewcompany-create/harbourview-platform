@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
-import CommandCentre from '@/components/dashboard/CommandCentre'
+import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
@@ -201,7 +201,7 @@ export default async function DashboardPage({
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
 
   return (
-    <CommandCentre
+    <DashboardResponsiveShell
       key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}`}
       signals={signals}
       eduCategories={eduCategories}
@@ -215,4 +215,3 @@ export default async function DashboardPage({
     />
   )
 }
-
