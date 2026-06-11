@@ -6,6 +6,7 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/d
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
+import { MarketplacePage } from './pages/MarketplacePage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -602,222 +603,7 @@ const SignalsPage = React.memo(function SignalsPage({
   )
 })
 
-// ── Marketplace helpers ────────────────────────────────────────────────────────
-
-const MKT_TABS: { id: MarketView; label: string }[] = [
-  { id: 'cannabis',      label: 'Listings' },
-  { id: 'wanted',        label: 'Wanted Demand' },
-  { id: 'opportunities', label: 'Buyer Routes' },
-  { id: 'equipment',     label: 'Equipment' },
-  { id: 'consumables',   label: 'Consumables' },
-  { id: 'services',      label: 'Services' },
-  { id: 'new-products',  label: 'Opportunities' },
-]
-
-// MarketRow tuple field indices
-const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7 } as const
-
-// ── MarketplacePage ────────────────────────────────────────────────────────────
-
-const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount,
-}: {
-  country:         { iso2: string; label: string }
-  region:          string
-  role:            string
-  marketplaceRows?: Partial<DashboardMarketplaceRows>
-  wantedListings?:  WantedListing[]
-  wantedCount?:     number
-}) {
-  const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
-  const [search,    setSearch]    = useState('')
-
-  const rows = useMemo<MarketRow[]>(() => {
-    let r: MarketRow[] = marketplaceRows?.[activeTab] ?? []
-    if (activeTab === 'wanted' && wantedListings?.length) {
-      r = wantedListings.map(w => [
-        w.title,
-        w.summary ?? '',
-        w.location_country ?? country.iso2,
-        'Wanted Demand',
-        'Verified',
-        'Direct',
-        '72',
-        w.id,
-      ] as MarketRow)
-    }
-    if (search.trim()) {
-      const lq = search.toLowerCase()
-      r = r.filter(row => row[MR.TITLE].toLowerCase().includes(lq) || row[MR.DESC].toLowerCase().includes(lq))
-    }
-    return r
-  }, [activeTab, marketplaceRows, wantedListings, search, country])
-
-  const ACCESS_REQS = [
-    { label: `${country.label} Licence`,                  ok: true,  detail: 'Verified · Expires Feb 14, 2026' },
-    { label: 'Facility Registration & Site Plan',         ok: true,  detail: 'Verified · May 23, 2025' },
-    { label: 'Standard Operating Procedures',            ok: false, detail: 'Pending' },
-    { label: 'Traceability System Documentation',        ok: false, detail: 'Pending' },
-  ]
-  const VERIFY_GAPS = [
-    { label: 'EU-GMP Certification',   detail: 'Required for EU export routes' },
-    { label: 'Pest Management Plan',   detail: 'Requires export-level detail' },
-    { label: 'Residual Testing SOP',   detail: 'Needs method verification' },
-  ]
-  const COUNTERPARTY = [
-    { label: 'Harbourview Due Diligence',    detail: 'Completed May 20, 2025' },
-    { label: 'Sanctions & Watchlist Screen', detail: 'Clear · May 20, 2025' },
-    { label: 'Financial Standing',           detail: 'Good' },
-  ]
-
-  return (
-    <div className="cc-page cc-two-col-page">
-      {/* ── Main table ──────────────────────────────────────── */}
-      <div className="cc-two-main">
-        <div className="cc-inner-header">
-          <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
-          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview’s market access team.</p>
-        </div>
-
-        <div className="cc-mkt-tabs">
-          {MKT_TABS.map(t => (
-            <button key={t.id}
-              className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-              onClick={() => setActiveTab(t.id)}
-            >
-              {t.label}
-              {t.id==='wanted' && wantedCount ? <span className="cc-tab-badge">{wantedCount}</span> : null}
-            </button>
-          ))}
-        </div>
-
-        <div className="cc-mkt-filters">
-          <div className="cc-mkt-search-wrap">
-            <span>⌕</span>
-            <input className="cc-mkt-search" placeholder="Search listings…" value={search} onChange={e=>setSearch(e.target.value)} />
-          </div>
-          <button className="cc-mkt-filter-btn">≡ Filters</button>
-        </div>
-
-        {rows.length > 0 ? (
-          <>
-            <div className="cc-mkt-table">
-              <div className="cc-mkt-thead">
-                <span className="cc-mkt-th opp-col">OPPORTUNITY</span>
-                <span className="cc-mkt-th">CATEGORY</span>
-                <span className="cc-mkt-th">JURISDICTION</span>
-                <span className="cc-mkt-th">VERIFICATION</span>
-                <span className="cc-mkt-th">ACCESS ROUTE</span>
-                <span className="cc-mkt-th">EVIDENCE</span>
-                <span className="cc-mkt-th">ACTIONS</span>
-              </div>
-              {rows.slice(0,10).map((row, i) => {
-                const conf = parseInt(row[MR.CONFIDENCE])||72
-                const ok   = row[MR.VERIFICATION]?.toLowerCase()==='verified'
-                return (
-                  <div key={row[MR.ID]||String(i)} className="cc-mkt-row">
-                    <div className="cc-mkt-cell opp-col">
-                      <div className="cc-opp-icon">◎</div>
-                      <div className="cc-opp-body">
-                        <strong>{row[MR.TITLE]}</strong>
-                        {row[MR.DESC] && <p>{row[MR.DESC].slice(0,80)}{row[MR.DESC].length>80?'…':''}</p>}
-                        {row[MR.CATEGORY] && <span className="cc-opp-tag">{row[MR.CATEGORY]}</span>}
-                      </div>
-                    </div>
-                    <div className="cc-mkt-cell">{row[MR.CATEGORY]||'—'}</div>
-                    <div className="cc-mkt-cell cc-juris-cell">
-                      <span>{row[MR.JURISDICTION]||country.iso2}</span>
-                      {ok && <span className="cc-export-tag">Export-Ready</span>}
-                    </div>
-                    <div className="cc-mkt-cell">
-                      <span className={`cc-verify-badge ${ok?'ok':'pending'}`}>
-                        {ok?'✓':'○'} {row[MR.VERIFICATION]||'Pending Review'}
-                      </span>
-                    </div>
-                    <div className="cc-mkt-cell">{row[MR.ACCESS_ROUTE]||'Mediated'}</div>
-                    <div className="cc-mkt-cell">
-                      <svg viewBox="0 0 36 36" className="cc-mini-donut">
-                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4"/>
-                        <circle cx="18" cy="18" r="14" fill="none"
-                          stroke={conf>=80?'var(--cc-green)':conf>=65?'var(--cc-amber)':'var(--cc-red)'}
-                          strokeWidth="4"
-                          strokeDasharray={`${87.96*conf/100} 87.96`}
-                          strokeLinecap="round" transform="rotate(-90 18 18)"
-                        />
-                        <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{conf}%</text>
-                      </svg>
-                    </div>
-                    <div className="cc-mkt-cell cc-acts-col">
-                      <button className="cc-act-primary">Request access</button>
-                      <button className="cc-act-sec">Watch</button>
-                      <button className="cc-act-sec">Requirements</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="cc-feed-footer">
-              <span>Showing {Math.min(rows.length,10)} of {rows.length} opportunities</span>
-            </div>
-          </>
-        ) : (
-          <div className="cc-empty-state">
-            <span>⊞</span>
-            <p>No {MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} listings for {country.label}{region?` · ${region}`:''}.{' '}
-              {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* ── Right panel ─────────────────────────────────────── */}
-      <aside className="cc-two-right">
-        <div className="cc-right-section">
-          <div className="cc-right-head">MARKETPLACE ACCESS REQUIREMENTS</div>
-          {ACCESS_REQS.map(r => (
-            <div key={r.label} className="cc-req-row">
-              <span className={`cc-req-icon ${r.ok?'ok':'pending'}`}>{r.ok?'✓':'○'}</span>
-              <div>
-                <strong>{r.label}</strong>
-                <small>{r.detail}</small>
-              </div>
-            </div>
-          ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all requirements →</a>
-        </div>
-
-        <div className="cc-right-section">
-          <div className="cc-right-head">VERIFICATION GAPS</div>
-          {VERIFY_GAPS.map(g => (
-            <div key={g.label} className="cc-req-row">
-              <span className="cc-req-icon gap">△</span>
-              <div>
-                <strong>{g.label}</strong>
-                <small>{g.detail}</small>
-              </div>
-            </div>
-          ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Address gaps →</a>
-        </div>
-
-        <div className="cc-right-section">
-          <div className="cc-right-head">COUNTERPARTY STATUS</div>
-          {COUNTERPARTY.map(c => (
-            <div key={c.label} className="cc-req-row">
-              <span className="cc-req-icon ok">✓</span>
-              <div>
-                <strong>{c.label}</strong>
-                <small>{c.detail}</small>
-              </div>
-            </div>
-          ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View counterparty profile →</a>
-        </div>
-      </aside>
-    </div>
-  )
-})
-
+// ── Education helpers ──────────────────────────────────────────────────────────
 // ── Education helpers ──────────────────────────────────────────────────────────
 
 type LearningModule = {
@@ -1234,7 +1020,15 @@ export default function CommandCentre({
       case 'access-pathway':
         return <ScaffoldPage title="Access Pathway" {...sharedProps} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
+        return <MarketplacePage
+          country={country}
+          region={region}
+          role={role}
+          roleLabel={roleLabel}
+          marketplaceRows={marketplaceRows}
+          signals={signals}
+          wantedCount={wantedCount}
+        />
       case 'evidence':
         return <ScaffoldPage title="Evidence & Sources" {...sharedProps} />
       case 'education':
