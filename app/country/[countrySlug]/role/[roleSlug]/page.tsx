@@ -5,7 +5,10 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getMarketplaceRows, getCountryStatusFromDB } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryStatusFromDB } from '@/lib/dashboard/dashboardLiveData'
+import { getListingsBySections } from '@/lib/server/listingsQuery'
+import type { PublicListing } from '@/lib/server/listingsQuery'
+import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +94,63 @@ const DEFAULT_EDU = [
   { icon: '\ud83d\udce6', title: 'Trade & Access', desc: 'Import/export frameworks' },
 ]
 
+
+// ── Marketplace row mapping ───────────────────────────────────────────────────
+// Mirrors the logic in app/dashboard/page.tsx — keep in sync or extract shared.
+
+const VIEW_SECTION_MAP: Record<string, MarketView> = {
+  cannabis_inventory: 'cannabis', export_ready: 'cannabis', export: 'cannabis',
+  import_demand: 'cannabis', genetics: 'cannabis', flower: 'cannabis',
+  extract: 'cannabis', biomass: 'cannabis',
+  cultivation_equipment: 'equipment', processing_equipment: 'equipment',
+  used_surplus: 'equipment', equipment: 'equipment',
+  consumables: 'consumables', packaging: 'consumables',
+  new_products: 'new-products', 'new-products': 'new-products',
+  services: 'services', professional_services: 'services',
+  logistics: 'services', lab_testing: 'services', labs_testing: 'services',
+  distressed_businesses: 'opportunities', distressed_inventory: 'opportunities',
+  business_opportunities: 'opportunities', qualified_access: 'opportunities',
+  wanted_requests: 'wanted', wanted: 'wanted',
+}
+
+function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
+  const view = VIEW_SECTION_MAP[l.marketplace_section] ?? 'cannabis'
+  const s = l.marketplace_section
+  const specClass: MarketRow[0] =
+    s.includes('equipment') || s === 'consumables' || s === 'packaging' ? 'equip'
+    : s.includes('service') || s.includes('logistics') || s.includes('lab') ? 'service'
+    : 'supply'
+  const st = l.seller_type ?? ''
+  const ver   = st === 'verified_seller' || st === 'licensed_operator' ? 'VER:ok'   : 'VER:warn'
+  const proof = st === 'verified_seller' ? 'PROOF:ok' : 'PROOF:warn'
+  const reg   = (l.high_level_specs as Record<string, unknown>)?.regulatory_ready ? 'REG:ok' : 'REG:warn'
+  const trust = [ver, proof, reg, 'PUBLIC'].join('|')
+  const action = view === 'wanted' ? 'Respond to request'
+    : view === 'services' ? 'Request introduction'
+    : 'Request mediated access'
+  const status = l.price_display ?? l.condition ?? (l.is_featured ? 'Featured' : 'Listed')
+  const tags = [l.category, l.subcategory, l.product_type, l.location_country]
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    .slice(0, 4).join('|') || l.category
+  return [view, [specClass, l.category, l.title,
+    l.description || `${l.category} listing`, tags, trust, action, status]]
+}
+
+async function getCountryRoleMarketplaceRows(
+  countryIso2: string | null,
+): Promise<Partial<DashboardMarketplaceRows>> {
+  const allSections = Object.keys(VIEW_SECTION_MAP)
+  const listings = await getListingsBySections(allSections, countryIso2, 56)
+  const buckets: Partial<DashboardMarketplaceRows> = {}
+  for (const l of listings) {
+    const [view, row] = mapListingToRow(l)
+    if (!buckets[view]) buckets[view] = []
+    if (buckets[view]!.length < 8) buckets[view]!.push(row)
+  }
+  return buckets
+}
+
+
 export async function generateMetadata({ params }: { params: Promise<{ countrySlug: string; roleSlug: string }> }): Promise<Metadata> {
   const { countrySlug, roleSlug } = await params
   const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug)
@@ -136,7 +196,7 @@ export default async function CountryRoleCommandCenterPage({ params }: { params:
     getPipelineCounts(),
     getWantedListings(countryIso2),
     getWantedRequestsCount(),
-    getMarketplaceRows(countryIso2, 60),
+    getCountryRoleMarketplaceRows(countryIso2),
     getCountryStatusFromDB(countryIso2),         // ← real DB country record
   ])
 
