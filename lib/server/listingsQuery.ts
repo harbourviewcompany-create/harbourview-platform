@@ -87,6 +87,11 @@ export async function getPublicListingBySlug(slug: string): Promise<PublicListin
  * location_country matches OR region is 'global'. Falls back to unfiltered
  * if the country-scoped query returns nothing.
  */
+// Strict ISO 3166-1 alpha-2 pattern — two uppercase letters only.
+// Validated here so that callers that skip normalisation cannot inject
+// arbitrary PostgREST filter syntax into the `or=` query parameter.
+const ISO2_RE = /^[A-Z]{2}$/
+
 export async function getListingsBySections(
   sections: string[],
   countryIso2?: string | null,
@@ -97,8 +102,15 @@ export async function getListingsBySections(
   const p = baseParams(limit)
   p.set('marketplace_section', `in.(${sections.join(',')})`)
 
-  if (countryIso2) {
-    p.set('or', `(location_country.ilike.${countryIso2},region.eq.global)`)
+  // Guard: only apply the country filter when the code is a valid ISO2.
+  // An invalid/subnational code (e.g. "US-GA") silently falls through to the
+  // unfiltered global query rather than injecting into the PostgREST filter.
+  const safeIso2 = countryIso2 && ISO2_RE.test(countryIso2.trim().toUpperCase())
+    ? countryIso2.trim().toUpperCase()
+    : null
+
+  if (safeIso2) {
+    p.set('or', `(location_country.ilike.${safeIso2},region.eq.global)`)
   }
 
   const rows = await queryListings(p)
