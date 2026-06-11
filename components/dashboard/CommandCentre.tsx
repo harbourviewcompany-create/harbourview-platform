@@ -6,6 +6,9 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/d
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
+import { AccessPathwayPage } from '@/components/dashboard/pages/AccessPathwayPage'
+import { EvidencePage } from '@/components/dashboard/pages/EvidencePage'
+import { WatchlistPage } from '@/components/dashboard/pages/WatchlistPage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -2009,11 +2012,11 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
-        return <ScaffoldPage title="Access Pathway" {...sharedProps} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} countryIntel={countryIntel} pipeline={pipeline} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':
-        return <ScaffoldPage title="Evidence & Sources" {...sharedProps} />
+        return <EvidencePage country={country} region={region} role={roleLabel} countryIntel={countryIntel} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} />
       case 'regulatory':
@@ -2023,7 +2026,7 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} />
       case 'watchlist':
-        return <ScaffoldPage title="Watchlist" {...sharedProps} />
+        return <WatchlistPage country={country} region={region} role={roleLabel} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
       default:
