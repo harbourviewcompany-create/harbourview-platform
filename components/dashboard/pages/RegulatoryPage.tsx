@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import React from 'react'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
@@ -136,7 +137,7 @@ export const RegulatoryPage = React.memo(function RegulatoryPage({
 
           <div className="rp-actions">
             <a href="/compliance" className="rp-cta-outline">Country Compliance Guide</a>
-            <a href="/intelligence" className="rp-cta-outline">Full Intelligence Profile</a>
+            <Link href="/intelligence" className="rp-cta-outline">Full Intelligence Profile</Link>
           </div>
         </div>
 
@@ -144,7 +145,7 @@ export const RegulatoryPage = React.memo(function RegulatoryPage({
         <div className="rp-right">
           <div className="rp-section-head">
             REGULATORY SIGNALS
-            <a href="/signals" className="rp-link rp-link--right">View All →</a>
+            <Link href="/signals" className="rp-link rp-link--right">View All →</Link>
           </div>
 
           {regulatorySignals.length > 0 ? (
@@ -168,7 +169,7 @@ export const RegulatoryPage = React.memo(function RegulatoryPage({
           ) : (
             <div className="rp-no-signals">
               <div>No regulatory signals for this market yet.</div>
-              <a href="/signals" className="rp-link">Browse signal archive →</a>
+              <Link href="/signals" className="rp-link">Browse signal archive →</Link>
             </div>
           )}
 

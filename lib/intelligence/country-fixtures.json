@@ -4,12 +4,26 @@
     "country": "Germany",
     "region": "Europe",
     "statusLabel": "Medical market with adult-use framework and controlled pilot pathway",
-    "pathways": ["medical", "adultUse"],
+    "pathways": [
+      "medical",
+      "adultUse"
+    ],
     "publicSummary": "Priority European access market. Alpha source material indicates a large medical channel, import relevance and controlled adult-use evolution. Public use requires analyst review before presenting country-specific route claims.",
-    "opportunityCategories": ["medical import pathway", "pharmacy channel intelligence", "EU-GMP supply qualification", "pilot-program monitoring"],
-    "tradeRole": ["import market", "buyer demand signal"],
+    "opportunityCategories": [
+      "medical import pathway",
+      "pharmacy channel intelligence",
+      "EU-GMP supply qualification",
+      "pilot-program monitoring"
+    ],
+    "tradeRole": [
+      "import market",
+      "buyer demand signal"
+    ],
     "regulatorLabel": "BfArM / regional authorities",
-    "coordinates": { "lat": 51, "lng": 10 },
+    "coordinates": {
+      "lat": 51,
+      "lng": 10
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -18,12 +32,26 @@
     "country": "Netherlands",
     "region": "Europe",
     "statusLabel": "Medical market with tolerated retail and active export role",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Established pharmaceutical-grade producer and EU export-origin market. Office for Medicinal Cannabis (OMC) oversees GMP cultivation. Active supply relationship with Germany, Italy and other EU medical markets.",
-    "opportunityCategories": ["pharmaceutical-grade supply sourcing", "OMC-compliant producer access", "EU export documentation", "retail compliance monitoring"],
-    "tradeRole": ["export market", "supply origin", "pharmaceutical producer"],
+    "opportunityCategories": [
+      "pharmaceutical-grade supply sourcing",
+      "OMC-compliant producer access",
+      "EU export documentation",
+      "retail compliance monitoring"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin",
+      "pharmaceutical producer"
+    ],
     "regulatorLabel": "Office for Medicinal Cannabis (OMC) / IGJ",
-    "coordinates": { "lat": 52.4, "lng": 5.3 },
+    "coordinates": {
+      "lat": 52.4,
+      "lng": 5.3
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -32,12 +60,23 @@
     "country": "United Kingdom",
     "region": "Europe",
     "statusLabel": "Medical market",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical access market with import and specialist-prescribing relevance. Alpha source content should be treated as directional until regulator and market-pathway fields are revalidated.",
-    "opportunityCategories": ["medical access monitoring", "import pathway review", "clinic and pharmacy channel mapping"],
-    "tradeRole": ["import market"],
+    "opportunityCategories": [
+      "medical access monitoring",
+      "import pathway review",
+      "clinic and pharmacy channel mapping"
+    ],
+    "tradeRole": [
+      "import market"
+    ],
     "regulatorLabel": "Home Office / MHRA",
-    "coordinates": { "lat": 54, "lng": -2 },
+    "coordinates": {
+      "lat": 54,
+      "lng": -2
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -45,13 +84,26 @@
     "slug": "france",
     "country": "France",
     "region": "Europe",
-    "statusLabel": "Medical pilot market — import pathway active",
-    "pathways": ["medical"],
+    "statusLabel": "Medical pilot market \u2014 import pathway active",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical access pilot launched in 2021 and extended into a permanent scheme. Import-dominant market with ANSM oversight. Pharmacy dispensing channel and hospital formulary access are primary commercial routes.",
-    "opportunityCategories": ["medical pilot access", "import supply qualification", "pharmacy channel entry", "ANSM regulatory monitoring"],
-    "tradeRole": ["import market", "buyer demand signal"],
-    "regulatorLabel": "ANSM (Agence nationale de sécurité du médicament)",
-    "coordinates": { "lat": 46.2, "lng": 2.2 },
+    "opportunityCategories": [
+      "medical pilot access",
+      "import supply qualification",
+      "pharmacy channel entry",
+      "ANSM regulatory monitoring"
+    ],
+    "tradeRole": [
+      "import market",
+      "buyer demand signal"
+    ],
+    "regulatorLabel": "ANSM (Agence nationale de s\u00e9curit\u00e9 du m\u00e9dicament)",
+    "coordinates": {
+      "lat": 46.2,
+      "lng": 2.2
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -59,13 +111,26 @@
     "slug": "italy",
     "country": "Italy",
     "region": "Europe",
-    "statusLabel": "Medical market — domestic production and import channel",
-    "pathways": ["medical"],
+    "statusLabel": "Medical market \u2014 domestic production and import channel",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical market with domestic military-licensed cultivation (FM2) and active import programme. Chronic pain and neurological indications drive demand. Import supply from Netherlands and Canada is well-established.",
-    "opportunityCategories": ["import supply access", "pharmacy channel mapping", "FM2 producer engagement", "chronic pain market sizing"],
-    "tradeRole": ["import market", "buyer demand signal"],
+    "opportunityCategories": [
+      "import supply access",
+      "pharmacy channel mapping",
+      "FM2 producer engagement",
+      "chronic pain market sizing"
+    ],
+    "tradeRole": [
+      "import market",
+      "buyer demand signal"
+    ],
     "regulatorLabel": "AIFA (Agenzia Italiana del Farmaco) / Military Chemical Pharmaceutical Institute (FM2)",
-    "coordinates": { "lat": 41.9, "lng": 12.5 },
+    "coordinates": {
+      "lat": 41.9,
+      "lng": 12.5
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -73,13 +138,26 @@
     "slug": "spain",
     "country": "Spain",
     "region": "Europe",
-    "statusLabel": "Emerging — social club framework and medical reform underway",
-    "pathways": ["medical"],
+    "statusLabel": "Emerging \u2014 social club framework and medical reform underway",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Hybrid regulatory environment with social club tolerance at regional level and active medical-access reform. AEMPS oversight. Several regional governments pursuing independent access frameworks. Monitoring focus.",
-    "opportunityCategories": ["regulatory reform tracking", "medical access monitoring", "social club compliance review", "regional policy divergence"],
-    "tradeRole": ["domestic cultivation interest", "import market potential"],
-    "regulatorLabel": "AEMPS (Agencia Española de Medicamentos y Productos Sanitarios)",
-    "coordinates": { "lat": 40.5, "lng": -3.7 },
+    "opportunityCategories": [
+      "regulatory reform tracking",
+      "medical access monitoring",
+      "social club compliance review",
+      "regional policy divergence"
+    ],
+    "tradeRole": [
+      "domestic cultivation interest",
+      "import market potential"
+    ],
+    "regulatorLabel": "AEMPS (Agencia Espa\u00f1ola de Medicamentos y Productos Sanitarios)",
+    "coordinates": {
+      "lat": 40.5,
+      "lng": -3.7
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -88,12 +166,26 @@
     "country": "Switzerland",
     "region": "Europe",
     "statusLabel": "Regulated medical and pilot adult-use framework",
-    "pathways": ["medical", "adultUse"],
+    "pathways": [
+      "medical",
+      "adultUse"
+    ],
     "publicSummary": "Switzerland operates a medical access channel and has an ongoing adult-use pilot in Basel, Berne and Zurich. Swissmedic oversight for medical. Pilot programme open to select registered adult participants. Active supply interest.",
-    "opportunityCategories": ["adult-use pilot monitoring", "medical access pathway", "Swissmedic compliance", "GMP supply qualification for pilot"],
-    "tradeRole": ["import market", "pilot-programme supply interest"],
+    "opportunityCategories": [
+      "adult-use pilot monitoring",
+      "medical access pathway",
+      "Swissmedic compliance",
+      "GMP supply qualification for pilot"
+    ],
+    "tradeRole": [
+      "import market",
+      "pilot-programme supply interest"
+    ],
     "regulatorLabel": "Swissmedic / Federal Office of Public Health (FOPH)",
-    "coordinates": { "lat": 46.8, "lng": 8.2 },
+    "coordinates": {
+      "lat": 46.8,
+      "lng": 8.2
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -102,12 +194,26 @@
     "country": "Portugal",
     "region": "Europe",
     "statusLabel": "Medical market and cultivation/export hub",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical access framework and active cultivation licensing for export. INFARMED oversight. Several licensed outdoor cultivation operations producing EU-GMP flower for European medical supply chains.",
-    "opportunityCategories": ["cultivation licensing review", "EU-GMP export qualification", "INFARMED regulatory monitoring", "medical import pathway"],
-    "tradeRole": ["export market", "supply origin", "cultivation hub"],
-    "regulatorLabel": "INFARMED (Autoridade Nacional do Medicamento e Produtos de Saúde)",
-    "coordinates": { "lat": 39.4, "lng": -8.2 },
+    "opportunityCategories": [
+      "cultivation licensing review",
+      "EU-GMP export qualification",
+      "INFARMED regulatory monitoring",
+      "medical import pathway"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin",
+      "cultivation hub"
+    ],
+    "regulatorLabel": "INFARMED (Autoridade Nacional do Medicamento e Produtos de Sa\u00fade)",
+    "coordinates": {
+      "lat": 39.4,
+      "lng": -8.2
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -115,13 +221,26 @@
     "slug": "poland",
     "country": "Poland",
     "region": "Europe",
-    "statusLabel": "Medical market — growing import demand",
-    "pathways": ["medical"],
+    "statusLabel": "Medical market \u2014 growing import demand",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "One of Europe's fastest-growing medical cannabis markets by patient count. Import-dominant, predominantly flower. GIF/URPL oversight. Pharmacy channel is the primary distribution route.",
-    "opportunityCategories": ["import supply access", "pharmacy channel mapping", "patient-volume sizing", "GMP supply qualification"],
-    "tradeRole": ["import market", "buyer demand signal"],
+    "opportunityCategories": [
+      "import supply access",
+      "pharmacy channel mapping",
+      "patient-volume sizing",
+      "GMP supply qualification"
+    ],
+    "tradeRole": [
+      "import market",
+      "buyer demand signal"
+    ],
     "regulatorLabel": "GIF (General Inspectorate of Pharmacy) / URPL",
-    "coordinates": { "lat": 51.9, "lng": 19.1 },
+    "coordinates": {
+      "lat": 51.9,
+      "lng": 19.1
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -130,12 +249,26 @@
     "country": "Czech Republic",
     "region": "Europe",
     "statusLabel": "Medical market with adult-use reform in progress",
-    "pathways": ["medical", "adultUse"],
+    "pathways": [
+      "medical",
+      "adultUse"
+    ],
     "publicSummary": "Established medical framework and active legislative process toward regulated adult-use market. SUKL oversight. Growing domestic cultivation sector and import pipeline. Monitoring priority market.",
-    "opportunityCategories": ["adult-use reform tracking", "medical supply access", "SUKL regulatory monitoring", "import and domestic supply"],
-    "tradeRole": ["import market", "developing domestic cultivation"],
+    "opportunityCategories": [
+      "adult-use reform tracking",
+      "medical supply access",
+      "SUKL regulatory monitoring",
+      "import and domestic supply"
+    ],
+    "tradeRole": [
+      "import market",
+      "developing domestic cultivation"
+    ],
     "regulatorLabel": "SUKL (State Institute for Drug Control)",
-    "coordinates": { "lat": 49.8, "lng": 15.5 },
+    "coordinates": {
+      "lat": 49.8,
+      "lng": 15.5
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -143,13 +276,28 @@
     "slug": "malta",
     "country": "Malta",
     "region": "Europe",
-    "statusLabel": "Regulated adult-use and medical — EU's first legal framework",
-    "pathways": ["medical", "adultUse"],
+    "statusLabel": "Regulated adult-use and medical \u2014 EU's first legal framework",
+    "pathways": [
+      "medical",
+      "adultUse"
+    ],
     "publicSummary": "First EU member state with a regulated adult-use framework (Cannabis Authority established 2021). Small domestic market with licensed cultivation and social club model. Supply chain and quality compliance monitoring.",
-    "opportunityCategories": ["adult-use supply qualification", "Cannabis Authority compliance", "social club monitoring", "EU framework benchmark"],
-    "tradeRole": ["domestic production", "import market", "regulatory benchmark"],
+    "opportunityCategories": [
+      "adult-use supply qualification",
+      "Cannabis Authority compliance",
+      "social club monitoring",
+      "EU framework benchmark"
+    ],
+    "tradeRole": [
+      "domestic production",
+      "import market",
+      "regulatory benchmark"
+    ],
     "regulatorLabel": "Authority on the Responsible Use of Cannabis (ARUC)",
-    "coordinates": { "lat": 35.9, "lng": 14.5 },
+    "coordinates": {
+      "lat": 35.9,
+      "lng": 14.5
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -158,12 +306,26 @@
     "country": "Canada",
     "region": "North America",
     "statusLabel": "Federal adult-use and medical market",
-    "pathways": ["medical", "adultUse"],
+    "pathways": [
+      "medical",
+      "adultUse"
+    ],
     "publicSummary": "Established regulated producer and export-origin market. Public fixture keeps only high-level market role and excludes non-public commercial counterparties, commercial terms, direct contact details and evidence records.",
-    "opportunityCategories": ["export-origin qualification", "licensed producer screening", "bulk supply discovery", "regulatory export documentation review"],
-    "tradeRole": ["export market", "supply origin"],
+    "opportunityCategories": [
+      "export-origin qualification",
+      "licensed producer screening",
+      "bulk supply discovery",
+      "regulatory export documentation review"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin"
+    ],
     "regulatorLabel": "Health Canada",
-    "coordinates": { "lat": 56, "lng": -106 },
+    "coordinates": {
+      "lat": 56,
+      "lng": -106
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -171,13 +333,27 @@
     "slug": "united-states",
     "country": "United States",
     "region": "North America",
-    "statusLabel": "Federal Schedule I — state-licensed markets active in 38+ states",
-    "pathways": ["medical"],
+    "statusLabel": "Federal Schedule I \u2014 state-licensed markets active in 38+ states",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Complex federal-state regulatory patchwork. Medical markets active in 38+ states; adult-use in 24 states. Federal Schedule I status restricts interstate commerce and banking. Monitoring focus on rescheduling developments and state-by-state entry opportunities.",
-    "opportunityCategories": ["state market entry analysis", "rescheduling monitoring", "multi-state operator intelligence", "banking and financial access"],
-    "tradeRole": ["domestic market", "export-origin (state-limited)", "equipment export"],
+    "opportunityCategories": [
+      "state market entry analysis",
+      "rescheduling monitoring",
+      "multi-state operator intelligence",
+      "banking and financial access"
+    ],
+    "tradeRole": [
+      "domestic market",
+      "export-origin (state-limited)",
+      "equipment export"
+    ],
     "regulatorLabel": "DEA / FDA (federal) + state-level cannabis boards",
-    "coordinates": { "lat": 38, "lng": -97 },
+    "coordinates": {
+      "lat": 38,
+      "lng": -97
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -185,13 +361,26 @@
     "slug": "mexico",
     "country": "Mexico",
     "region": "North America",
-    "statusLabel": "Medical market — adult-use framework pending",
-    "pathways": ["medical"],
+    "statusLabel": "Medical market \u2014 adult-use framework pending",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical regulation in force since 2017. Adult-use legislation passed Supreme Court threshold but implementing regulation remains outstanding. COFEPRIS oversight. Large domestic consumption and regional supply interest.",
-    "opportunityCategories": ["adult-use regulatory tracking", "COFEPRIS compliance monitoring", "medical supply access", "Latin America supply chain"],
-    "tradeRole": ["import market", "developing domestic production"],
+    "opportunityCategories": [
+      "adult-use regulatory tracking",
+      "COFEPRIS compliance monitoring",
+      "medical supply access",
+      "Latin America supply chain"
+    ],
+    "tradeRole": [
+      "import market",
+      "developing domestic production"
+    ],
     "regulatorLabel": "COFEPRIS (Federal Commission for Protection against Sanitary Risks)",
-    "coordinates": { "lat": 23.6, "lng": -102.6 },
+    "coordinates": {
+      "lat": 23.6,
+      "lng": -102.6
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "Signals - Cannabis Policy South America.html"
   },
@@ -200,12 +389,24 @@
     "country": "Colombia",
     "region": "South America",
     "statusLabel": "Medical and cultivation/export pathway",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Regional cultivation and export-origin candidate. Alpha signal material is quarantined from public output pending evidence review and date-stamped policy validation.",
-    "opportunityCategories": ["cultivation pathway review", "export-origin screening", "Latin America policy monitoring"],
-    "tradeRole": ["export market", "supply origin"],
+    "opportunityCategories": [
+      "cultivation pathway review",
+      "export-origin screening",
+      "Latin America policy monitoring"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin"
+    ],
     "regulatorLabel": "Ministry of Health / INVIMA",
-    "coordinates": { "lat": 4.6, "lng": -74.1 },
+    "coordinates": {
+      "lat": 4.6,
+      "lng": -74.1
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "Signals - Cannabis Policy South America.html"
   },
@@ -214,12 +415,24 @@
     "country": "Brazil",
     "region": "South America",
     "statusLabel": "Medical access market",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Large medical-access market with evolving policy and import relevance. Keep public presentation conservative until current regulator and product-access rules are rechecked.",
-    "opportunityCategories": ["medical access monitoring", "import pathway review", "policy change tracking"],
-    "tradeRole": ["import market", "buyer demand signal"],
+    "opportunityCategories": [
+      "medical access monitoring",
+      "import pathway review",
+      "policy change tracking"
+    ],
+    "tradeRole": [
+      "import market",
+      "buyer demand signal"
+    ],
     "regulatorLabel": "ANVISA",
-    "coordinates": { "lat": -14.2, "lng": -51.9 },
+    "coordinates": {
+      "lat": -14.2,
+      "lng": -51.9
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "Signals - Cannabis Policy South America.html"
   },
@@ -228,12 +441,24 @@
     "country": "Australia",
     "region": "Oceania",
     "statusLabel": "Medical market",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical cannabis market with import and domestic production relevance. Alpha source records should be normalized before use in public country pages.",
-    "opportunityCategories": ["medical market access", "import pathway review", "operator screening"],
-    "tradeRole": ["import market", "domestic production"],
+    "opportunityCategories": [
+      "medical market access",
+      "import pathway review",
+      "operator screening"
+    ],
+    "tradeRole": [
+      "import market",
+      "domestic production"
+    ],
     "regulatorLabel": "TGA / ODC",
-    "coordinates": { "lat": -25, "lng": 133 },
+    "coordinates": {
+      "lat": -25,
+      "lng": 133
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -241,13 +466,26 @@
     "slug": "new-zealand",
     "country": "New Zealand",
     "region": "Oceania",
-    "statusLabel": "Medical market — import dominant",
-    "pathways": ["medical"],
+    "statusLabel": "Medical market \u2014 import dominant",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical cannabis framework active since 2020. Medsafe oversight. Import-dominant with growing domestic licensed production. Adult-use referendum rejected in 2020; medical remains the active channel.",
-    "opportunityCategories": ["medical import pathway", "Medsafe compliance", "domestic producer screening", "pharmacy channel mapping"],
-    "tradeRole": ["import market", "domestic production (developing)"],
+    "opportunityCategories": [
+      "medical import pathway",
+      "Medsafe compliance",
+      "domestic producer screening",
+      "pharmacy channel mapping"
+    ],
+    "tradeRole": [
+      "import market",
+      "domestic production (developing)"
+    ],
     "regulatorLabel": "Medsafe / Ministry of Health",
-    "coordinates": { "lat": -40.9, "lng": 174.9 },
+    "coordinates": {
+      "lat": -40.9,
+      "lng": 174.9
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -255,13 +493,27 @@
     "slug": "israel",
     "country": "Israel",
     "region": "Middle East",
-    "statusLabel": "Established medical market — export programme active",
-    "pathways": ["medical"],
+    "statusLabel": "Established medical market \u2014 export programme active",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "One of the world's most developed medical cannabis ecosystems. IMCA oversight. Active export licensing programme for GMP-certified producers. High-quality flower and derivative exports to Europe and beyond.",
-    "opportunityCategories": ["export supply qualification", "IMCA compliance review", "GMP producer access", "medical market supply intelligence"],
-    "tradeRole": ["export market", "supply origin", "R&D and innovation hub"],
+    "opportunityCategories": [
+      "export supply qualification",
+      "IMCA compliance review",
+      "GMP producer access",
+      "medical market supply intelligence"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin",
+      "R&D and innovation hub"
+    ],
     "regulatorLabel": "Israeli Medical Cannabis Agency (IMCA) / Ministry of Health",
-    "coordinates": { "lat": 31.5, "lng": 35 },
+    "coordinates": {
+      "lat": 31.5,
+      "lng": 35
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -269,13 +521,26 @@
     "slug": "thailand",
     "country": "Thailand",
     "region": "Southeast Asia",
-    "statusLabel": "Medical market — evolving adult-use regulatory posture",
-    "pathways": ["medical"],
+    "statusLabel": "Medical market \u2014 evolving adult-use regulatory posture",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Thailand delisted cannabis from narcotics in 2022 and has since operated a mixed medical and commercial framework. Policy direction has shifted with subsequent governments. Monitoring priority for Asia-Pacific strategy.",
-    "opportunityCategories": ["regulatory posture monitoring", "medical supply access", "Asia-Pacific entry analysis", "hospitality and wellness channel"],
-    "tradeRole": ["import market", "developing domestic production"],
+    "opportunityCategories": [
+      "regulatory posture monitoring",
+      "medical supply access",
+      "Asia-Pacific entry analysis",
+      "hospitality and wellness channel"
+    ],
+    "tradeRole": [
+      "import market",
+      "developing domestic production"
+    ],
     "regulatorLabel": "Food and Drug Administration (Thai FDA) / Ministry of Public Health",
-    "coordinates": { "lat": 15.9, "lng": 100.9 },
+    "coordinates": {
+      "lat": 15.9,
+      "lng": 100.9
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -283,13 +548,26 @@
     "slug": "japan",
     "country": "Japan",
     "region": "Asia Pacific",
-    "statusLabel": "Medical access reform — market opening under review",
-    "pathways": ["medical"],
+    "statusLabel": "Medical access reform \u2014 market opening under review",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Japan amended the Cannabis Control Act in 2023 to permit medical cannabis use of non-psychoactive derivatives. Strict regulatory environment. PMDA oversight. Large addressable patient population makes this a long-term priority market.",
-    "opportunityCategories": ["medical reform monitoring", "PMDA regulatory tracking", "market entry feasibility", "CBD and derivative import pathway"],
-    "tradeRole": ["import market potential", "regulatory development tracking"],
+    "opportunityCategories": [
+      "medical reform monitoring",
+      "PMDA regulatory tracking",
+      "market entry feasibility",
+      "CBD and derivative import pathway"
+    ],
+    "tradeRole": [
+      "import market potential",
+      "regulatory development tracking"
+    ],
     "regulatorLabel": "PMDA (Pharmaceuticals and Medical Devices Agency) / Ministry of Health, Labour and Welfare",
-    "coordinates": { "lat": 36.2, "lng": 138.3 },
+    "coordinates": {
+      "lat": 36.2,
+      "lng": 138.3
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -297,13 +575,27 @@
     "slug": "south-africa",
     "country": "South Africa",
     "region": "Africa",
-    "statusLabel": "Medical and cultivation framework — export potential",
-    "pathways": ["medical"],
+    "statusLabel": "Medical and cultivation framework \u2014 export potential",
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "South Africa has licensed medical cultivation and an emerging export programme. SAHPRA oversight. Favourable climate for outdoor cultivation at competitive cost. Priority market for Africa-region strategy and global supply sourcing.",
-    "opportunityCategories": ["cultivation licensing review", "SAHPRA compliance monitoring", "export-origin qualification", "Africa market entry analysis"],
-    "tradeRole": ["export market", "supply origin", "cultivation hub"],
+    "opportunityCategories": [
+      "cultivation licensing review",
+      "SAHPRA compliance monitoring",
+      "export-origin qualification",
+      "Africa market entry analysis"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin",
+      "cultivation hub"
+    ],
     "regulatorLabel": "SAHPRA (South African Health Products Regulatory Authority)",
-    "coordinates": { "lat": -30.6, "lng": 22.9 },
+    "coordinates": {
+      "lat": -30.6,
+      "lng": 22.9
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -311,13 +603,26 @@
     "slug": "nigeria",
     "country": "Nigeria",
     "region": "Africa",
-    "statusLabel": "Emerging — reform signals active",
-    "pathways": [],
+    "statusLabel": "Emerging \u2014 reform signals active",
+    "pathways": [
+      "prohibited"
+    ],
     "publicSummary": "West Africa's largest economy. NAFDAC oversight. Traditional cultivation regions well-established. Early-stage reform signals from health and trade ministries. Monitoring priority for long-term Africa market development.",
-    "opportunityCategories": ["regulatory reform tracking", "NAFDAC monitoring", "Africa entry feasibility", "traditional cultivation region mapping"],
-    "tradeRole": ["domestic cultivation potential", "long-term market development"],
+    "opportunityCategories": [
+      "regulatory reform tracking",
+      "NAFDAC monitoring",
+      "Africa entry feasibility",
+      "traditional cultivation region mapping"
+    ],
+    "tradeRole": [
+      "domestic cultivation potential",
+      "long-term market development"
+    ],
     "regulatorLabel": "NAFDAC (National Agency for Food and Drug Administration and Control)",
-    "coordinates": { "lat": 9.1, "lng": 8.7 },
+    "coordinates": {
+      "lat": 9.1,
+      "lng": 8.7
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -325,13 +630,26 @@
     "slug": "ghana",
     "country": "Ghana",
     "region": "Africa",
-    "statusLabel": "Emerging — reform and industrial hemp framework",
-    "pathways": [],
+    "statusLabel": "Emerging \u2014 reform and industrial hemp framework",
+    "pathways": [
+      "prohibited"
+    ],
     "publicSummary": "Ghana has an industrial hemp licensing framework and active discussions around medical access. FDA Ghana oversight. Strategic position for West Africa supply chain development.",
-    "opportunityCategories": ["industrial hemp framework review", "FDA Ghana monitoring", "West Africa supply chain", "medical access reform tracking"],
-    "tradeRole": ["developing domestic production", "industrial hemp export potential"],
+    "opportunityCategories": [
+      "industrial hemp framework review",
+      "FDA Ghana monitoring",
+      "West Africa supply chain",
+      "medical access reform tracking"
+    ],
+    "tradeRole": [
+      "developing domestic production",
+      "industrial hemp export potential"
+    ],
     "regulatorLabel": "FDA Ghana (Food and Drugs Authority)",
-    "coordinates": { "lat": 7.9, "lng": -1.0 },
+    "coordinates": {
+      "lat": 7.9,
+      "lng": -1.0
+    },
     "reviewStatus": "needsAnalystReview",
     "sourcePrototype": "harbourview_global_cannabis_guidebook_v2_2026.html"
   },
@@ -340,12 +658,26 @@
     "country": "Denmark",
     "region": "Europe",
     "statusLabel": "Medical pilot market and active cultivation/export hub",
-    "pathways": ["medical"],
+    "pathways": [
+      "medical"
+    ],
     "publicSummary": "Medical pilot programme since 2018. Active licensed cultivation with significant GMP flower production for domestic use and export. Several producers holding EU-GMP certification. Pharmacy distribution channel primary route.",
-    "opportunityCategories": ["EU-GMP producer access", "export supply qualification", "medical pilot monitoring", "pharmacy channel mapping"],
-    "tradeRole": ["export market", "supply origin", "pharmaceutical production hub"],
+    "opportunityCategories": [
+      "EU-GMP producer access",
+      "export supply qualification",
+      "medical pilot monitoring",
+      "pharmacy channel mapping"
+    ],
+    "tradeRole": [
+      "export market",
+      "supply origin",
+      "pharmaceutical production hub"
+    ],
     "regulatorLabel": "Danish Medicines Agency (Laegemiddelstyrelsen)",
-    "coordinates": { "lat": 56.3, "lng": 9.5 },
+    "coordinates": {
+      "lat": 56.3,
+      "lng": 9.5
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   },
@@ -353,13 +685,27 @@
     "slug": "luxembourg",
     "country": "Luxembourg",
     "region": "Europe",
-    "statusLabel": "Regulated adult-use — EU second regulated market",
-    "pathways": ["medical", "adultUse"],
+    "statusLabel": "Regulated adult-use \u2014 EU second regulated market",
+    "pathways": [
+      "medical",
+      "adultUse"
+    ],
     "publicSummary": "Luxembourg launched a home cultivation and personal use framework in 2023 with ongoing development toward retail. Small market but significant as the second EU member state to regulate adult use. Regulatory benchmark monitoring.",
-    "opportunityCategories": ["adult-use framework monitoring", "retail licensing development", "EU regulatory benchmark", "supply chain entry planning"],
-    "tradeRole": ["developing domestic market", "import market potential"],
+    "opportunityCategories": [
+      "adult-use framework monitoring",
+      "retail licensing development",
+      "EU regulatory benchmark",
+      "supply chain entry planning"
+    ],
+    "tradeRole": [
+      "developing domestic market",
+      "import market potential"
+    ],
     "regulatorLabel": "Ministry of Health / Ministry of Justice",
-    "coordinates": { "lat": 49.8, "lng": 6.1 },
+    "coordinates": {
+      "lat": 49.8,
+      "lng": 6.1
+    },
     "reviewStatus": "publicSafeSeed",
     "sourcePrototype": "harbourview_unified_v4_compact_top.html"
   }

@@ -7,7 +7,6 @@
     "dev": "next dev",
     "start": "next start",
     "lint": "next lint",
-    "lint:docs": "find docs -name \"*.md\" -print0 | xargs -0 grep -lP \"[\x00-\x08\x0e-\x1f]\" && echo \"Encoding issues found\" || echo \"Docs clean\"",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:globe-router && npm run test:country-role && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",

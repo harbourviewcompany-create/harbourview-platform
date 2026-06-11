@@ -17,7 +17,7 @@ const SLUG_TO_ISO2: Record<string, string> = {
   'israel': 'IL', 'czechia': 'CZ', 'czech-republic': 'CZ', 'denmark': 'DK',
   'switzerland': 'CH', 'new-zealand': 'NZ', 'colombia': 'CO', 'thailand': 'TH',
   'malta': 'MT', 'luxembourg': 'LU', 'south-africa': 'ZA', 'uruguay': 'UY',
-  'mexico': 'MX', 'japan': 'JP', 'thailand': 'TH',
+  'mexico': 'MX', 'japan': 'JP',
 }
 
 const SLUG_ALIASES: Record<string, string> = {

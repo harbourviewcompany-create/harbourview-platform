@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import React, { useState } from 'react'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -56,7 +57,7 @@ export const SignalsPage = React.memo(function SignalsPage({
           <h1 className="sp-heading">Intelligence Signals</h1>
           <p className="sp-sub">{country.label} · {signals.length} signals this period</p>
         </div>
-        <a href="/signals" className="sp-link-btn">Full Signal Report →</a>
+        <Link href="/signals" className="sp-link-btn">Full Signal Report →</Link>
       </div>
 
       {/* Lane filter */}
@@ -83,7 +84,7 @@ export const SignalsPage = React.memo(function SignalsPage({
           <div className="sp-empty">
             <div className="sp-empty-icon">≋</div>
             <div>No signals in this lane for {country.label}</div>
-            <a href="/signals" className="sp-link-btn" style={{marginTop:8}}>Browse All Signals →</a>
+            <Link href="/signals" className="sp-link-btn" style={{marginTop:8}}>Browse All Signals →</Link>
           </div>
         ) : filtered.map((sig, i) => {
           const sigLane = laneFromType(sig.type)
@@ -125,7 +126,7 @@ export const SignalsPage = React.memo(function SignalsPage({
       {signals.length > 0 && (
         <div className="sp-footer">
           <span className="sp-footer-note">Signals are reviewed and classified by the Harbourview intelligence team.</span>
-          <a href="/intelligence" className="sp-link-btn">Intelligence Platform →</a>
+          <Link href="/intelligence" className="sp-link-btn">Intelligence Platform →</Link>
         </div>
       )}
     </div>
