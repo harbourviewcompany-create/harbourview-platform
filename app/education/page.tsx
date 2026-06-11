@@ -1,125 +1,57 @@
 import type { Metadata } from 'next'
 import InstitutionalPage from '@/components/institutional/InstitutionalPage'
-import { PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
+import { PublicSection, SectionHeader } from '@/components/PublicUi'
 import { hubPages } from '@/lib/institutional/content'
+import { EDUCATION_ROLE_LABELS } from '@/lib/education/country-role'
 
 export const metadata: Metadata = {
-  title: 'Education',
-  description:
-    'Non-promotional professional education for clinical, pharmacy, quality, commercial, regulatory and institutional stakeholders.',
-  openGraph: {
-    title: 'Harbourview Education',
-    description: 'Non-promotional professional education for regulated cannabis operators, quality professionals, importers, distributors and institutional participants.',
-  },
+  title: 'Global Education Intelligence | Harbourview',
+  description: 'Country-aware, role-aware and source-controlled education architecture for regulated-market stakeholders.',
 }
 
-const educationSpineRoutes = [
-  {
-    title: 'Compliance Readiness',
-    href: '/education/compliance-readiness',
-    body: 'Prepare evidence, escalation triggers and review questions without treating public education as legal or regulatory advice.',
-  },
-  {
-    title: 'Export & Import Readiness',
-    href: '/education/export-import-readiness',
-    body: 'Organize exporter, importer, product, batch, logistics and route assumptions before qualified review.',
-  },
-  {
-    title: 'GMP Education',
-    href: '/education/gmp',
-    body: 'Good Manufacturing Practice foundations, documentation readiness and quality evidence categories for cannabis operators and exporters.',
-  },
-  {
-    title: 'GACP Education',
-    href: '/education/gacp',
-    body: 'Agricultural and collection practice controls, cultivation documentation and export readiness for cannabis cultivators.',
-  },
-  {
-    title: 'GDP Education',
-    href: '/education/gdp',
-    body: 'Distribution controls, cold chain management, import documentation and controlled-drug handling for logistics and distribution professionals.',
-  },
-  {
-    title: 'Pharmaceutical & Medical Cannabis',
-    href: '/education/pharmaceutical-medical-cannabis',
-    body: 'Frame professional medical cannabis education without clinical directions, patient-specific instructions or promotional product claims.',
-  },
-  {
-    title: 'Pharmacy Education',
-    href: '/education/pharmacy',
-    body: 'Dispensing channel concepts, controlled-handling requirements and supply-chain context for pharmacy professionals and importers.',
-  },
-  {
-    title: 'Laboratory & Testing',
-    href: '/education/testing',
-    body: 'CoA literacy, testing method concepts, contaminant categories and quality documentation evaluation for procurement and supply teams.',
-  },
-  {
-    title: 'Quality & Compliance',
-    href: '/education/quality-compliance',
-    body: 'The full quality system map — GACP, GMP, GDP, CoA and audit readiness — across the regulated cannabis supply chain.',
-  },
-  {
-    title: 'Importer & Distributor',
-    href: '/education/importer-distributor',
-    body: 'Role definitions, authorisation requirements, route documentation and onboarding readiness for import and distribution participants.',
-  },
-  {
-    title: 'Cultivation & Production',
-    href: '/education/cultivation-production',
-    body: 'Production controls, post-harvest discipline, batch documentation and export evidence for cultivators and licensed producers.',
-  },
-  {
-    title: 'Procurement',
-    href: '/education/procurement',
-    body: 'Supplier evaluation, documentation review, buyer readiness and due diligence concepts for regulated cannabis procurement teams.',
-  },
-  {
-    title: 'Pharmacovigilance & Safety',
-    href: '/education/pharmacovigilance',
-    body: 'Adverse event concepts, product complaint handling, recall readiness and post-market safety obligations for operators and quality teams.',
-  },
-  {
-    title: 'Regulatory & Policy',
-    href: '/education/policy',
-    body: 'Regulatory frameworks, licensing models, market conduct standards and policy concepts for regulated cannabis market participants.',
-  },
-  {
-    title: 'Cannabis History Library',
-    href: '/education/cannabis-history-library',
-    body: 'Source-led library for policy evolution, market development, quality systems and institutional milestones across regulated cannabis.',
-  },
-  {
-    title: 'Professional Briefings',
-    href: '/education/briefings',
-    body: 'Controlled professional briefings prepared for specific audience contexts — reviewed before preparation and distributed with a scope statement.',
-  },
-  {
-    title: 'Review Required Topics',
-    href: '/education/review-required',
-    body: 'Topics that require qualified review before Harbourview can respond — and how to route them through the appropriate intake path.',
-  },
-  {
-    title: 'Regulatory Change Tracker',
-    href: '/policy-standards/regulatory-change-tracker',
-    body: 'Route regulatory-change monitoring requests while separating signals from legal outcomes or market-access guarantees.',
-  },
-]
+const publicModules = [
+  ['Start with Harbourview Education', 'Choose country and role context before moving into deeper education modules.'],
+  ['Product Forms and Routes', 'Public-safe overview rails for product form literacy.'],
+  ['Quality Standards Primer', 'GMP, GACP, GDP, COA and audit-readiness education structure for regulated supply chains.'],
+  ['Supplier Readiness', 'Documentation, listing-readiness and review-gated marketplace education for suppliers.'],
+  ['Buyer and Importer Education', 'Procurement, supplier-screening and import-readiness education held behind source review where needed.'],
+  ['Source Methodology', 'How Harbourview separates public summaries from private evidence and source-control work.'],
+] as const
+
+const lockedModules = ['Professional tools', 'Reference tables', 'Country-specific access pathways', 'Import/export and licensing guides', 'Specialized workflows', 'Condition evidence maps'] as const
 
 export default function EducationPage() {
   return (
     <>
-      <InstitutionalPage page={hubPages.education} sectionId="education-tracks" />
+      <InstitutionalPage page={hubPages.education} sectionId="education-intelligence" />
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="HAR-40 knowledge spine" title="Public education routes now support deeper professional readiness workflows.">
-          These public surfaces keep education useful while avoiding legal advice, medical advice, investment advice, compliance guarantees or unverified current regulatory claims.
+        <SectionHeader eyebrow="Education intelligence foundation" title="Country-aware education, role-aware modules and source-controlled public summaries.">
+          Harbourview Education is being structured as a claim-controlled education layer. Public pages use safe summaries only; professional, jurisdiction-specific and restricted material stays locked until reviewed source rows support publication.
         </SectionHeader>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {educationSpineRoutes.map((route) => (
-            <PublicLinkCard key={route.href} href={route.href} title={route.title} eyebrow="Education route">
-              {route.body}
-            </PublicLinkCard>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-5">
+            <p className="text-xs uppercase tracking-[0.25em] text-[#C6A55A]">Country selector</p>
+            <p className="mt-3 text-sm leading-6 text-[#F5F1E8]/70">Global by default. Country and subjurisdiction education unlock only after source-backed review.</p>
+          </div>
+          <div className="rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-5">
+            <p className="text-xs uppercase tracking-[0.25em] text-[#C6A55A]">Role selector</p>
+            <p className="mt-3 text-sm leading-6 text-[#F5F1E8]/70">Roles include {Object.values(EDUCATION_ROLE_LABELS).slice(0, 7).join(', ')} and additional commercial, policy and admin contexts.</p>
+          </div>
+        </div>
+        <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {publicModules.map(([title, body]) => (
+            <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-[#C6A55A]">Public-safe module</p>
+              <h2 className="mt-3 text-lg font-semibold text-[#F5F1E8]">{title}</h2>
+              <p className="mt-2 text-sm leading-6 text-[#F5F1E8]/65">{body}</p>
+            </article>
           ))}
+        </div>
+        <div className="mt-8 rounded-2xl border border-amber-300/25 bg-amber-950/10 p-5">
+          <p className="text-xs uppercase tracking-[0.25em] text-amber-200">Locked until source review</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {lockedModules.map((item) => <div key={item} className="rounded-xl border border-amber-200/15 bg-black/15 px-4 py-3 text-sm text-[#F5F1E8]/70">{item}</div>)}
+          </div>
         </div>
       </PublicSection>
     </>
