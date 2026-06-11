@@ -1,160 +1,94 @@
 import 'server-only'
 import type { PublicRegulatorySignal, RegulatorySignalType } from './types'
 
-// ── Map public.signals.cat → RegulatorySignalType ─────────────────────────────
-const CAT_TO_TYPE: Record<string, RegulatorySignalType> = {
-  GAZETTE:        'regulatory_change',
-  PARLIAMENTARY:  'policy_announcement',
-  PRESS_RELEASE:  'regulatory_change',
-  LICENSING:      'licensing_market_access',
-  SOURCE_ENGINE:  'regulatory_change',
-  MDB_PROJECT:    'regulatory_change',
-  regulatory:     'regulatory_change',
-  market:         'licensing_market_access',
-  financial:      'regulatory_change',
-  intelligence:   'regulatory_change',
-  supply:         'import_export_pathway',
-}
-
-// Map public.signals row → PublicRegulatorySignal
-// Actual signals table schema: id, date, cat, pri, score, headline, summary,
-//   source, url, verification, tier, lang, company, country, in_network,
-//   lane_r, lane_e, lane_t, top_lane, query_pack, commercial_impact,
-//   reviewed, action, created_at
-function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null {
+function mapPublishedRegulatorySignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null {
   const headline = typeof r.headline === 'string' ? r.headline.trim() : null
-  if (!headline) return null
+  const publicSummary = typeof r.public_summary === 'string' ? r.public_summary.trim() : null
+  const publicImplication = typeof r.public_implication === 'string' ? r.public_implication.trim() : null
 
-  const id = typeof r.id === 'string' ? r.id : String(r.id ?? '')
-  const score  = typeof r.score === 'number' ? r.score : 0
-  const impact = typeof r.commercial_impact === 'string' ? r.commercial_impact.toLowerCase() : 'low'
-  const cat    = typeof r.cat === 'string' ? r.cat : 'SOURCE_ENGINE'
-  const dateStr = typeof r.date === 'string' ? r.date.slice(0, 10)
-                : typeof r.created_at === 'string' ? r.created_at.slice(0, 10)
-                : new Date().toISOString().slice(0, 10)
+  if (!headline || !publicSummary || !publicImplication) return null
 
   const confidence: PublicRegulatorySignal['confidence'] =
-    score >= 80 ? 'high' : score >= 55 ? 'medium' : 'low'
+    r.confidence === 'official_confirmed' || r.confidence === 'high' || r.confidence === 'medium' || r.confidence === 'low'
+      ? r.confidence
+      : 'medium'
 
   const impactLevel: PublicRegulatorySignal['impact_level'] =
-    impact === 'critical' ? 'critical'
-    : impact === 'high'   ? 'high'
-    : impact === 'medium' ? 'moderate'
-    : impact === 'moderate' ? 'moderate'
-    : 'low'
+    r.impact_level === 'critical' || r.impact_level === 'high' || r.impact_level === 'moderate' || r.impact_level === 'low'
+      ? r.impact_level
+      : 'moderate'
+
+  const sourceTier: PublicRegulatorySignal['source_tier'] =
+    r.source_tier === 'tier_1_official' || r.source_tier === 'tier_2_professional' || r.source_tier === 'tier_3_secondary'
+      ? r.source_tier
+      : 'tier_1_official'
 
   return {
-    id,
-    slug: id,
+    id: typeof r.id === 'string' ? r.id : String(r.id ?? ''),
+    slug: typeof r.slug === 'string' ? r.slug : String(r.id ?? ''),
     headline,
-    signal_type: CAT_TO_TYPE[cat] ?? 'regulatory_change',
+    signal_type: (typeof r.signal_type === 'string' ? r.signal_type : 'regulatory_change') as RegulatorySignalType,
     confidence,
     impact_level: impactLevel,
-    country_code: null,
-    country_name: typeof r.country === 'string' ? r.country : null,
-    region: null,
-    jurisdiction: '',
-    regulator_name: typeof r.source === 'string' ? r.source : '',
-    signal_date: dateStr,
-    source_tier: 'tier_2_professional',
-    source_type: 'specialist_publication' as const,
-    canonical_source_url: typeof r.url === 'string' ? r.url : null,
-    public_summary: typeof r.summary === 'string' ? r.summary : 'No summary available.',
-    public_implication: 'Review this signal for commercial relevance to your jurisdiction.',
-    published_at: dateStr,
-    last_reviewed_at: dateStr,
+    country_code: typeof r.country_code === 'string' ? r.country_code : null,
+    country_name: typeof r.country_name === 'string' ? r.country_name : null,
+    region: typeof r.region === 'string' ? r.region : null,
+    jurisdiction: typeof r.jurisdiction === 'string' ? r.jurisdiction : null,
+    regulator_name: typeof r.regulator_name === 'string' ? r.regulator_name : null,
+    signal_date: typeof r.signal_date === 'string' ? r.signal_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    source_tier: sourceTier,
+    source_type: typeof r.source_type === 'string' ? (r.source_type as PublicRegulatorySignal['source_type']) : 'regulator',
+    canonical_source_url: typeof r.canonical_source_url === 'string' ? r.canonical_source_url : null,
+    public_summary: publicSummary,
+    public_implication: publicImplication,
+    published_at: typeof r.published_at === 'string' ? r.published_at : null,
+    last_reviewed_at: typeof r.last_reviewed_at === 'string' ? r.last_reviewed_at : null,
   }
 }
 
-// ── Anon-key query against public.signals ─────────────────────────────────────
-// Uses NEXT_PUBLIC_ vars so this works on public-facing pages without
-// requiring SUPABASE_SERVICE_ROLE_KEY or HARBOURVIEW_ADMIN_REVIEW_ENABLED
-async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
+async function fetchPublishedRegulatorySignals(): Promise<PublicRegulatorySignal[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
 
   try {
     const params = new URLSearchParams({
-      select: 'id,date,cat,headline,summary,score,country,commercial_impact,source,url,tier,created_at',
-      reviewed: 'eq.true',
-      order:    'date.desc',
-      limit:    '50',
+      select: 'id,slug,headline,signal_type,confidence,impact_level,country_code,country_name,region,jurisdiction,regulator_name,signal_date,source_tier,source_type,canonical_source_url,public_summary,public_implication,published_at,last_reviewed_at',
+      order: 'signal_date.desc',
+      limit: '50',
     })
-    const res = await fetch(`${url}/rest/v1/signals?${params}`, {
+
+    const res = await fetch(`${url}/rest/v1/regulatory_signals.public_signals?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
       next: { revalidate: 300 },
     })
+
     if (!res.ok) return []
     const rows: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(rows)) return []
-    return rows.map(mapSignalRow).filter((s): s is PublicRegulatorySignal => s !== null)
+    return rows.map(mapPublishedRegulatorySignalRow).filter((signal): signal is PublicRegulatorySignal => signal !== null)
   } catch {
     return []
   }
 }
 
-// ── Fallback fixtures ─────────────────────────────────────────────────────────
-const FALLBACK_PUBLIC_SIGNALS: PublicRegulatorySignal[] = [
-  {
-    id: 'fallback-de-001', slug: 'germany-import-pathway-review',
-    headline: 'Germany import pathway review activity continues under controlled GMP expectations.',
-    signal_type: 'import_export_pathway', confidence: 'medium', impact_level: 'moderate',
-    country_code: 'DE', country_name: 'Germany', region: 'Europe', jurisdiction: 'Federal',
-    regulator_name: 'BfArM', signal_date: '2026-05-01', source_tier: 'tier_1_official',
-    source_type: 'health_authority', canonical_source_url: 'https://www.bfarm.de',
-    public_summary: 'Public-safe review of import pathway conditions and quality expectations relevant to regulated medical supply access.',
-    public_implication: 'Commercial participants should maintain validated quality and route-review discipline before engagement.',
-    published_at: '2026-05-01', last_reviewed_at: '2026-05-02',
-  },
-  {
-    id: 'fallback-au-001', slug: 'australia-patient-access-review',
-    headline: 'Australia patient-access pathway review highlights continued prescription oversight.',
-    signal_type: 'prescription_patient_access', confidence: 'medium', impact_level: 'moderate',
-    country_code: 'AU', country_name: 'Australia', region: 'Oceania', jurisdiction: 'Federal',
-    regulator_name: 'TGA', signal_date: '2026-04-28', source_tier: 'tier_1_official',
-    source_type: 'health_authority', canonical_source_url: 'https://www.tga.gov.au',
-    public_summary: 'Reviewed public summary focused on prescription access frameworks and compliance-sensitive market participation.',
-    public_implication: 'Operators should confirm jurisdiction-specific access controls and prescribing requirements.',
-    published_at: '2026-04-29', last_reviewed_at: '2026-04-30',
-  },
-  {
-    id: 'fallback-pl-001', slug: 'poland-market-access-monitoring',
-    headline: 'Poland market-access monitoring remains under publication-controlled review.',
-    signal_type: 'licensing_market_access', confidence: 'low', impact_level: 'moderate',
-    country_code: 'PL', country_name: 'Poland', region: 'Europe', jurisdiction: 'National',
-    regulator_name: 'Health Ministry', signal_date: '2026-04-20', source_tier: 'tier_2_professional',
-    source_type: 'professional_body', canonical_source_url: 'https://www.gov.pl',
-    public_summary: 'Controlled publication summary regarding reviewed licensing and commercial pathway considerations.',
-    public_implication: 'Participants should avoid assuming route certainty based on preliminary market visibility.',
-    published_at: '2026-04-22', last_reviewed_at: '2026-04-23',
-  },
-]
-
 export type PublicRegulatorySignalFeed = {
   signals: PublicRegulatorySignal[]
-  source: 'live-approved' | 'fallback-fixture'
+  source: 'live-approved'
   publicLabel: string
   reviewBoundary: string
 }
 
 export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatorySignalFeed> {
-  const published = await fetchReviewedSignals()
-
-  if (published.length) {
-    return {
-      signals: published,
-      source: 'live-approved',
-      publicLabel: 'Published public-safe signals',
-      reviewBoundary: 'Signals sourced from reviewed entries in the public signals table. Private captures, analyst notes and internal review material remain excluded.',
-    }
-  }
+  const published = await fetchPublishedRegulatorySignals()
 
   return {
-    signals: FALLBACK_PUBLIC_SIGNALS,
-    source: 'fallback-fixture',
-    publicLabel: 'Fallback signal orientation',
-    reviewBoundary: 'No reviewed signals are currently available. These entries are fallback orientation only and should not be treated as live intelligence or current route clearance.',
+    signals: published,
+    source: 'live-approved',
+    publicLabel: published.length ? 'Published public-safe regulatory signals' : 'No reviewed regulatory signal available',
+    reviewBoundary: published.length
+      ? 'Signals are sourced only from regulatory_signals.public_signals. Private captures, raw text, storage paths, watcher errors, analyst notes and internal review material are excluded.'
+      : 'No approved public-safe regulatory signal is currently available. Fresh source checks may still be running, failing, or awaiting admin review.',
   }
 }
 
