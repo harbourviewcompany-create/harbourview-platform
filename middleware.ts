@@ -16,17 +16,19 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
-// Routes that require authentication
 const PROTECTED_PREFIXES = ['/account', '/vault', '/admin']
+const PUBLIC_ADMIN_AUTH_PATHS = ['/admin/login', '/admin/login/submit']
+
+function isPublicAdminAuthPath(pathname: string) {
+  return PUBLIC_ADMIN_AUTH_PATHS.includes(pathname)
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Normalize trailing slash
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 
-  // Legacy redirects
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
     '/marketplace/wanted-requests': '/marketplace/wanted',
@@ -40,8 +42,7 @@ export async function middleware(request: NextRequest) {
     return applyNoStoreHeaders(NextResponse.redirect(url, 308))
   }
 
-  // Auth guard for protected routes
-  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
+  const isProtected = !isPublicAdminAuthPath(normalizedPathname) && PROTECTED_PREFIXES.some((prefix) =>
     normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
   )
 
@@ -111,6 +112,5 @@ export const config = {
     '/compliance/:path*',
     '/admin/:path*',
     '/commercial-intelligence',
-    '/country/:path*',
   ],
 }
