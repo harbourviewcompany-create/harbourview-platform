@@ -1,5 +1,12 @@
 import 'server-only'
+import { unstable_noStore as noStore } from 'next/cache'
 import type { PublicRegulatorySignal, RegulatorySignalType } from './types'
+
+const EMPTY_DATE = 'Review queue'
+
+function safeDate(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.slice(0, 10) : EMPTY_DATE
+}
 
 function mapPublishedRegulatorySignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null {
   const headline = typeof r.headline === 'string' ? r.headline.trim() : null
@@ -35,7 +42,7 @@ function mapPublishedRegulatorySignalRow(r: Record<string, unknown>): PublicRegu
     region: typeof r.region === 'string' ? r.region : null,
     jurisdiction: typeof r.jurisdiction === 'string' ? r.jurisdiction : null,
     regulator_name: typeof r.regulator_name === 'string' ? r.regulator_name : null,
-    signal_date: typeof r.signal_date === 'string' ? r.signal_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    signal_date: safeDate(r.signal_date),
     source_tier: sourceTier,
     source_type: typeof r.source_type === 'string' ? (r.source_type as PublicRegulatorySignal['source_type']) : 'regulator',
     canonical_source_url: typeof r.canonical_source_url === 'string' ? r.canonical_source_url : null,
@@ -47,8 +54,10 @@ function mapPublishedRegulatorySignalRow(r: Record<string, unknown>): PublicRegu
 }
 
 async function fetchPublishedRegulatorySignals(): Promise<PublicRegulatorySignal[]> {
+  noStore()
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   if (!url || !key) return []
 
   try {
@@ -60,13 +69,15 @@ async function fetchPublishedRegulatorySignals(): Promise<PublicRegulatorySignal
 
     const res = await fetch(`${url}/rest/v1/regulatory_signals.public_signals?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
-      next: { revalidate: 300 },
+      cache: 'no-store',
     })
 
     if (!res.ok) return []
-    const rows: Record<string, unknown>[] = await res.json()
+    const rows: unknown = await res.json()
     if (!Array.isArray(rows)) return []
-    return rows.map(mapPublishedRegulatorySignalRow).filter((signal): signal is PublicRegulatorySignal => signal !== null)
+    return rows
+      .map((row) => mapPublishedRegulatorySignalRow(row as Record<string, unknown>))
+      .filter((signal): signal is PublicRegulatorySignal => signal !== null)
   } catch {
     return []
   }
@@ -80,6 +91,7 @@ export type PublicRegulatorySignalFeed = {
 }
 
 export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatorySignalFeed> {
+  noStore()
   const published = await fetchPublishedRegulatorySignals()
 
   return {
@@ -93,31 +105,36 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
 }
 
 export async function getPublicRegulatorySignals(): Promise<PublicRegulatorySignal[]> {
+  noStore()
   const feed = await getPublicRegulatorySignalFeed()
   return feed.signals
 }
 
 export async function getPublicRegulatorySignalBySlug(slug: string): Promise<PublicRegulatorySignal | null> {
+  noStore()
   const signals = await getPublicRegulatorySignals()
-  return signals.find(s => s.slug === slug) ?? null
+  return signals.find((s) => s.slug === slug) ?? null
 }
 
 export async function getPublicRegulatorySignalsByCountry(country: string): Promise<PublicRegulatorySignal[]> {
+  noStore()
   const normalized = country.toLowerCase()
   const signals = await getPublicRegulatorySignals()
-  return signals.filter(s =>
+  return signals.filter((s) =>
     [s.country_code, s.country_name]
       .filter(Boolean)
-      .some(v => v!.toLowerCase().replace(/\s+/g, '-') === normalized)
+      .some((v) => v!.toLowerCase().replace(/\s+/g, '-') === normalized)
   )
 }
 
 export async function getPublicRegulatorySignalsByType(type: string): Promise<PublicRegulatorySignal[]> {
+  noStore()
   const signals = await getPublicRegulatorySignals()
-  return signals.filter(s => s.signal_type === type as RegulatorySignalType)
+  return signals.filter((s) => s.signal_type === type as RegulatorySignalType)
 }
 
 export async function getPublicRegulatorySignalCountries() {
+  noStore()
   const signals = await getPublicRegulatorySignals()
   const countries = new Map<string, { countryCode: string | null; countryName: string; region: string | null; count: number; latestSignalDate: string }>()
 
@@ -137,6 +154,7 @@ export async function getPublicRegulatorySignalCountries() {
 }
 
 export async function getPublicRegulatorySignalTypes() {
+  noStore()
   const signals = await getPublicRegulatorySignals()
   const types = new Map<string, { type: RegulatorySignalType; count: number; latestSignalDate: string }>()
 
