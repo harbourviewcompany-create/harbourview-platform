@@ -31,9 +31,7 @@ is_known_duplicate_project_id() {
   local candidate="${1:-}"
 
   case "$candidate" in
-    # Current non-canonical WURX Harbourview project.
     prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ|\
-    # Historical duplicate/legacy Harbourview project ids kept for safety.
     prj_zlwnDnFFs7rJa42QQn1cElFRYY7E|\
     prj_JeAGIr5pjCSSwfAAXaqjXPceDrSW)
       return 0
