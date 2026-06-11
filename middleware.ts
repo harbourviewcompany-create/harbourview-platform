@@ -46,6 +46,13 @@ export async function middleware(request: NextRequest) {
     normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
   )
 
+  const isProtectedAdmin =
+    isProtected && (normalizedPathname === '/admin' || normalizedPathname.startsWith('/admin/'))
+
+  if (isProtectedAdmin) {
+    return applyNoStoreHeaders(NextResponse.next())
+  }
+
   if (isProtected) {
     let supabaseUrl = ''
     let supabasePublicKey = ''
