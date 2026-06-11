@@ -16,16 +16,8 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
-// Routes that require authentication.
-// /dashboard requires login — it is an operator console, not a public marketing surface.
-const PROTECTED_PREFIXES = ['/account', '/vault', '/admin', '/dashboard']
-
-// Legacy redirects
-const LEGACY_REDIRECTS: Record<string, string> = {
-  '/marketplace/submit-listing': '/marketplace/sell',
-  '/marketplace/wanted-requests': '/marketplace/wanted',
-  '/commercial-intelligence': '/intelligence',
-}
+// Routes that require authentication
+const PROTECTED_PREFIXES = ['/account', '/vault', '/admin']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -34,7 +26,13 @@ export async function middleware(request: NextRequest) {
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 
-  const redirectTo = LEGACY_REDIRECTS[normalizedPathname]
+  // Legacy redirects
+  const legacyRedirects: Record<string, string> = {
+    '/marketplace/submit-listing': '/marketplace/sell',
+    '/marketplace/wanted-requests': '/marketplace/wanted',
+    '/commercial-intelligence': '/intelligence',
+  }
+  const redirectTo = legacyRedirects[normalizedPathname]
   if (redirectTo) {
     const url = request.nextUrl.clone()
     url.pathname = redirectTo
@@ -113,5 +111,6 @@ export const config = {
     '/compliance/:path*',
     '/admin/:path*',
     '/commercial-intelligence',
+    '/country/:path*',
   ],
 }
