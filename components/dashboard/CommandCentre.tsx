@@ -6,7 +6,6 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/d
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
-import { MarketplacePage } from './pages/MarketplacePage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,126 +63,16 @@ const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
-// ── Utilities ─────────────────────────────────────────────────────────────────
-
-/** ISO 3166-1 alpha-2 → unicode flag emoji. Handles sub-national (CA-ON → CA) and GLOBAL fallback */
-function isoToFlag(iso2: string): string {
-  if (!iso2 || iso2 === 'GLOBAL') return '🌐'
-  const code = iso2.includes('-') ? iso2.split('-')[0] : iso2
-  if (code.length !== 2) return '🌐'
-  return [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 0x41)).join('')
-}
-
-/** URL-safe country slug — mirrors server-side canonicalSlug */
-function toCountrySlug(label: string): string {
-  return label.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    .replace(/&/g, '-and-').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
-
-// Confidence bars derived from data_completeness + field coverage:
-// stub  → ~17%  placeholder | seed → ~65% seeded | other → ~83% reviewed
-function deriveConfidenceBars(intel: CountryIntelProfile | null | undefined): { label: string; pct: number }[] {
-  const c  = intel?.data_completeness
-  const ok = intel?.medical_status && intel.medical_status !== 'unknown'
-  const r  = !!intel?.regulator_label
-  if (!ok || c === 'stub') return [
-    { label: 'Regulatory', pct: 20 }, { label: 'Market Data', pct: 16 },
-    { label: 'Access Pathway', pct: 14 }, { label: 'Local Intel', pct: 12 },
-    { label: 'Education Content', pct: 22 },
-  ]
-  if (c === 'seed') return [
-    { label: 'Regulatory', pct: r ? 72 : 62 }, { label: 'Market Data', pct: 66 },
-    { label: 'Access Pathway', pct: 60 },       { label: 'Local Intel', pct: 54 },
-    { label: 'Education Content', pct: 70 },
-  ]
-  return [
-    { label: 'Regulatory', pct: r ? 88 : 80 }, { label: 'Market Data', pct: 82 },
-    { label: 'Access Pathway', pct: 78 },       { label: 'Local Intel', pct: 76 },
-    { label: 'Education Content', pct: 90 },
-  ]
-}
+const EVIDENCE_CONFIDENCE_BARS = [
+  { label: 'Regulatory',        pct: 85 },
+  { label: 'Market Data',       pct: 80 },
+  { label: 'Access Pathway',    pct: 78 },
+  { label: 'Local Intel',       pct: 76 },
+  { label: 'Education Content', pct: 90 },
+]
 
 function overallConfidence(bars: { pct: number }[]) {
   return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
-}
-
-// ── Status field derivation ────────────────────────────────────────────────────
-// Derives 5 BriefingRoom status cards from live DB fields.
-// Value universe: open|active|regulated|limited|emerging|restricted|unknown
-// 'unknown' / null → returns '—' clean empty state (84 stub countries)
-
-type StatusField = { icon: string; label: string; value: string }
-
-function deriveProgramStatus(i: CountryIntelProfile | null | undefined): StatusField {
-  switch (i?.medical_status) {
-    case 'open':       return { icon: '↑', label: 'Program Status', value: 'Unrestricted Medical'  }
-    case 'active':     return { icon: '◎', label: 'Program Status', value: 'Active Medical Program' }
-    case 'limited':    return { icon: '◑', label: 'Program Status', value: 'Limited Access Program' }
-    case 'emerging':   return { icon: '◑', label: 'Program Status', value: 'Emerging Program'       }
-    case 'restricted': return { icon: '↓', label: 'Program Status', value: 'Restricted Access'      }
-    default:           return { icon: '○', label: 'Program Status', value: '—'                      }
-  }
-}
-
-function derivePatientAccess(i: CountryIntelProfile | null | undefined): StatusField {
-  const m = i?.medical_status, p = i?.import_status
-  if (m === 'open')                           return { icon: '↑', label: 'Patient Access', value: 'Unrestricted' }
-  if (m === 'active' && p === 'active')       return { icon: '↑', label: 'Patient Access', value: 'Increasing'   }
-  if (m === 'active' && p === 'limited')      return { icon: '◐', label: 'Patient Access', value: 'Moderate'     }
-  if (m === 'active' && p === 'restricted')   return { icon: '◑', label: 'Patient Access', value: 'Regulated'    }
-  if (m === 'active')                         return { icon: '◐', label: 'Patient Access', value: 'Moderate'     }
-  if (m === 'limited')                        return { icon: '◑', label: 'Patient Access', value: 'Limited'      }
-  if (m === 'emerging')                       return { icon: '◑', label: 'Patient Access', value: 'Developing'   }
-  if (m === 'restricted')                     return { icon: '↓', label: 'Patient Access', value: 'Restricted'   }
-  return                                             { icon: '○', label: 'Patient Access', value: '—'            }
-}
-
-function derivePhysicianAccess(i: CountryIntelProfile | null | undefined): StatusField {
-  const m = i?.medical_status, k = i?.market_access_status
-  if (m === 'open')                                  return { icon: '↑', label: 'Physician Access', value: 'Open'        }
-  if (m === 'active' && (k === 'open'||k === 'active')) return { icon: '↑', label: 'Physician Access', value: 'Open'     }
-  if (m === 'active' && k === 'regulated')           return { icon: '◐', label: 'Physician Access', value: 'Moderate'    }
-  if (m === 'active' && k === 'limited')             return { icon: '◑', label: 'Physician Access', value: 'Limited'     }
-  if (m === 'active' && k === 'emerging')            return { icon: '◑', label: 'Physician Access', value: 'Developing'  }
-  if (m === 'active')                                return { icon: '◐', label: 'Physician Access', value: 'Moderate'    }
-  if (m === 'limited')                               return { icon: '◑', label: 'Physician Access', value: 'Limited'     }
-  if (m === 'emerging')                              return { icon: '◑', label: 'Physician Access', value: 'Developing'  }
-  if (m === 'restricted')                            return { icon: '↓', label: 'Physician Access', value: 'Restricted'  }
-  return                                                    { icon: '○', label: 'Physician Access', value: '—'           }
-}
-
-function deriveMarketDynamics(i: CountryIntelProfile | null | undefined): StatusField {
-  const k = i?.market_access_status, s = i?.opportunity_score ?? 0
-  if (k === 'open')                    return { icon: '⊛', label: 'Market Dynamics', value: 'Established' }
-  if (k === 'active' && s >= 75)       return { icon: '⊛', label: 'Market Dynamics', value: 'Established' }
-  if (k === 'active')                  return { icon: '⊛', label: 'Market Dynamics', value: 'Maturing'    }
-  if (k === 'regulated' && s >= 60)    return { icon: '⊛', label: 'Market Dynamics', value: 'Maturing'    }
-  if (k === 'regulated' && s >= 35)    return { icon: '⊛', label: 'Market Dynamics', value: 'Developing'  }
-  if (k === 'regulated')               return { icon: '⊛', label: 'Market Dynamics', value: 'Developing'  }
-  if (k === 'limited')                 return { icon: '⊛', label: 'Market Dynamics', value: 'Limited'     }
-  if (k === 'emerging')                return { icon: '⊛', label: 'Market Dynamics', value: 'Emerging'    }
-  if (k === 'restricted')              return { icon: '⊛', label: 'Market Dynamics', value: 'Nascent'     }
-  return                                      { icon: '○', label: 'Market Dynamics', value: '—'           }
-}
-
-function deriveRegulatoryOutlook(i: CountryIntelProfile | null | undefined): StatusField {
-  const SKIP = new Set(['draft','pending','unknown','stub','unverified',''])
-  const rev = i?.review_status
-  const label = rev && !SKIP.has(rev) ? rev[0].toUpperCase() + rev.slice(1).replace(/_/g,' ') : null
-  if (label) return { icon: '⊙', label: 'Regulatory Outlook', value: label }
-  switch (i?.market_access_status) {
-    case 'open':       return { icon: '⊙', label: 'Regulatory Outlook', value: 'Established' }
-    case 'active':     return { icon: '⊙', label: 'Regulatory Outlook', value: 'Stable'      }
-    case 'regulated':  return { icon: '⊙', label: 'Regulatory Outlook', value: 'Stable'      }
-    case 'limited':    return { icon: '⊙', label: 'Regulatory Outlook', value: 'Evolving'    }
-    case 'emerging':   return { icon: '⊙', label: 'Regulatory Outlook', value: 'Evolving'    }
-    case 'restricted': return { icon: '⊙', label: 'Regulatory Outlook', value: 'Restrictive' }
-    default:           return { icon: '○', label: 'Regulatory Outlook', value: '—'           }
-  }
-}
-
-function deriveStatusFields(i: CountryIntelProfile | null | undefined): StatusField[] {
-  return [deriveProgramStatus(i), derivePatientAccess(i), derivePhysicianAccess(i), deriveMarketDynamics(i), deriveRegulatoryOutlook(i)]
 }
 
 const BriefingRoom = React.memo(function BriefingRoom({
@@ -192,19 +81,15 @@ const BriefingRoom = React.memo(function BriefingRoom({
   countryIntel,
   signals,
   onCountrySelect,
-  profileHref,
 }: {
   country:          { iso2: string; label: string }
   region:           string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
   onCountrySelect?: (iso2: string) => void
-  profileHref:      string
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
-  const confidenceBars = useMemo(() => deriveConfidenceBars(countryIntel), [countryIntel])
-  const overall        = overallConfidence(confidenceBars)
-  const statusFields   = useMemo(() => deriveStatusFields(countryIntel), [countryIntel])
+  const overall = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -221,13 +106,10 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{isoToFlag(country.iso2)}</div>
+          <div className="cc-jx-flag">{country.iso2 === 'US' ? '🇺🇸' : country.iso2 === 'CA' ? '🇨🇦' : '🌐'}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}
-            {countryIntel?.regulator_label && (
-              <div className="cc-jx-regulator">Regulated by {countryIntel.regulator_label}</div>
-            )}
           </div>
         </div>
 
@@ -236,18 +118,44 @@ const BriefingRoom = React.memo(function BriefingRoom({
         )}
 
         <div className="cc-jx-fields">
-          {statusFields.map(({ icon, label, value }: StatusField) => (
-            <div key={label} className={"cc-jx-field" + (value === '—' ? ' cc-jx-field--empty' : '')}>
-              <span className="cc-jx-field-icon">{icon}</span>
-              <div>
-                <small>{label}</small>
-                <strong>{value}</strong>
-              </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">◎</span>
+            <div>
+              <small>Program Status</small>
+              <strong>Active Medical Program</strong>
             </div>
-          ))}
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">↑</span>
+            <div>
+              <small>Patient Access</small>
+              <strong>Increasing</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">◐</span>
+            <div>
+              <small>Physician Access</small>
+              <strong>Moderate</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">⊛</span>
+            <div>
+              <small>Market Dynamics</small>
+              <strong>Maturing</strong>
+            </div>
+          </div>
+          <div className="cc-jx-field">
+            <span className="cc-jx-field-icon">⊙</span>
+            <div>
+              <small>Regulatory Outlook</small>
+              <strong>Stable</strong>
+            </div>
+          </div>
         </div>
 
-        <a href={profileHref} className="cc-jx-btn">View Full Jurisdiction Profile →</a>
+        <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
       </aside>
 
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
@@ -313,7 +221,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               </div>
             </div>
             <div className="cc-confidence-bars">
-              {confidenceBars.map(bar => (
+              {EVIDENCE_CONFIDENCE_BARS.map(bar => (
                 <div key={bar.label} className="cc-conf-bar-row">
                   <span className="cc-conf-bar-lbl">{bar.label}</span>
                   <div className="cc-conf-bar-track">
@@ -386,6 +294,19 @@ function deriveSignalGroup(title: string): SignalGroup {
   if (/retail|dispensary|demand|patient|consumer|pos|sales/.test(t)) return 'MARKET ACCESS'
   if (/study|evidence|research|clinical|terpene|data/.test(t)) return 'EVIDENCE UPDATES'
   return 'REGULATORY'
+}
+
+function derivePolicyArea(title: string): string {
+  const t = title.toLowerCase()
+  if (/tax/.test(t)) return 'Taxation'
+  if (/packag|label/.test(t)) return 'Packaging & Labeling'
+  if (/advertis/.test(t)) return 'Marketing & Advertising'
+  if (/record|retention/.test(t)) return 'Recordkeeping & Compliance'
+  if (/test|lab|coa|microbial|pesticide/.test(t)) return 'Laboratory Testing & QC'
+  if (/licen|permit|cap|moratorium/.test(t)) return 'Licensing & Permits'
+  if (/zon|local|municipal/.test(t)) return 'Local Zoning & Ordinance'
+  if (/track|trace|system|software/.test(t)) return 'Track & Trace'
+  return 'Regulatory & Policy'
 }
 
 function deriveImpact(conf: number): 'High' | 'Medium' | 'Low' {
@@ -603,7 +524,222 @@ const SignalsPage = React.memo(function SignalsPage({
   )
 })
 
-// ── Education helpers ──────────────────────────────────────────────────────────
+// ── Marketplace helpers ────────────────────────────────────────────────────────
+
+const MKT_TABS: { id: MarketView; label: string }[] = [
+  { id: 'cannabis',      label: 'Listings' },
+  { id: 'wanted',        label: 'Wanted Demand' },
+  { id: 'opportunities', label: 'Buyer Routes' },
+  { id: 'equipment',     label: 'Equipment' },
+  { id: 'consumables',   label: 'Consumables' },
+  { id: 'services',      label: 'Services' },
+  { id: 'new-products',  label: 'Opportunities' },
+]
+
+// MarketRow tuple field indices
+const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7 } as const
+
+// ── MarketplacePage ────────────────────────────────────────────────────────────
+
+const MarketplacePage = React.memo(function MarketplacePage({
+  country, region, role, marketplaceRows, wantedListings, wantedCount,
+}: {
+  country:         { iso2: string; label: string }
+  region:          string
+  role:            string
+  marketplaceRows?: Partial<DashboardMarketplaceRows>
+  wantedListings?:  WantedListing[]
+  wantedCount?:     number
+}) {
+  const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
+  const [search,    setSearch]    = useState('')
+
+  const rows = useMemo<MarketRow[]>(() => {
+    let r: MarketRow[] = marketplaceRows?.[activeTab] ?? []
+    if (activeTab === 'wanted' && wantedListings?.length) {
+      r = wantedListings.map(w => [
+        w.title,
+        w.summary ?? '',
+        w.location_country ?? country.iso2,
+        'Wanted Demand',
+        'Verified',
+        'Direct',
+        '72',
+        w.id,
+      ] as MarketRow)
+    }
+    if (search.trim()) {
+      const lq = search.toLowerCase()
+      r = r.filter(row => row[MR.TITLE].toLowerCase().includes(lq) || row[MR.DESC].toLowerCase().includes(lq))
+    }
+    return r
+  }, [activeTab, marketplaceRows, wantedListings, search, country])
+
+  const ACCESS_REQS = [
+    { label: `${country.label} Licence`,                  ok: true,  detail: 'Verified · Expires Feb 14, 2026' },
+    { label: 'Facility Registration & Site Plan',         ok: true,  detail: 'Verified · May 23, 2025' },
+    { label: 'Standard Operating Procedures',            ok: false, detail: 'Pending' },
+    { label: 'Traceability System Documentation',        ok: false, detail: 'Pending' },
+  ]
+  const VERIFY_GAPS = [
+    { label: 'EU-GMP Certification',   detail: 'Required for EU export routes' },
+    { label: 'Pest Management Plan',   detail: 'Requires export-level detail' },
+    { label: 'Residual Testing SOP',   detail: 'Needs method verification' },
+  ]
+  const COUNTERPARTY = [
+    { label: 'Harbourview Due Diligence',    detail: 'Completed May 20, 2025' },
+    { label: 'Sanctions & Watchlist Screen', detail: 'Clear · May 20, 2025' },
+    { label: 'Financial Standing',           detail: 'Good' },
+  ]
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      {/* ── Main table ──────────────────────────────────────── */}
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
+          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview's market access team.</p>
+        </div>
+
+        <div className="cc-mkt-tabs">
+          {MKT_TABS.map(t => (
+            <button key={t.id}
+              className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
+              onClick={() => setActiveTab(t.id)}
+            >
+              {t.label}
+              {t.id==='wanted' && wantedCount ? <span className="cc-tab-badge">{wantedCount}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="cc-mkt-filters">
+          <div className="cc-mkt-search-wrap">
+            <span>⌕</span>
+            <input className="cc-mkt-search" placeholder="Search listings…" value={search} onChange={e=>setSearch(e.target.value)} />
+          </div>
+          <button className="cc-mkt-filter-btn">≡ Filters</button>
+        </div>
+
+        {rows.length > 0 ? (
+          <>
+            <div className="cc-mkt-table">
+              <div className="cc-mkt-thead">
+                <span className="cc-mkt-th opp-col">OPPORTUNITY</span>
+                <span className="cc-mkt-th">CATEGORY</span>
+                <span className="cc-mkt-th">JURISDICTION</span>
+                <span className="cc-mkt-th">VERIFICATION</span>
+                <span className="cc-mkt-th">ACCESS ROUTE</span>
+                <span className="cc-mkt-th">EVIDENCE</span>
+                <span className="cc-mkt-th">ACTIONS</span>
+              </div>
+              {rows.slice(0,10).map((row, i) => {
+                const conf = parseInt(row[MR.CONFIDENCE])||72
+                const ok   = row[MR.VERIFICATION]?.toLowerCase()==='verified'
+                return (
+                  <div key={row[MR.ID]||String(i)} className="cc-mkt-row">
+                    <div className="cc-mkt-cell opp-col">
+                      <div className="cc-opp-icon">◎</div>
+                      <div className="cc-opp-body">
+                        <strong>{row[MR.TITLE]}</strong>
+                        {row[MR.DESC] && <p>{row[MR.DESC].slice(0,80)}{row[MR.DESC].length>80?'…':''}</p>}
+                        {row[MR.CATEGORY] && <span className="cc-opp-tag">{row[MR.CATEGORY]}</span>}
+                      </div>
+                    </div>
+                    <div className="cc-mkt-cell">{row[MR.CATEGORY]||'—'}</div>
+                    <div className="cc-mkt-cell cc-juris-cell">
+                      <span>{row[MR.JURISDICTION]||country.iso2}</span>
+                      {ok && <span className="cc-export-tag">Export-Ready</span>}
+                    </div>
+                    <div className="cc-mkt-cell">
+                      <span className={`cc-verify-badge ${ok?'ok':'pending'}`}>
+                        {ok?'✓':'○'} {row[MR.VERIFICATION]||'Pending Review'}
+                      </span>
+                    </div>
+                    <div className="cc-mkt-cell">{row[MR.ACCESS_ROUTE]||'Mediated'}</div>
+                    <div className="cc-mkt-cell">
+                      <svg viewBox="0 0 36 36" className="cc-mini-donut">
+                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4"/>
+                        <circle cx="18" cy="18" r="14" fill="none"
+                          stroke={conf>=80?'var(--cc-green)':conf>=65?'var(--cc-amber)':'var(--cc-red)'}
+                          strokeWidth="4"
+                          strokeDasharray={`${87.96*conf/100} 87.96`}
+                          strokeLinecap="round" transform="rotate(-90 18 18)"
+                        />
+                        <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{conf}%</text>
+                      </svg>
+                    </div>
+                    <div className="cc-mkt-cell cc-acts-col">
+                      <button className="cc-act-primary">Request access</button>
+                      <button className="cc-act-sec">Watch</button>
+                      <button className="cc-act-sec">Requirements</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="cc-feed-footer">
+              <span>Showing {Math.min(rows.length,10)} of {rows.length} opportunities</span>
+            </div>
+          </>
+        ) : (
+          <div className="cc-empty-state">
+            <span>⊞</span>
+            <p>No {MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} listings for {country.label}{region?` · ${region}`:''}.{' '}
+              {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────── */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">MARKETPLACE ACCESS REQUIREMENTS</div>
+          {ACCESS_REQS.map(r => (
+            <div key={r.label} className="cc-req-row">
+              <span className={`cc-req-icon ${r.ok?'ok':'pending'}`}>{r.ok?'✓':'○'}</span>
+              <div>
+                <strong>{r.label}</strong>
+                <small>{r.detail}</small>
+              </div>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all requirements →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">VERIFICATION GAPS</div>
+          {VERIFY_GAPS.map(g => (
+            <div key={g.label} className="cc-req-row">
+              <span className="cc-req-icon gap">△</span>
+              <div>
+                <strong>{g.label}</strong>
+                <small>{g.detail}</small>
+              </div>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Address gaps →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">COUNTERPARTY STATUS</div>
+          {COUNTERPARTY.map(c => (
+            <div key={c.label} className="cc-req-row">
+              <span className="cc-req-icon ok">✓</span>
+              <div>
+                <strong>{c.label}</strong>
+                <small>{c.detail}</small>
+              </div>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View counterparty profile →</a>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
 // ── Education helpers ──────────────────────────────────────────────────────────
 
 type LearningModule = {
@@ -760,7 +896,7 @@ const EducationPage = React.memo(function EducationPage({
               <div className="cc-nba-card-icon">◎</div>
               <div>
                 <strong>Continue {nextModule.title}</strong>
-                <small>You&apos;re {nextModule.progress}% complete</small>
+                <small>You're {nextModule.progress}% complete</small>
                 <p>Finishing this module unlocks the Compliance step and accelerates pathway progression.</p>
               </div>
             </div>
@@ -778,6 +914,540 @@ const EducationPage = React.memo(function EducationPage({
               <button className="cc-nba-btn" style={{marginTop:'8px'}}>Book now</button>
             </div>
           </div>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+// ── RegulatoryWatchPage ───────────────────────────────────────────────────────
+
+const RW_TABS = [
+  { id: 'recent',        label: 'Recent Changes' },
+  { id: 'pending',       label: 'Pending Reform' },
+  { id: 'consultations', label: 'Consultations' },
+  { id: 'enforcement',   label: 'Enforcement / Restrictions' },
+  { id: 'comparable',    label: 'Comparable Jurisdictions' },
+  { id: 'international', label: 'International Movement' },
+]
+
+const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
+  country, region, role, signals,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+  signals: DashboardSignal[]
+}) {
+  const [activeTab, setActiveTab] = useState('recent')
+
+  const regSignals = useMemo(() =>
+    signals.filter(s => {
+      const g = deriveSignalGroup(s.title)
+      return g === 'REGULATORY' || g === 'TESTING & COMPLIANCE'
+    }),
+    [signals],
+  )
+
+  const lastChange = regSignals[0] ?? signals[0] ?? null
+
+  const RW_CONF_BARS = [
+    { label: 'Regulatory',       pct: 85 },
+    { label: 'Market Data',      pct: 80 },
+    { label: 'Legal Intel',      pct: 75 },
+    { label: 'Education Content',pct: 50 },
+  ]
+  const rwOverall = Math.round(RW_CONF_BARS.reduce((s, b) => s + b.pct, 0) / RW_CONF_BARS.length)
+
+  const WATCH_TRIGGERS = [
+    { label: 'Rulemaking (DOH / OMMU)', on: true  },
+    { label: 'Legislation & Bills',     on: true  },
+    { label: 'Taxation Changes',        on: true  },
+    { label: 'Enforcement Actions',     on: true  },
+    { label: 'Local Ordinances',        on: false },
+    { label: 'Federal Developments',    on: false },
+  ]
+  const COMPARABLE = [
+    { label: 'California',    status: 'Stable',        active: false },
+    { label: 'Michigan',      status: 'Reform Active', active: true  },
+    { label: 'Massachusetts', status: 'Reform Active', active: true  },
+    { label: 'Colorado',      status: 'Stable',        active: false },
+    { label: 'Ontario, Canada',status: 'Stable',       active: false },
+  ]
+  const POLICY_QS = [
+    'Will local option sales tax authority expand?',
+    'How will packaging rules align with child-resistant standards?',
+    'Could advertising restrictions broaden to digital channels?',
+  ]
+  const SOURCE_GAPS = [
+    { label: 'Local Ordinance Texts',           level: 'medium' },
+    { label: 'Enforcement Disposition Data',    level: 'high'   },
+    { label: 'Court Decisions (Appellate)',     level: 'medium' },
+  ]
+
+  const displaySignals = regSignals.length > 0 ? regSignals : signals
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>{country.label}{role ? ` ${role}` : ''} Regulatory Watch</h2>
+          <p>Continuous monitoring of regulatory and policy developments that may impact your{role ? ` ${role.toLowerCase()}` : ''} operations.</p>
+        </div>
+
+        {/* ── Summary bar ───────────────────────────────────── */}
+        <div className="cc-rw-summary">
+          <div className="cc-rw-card">
+            <div className="cc-rw-card-lbl">◎ POSTURE BRIEF</div>
+            <strong className="cc-rw-posture-title">Stable with targeted reform activity.</strong>
+            <p>Operational environment remains stable with measured progress on facility rules and testing standards. Monitor taxation and packaging proposals.</p>
+          </div>
+
+          <div className="cc-rw-card">
+            <div className="cc-rw-card-lbl">● OPERATING STATE</div>
+            <div className="cc-rw-operating">
+              <span className="cc-status-dot" />
+              <strong>Stable</strong>
+            </div>
+            <p>No immediate material risk changes identified.</p>
+          </div>
+
+          <div className="cc-rw-card cc-rw-conf-card">
+            <div className="cc-rw-card-lbl">EVIDENCE CONFIDENCE</div>
+            <div className="cc-rw-conf-inner">
+              <div className="cc-rw-donut-wrap">
+                <svg viewBox="0 0 52 52" className="cc-donut-svg">
+                  <circle cx="26" cy="26" r="20" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="5"/>
+                  <circle cx="26" cy="26" r="20" fill="none" stroke="var(--cc-gold)" strokeWidth="5"
+                    strokeDasharray={`${125.7 * rwOverall / 100} 125.7`}
+                    strokeLinecap="round" transform="rotate(-90 26 26)"
+                  />
+                </svg>
+                <div className="cc-donut-label">
+                  <strong>{rwOverall}%</strong>
+                </div>
+              </div>
+              <div className="cc-rw-conf-bars">
+                {RW_CONF_BARS.map(b => (
+                  <div key={b.label} className="cc-conf-mini-row">
+                    <span>{b.label}</span>
+                    <div className="cc-conf-bar-track"><div className="cc-conf-bar-fill" style={{width:`${b.pct}%`}}/></div>
+                    <span className="cc-conf-bar-pct">{b.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View change brief →</a>
+          </div>
+
+          <div className="cc-rw-card">
+            <div className="cc-rw-card-lbl">📅 LAST MEANINGFUL CHANGE</div>
+            {lastChange ? (
+              <>
+                <strong className="cc-rw-change-date">{lastChange.timeAgo}</strong>
+                <p>{lastChange.title.slice(0, 80)}{lastChange.title.length > 80 ? '…' : ''}</p>
+              </>
+            ) : (
+              <p>No recent changes recorded.</p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Tabs ──────────────────────────────────────────── */}
+        <div className="cc-mkt-tabs">
+          {RW_TABS.map(t => (
+            <button key={t.id}
+              className={`cc-mkt-tab${activeTab === t.id ? ' active' : ''}`}
+              onClick={() => setActiveTab(t.id)}
+            >{t.label}</button>
+          ))}
+        </div>
+
+        {/* ── Events table ──────────────────────────────────── */}
+        <div className="cc-rw-table-wrap">
+          <div className="cc-rw-thead">
+            <span className="cc-mkt-th event-col">EVENT</span>
+            <span className="cc-mkt-th">JURISDICTION</span>
+            <span className="cc-mkt-th">POLICY AREA</span>
+            <span className="cc-mkt-th">IMPACT</span>
+            <span className="cc-mkt-th">CONFIDENCE</span>
+            <span className="cc-mkt-th">AFFECTS YOU</span>
+            <span className="cc-mkt-th">SOURCE STATUS</span>
+            <span className="cc-mkt-th">ACTION</span>
+          </div>
+
+          {displaySignals.length === 0 ? (
+            <div className="cc-empty-state">
+              <span>◎</span>
+              <p>No regulatory events for {country.label}.</p>
+            </div>
+          ) : (
+            displaySignals.slice(0, 8).map((s, i) => {
+              const imp = deriveImpact(s.confidence)
+              const dir = imp === 'High' ? '↑' : imp === 'Medium' ? '✕' : '—'
+              return (
+                <div key={i} className="cc-rw-row">
+                  <div className="cc-rw-cell event-col">
+                    <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
+                    <div>
+                      <strong>{s.title}</strong>
+                      <small>{s.market} · {s.timeAgo}</small>
+                    </div>
+                  </div>
+                  <div className="cc-rw-cell">
+                    <span>{s.market}</span>
+                    <small>Statewide</small>
+                  </div>
+                  <div className="cc-rw-cell">{derivePolicyArea(s.title)}</div>
+                  <div className="cc-rw-cell">
+                    <span className={`cc-rw-impact ${imp.toLowerCase()}`}>{dir} {imp}</span>
+                  </div>
+                  <div className="cc-rw-cell cc-rw-conf-cell">
+                    <div className="cc-conf-bar-track">
+                      <div className="cc-conf-bar-fill" style={{width:`${s.confidence}%`}}/>
+                    </div>
+                    <small>{s.confidence}%</small>
+                  </div>
+                  <div className="cc-rw-cell"><span className="cc-affects-yes">✓ Yes</span></div>
+                  <div className="cc-rw-cell"><span className="cc-source-badge">Official Source</span></div>
+                  <div className="cc-rw-cell">
+                    <button className="cc-sig-brief">Open brief</button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="cc-feed-footer">
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all events →</a>
+        </div>
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────── */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">WATCH TRIGGERS</div>
+          {WATCH_TRIGGERS.map(t => (
+            <div key={t.label} className="cc-trigger-row">
+              <span>{t.label}</span>
+              <span className={`cc-trigger-dot ${t.on ? 'on' : ''}`}>●</span>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Manage triggers →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">COMPARABLE JURISDICTIONS</div>
+          {COMPARABLE.map(j => (
+            <div key={j.label} className="cc-comp-row">
+              <span className="cc-comp-label">{j.label}</span>
+              <span className={`cc-comp-status ${j.active ? 'active' : ''}`}>{j.status}</span>
+              <span className={`cc-comp-dot ${j.active ? 'active' : ''}`}>●</span>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View comparisons →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">OPEN POLICY QUESTIONS</div>
+          {POLICY_QS.map((q, i) => (
+            <div key={i} className="cc-policy-q">
+              <span className="cc-policy-q-icon">?</span>
+              <span>{q}</span>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all questions →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">SOURCE GAPS</div>
+          {SOURCE_GAPS.map(g => (
+            <div key={g.label} className="cc-source-gap-row">
+              <span>{g.label}</span>
+              <span className={`cc-gap-badge ${g.level}`}>{g.level === 'high' ? 'High Gap' : 'Medium Gap'}</span>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Improve coverage →</a>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+// ── SettingsPage ───────────────────────────────────────────────────────────────
+
+const SAVED_PRESETS = [
+  { label: 'Overview',               type: 'Default' },
+  { label: 'Regulatory Radar',       type: 'Custom'  },
+  { label: 'Market Access Monitor',  type: 'Custom'  },
+  { label: 'Evidence Deep Dive',     type: 'Custom'  },
+  { label: 'Legislative Tracker',    type: 'Custom'  },
+]
+
+const SettingsPage = React.memo(function SettingsPage({
+  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange,
+}: {
+  country:          { iso2: string; label: string }
+  region:           string
+  role:             string
+  countryOptions:   SelectOpt[]
+  roleOptions:      SelectOpt[]
+  onCountryChange?: (iso2: string) => void
+  onRoleChange?:    (role: string) => void
+}) {
+  const [watchlistAlerts, setWatchlistAlerts] = useState(true)
+  const [signalsAlerts,   setSignalsAlerts]   = useState(true)
+  const [mapPref,         setMapPref]         = useState('globe')
+  const [reducedMotion,   setReducedMotion]   = useState(false)
+  const [evidenceConf,    setEvidenceConf]    = useState('standard')
+
+  const roleLabel = roleOptions.find(o => o.value === role)?.label ?? role
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>Command Centre Settings</h2>
+          <p>Manage your context, preferences, notifications, display behavior, and saved views.</p>
+        </div>
+
+        <div className="cc-settings-rows">
+
+          {/* Context Preferences */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">◎</div>
+            <div className="cc-settings-row-body">
+              <strong>Context Preferences</strong>
+              <p>Control how your route context, regions, and data are applied across the Command Centre.</p>
+            </div>
+            <div className="cc-settings-row-right">
+              <span>Manage context behavior</span>
+              <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Role / Intent */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">◈</div>
+            <div className="cc-settings-row-body">
+              <strong>Role / Intent Settings</strong>
+              <p>Define your role, intent, and operating focus to tailor insights and recommendations.</p>
+            </div>
+            <div className="cc-settings-row-right">
+              <div className="cc-settings-row-ctrl">
+                <small>Role</small>
+                <CustomSelect value={role} options={roleOptions} placeholder="Select role" onChange={v => onRoleChange?.(v)} className="cc-settings-sel" />
+              </div>
+              <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Jurisdiction Defaults */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">⬡</div>
+            <div className="cc-settings-row-body">
+              <strong>Jurisdiction Defaults</strong>
+              <p>Set your default country and state/territory for data, alerts, and jurisdictional views.</p>
+            </div>
+            <div className="cc-settings-row-right cc-settings-juris">
+              <div className="cc-settings-juris-col">
+                <small>COUNTRY</small>
+                <CustomSelect value={country.iso2} options={countryOptions} onChange={v => onCountryChange?.(v)} className="cc-settings-sel" />
+              </div>
+              {region && (
+                <div className="cc-settings-juris-col">
+                  <small>STATE</small>
+                  <span className="cc-settings-region">{region}</span>
+                </div>
+              )}
+              <button className="cc-settings-edit-btn">Edit Defaults</button>
+            </div>
+          </div>
+
+          {/* Notification Rules */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">◷</div>
+            <div className="cc-settings-row-body">
+              <strong>Notification Rules</strong>
+              <p>Configure alerts and notifications for watchlist items, signals, and regulatory changes.</p>
+            </div>
+            <div className="cc-settings-row-right cc-settings-notifs">
+              <div className="cc-settings-notif-col">
+                <small>WATCHLIST ALERTS</small>
+                <button
+                  className={`cc-toggle ${watchlistAlerts ? 'on' : ''}`}
+                  onClick={() => setWatchlistAlerts(v => !v)}
+                  aria-pressed={watchlistAlerts}
+                >
+                  <span className="cc-toggle-thumb" />
+                </button>
+                <span className="cc-notif-desc">{watchlistAlerts ? 'Enabled' : 'Disabled'}</span>
+                <small>Notify on new matches &amp; changes</small>
+              </div>
+              <div className="cc-settings-notif-col">
+                <small>SIGNALS ALERTS</small>
+                <button
+                  className={`cc-toggle ${signalsAlerts ? 'on' : ''}`}
+                  onClick={() => setSignalsAlerts(v => !v)}
+                  aria-pressed={signalsAlerts}
+                >
+                  <span className="cc-toggle-thumb" />
+                </button>
+                <span className="cc-notif-desc">{signalsAlerts ? 'Enabled' : 'Disabled'}</span>
+                <small>Notify on high &amp; critical signals</small>
+              </div>
+              <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Saved Views */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">⊟</div>
+            <div className="cc-settings-row-body">
+              <strong>Saved Views</strong>
+              <p>Save and manage your custom views, filters, and dashboards.</p>
+            </div>
+            <div className="cc-settings-row-right">
+              <div>
+                <span>5 Saved Views</span>
+                <small>Last updated May 28, 2025</small>
+              </div>
+              <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Display & Accessibility */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">⊞</div>
+            <div className="cc-settings-row-body">
+              <strong>Display &amp; Accessibility</strong>
+              <p>Adjust map preferences, motion, contrast, and information density.</p>
+            </div>
+            <div className="cc-settings-row-right cc-settings-display">
+              <div className="cc-settings-display-col">
+                <small>MAP PREFERENCE</small>
+                <CustomSelect value={mapPref} onChange={setMapPref} className="cc-settings-sel" options={[
+                  { value: 'globe', label: '🌐 Globe View' },
+                  { value: 'flat',  label: '⊞ Flat Map' },
+                ]} />
+                <small>Global perspective</small>
+              </div>
+              <div className="cc-settings-display-col">
+                <small>REDUCED MOTION</small>
+                <button
+                  className={`cc-toggle ${reducedMotion ? 'on' : ''}`}
+                  onClick={() => setReducedMotion(v => !v)}
+                  aria-pressed={reducedMotion}
+                >
+                  <span className="cc-toggle-thumb" />
+                </button>
+                <small>{reducedMotion ? 'Animations disabled' : 'Animations enabled'}</small>
+              </div>
+              <div className="cc-settings-display-col">
+                <small>EVIDENCE CONFIDENCE</small>
+                <CustomSelect value={evidenceConf} onChange={setEvidenceConf} className="cc-settings-sel" options={[
+                  { value: 'standard',  label: '⊟ Standard' },
+                  { value: 'detailed',  label: '⊟ Detailed' },
+                  { value: 'minimal',   label: '⊟ Minimal' },
+                ]} />
+                <small>Show 3 of 5 levels</small>
+              </div>
+              <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Account */}
+          <div className="cc-settings-row">
+            <div className="cc-settings-row-icon">⊙</div>
+            <div className="cc-settings-row-body">
+              <strong>Account</strong>
+              <p>Manage your account, security settings, and session preferences.</p>
+            </div>
+            <div className="cc-settings-row-right cc-settings-account">
+              {['Profile & Organization', 'Security Settings', 'Session Preferences'].map(item => (
+                <div key={item} className="cc-settings-account-row">
+                  <span>{item}</span>
+                  <span className="cc-settings-chev">›</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────── */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">ACTIVE CONTEXT</div>
+          <div className="cc-ctx-rows">
+            <div className="cc-ctx-row">
+              <span className="cc-ctx-flag">🌐</span>
+              <div>
+                <strong>{country.label}</strong>
+                <small>Country</small>
+              </div>
+            </div>
+            {region && (
+              <div className="cc-ctx-row">
+                <span className="cc-ctx-flag">⬡</span>
+                <div>
+                  <strong>{region}</strong>
+                  <small>State / Region</small>
+                </div>
+              </div>
+            )}
+            <div className="cc-ctx-row">
+              <span className="cc-ctx-flag">◈</span>
+              <div>
+                <strong>{roleLabel || 'No role set'}</strong>
+                <small>Role</small>
+              </div>
+            </div>
+            <div className="cc-ctx-row">
+              <span className="cc-ctx-flag">📅</span>
+              <div>
+                <strong>{new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</strong>
+                <small>As of {new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">SAVED VIEW PRESETS</div>
+          {SAVED_PRESETS.map(p => (
+            <div key={p.label} className="cc-preset-row">
+              <span className="cc-preset-icon">⊟</span>
+              <span className="cc-preset-label">{p.label === 'Overview' ? `${country.label} ${p.label}` : p.label}</span>
+              <span className={`cc-preset-type ${p.type.toLowerCase()}`}>{p.type}</span>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all saved views →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">SECURITY / SESSION</div>
+          <div className="cc-security-rows">
+            <div className="cc-security-row">
+              <span className="cc-security-icon">◎</span>
+              <div>
+                <strong>Multi-Factor Authentication</strong>
+                <small>Account security</small>
+              </div>
+              <span className="cc-security-badge enabled">Enabled</span>
+            </div>
+            <div className="cc-security-row">
+              <span className="cc-security-icon">⊙</span>
+              <div>
+                <strong>Session Status</strong>
+                <small>Started today</small>
+              </div>
+              <span className="cc-security-badge active">Active</span>
+            </div>
+          </div>
+          <button className="cc-signout-btn">↗ Sign Out</button>
         </div>
       </aside>
     </div>
@@ -1004,37 +1674,26 @@ export default function CommandCentre({
     if (found) { setCountry(found); setRegion('') }
   }, [])
 
+  const handleRoleChange = useCallback((roleId: string) => {
+    setRole(roleId)
+  }, [])
+
   // ── Page renderer ──────────────────────────────────────────────────────────
   const renderPage = useCallback(() => {
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom
-          country={country}
-          region={region}
-          countryIntel={countryIntel}
-          signals={signals}
-          onCountrySelect={handleCountryChange}
-          profileHref={`/country/${toCountrySlug(country.label)}/role/${role || 'exporter'}`}
-        />
+        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
         return <ScaffoldPage title="Access Pathway" {...sharedProps} />
       case 'marketplace':
-        return <MarketplacePage
-          country={country}
-          region={region}
-          role={role}
-          roleLabel={roleLabel}
-          marketplaceRows={marketplaceRows}
-          signals={signals}
-          wantedCount={wantedCount}
-        />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':
         return <ScaffoldPage title="Evidence & Sources" {...sharedProps} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} />
       case 'regulatory':
-        return <ScaffoldPage title="Regulatory Watch" {...sharedProps} />
+        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} />
       case 'local-intel':
         return <ScaffoldPage title="Local Intel" {...sharedProps} />
       case 'signals':
@@ -1042,11 +1701,11 @@ export default function CommandCentre({
       case 'watchlist':
         return <ScaffoldPage title="Watchlist" {...sharedProps} />
       case 'settings':
-        return <ScaffoldPage title="Settings" {...sharedProps} />
+        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
       default:
         return null
     }
-  }, [activePage, country, region, roleLabel, countryIntel, signals])
+  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, countryOptions, roleOptions, handleCountryChange, handleRoleChange])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -2026,6 +2685,242 @@ const CSS = `
   padding:1px 6px;border-radius:3px;text-transform:uppercase;
   background:rgba(255,255,255,.06);color:var(--cc-dim);border:1px solid var(--cc-line);
 }
+
+/* ── Regulatory Watch ────────────────────────────────────────────────────────── */
+.cc-rw-summary {
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+  border-bottom:1px solid var(--cc-line);flex-shrink:0;
+}
+.cc-rw-card {
+  padding:16px 18px;border-right:1px solid var(--cc-line);
+  display:flex;flex-direction:column;gap:6px;
+}
+.cc-rw-card:last-child { border-right:none; }
+.cc-rw-card-lbl {
+  font-family:var(--cc-mono);font-size:8px;letter-spacing:.16em;
+  color:var(--cc-dim);text-transform:uppercase;
+}
+.cc-rw-card strong,.cc-rw-posture-title {
+  font-size:12px;font-weight:600;color:var(--cc-ink);line-height:1.3;
+}
+.cc-rw-card p { font-size:10px;color:var(--cc-muted);line-height:1.5;margin:0; }
+.cc-rw-operating { display:flex;align-items:center;gap:8px; }
+.cc-rw-conf-card { grid-column:span 1; }
+.cc-rw-conf-inner { display:flex;gap:10px;align-items:flex-start; }
+.cc-rw-donut-wrap {
+  position:relative;width:48px;height:48px;flex-shrink:0;
+}
+.cc-rw-donut-wrap .cc-donut-svg { width:100%;height:100%; }
+.cc-rw-donut-wrap .cc-donut-label {
+  position:absolute;inset:0;display:grid;place-items:center;
+}
+.cc-rw-donut-wrap .cc-donut-label strong { font-size:11px;color:var(--cc-gold); }
+.cc-rw-conf-bars { flex:1;display:flex;flex-direction:column;gap:4px; }
+.cc-conf-mini-row {
+  display:grid;grid-template-columns:90px 1fr 28px;
+  align-items:center;gap:5px;
+}
+.cc-conf-mini-row span:first-child { font-size:9px;color:var(--cc-muted); }
+.cc-rw-change-date { font-size:11px;color:var(--cc-gold); }
+.cc-rw-table-wrap { flex:1;overflow-y:auto; }
+.cc-rw-thead {
+  display:grid;
+  grid-template-columns:2fr 120px 160px 100px 80px 90px 120px 100px;
+  gap:8px;padding:8px 24px;
+  border-bottom:1px solid var(--cc-line);
+  background:rgba(3,7,17,.5);position:sticky;top:0;z-index:2;
+}
+.cc-rw-row {
+  display:grid;
+  grid-template-columns:2fr 120px 160px 100px 80px 90px 120px 100px;
+  gap:8px;padding:13px 24px;
+  border-bottom:1px solid var(--cc-line);align-items:center;
+  transition:background .1s;
+}
+.cc-rw-row:hover { background:rgba(255,255,255,.025); }
+.cc-rw-cell { font-size:11px;color:var(--cc-text);min-width:0; }
+.cc-rw-cell.event-col { display:flex;align-items:flex-start;gap:8px; }
+.cc-rw-cell strong { display:block;font-size:11px;color:var(--cc-ink);line-height:1.3; }
+.cc-rw-cell small  { display:block;font-size:9px;color:var(--cc-dim);margin-top:2px; }
+.cc-rw-conf-cell { display:flex;flex-direction:column;gap:3px; }
+.cc-rw-impact {
+  font-family:var(--cc-mono);font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:4px;white-space:nowrap;
+}
+.cc-rw-impact.high   { color:#e05555;background:rgba(224,85,85,.1); }
+.cc-rw-impact.medium { color:#e6a533;background:rgba(230,165,51,.1); }
+.cc-rw-impact.low    { color:var(--cc-dim);background:rgba(255,255,255,.05); }
+.cc-affects-yes {
+  font-size:10px;font-weight:600;color:var(--cc-green);
+  display:flex;align-items:center;gap:3px;
+}
+.cc-source-badge {
+  font-size:9px;padding:2px 7px;border-radius:4px;
+  background:rgba(91,155,213,.1);color:#5b9bd5;
+  border:1px solid rgba(91,155,213,.2);white-space:nowrap;
+}
+.cc-trigger-row {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 0;border-bottom:1px solid var(--cc-line);
+  font-size:11px;color:var(--cc-muted);
+}
+.cc-trigger-row:last-of-type { border-bottom:none; }
+.cc-trigger-dot { font-size:10px;color:var(--cc-dim);flex-shrink:0; }
+.cc-trigger-dot.on { color:var(--cc-green); }
+.cc-comp-row {
+  display:flex;align-items:center;gap:6px;
+  padding:5px 0;border-bottom:1px solid var(--cc-line);
+  font-size:11px;
+}
+.cc-comp-row:last-of-type { border-bottom:none; }
+.cc-comp-label { flex:1;color:var(--cc-muted); }
+.cc-comp-status { font-size:10px;color:var(--cc-dim); }
+.cc-comp-status.active { color:var(--cc-amber); }
+.cc-comp-dot { font-size:8px;color:var(--cc-dim);flex-shrink:0; }
+.cc-comp-dot.active { color:var(--cc-amber); }
+.cc-policy-q {
+  display:flex;gap:8px;align-items:flex-start;
+  padding:5px 0;border-bottom:1px solid var(--cc-line);
+  font-size:11px;color:var(--cc-muted);line-height:1.4;
+}
+.cc-policy-q:last-of-type { border-bottom:none; }
+.cc-policy-q-icon {
+  width:16px;height:16px;border-radius:50%;flex-shrink:0;
+  background:rgba(255,255,255,.06);border:1px solid var(--cc-line2);
+  display:grid;place-items:center;font-size:9px;color:var(--cc-dim);
+}
+.cc-source-gap-row {
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:5px 0;border-bottom:1px solid var(--cc-line);font-size:11px;color:var(--cc-muted);
+}
+.cc-source-gap-row:last-of-type { border-bottom:none; }
+.cc-gap-badge {
+  font-family:var(--cc-mono);font-size:8px;font-weight:700;
+  padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0;
+}
+.cc-gap-badge.high   { background:rgba(224,85,85,.1);color:#e05555;border:1px solid rgba(224,85,85,.2); }
+.cc-gap-badge.medium { background:rgba(230,165,51,.1);color:#e6a533;border:1px solid rgba(230,165,51,.2); }
+
+/* ── Settings page ───────────────────────────────────────────────────────────── */
+.cc-settings-rows {
+  display:flex;flex-direction:column;
+  padding:0 24px;
+}
+.cc-settings-row {
+  display:flex;align-items:flex-start;gap:16px;
+  padding:20px 0;border-bottom:1px solid var(--cc-line);
+}
+.cc-settings-row:last-child { border-bottom:none; }
+.cc-settings-row-icon {
+  width:40px;height:40px;border-radius:10px;flex-shrink:0;
+  background:rgba(212,168,75,.08);border:1px solid rgba(212,168,75,.18);
+  display:grid;place-items:center;font-size:16px;color:var(--cc-gold);margin-top:2px;
+}
+.cc-settings-row-body { flex:1;min-width:0; }
+.cc-settings-row-body strong { display:block;font-size:13px;color:var(--cc-ink);margin-bottom:4px; }
+.cc-settings-row-body p { font-size:11px;color:var(--cc-muted);margin:0;line-height:1.5; }
+.cc-settings-row-right {
+  display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;
+}
+.cc-settings-row-right > span:not(.cc-settings-chev) { font-size:12px;color:var(--cc-muted); }
+.cc-settings-row-right > div > span { display:block;font-size:12px;color:var(--cc-text); }
+.cc-settings-row-right > div > small { display:block;font-size:10px;color:var(--cc-dim); }
+.cc-settings-chev { color:var(--cc-dim);font-size:16px;flex-shrink:0; }
+.cc-settings-row-ctrl { display:flex;flex-direction:column;gap:3px;align-items:flex-end; }
+.cc-settings-row-ctrl small { font-family:var(--cc-mono);font-size:8px;letter-spacing:.12em;color:var(--cc-dim);text-transform:uppercase; }
+.cc-settings-sel .cc-select-trigger {
+  background:rgba(255,255,255,.04);border:1px solid var(--cc-line2);
+  border-radius:8px;padding:5px 10px;cursor:pointer;
+  color:var(--cc-text);font:inherit;font-size:12px;
+  display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:140px;
+}
+.cc-settings-sel .cc-select-arrow { color:var(--cc-dim); }
+.cc-settings-juris { gap:16px;align-items:flex-end; }
+.cc-settings-juris-col { display:flex;flex-direction:column;gap:4px; }
+.cc-settings-juris-col small { font-family:var(--cc-mono);font-size:8px;letter-spacing:.12em;color:var(--cc-dim);text-transform:uppercase; }
+.cc-settings-region { font-size:12px;color:var(--cc-text); }
+.cc-settings-edit-btn {
+  padding:6px 14px;border-radius:8px;
+  border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);
+  color:var(--cc-muted);font:inherit;font-size:11px;cursor:pointer;
+  transition:background .1s,color .1s;white-space:nowrap;
+}
+.cc-settings-edit-btn:hover { background:rgba(255,255,255,.08);color:var(--cc-text); }
+.cc-settings-notifs { gap:20px;align-items:flex-start; }
+.cc-settings-notif-col { display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:120px; }
+.cc-settings-notif-col small:first-child { font-family:var(--cc-mono);font-size:8px;letter-spacing:.12em;color:var(--cc-dim);text-transform:uppercase; }
+.cc-settings-notif-col small:last-child  { font-size:10px;color:var(--cc-dim); }
+.cc-notif-desc { font-size:11px;font-weight:600;color:var(--cc-ink); }
+.cc-toggle {
+  position:relative;width:36px;height:20px;border-radius:10px;
+  background:rgba(255,255,255,.1);border:1px solid var(--cc-line2);
+  cursor:pointer;transition:background .2s,border-color .2s;padding:0;flex-shrink:0;
+}
+.cc-toggle.on { background:rgba(76,175,130,.3);border-color:var(--cc-green); }
+.cc-toggle-thumb {
+  position:absolute;top:2px;left:2px;
+  width:14px;height:14px;border-radius:50%;
+  background:var(--cc-dim);transition:transform .2s,background .2s;
+}
+.cc-toggle.on .cc-toggle-thumb { transform:translateX(16px);background:var(--cc-green); }
+.cc-settings-display { gap:16px;align-items:flex-start; }
+.cc-settings-display-col { display:flex;flex-direction:column;gap:4px;min-width:120px; }
+.cc-settings-display-col small:first-child { font-family:var(--cc-mono);font-size:8px;letter-spacing:.12em;color:var(--cc-dim);text-transform:uppercase; }
+.cc-settings-display-col small:last-child  { font-size:10px;color:var(--cc-dim); }
+.cc-settings-account { flex-direction:column;align-items:stretch;gap:0; }
+.cc-settings-account-row {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 0;border-bottom:1px solid var(--cc-line);
+  font-size:12px;color:var(--cc-muted);cursor:pointer;
+  transition:color .1s;
+}
+.cc-settings-account-row:last-child { border-bottom:none; }
+.cc-settings-account-row:hover { color:var(--cc-text); }
+.cc-ctx-rows { display:flex;flex-direction:column;gap:8px; }
+.cc-ctx-row {
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--cc-line);
+}
+.cc-ctx-flag { font-size:16px;flex-shrink:0; }
+.cc-ctx-row strong { display:block;font-size:12px;color:var(--cc-ink); }
+.cc-ctx-row small  { display:block;font-size:10px;color:var(--cc-dim); }
+.cc-preset-row {
+  display:flex;align-items:center;gap:8px;
+  padding:6px 0;border-bottom:1px solid var(--cc-line);
+}
+.cc-preset-row:last-of-type { border-bottom:none; }
+.cc-preset-icon  { font-size:12px;color:var(--cc-dim);flex-shrink:0; }
+.cc-preset-label { flex:1;font-size:11px;color:var(--cc-ink); }
+.cc-preset-type {
+  font-family:var(--cc-mono);font-size:8px;font-weight:700;
+  padding:2px 7px;border-radius:4px;flex-shrink:0;
+}
+.cc-preset-type.default { background:rgba(212,168,75,.12);color:var(--cc-gold);border:1px solid rgba(212,168,75,.2); }
+.cc-preset-type.custom  { background:rgba(255,255,255,.05);color:var(--cc-dim);border:1px solid var(--cc-line); }
+.cc-security-rows { display:flex;flex-direction:column;gap:8px; }
+.cc-security-row {
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--cc-line);
+}
+.cc-security-icon { font-size:14px;color:var(--cc-dim);flex-shrink:0; }
+.cc-security-row > div { flex:1;min-width:0; }
+.cc-security-row strong { display:block;font-size:11px;color:var(--cc-ink); }
+.cc-security-row small  { display:block;font-size:10px;color:var(--cc-dim); }
+.cc-security-badge {
+  font-family:var(--cc-mono);font-size:9px;font-weight:700;
+  padding:2px 8px;border-radius:4px;flex-shrink:0;
+}
+.cc-security-badge.enabled { background:rgba(76,175,130,.12);color:var(--cc-green);border:1px solid rgba(76,175,130,.2); }
+.cc-security-badge.active  { background:rgba(91,155,213,.12);color:#5b9bd5;border:1px solid rgba(91,155,213,.2); }
+.cc-signout-btn {
+  width:100%;margin-top:10px;padding:8px;border-radius:8px;
+  border:1px solid var(--cc-line2);background:rgba(255,255,255,.03);
+  color:var(--cc-muted);font:inherit;font-size:11px;cursor:pointer;
+  transition:background .1s,color .1s;
+}
+.cc-signout-btn:hover { background:rgba(224,85,85,.1);color:#e05555;border-color:rgba(224,85,85,.2); }
 
 /* Mobile */
 .cc-mob-nav { display:none; }
