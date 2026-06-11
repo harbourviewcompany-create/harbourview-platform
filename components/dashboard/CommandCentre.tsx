@@ -691,7 +691,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
         ) : (
           <div className="cc-empty-state">
             <span>⊞</span>
-            <p>No listings{activeTab!=='listings'?` in the ${MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} category`:''} for {country.label}{region?` · ${region}`:''}.{' '}
+            <p>No listings{activeTab!=='cannabis'?` in the ${MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} category`:''} for {country.label}{region?` · ${region}`:''}.{' '}
               {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
             </p>
           </div>
