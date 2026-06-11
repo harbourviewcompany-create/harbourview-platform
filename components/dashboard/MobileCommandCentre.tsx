@@ -19,8 +19,8 @@ type Props = {
   pipeline?: PipelineCounts
   wantedListings?: WantedListing[]
   countryIntel?: CountryIntelProfile | null
-  pathwayData?:  PathwayData
-  watchlistData?: WatchlistData
+  pathwayData?:  PathwayData | null
+  watchlistData?: WatchlistData | null
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -64,7 +64,7 @@ function titleCase(value: string): string {
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\b\w/g, char => char.toUpperCase())
+    .replace(/\w/g, char => char.toUpperCase())
 }
 
 function fieldValue(value: string | number | null | undefined, fallback = PENDING_REVIEW): string {
