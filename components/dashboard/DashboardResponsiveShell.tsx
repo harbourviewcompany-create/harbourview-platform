@@ -15,7 +15,7 @@ export default function DashboardResponsiveShell(props: CommandCentreProps) {
       <div className="hv-dashboard-mobile-shell" aria-hidden={false}>
         <MobileCommandCentre {...props} />
       </div>
-      <style jsx global>{`
+      <style>{`
         .hv-dashboard-mobile-shell { display: none; }
         .hv-dashboard-desktop-shell { display: block; }
 
