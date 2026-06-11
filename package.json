@@ -66,6 +66,9 @@
     "source-import:build": "tsx scripts/source-import/build-source-import-batches.ts",
     "source-import:push": "tsx scripts/source-import/push-source-import-batches.ts",
     "source-import:dry-run": "SOURCE_IMPORT_DRY_RUN=1 tsx scripts/source-import/push-source-import-batches.ts",
+    "source-regulatory:seed": "tsx scripts/seed-regulatory-sources.ts",
+    "source-regulatory:check": "tsx scripts/check-regulatory-sources.ts",
+    "test:regulatory-sources": "vitest run tests/regulatory-sources/watcher.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts"
   },
   "dependencies": {
