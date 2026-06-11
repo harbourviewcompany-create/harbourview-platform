@@ -4,221 +4,83 @@ import React from 'react'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 
 export interface EvidencePageProps {
-  country:      { iso2: string; label: string }
-  region:       string
-  role:         string
+  country: { iso2: string; label: string }
+  region: string
+  role: string
   countryIntel?: CountryIntelProfile | null
 }
 
-const SOURCE_TIERS = [
-  {
-    tier: 'Tier 1',
-    label: 'Government & Regulatory',
-    color: '#4caf82',
-    desc: 'Official government publications, regulatory body filings, gazette notices, legislative records.',
-    examples: ['Ministry of Health directives', 'Regulatory authority guidance', 'Official government gazette', 'Parliamentary records'],
-  },
-  {
-    tier: 'Tier 2',
-    label: 'Verified Industry',
-    color: '#5b9bd5',
-    desc: 'Trade associations, licensed operator filings, accredited laboratory results, professional bodies.',
-    examples: ['Licensed operator disclosures', 'Accredited COA results', 'Trade association reports', 'Industry body publications'],
-  },
-  {
-    tier: 'Tier 3',
-    label: 'Market Intelligence',
-    color: '#d4a84b',
-    desc: 'Harbourview-verified market participant data, cross-referenced commercial intelligence, analyst synthesis.',
-    examples: ['Harbourview analyst reports', 'Cross-referenced market data', 'Verified operator interviews', 'Commercial deal records'],
-  },
-]
+function display(value: string | number | null | undefined, fallback = 'Review pending') {
+  if (typeof value === 'number') return String(value)
+  return value && value.trim() ? value.trim() : fallback
+}
 
-const METHODOLOGY_STEPS = [
-  { icon: '◎', label: 'Source Collection',    desc: 'Continuous monitoring of government, regulatory, and industry sources across 50+ active markets.' },
-  { icon: '✓', label: 'Expert Verification',  desc: 'Multi-layer review by domain experts with regulatory and operational backgrounds in cannabis.' },
-  { icon: '◈', label: 'Cross-referencing',    desc: 'Every data point verified against minimum 2 independent sources before classification.' },
-  { icon: '↻', label: 'Continuous Updates',   desc: 'Regulatory signals updated in real-time. Market data updated daily. Intelligence synthesised continuously.' },
-  { icon: '⊞', label: 'Confidence Scoring',   desc: 'Weighted scoring across source authority, jurisdiction relevance, recency, and internal consistency.' },
-]
+function publicReviewLabel(value?: string | null) {
+  if (!value) return 'Review pending'
+  const normalized = value.toLowerCase().replace(/[_-]+/g, ' ')
+  if (normalized === 'active' || normalized === 'published') return 'Public summary available'
+  if (normalized.includes('review') || normalized.includes('pending')) return 'Review pending'
+  return 'Public-safe state available'
+}
 
 export const EvidencePage = React.memo(function EvidencePage({
-  country, countryIntel,
+  country, region, role, countryIntel,
 }: EvidencePageProps) {
+  const coverageRows = [
+    { label: 'Review State', value: publicReviewLabel(countryIntel?.review_status) },
+    { label: 'Data Completeness', value: display(countryIntel?.data_completeness) },
+    { label: 'Regulatory Tier', value: display(countryIntel?.regulatory_tier) },
+    { label: 'Source Region', value: display(countryIntel?.region ?? region) },
+    { label: 'Medical Status', value: display(countryIntel?.medical_status) },
+    { label: 'Import Status', value: display(countryIntel?.import_status) },
+    { label: 'Export Status', value: display(countryIntel?.export_status) },
+    { label: 'Regulator', value: display(countryIntel?.regulator_label) },
+  ]
+
   return (
     <div className="ev-root">
       <style>{CSS}</style>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="ev-header">
+      <header className="ev-header">
         <div>
-          <h1 className="ev-heading">Evidence & Sources</h1>
-          <p className="ev-sub">
-            {country.label}
-            {countryIntel?.review_status ? ` · Review: ${countryIntel.review_status}` : ''}
-            {countryIntel?.data_completeness ? ` · ${countryIntel.data_completeness} coverage` : ''}
-          </p>
+          <p className="ev-kicker">Evidence &amp; Sources</p>
+          <h1>{country.label} public evidence state</h1>
+          <p>{role ? `${role} · ` : ''}Public users see approved summary fields only. Admin provenance, raw source evidence, internal notes, and reviewer state remain excluded from this client module.</p>
         </div>
-        <a href="/intelligence/methodology" className="ev-cta-outline">Full Methodology →</a>
-      </div>
+        <a href="/intake" className="ev-cta">Request source documentation</a>
+      </header>
 
       <div className="ev-body">
-        {/* ── Left: Source tier architecture ─────────────────────────────── */}
-        <div className="ev-left">
-          <div className="ev-section-head">SOURCE TIER ARCHITECTURE</div>
-          <div className="ev-tiers">
-            {SOURCE_TIERS.map((t, i) => (
-              <div key={t.tier} className="ev-tier" style={{ animationDelay: `${i * 60}ms`, borderColor: `${t.color}22` }}>
-                <div className="ev-tier-head">
-                  <span className="ev-tier-badge" style={{ background: `${t.color}18`, color: t.color, borderColor: `${t.color}30` }}>
-                    {t.tier}
-                  </span>
-                  <span className="ev-tier-label">{t.label}</span>
-                </div>
-                <p className="ev-tier-desc">{t.desc}</p>
-                <div className="ev-tier-examples">
-                  {t.examples.map(e => (
-                    <span key={e} className="ev-example">{e}</span>
-                  ))}
-                </div>
+        <section className="ev-card ev-summary">
+          <h2>Public summary</h2>
+          <p>{countryIntel?.public_summary ?? 'No public-safe jurisdiction summary is available yet. This country-role pathway remains review pending until source-backed summaries are published.'}</p>
+          {countryIntel?.commercial_pathway_summary && <p>{countryIntel.commercial_pathway_summary}</p>}
+        </section>
+
+        <section className="ev-card">
+          <h2>Coverage state</h2>
+          <div className="ev-grid">
+            {coverageRows.map(row => (
+              <div key={row.label} className="ev-row">
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* ── Right: Methodology + data state ────────────────────────────── */}
-        <div className="ev-right">
-          <div className="ev-section-head">VERIFICATION METHODOLOGY</div>
-          <div className="ev-methodology">
-            {METHODOLOGY_STEPS.map((s, i) => (
-              <div key={s.label} className="ev-method-step" style={{ animationDelay: `${i * 50}ms` }}>
-                <div className="ev-method-icon">{s.icon}</div>
-                <div className="ev-method-body">
-                  <div className="ev-method-label">{s.label}</div>
-                  <div className="ev-method-desc">{s.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Country coverage state */}
-          <div className="ev-coverage">
-            <div className="ev-section-head">COVERAGE STATE — {country.label.toUpperCase()}</div>
-            <div className="ev-coverage-grid">
-              {[
-                { label: 'Review Status',    val: countryIntel?.review_status      ?? 'Pending'  },
-                { label: 'Data Completeness',val: countryIntel?.data_completeness  ?? 'Stub'     },
-                { label: 'Regulatory Tier',  val: countryIntel?.regulatory_tier    ?? 'Unclassed'},
-                { label: 'Source Region',    val: countryIntel?.region             ?? 'Unknown'  },
-              ].map(row => (
-                <div key={row.label} className="ev-cov-row">
-                  <span className="ev-cov-label">{row.label}</span>
-                  <span className="ev-cov-val">{row.val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="ev-cta-card">
-            <div className="ev-cta-head">Request a source audit</div>
-            <div className="ev-cta-body">
-              Harbourview provides source attribution on request for due diligence, compliance
-              reporting, and institutional review.
-            </div>
-            <a href="/intake" className="ev-cta-gold">Request Source Documentation →</a>
-          </div>
-        </div>
+        <section className="ev-card ev-boundary">
+          <h2>Public/private boundary</h2>
+          <ul>
+            <li>Public DTOs may expose country labels, approved summaries, and public-safe status labels.</li>
+            <li>Admin evidence, provenance, source URLs, reviewer notes, and raw verification fields stay outside this client payload.</li>
+            <li>Unsupported medical, legal, dosage, import/export, and country-specific claims remain review gated.</li>
+          </ul>
+        </section>
       </div>
     </div>
   )
 })
 
 const CSS = `
-.ev-root {
-  display:flex;flex-direction:column;height:100%;overflow:hidden;
-  animation:evIn .28s ease;
-}
-@keyframes evIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
-
-.ev-header {
-  display:flex;align-items:flex-start;justify-content:space-between;
-  padding:20px 24px 0;flex-shrink:0;gap:16px;
-}
-.ev-heading { font-family:'Georgia',serif;font-size:22px;font-weight:400;color:#f5f0e8; }
-.ev-sub { font-size:11px;color:rgba(245,240,232,.42);margin-top:3px; }
-.ev-cta-outline {
-  display:inline-flex;align-items:center;padding:8px 14px;border-radius:8px;font-size:11px;
-  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);
-  color:rgba(245,240,232,.55);text-decoration:none;flex-shrink:0;
-  transition:background .12s,color .12s;
-}
-.ev-cta-outline:hover { background:rgba(255,255,255,.08);color:#f5f0e8; }
-
-.ev-body {
-  flex:1;overflow:hidden;display:grid;
-  grid-template-columns:1fr 1fr;padding:20px 24px 0;gap:0;
-}
-.ev-left  { overflow-y:auto;padding-right:20px;border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:12px; }
-.ev-right { overflow-y:auto;padding-left:20px;display:flex;flex-direction:column;gap:16px; }
-
-.ev-section-head {
-  font-family:'JetBrains Mono','Fira Mono',monospace;
-  font-size:9px;letter-spacing:.18em;text-transform:uppercase;
-  color:rgba(245,240,232,.3);margin-bottom:12px;
-}
-
-.ev-tiers { display:flex;flex-direction:column;gap:10px; }
-.ev-tier {
-  padding:14px;border-radius:10px;
-  background:rgba(255,255,255,.02);border:1px solid;
-  animation:tierIn .3s ease both;
-}
-@keyframes tierIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-.ev-tier-head { display:flex;align-items:center;gap:8px;margin-bottom:7px; }
-.ev-tier-badge {
-  font-family:'JetBrains Mono','Fira Mono',monospace;font-size:8px;
-  letter-spacing:.12em;padding:2px 8px;border-radius:4px;border:1px solid;font-weight:700;
-}
-.ev-tier-label { font-size:12px;font-weight:600;color:#f5f0e8; }
-.ev-tier-desc  { font-size:11px;color:rgba(245,240,232,.45);line-height:1.55;margin:0 0 8px; }
-.ev-tier-examples { display:flex;flex-wrap:wrap;gap:4px; }
-.ev-example {
-  font-size:9px;padding:2px 7px;border-radius:4px;
-  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
-  color:rgba(245,240,232,.38);
-}
-
-.ev-methodology { display:flex;flex-direction:column;gap:10px; }
-.ev-method-step {
-  display:flex;align-items:flex-start;gap:10px;
-  animation:methodIn .3s ease both;
-}
-@keyframes methodIn { from{opacity:0;transform:translateX(4px)} to{opacity:1;transform:translateX(0)} }
-.ev-method-icon { font-size:14px;color:#d4a84b;flex-shrink:0;margin-top:1px;width:16px;text-align:center; }
-.ev-method-label { font-size:12px;font-weight:600;color:#f5f0e8;margin-bottom:2px; }
-.ev-method-desc  { font-size:10px;color:rgba(245,240,232,.42);line-height:1.5; }
-
-.ev-coverage { display:flex;flex-direction:column;gap:8px; }
-.ev-coverage-grid { display:flex;flex-direction:column;gap:5px; }
-.ev-cov-row {
-  display:flex;align-items:center;justify-content:space-between;
-  padding:7px 12px;border-radius:7px;
-  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);
-}
-.ev-cov-label { font-size:11px;color:rgba(245,240,232,.45); }
-.ev-cov-val   { font-size:11px;font-weight:500;color:#f5f0e8; }
-
-.ev-cta-card {
-  padding:14px;border-radius:10px;
-  background:rgba(212,168,75,.04);border:1px solid rgba(212,168,75,.18);
-  display:flex;flex-direction:column;gap:8px;
-}
-.ev-cta-head { font-size:12px;font-weight:600;color:#f5f0e8; }
-.ev-cta-body { font-size:10px;color:rgba(245,240,232,.45);line-height:1.55; }
-.ev-cta-gold {
-  display:inline-flex;align-items:center;padding:8px 16px;border-radius:8px;
-  font-size:12px;font-weight:600;background:linear-gradient(135deg,#d4a84b,#b88c35);
-  color:#0d1117;text-decoration:none;transition:opacity .12s;
-}
-.ev-cta-gold:hover { opacity:.88; }
+.ev-root{height:100%;overflow:auto;padding:24px;color:#f5f0e8}.ev-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}.ev-kicker{font-family:JetBrains Mono,Fira Mono,monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(245,240,232,.35);margin:0 0 6px}.ev-header h1{font-family:Georgia,serif;font-size:24px;font-weight:400;margin:0 0 8px}.ev-header p,.ev-card p,.ev-boundary li{font-size:12px;line-height:1.65;color:rgba(245,240,232,.58);margin:0}.ev-cta{display:inline-flex;align-items:center;padding:8px 14px;border-radius:8px;border:1px solid rgba(212,168,75,.3);background:rgba(212,168,75,.08);color:#d4a84b;text-decoration:none;font-size:12px;white-space:nowrap}.ev-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.ev-card{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:14px;padding:16px}.ev-summary{grid-column:1/-1}.ev-card h2{font-family:Georgia,serif;font-size:18px;font-weight:400;margin:0 0 10px}.ev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.ev-row{border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);border-radius:10px;padding:10px}.ev-row span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(245,240,232,.35)}.ev-row strong{display:block;margin-top:4px;font-size:12px;color:#f5f0e8}.ev-boundary ul{margin:0;padding-left:18px;display:grid;gap:8px}@media(max-width:760px){.ev-root{padding:14px}.ev-header{flex-direction:column}.ev-body{grid-template-columns:1fr}.ev-cta{width:100%;justify-content:center}}
 `
