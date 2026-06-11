@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -19,6 +19,8 @@ type Props = {
   pipeline?: PipelineCounts
   wantedListings?: WantedListing[]
   countryIntel?: CountryIntelProfile | null
+  pathwayData?:  PathwayData
+  watchlistData?: WatchlistData
 }
 
 type CountryOption = { iso2: string; label: string }
