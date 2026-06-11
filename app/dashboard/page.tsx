@@ -131,13 +131,28 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
 async function getDashboardMarketplaceRows(
   countryIso2?: string | null,
 ): Promise<Partial<DashboardMarketplaceRows>> {
-  const views = Object.keys(VIEW_SECTIONS) as MarketView[]
-  const results = await Promise.all(
-    views.map(view => getListingsBySections(VIEW_SECTIONS[view], countryIso2, 8))
-  )
-  return Object.fromEntries(
-    views.map((view, i) => [view, results[i].map(mapListingToDashboardRow)])
-  ) as Partial<DashboardMarketplaceRows>
+  // Fetch all sections in a single query and bucket by MarketView client-side.
+  // Previously this was 7 parallel requests (one per view tab); one request is
+  // cheaper and avoids 7× connection overhead on every page render.
+  const allSections = Array.from(new Set(Object.values(VIEW_SECTIONS).flat()))
+  const listings = await getListingsBySections(allSections, countryIso2, 56)
+
+  // Build a section → view lookup for O(1) bucketing
+  const sectionToView = new Map<string, MarketView>()
+  for (const [view, sections] of Object.entries(VIEW_SECTIONS) as [MarketView, string[]][]) {
+    for (const s of sections) sectionToView.set(s, view)
+  }
+
+  const buckets: Partial<DashboardMarketplaceRows> = {}
+  for (const listing of listings) {
+    const view = sectionToView.get(listing.marketplace_section) ?? 'cannabis'
+    if (!buckets[view]) buckets[view] = []
+    // Cap each tab at 8 rows (same as before)
+    if (buckets[view]!.length < 8) {
+      buckets[view]!.push(mapListingToDashboardRow(listing))
+    }
+  }
+  return buckets
 }
 
 export default async function DashboardPage({
