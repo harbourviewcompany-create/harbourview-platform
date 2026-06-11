@@ -1,7 +1,7 @@
 import 'server-only'
 import { fetchAdminSupabaseJson, getAdminDataClient, type AdminDataError } from '@/lib/supabase/adminDataClient'
 import { assertPublicationGate } from './safety'
-import type { RegulatorySignalRecord, RegulatorySource } from './types'
+import type { RegulatorySignalRecord, RegulatorySource, RegulatorySourceCheckRun, RegulatorySourceSnapshot } from './types'
 
 type AdminResult<T> = { ok: true; data: T } | { ok: false; error: AdminDataError }
 
@@ -42,6 +42,10 @@ export async function listRegulatorySignals() {
   return fetchAdminSupabaseJson<RegulatorySignalRecord[]>('/rest/v1/regulatory_signals.signals?select=*&order=signal_date.desc')
 }
 
+export async function listRegulatoryReviewQueue() {
+  return fetchAdminSupabaseJson<RegulatorySignalRecord[]>('/rest/v1/regulatory_signals.signals?review_status=in.(captured,triaged,needs_source_validation,in_review,approved_private,approved_public)&select=*&order=captured_at.desc&limit=100')
+}
+
 export async function getRegulatorySignal(id: string) {
   const result = await fetchAdminSupabaseJson<RegulatorySignalRecord[]>(`/rest/v1/regulatory_signals.signals?id=eq.${encodeURIComponent(id)}&select=*`)
   if (!result.ok) return result
@@ -49,7 +53,15 @@ export async function getRegulatorySignal(id: string) {
 }
 
 export async function listRegulatorySources() {
-  return fetchAdminSupabaseJson<RegulatorySource[]>('/rest/v1/regulatory_signals.sources?select=*&order=created_at.desc')
+  return fetchAdminSupabaseJson<RegulatorySource[]>('/rest/v1/regulatory_signals.sources?select=*&order=last_checked_at.desc.nullslast,created_at.desc')
+}
+
+export async function listRegulatorySourceSnapshots(limit = 50) {
+  return fetchAdminSupabaseJson<RegulatorySourceSnapshot[]>(`/rest/v1/regulatory_signals.source_snapshots?select=*&order=captured_at.desc&limit=${limit}`)
+}
+
+export async function listRegulatorySourceCheckRuns(limit = 50) {
+  return fetchAdminSupabaseJson<RegulatorySourceCheckRun[]>(`/rest/v1/regulatory_signals.source_check_runs?select=*&order=checked_at.desc&limit=${limit}`)
 }
 
 export async function createRegulatorySource(formData: FormData, userId: string) {
@@ -69,6 +81,10 @@ export async function createRegulatorySource(formData: FormData, userId: string)
       watch_url: readField(formData, 'watch_url') || null,
       rss_url: readField(formData, 'rss_url') || null,
       language_code: readField(formData, 'language_code') || null,
+      access_method: readField(formData, 'access_method') || 'html',
+      watch_frequency: readField(formData, 'watch_frequency') || 'daily',
+      watcher_enabled: true,
+      watch_status: 'manual_review',
       crawl_allowed: false,
       validation_notes: readField(formData, 'validation_notes') || null,
       internal_notes: readField(formData, 'internal_notes') || null,
@@ -116,6 +132,36 @@ export async function linkRegulatoryEvidence(signalId: string, evidenceId: strin
     headers: { Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify({ signal_id: signalId, evidence_id: evidenceId, relationship: 'supporting' }),
   })
+}
+
+export async function updateRegulatorySignalReview(formData: FormData, userId: string) {
+  const id = readField(formData, 'signal_id')
+  const reviewStatus = readField(formData, 'review_status') || 'in_review'
+  const reviewerNote = readField(formData, 'reviewer_note') || null
+
+  const updated = await adminRequest<RegulatorySignalRecord[]>(`/rest/v1/regulatory_signals.signals?id=eq.${encodeURIComponent(id)}&select=*`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      review_status: reviewStatus,
+      public_summary: readField(formData, 'public_summary') || null,
+      public_implication: readField(formData, 'public_implication') || null,
+      public_safe: readBoolean(formData, 'public_safe'),
+      publish_to_public: readBoolean(formData, 'publish_to_public'),
+      updated_by: userId,
+      reviewed_by: userId,
+      approved_by: reviewStatus === 'approved_public' ? userId : null,
+      last_reviewed_at: new Date().toISOString(),
+    }),
+  })
+  if (!updated.ok) return updated
+
+  await adminRequest('/rest/v1/regulatory_signals.review_events', {
+    method: 'POST',
+    body: JSON.stringify({ signal_id: id, event_type: reviewStatus === 'rejected' ? 'rejected' : reviewStatus === 'approved_public' ? 'approved_public' : 'updated', to_status: reviewStatus, actor_id: userId, note: reviewerNote }),
+  })
+
+  return updated
 }
 
 export async function transitionRegulatorySignalStatus(id: string, toStatus: string, userId: string, note: string) {
