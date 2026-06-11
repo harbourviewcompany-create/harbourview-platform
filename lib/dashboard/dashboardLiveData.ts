@@ -1,7 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import type { DashboardMarketplaceRows, MarketRow } from '@/components/dashboard/CommandCentre'
 
-// ── 1. Pipeline counts from marketplace_inquiries ─────────────────────────────
 export type PipelineCounts = {
   wanted: number
   matched: number
@@ -11,10 +11,6 @@ export type PipelineCounts = {
 }
 
 export async function getPipelineCounts(): Promise<PipelineCounts> {
-  // Returns platform-wide aggregate counts (not scoped to the current user).
-  // This function is intentionally admin-style: all authenticated operators can
-  // see how many inquiries are in each stage. Access is gated by the /dashboard
-  // auth middleware. If per-user scoping is ever needed, add .eq('submitter_id', userId).
   const fallback: PipelineCounts = { wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 }
   try {
     const supabase = await createClient()
@@ -26,13 +22,12 @@ export async function getPipelineCounts(): Promise<PipelineCounts> {
       if (row.review_status === 'received' || row.review_status === 'reviewing') acc.inquiry++
       if (row.review_status === 'contacted') acc.proof_review++
       if (row.review_status === 'qualified') acc.matched++
-      if (row.review_status === 'closed')    acc.deal_room++
+      if (row.review_status === 'closed') acc.deal_room++
       return acc
     }, { ...fallback })
   } catch { return fallback }
 }
 
-// ── 2. Wanted listings (full rows) ────────────────────────────────────────────
 export type WantedListing = {
   id: string
   title: string
@@ -45,8 +40,6 @@ export type WantedListing = {
 export async function getWantedListings(countryIso2?: string | null): Promise<WantedListing[]> {
   try {
     const supabase = await createClient()
-
-    // Try country-filtered first; fall back to all if empty
     const buildQuery = (country?: string | null) => {
       let q = supabase
         .from('listings')
@@ -64,14 +57,12 @@ export async function getWantedListings(countryIso2?: string | null): Promise<Wa
       if (!countryErr && countryData && countryData.length > 0) return countryData
     }
 
-    // Global fallback
     const { data, error } = await buildQuery()
     if (error || !data) return []
     return data
   } catch { return [] }
 }
 
-// ── 3. Education tiles from DB ────────────────────────────────────────────────
 export type LiveEduTile = {
   icon: string
   title: string
@@ -89,16 +80,14 @@ const AUDIENCE_ICON: Record<string, string> = {
 export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promise<LiveEduTile[]> {
   try {
     const supabase = await createClient()
-    // Try modules first — they have audience[] and publication_state
     const query = supabase
       .from('education_modules')
       .select('slug, title, description, audience, sensitivity, track_id')
       .eq('publication_state', 'published')
-      .limit(limit * 3) // fetch extra to filter by role
+      .limit(limit * 3)
     const { data: modules, error } = await query
     if (error || !modules || modules.length === 0) return []
 
-    // Score by role match
     const scored = modules.map(m => {
       const audience: string[] = m.audience ?? []
       const roleMatch = roleId && audience.includes(roleId) ? 2
@@ -111,22 +100,19 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     return scored.map(m => ({
       icon: (roleId && AUDIENCE_ICON[roleId]) ?? '📖',
       title: m.title,
-      desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : `Education module`,
+      desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : 'Education module',
       slug: m.slug,
     }))
   } catch { return [] }
 }
 
-// ── 4. Country intelligence profile ──────────────────────────────────────────
 export type CountryIntelProfile = {
-  // Core fields — always present
   country_code: string
   country_name: string
   public_summary: string | null
   commercial_pathway_summary: string | null
   review_status: string
   regulatory_tier?: string | null
-  // Extended country status fields — present when fetched from public.countries
   region?: string | null
   market_access_status?: string | null
   medical_status?: string | null
@@ -155,9 +141,146 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
   } catch { return null }
 }
 
-// ── getCountryStatusFromDB ────────────────────────────────────────────────────
-// Fetches real country status from the countries table (191 countries seeded
-// June 2026) for the countryIntel prop in CommandCentre.
+export type ReviewedCounterparty = {
+  id: string
+  counterparty_name: string
+  counterparty_type: string
+  preferred_markets: string[]
+  relationship_strength_score: number
+  reliability_score: number
+  successful_introductions_count: number
+}
+
+export async function getReviewedCounterparties(limit = 6): Promise<ReviewedCounterparty[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('relationship_intelligence_profiles')
+      .select('id, counterparty_name, counterparty_type, preferred_markets, relationship_strength_score, reliability_score, successful_introductions_count')
+      .gte('relationship_strength_score', 40)
+      .order('relationship_strength_score', { ascending: false })
+      .limit(limit)
+    if (error || !data) return []
+    return data
+  } catch { return [] }
+}
+
+type ListingRow = {
+  id: string
+  title: string | null
+  description: string | null
+  category: string | null
+  location_country: string | null
+  price_amount: number | null
+  price_currency: string | null
+  seller_type: string | null
+  marketplace_section: string | null
+}
+
+function categoryToView(cat: string | null, section: string | null): string {
+  const c = cat ?? ''
+  const s = section ?? ''
+  if (s === 'wanted_requests' || c === 'import_demand' || c === 'wanted_requests') return 'wanted'
+  if (c === 'business_opportunities' || c === 'distressed_businesses' || c === 'distressed_inventory') return 'opportunities'
+  if (c.includes('equipment') || c === 'cultivation_equipment' || c === 'processing_equipment' || c === 'labs_testing') return 'equipment'
+  if (c === 'consumables' || c === 'packaging') return 'consumables'
+  if (c === 'new_products') return 'new-products'
+  if (c === 'professional_services' || c === 'services' || c === 'logistics') return 'services'
+  return 'cannabis'
+}
+
+function specClass(view: string): string {
+  if (view === 'wanted') return 'wanted'
+  if (view === 'equipment' || view === 'consumables') return 'equip'
+  if (view === 'services' || view === 'opportunities') return 'service'
+  return 'supply'
+}
+
+function typeLabel(cat: string | null, country: string | null): string {
+  const LABELS: Record<string, string> = {
+    cannabis_inventory: 'Cannabis Inventory', genetics: 'Genetics', export_ready: 'Export Ready',
+    cultivation_equipment: 'Cultivation Equip.', processing_equipment: 'Processing Equip.',
+    labs_testing: 'Labs & Testing', consumables: 'Consumables', packaging: 'Packaging',
+    new_products: 'New Products', professional_services: 'Professional Services',
+    logistics: 'Logistics', services: 'Services',
+    business_opportunities: 'Business Opportunity', distressed_inventory: 'Distressed Inventory',
+    distressed_businesses: 'Distressed Business', import_demand: 'Import Demand',
+    wanted_requests: 'Wanted Request',
+  }
+  const label = LABELS[cat ?? ''] ?? 'Marketplace'
+  return country ? `${label} · ${country}` : label
+}
+
+function buildTags(cat: string | null): string[] {
+  return [cat ?? 'marketplace', 'public-safe'].filter(Boolean)
+}
+
+function priceLabel(amount: number | null, currency: string | null): string {
+  if (!amount) return 'POA'
+  const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : (currency ?? '$')
+  if (amount >= 1_000_000) return `${sym}${(amount / 1_000_000).toFixed(1)}M`
+  if (amount >= 1_000) return `${sym}${(amount / 1_000).toFixed(0)}k`
+  return `${sym}${amount.toFixed(0)}`
+}
+
+function actionLabel(view: string, sellerType: string | null): string {
+  if (view === 'wanted') return 'Respond through Harbourview'
+  if (view === 'services') return 'Request introduction through Harbourview'
+  if (sellerType === 'distributor') return 'Request distribution access through Harbourview'
+  return 'Request mediated access'
+}
+
+function shapeRow(l: ListingRow): [string, MarketRow] {
+  const view = categoryToView(l.category, l.marketplace_section)
+  const category = l.category ?? 'marketplace'
+  const country = l.location_country ?? 'Global'
+  const row: MarketRow = {
+    id: l.id,
+    specType: specClass(view),
+    typeLabel: typeLabel(l.category, l.location_country),
+    title: l.title ?? 'Unlisted item',
+    description: l.description ?? 'Contact Harbourview for public-safe details.',
+    jurisdiction: country,
+    category,
+    tags: buildTags(l.category),
+    trustLabel: 'Public-safe listing',
+    actionLabel: actionLabel(view, l.seller_type),
+    statusLabel: priceLabel(l.price_amount, l.price_currency),
+  }
+  return [view, row]
+}
+
+export async function getMarketplaceRows(
+  countryIso2?: string | null,
+  limit = 60,
+): Promise<DashboardMarketplaceRows> {
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from('listings')
+      .select('id,title,description,category,location_country,price_amount,price_currency,seller_type,marketplace_section')
+      .eq('status', 'approved')
+      .eq('public_visibility', true)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (countryIso2) {
+      query = query.or(`location_country.eq.${countryIso2.toUpperCase()},location_country.is.null`)
+    }
+
+    const { data, error } = await query
+    if (error || !data) return {}
+
+    const buckets: DashboardMarketplaceRows = {}
+    for (const listing of data) {
+      const [view, row] = shapeRow(listing as ListingRow)
+      const key = view as keyof DashboardMarketplaceRows
+      if (!buckets[key]) buckets[key] = []
+      buckets[key]!.push(row)
+    }
+    return buckets
+  } catch { return {} }
+}
 
 export interface CountryStatus {
   country_name: string
