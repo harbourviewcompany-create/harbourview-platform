@@ -354,8 +354,8 @@ export async function getWatchlistData(
         .eq('org_id', orgId),
       supabase
         .from('cc_watchlist_notifications')
-        .select('status')
-        .eq('org_id', orgId),
+        .select('is_read, is_snoozed')
+        .eq('user_id', userId),
     ])
 
     const notifs = notifsRes.data ?? []
@@ -363,10 +363,10 @@ export async function getWatchlistData(
       items: itemsRes.data ?? [],
       rules: rulesRes.data ?? [],
       notifications: {
-        total_alerts:    notifs.filter(n => n.status === 'pending').length,
-        awaiting_review: notifs.filter(n => n.status === 'pending').length,
-        resolved:        notifs.filter(n => n.status === 'resolved').length,
-        snoozed:         notifs.filter(n => n.status === 'snoozed').length,
+        total_alerts:    notifs.filter(n => !n.is_read && !n.is_snoozed).length,
+        awaiting_review: notifs.filter(n => !n.is_read && !n.is_snoozed).length,
+        resolved:        notifs.filter(n =>  n.is_read).length,
+        snoozed:         notifs.filter(n =>  n.is_snoozed).length,
       },
     }
   } catch {
