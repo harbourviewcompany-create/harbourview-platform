@@ -84,26 +84,34 @@ as $$
   );
 $$;
 
+drop policy if exists source_registry_admin_operator_select on public.source_registry;
 create policy source_registry_admin_operator_select on public.source_registry
   for select using (public.harbourview_is_admin_or_operator());
+drop policy if exists source_registry_admin_operator_write on public.source_registry;
 create policy source_registry_admin_operator_write on public.source_registry
   for all using (public.harbourview_is_admin_or_operator())
   with check (public.harbourview_is_admin_or_operator());
 
+drop policy if exists source_snapshots_admin_operator_select on public.source_snapshots;
 create policy source_snapshots_admin_operator_select on public.source_snapshots
   for select using (public.harbourview_is_admin_or_operator());
+drop policy if exists source_snapshots_admin_operator_write on public.source_snapshots;
 create policy source_snapshots_admin_operator_write on public.source_snapshots
   for all using (public.harbourview_is_admin_or_operator())
   with check (public.harbourview_is_admin_or_operator());
 
+drop policy if exists used_surplus_candidates_admin_operator_select on public.used_surplus_candidates;
 create policy used_surplus_candidates_admin_operator_select on public.used_surplus_candidates
   for select using (public.harbourview_is_admin_or_operator());
+drop policy if exists used_surplus_candidates_admin_operator_write on public.used_surplus_candidates;
 create policy used_surplus_candidates_admin_operator_write on public.used_surplus_candidates
   for all using (public.harbourview_is_admin_or_operator())
   with check (public.harbourview_is_admin_or_operator());
 
+drop policy if exists candidate_review_events_admin_operator_select on public.candidate_review_events;
 create policy candidate_review_events_admin_operator_select on public.candidate_review_events
   for select using (public.harbourview_is_admin_or_operator());
+drop policy if exists candidate_review_events_admin_operator_write on public.candidate_review_events;
 create policy candidate_review_events_admin_operator_write on public.candidate_review_events
   for all using (public.harbourview_is_admin_or_operator())
   with check (public.harbourview_is_admin_or_operator());
