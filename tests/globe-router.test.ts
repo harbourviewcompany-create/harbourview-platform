@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { countryOptions, getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
 import { getIntentIdsForRole } from '@/config/globe/intent-profiles'
 import { destinationBasePathMap, globeRouteManifestMap } from '@/config/globe/route-map'
@@ -181,6 +183,88 @@ describe('Harbourview globe same-screen router', () => {
     expect(result.href).toContain('country=DE')
     expect(result.href).toContain('role=importer')
     expect(result.href).toContain('intent=view_market_signals')
+  })
+
+  it('normalizes a single selected U.S. state to the United States country-role route while preserving region context', () => {
+    const result = resolveGlobeRoute({
+      countryIso2: 'US-OK',
+      countryIso2s: ['US-OK'],
+      roleId: 'importer',
+      mode: 'single_market',
+      source: 'globe_router',
+      layerId: 'country_select',
+    })
+
+    expect(result.status).toBe('resolved')
+    expect(result.href).toContain('/country/united-states/role/importer?')
+    expect(result.href).toContain('source=globe_router')
+    expect(result.href).toContain('mode=single_market')
+    expect(result.href).toContain('country=US-OK')
+    expect(result.href).toContain('countries=US-OK')
+    expect(result.href).toContain('role=importer')
+    expect(result.href).toContain('layer=country_select')
+    expect(result.href).toContain('region=US-OK')
+    expect(result.href).not.toContain('/market-selection')
+  })
+
+  it('normalizes a single selected Canadian province to the Canada country-role route while preserving region context', () => {
+    const result = resolveGlobeRoute({
+      countryIso2: 'CA-ON',
+      countryIso2s: ['CA-ON'],
+      roleId: 'importer',
+      mode: 'single_market',
+      source: 'globe_router',
+      layerId: 'country_select',
+    })
+
+    expect(result.status).toBe('resolved')
+    expect(result.href).toContain('/country/canada/role/importer?')
+    expect(result.href).toContain('country=CA-ON')
+    expect(result.href).toContain('countries=CA-ON')
+    expect(result.href).toContain('role=importer')
+    expect(result.href).toContain('region=CA-ON')
+    expect(result.href).not.toContain('/market-selection')
+  })
+
+  it('preserves normal country-role routing for Mexico exporter selections', () => {
+    const result = resolveGlobeRoute({
+      countryIso2: 'MX',
+      countryIso2s: ['MX'],
+      roleId: 'exporter',
+      mode: 'single_market',
+      source: 'globe_router',
+      layerId: 'country_select',
+    })
+
+    expect(result.status).toBe('resolved')
+    expect(result.href).toContain('/country/mexico/role/exporter?')
+    expect(result.href).toContain('country=MX')
+    expect(result.href).toContain('countries=MX')
+    expect(result.href).toContain('role=exporter')
+    expect(result.href).not.toContain('region=')
+  })
+
+  it('keeps true multi-market selection on market selection without single subdivision normalization', () => {
+    const result = resolveGlobeRoute({
+      countryIso2: 'US-OK',
+      countryIso2s: ['US-OK', 'CA-ON'],
+      roleId: 'importer',
+      mode: 'multi_market',
+      source: 'globe_router',
+      layerId: 'country_select',
+    })
+
+    expect(result.href).toContain('/market-selection?')
+    expect(result.href).not.toContain('/country/united-states/role/importer')
+    expect(result.href).not.toContain('region=US-OK')
+  })
+
+  it('does not hardcode Germany as selected on the market-selection fallback page', () => {
+    const marketSelectionPage = readFileSync(join(process.cwd(), 'app/market-selection/page.tsx'), 'utf8')
+    const mobileCountrySelection = readFileSync(join(process.cwd(), 'components/harbourview/MobileCountrySelection.tsx'), 'utf8')
+
+    expect(marketSelectionPage).not.toContain('initialCountry="DE"')
+    expect(mobileCountrySelection).not.toContain("initialCountry = 'DE'")
   })
 
   it('hydrates dashboard context from globe router query params', () => {

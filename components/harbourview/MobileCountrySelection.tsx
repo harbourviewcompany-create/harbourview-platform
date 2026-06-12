@@ -42,7 +42,7 @@ function reducer(state: State, action: Action): State {
 
 interface MobileCountrySelectionProps {
   /** Pre-selected market code from URL. No default — undefined means unselected. */
-  initialCountry?: string
+  initialCountry?: string | null
   onContinue?: (iso2: string | null, path: SelectedPath) => void
   enableWebGL?: boolean
 }
