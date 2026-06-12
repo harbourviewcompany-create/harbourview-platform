@@ -5,7 +5,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryStatusFromDB } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryStatusFromDB, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules } from '@/lib/dashboard/dashboardLiveData'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -186,13 +186,16 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     : baseEduCategories
 
   const countryName = dashboard.country.countryName
-  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, countryStatus] = await Promise.all([
+  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, countryStatus, liveTiles, pathwayData, recentEduModules] = await Promise.all([
     fetchDashboardSignals(8, countryName),
     getPipelineCounts(),
     getWantedListings(countryIso2),
     getWantedRequestsCount(),
     getCountryRoleMarketplaceRows(countryIso2),
     getCountryStatusFromDB(countryIso2),
+    getLiveEduTiles(roleId),
+    getPublicPathwayTemplate(countryIso2, roleId),
+    getRecentEduModules(),
   ])
 
   return (
