@@ -26,6 +26,7 @@ begin
       and tablename  = 'country_intelligence_profiles'
       and policyname = 'intelligence_country_public_read'
   ) then
+drop policy if exists intelligence_country_public_read on intelligence.country_intelligence_profiles;
     create policy intelligence_country_public_read
     on intelligence.country_intelligence_profiles
     for select
