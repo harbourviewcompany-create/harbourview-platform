@@ -17,19 +17,23 @@ create table if not exists public.user_dashboard_preferences (
 -- RLS
 alter table public.user_dashboard_preferences enable row level security;
 
+drop policy if exists "Users can read their own dashboard preferences" on public.user_dashboard_preferences;
 create policy "Users can read their own dashboard preferences"
   on public.user_dashboard_preferences for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert their own dashboard preferences" on public.user_dashboard_preferences;
 create policy "Users can insert their own dashboard preferences"
   on public.user_dashboard_preferences for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own dashboard preferences" on public.user_dashboard_preferences;
 create policy "Users can update their own dashboard preferences"
   on public.user_dashboard_preferences for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can delete their own dashboard preferences" on public.user_dashboard_preferences;
 create policy "Users can delete their own dashboard preferences"
   on public.user_dashboard_preferences for delete
   using (auth.uid() = user_id);
@@ -43,6 +47,7 @@ begin
 end;
 $$;
 
+drop trigger if exists user_dashboard_preferences_updated_at on public.user_dashboard_preferences;
 create trigger user_dashboard_preferences_updated_at
   before update on public.user_dashboard_preferences
   for each row execute function public.set_updated_at();
