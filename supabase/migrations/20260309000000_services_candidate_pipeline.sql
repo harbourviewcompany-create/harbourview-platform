@@ -56,6 +56,9 @@ grant select, insert, update, delete on public.service_sources to authenticated;
 grant select, insert, update, delete on public.service_snapshots to authenticated;
 grant select, insert, update, delete on public.service_candidates to authenticated;
 
+drop policy if exists service_sources_admin_operator_only on public.service_sources;
 create policy service_sources_admin_operator_only on public.service_sources for all to authenticated using (exists (select 1 from public.user_roles where user_id = auth.uid() and role in ('admin','operator'))) with check (exists (select 1 from public.user_roles where user_id = auth.uid() and role in ('admin','operator')));
+drop policy if exists service_snapshots_admin_operator_only on public.service_snapshots;
 create policy service_snapshots_admin_operator_only on public.service_snapshots for all to authenticated using (exists (select 1 from public.user_roles where user_id = auth.uid() and role in ('admin','operator'))) with check (exists (select 1 from public.user_roles where user_id = auth.uid() and role in ('admin','operator')));
+drop policy if exists service_candidates_admin_operator_only on public.service_candidates;
 create policy service_candidates_admin_operator_only on public.service_candidates for all to authenticated using (exists (select 1 from public.user_roles where user_id = auth.uid() and role in ('admin','operator'))) with check (exists (select 1 from public.user_roles where user_id = auth.uid() and role in ('admin','operator')));
