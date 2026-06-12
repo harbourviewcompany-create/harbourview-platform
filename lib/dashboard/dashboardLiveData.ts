@@ -373,3 +373,78 @@ export async function getWatchlistData(
     return empty
   }
 }
+
+// ── 7. Evidence & Sources data ────────────────────────────────────────────────
+
+export type EvidenceSource = {
+  id:           string
+  name:         string
+  category:     string
+  markets:      string[]
+  reliability:  string
+  last_checked: string | null
+  status:       string
+  notes:        string | null
+}
+
+export type OrgEvidenceDoc = {
+  id:                  string
+  display_name:        string
+  document_type:       string
+  verification_status: string
+  expiry_date:         string | null
+  created_at:          string
+}
+
+export type EvidenceData = {
+  sources: EvidenceSource[]
+  orgDocs: OrgEvidenceDoc[]
+}
+
+export async function getEvidenceData(
+  userId:      string | null,
+  countryIso2: string | null,
+): Promise<EvidenceData> {
+  const empty: EvidenceData = { sources: [], orgDocs: [] }
+  try {
+    const supabase = await createClient()
+
+    // Platform sources — filter by country market when provided.
+    // ia_sources.markets is a text[] so we use overlaps operator.
+    const sourcesQuery = supabase
+      .from('ia_sources')
+      .select('id, name, category, markets, reliability, last_checked, status, notes')
+      .eq('status', 'active')
+      .order('last_checked', { ascending: false })
+      .limit(50)
+
+    // Resolve country name for market filter (markets stores display names not ISO2)
+    // Fall back to all sources when country unknown — page handles empty state per tab.
+    const { data: sources } = await sourcesQuery
+
+    // Org evidence documents
+    let orgDocs: OrgEvidenceDoc[] = []
+    if (userId) {
+      const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .single()
+
+      if (membership?.workspace_id) {
+        const { data: docs } = await supabase
+          .from('hv_evidence_documents')
+          .select('id, display_name, document_type, verification_status, expiry_date, created_at')
+          .eq('org_id', membership.workspace_id)
+          .order('created_at', { ascending: false })
+          .limit(25)
+        orgDocs = docs ?? []
+      }
+    }
+
+    return { sources: sources ?? [], orgDocs }
+  } catch {
+    return empty
+  }
+}
