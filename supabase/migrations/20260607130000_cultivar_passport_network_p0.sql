@@ -292,15 +292,25 @@ create index idx_genetics_claims_cultivar_public on genetics_claims(cultivar_id,
 create index idx_genetics_claim_reviews_status on genetics_claim_reviews(review_status);
 create index idx_genetics_audit_events_entity on genetics_audit_events(entity_type, entity_id, created_at desc);
 
+drop trigger if exists genetics_profiles_touch_updated_at on genetics_profiles;
 create trigger genetics_profiles_touch_updated_at before update on genetics_profiles for each row execute function touch_updated_at();
+drop trigger if exists cultivar_passports_touch_updated_at on cultivar_passports;
 create trigger cultivar_passports_touch_updated_at before update on cultivar_passports for each row execute function touch_updated_at();
+drop trigger if exists cultivar_country_opportunities_touch_updated_at on cultivar_country_opportunities;
 create trigger cultivar_country_opportunities_touch_updated_at before update on cultivar_country_opportunities for each row execute function touch_updated_at();
+drop trigger if exists genetics_evidence_items_touch_updated_at on genetics_evidence_items;
 create trigger genetics_evidence_items_touch_updated_at before update on genetics_evidence_items for each row execute function touch_updated_at();
+drop trigger if exists genetics_access_requests_touch_updated_at on genetics_access_requests;
 create trigger genetics_access_requests_touch_updated_at before update on genetics_access_requests for each row execute function touch_updated_at();
+drop trigger if exists genetics_access_grants_touch_updated_at on genetics_access_grants;
 create trigger genetics_access_grants_touch_updated_at before update on genetics_access_grants for each row execute function touch_updated_at();
+drop trigger if exists genetics_claims_touch_updated_at on genetics_claims;
 create trigger genetics_claims_touch_updated_at before update on genetics_claims for each row execute function touch_updated_at();
+drop trigger if exists genetics_collaboration_projects_touch_updated_at on genetics_collaboration_projects;
 create trigger genetics_collaboration_projects_touch_updated_at before update on genetics_collaboration_projects for each row execute function touch_updated_at();
+drop trigger if exists genetics_service_providers_touch_updated_at on genetics_service_providers;
 create trigger genetics_service_providers_touch_updated_at before update on genetics_service_providers for each row execute function touch_updated_at();
+drop trigger if exists genetics_claim_reviews_touch_updated_at on genetics_claim_reviews;
 create trigger genetics_claim_reviews_touch_updated_at before update on genetics_claim_reviews for each row execute function touch_updated_at();
 
 alter table genetics_profiles enable row level security;
@@ -318,47 +328,75 @@ alter table genetics_service_providers enable row level security;
 alter table genetics_claim_reviews enable row level security;
 alter table genetics_audit_events enable row level security;
 
+drop policy if exists genetics_profiles_public_read on genetics_profiles;
 create policy genetics_profiles_public_read on genetics_profiles for select using (review_status in ('submitted','evidence_attached','approved_public','approved_private_only'));
+drop policy if exists genetics_profiles_owner_all on genetics_profiles;
 create policy genetics_profiles_owner_all on genetics_profiles for all using (owner_user_id = auth.uid() or is_genetics_admin_or_reviewer()) with check (owner_user_id = auth.uid() or is_genetics_admin_or_reviewer());
 
+drop policy if exists genetics_profile_roles_owner_read on genetics_profile_roles;
 create policy genetics_profile_roles_owner_read on genetics_profile_roles for select using (exists (select 1 from genetics_profiles gp where gp.id = profile_id and (gp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer())));
+drop policy if exists genetics_profile_roles_owner_all on genetics_profile_roles;
 create policy genetics_profile_roles_owner_all on genetics_profile_roles for all using (exists (select 1 from genetics_profiles gp where gp.id = profile_id and (gp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer()))) with check (exists (select 1 from genetics_profiles gp where gp.id = profile_id and (gp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer())));
 
+drop policy if exists cultivar_passports_public_read on cultivar_passports;
 create policy cultivar_passports_public_read on cultivar_passports for select using (is_public = true and claim_review_status in ('submitted','evidence_attached','approved_public','approved_private_only','needs_evidence'));
+drop policy if exists cultivar_passports_owner_all on cultivar_passports;
 create policy cultivar_passports_owner_all on cultivar_passports for all using (owner_user_id = auth.uid() or is_genetics_admin_or_reviewer()) with check (owner_user_id = auth.uid() or is_genetics_admin_or_reviewer());
 
+drop policy if exists cultivar_aliases_public_read on cultivar_aliases;
 create policy cultivar_aliases_public_read on cultivar_aliases for select using (is_public = true and exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.is_public = true));
+drop policy if exists cultivar_aliases_owner_all on cultivar_aliases;
 create policy cultivar_aliases_owner_all on cultivar_aliases for all using (exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and (cp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer()))) with check (exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and (cp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer())));
 
+drop policy if exists cultivar_country_opportunities_public_read on cultivar_country_opportunities;
 create policy cultivar_country_opportunities_public_read on cultivar_country_opportunities for select using (status in ('open_to_discussion','invite_only','not_assessed') and material_transfer_status in ('none','information_only','discussion_only') and exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.is_public = true));
+drop policy if exists cultivar_country_opportunities_owner_all on cultivar_country_opportunities;
 create policy cultivar_country_opportunities_owner_all on cultivar_country_opportunities for all using (exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and (cp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer()))) with check (exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and (cp.owner_user_id = auth.uid() or is_genetics_admin_or_reviewer())));
 
+drop policy if exists genetics_evidence_items_public_summary_read on genetics_evidence_items;
 create policy genetics_evidence_items_public_summary_read on genetics_evidence_items for select using (visibility = 'public_summary' and file_is_private = true and exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.is_public = true));
+drop policy if exists genetics_evidence_items_owner_all on genetics_evidence_items;
 create policy genetics_evidence_items_owner_all on genetics_evidence_items for all using (created_by = auth.uid() or is_genetics_admin_or_reviewer() or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid())) with check (created_by = auth.uid() or is_genetics_admin_or_reviewer() or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid()));
+drop policy if exists genetics_evidence_items_grant_read on genetics_evidence_items;
 create policy genetics_evidence_items_grant_read on genetics_evidence_items for select using (exists (select 1 from genetics_access_grants gag join genetics_profiles gp on gp.id = gag.grantee_profile_id where gag.cultivar_id = genetics_evidence_items.cultivar_id and gp.owner_user_id = auth.uid() and gag.status = 'active' and gag.starts_at <= now() and (gag.expires_at is null or gag.expires_at > now()) and gag.revoked_at is null and (genetics_evidence_items.id = any(gag.allowed_evidence_item_ids) or genetics_evidence_items.evidence_type = any(gag.allowed_evidence_types))));
 
+drop policy if exists genetics_access_requests_owner_all on genetics_access_requests;
 create policy genetics_access_requests_owner_all on genetics_access_requests for all using (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = requester_profile_id and gp.owner_user_id = auth.uid()) or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid())) with check (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = requester_profile_id and gp.owner_user_id = auth.uid()) or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid())));
 
+drop policy if exists genetics_access_grants_admin_owner_all on genetics_access_grants;
 create policy genetics_access_grants_admin_owner_all on genetics_access_grants for all using (is_genetics_admin_or_reviewer() or grantor_user_id = auth.uid() or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid())) with check (is_genetics_admin_or_reviewer() or grantor_user_id = auth.uid() or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid()));
+drop policy if exists genetics_access_grants_grantee_read on genetics_access_grants;
 create policy genetics_access_grants_grantee_read on genetics_access_grants for select using (exists (select 1 from genetics_profiles gp where gp.id = grantee_profile_id and gp.owner_user_id = auth.uid()));
 
+drop policy if exists genetics_claims_public_read on genetics_claims;
 create policy genetics_claims_public_read on genetics_claims for select using (public_display_allowed = true and review_status = 'approved_public');
+drop policy if exists genetics_claims_owner_admin_all on genetics_claims;
 create policy genetics_claims_owner_admin_all on genetics_claims for all using (is_genetics_admin_or_reviewer() or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid())) with check (is_genetics_admin_or_reviewer() or exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid())));
 
+drop policy if exists genetics_collaboration_projects_public_read on genetics_collaboration_projects;
 create policy genetics_collaboration_projects_public_read on genetics_collaboration_projects for select using (visibility = 'public_summary');
+drop policy if exists genetics_collaboration_projects_owner_all on genetics_collaboration_projects;
 create policy genetics_collaboration_projects_owner_all on genetics_collaboration_projects for all using (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = owner_profile_id and gp.owner_user_id = auth.uid())) with check (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = owner_profile_id and gp.owner_user_id = auth.uid())));
+drop policy if exists genetics_project_members_member_read on genetics_project_members;
 create policy genetics_project_members_member_read on genetics_project_members for select using (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = profile_id and gp.owner_user_id = auth.uid()));
+drop policy if exists genetics_project_members_admin_all on genetics_project_members;
 create policy genetics_project_members_admin_all on genetics_project_members for all using (is_genetics_admin_or_reviewer()) with check (is_genetics_admin_or_reviewer());
 
+drop policy if exists genetics_service_providers_public_read on genetics_service_providers;
 create policy genetics_service_providers_public_read on genetics_service_providers for select using (is_public = true and review_status in ('submitted','evidence_attached','approved_public','approved_private_only'));
+drop policy if exists genetics_service_providers_owner_all on genetics_service_providers;
 create policy genetics_service_providers_owner_all on genetics_service_providers for all using (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = profile_id and gp.owner_user_id = auth.uid())) with check (is_genetics_admin_or_reviewer() or exists (select 1 from genetics_profiles gp where gp.id = profile_id and gp.owner_user_id = auth.uid())));
 
+drop policy if exists genetics_claim_reviews_admin_all on genetics_claim_reviews;
 create policy genetics_claim_reviews_admin_all on genetics_claim_reviews for all using (is_genetics_admin_or_reviewer()) with check (is_genetics_admin_or_reviewer());
+drop policy if exists genetics_claim_reviews_owner_read on genetics_claim_reviews;
 create policy genetics_claim_reviews_owner_read on genetics_claim_reviews for select using (exists (select 1 from cultivar_passports cp where cp.id = cultivar_id and cp.owner_user_id = auth.uid()));
 
 -- Audit events are intentionally not publicly readable. Insert is restricted to server/admin
 -- contexts (service role bypasses RLS; reviewers may insert operational audit events).
+drop policy if exists genetics_audit_events_admin_insert on genetics_audit_events;
 create policy genetics_audit_events_admin_insert on genetics_audit_events for insert with check (is_genetics_admin_or_reviewer());
+drop policy if exists genetics_audit_events_admin_read on genetics_audit_events;
 create policy genetics_audit_events_admin_read on genetics_audit_events for select using (is_genetics_admin_or_reviewer());
 
 -- Public access is intentionally exposed through allowlisted views instead of direct base-table
