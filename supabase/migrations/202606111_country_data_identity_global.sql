@@ -106,9 +106,11 @@ alter table public.country_data_import_runs enable row level security;
 do $$
 begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'country_profiles_public' and policyname = 'public read country profiles public') then
+drop policy if exists "public read country profiles public" on public.country_profiles_public;
     create policy "public read country profiles public" on public.country_profiles_public for select using (public_dto_allowed = true);
   end if;
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'jurisdictions' and policyname = 'public read jurisdictions for country dto') then
+drop policy if exists "public read jurisdictions for country dto" on public.jurisdictions;
     create policy "public read jurisdictions for country dto" on public.jurisdictions for select using (data_release_status = 'seeded_identity_pending_regulated_market_review');
   end if;
 end $$;
