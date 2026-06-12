@@ -1963,6 +1963,8 @@ export default function CommandCentre({
   pipeline,
   wantedListings = [],
   countryIntel,
+  pathwayData,
+  watchlistData,
 }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
@@ -2014,7 +2016,7 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} countryIntel={countryIntel} pipeline={pipeline} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} countryIntel={countryIntel} pipeline={pipeline} pathwayData={pathwayData} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':
@@ -2028,13 +2030,13 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} />
       case 'watchlist':
-        return <WatchlistPage country={country} region={region} role={roleLabel} />
+        return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
       default:
         return null
     }
-  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, countryOptions, roleOptions, handleCountryChange, handleRoleChange])
+  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, countryOptions, roleOptions, handleCountryChange, handleRoleChange, pathwayData, watchlistData, pipeline])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

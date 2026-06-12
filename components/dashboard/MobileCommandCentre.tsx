@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { buildPathwayStages } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -175,25 +176,40 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
   )
 }
 
-function AccessPathwayMobile({ country, roleLabel, countryIntel }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null }) {
+function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; pathwayData?: PathwayData | null }) {
   const pathwaySummary = fieldValue(countryIntel?.commercial_pathway_summary, 'Pathway evidence is under Harbourview review for this country-role context.')
   const reviewState = fieldValue(countryIntel?.review_status, 'Review gated')
+  const live = buildPathwayStages(pathwayData)
 
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <h2>Access Pathway</h2>
-        <p>{country.label} · {roleLabel}</p>
+        <p>{country.label} · {roleLabel}{live ? ` · ${live.templateName}` : ''}</p>
         <blockquote>{pathwaySummary}</blockquote>
       </section>
 
       <div className="hvm-pathway-steps">
-        <SectionCard label="1 · Eligibility" title={fieldValue(countryIntel?.market_access_status)} detail="Confirm the selected role is permitted to participate in the country pathway before outreach or transaction work." />
-        <SectionCard label="2 · Importer requirements" title={fieldValue(countryIntel?.import_status)} detail="Importer authorization, permit mechanics, pharmacy or distributor participation, and role-specific limits must be source-reviewed." />
-        <SectionCard label="3 · Documents" title="Licence, authorization, COA and product dossier packet" detail="Use field-level review until live document requirements are loaded from verified regulatory sources." />
-        <SectionCard label="4 · Route constraints" title="Compliance-gated market access" detail="Controlled routes remain Harbourview-mediated. Public pages must not expose private counterparty evidence or raw provenance." />
-        <SectionCard label="5 · Review status" title={reviewState} detail="Move only reviewed public summary fields into the mobile experience. Keep admin notes and source evidence private." tone="warn" />
-        <SectionCard label="Next Harbourview action" title="Open pathway review queue" detail="Verify current source evidence, confirm role fit, then release a reviewed access brief for the selected country-role path." tone="ok" />
+        {live ? (
+          live.stages.map(stage => (
+            <SectionCard
+              key={stage.id}
+              label={`${stage.stepNumber} · ${stage.label}`}
+              title={stage.status === 'complete' ? 'Complete' : stage.status === 'active' ? 'In progress' : 'Not started'}
+              detail={stage.desc}
+              tone={stage.status === 'complete' ? 'ok' : stage.status === 'active' ? 'warn' : undefined}
+            />
+          ))
+        ) : (
+          <>
+            <SectionCard label="1 · Eligibility" title={fieldValue(countryIntel?.market_access_status)} detail="Confirm the selected role is permitted to participate in the country pathway before outreach or transaction work." />
+            <SectionCard label="2 · Importer requirements" title={fieldValue(countryIntel?.import_status)} detail="Importer authorization, permit mechanics, pharmacy or distributor participation, and role-specific limits must be source-reviewed." />
+            <SectionCard label="3 · Documents" title="Licence, authorization, COA and product dossier packet" detail="Use field-level review until live document requirements are loaded from verified regulatory sources." />
+            <SectionCard label="4 · Route constraints" title="Compliance-gated market access" detail="Controlled routes remain Harbourview-mediated. Public pages must not expose private counterparty evidence or raw provenance." />
+            <SectionCard label="5 · Review status" title={reviewState} detail="Move only reviewed public summary fields into the mobile experience. Keep admin notes and source evidence private." tone="warn" />
+            <SectionCard label="Next Harbourview action" title="Open pathway review queue" detail="Verify current source evidence, confirm role fit, then release a reviewed access brief for the selected country-role path." tone="ok" />
+          </>
+        )}
       </div>
     </div>
   )
@@ -366,6 +382,7 @@ export default function MobileCommandCentre({
   marketplaceRows,
   wantedListings = [],
   countryIntel,
+  pathwayData,
 }: Props) {
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
   const [country, setCountry] = useState<CountryOption>(initialCountry)
@@ -388,7 +405,7 @@ export default function MobileCommandCentre({
       case 'briefing':
         return <BriefingMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />
       case 'access-pathway':
-        return <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} />
+        return <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':

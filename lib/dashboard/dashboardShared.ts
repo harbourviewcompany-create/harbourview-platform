@@ -3,6 +3,7 @@
 // NO 'server-only' — safe to import from 'use client' components.
 
 import type { RoleId } from '@/types/globe-router'
+import type { PathwayData } from '@/lib/dashboard/dashboardLiveData'
 
 export type DashboardSignal = {
   id: string
@@ -13,6 +14,59 @@ export type DashboardSignal = {
   timeAgo: string
   confidence: number
   commercialImpact: string
+}
+
+export type PathwayReqStatus = 'pending' | 'in_review' | 'verified' | 'rejected' | 'waived'
+
+export type PathwayRequirementView = {
+  id: string
+  title: string
+  evidenceType: string
+  isRequired: boolean
+  status: PathwayReqStatus
+}
+
+export type PathwayStageView = {
+  id: string
+  stepNumber: number
+  label: string
+  desc: string
+  status: 'complete' | 'active' | 'pending'
+  requirements: PathwayRequirementView[]
+}
+
+/**
+ * Derive stage/requirement view models from live `cc_pathway_templates` data
+ * (template, steps, requirements, progress, requirementStatuses).
+ * Returns `null` when no template is configured for this org/country/role,
+ * so callers can fall back to a static/generic pathway.
+ */
+export function buildPathwayStages(data: PathwayData | null | undefined): { stages: PathwayStageView[]; templateName: string } | null {
+  if (!data?.template) return null
+
+  const currentStep = data.progress?.current_step ?? 1
+  const statusByReqId = new Map(data.requirementStatuses.map(r => [r.requirement_id, r.status]))
+
+  const stages: PathwayStageView[] = data.steps.map(step => ({
+    id: step.id,
+    stepNumber: step.step_number,
+    label: step.title,
+    desc: step.description ?? '',
+    status:
+      step.step_number < currentStep ? 'complete' :
+      step.step_number === currentStep ? 'active' : 'pending',
+    requirements: data.requirements
+      .filter(r => r.step_id === step.id)
+      .map(r => ({
+        id: r.id,
+        title: r.title,
+        evidenceType: r.evidence_type,
+        isRequired: r.is_required,
+        status: statusByReqId.get(r.id) ?? 'pending',
+      })),
+  }))
+
+  return { stages, templateName: data.template.name }
 }
 
 export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {

@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import type { CountryIntelProfile, PipelineCounts } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, PathwayData } from '@/lib/dashboard/dashboardLiveData'
+import { buildPathwayStages, type PathwayReqStatus, type PathwayRequirementView } from '@/lib/dashboard/dashboardShared'
 
 export interface AccessPathwayPageProps {
   country:      { iso2: string; label: string }
@@ -9,9 +10,32 @@ export interface AccessPathwayPageProps {
   role:         string
   countryIntel?: CountryIntelProfile | null
   pipeline?:    PipelineCounts
+  pathwayData?: PathwayData | null
 }
 
-type Stage = { id: string; label: string; desc: string; status: 'complete' | 'active' | 'pending' }
+type Stage = {
+  id: string
+  label: string
+  desc: string
+  status: 'complete' | 'active' | 'pending'
+  requirements?: PathwayRequirementView[]
+}
+
+const REQ_STATUS_LABEL: Record<PathwayReqStatus, string> = {
+  pending:   'Pending',
+  in_review: 'In Review',
+  verified:  'Verified',
+  rejected:  'Rejected',
+  waived:    'Waived',
+}
+
+const REQ_STATUS_COLOR: Record<PathwayReqStatus, string> = {
+  pending:   'rgba(245,240,232,.35)',
+  in_review: '#5b9bd5',
+  verified:  '#4caf82',
+  rejected:  '#e0685a',
+  waived:    'rgba(245,240,232,.35)',
+}
 
 function buildPathway(role: string, countryIntel?: CountryIntelProfile | null): Stage[] {
   const marketAccess = countryIntel?.market_access_status?.toLowerCase() ?? ''
@@ -43,18 +67,36 @@ function buildPathway(role: string, countryIntel?: CountryIntelProfile | null): 
   return base
 }
 
-function StageRow({ stage, idx }: { stage: Stage; idx: number }) {
+function StageRow({ stage, idx, total }: { stage: Stage; idx: number; total: number }) {
   const iconMap = { complete: '✓', active: '◎', pending: '○' }
   const classMap = { complete: 'ap-stage--complete', active: 'ap-stage--active', pending: 'ap-stage--pending' }
   return (
     <div className={`ap-stage ${classMap[stage.status]}`} style={{ animationDelay: `${idx * 55}ms` }}>
       <div className="ap-stage-left">
         <div className={`ap-stage-icon ap-icon--${stage.status}`}>{iconMap[stage.status]}</div>
-        {idx < 5 && <div className="ap-stage-line" />}
+        {idx < total - 1 && <div className="ap-stage-line" />}
       </div>
       <div className="ap-stage-body">
         <div className="ap-stage-label">{stage.label}</div>
         <div className="ap-stage-desc">{stage.desc}</div>
+        {stage.requirements && stage.requirements.length > 0 && (stage.status === 'active' || stage.status === 'complete') && (
+          <div className="ap-reqs">
+            {stage.requirements.map(req => (
+              <div key={req.id} className="ap-req-row">
+                <span
+                  className="ap-req-dot"
+                  style={{ background: REQ_STATUS_COLOR[req.status], boxShadow: `0 0 0 2px ${REQ_STATUS_COLOR[req.status]}22` }}
+                />
+                <span className="ap-req-title">{req.title}</span>
+                {!req.isRequired && <span className="ap-req-optional">optional</span>}
+                <span className="ap-req-evidence">{req.evidenceType.replace(/_/g, ' ')}</span>
+                <span className="ap-req-status" style={{ color: REQ_STATUS_COLOR[req.status] }}>
+                  {REQ_STATUS_LABEL[req.status]}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       {stage.status === 'active' && (
         <a href="/intake" className="ap-stage-cta">Continue →</a>
@@ -64,9 +106,11 @@ function StageRow({ stage, idx }: { stage: Stage; idx: number }) {
 }
 
 export const AccessPathwayPage = React.memo(function AccessPathwayPage({
-  country, role, countryIntel, pipeline,
+  country, role, countryIntel, pipeline, pathwayData,
 }: AccessPathwayPageProps) {
-  const stages = buildPathway(role, countryIntel)
+  const live = buildPathwayStages(pathwayData)
+  const stages: Stage[] = live?.stages ?? buildPathway(role, countryIntel)
+  const templateName = live?.templateName ?? ''
   const activeStage = stages.find(s => s.status === 'active')
   const completedCount = stages.filter(s => s.status === 'complete').length
 
@@ -81,6 +125,7 @@ export const AccessPathwayPage = React.memo(function AccessPathwayPage({
             {country.label}
             {role ? ` · ${role}` : ''}
             {' · '}{completedCount} of {stages.length} stages complete
+            {templateName ? ` · ${templateName}` : ''}
           </p>
         </div>
         <a href="/intake" className="ap-cta-gold">Request Introduction →</a>
@@ -90,7 +135,7 @@ export const AccessPathwayPage = React.memo(function AccessPathwayPage({
         <div className="ap-left">
           <div className="ap-section-head">PATHWAY STAGES</div>
           <div className="ap-stages">
-            {stages.map((s, i) => <StageRow key={s.id} stage={s} idx={i} />)}
+            {stages.map((s, i) => <StageRow key={s.id} stage={s} idx={i} total={stages.length} />)}
           </div>
         </div>
 
@@ -227,6 +272,26 @@ const CSS = `
   display:inline-flex;transition:background .12s;
 }
 .ap-stage-cta:hover { background:rgba(212,168,75,.18); }
+
+.ap-reqs { display:flex;flex-direction:column;gap:5px;margin-top:9px; }
+.ap-req-row {
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-radius:6px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+  font-size:10.5px;
+}
+.ap-req-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+.ap-req-title { color:rgba(245,240,232,.7);flex:1;min-width:0; }
+.ap-req-optional {
+  font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(245,240,232,.3);border:1px solid rgba(255,255,255,.08);
+  padding:1px 5px;border-radius:4px;flex-shrink:0;
+}
+.ap-req-evidence {
+  font-family:'JetBrains Mono','Fira Mono',monospace;font-size:9px;
+  color:rgba(245,240,232,.32);text-transform:capitalize;flex-shrink:0;
+}
+.ap-req-status { font-size:10px;font-weight:600;flex-shrink:0;min-width:62px;text-align:right; }
 
 .ap-card {
   padding:16px;border-radius:10px;
