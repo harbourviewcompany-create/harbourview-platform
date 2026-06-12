@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { FrontSide, BackSide, AdditiveBlending, type MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
@@ -34,6 +34,7 @@ import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
+
 const SPECULAR_CAP = 0.42
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
@@ -44,10 +45,19 @@ function bboxArea(bbox: [number, number, number, number]) {
   return Math.abs(bbox[2] - bbox[0]) * Math.abs(bbox[3] - bbox[1])
 }
 
-// All renderable entries: provinces replace CA, states replace US
-// globeEntries is now computed per render via buildGlobeEntries(subNationalIso2s)
-
+// ---------------------------------------------------------------------------
+// HoverPulseMesh
+//
+// Renders a single country plate. Emissive pulse animation is NOT handled
+// here — it was moved to the single centralized useFrame in
+// CountryPolygonMeshLayer, reducing useFrame subscriptions from ~250 to 1.
+//
+// Contract with parent:
+//   registerMat(iso2, mat | null) — called on mount (mat) and unmount (null)
+//   scheduleAnimation(iso2, target) — called when pulse target changes
+// ---------------------------------------------------------------------------
 function HoverPulseMesh({
+  iso2,
   geometry,
   hitGeometry,
   color,
@@ -60,10 +70,13 @@ function HoverPulseMesh({
   reflectivity,
   isFocused,
   isSelected,
+  registerMat,
+  scheduleAnimation,
   onPointerEnter,
   onPointerLeave,
   onClick,
 }: {
+  iso2: string
   geometry: ReturnType<typeof createCountryBufferGeometry>
   hitGeometry?: ReturnType<typeof createCountryBufferGeometry>
   color: string
@@ -76,34 +89,37 @@ function HoverPulseMesh({
   reflectivity: number
   isFocused: boolean
   isSelected: boolean
+  registerMat: (iso2: string, mat: MeshPhysicalMaterial | null) => void
+  scheduleAnimation: (iso2: string, target: number) => void
   onPointerEnter: () => void
   onPointerLeave: () => void
   onClick: () => void
 }) {
   const matRef = useRef<MeshPhysicalMaterial>(null)
-  const targetRef = useRef(emissiveIntensity)
 
+  // Register mat with the parent animation registry on mount; deregister on unmount.
   useEffect(() => {
-    targetRef.current = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
-  }, [isFocused, emissiveIntensity])
+    if (matRef.current) registerMat(iso2, matRef.current)
+    return () => { registerMat(iso2, null) }
+    // iso2 is stable per-entry; registerMat is useCallback-stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iso2, registerMat])
+
+  // Whenever focus/intensity changes, push the new target to the parent scheduler.
+  // The parent's single useFrame lerps all active animations.
+  useEffect(() => {
+    const target = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
+    scheduleAnimation(iso2, target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iso2, isFocused, emissiveIntensity, scheduleAnimation])
 
   const metallicGoldShader = useMemo(() => {
     return (shader: MetallicGoldShader) => applyMetallicGoldShader(shader, { isFocused, isSelected })
   }, [isFocused, isSelected])
 
-  useFrame((state, delta) => {
-    if (!matRef.current) return
-    const cur = matRef.current.emissiveIntensity
-    const tgt = targetRef.current
-    if (Math.abs(cur - tgt) < 0.001) return
-    // Pulse is still animating — request the next frame (#4)
-    state.invalidate()
-    matRef.current.emissiveIntensity = cur + (tgt - cur) * Math.min(delta * 9, 1)
-  })
-
   return (
     <>
-      {/* Visual mesh — renders the country plate. Polygon offset and stable renderOrder keep selected and idle plates above the ocean without fighting boundary strokes. */}
+      {/* Visual mesh — renders the country plate. */}
       <mesh geometry={geometry} renderOrder={20}>
         <meshPhysicalMaterial
           ref={matRef}
@@ -158,9 +174,7 @@ function HoverPulseMesh({
           </mesh>
         </>
       ) : null}
-      {/* Hit mesh — inflated invisible surface for pointer events.
-          For large countries this is the same geometry. For small countries
-          (Singapore, Luxembourg, UAE, etc.) it's larger, improving tap accuracy. */}
+      {/* Hit mesh — inflated invisible surface for pointer events. */}
       <mesh
         geometry={hitGeometry ?? geometry}
         visible={false}
@@ -190,11 +204,76 @@ export function CountryPolygonMeshLayer({
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
+  // ---------------------------------------------------------------------------
+  // Centralised emissive-pulse animation
+  //
+  // Previously each HoverPulseMesh registered its own useFrame, resulting in
+  // ~250 subscriptions that R3F iterates every frame regardless of whether
+  // anything is animating. Now a single useFrame handles all active lerps.
+  //
+  // matRegistry  — iso2 → MeshPhysicalMaterial (registered on mesh mount)
+  // targetMap    — iso2 → target emissiveIntensity (set when state changes)
+  // animating    — set of iso2s currently lerping (added by scheduleAnimation,
+  //                removed when settled)
+  // ---------------------------------------------------------------------------
+  const matRegistry = useRef(new Map<string, MeshPhysicalMaterial>())
+  const targetMap   = useRef(new Map<string, number>())
+  const animating   = useRef(new Set<string>())
+  const { invalidate } = useThree()
+
+  const registerMat = useCallback((iso2: string, mat: MeshPhysicalMaterial | null) => {
+    if (mat) {
+      matRegistry.current.set(iso2, mat)
+    } else {
+      matRegistry.current.delete(iso2)
+      targetMap.current.delete(iso2)
+      animating.current.delete(iso2)
+    }
+  }, [])
+
+  const scheduleAnimation = useCallback((iso2: string, target: number) => {
+    targetMap.current.set(iso2, target)
+    animating.current.add(iso2)
+    invalidate()
+  }, [invalidate])
+
+  // Single useFrame — only does work when animating.size > 0
+  useFrame((state, delta) => {
+    if (animating.current.size === 0) return
+    const settled: string[] = []
+    for (const iso2 of animating.current) {
+      const mat    = matRegistry.current.get(iso2)
+      const target = targetMap.current.get(iso2)
+      if (!mat || target === undefined) { settled.push(iso2); continue }
+      const cur = mat.emissiveIntensity
+      if (Math.abs(cur - target) < 0.001) {
+        mat.emissiveIntensity = target
+        settled.push(iso2)
+        continue
+      }
+      mat.emissiveIntensity = cur + (target - cur) * Math.min(delta * 9, 1)
+      state.invalidate()
+    }
+    for (const iso2 of settled) animating.current.delete(iso2)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Geometry and entry memos
+  // ---------------------------------------------------------------------------
+
+  // Stringify dep to avoid rebuilding all geometries when the array ref changes
+  // but contents are identical. The join is computed inside useMemo so the
+  // outer render path pays only the useMemo cache-check cost per render.
+  const subNationalKey = useMemo(
+    () => subNationalIso2s.slice().sort().join(','),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [subNationalIso2s],
+  )
+
   const globeEntries = useMemo(
     () => buildGlobeEntries(subNationalIso2s),
-    // Stringify so a new array ref with same contents doesn't rebuild all geometries
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [subNationalIso2s.slice().sort().join(',')],
+    [subNationalKey],
   )
 
   const idleGeometries = useMemo(
@@ -207,8 +286,6 @@ export function CountryPolygonMeshLayer({
           geometryMode: 'extruded',
           simplifyTolerance: LOD_SIMPLIFY_TOLERANCE.medium,
         }),
-        // Inflated hit geometry for small countries — larger plateLift pushes it
-        // slightly above the visual mesh so raycasting hits it first
         hitGeometry:
           bboxArea(entry.bbox) < SMALL_COUNTRY_BBOX_THRESHOLD_DEG2
             ? createCountryBufferGeometry(entry, {
@@ -233,11 +310,9 @@ export function CountryPolygonMeshLayer({
   const selectedSet = useMemo(() => {
     const set = new Set<string>(selectedCountryIso2s)
     if (selectedCountryIso2) set.add(selectedCountryIso2)
-    // If CA is selected, highlight all provinces
     if (selectedCountryIso2 === 'CA' || selectedCountryIso2s.includes('CA')) {
       canadaProvinces.forEach((p) => set.add(p.iso2))
     }
-    // If US is selected, highlight all states
     if (selectedCountryIso2 === 'US' || selectedCountryIso2s.includes('US')) {
       usStates.forEach((s) => set.add(s.iso2))
     }
@@ -282,6 +357,7 @@ export function CountryPolygonMeshLayer({
         return (
           <HoverPulseMesh
             key={entry.iso3}
+            iso2={entry.iso2}
             geometry={activeGeometry}
             hitGeometry={isSelected ? undefined : hitGeometry}
             color={material.plateBase}
@@ -294,6 +370,8 @@ export function CountryPolygonMeshLayer({
             reflectivity={SPECULAR_CAP}
             isFocused={focusedCountryIso2 === entry.iso2}
             isSelected={visualState === 'selected'}
+            registerMat={registerMat}
+            scheduleAnimation={scheduleAnimation}
             onPointerEnter={() => onHoverCountry?.(entry.iso2)}
             onPointerLeave={() => onHoverCountry?.(undefined)}
             onClick={() => { onSelectCountry?.(entry.iso2) }}

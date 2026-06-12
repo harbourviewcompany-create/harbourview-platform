@@ -1,12 +1,10 @@
 'use client'
 
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { Sphere } from '@react-three/drei'
-import { FrontSide, MeshPhysicalMaterial, MeshStandardMaterial, Color } from 'three'
+import { FrontSide, MeshPhysicalMaterial, Color } from 'three'
 
-// Fresnel rim via onBeforeCompile — no shaderMaterial, no extend, fiber v9 safe.
-// Injects into Three.js standard shader pipeline at build time.
-function createOceanMaterial() {
+function createOceanMaterial(): MeshPhysicalMaterial {
   const mat = new MeshPhysicalMaterial({
     // Deep near-black base — ink/abyss, not silver
     color: new Color('#010812'),
@@ -35,7 +33,7 @@ function createOceanMaterial() {
        vViewPos = -(modelViewMatrix * vec4(position, 1.0)).xyz;`
     )
 
-    // Fresnel rim + hemisphere shadow in fragment shader
+    // Fresnel rim in fragment shader
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
       `#include <common>
@@ -66,17 +64,19 @@ function createOceanMaterial() {
 }
 
 export function OceanSphere() {
-  const matRef = useRef<MeshStandardMaterial | null>(null)
+  // useMemo: material created once per mount, not on every render.
+  // Avoids the fragile inline-IIFE-with-ref anti-pattern.
+  const mat = useMemo(() => createOceanMaterial(), [])
+
+  // Dispose when unmounted
+  const matRef = useRef(mat)
+  matRef.current = mat
 
   return (
-    <Sphere args={[2.35, 64, 64]} renderOrder={10}>
-      <primitive
-        object={(() => {
-          if (!matRef.current) matRef.current = createOceanMaterial()
-          return matRef.current
-        })()}
-        attach="material"
-      />
+    // 32×32 segments — visually indistinguishable from 64×64 at globe scale,
+    // half the vertices on a surface that has no cartographic detail.
+    <Sphere args={[2.35, 32, 32]} renderOrder={10}>
+      <primitive object={mat} attach="material" />
     </Sphere>
   )
 }

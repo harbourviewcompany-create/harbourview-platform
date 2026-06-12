@@ -58,9 +58,10 @@ export function AtmosphereGlow() {
     [],
   )
 
-  // 2.5% larger than OceanSphere (r=2.35) for a thin atmospheric rim.
+  // 32×32 segments — the atmosphere is a featureless gradient sphere.
+  // 64×64 adds 3× the vertices for zero visible difference at globe scale.
   return (
-    <Sphere args={[2.44, 64, 64]} renderOrder={55}>
+    <Sphere args={[2.44, 32, 32]} renderOrder={55}>
       <primitive object={material} attach="material" />
     </Sphere>
   )

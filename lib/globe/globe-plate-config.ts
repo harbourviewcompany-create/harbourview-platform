@@ -28,3 +28,10 @@ export const LOD_SIMPLIFY_TOLERANCE = {
 
 export type LODLevel = keyof typeof LOD_SIMPLIFY_TOLERANCE
 export type SimplifyTolerance = typeof LOD_SIMPLIFY_TOLERANCE[LODLevel]
+
+/**
+ * Globe group rotation applied in GlobeCanvas (<group rotation={[rx, ry, 0]}>).
+ * Exported so CameraFlyToController and any future consumers stay in sync
+ * without hardcoding the same magic numbers in multiple places.
+ */
+export const GLOBE_GROUP_ROTATION = { rx: 0.08, ry: 0.3 } as const

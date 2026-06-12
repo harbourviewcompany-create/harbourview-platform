@@ -25,30 +25,51 @@ const DEFAULT_CONFIG: GlobeExtrusionConfig = {
 }
 
 /**
- * Recursive Douglas-Peucker line simplification.
- * Reduces number of points in polygon rings while preserving overall shape.
- * Used for LOD on background countries to improve performance.
+ * Iterative Douglas-Peucker line simplification.
+ *
+ * Replaces the previous recursive implementation which could blow the JS call
+ * stack on highly complex polygons (Russia, Antarctica — thousands of points).
+ * Uses an explicit stack of [startIndex, endIndex] pairs instead of call frames.
  */
 function douglasPeucker(points: [number, number][], tolerance: number): [number, number][] {
   if (points.length <= 2 || tolerance <= 0) return points
-  let maxDist = 0
-  let maxIdx = 0
-  const [ax, ay] = points[0]
-  const [bx, by] = points[points.length - 1]
-  const abLen = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2)
-  for (let i = 1; i < points.length - 1; i++) {
-    const [px, py] = points[i]
-    const dist = abLen === 0
-      ? Math.sqrt((px - ax) ** 2 + (py - ay) ** 2)
-      : Math.abs((by - ay) * px - (bx - ax) * py + bx * ay - by * ax) / abLen
-    if (dist > maxDist) { maxDist = dist; maxIdx = i }
+
+  // keepFlags[i] = true means point i survives simplification
+  const keepFlags = new Uint8Array(points.length)
+  keepFlags[0] = 1
+  keepFlags[points.length - 1] = 1
+
+  // Explicit stack: each entry is a [start, end] index pair to process
+  const stack: [number, number][] = [[0, points.length - 1]]
+
+  while (stack.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const [start, end] = stack.pop()!
+    if (end - start < 2) continue
+
+    const [ax, ay] = points[start]
+    const [bx, by] = points[end]
+    const abLen = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2)
+
+    let maxDist = 0
+    let maxIdx  = start
+
+    for (let i = start + 1; i < end; i++) {
+      const [px, py] = points[i]
+      const dist = abLen === 0
+        ? Math.sqrt((px - ax) ** 2 + (py - ay) ** 2)
+        : Math.abs((by - ay) * px - (bx - ax) * py + bx * ay - by * ax) / abLen
+      if (dist > maxDist) { maxDist = dist; maxIdx = i }
+    }
+
+    if (maxDist > tolerance) {
+      keepFlags[maxIdx] = 1
+      stack.push([start, maxIdx])
+      stack.push([maxIdx, end])
+    }
   }
-  if (maxDist > tolerance) {
-    const left = douglasPeucker(points.slice(0, maxIdx + 1), tolerance)
-    const right = douglasPeucker(points.slice(maxIdx), tolerance)
-    return [...left.slice(0, -1), ...right]
-  }
-  return [points[0], points[points.length - 1]]
+
+  return points.filter((_, i) => keepFlags[i] === 1)
 }
 
 function pointsEqual(a: [number, number], b: [number, number]) {
@@ -169,22 +190,8 @@ function createTopFanIndices(n: number) {
   return idx
 }
 
-
 /**
  * Triangulate the top face of a polygon ring (with holes) onto the sphere.
- *
- * Strategy:
- *  1. Receive country-normalised longitudes (anti-meridian fix).
- *  2. Project to flat 2-D (lon – meanLon, lat) for earcut.
- *  3. Run ShapeUtils.triangulateShape (earcut).
- *  4. Per-triangle 3-D winding correction:
- *       - Outward-facing (dot > 0): keep unchanged.
- *       - Inward-facing (dot < 0): flip winding. High-latitude spherical
- *         projection causes legitimate land triangles to appear inward-facing;
- *         flipping corrects the winding without removing any geometry.
- *         The dataset carries no hole rings for high-latitude countries
- *         (Canada, Russia), so earcut produces no bridge triangles to discard.
- *  5. Fall back to fan triangulation if earcut throws.
  */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
@@ -228,12 +235,9 @@ function createTopFaceWithHoles(
 
       const dot = nx * ax + ny * ay + nz * az
       if (dot >= 0) {
-        // Outward-facing: keep as-is
         indices.push(a, b, c)
       } else {
         // Inward-facing due to spherical curvature at high latitudes — flip winding.
-        // Never remove: the dataset has no hole rings for Canada or Russia, so earcut
-        // produces no bridge triangles; every inward-facing triangle is legitimate land.
         indices.push(a, c, b)
       }
     }
@@ -267,10 +271,6 @@ function ensureWinding(pts: [number, number][], clockwise: boolean): [number, nu
 }
 
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
-  // Use the minimum circular span of all outer-ring longitudes as the reference
-  // for every polygon in a country. This keeps antimeridian countries (Russia,
-  // USA, Fiji, etc.) in the shortest contiguous longitude strip instead of
-  // trusting centroid longitude or each ring's first point as the unwrap anchor.
   const countryReferenceLon = countryMinimumCircularSpanReferenceLongitude(country)
 
   return country.polygons
