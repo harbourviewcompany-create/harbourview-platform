@@ -1,13 +1,13 @@
 'use client'
 
-import { useRef } from 'react'
+import { useMemo } from 'react'
 import { Sphere } from '@react-three/drei'
 import { AdditiveBlending, BackSide, MeshBasicMaterial, Color } from 'three'
 
 // Atmosphere radius is ~7% larger than OceanSphere (2.35) so it wraps outside.
 const ATMO_RADIUS = 2.52
 
-function createAtmosphereMaterial() {
+function createAtmosphereMaterial(): MeshBasicMaterial {
   const mat = new MeshBasicMaterial({
     color: new Color('#183f78'),
     transparent: true,
@@ -52,18 +52,16 @@ function createAtmosphereMaterial() {
   return mat
 }
 
+// NOTE: AtmosphereLayer is not currently used in GlobeCanvas — AtmosphereGlow
+// (custom ShaderMaterial with explicit uniforms) is the active atmosphere layer.
+// This file is kept for reference / potential future use.
 export function AtmosphereLayer() {
-  const matRef = useRef<MeshBasicMaterial | null>(null)
+  const mat = useMemo(() => createAtmosphereMaterial(), [])
 
+  // 32×32 segments — featureless gradient sphere, 64×64 adds no visible detail.
   return (
-    <Sphere args={[ATMO_RADIUS, 64, 64]} renderOrder={60}>
-      <primitive
-        object={(() => {
-          if (!matRef.current) matRef.current = createAtmosphereMaterial()
-          return matRef.current
-        })()}
-        attach="material"
-      />
+    <Sphere args={[ATMO_RADIUS, 32, 32]} renderOrder={60}>
+      <primitive object={mat} attach="material" />
     </Sphere>
   )
 }
