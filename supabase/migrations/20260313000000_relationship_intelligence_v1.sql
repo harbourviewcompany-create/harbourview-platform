@@ -55,6 +55,7 @@ on relationship_intelligence_events(relationship_profile_id);
 alter table relationship_intelligence_profiles enable row level security;
 alter table relationship_intelligence_events enable row level security;
 
+drop policy if exists relationship_intelligence_profiles_admin_operator_all on relationship_intelligence_profiles;
 create policy relationship_intelligence_profiles_admin_operator_all
 on relationship_intelligence_profiles
 for all
@@ -73,6 +74,7 @@ with check (
   )
 );
 
+drop policy if exists relationship_intelligence_profiles_analyst_read on relationship_intelligence_profiles;
 create policy relationship_intelligence_profiles_analyst_read
 on relationship_intelligence_profiles
 for select
@@ -84,6 +86,7 @@ using (
   )
 );
 
+drop policy if exists relationship_intelligence_events_admin_operator_all on relationship_intelligence_events;
 create policy relationship_intelligence_events_admin_operator_all
 on relationship_intelligence_events
 for all
@@ -102,6 +105,7 @@ with check (
   )
 );
 
+drop policy if exists relationship_intelligence_events_analyst_read on relationship_intelligence_events;
 create policy relationship_intelligence_events_analyst_read
 on relationship_intelligence_events
 for select
