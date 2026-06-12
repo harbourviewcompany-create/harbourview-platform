@@ -185,7 +185,6 @@ begin
   ] loop
     execute format('drop policy if exists %I on public.%I', table_name || '_admin_operator_all', table_name);
     execute format($policy$
-drop policy if exists %I on public.%I;
       create policy %I on public.%I
         for all
         using (
