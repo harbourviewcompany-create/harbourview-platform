@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS ia_sources (
 
 ALTER TABLE ia_sources ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_sources_admin_operator_all on ia_sources;
 CREATE POLICY ia_sources_admin_operator_all ON ia_sources
   FOR ALL
   USING (
@@ -72,6 +73,7 @@ CREATE TABLE IF NOT EXISTS ia_signals (
 
 ALTER TABLE ia_signals ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_signals_admin_operator_all on ia_signals;
 CREATE POLICY ia_signals_admin_operator_all ON ia_signals
   FOR ALL
   USING (
@@ -111,6 +113,7 @@ CREATE TABLE IF NOT EXISTS ia_counterparties (
 
 ALTER TABLE ia_counterparties ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_counterparties_admin_operator_all on ia_counterparties;
 CREATE POLICY ia_counterparties_admin_operator_all ON ia_counterparties
   FOR ALL
   USING (
@@ -153,6 +156,7 @@ CREATE TABLE IF NOT EXISTS ia_scoring_records (
 
 ALTER TABLE ia_scoring_records ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_scoring_admin_operator_all on ia_scoring_records;
 CREATE POLICY ia_scoring_admin_operator_all ON ia_scoring_records
   FOR ALL
   USING (
@@ -195,6 +199,7 @@ CREATE TABLE IF NOT EXISTS ia_agent_tasks (
 
 ALTER TABLE ia_agent_tasks ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_agent_tasks_admin_operator_all on ia_agent_tasks;
 CREATE POLICY ia_agent_tasks_admin_operator_all ON ia_agent_tasks
   FOR ALL
   USING (
@@ -234,6 +239,7 @@ CREATE TABLE IF NOT EXISTS ia_evidence_vault (
 
 ALTER TABLE ia_evidence_vault ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_evidence_admin_operator_all on ia_evidence_vault;
 CREATE POLICY ia_evidence_admin_operator_all ON ia_evidence_vault
   FOR ALL
   USING (
@@ -268,6 +274,7 @@ CREATE TABLE IF NOT EXISTS ia_graph_entities (
 
 ALTER TABLE ia_graph_entities ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_graph_entities_admin_operator_all on ia_graph_entities;
 CREATE POLICY ia_graph_entities_admin_operator_all ON ia_graph_entities
   FOR ALL
   USING (
@@ -300,6 +307,7 @@ CREATE TABLE IF NOT EXISTS ia_graph_edges (
 
 ALTER TABLE ia_graph_edges ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_graph_edges_admin_operator_all on ia_graph_edges;
 CREATE POLICY ia_graph_edges_admin_operator_all ON ia_graph_edges
   FOR ALL
   USING (
@@ -336,6 +344,7 @@ CREATE TABLE IF NOT EXISTS ia_feedback_events (
 
 ALTER TABLE ia_feedback_events ENABLE ROW LEVEL SECURITY;
 
+drop policy if exists ia_feedback_admin_operator_all on ia_feedback_events;
 CREATE POLICY ia_feedback_admin_operator_all ON ia_feedback_events
   FOR ALL
   USING (
