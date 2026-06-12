@@ -248,12 +248,23 @@ const BriefingRoom = React.memo(function BriefingRoom({
           <div className="cc-right-head">WATCH REGIONS</div>
           <div className="cc-watch-regions">
             {[
-              { label: country.label, status: 'Active Program', star: true },
+              {
+                label: country.label,
+                status: fmtStatus(
+                  countryIntel?.market_access_status ?? countryIntel?.medical_status,
+                  'Active Program',
+                ),
+                star: true,
+              },
               ...signals
                 .map(s => s.market)
                 .filter((m, i, a) => m !== country.label && a.indexOf(m) === i)
                 .slice(0, 4)
-                .map(m => ({ label: m, status: 'Signal Activity', star: false })),
+                .map(m => ({
+                  label: m,
+                  status: signals.find(s => s.market === m)?.tag.label ?? 'Signal Activity',
+                  star: false,
+                })),
             ].map(r => (
               <div key={r.label} className="cc-watch-region-row">
                 <span className="cc-watch-region-star">{r.star ? '★' : '○'}</span>
