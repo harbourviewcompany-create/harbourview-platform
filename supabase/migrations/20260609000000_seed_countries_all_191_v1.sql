@@ -68,6 +68,7 @@ DO $$ BEGIN
       AND tablename = 'countries'
       AND policyname = 'countries_public_read'
   ) THEN
+drop policy if exists countries_public_read on public.countries;
     CREATE POLICY countries_public_read ON public.countries
       FOR SELECT USING (true);
   END IF;
