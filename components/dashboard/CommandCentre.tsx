@@ -2,13 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, WatchlistData, PathwayData } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
-import { AccessPathwayPage } from '@/components/dashboard/pages/AccessPathwayPage'
-import { EvidencePage } from '@/components/dashboard/pages/EvidencePage'
-import { WatchlistPage } from '@/components/dashboard/pages/WatchlistPage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,8 +35,8 @@ type Props = {
   pipeline?:        PipelineCounts
   wantedListings?:  WantedListing[]
   countryIntel?:    CountryIntelProfile | null
-  watchlistData?:   WatchlistData | null
-  pathwayData?:     PathwayData | null
+  pathwayData?:     PathwayData
+  watchlistData?:   WatchlistData
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -172,7 +169,6 @@ const BriefingRoom = React.memo(function BriefingRoom({
             selectedCountryIso2s={[country.iso2]}
             focusedCountryIso2={focusedIso2}
             activeLayerId="country_select"
-            subNationalIso2s={[country.iso2]}
             onHoverCountry={setFocusedIso2}
             onSelectCountry={onCountrySelect}
           />
@@ -604,7 +600,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <div className="cc-two-main">
         <div className="cc-inner-header">
           <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
-          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview&apos;s market access team.</p>
+          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview's market access team.</p>
         </div>
 
         <div className="cc-mkt-tabs">
@@ -691,7 +687,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
         ) : (
           <div className="cc-empty-state">
             <span>⊞</span>
-            <p>No listings{activeTab!=='cannabis'?` in the ${MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} category`:''} for {country.label}{region?` · ${region}`:''}.{' '}
+            <p>No {MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} listings for {country.label}{region?` · ${region}`:''}.{' '}
               {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
             </p>
           </div>
@@ -902,7 +898,7 @@ const EducationPage = React.memo(function EducationPage({
               <div className="cc-nba-card-icon">◎</div>
               <div>
                 <strong>Continue {nextModule.title}</strong>
-                <small>You&apos;re {nextModule.progress}% complete</small>
+                <small>You're {nextModule.progress}% complete</small>
                 <p>Finishing this module unlocks the Compliance step and accelerates pathway progression.</p>
               </div>
             </div>
@@ -1783,6 +1779,501 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
   )
 })
 
+// ── Access Pathway types ──────────────────────────────────────────────────────
+
+export type PathwayTemplate      = { id: string; name: string; total_steps: number }
+export type PathwayStep          = { id: string; step_number: number; title: string; description: string | null; unlock_condition: string }
+export type PathwayRequirement   = { id: string; step_id: string; title: string; description: string | null; evidence_type: string; is_required: boolean; sort_order: number }
+export type OrgPathwayProgress   = { current_step: number; status: string; last_action_at: string }
+export type OrgRequirementStatus = { requirement_id: string; status: 'pending'|'in_review'|'verified'|'rejected'|'waived'; submitted_at: string | null; reviewed_at: string | null }
+export type PathwayData          = {
+  template:            PathwayTemplate | null
+  steps:               PathwayStep[]
+  requirements:        PathwayRequirement[]
+  progress:            OrgPathwayProgress | null
+  requirementStatuses: OrgRequirementStatus[]
+}
+
+const REQ_STATUS_ICON: Record<string, string> = {
+  verified: '✓', in_review: '◎', pending: '○', rejected: '✕', waived: '—',
+}
+const REQ_STATUS_COLOR: Record<string, string> = {
+  verified: 'var(--cc-green)', in_review: 'var(--cc-amber)',
+  pending:  'var(--cc-dim)',   rejected:  'var(--cc-red)',   waived: 'var(--cc-dim)',
+}
+
+// ── AccessPathwayPage ─────────────────────────────────────────────────────────
+
+const AccessPathwayPage = React.memo(function AccessPathwayPage({
+  country, region, role, signals, pathwayData,
+}: {
+  country:      { iso2: string; label: string }
+  region:       string
+  role:         string
+  signals:      DashboardSignal[]
+  pathwayData?: PathwayData
+}) {
+  const {
+    template, steps = [], requirements = [],
+    progress, requirementStatuses = [],
+  } = pathwayData ?? { template: null, steps: [], requirements: [], progress: null, requirementStatuses: [] }
+
+  const [activeStep, setActiveStep] = useState<number>(progress?.current_step ?? 1)
+
+  const currentStep     = steps.find(s => s.step_number === activeStep)
+  const currentStepReqs = requirements.filter(r => r.step_id === currentStep?.id)
+  const getReqSt        = (id: string) => requirementStatuses.find(rs => rs.requirement_id === id)
+
+  const verifiedCount = currentStepReqs.filter(r => getReqSt(r.id)?.status === 'verified').length
+  const totalRequired = currentStepReqs.filter(r => r.is_required).length
+  const pct           = totalRequired > 0 ? Math.round(verifiedCount / totalRequired * 100) : 0
+  const nextPending   = currentStepReqs.find(r => { const s = getReqSt(r.id); return !s || s.status === 'pending' })
+
+  const relSignals = signals.filter(s => {
+    const g = deriveSignalGroup(s.title)
+    return g === 'REGULATORY' || g === 'TESTING & COMPLIANCE'
+  }).slice(0, 3)
+
+  const CONF_BARS = [
+    { label: 'Regulatory',      pct: 85 },
+    { label: 'Access Pathway',  pct: 75 },
+    { label: 'Evidence Content',pct: 70 },
+  ]
+
+  if (!template) {
+    return (
+      <div className="cc-page cc-two-col-page">
+        <div className="cc-two-main">
+          <div className="cc-empty-state" style={{flex:1}}>
+            <span>⬡</span>
+            <p>No Access Pathway defined for {country.label}{role ? ` · ${role}` : ''}.</p>
+            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>Pathways are configured per country and role. Contact Harbourview to set up your pathway.</small>
+          </div>
+        </div>
+        <aside className="cc-two-right" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>{country.label}{role ? ` ${role}` : ''} Access Pathway</h2>
+          <p>Follow the pathway to establish and maintain access to export markets.</p>
+        </div>
+
+        {/* ── Step progress strip ───────────────────────────── */}
+        <div className="cc-ap-strip">
+          {steps.map((step, i) => {
+            const isSelected = step.step_number === activeStep
+            const isCurrent  = step.step_number === (progress?.current_step ?? 1)
+            const isDone     = step.step_number < (progress?.current_step ?? 1)
+            return (
+              <React.Fragment key={step.id}>
+                <button
+                  className={`cc-ap-node${isSelected?' selected':''}${isDone?' done':''}${isCurrent&&!isSelected?' current':''}`}
+                  onClick={() => setActiveStep(step.step_number)}
+                >
+                  <div className="cc-ap-node-circle">{isDone ? '✓' : step.step_number}</div>
+                  <span className="cc-ap-node-title">{step.title}</span>
+                  <span className="cc-ap-node-status">
+                    {isDone ? 'Verified' : isCurrent ? 'In Progress' : 'Not Started'}
+                  </span>
+                </button>
+                {i < steps.length - 1 && <div className={`cc-ap-connector${isDone?' done':''}`} />}
+              </React.Fragment>
+            )
+          })}
+        </div>
+
+        {/* ── Step detail ───────────────────────────────────── */}
+        {currentStep && (
+          <div className="cc-ap-detail">
+            <div className="cc-ap-detail-head">
+              <span className="cc-ap-step-badge">STEP {currentStep.step_number} OF {template.total_steps}</span>
+              <h3 className="cc-ap-detail-title">{currentStep.title}</h3>
+              {currentStep.description && <p className="cc-right-prose">{currentStep.description}</p>}
+            </div>
+
+            <div className="cc-ap-detail-cols">
+              {/* Left */}
+              <div className="cc-ap-detail-left">
+                <div className="cc-ap-section-lbl">WHAT THIS MEANS</div>
+                <p className="cc-right-prose">
+                  {currentStep.description ?? `Complete all required evidence for step ${currentStep.step_number} to advance your pathway.`}
+                </p>
+                <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View {country.label} requirements →</a>
+
+                <div className="cc-ap-status-card">
+                  <div className="cc-ap-section-lbl">CURRENT STATUS</div>
+                  <span className={`cc-ap-status-pill ${pct===100?'complete':pct>0?'progress':'pending'}`}>
+                    {pct===100 ? '✓ Complete' : pct>0 ? 'In Progress' : 'Not Started'}
+                  </span>
+                  <p style={{fontSize:'11px',color:'var(--cc-muted)',margin:'6px 0'}}>
+                    {verifiedCount} of {totalRequired} requirements verified
+                  </p>
+                  <div className="cc-edu-track">
+                    <div className="cc-edu-fill" style={{width:`${pct}%`}}/>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginTop:'4px'}}>
+                    <span style={{fontSize:'11px',fontWeight:700,color:'var(--cc-gold)'}}>{pct}%</span>
+                    {progress?.last_action_at && (
+                      <small style={{fontSize:'10px',color:'var(--cc-dim)'}}>
+                        Last updated: {new Date(progress.last_action_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                      </small>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: requirements */}
+              <div className="cc-ap-detail-right">
+                <div className="cc-ap-section-lbl">REQUIRED EVIDENCE</div>
+                <div className="cc-ap-reqs">
+                  {[...currentStepReqs].sort((a,b) => a.sort_order - b.sort_order).map(req => {
+                    const status = getReqSt(req.id)?.status ?? 'pending'
+                    return (
+                      <div key={req.id} className={`cc-ap-req-row ${status}`}>
+                        <span className="cc-ap-req-icon" style={{color: REQ_STATUS_COLOR[status]}}>
+                          {REQ_STATUS_ICON[status]}
+                        </span>
+                        <div className="cc-ap-req-body">
+                          <strong>{req.title}</strong>
+                          {req.description && <small>{req.description}</small>}
+                        </div>
+                        <span className={`cc-ap-req-badge ${status}`}>
+                          {status.charAt(0).toUpperCase()+status.slice(1).replace('_',' ')}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all requirements →</a>
+              </div>
+            </div>
+
+            {/* Next action */}
+            {nextPending && (
+              <div className="cc-ap-next-action">
+                <div className="cc-ap-na-content">
+                  <span className="cc-ap-na-arrow">→</span>
+                  <div>
+                    <strong>Upload {nextPending.title}</strong>
+                    {nextPending.description && <p>{nextPending.description}</p>}
+                  </div>
+                </div>
+                <button className="cc-nba-btn">Upload Document</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────── */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">REQUIRED DOCUMENTS</div>
+          {requirements.slice(0, 5).map(r => {
+            const status = getReqSt(r.id)?.status ?? 'pending'
+            return (
+              <div key={r.id} className="cc-req-row">
+                <span className="cc-req-icon" style={{color: REQ_STATUS_COLOR[status]}}>{REQ_STATUS_ICON[status]}</span>
+                <div>
+                  <strong>{r.title}</strong>
+                  <small>{status==='verified'?'Verified':status==='in_review'?'Under review':'Pending'}</small>
+                </div>
+              </div>
+            )
+          })}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all documents →</a>
+        </div>
+
+        {relSignals.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">RELATED SIGNALS</div>
+            {relSignals.map((s, i) => (
+              <div key={i} className="cc-edu-ev-row">
+                <span className={`cc-sig-dot ${deriveImpact(s.confidence).toLowerCase()}`} style={{flexShrink:0,marginTop:'5px'}}/>
+                <div>
+                  <strong style={{fontSize:'11px'}}>{s.title}</strong>
+                  <small>{s.market} · {s.timeAgo}</small>
+                </div>
+              </div>
+            ))}
+            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all signals →</a>
+          </div>
+        )}
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">EVIDENCE CONFIDENCE</div>
+          <div className="cc-confidence-summary">
+            <div className="cc-confidence-donut">
+              <svg viewBox="0 0 64 64" className="cc-donut-svg">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="7"/>
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--cc-gold)" strokeWidth="7"
+                  strokeDasharray={`${163.4*75/100} 163.4`} strokeLinecap="round" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div className="cc-donut-label">
+                <strong>75%</strong>
+                <small>Overall<br/>Confidence</small>
+              </div>
+            </div>
+            <div className="cc-confidence-bars">
+              {CONF_BARS.map(b => (
+                <div key={b.label} className="cc-conf-bar-row">
+                  <span className="cc-conf-bar-lbl">{b.label}</span>
+                  <div className="cc-conf-bar-track"><div className="cc-conf-bar-fill" style={{width:`${b.pct}%`}}/></div>
+                  <span className="cc-conf-bar-pct">{b.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Confidence methodology →</a>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+// ── Watchlist types ───────────────────────────────────────────────────────────
+
+export type WatchlistItem = {
+  id: string; item_type: string; ref_id: string | null
+  title: string; subtitle: string | null; tags: string[]
+  jurisdiction: string | null; confidence_pct: number | null
+  latest_change_at: string | null; latest_change_note: string | null
+  next_action: string | null; watch_status: string
+  created_at: string; updated_at: string
+}
+export type WatchRule          = { id: string; rule_type: string; keywords: string[] }
+export type NotificationSummary= { total_alerts: number; awaiting_review: number; resolved: number; snoozed: number }
+export type WatchlistData      = { items: WatchlistItem[]; rules: WatchRule[]; notifications: NotificationSummary }
+
+type WatchlistTab = 'jurisdiction'|'signal'|'pathway'|'marketplace_item'|'source'|'policy'
+
+const WL_TABS: { id: WatchlistTab; label: string }[] = [
+  { id: 'jurisdiction',    label: 'Jurisdictions'     },
+  { id: 'signal',          label: 'Signals'           },
+  { id: 'pathway',         label: 'Pathways'          },
+  { id: 'marketplace_item',label: 'Marketplace Items' },
+  { id: 'source',          label: 'Sources'           },
+  { id: 'policy',          label: 'Policies'          },
+]
+const WL_ICONS: Record<string, string> = {
+  jurisdiction: '⬡', signal: '≋', pathway: '◈',
+  marketplace_item: '⊞', source: '⊟', policy: '◎',
+}
+const WL_RULE_LABELS: Record<string, string> = {
+  jurisdiction: 'Jurisdictions', signal: 'Signals', pathway: 'Pathways',
+  marketplace: 'Marketplace', source: 'Sources', policy: 'Policies',
+}
+const WL_SUGGESTED = [
+  { label: 'Canada Medical Cannabis Export Rules', type: 'Jurisdiction', sub: 'Canada' },
+  { label: 'FSMA Produce Safety Rule Updates',     type: 'Signal',       sub: 'United States' },
+  { label: 'German Pharmacy Buyer Contacts',       type: 'Marketplace',  sub: 'Germany' },
+]
+
+// ── WatchlistPage ─────────────────────────────────────────────────────────────
+
+const WatchlistPage = React.memo(function WatchlistPage({
+  country, region, role, watchlistData,
+}: {
+  country:        { iso2: string; label: string }
+  region:         string
+  role:           string
+  watchlistData?: WatchlistData
+}) {
+  const [activeTab, setActiveTab] = useState<WatchlistTab>('jurisdiction')
+  const { items = [], rules = [], notifications = { total_alerts:0, awaiting_review:0, resolved:0, snoozed:0 } } = watchlistData ?? {}
+
+  const filtered = useMemo(() => items.filter(i => i.item_type === activeTab), [items, activeTab])
+
+  const rulesByType = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    rules.forEach(r => { (map[r.rule_type] ??= []).push(...r.keywords) })
+    return map
+  }, [rules])
+
+  const recentActivity = useMemo(() =>
+    [...items]
+      .filter(i => i.latest_change_at)
+      .sort((a,b) => new Date(b.latest_change_at!).getTime()-new Date(a.latest_change_at!).getTime())
+      .slice(0,5),
+    [items]
+  )
+
+  const NOTIF_STATS = [
+    { label: 'Total Alerts',    value: notifications.total_alerts,   highlight: notifications.total_alerts > 0 },
+    { label: 'Awaiting Review', value: notifications.awaiting_review, highlight: false },
+    { label: 'Resolved',        value: notifications.resolved,        highlight: false },
+    { label: 'Snoozed',         value: notifications.snoozed,         highlight: false },
+  ]
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>{country.label}{role ? ` ${role}` : ''} Watchlist</h2>
+          <p>Monitored intelligence across saved jurisdictions, signals, pathways, marketplace opportunities, source files, and policy questions tied to your role and jurisdiction.</p>
+        </div>
+
+        <div className="cc-mkt-tabs">
+          {WL_TABS.map(t => {
+            const count = items.filter(i => i.item_type === t.id).length
+            return (
+              <button key={t.id}
+                className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+                {count > 0 && <span className="cc-tab-badge">{count}</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="cc-empty-state" style={{flex:1}}>
+            <span>{WL_ICONS[activeTab]??'◎'}</span>
+            <p>No {WL_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} on your watchlist.</p>
+            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>
+              Add items from any page using the "Add to watchlist" action.
+            </small>
+          </div>
+        ) : (
+          <>
+            <div className="cc-wl-table-wrap">
+              <div className="cc-wl-thead">
+                <span className="cc-mkt-th name-col">NAME</span>
+                <span className="cc-mkt-th">TYPE</span>
+                <span className="cc-mkt-th">JURISDICTION</span>
+                <span className="cc-mkt-th">LATEST CHANGE</span>
+                <span className="cc-mkt-th">CONFIDENCE</span>
+                <span className="cc-mkt-th">NEXT ACTION</span>
+              </div>
+              {filtered.map(item => {
+                const conf = item.confidence_pct ?? 0
+                return (
+                  <div key={item.id} className="cc-wl-row">
+                    <div className="cc-wl-cell name-col">
+                      <div className="cc-wl-item-icon">{WL_ICONS[item.item_type]??'◎'}</div>
+                      <div className="cc-wl-item-body">
+                        <strong>{item.title}</strong>
+                        {item.subtitle && <small>{item.subtitle}</small>}
+                        <div className="cc-wl-tags">
+                          {item.tags.slice(0,3).map(tag => <span key={tag} className="cc-opp-tag">{tag}</span>)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="cc-wl-cell">
+                      <span className="cc-wl-type-badge">{item.item_type.replace(/_/g,' ')}</span>
+                    </div>
+                    <div className="cc-wl-cell">{item.jurisdiction ?? country.label}</div>
+                    <div className="cc-wl-cell cc-wl-change-cell">
+                      {item.latest_change_at
+                        ? <><span>{new Date(item.latest_change_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+                            {item.latest_change_note && <small>{item.latest_change_note}</small>}</>
+                        : <span style={{color:'var(--cc-dim)'}}>—</span>
+                      }
+                    </div>
+                    <div className="cc-wl-cell">
+                      {conf > 0 ? (
+                        <svg viewBox="0 0 36 36" className="cc-mini-donut">
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4"/>
+                          <circle cx="18" cy="18" r="14" fill="none"
+                            stroke={conf>=80?'var(--cc-green)':conf>=65?'var(--cc-amber)':'var(--cc-red)'}
+                            strokeWidth="4" strokeDasharray={`${87.96*conf/100} 87.96`}
+                            strokeLinecap="round" transform="rotate(-90 18 18)"/>
+                          <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{conf}%</text>
+                        </svg>
+                      ) : <span style={{color:'var(--cc-dim)'}}>—</span>}
+                    </div>
+                    <div className="cc-wl-cell cc-wl-action-cell">
+                      <span>{item.next_action??'Review'}</span>
+                      <span className="cc-settings-chev">›</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="cc-feed-footer">
+              <span>Showing {filtered.length} of {items.length} items</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────── */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">
+            WATCH RULES <span className="cc-right-info">ⓘ</span>
+            <button className="cc-apply-btn" style={{marginLeft:'auto'}}>Manage</button>
+          </div>
+          {Object.entries(WL_RULE_LABELS).map(([type, label]) => {
+            const kw = rulesByType[type]
+            if (!kw?.length) return null
+            return (
+              <div key={type} className="cc-wl-rule-row">
+                <span className="cc-wl-rule-icon">{WL_ICONS[type]??'◎'}</span>
+                <div><strong>{label}</strong><small>{kw.join('; ')}</small></div>
+              </div>
+            )
+          })}
+          {!Object.keys(rulesByType).length && (
+            <p className="cc-right-prose">No watch rules configured yet.</p>
+          )}
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link ml-auto">View all →</a></div>
+          {recentActivity.length === 0
+            ? <p className="cc-right-prose">No recent activity.</p>
+            : recentActivity.map(item => (
+                <div key={item.id} className="cc-change-note">
+                  <span className="cc-change-arrow up">↑</span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.latest_change_note??'Updated'}</small>
+                    <span className="cc-change-time">
+                      {item.latest_change_at ? new Date(item.latest_change_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''}
+                    </span>
+                  </div>
+                </div>
+              ))
+          }
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">SUGGESTED ADDITIONS</div>
+          {WL_SUGGESTED.map(s => (
+            <div key={s.label} className="cc-wl-suggestion">
+              <div><strong>{s.label}</strong><small>{s.type} · {s.sub}</small></div>
+              <button className="cc-wl-add-btn">+</button>
+            </div>
+          ))}
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">NOTIFICATION SUMMARY</div>
+          <div className="cc-wl-notif-grid">
+            {NOTIF_STATS.map(s => (
+              <div key={s.label} className={`cc-wl-notif-card${s.highlight?' alert':''}`}>
+                <strong>{s.value}</strong>
+                <small>{s.label}</small>
+              </div>
+            ))}
+          </div>
+          {notifications.total_alerts > 0 && (
+            <small className="cc-wl-alert-note">{notifications.total_alerts} High Priority</small>
+          )}
+        </div>
+      </aside>
+    </div>
+  )
+})
+
 // ── Placeholder pages (scaffolded, real content in next passes) ───────────────
 
 const ScaffoldPage = React.memo(function ScaffoldPage({
@@ -1963,6 +2454,8 @@ export default function CommandCentre({
   pipeline,
   wantedListings = [],
   countryIntel,
+  pathwayData,
+  watchlistData,
 }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
@@ -2014,11 +2507,11 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} countryIntel={countryIntel} pipeline={pipeline} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':
-        return <EvidencePage country={country} region={region} role={roleLabel} countryIntel={countryIntel} />
+        return <ScaffoldPage title="Evidence & Sources" {...sharedProps} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} />
       case 'regulatory':
@@ -2028,7 +2521,7 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} />
       case 'watchlist':
-        return <WatchlistPage country={country} region={region} role={roleLabel} />
+        return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
       default:
@@ -3385,195 +3878,198 @@ const CSS = `
 
 /* ── Access Pathway page ─────────────────────────────────────────────────────── */
 .cc-ap-strip {
-  display:flex;align-items:center;
+  display:flex;align-items:flex-start;
   padding:20px 24px;
   border-bottom:1px solid var(--cc-line);
-  background:rgba(3,7,17,.4);
-  flex-shrink:0;overflow-x:auto;gap:0;
+  gap:0;overflow-x:auto;flex-shrink:0;
+  background:rgba(3,7,17,.3);
 }
 .cc-ap-node {
   display:flex;flex-direction:column;align-items:center;gap:5px;
-  background:none;border:none;cursor:pointer;padding:0;
-  min-width:80px;flex-shrink:0;
-  transition:opacity .15s;
+  background:none;border:none;cursor:pointer;
+  min-width:100px;max-width:140px;flex:1;
+  padding:4px 6px;
 }
-.cc-ap-node:hover { opacity:.8; }
 .cc-ap-node-circle {
   width:36px;height:36px;border-radius:50%;
+  border:2px solid var(--cc-line2);background:rgba(255,255,255,.04);
   display:grid;place-items:center;
   font-size:13px;font-weight:700;color:var(--cc-dim);
-  border:2px solid var(--cc-line2);
-  background:rgba(255,255,255,.03);
-  transition:border-color .2s,background .2s,color .2s;
+  transition:all .15s;flex-shrink:0;
 }
-.cc-ap-node.done .cc-ap-node-circle {
-  border-color:var(--cc-green);background:rgba(76,175,130,.12);color:var(--cc-green);
+.cc-ap-node.done   .cc-ap-node-circle { border-color:var(--cc-green);background:rgba(76,175,130,.12);color:var(--cc-green); }
+.cc-ap-node.current .cc-ap-node-circle { border-color:var(--cc-gold);background:rgba(212,168,75,.12);color:var(--cc-gold); }
+.cc-ap-node.selected .cc-ap-node-circle {
+  border-color:var(--cc-gold);background:var(--cc-gold);
+  color:#0b1a2f;box-shadow:0 0 14px rgba(212,168,75,.4);
+  transform:scale(1.12);
 }
-.cc-ap-node.current .cc-ap-node-circle,.cc-ap-node.selected .cc-ap-node-circle {
-  border-color:var(--cc-gold);background:rgba(212,168,75,.15);color:var(--cc-gold);
-  box-shadow:0 0 10px rgba(212,168,75,.2);
-}
-.cc-ap-node.selected .cc-ap-node-circle { width:42px;height:42px;font-size:15px; }
-.cc-ap-node-title {
-  font-size:10px;color:var(--cc-muted);text-align:center;line-height:1.3;max-width:80px;
-}
-.cc-ap-node.done .cc-ap-node-title     { color:var(--cc-text); }
+.cc-ap-node-title  { font-size:10px;font-weight:600;color:var(--cc-muted);text-align:center;line-height:1.3; }
+.cc-ap-node-status { font-family:var(--cc-mono);font-size:8px;color:var(--cc-dim);letter-spacing:.08em; }
+.cc-ap-node.done   .cc-ap-node-title  { color:var(--cc-green); }
+.cc-ap-node.done   .cc-ap-node-status { color:var(--cc-green); }
 .cc-ap-node.selected .cc-ap-node-title { color:var(--cc-gold); }
-.cc-ap-node-status {
-  font-family:var(--cc-mono);font-size:8px;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--cc-dim);
-}
-.cc-ap-node.done .cc-ap-node-status                                    { color:var(--cc-green); }
-.cc-ap-node.current .cc-ap-node-status,.cc-ap-node.selected .cc-ap-node-status { color:var(--cc-gold); }
+.cc-ap-node.current .cc-ap-node-status { color:var(--cc-gold); }
 .cc-ap-connector {
-  flex:1;height:2px;background:var(--cc-line2);
-  margin:0 4px;margin-bottom:22px;flex-shrink:0;
-  transition:background .2s;
+  flex:1;height:2px;background:var(--cc-line);
+  align-self:center;margin-bottom:26px;min-width:16px;
 }
-.cc-ap-connector.done { background:var(--cc-green);opacity:.5; }
+.cc-ap-connector.done { background:var(--cc-green); }
+
 .cc-ap-detail {
-  flex:1;overflow-y:auto;padding:24px;
-  display:flex;flex-direction:column;gap:20px;
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;
 }
 .cc-ap-detail-head {
-  display:flex;flex-direction:column;gap:6px;
-  padding-bottom:16px;border-bottom:1px solid var(--cc-line);
+  padding:20px 24px 16px;
+  border-bottom:1px solid var(--cc-line);flex-shrink:0;
 }
 .cc-ap-step-badge {
-  font-family:var(--cc-mono);font-size:9px;letter-spacing:.18em;
+  font-family:var(--cc-mono);font-size:9px;letter-spacing:.16em;
   color:var(--cc-gold);text-transform:uppercase;
+  display:block;margin-bottom:6px;
 }
 .cc-ap-detail-title {
-  font-family:var(--cc-serif);font-size:20px;font-weight:400;color:var(--cc-ink);margin:0;
+  font-family:var(--cc-serif);font-size:20px;font-weight:400;
+  color:var(--cc-ink);margin:0 0 6px;
 }
-.cc-ap-detail-cols { display:grid;grid-template-columns:1fr 1fr;gap:24px; }
-.cc-ap-detail-left,.cc-ap-detail-right { display:flex;flex-direction:column;gap:14px; }
+.cc-ap-detail-cols {
+  display:grid;grid-template-columns:1fr 1fr;gap:0;
+  flex:1;min-height:0;
+}
+.cc-ap-detail-left {
+  padding:20px 24px;border-right:1px solid var(--cc-line);
+  display:flex;flex-direction:column;gap:12px;overflow-y:auto;
+}
+.cc-ap-detail-right {
+  padding:20px 24px;overflow-y:auto;display:flex;flex-direction:column;
+}
 .cc-ap-section-lbl {
   font-family:var(--cc-mono);font-size:8px;letter-spacing:.16em;
   color:var(--cc-dim);text-transform:uppercase;
 }
 .cc-ap-status-card {
   padding:14px;border-radius:10px;
-  background:rgba(255,255,255,.03);border:1px solid var(--cc-line);
-  display:flex;flex-direction:column;gap:8px;
+  background:rgba(212,168,75,.05);border:1px solid rgba(212,168,75,.15);
+  display:flex;flex-direction:column;gap:4px;
 }
 .cc-ap-status-pill {
-  display:inline-flex;align-items:center;gap:5px;
-  font-family:var(--cc-mono);font-size:9px;font-weight:700;letter-spacing:.1em;
-  padding:3px 10px;border-radius:20px;text-transform:uppercase;
+  display:inline-block;font-family:var(--cc-mono);font-size:9px;font-weight:700;
+  padding:3px 10px;border-radius:20px;letter-spacing:.08em;
 }
-.cc-ap-status-pill.complete { background:rgba(76,175,130,.12);color:var(--cc-green);border:1px solid rgba(76,175,130,.2); }
-.cc-ap-status-pill.progress { background:rgba(212,168,75,.12);color:var(--cc-gold);border:1px solid rgba(212,168,75,.2); }
-.cc-ap-status-pill.pending  { background:rgba(255,255,255,.04);color:var(--cc-dim);border:1px solid var(--cc-line2); }
-.cc-ap-reqs { display:flex;flex-direction:column;gap:0; }
+.cc-ap-status-pill.complete { background:rgba(76,175,130,.15);color:var(--cc-green);border:1px solid rgba(76,175,130,.3); }
+.cc-ap-status-pill.progress { background:rgba(212,168,75,.15);color:var(--cc-gold);border:1px solid rgba(212,168,75,.3); }
+.cc-ap-status-pill.pending  { background:rgba(255,255,255,.05);color:var(--cc-dim);border:1px solid var(--cc-line); }
+.cc-ap-reqs { display:flex;flex-direction:column;gap:8px;flex:1; }
 .cc-ap-req-row {
   display:flex;align-items:flex-start;gap:10px;
-  padding:10px 0;border-bottom:1px solid var(--cc-line);
+  padding:9px 12px;border-radius:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--cc-line);
+  transition:background .1s;
 }
-.cc-ap-req-row:last-child { border-bottom:none; }
-.cc-ap-req-icon { font-size:14px;font-weight:700;flex-shrink:0;margin-top:1px;width:16px;text-align:center; }
+.cc-ap-req-row.verified { background:rgba(76,175,130,.04);border-color:rgba(76,175,130,.15); }
+.cc-ap-req-row:hover { background:rgba(255,255,255,.05); }
+.cc-ap-req-icon { font-size:13px;flex-shrink:0;margin-top:1px;font-weight:700; }
 .cc-ap-req-body { flex:1;min-width:0; }
-.cc-ap-req-body strong { display:block;font-size:12px;color:var(--cc-ink);line-height:1.3; }
+.cc-ap-req-body strong { display:block;font-size:11px;color:var(--cc-ink); }
 .cc-ap-req-body small  { display:block;font-size:10px;color:var(--cc-dim);margin-top:2px; }
 .cc-ap-req-badge {
-  font-family:var(--cc-mono);font-size:9px;font-weight:700;
-  padding:2px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0;text-transform:capitalize;
+  font-family:var(--cc-mono);font-size:8px;font-weight:700;
+  padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0;
 }
-.cc-ap-req-row.verified  .cc-ap-req-badge { background:rgba(76,175,130,.12);color:var(--cc-green);border:1px solid rgba(76,175,130,.2); }
-.cc-ap-req-row.in_review .cc-ap-req-badge { background:rgba(230,165,51,.12);color:var(--cc-amber);border:1px solid rgba(230,165,51,.2); }
-.cc-ap-req-row.pending   .cc-ap-req-badge { background:rgba(255,255,255,.04);color:var(--cc-dim);border:1px solid var(--cc-line2); }
-.cc-ap-req-row.rejected  .cc-ap-req-badge { background:rgba(224,85,85,.1);color:#e05555;border:1px solid rgba(224,85,85,.2); }
-.cc-ap-req-row.waived    .cc-ap-req-badge { background:rgba(255,255,255,.04);color:var(--cc-dim);border:1px solid var(--cc-line2); }
+.cc-ap-req-badge.verified   { background:rgba(76,175,130,.12);color:var(--cc-green); }
+.cc-ap-req-badge.in_review  { background:rgba(230,165,51,.12);color:var(--cc-amber); }
+.cc-ap-req-badge.pending    { background:rgba(255,255,255,.05);color:var(--cc-dim); }
+.cc-ap-req-badge.rejected   { background:rgba(224,85,85,.1);color:#e05555; }
+.cc-ap-req-badge.waived     { background:rgba(255,255,255,.05);color:var(--cc-dim); }
 .cc-ap-next-action {
   display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:14px 16px;border-radius:10px;
-  background:rgba(212,168,75,.06);border:1px solid rgba(212,168,75,.18);
-  flex-shrink:0;flex-wrap:wrap;
+  padding:16px 24px;
+  border-top:1px solid var(--cc-line);
+  background:rgba(212,168,75,.04);flex-shrink:0;
 }
-.cc-ap-na-content { display:flex;align-items:flex-start;gap:10px;flex:1; }
-.cc-ap-na-arrow   { font-size:20px;color:var(--cc-gold);flex-shrink:0;margin-top:1px; }
-.cc-ap-na-content strong { display:block;font-size:12px;color:var(--cc-ink);margin-bottom:3px; }
-.cc-ap-na-content p      { font-size:10px;color:var(--cc-muted);margin:0;line-height:1.5; }
+.cc-ap-na-content { display:flex;align-items:flex-start;gap:12px;flex:1; }
+.cc-ap-na-arrow   { font-size:18px;color:var(--cc-gold);flex-shrink:0;margin-top:2px; }
+.cc-ap-na-content strong { display:block;font-size:12px;color:var(--cc-ink); }
+.cc-ap-na-content p      { font-size:11px;color:var(--cc-muted);margin:3px 0 0; }
 
 /* ── Watchlist page ──────────────────────────────────────────────────────────── */
 .cc-wl-table-wrap { flex:1;overflow-y:auto; }
 .cc-wl-thead {
   display:grid;
-  grid-template-columns:2fr 120px 130px 160px 56px 1fr;
+  grid-template-columns:2.5fr 120px 140px 160px 60px 160px;
   gap:8px;padding:8px 24px;
   border-bottom:1px solid var(--cc-line);
   background:rgba(3,7,17,.5);position:sticky;top:0;z-index:2;
 }
 .cc-wl-row {
   display:grid;
-  grid-template-columns:2fr 120px 130px 160px 56px 1fr;
+  grid-template-columns:2.5fr 120px 140px 160px 60px 160px;
   gap:8px;padding:14px 24px;
   border-bottom:1px solid var(--cc-line);align-items:center;
-  transition:background .1s;
+  transition:background .1s;cursor:pointer;
 }
 .cc-wl-row:hover { background:rgba(255,255,255,.025); }
 .cc-wl-cell { font-size:11px;color:var(--cc-text);min-width:0; }
-.cc-wl-cell.name-col,.name-col { display:flex;align-items:flex-start;gap:10px; }
+.cc-wl-cell.name-col { display:flex;align-items:flex-start;gap:10px; }
 .cc-wl-item-icon {
-  width:30px;height:30px;border-radius:7px;flex-shrink:0;
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;
   background:rgba(212,168,75,.08);border:1px solid rgba(212,168,75,.15);
   display:grid;place-items:center;font-size:13px;color:var(--cc-gold);
 }
-.cc-wl-item-body { flex:1;min-width:0; }
-.cc-wl-item-body strong { display:block;font-size:12px;color:var(--cc-ink);line-height:1.3; }
-.cc-wl-item-body small  { display:block;font-size:10px;color:var(--cc-dim);margin-top:2px; }
-.cc-wl-tags { display:flex;flex-wrap:wrap;gap:3px;margin-top:4px; }
+.cc-wl-item-body { min-width:0; }
+.cc-wl-item-body strong { display:block;font-size:11px;color:var(--cc-ink);line-height:1.3; }
+.cc-wl-item-body small  { display:block;font-size:10px;color:var(--cc-dim);margin-top:1px; }
+.cc-wl-tags { display:flex;flex-wrap:wrap;gap:3px;margin-top:3px; }
 .cc-wl-type-badge {
-  font-family:var(--cc-mono);font-size:9px;font-weight:700;
-  padding:2px 7px;border-radius:4px;text-transform:capitalize;
-  background:rgba(91,155,213,.1);color:#5b9bd5;border:1px solid rgba(91,155,213,.2);
-  white-space:nowrap;
+  font-size:10px;font-weight:500;color:var(--cc-muted);
+  text-transform:capitalize;white-space:nowrap;
 }
 .cc-wl-change-cell { display:flex;flex-direction:column;gap:2px; }
-.cc-wl-change-cell span  { font-size:11px;color:var(--cc-text); }
-.cc-wl-change-cell small { font-size:10px;color:var(--cc-dim); }
+.cc-wl-change-cell span { font-size:11px;color:var(--cc-ink); }
+.cc-wl-change-cell small{ font-size:10px;color:var(--cc-dim); }
 .cc-wl-action-cell {
   display:flex;align-items:center;justify-content:space-between;
-  font-size:11px;color:var(--cc-muted);cursor:pointer;
-  transition:color .12s;
+  font-size:11px;color:var(--cc-muted);
 }
-.cc-wl-action-cell:hover { color:var(--cc-text); }
 .cc-wl-rule-row {
   display:flex;align-items:flex-start;gap:8px;
   padding:6px 0;border-bottom:1px solid var(--cc-line);
 }
 .cc-wl-rule-row:last-of-type { border-bottom:none; }
-.cc-wl-rule-icon { font-size:12px;color:var(--cc-gold);flex-shrink:0;margin-top:1px; }
+.cc-wl-rule-icon { font-size:12px;color:var(--cc-gold);flex-shrink:0;margin-top:2px; }
 .cc-wl-rule-row strong { display:block;font-size:11px;color:var(--cc-ink); }
 .cc-wl-rule-row small  { display:block;font-size:10px;color:var(--cc-dim); }
 .cc-wl-suggestion {
   display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
-  padding:7px 0;border-bottom:1px solid var(--cc-line);
+  padding:6px 0;border-bottom:1px solid var(--cc-line);
 }
 .cc-wl-suggestion:last-of-type { border-bottom:none; }
 .cc-wl-suggestion strong { display:block;font-size:11px;color:var(--cc-ink); }
 .cc-wl-suggestion small  { display:block;font-size:10px;color:var(--cc-dim); }
 .cc-wl-add-btn {
-  width:24px;height:24px;border-radius:50%;flex-shrink:0;
+  width:24px;height:24px;border-radius:6px;flex-shrink:0;
   border:1px solid var(--cc-line2);background:rgba(255,255,255,.04);
   color:var(--cc-muted);font:inherit;font-size:14px;cursor:pointer;
-  display:grid;place-items:center;
-  transition:background .1s,color .1s,border-color .1s;
+  display:grid;place-items:center;transition:background .1s,color .1s;
 }
 .cc-wl-add-btn:hover { background:rgba(212,168,75,.12);color:var(--cc-gold);border-color:rgba(212,168,75,.3); }
-.cc-wl-notif-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+.cc-wl-notif-grid {
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  margin-top:4px;
+}
 .cc-wl-notif-card {
   padding:10px;border-radius:8px;
   background:rgba(255,255,255,.03);border:1px solid var(--cc-line);
-  display:flex;flex-direction:column;gap:3px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;
 }
-.cc-wl-notif-card.alert { border-color:rgba(212,168,75,.25);background:rgba(212,168,75,.06); }
-.cc-wl-notif-card strong { font-size:18px;font-weight:700;color:var(--cc-ink);line-height:1; }
-.cc-wl-notif-card.alert strong { color:var(--cc-gold); }
-.cc-wl-notif-card small  { font-size:10px;color:var(--cc-dim); }
+.cc-wl-notif-card.alert { background:rgba(224,85,85,.06);border-color:rgba(224,85,85,.2); }
+.cc-wl-notif-card strong { font-size:20px;font-weight:700;color:var(--cc-ink);line-height:1; }
+.cc-wl-notif-card.alert strong { color:#e05555; }
+.cc-wl-notif-card small { font-size:9px;color:var(--cc-dim);line-height:1.3;text-align:center; }
 .cc-wl-alert-note {
-  display:block;font-size:10px;color:var(--cc-amber);margin-top:4px;
-  font-family:var(--cc-mono);
+  display:block;margin-top:6px;
+  font-family:var(--cc-mono);font-size:9px;color:#e05555;
+  letter-spacing:.08em;
 }
 
 /* Mobile */
