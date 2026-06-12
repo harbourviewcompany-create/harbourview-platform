@@ -448,3 +448,78 @@ export async function getEvidenceData(
     return empty
   }
 }
+
+
+// ── Public pathway template (no org context) ──────────────────────────────────
+// Returns the step/requirement structure for a country+role without requiring
+// an authenticated user. progress is always null; requirementStatuses is always [].
+
+export async function getPublicPathwayTemplate(
+  countryIso2: string | null,
+  roleId:      string | null,
+): Promise<PathwayData> {
+  const empty: PathwayData = {
+    template: null, steps: [], requirements: [], progress: null, requirementStatuses: [],
+  }
+  if (!countryIso2 || !roleId) return empty
+  try {
+    const supabase = await createClient()
+
+    const { data: template } = await supabase
+      .from('cc_pathway_templates')
+      .select('id, name, total_steps')
+      .eq('country_iso2', countryIso2.toUpperCase())
+      .eq('role_id', roleId)
+      .single()
+    if (!template) return empty
+
+    const { data: steps } = await supabase
+      .from('cc_pathway_steps')
+      .select('id, step_number, title, description, unlock_condition')
+      .eq('template_id', template.id)
+      .order('step_number')
+
+    const stepIds = (steps ?? []).map(s => s.id)
+    const { data: requirements } = stepIds.length
+      ? await supabase
+          .from('cc_pathway_step_requirements')
+          .select('id, step_id, title, description, evidence_type, is_required, sort_order')
+          .in('step_id', stepIds)
+          .order('sort_order')
+      : { data: [] }
+
+    return {
+      template,
+      steps:               steps        ?? [],
+      requirements:        requirements ?? [],
+      progress:            null,
+      requirementStatuses: [],
+    }
+  } catch { return empty }
+}
+
+// ── Recently updated education modules ────────────────────────────────────────
+
+export type RecentEduModule = {
+  title:      string
+  detail:     string
+  updated_at: string
+}
+
+export async function getRecentEduModules(limit = 3): Promise<RecentEduModule[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('education_modules')
+      .select('title, description, updated_at')
+      .eq('publication_state', 'published')
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+    if (error || !data) return []
+    return data.map(m => ({
+      title:      m.title,
+      detail:     (m.description as string | null) ?? 'Updated module content',
+      updated_at: (m.updated_at  as string | null) ?? '',
+    }))
+  } catch { return [] }
+}
