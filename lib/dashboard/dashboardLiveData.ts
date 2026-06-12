@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { getGenericPathwayTemplate } from './genericPathways'
 
 // ── 1. Pipeline counts from marketplace_inquiries ─────────────────────────────
 export type PipelineCounts = {
@@ -471,7 +472,8 @@ export async function getPublicPathwayTemplate(
       .eq('country_iso2', countryIso2.toUpperCase())
       .eq('role_id', roleId)
       .single()
-    if (!template) return empty
+
+    if (!template) return getGenericFallbackPathway(supabase, countryIso2, roleId)
 
     const { data: steps } = await supabase
       .from('cc_pathway_steps')
@@ -495,7 +497,35 @@ export async function getPublicPathwayTemplate(
       progress:            null,
       requirementStatuses: [],
     }
-  } catch { return empty }
+  } catch { return getGenericFallbackPathway(undefined, countryIso2, roleId) }
+}
+
+// ── Generic pathway fallback ──────────────────────────────────────────────────
+// Used by getPublicPathwayTemplate whenever no hand-curated row exists in
+// cc_pathway_templates for the given country/role. Looks up the country's
+// display name and regulator label (when available) so the generic pathway
+// reads naturally for every country, then delegates to getGenericPathwayTemplate.
+
+async function getGenericFallbackPathway(
+  supabase: Awaited<ReturnType<typeof createClient>> | undefined,
+  countryIso2: string,
+  roleId: string,
+): Promise<PathwayData> {
+  let countryName = countryIso2.toUpperCase()
+  let regulatorLabel: string | null = null
+  try {
+    const client = supabase ?? await createClient()
+    const { data } = await client
+      .from('countries')
+      .select('country_name, regulator_label')
+      .eq('iso_alpha2', countryIso2.toUpperCase())
+      .single()
+    if (data?.country_name) countryName = data.country_name
+    regulatorLabel = data?.regulator_label ?? null
+  } catch {
+    // fall through with iso2 as the display name
+  }
+  return getGenericPathwayTemplate(countryName, roleId, regulatorLabel)
 }
 
 // ── Recently updated education modules ────────────────────────────────────────
