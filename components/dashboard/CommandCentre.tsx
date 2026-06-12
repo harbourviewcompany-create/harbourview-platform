@@ -192,7 +192,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
             { icon: '◎', label: 'Data Sources',    val: 'Government, regulatory, market & verified industry sources' },
             { icon: '✓', label: 'Verification',    val: 'Multi-layer review and validation by domain experts' },
             { icon: '↻', label: 'Update Cadence',  val: 'Regulatory: Real-time · Market: Daily · Intel: Continuous' },
-            { icon: '⊞', label: 'Coverage',        val: '50 U.S. States · 8 Countries · 100+ Data Sources' },
+            { icon: '⊞', label: 'Coverage',        val: `${ALL_COUNTRIES.length} Countries & Territories · 100+ Data Sources` },
             { icon: '◷', label: 'Last Updated',    val: `${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` },
           ].map(item => (
             <div key={item.label} className="cc-methodology-item">
