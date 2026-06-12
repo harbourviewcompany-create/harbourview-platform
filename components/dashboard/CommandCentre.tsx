@@ -600,7 +600,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <div className="cc-two-main">
         <div className="cc-inner-header">
           <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
-          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview's market access team.</p>
+          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview&apos;s market access team.</p>
         </div>
 
         <div className="cc-mkt-tabs">
@@ -898,7 +898,7 @@ const EducationPage = React.memo(function EducationPage({
               <div className="cc-nba-card-icon">◎</div>
               <div>
                 <strong>Continue {nextModule.title}</strong>
-                <small>You're {nextModule.progress}% complete</small>
+                <small>You&apos;re {nextModule.progress}% complete</small>
                 <p>Finishing this module unlocks the Compliance step and accelerates pathway progression.</p>
               </div>
             </div>
@@ -2138,7 +2138,7 @@ const WatchlistPage = React.memo(function WatchlistPage({
             <span>{WL_ICONS[activeTab]??'◎'}</span>
             <p>No {WL_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} on your watchlist.</p>
             <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>
-              Add items from any page using the "Add to watchlist" action.
+              Add items from any page using the &quot;Add to watchlist&quot; action.
             </small>
           </div>
         ) : (
