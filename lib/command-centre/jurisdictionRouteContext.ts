@@ -11,49 +11,88 @@ import { usStateBySlug } from '@/data/globe/us-state-profiles'
 // ── Slug → ISO2 mapping ────────────────────────────────────────────────────────
 
 const SLUG_TO_ISO2: Record<string, string> = {
-  'canada': 'CA', 'united-states': 'US', 'germany': 'DE', 'australia': 'AU',
-  'france': 'FR', 'italy': 'IT', 'netherlands': 'NL', 'portugal': 'PT',
-  'poland': 'PL', 'united-kingdom': 'GB', 'spain': 'ES', 'brazil': 'BR',
-  'israel': 'IL', 'czechia': 'CZ', 'czech-republic': 'CZ', 'denmark': 'DK',
-  'switzerland': 'CH', 'new-zealand': 'NZ', 'colombia': 'CO', 'thailand': 'TH',
-  'malta': 'MT', 'luxembourg': 'LU', 'south-africa': 'ZA', 'uruguay': 'UY',
-  'mexico': 'MX', 'japan': 'JP', 'thailand': 'TH',
+  'canada': 'CA',
+  'united-states': 'US',
+  'germany': 'DE',
+  'australia': 'AU',
+  'france': 'FR',
+  'italy': 'IT',
+  'netherlands': 'NL',
+  'portugal': 'PT',
+  'poland': 'PL',
+  'united-kingdom': 'GB',
+  'spain': 'ES',
+  'brazil': 'BR',
+  'israel': 'IL',
+  'czechia': 'CZ',
+  'czech-republic': 'CZ',
+  'denmark': 'DK',
+  'switzerland': 'CH',
+  'new-zealand': 'NZ',
+  'colombia': 'CO',
+  'thailand': 'TH',
+  'malta': 'MT',
+  'luxembourg': 'LU',
+  'south-africa': 'ZA',
+  'uruguay': 'UY',
+  'mexico': 'MX',
+  'japan': 'JP',
 }
 
 const SLUG_ALIASES: Record<string, string> = {
-  'uk': 'united-kingdom', 'us': 'united-states', 'usa': 'united-states',
-  'great-britain': 'united-kingdom', 'turkey': 'turkiye',
+  'uk': 'united-kingdom',
+  'us': 'united-states',
+  'usa': 'united-states',
+  'great-britain': 'united-kingdom',
+  'turkey': 'turkiye',
   'united-states-of-america': 'united-states',
 }
 
 /** Map URL role slugs to canonical RoleId values. */
 const ROLE_SLUG_TO_ID: Record<string, string> = {
-  'doctor': 'doctor_prescriber', 'prescriber': 'doctor_prescriber',
-  'pharmacist': 'pharmacist', 'budtender': 'budtender',
-  'cultivator': 'cultivator_producer', 'producer': 'cultivator_producer',
-  'processor': 'processor_extractor', 'extractor': 'processor_extractor',
-  'lab': 'lab_qa', 'importer': 'importer', 'buyer': 'importer',
-  'exporter': 'exporter', 'supplier': 'exporter',
+  'doctor': 'doctor_prescriber',
+  'prescriber': 'doctor_prescriber',
+  'pharmacist': 'pharmacist',
+  'budtender': 'budtender',
+  'cultivator': 'cultivator_producer',
+  'producer': 'cultivator_producer',
+  'processor': 'processor_extractor',
+  'extractor': 'processor_extractor',
+  'lab': 'lab_qa',
+  'importer': 'importer',
+  'buyer': 'importer',
+  'exporter': 'exporter',
+  'supplier': 'exporter',
   'distributor': 'distributor_wholesaler',
-  'compliance': 'regulatory_compliance', 'regulator': 'government_regulator',
-  'investor': 'investor_operator', 'legal': 'legal_advisory',
-  'patient': 'patient_caregiver_education', 'gmp': 'gmp_quality',
+  'compliance': 'regulatory_compliance',
+  'regulator': 'government_regulator',
+  'investor': 'investor_operator',
+  'legal': 'legal_advisory',
+  'patient': 'patient_caregiver_education',
+  'gmp': 'gmp_quality',
   'logistics': 'logistics_customs',
 }
 
 const ROLE_ID_TO_LABEL: Record<string, string> = {
-  'doctor_prescriber': 'Doctor / Prescriber', 'pharmacist': 'Pharmacist',
-  'budtender': 'Budtender', 'cultivator_producer': 'Cultivator / Producer',
-  'processor_extractor': 'Processor / Extractor', 'lab_qa': 'Lab / QA',
-  'importer': 'Importer', 'exporter': 'Exporter',
+  'doctor_prescriber': 'Doctor / Prescriber',
+  'pharmacist': 'Pharmacist',
+  'budtender': 'Budtender',
+  'cultivator_producer': 'Cultivator / Producer',
+  'processor_extractor': 'Processor / Extractor',
+  'lab_qa': 'Lab / QA',
+  'importer': 'Importer',
+  'exporter': 'Exporter',
   'distributor_wholesaler': 'Distributor / Wholesaler',
   'regulatory_compliance': 'Regulatory / Compliance',
   'government_regulator': 'Government Regulator',
-  'investor_operator': 'Investor / Operator', 'legal_advisory': 'Legal / Advisory',
-  'patient_caregiver_education': 'Patient / Caregiver', 'gmp_quality': 'GMP / Quality',
+  'investor_operator': 'Investor / Operator',
+  'legal_advisory': 'Legal / Advisory',
+  'patient_caregiver_education': 'Patient / Caregiver',
+  'gmp_quality': 'GMP / Quality',
   'logistics_customs': 'Logistics / Customs',
   'clinic_healthcare_operator': 'Clinic / Healthcare Operator',
-  'retail_operator': 'Retail Operator', 'geneticist_breeder': 'Geneticist / Breeder',
+  'retail_operator': 'Retail Operator',
+  'geneticist_breeder': 'Geneticist / Breeder',
   'not_sure': 'General',
 }
 
@@ -206,7 +245,11 @@ function resolveRoleSlug(slug: string): { roleId: string; roleName: string } | n
 }
 
 const CONFIDENCE_CATEGORIES = [
-  'Regulatory', 'Market Data', 'Access Pathway', 'Local Intel', 'Education Content',
+  'Regulatory',
+  'Market Data',
+  'Access Pathway',
+  'Local Intel',
+  'Education Content',
 ]
 
 function pendingConfidence(): CCConfidenceContract {
@@ -214,7 +257,9 @@ function pendingConfidence(): CCConfidenceContract {
     overall: null,
     reviewState: 'pending',
     categories: CONFIDENCE_CATEGORIES.map(label => ({
-      label, pct: null, reviewState: 'pending' as CCReviewState,
+      label,
+      pct: null,
+      reviewState: 'pending' as CCReviewState,
     })),
   }
 }
