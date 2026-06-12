@@ -206,6 +206,9 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
       marketplaceRows={marketplaceRows}
       pipeline={pipeline}
       wantedListings={wantedListings}
+      liveTiles={liveTiles}
+      pathwayData={pathwayData}
+      recentEduModules={recentEduModules}
       countryIntel={{
         country_code:          countryIso2,
         country_name:          countryStatus?.country_name ?? dashboard.country.countryName,
