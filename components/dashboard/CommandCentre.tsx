@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -37,6 +37,7 @@ type Props = {
   countryIntel?:    CountryIntelProfile | null
   pathwayData?:     PathwayData
   watchlistData?:   WatchlistData
+  evidenceData?:    EvidenceData
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -600,7 +601,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <div className="cc-two-main">
         <div className="cc-inner-header">
           <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
-          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview&apos;s market access team.</p>
+          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview's market access team.</p>
         </div>
 
         <div className="cc-mkt-tabs">
@@ -898,7 +899,7 @@ const EducationPage = React.memo(function EducationPage({
               <div className="cc-nba-card-icon">◎</div>
               <div>
                 <strong>Continue {nextModule.title}</strong>
-                <small>You&apos;re {nextModule.progress}% complete</small>
+                <small>You're {nextModule.progress}% complete</small>
                 <p>Finishing this module unlocks the Compliance step and accelerates pathway progression.</p>
               </div>
             </div>
@@ -2138,7 +2139,7 @@ const WatchlistPage = React.memo(function WatchlistPage({
             <span>{WL_ICONS[activeTab]??'◎'}</span>
             <p>No {WL_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} on your watchlist.</p>
             <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>
-              Add items from any page using the &quot;Add to watchlist&quot; action.
+              Add items from any page using the "Add to watchlist" action.
             </small>
           </div>
         ) : (
@@ -2268,6 +2269,392 @@ const WatchlistPage = React.memo(function WatchlistPage({
           {notifications.total_alerts > 0 && (
             <small className="cc-wl-alert-note">{notifications.total_alerts} High Priority</small>
           )}
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+// ── Evidence & Sources helpers ────────────────────────────────────────────────
+
+type EvidenceTab = 'regulatory'|'guidance'|'licensing'|'clinical'|'market'|'import_export'|'education'|'local'
+
+const EV_TABS: { id: EvidenceTab; label: string }[] = [
+  { id: 'regulatory',    label: 'Regulatory & Statute'    },
+  { id: 'guidance',      label: 'Guidance & Policy'       },
+  { id: 'licensing',     label: 'Licensing / Authority'   },
+  { id: 'clinical',      label: 'Clinical / Practice'     },
+  { id: 'market',        label: 'Market / Commercial'     },
+  { id: 'import_export', label: 'Import / Export'         },
+  { id: 'education',     label: 'Education / Professional'},
+  { id: 'local',         label: 'Local / Subnational'     },
+]
+
+const CAT_TO_TAB: Record<string, EvidenceTab> = {
+  cannabis_licence_database:    'regulatory',
+  regulator_updates:            'guidance',
+  licence_database:             'licensing',
+  clinical_research:            'clinical',
+  market_data:                  'market',
+  auction_surplus:              'market',
+  import_export:                'import_export',
+  education:                    'education',
+  local_government:             'local',
+}
+
+const CAT_TO_TYPE: Record<string, string> = {
+  cannabis_licence_database: 'Licence Database',
+  regulator_updates:         'Regulatory Bulletin',
+  auction_surplus:           'Market Listing',
+  market_data:               'Market Data',
+  local_government:          'Local Authority',
+}
+
+const CAT_TO_STEP: Record<string, string> = {
+  cannabis_licence_database: '1 · Licence Status',
+  regulator_updates:         '2 · Production Readiness',
+  market_data:               '5 · Buyer Route',
+  auction_surplus:           '5 · Buyer Route',
+}
+
+const REL_TO_CONF: Record<string, { pct: number; label: string }> = {
+  high:   { pct: 85, label: 'High' },
+  medium: { pct: 70, label: 'Medium' },
+  low:    { pct: 50, label: 'Low' },
+}
+
+function sourceTab(src: EvidenceSource): EvidenceTab {
+  return CAT_TO_TAB[src.category] ?? 'regulatory'
+}
+
+function confFromReliability(r: string) {
+  return REL_TO_CONF[r] ?? { pct: 65, label: 'Medium' }
+}
+
+function freshnessLabel(dateStr: string | null): string {
+  if (!dateStr) return 'Unknown'
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (days <= 30)  return 'Current'
+  if (days <= 90)  return 'Recent'
+  if (days <= 180) return 'Due Soon'
+  return 'Overdue'
+}
+
+// ── EvidenceSourcesPage ───────────────────────────────────────────────────────
+
+const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
+  country, region, role, evidenceData, pathwayData,
+}: {
+  country:       { iso2: string; label: string }
+  region:        string
+  role:          string
+  evidenceData?: EvidenceData
+  pathwayData?:  PathwayData
+}) {
+  const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
+  const { sources = [], orgDocs = [] } = evidenceData ?? {}
+
+  // Filter sources relevant to selected country
+  const countrySources = useMemo(() =>
+    sources.filter(s =>
+      s.markets.length === 0 ||
+      s.markets.some(m => m.toLowerCase().includes(country.label.toLowerCase()) ||
+                          country.label.toLowerCase().includes(m.toLowerCase()))
+    ),
+    [sources, country]
+  )
+
+  // If no country-specific sources, show all (graceful fallback)
+  const displaySources = countrySources.length > 0 ? countrySources : sources
+
+  const tabSources = useMemo(() =>
+    displaySources.filter(s => sourceTab(s) === activeTab),
+    [displaySources, activeTab]
+  )
+
+  // Summary stats
+  const verified     = displaySources.filter(s => s.reliability === 'high').length
+  const needsReview  = displaySources.filter(s => s.reliability === 'medium').length
+  const unknownAreas = orgDocs.filter(d => d.verification_status === 'pending').length
+  const lastChecked  = displaySources.find(s => s.last_checked)?.last_checked ?? null
+  const overallConf  = displaySources.length > 0
+    ? Math.round(displaySources.reduce((acc, s) => acc + confFromReliability(s.reliability).pct, 0) / displaySources.length)
+    : 0
+
+  // Freshness buckets
+  const upToDate   = displaySources.filter(s => freshnessLabel(s.last_checked) === 'Current').length
+  const dueSoon    = displaySources.filter(s => ['Recent','Due Soon'].includes(freshnessLabel(s.last_checked))).length
+  const overdue    = displaySources.filter(s => freshnessLabel(s.last_checked) === 'Overdue').length
+  const totalFresh = upToDate + dueSoon + overdue || 1
+
+  // Review queue: org docs needing verification
+  const reviewQueue = useMemo(() =>
+    orgDocs.filter(d => d.verification_status === 'pending' || d.verification_status === 'needs_review').slice(0, 4),
+    [orgDocs]
+  )
+
+  // Evidence gaps from pathway requirements
+  const evidenceGaps = useMemo(() => {
+    if (!pathwayData?.requirements?.length) return [
+      { text: `${country.label} local authority data coverage`, applies: 'Local Intel' },
+      { text: 'Export route verification documentation',          applies: 'Buyer Route' },
+      { text: 'Third-party lab result cross-referencing',        applies: 'Testing & COA' },
+    ]
+    return pathwayData.requirements
+      .filter(r => {
+        const st = pathwayData.requirementStatuses.find(rs => rs.requirement_id === r.id)
+        return !st || st.status === 'pending'
+      })
+      .slice(0, 3)
+      .map(r => {
+        const step = pathwayData.steps.find(s => s.id === r.step_id)
+        return { text: r.title, applies: step?.title ?? 'Access Pathway' }
+      })
+  }, [pathwayData, country])
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>{country.label}{role ? ` ${role}` : ''} Evidence &amp; Sources</h2>
+          <p>Curated, verified, and mapped evidence to support compliant{role ? ` ${role.toLowerCase()}` : ''} operations.</p>
+        </div>
+
+        {/* ── Summary bar ───────────────────────────────────── */}
+        <div className="cc-ev-summary">
+          <div className="cc-ev-stat-card">
+            <div className="cc-rw-card-lbl">OVERALL CONFIDENCE</div>
+            <div className="cc-ev-conf-wrap">
+              <div className="cc-rw-donut-wrap" style={{width:'52px',height:'52px'}}>
+                <svg viewBox="0 0 52 52" className="cc-donut-svg">
+                  <circle cx="26" cy="26" r="20" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="5"/>
+                  <circle cx="26" cy="26" r="20" fill="none" stroke="var(--cc-gold)" strokeWidth="5"
+                    strokeDasharray={`${125.7*overallConf/100} 125.7`}
+                    strokeLinecap="round" transform="rotate(-90 26 26)"/>
+                </svg>
+                <div className="cc-donut-label"><strong style={{fontSize:'12px'}}>{overallConf}%</strong></div>
+              </div>
+              <div>
+                <strong className="cc-ev-conf-label">{overallConf >= 80 ? 'Good' : overallConf >= 60 ? 'Fair' : 'Needs Work'}</strong>
+                <small>Based on {displaySources.length} sources</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="cc-ev-stat-card">
+            <div className="cc-rw-card-lbl">VERIFIED SOURCES</div>
+            <div className="cc-ev-stat-big verified">{verified}</div>
+            <small>Sources</small>
+          </div>
+
+          <div className="cc-ev-stat-card">
+            <div className="cc-rw-card-lbl">NEEDS REVIEW</div>
+            <div className="cc-ev-stat-big needs-review">{needsReview}</div>
+            <small>Sources</small>
+          </div>
+
+          <div className="cc-ev-stat-card">
+            <div className="cc-rw-card-lbl">UNKNOWN AREAS</div>
+            <div className="cc-ev-stat-big unknown">{unknownAreas}</div>
+            <small>Areas</small>
+          </div>
+
+          <div className="cc-ev-stat-card">
+            <div className="cc-rw-card-lbl">📅 LAST REVIEWED</div>
+            <strong className="cc-rw-change-date">{lastChecked ?? '—'}</strong>
+            {lastChecked && <small>{new Date(lastChecked).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</small>}
+          </div>
+        </div>
+
+        {/* ── Tabs ──────────────────────────────────────────── */}
+        <div className="cc-mkt-tabs">
+          {EV_TABS.map(t => {
+            const cnt = displaySources.filter(s => sourceTab(s) === t.id).length
+            return (
+              <button key={t.id}
+                className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+                {cnt > 0 && <span className="cc-tab-badge">{cnt}</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ── Source table ──────────────────────────────────── */}
+        {tabSources.length === 0 && orgDocs.length === 0 ? (
+          <div className="cc-empty-state" style={{flex:1}}>
+            <span>⊟</span>
+            <p>No {EV_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} sources for {country.label}.</p>
+            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>Sources are added as Harbourview expands coverage for this jurisdiction.</small>
+          </div>
+        ) : (
+          <div className="cc-ev-table-wrap">
+            {/* Platform sources */}
+            {tabSources.length > 0 && (
+              <>
+                <div className="cc-ev-thead">
+                  <span className="cc-mkt-th ev-src-col">SOURCE</span>
+                  <span className="cc-mkt-th">SOURCE TYPE</span>
+                  <span className="cc-mkt-th">JURISDICTION</span>
+                  <span className="cc-mkt-th">PATHWAY STEP</span>
+                  <span className="cc-mkt-th">CONFIDENCE</span>
+                  <span className="cc-mkt-th">LAST REVIEWED</span>
+                  <span className="cc-mkt-th">VISIBILITY</span>
+                </div>
+                {tabSources.map(src => {
+                  const conf      = confFromReliability(src.reliability)
+                  const srcType   = CAT_TO_TYPE[src.category] ?? 'Source'
+                  const stepLabel = CAT_TO_STEP[src.category] ?? '—'
+                  const freshness = freshnessLabel(src.last_checked)
+                  return (
+                    <div key={src.id} className="cc-ev-row">
+                      <div className="cc-ev-cell ev-src-col">
+                        <span className="cc-ev-src-icon">⊟</span>
+                        <div>
+                          <strong>{src.name}</strong>
+                          <small>{src.markets.join(', ') || 'Global'}</small>
+                          {src.notes && <span className="cc-ev-src-ref">{src.notes.slice(0,60)}</span>}
+                        </div>
+                      </div>
+                      <div className="cc-ev-cell">{srcType}</div>
+                      <div className="cc-ev-cell">
+                        <span className="cc-ev-juris-badge">{src.markets[0] ?? 'Global'} · Statewide</span>
+                      </div>
+                      <div className="cc-ev-cell">
+                        {stepLabel !== '—'
+                          ? <span className="cc-ev-step-badge">{stepLabel}<br/><small>Verified</small></span>
+                          : <span style={{color:'var(--cc-dim)'}}>General</span>
+                        }
+                      </div>
+                      <div className="cc-ev-cell">
+                        <span className={`cc-ev-conf-badge ${src.reliability}`}>{conf.label}</span>
+                        <small style={{display:'block',fontSize:'9px',color:'var(--cc-dim)',marginTop:'2px'}}>Supports claim</small>
+                      </div>
+                      <div className="cc-ev-cell cc-ev-date-cell">
+                        {src.last_checked ?? '—'}
+                        <span className={`cc-ev-fresh ${freshness.toLowerCase().replace(' ','-')}`}>{freshness}</span>
+                      </div>
+                      <div className="cc-ev-cell">
+                        <span className="cc-ev-vis-badge">🔓 Public</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+
+            {/* Org-uploaded documents */}
+            {orgDocs.length > 0 && (
+              <>
+                <div className="cc-ev-section-divider">UPLOADED DOCUMENTS ({orgDocs.length})</div>
+                {orgDocs.slice(0,5).map(doc => {
+                  const verified = doc.verification_status === 'verified'
+                  return (
+                    <div key={doc.id} className="cc-ev-row">
+                      <div className="cc-ev-cell ev-src-col">
+                        <span className="cc-ev-src-icon">⊞</span>
+                        <div>
+                          <strong>{doc.display_name}</strong>
+                          <small>{doc.document_type}</small>
+                        </div>
+                      </div>
+                      <div className="cc-ev-cell">{doc.document_type}</div>
+                      <div className="cc-ev-cell"><span className="cc-ev-juris-badge">{country.label}</span></div>
+                      <div className="cc-ev-cell">—</div>
+                      <div className="cc-ev-cell">
+                        <span className={`cc-ev-conf-badge ${verified?'high':'medium'}`}>{verified?'Verified':'Pending'}</span>
+                      </div>
+                      <div className="cc-ev-cell cc-ev-date-cell">
+                        {new Date(doc.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                        {doc.expiry_date && <span className="cc-ev-fresh">Exp: {doc.expiry_date}</span>}
+                      </div>
+                      <div className="cc-ev-cell">
+                        <span className="cc-ev-vis-badge">🔒 Operator</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="cc-feed-footer">
+          <button className="cc-mkt-filter-btn" style={{marginRight:'auto'}}>↓ Export Evidence Map</button>
+          <span>Showing {tabSources.length} sources</span>
+        </div>
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────── */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">OPEN EVIDENCE GAPS</div>
+          {evidenceGaps.map((g, i) => (
+            <div key={i} className="cc-ev-gap-row">
+              <span className="cc-ev-gap-dot">●</span>
+              <div>
+                <strong>{g.text}</strong>
+                <small>Applies to: {g.applies}</small>
+              </div>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all gaps →</a>
+        </div>
+
+        {reviewQueue.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">REVIEW QUEUE</div>
+            {reviewQueue.map(doc => (
+              <div key={doc.id} className="cc-ev-queue-row">
+                <span className="cc-ev-queue-dot pending">●</span>
+                <div>
+                  <strong>{doc.display_name}</strong>
+                  <small>{doc.document_type} · Pending review</small>
+                </div>
+              </div>
+            ))}
+            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View review queue →</a>
+          </div>
+        )}
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">CONFIDENCE METHODOLOGY</div>
+          <p className="cc-right-prose">Weighted scoring across source authority, jurisdiction relevance, recency, and consistency.</p>
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View methodology →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">FRESHNESS STATUS</div>
+          {[
+            { label: 'Up to date', n: upToDate,  pct: Math.round(upToDate/totalFresh*100),  cls:'current'   },
+            { label: 'Due soon',   n: dueSoon,   pct: Math.round(dueSoon/totalFresh*100),    cls:'due-soon'  },
+            { label: 'Overdue',    n: overdue,   pct: Math.round(overdue/totalFresh*100),    cls:'overdue'   },
+          ].map(row => (
+            <div key={row.label} className="cc-ev-fresh-row">
+              <span className="cc-ev-fresh-label">{row.label}</span>
+              <div className="cc-conf-bar-track" style={{flex:1}}>
+                <div className="cc-conf-bar-fill" style={{
+                  width: `${row.pct}%`,
+                  background: row.cls==='current'?'var(--cc-green)':row.cls==='due-soon'?'var(--cc-amber)':'var(--cc-red)',
+                }}/>
+              </div>
+              <span className="cc-conf-bar-pct">{row.n} ({row.pct}%)</span>
+            </div>
+          ))}
+          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View freshness report →</a>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">NEXT BEST ACTION</div>
+          <p className="cc-right-prose">
+            {reviewQueue.length > 0
+              ? `Review ${reviewQueue.length} item${reviewQueue.length>1?'s':''} in your evidence queue to raise overall confidence.`
+              : `Add verified regulatory sources for ${country.label} to improve evidence coverage.`
+            }
+          </p>
+          <button className="cc-nba-btn full" style={{marginTop:'8px'}}>Go to Review Queue →</button>
         </div>
       </aside>
     </div>
@@ -2456,6 +2843,7 @@ export default function CommandCentre({
   countryIntel,
   pathwayData,
   watchlistData,
+  evidenceData,
 }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
@@ -2511,7 +2899,7 @@ export default function CommandCentre({
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':
-        return <ScaffoldPage title="Evidence & Sources" {...sharedProps} />
+        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} />
       case 'regulatory':
@@ -2527,7 +2915,7 @@ export default function CommandCentre({
       default:
         return null
     }
-  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, countryOptions, roleOptions, handleCountryChange, handleRoleChange])
+  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, countryOptions, roleOptions, handleCountryChange, handleRoleChange, pathwayData, watchlistData, evidenceData])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -4071,6 +4459,104 @@ const CSS = `
   font-family:var(--cc-mono);font-size:9px;color:#e05555;
   letter-spacing:.08em;
 }
+
+/* ── Evidence & Sources page ─────────────────────────────────────────────────── */
+.cc-ev-summary {
+  display:grid;grid-template-columns:220px repeat(4,1fr);gap:0;
+  border-bottom:1px solid var(--cc-line);flex-shrink:0;
+}
+.cc-ev-stat-card {
+  padding:14px 16px;border-right:1px solid var(--cc-line);
+  display:flex;flex-direction:column;gap:4px;
+}
+.cc-ev-stat-card:last-child { border-right:none; }
+.cc-ev-conf-wrap { display:flex;align-items:center;gap:10px; }
+.cc-ev-conf-label { display:block;font-size:13px;font-weight:700;color:var(--cc-gold); }
+.cc-ev-conf-wrap small { display:block;font-size:10px;color:var(--cc-dim); }
+.cc-ev-stat-big {
+  font-size:28px;font-weight:700;line-height:1;
+}
+.cc-ev-stat-big.verified    { color:var(--cc-green); }
+.cc-ev-stat-big.needs-review{ color:var(--cc-amber); }
+.cc-ev-stat-big.unknown     { color:var(--cc-violet); }
+.cc-ev-stat-card small { font-size:10px;color:var(--cc-dim); }
+
+.cc-ev-table-wrap { flex:1;overflow-y:auto; }
+.cc-ev-thead {
+  display:grid;
+  grid-template-columns:2.5fr 140px 160px 160px 120px 130px 110px;
+  gap:8px;padding:8px 24px;
+  border-bottom:1px solid var(--cc-line);
+  background:rgba(3,7,17,.5);position:sticky;top:0;z-index:2;
+}
+.cc-ev-row {
+  display:grid;
+  grid-template-columns:2.5fr 140px 160px 160px 120px 130px 110px;
+  gap:8px;padding:13px 24px;
+  border-bottom:1px solid var(--cc-line);align-items:start;
+  transition:background .1s;cursor:pointer;
+}
+.cc-ev-row:hover { background:rgba(255,255,255,.025); }
+.cc-ev-cell { font-size:11px;color:var(--cc-text);min-width:0; }
+.cc-ev-cell.ev-src-col { display:flex;align-items:flex-start;gap:8px; }
+.cc-ev-src-icon { font-size:14px;color:var(--cc-dim);flex-shrink:0;margin-top:1px; }
+.cc-ev-cell strong { display:block;font-size:11px;color:var(--cc-ink);line-height:1.3; }
+.cc-ev-cell small  { display:block;font-size:10px;color:var(--cc-dim);margin-top:1px; }
+.cc-ev-src-ref     { display:block;font-size:9px;color:var(--cc-dim);margin-top:2px;font-family:var(--cc-mono);letter-spacing:.04em; }
+.cc-ev-juris-badge {
+  font-family:var(--cc-mono);font-size:8px;font-weight:600;
+  padding:2px 7px;border-radius:4px;
+  background:rgba(91,155,213,.1);color:#5b9bd5;border:1px solid rgba(91,155,213,.2);
+  white-space:nowrap;
+}
+.cc-ev-step-badge {
+  font-size:10px;color:var(--cc-muted);
+}
+.cc-ev-step-badge small { color:var(--cc-green);font-size:9px; }
+.cc-ev-conf-badge {
+  font-family:var(--cc-mono);font-size:9px;font-weight:700;
+  padding:2px 8px;border-radius:4px;
+}
+.cc-ev-conf-badge.high   { background:rgba(76,175,130,.12);color:var(--cc-green);border:1px solid rgba(76,175,130,.25); }
+.cc-ev-conf-badge.medium { background:rgba(230,165,51,.12);color:var(--cc-amber);border:1px solid rgba(230,165,51,.25); }
+.cc-ev-conf-badge.low    { background:rgba(224,85,85,.1);color:#e05555;border:1px solid rgba(224,85,85,.2); }
+.cc-ev-date-cell { display:flex;flex-direction:column;gap:3px; }
+.cc-ev-fresh {
+  font-family:var(--cc-mono);font-size:8px;font-weight:600;letter-spacing:.08em;
+}
+.cc-ev-fresh.current   { color:var(--cc-green); }
+.cc-ev-fresh.recent    { color:var(--cc-green); }
+.cc-ev-fresh.due-soon  { color:var(--cc-amber); }
+.cc-ev-fresh.overdue   { color:#e05555; }
+.cc-ev-vis-badge { font-size:10px;color:var(--cc-muted); }
+.cc-ev-section-divider {
+  padding:8px 24px;
+  font-family:var(--cc-mono);font-size:8px;letter-spacing:.16em;
+  color:var(--cc-dim);text-transform:uppercase;
+  background:rgba(255,255,255,.02);border-bottom:1px solid var(--cc-line);
+}
+.cc-ev-gap-row {
+  display:flex;align-items:flex-start;gap:8px;
+  padding:6px 0;border-bottom:1px solid var(--cc-line);
+}
+.cc-ev-gap-row:last-of-type { border-bottom:none; }
+.cc-ev-gap-dot { color:var(--cc-amber);font-size:8px;flex-shrink:0;margin-top:3px; }
+.cc-ev-gap-row strong { display:block;font-size:11px;color:var(--cc-ink); }
+.cc-ev-gap-row small  { display:block;font-size:10px;color:var(--cc-dim); }
+.cc-ev-queue-row {
+  display:flex;align-items:flex-start;gap:8px;
+  padding:6px 0;border-bottom:1px solid var(--cc-line);
+}
+.cc-ev-queue-row:last-of-type { border-bottom:none; }
+.cc-ev-queue-dot         { font-size:8px;flex-shrink:0;margin-top:3px; }
+.cc-ev-queue-dot.pending { color:var(--cc-amber); }
+.cc-ev-queue-row strong  { display:block;font-size:11px;color:var(--cc-ink); }
+.cc-ev-queue-row small   { display:block;font-size:10px;color:var(--cc-dim); }
+.cc-ev-fresh-row {
+  display:flex;align-items:center;gap:6px;
+  padding:4px 0;font-size:10px;
+}
+.cc-ev-fresh-label { width:80px;flex-shrink:0;color:var(--cc-muted); }
 
 /* Mobile */
 .cc-mob-nav { display:none; }
