@@ -3,29 +3,30 @@
 'use client';
 import { useState, useEffect, useCallback } from "react";
 
-const SB_URL = "https://zvxdgdkukjrrwamdpqrg.supabase.co";
 const WS_ID  = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
-function mkApi(key: string) {
-  const h = {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-    Prefer: "return=representation",
-  };
-  const req = async (url: string, opts: RequestInit = {}) => {
-    const r = await fetch(url, { headers: h, ...opts });
+// All Supabase access goes through the server-side proxy at
+// /api/admin/hub-proxy, which uses SUPABASE_SERVICE_ROLE_KEY on the server
+// and is gated by requireAdminApiAuth(). No client-side secrets needed —
+// admin auth is already enforced by the (protected) route group.
+function mkApi() {
+  const req = async (payload: Record<string, unknown>) => {
+    const r = await fetch("/api/admin/hub-proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
     const txt = await r.text();
     let d; try { d = JSON.parse(txt); } catch { d = txt; }
-    if (!r.ok) throw new Error((d && d.message) || txt || r.status);
+    if (!r.ok) throw new Error((d && (d.error || d.message)) || txt || r.status);
     return d;
   };
   return {
-    get:   (t: string, qs="")    => req(`${SB_URL}/rest/v1/${t}${qs?"?"+qs:""}`),
-    patch: (t: string, qs: string, body: unknown) => req(`${SB_URL}/rest/v1/${t}?${qs}`, { method:"PATCH",  body:JSON.stringify(body) }),
-    post:  (t: string, body: unknown)     => req(`${SB_URL}/rest/v1/${t}`,        { method:"POST",   body:JSON.stringify(body) }),
-    del:   (t: string, qs: string)       => req(`${SB_URL}/rest/v1/${t}?${qs}`, { method:"DELETE" }),
-    rpc:   (fn: string, body: Record<string, unknown>={}) => req(`${SB_URL}/rest/v1/rpc/${fn}`,  { method:"POST",   body:JSON.stringify(body) }),
+    get:   (t: string, qs="")    => req({ op:"get", table:t, qs }),
+    patch: (t: string, qs: string, body: unknown) => req({ op:"patch", table:t, qs, body }),
+    post:  (t: string, body: unknown)     => req({ op:"post", table:t, body }),
+    del:   (t: string, qs: string)       => req({ op:"delete", table:t, qs }),
+    rpc:   (fn: string, body: Record<string, unknown>={}) => req({ op:"rpc", fn, body }),
   };
 }
 
@@ -1091,17 +1092,11 @@ function Actions({ api, toast }) {
 
 // ─── APP SHELL ───────────────────────────────────────────────────────
 export default function HarbourviewAdmin() {
-  const [key, setKey] = useState("");
-  const [keyInput, setKeyInput] = useState("");
   const [section, setSection] = useState("overview");
   const [toastMsg, setToastMsg] = useState(null);
   const [stats, setStats] = useState(null);
-  const [connecting, setConnecting] = useState(false);
-  const [connectErr, setConnectErr] = useState("");
   const toast=(msg)=>setToastMsg(msg);
-  const client=key?mkApi(key):null;
-  const connect=async()=>{if(!keyInput.trim())return;setConnecting(true);setConnectErr("");try{const c=mkApi(keyInput.trim());await c.get("user_profiles","select=id&limit=1");setKey(keyInput.trim());}catch{setConnectErr("Connection failed — check your service role key.");}setConnecting(false);};
+  const client=mkApi();
   const badgeCounts={unreviewed_signals:stats?.unreviewed_signals||0,staging_pending:stats?.staging_pending||0,inquiry_pending:stats?.inquiry_pending||0,intake_pending:stats?.intake_pending||0};
-  if(!key) return (<><style>{css}</style><div className="connect-wrap"><div className="connect-card"><div className="logo-mark" style={{marginBottom:18}}>HARBOURVIEW</div><div className="connect-title">Admin Control Surface</div><div className="connect-sub">Enter your Supabase <strong>service role key</strong>. Stored in memory only, cleared on refresh.</div><div className="field"><label>Project</label><input type="text" value={SB_URL} readOnly style={{opacity:.4}}/></div><div className="field"><label>Service Role Key</label><input type="password" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp…" value={keyInput} onChange={e=>setKeyInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&connect()}/></div>{connectErr&&<div className="alert alert-danger" style={{marginBottom:12}}>{connectErr}</div>}<button className="btn btn-gold" style={{width:"100%",justifyContent:"center",padding:"10px"}} onClick={connect} disabled={connecting}>{connecting?<><div className="spinner"/>Connecting…</>:"Connect →"}</button><div style={{marginTop:14,fontSize:10,color:"#3A4E6A",lineHeight:1.7}}>Supabase Dashboard → Project Settings → API → service_role (secret)</div></div></div></>);
-  return (<><style>{css}</style><div className="hv-app"><aside className="sidebar"><div className="sidebar-logo"><div className="logo-mark">Harbourview</div><div className="logo-sub">Admin Control Surface</div></div><nav className="nav">{NAV.map((n,i)=>{if(n.group)return <div className="nav-group" key={i}>{n.group}</div>;const count=n.badgeKey?badgeCounts[n.badgeKey]||0:0;return(<button key={n.id} className={`nav-item ${section===n.id?"active":""}`} onClick={()=>setSection(n.id)}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}{count>0&&<span className={`nav-badge ${n.badgeKey==="staging_pending"||n.badgeKey==="inquiry_pending"||n.badgeKey==="intake_pending"?"warn":""}`}>{count}</span>}</button>);})}</nav><div className="sidebar-status"><span className="status-dot"/><span className="status-txt">zvxdgdkukjrrwamdpqrg</span><div style={{marginTop:8}}><button className="btn btn-ghost btn-sm" style={{width:"100%",justifyContent:"center",fontSize:11}} onClick={()=>{setKey("");setStats(null);}}>Disconnect</button></div></div></aside><main className="hv-main"><div className="topbar"><span className="page-title">{PAGE_TITLES[section]||section}</span><div className="topbar-right"><span style={{fontSize:11,color:"#3A4E6A",fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleTimeString()}</span></div></div><div className="content">{section==="overview"&&<Overview api={client} stats={stats} setStats={setStats}/>}{section==="inquiries"&&<Inquiries api={client} toast={toast}/>}{section==="candidates"&&<Candidates api={client} toast={toast}/>}{section==="intake"&&<Intake api={client} toast={toast}/>}{section==="deal"&&<DealBoard api={client} toast={toast}/>}{section==="signals"&&<Signals api={client} toast={toast} stats={stats}/>}{section==="staging"&&<Staging api={client} toast={toast}/>}{section==="intel"&&<Intel api={client} toast={toast}/>}{section==="sources"&&<Sources api={client} toast={toast}/>}{section==="countries"&&<Countries api={client} toast={toast}/>}{section==="users"&&<Users api={client} toast={toast}/>}{section==="feed"&&<Feed api={client} toast={toast}/>}{section==="stripe"&&<Stripe toast={toast}/>}{section==="actions"&&<Actions api={client} toast={toast}/>}</div></main></div>{toastMsg&&<Toast msg={toastMsg} onDone={()=>setToastMsg(null)}/>}</>);
+  return (<><style>{css}</style><div className="hv-app"><aside className="sidebar"><div className="sidebar-logo"><div className="logo-mark">Harbourview</div><div className="logo-sub">Admin Control Surface</div></div><nav className="nav">{NAV.map((n,i)=>{if(n.group)return <div className="nav-group" key={i}>{n.group}</div>;const count=n.badgeKey?badgeCounts[n.badgeKey]||0:0;return(<button key={n.id} className={`nav-item ${section===n.id?"active":""}`} onClick={()=>setSection(n.id)}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}{count>0&&<span className={`nav-badge ${n.badgeKey==="staging_pending"||n.badgeKey==="inquiry_pending"||n.badgeKey==="intake_pending"?"warn":""}`}>{count}</span>}</button>);})}</nav><div className="sidebar-status"><span className="status-dot"/><span className="status-txt">zvxdgdkukjrrwamdpqrg</span></div></aside><main className="hv-main"><div className="topbar"><span className="page-title">{PAGE_TITLES[section]||section}</span><div className="topbar-right"><span style={{fontSize:11,color:"#3A4E6A",fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleTimeString()}</span></div></div><div className="content">{section==="overview"&&<Overview api={client} stats={stats} setStats={setStats}/>}{section==="inquiries"&&<Inquiries api={client} toast={toast}/>}{section==="candidates"&&<Candidates api={client} toast={toast}/>}{section==="intake"&&<Intake api={client} toast={toast}/>}{section==="deal"&&<DealBoard api={client} toast={toast}/>}{section==="signals"&&<Signals api={client} toast={toast} stats={stats}/>}{section==="staging"&&<Staging api={client} toast={toast}/>}{section==="intel"&&<Intel api={client} toast={toast}/>}{section==="sources"&&<Sources api={client} toast={toast}/>}{section==="countries"&&<Countries api={client} toast={toast}/>}{section==="users"&&<Users api={client} toast={toast}/>}{section==="feed"&&<Feed api={client} toast={toast}/>}{section==="stripe"&&<Stripe toast={toast}/>}{section==="actions"&&<Actions api={client} toast={toast}/>}</div></main></div>{toastMsg&&<Toast msg={toastMsg} onDone={()=>setToastMsg(null)}/>}</>);
 }
