@@ -14,10 +14,12 @@ create table if not exists public.user_profiles (
 
 alter table public.user_profiles enable row level security;
 
+drop policy if exists "Users read own profile" on public.user_profiles;
 create policy "Users read own profile"
   on public.user_profiles for select
   using (auth.uid() = id);
 
+drop policy if exists "Service role manages profiles" on public.user_profiles;
 create policy "Service role manages profiles"
   on public.user_profiles for all
   using (auth.role() = 'service_role');
@@ -54,10 +56,12 @@ create table if not exists public.subscriptions (
 
 alter table public.subscriptions enable row level security;
 
+drop policy if exists "Users read own subscriptions" on public.subscriptions;
 create policy "Users read own subscriptions"
   on public.subscriptions for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Service role manages subscriptions" on public.subscriptions;
 create policy "Service role manages subscriptions"
   on public.subscriptions for all
   using (auth.role() = 'service_role');
@@ -71,10 +75,12 @@ returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
 $$;
 
+drop trigger if exists set_user_profiles_updated_at on public.user_profiles;
 create trigger set_user_profiles_updated_at
   before update on public.user_profiles
   for each row execute function public.set_updated_at();
 
+drop trigger if exists set_subscriptions_updated_at on public.subscriptions;
 create trigger set_subscriptions_updated_at
   before update on public.subscriptions
   for each row execute function public.set_updated_at();
