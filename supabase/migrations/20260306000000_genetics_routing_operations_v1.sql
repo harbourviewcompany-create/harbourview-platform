@@ -40,6 +40,7 @@ create index if not exists idx_genetics_routing_events_record on genetics_routin
 alter table genetics_routing_records enable row level security;
 alter table genetics_routing_events enable row level security;
 
+drop policy if exists genetics_routing_records_admin_operator_all on genetics_routing_records;
 create policy genetics_routing_records_admin_operator_all
 on genetics_routing_records
 for all
@@ -58,6 +59,7 @@ with check (
   )
 );
 
+drop policy if exists genetics_routing_records_analyst_read on genetics_routing_records;
 create policy genetics_routing_records_analyst_read
 on genetics_routing_records
 for select
@@ -69,6 +71,7 @@ using (
   )
 );
 
+drop policy if exists genetics_routing_events_admin_operator_all on genetics_routing_events;
 create policy genetics_routing_events_admin_operator_all
 on genetics_routing_events
 for all
@@ -87,6 +90,7 @@ with check (
   )
 );
 
+drop policy if exists genetics_routing_events_analyst_read on genetics_routing_events;
 create policy genetics_routing_events_analyst_read
 on genetics_routing_events
 for select
