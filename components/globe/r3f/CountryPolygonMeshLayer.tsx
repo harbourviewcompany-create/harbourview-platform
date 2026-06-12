@@ -193,6 +193,7 @@ export function CountryPolygonMeshLayer({
   focusedCountryIso2,
   selectedCountryIso2s,
   activeLayerId,
+  lodQuality = 'medium',
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -201,6 +202,8 @@ export function CountryPolygonMeshLayer({
   focusedCountryIso2?: string
   selectedCountryIso2s: string[]
   activeLayerId: GlobeLayerId
+  /** GPU quality tier — selects Douglas-Peucker tolerance for idle country geometry. */
+  lodQuality?: 'high' | 'medium' | 'low'
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
@@ -284,7 +287,7 @@ export function CountryPolygonMeshLayer({
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
           geometryMode: 'extruded',
-          simplifyTolerance: LOD_SIMPLIFY_TOLERANCE.medium,
+          simplifyTolerance: LOD_SIMPLIFY_TOLERANCE[lodQuality],
         }),
         hitGeometry:
           bboxArea(entry.bbox) < SMALL_COUNTRY_BBOX_THRESHOLD_DEG2

@@ -1,5 +1,18 @@
 'use client'
 
+// ---------------------------------------------------------------------------
+// DEPRECATED — do not use in new features.
+//
+// InteractiveGlobe.tsx was the original globe component built on a plain
+// sphereGeometry mesh + CountryHitLayer overlay. It has been superseded by
+// the full R3F pipeline in GlobeCanvas.tsx (metallic plates, atmospheric glow,
+// camera fly-to, quality-tiered LOD, centralised animation).
+//
+// Retained only because GlobeStage.tsx references evaluateInteractiveReadiness,
+// which checks for CountryHitLayer mounting. Once GlobeStage is migrated to
+// the new pipeline this file should be deleted.
+// ---------------------------------------------------------------------------
+
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useEffect, useState } from 'react'
@@ -18,6 +31,7 @@ function GlobeMesh() {
   )
 }
 
+/** @deprecated Use GlobeCanvas from components/globe/r3f/GlobeCanvas.tsx instead. */
 export default function InteractiveGlobe() {
   const reducedMotion = useReducedMotion()
   const [hitLayerMounted, setHitLayerMounted] = useState(false)
@@ -39,9 +53,9 @@ export default function InteractiveGlobe() {
         dpr={[1, 1.5]}
         camera={{
           position: GLOBE_CAMERA_CONFIG.initialPosition,
-          fov: GLOBE_CAMERA_CONFIG.fov,
-          near: GLOBE_CAMERA_CONFIG.near,
-          far: GLOBE_CAMERA_CONFIG.far,
+          fov:      GLOBE_CAMERA_CONFIG.fov,
+          near:     GLOBE_CAMERA_CONFIG.near,
+          far:      GLOBE_CAMERA_CONFIG.far,
         }}
       >
         <ambientLight intensity={0.5} />

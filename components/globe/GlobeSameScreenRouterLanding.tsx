@@ -7,6 +7,7 @@ import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/c
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
 import dynamic from 'next/dynamic'
+import { getInitialQuality, type GlobeQualityLevel } from '@/lib/harbourview/globe/quality'
 
 const GlobeCanvas = dynamic(() => import('./r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })), {
   ssr: false,
@@ -86,7 +87,7 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
       return
     }
 
-    const cores = navigator.hardwareConcurrency ?? 4
+    const cores  = navigator.hardwareConcurrency ?? 4
     const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
     if (cores <= 2 || memory <= 2) {
       setReason('low-performance')
@@ -99,17 +100,29 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
   return reason
 }
 
+/**
+ * Compute the GPU quality tier once on mount so GlobeCanvas can select the
+ * right LOD tolerance for idle country geometry. Deferred to useEffect so it
+ * runs client-side only (WebGL context not available during SSR).
+ */
+function useGlobeQuality(): Exclude<GlobeQualityLevel, 'fallback'> {
+  const [quality, setQuality] = useState<Exclude<GlobeQualityLevel, 'fallback'>>('medium')
+
+  useEffect(() => {
+    const q = getInitialQuality()
+    setQuality(q === 'fallback' ? 'medium' : q)
+  }, [])
+
+  return quality
+}
+
 function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
   const reasonLabel = useMemo(() => {
     switch (reason) {
-      case 'reduced-motion':
-        return 'Reduced motion mode'
-      case 'webgl-unavailable':
-        return 'WebGL unavailable'
-      case 'low-performance':
-        return 'Performance protection'
-      default:
-        return 'Interactive globe disabled'
+      case 'reduced-motion':   return 'Reduced motion mode'
+      case 'webgl-unavailable': return 'WebGL unavailable'
+      case 'low-performance':  return 'Performance protection'
+      default:                 return 'Interactive globe disabled'
     }
   }, [reason])
 
@@ -135,21 +148,22 @@ export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
-  const fallbackHref = buildFallbackIntakeHref(state)
+  const fallbackHref         = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
-  const fallbackReason = useGlobeFallbackReason()
+  const fallbackReason       = useGlobeFallbackReason()
+  const globeQuality         = useGlobeQuality()
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
 
     const result = resolveGlobeRoute({
-      countryIso2: state.selectedCountryIso2,
-      countryIso2s: state.selectedCountryIso2s,
-      roleId: state.selectedRoleId,
-      intentId: state.selectedIntentId,
-      mode: state.mode,
-      source: 'globe_router',
-      layerId: state.activeLayerId ?? 'country_select',
+      countryIso2:   state.selectedCountryIso2,
+      countryIso2s:  state.selectedCountryIso2s,
+      roleId:        state.selectedRoleId,
+      intentId:      state.selectedIntentId,
+      mode:          state.mode,
+      source:        'globe_router',
+      layerId:       state.activeLayerId ?? 'country_select',
     })
 
     if (result.status === 'fallback') {
@@ -172,6 +186,7 @@ export function GlobeSameScreenRouterLanding() {
           focusedCountryIso2={state.focusedCountryIso2}
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
+          quality={globeQuality}
           onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
           onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
         />
@@ -251,4 +266,3 @@ export function GlobeSameScreenRouterLanding() {
     </main>
   )
 }
-

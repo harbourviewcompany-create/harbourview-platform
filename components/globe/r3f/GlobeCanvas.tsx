@@ -7,6 +7,8 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PMREMGenerator } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
+import { GLOBE_GROUP_ROTATION } from '@/lib/globe/globe-plate-config'
+import type { GlobeQualityLevel } from '@/lib/harbourview/globe/quality'
 import { OceanSphere } from './OceanSphere'
 import { AtmosphereGlow } from './AtmosphereGlow'
 import { CountryBorderLayer } from './CountryBorderLayer'
@@ -29,9 +31,9 @@ function MetallicEnvironment() {
   const { gl, scene } = useThree()
 
   useEffect(() => {
-    const pmremGenerator = new PMREMGenerator(gl)
-    const roomEnvironment = new RoomEnvironment()
-    const environmentMap = pmremGenerator.fromScene(roomEnvironment, 0.04).texture
+    const pmremGenerator   = new PMREMGenerator(gl)
+    const roomEnvironment  = new RoomEnvironment()
+    const environmentMap   = pmremGenerator.fromScene(roomEnvironment, 0.04).texture
     const previousEnvironment = scene.environment
 
     scene.environment = environmentMap
@@ -50,20 +52,20 @@ function MetallicEnvironment() {
 export function getOrbitControlsMotionConfig(prefersReducedMotion: boolean) {
   if (prefersReducedMotion) {
     return {
-      autoRotate: false,
+      autoRotate:     false,
       autoRotateSpeed: 0,
-      enableDamping: false,
-      dampingFactor: 1,
-      rotateSpeed: 0.2,
+      enableDamping:  false,
+      dampingFactor:  1,
+      rotateSpeed:    0.2,
     }
   }
 
   return {
-    autoRotate: true,
+    autoRotate:     true,
     autoRotateSpeed: 0.2,
-    enableDamping: true,
-    dampingFactor: GLOBE_CAMERA_CONFIG.dampingFactor,
-    rotateSpeed: GLOBE_CAMERA_CONFIG.rotateSpeed,
+    enableDamping:  true,
+    dampingFactor:  GLOBE_CAMERA_CONFIG.dampingFactor,
+    rotateSpeed:    GLOBE_CAMERA_CONFIG.rotateSpeed,
   }
 }
 
@@ -75,6 +77,7 @@ export function GlobeCanvas({
   activeLayerId,
   routerStep,
   subNationalIso2s = [],
+  quality = 'medium',
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -85,10 +88,12 @@ export function GlobeCanvas({
   activeLayerId: GlobeLayerId
   routerStep?: GlobeRouterStep
   subNationalIso2s?: string[]
+  /** GPU quality tier from getInitialQuality(). Drives LOD selection in CountryPolygonMeshLayer. */
+  quality?: Exclude<GlobeQualityLevel, 'fallback'>
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
-  const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const controlsRef   = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const isCountryState = routerStep === 'country' || !selectedCountryIso2
   const distanceLimits = isCountryState
     ? GLOBE_CAMERA_CONFIG.distanceByState.country
@@ -109,14 +114,13 @@ export function GlobeCanvas({
   )
 
   // Auto-rotate only when nothing is hovered or selected
-  const isHovering = !!focusedCountryIso2
-  const isSelected = !!selectedCountryIso2
+  const isHovering  = !!focusedCountryIso2
+  const isSelected  = !!selectedCountryIso2
   const shouldAutoRotate = !isHovering && !isSelected
 
   return (
     <div
       className={className ?? 'absolute inset-0 pointer-events-none'}
-      // Pointer cursor whenever a country plate is hovered
       style={{ cursor: isHovering ? 'pointer' : 'default' }}
     >
       <Canvas
@@ -127,19 +131,18 @@ export function GlobeCanvas({
         dpr={[1, 1.75]}
         aria-label="Harbourview country globe"
         camera={{
-          fov: GLOBE_CAMERA_CONFIG.fov,
-          near: GLOBE_CAMERA_CONFIG.near,
-          far: GLOBE_CAMERA_CONFIG.far,
+          fov:      GLOBE_CAMERA_CONFIG.fov,
+          near:     GLOBE_CAMERA_CONFIG.near,
+          far:      GLOBE_CAMERA_CONFIG.far,
           position: GLOBE_CAMERA_CONFIG.initialPosition,
         }}
         onCreated={(state) => {
           // ACES Filmic tone mapping — whole-scene response curve.
           // Richer shadow detail, compressed highlights, graded look.
-          // Exposure pulled to 0.78 so ACES knee compresses specular peaks
-          // before they clip to white — highlights feel surface-driven, not pasted.
-          state.gl.toneMapping = ACESFilmicToneMapping
+          // Exposure pulled to 0.68 so ACES knee compresses specular peaks
+          // before they clip to white.
+          state.gl.toneMapping         = ACESFilmicToneMapping
           state.gl.toneMappingExposure = 0.68
-          // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
       >
@@ -147,28 +150,22 @@ export function GlobeCanvas({
         <MetallicEnvironment />
 
         {/* Metallic plate lighting: low ambient to avoid flat gold, a champagne key
-            pulled to 1.55 (was 2.35) so ACES compression kills white-blob specular,
+            pulled to 1.35 (ACES compression kills white-blob specular),
             soft bronze/cool rim fills for reflective falloff. */}
         <ambientLight intensity={0.20} color="#f4dfad" />
-        <directionalLight position={[5.5, 3.8, 4.2]} intensity={1.35} color="#fff3c4" />
+        <directionalLight position={[5.5, 3.8, 4.2]}   intensity={1.35} color="#fff3c4" />
         <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.48} color="#c99f4a" />
         <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.24} color="#8fa7c8" />
         <hemisphereLight args={['#243b5e', '#080409', 0.44]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
-          <Stars
-            radius={18}
-            depth={6}
-            count={3500}
-            factor={1.2}
-            saturation={0}
-            fade
-            speed={0}
-          />
+          <Stars radius={18} depth={6} count={3500} factor={1.2} saturation={0} fade speed={0} />
 
-          <group rotation={[0.08, 0.3, 0]}>
-            {/* Single restrained cobalt atmospheric rim — no second neon shell. */}
+          {/* Globe group rotation: GLOBE_GROUP_ROTATION = { rx: 0.08, ry: 0.3 }
+              Numeric literals used here because R3F expects a plain tuple.
+              camera-focus.ts imports GLOBE_GROUP_ROTATION and must stay in sync. */}
+          <group rotation={[GLOBE_GROUP_ROTATION.rx, GLOBE_GROUP_ROTATION.ry, 0]}>
             <AtmosphereGlow />
             <OceanSphere />
             <CountryPolygonMeshLayer
@@ -177,14 +174,15 @@ export function GlobeCanvas({
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={focusedCountryIso2}
               activeLayerId={activeLayerId}
+              lodQuality={quality}
               onHoverCountry={handleHoverCountry}
               onSelectCountry={onSelectCountry}
             />
             {/* Border strokes render after polygon plates so U.S. subdivisions remain legible on mobile. */}
             <CountryBorderLayer />
-            {/* Hover label — floats above the plate centroid while hovering */}
             {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
+
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
             routerStep={routerStep}
@@ -192,7 +190,6 @@ export function GlobeCanvas({
           />
         </Suspense>
 
-        {/* Drive frame invalidation while autoRotate is active */}
         <AutoRotateInvalidator active={shouldAutoRotate} />
         <OrbitControls
           ref={controlsRef}
@@ -211,8 +208,6 @@ export function GlobeCanvas({
           minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
           maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
         />
-
-        {/* Post-processing effects — restrained bloom and vignette only, with no normal-pass occlusion mask over high-latitude geometry. */}
       </Canvas>
     </div>
   )
