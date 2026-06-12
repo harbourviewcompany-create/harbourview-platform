@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -38,6 +38,8 @@ type Props = {
   pathwayData?:     PathwayData
   watchlistData?:   WatchlistData
   evidenceData?:    EvidenceData
+  liveTiles?:        LiveEduTile[]
+  recentEduModules?: RecentEduModule[]
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -66,16 +68,37 @@ const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
-const EVIDENCE_CONFIDENCE_BARS = [
-  { label: 'Regulatory',        pct: 85 },
-  { label: 'Market Data',       pct: 80 },
-  { label: 'Access Pathway',    pct: 78 },
-  { label: 'Local Intel',       pct: 76 },
-  { label: 'Education Content', pct: 90 },
-]
+const FLAG_MAP: Record<string, string> = {
+  US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷',
+  AU: '🇦🇺', NL: '🇳🇱', MX: '🇲🇽', IL: '🇮🇱', CO: '🇨🇴',
+  PT: '🇵🇹', IT: '🇮🇹', ES: '🇪🇸', CH: '🇨🇭', PL: '🇵🇱',
+  CZ: '🇨🇿', AT: '🇦🇹', BE: '🇧🇪', LU: '🇱🇺', DK: '🇩🇰',
+  SE: '🇸🇪', NO: '🇳🇴', FI: '🇫🇮', GR: '🇬🇷', IE: '🇮🇪',
+  ZA: '🇿🇦', BR: '🇧🇷', AR: '🇦🇷', TH: '🇹🇭', NZ: '🇳🇿',
+  JP: '🇯🇵', SG: '🇸🇬',
+}
+
+function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
+  const dc  = (intel?.data_completeness ?? '').toLowerCase()
+  const opp = intel?.opportunity_score ?? null
+  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : 38
+  const mkt  = opp != null ? Math.min(94, Math.max(20, Math.round(opp * 0.94))) : Math.max(20, base - 5)
+  return [
+    { label: 'Regulatory',        pct: Math.min(94, base) },
+    { label: 'Market Data',       pct: mkt },
+    { label: 'Access Pathway',    pct: Math.max(20, base - 8) },
+    { label: 'Local Intel',       pct: Math.max(20, base - 12) },
+    { label: 'Education Content', pct: Math.min(94, base + 4) },
+  ]
+}
 
 function overallConfidence(bars: { pct: number }[]) {
   return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
+}
+
+function fmtStatus(v: string | null | undefined, fallback = '—'): string {
+  if (!v) return fallback
+  return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 const BriefingRoom = React.memo(function BriefingRoom({
@@ -92,7 +115,8 @@ const BriefingRoom = React.memo(function BriefingRoom({
   onCountrySelect?: (iso2: string) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
-  const overall = overallConfidence(EVIDENCE_CONFIDENCE_BARS)
+  const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
+  const overall  = overallConfidence(confBars)
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -109,7 +133,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{country.iso2 === 'US' ? '🇺🇸' : country.iso2 === 'CA' ? '🇨🇦' : '🌐'}</div>
+          <div className="cc-jx-flag">{FLAG_MAP[country.iso2] ?? '🌐'}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}
@@ -121,41 +145,23 @@ const BriefingRoom = React.memo(function BriefingRoom({
         )}
 
         <div className="cc-jx-fields">
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">◎</span>
-            <div>
-              <small>Program Status</small>
-              <strong>Active Medical Program</strong>
+          {([
+            { icon: '◎', label: 'Medical Program', value: fmtStatus(countryIntel?.medical_status,       'No Active Program') },
+            { icon: '⊛', label: 'Market Access',   value: fmtStatus(countryIntel?.market_access_status, 'Status Unknown')    },
+            { icon: '↓', label: 'Import Status',   value: fmtStatus(countryIntel?.import_status,        'Not Available')     },
+            { icon: '↑', label: 'Export Status',   value: fmtStatus(countryIntel?.export_status,        'Not Available')     },
+            { icon: '⊙', label: 'Opportunity',     value: countryIntel?.opportunity_score != null
+                ? `${countryIntel.opportunity_score}/100`
+                : 'Not Scored' },
+          ] as { icon: string; label: string; value: string }[]).map(f => (
+            <div key={f.label} className="cc-jx-field">
+              <span className="cc-jx-field-icon">{f.icon}</span>
+              <div>
+                <small>{f.label}</small>
+                <strong>{f.value}</strong>
+              </div>
             </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">↑</span>
-            <div>
-              <small>Patient Access</small>
-              <strong>Increasing</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">◐</span>
-            <div>
-              <small>Physician Access</small>
-              <strong>Moderate</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">⊛</span>
-            <div>
-              <small>Market Dynamics</small>
-              <strong>Maturing</strong>
-            </div>
-          </div>
-          <div className="cc-jx-field">
-            <span className="cc-jx-field-icon">⊙</span>
-            <div>
-              <small>Regulatory Outlook</small>
-              <strong>Stable</strong>
-            </div>
-          </div>
+          ))}
         </div>
 
         <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
@@ -224,7 +230,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               </div>
             </div>
             <div className="cc-confidence-bars">
-              {EVIDENCE_CONFIDENCE_BARS.map(bar => (
+              {confBars.map(bar => (
                 <div key={bar.label} className="cc-conf-bar-row">
                   <span className="cc-conf-bar-lbl">{bar.label}</span>
                   <div className="cc-conf-bar-track">
@@ -776,27 +782,50 @@ const PATHWAY_STEPS = [
 // ── EducationPage ──────────────────────────────────────────────────────────────
 
 const EducationPage = React.memo(function EducationPage({
-  country, region, role, eduCategories,
+  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData,
 }: {
-  country:       { iso2: string; label: string }
-  region:        string
-  role:          string
-  eduCategories: { icon: string; title: string; desc: string }[]
+  country:           { iso2: string; label: string }
+  region:            string
+  role:              string
+  eduCategories:     { icon: string; title: string; desc: string }[]
+  liveTiles?:        LiveEduTile[]
+  recentEduModules?: RecentEduModule[]
+  signals?:          DashboardSignal[]
+  pathwayData?:      PathwayData
 }) {
-  const modules   = useMemo(() => buildLearningPath(eduCategories), [eduCategories])
-  const roleDisp  = role ? role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Professional'
-  const nextModule= modules.find(m => m.progress < 100 && m.level === 'REQUIRED')
+  const modules    = useMemo(() => buildLearningPath(eduCategories), [eduCategories])
+  const roleDisp   = role ? role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Professional'
+  const nextModule = modules.find(m => m.progress < 100 && m.level === 'REQUIRED')
 
-  const REL_EVIDENCE = [
-    { tag:'REGULATION', title:`${country.label} Regulatory Framework Overview`, date:'May 22, 2025' },
-    { tag:'GUIDANCE',   title:'Cultivation Facility Standards Guide',            date:'May 20, 2025' },
-    { tag:'TEMPLATE',   title:'Sample COA Requirements',                         date:'May 18, 2025' },
-  ]
-  const RECENT_UPDATES = [
-    { title:'Testing, COA & Compliance',       detail:'Added batch release & recall guidance',    date:'May 27, 2025' },
-    { title:'Buyer & Export Readiness',        detail:'Updated export documentation overview',    date:'May 26, 2025' },
-    { title:'Licence & Regulatory Foundations',detail:'Clarified reporting obligations',          date:'May 24, 2025' },
-  ]
+  const REL_EVIDENCE = useMemo(() => {
+    if (liveTiles && liveTiles.length > 0) {
+      return liveTiles.slice(0, 3).map(t => ({ tag: 'EDUCATION', title: t.title, date: '—' }))
+    }
+    const eduSigs = (signals ?? []).filter(s => deriveSignalGroup(s.title) === 'EVIDENCE UPDATES').slice(0, 3)
+    if (eduSigs.length > 0) return eduSigs.map(s => ({ tag: 'SIGNAL', title: s.title, date: s.timeAgo }))
+    return [
+      { tag: 'REGULATION', title: `${country.label} Regulatory Framework Overview`, date: '—' },
+      { tag: 'GUIDANCE',   title: 'Cultivation Facility Standards Guide',            date: '—' },
+      { tag: 'TEMPLATE',   title: 'Sample COA Requirements',                         date: '—' },
+    ]
+  }, [liveTiles, signals, country.label])
+
+  const RECENT_UPDATES = useMemo(() => {
+    if (recentEduModules && recentEduModules.length > 0) {
+      return recentEduModules.map(m => ({
+        title:  m.title,
+        detail: m.detail,
+        date:   m.updated_at
+          ? new Date(m.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '—',
+      }))
+    }
+    return [
+      { title: 'Testing, COA & Compliance',        detail: 'Added batch release & recall guidance', date: '—' },
+      { title: 'Buyer & Export Readiness',          detail: 'Updated export documentation overview', date: '—' },
+      { title: 'Licence & Regulatory Foundations',  detail: 'Clarified reporting obligations',       date: '—' },
+    ]
+  }, [recentEduModules])
 
   return (
     <div className="cc-page cc-two-col-page">
@@ -841,7 +870,13 @@ const EducationPage = React.memo(function EducationPage({
         <div className="cc-edu-pathway-wrap">
           <div className="cc-section-label">EDUCATION UNLOCKS ACCESS PATHWAY STEPS</div>
           <div className="cc-edu-steps">
-            {PATHWAY_STEPS.map((step, i) => (
+            {(pathwayData?.steps?.length
+                ? pathwayData.steps.slice(0, 5).map(s => ({
+                    num: s.step_number, label: s.title,
+                    unlocked: s.step_number < (pathwayData.progress?.current_step ?? 1),
+                  }))
+                : PATHWAY_STEPS
+              ).map((step, i) => (
               <React.Fragment key={step.num}>
                 <div className={`cc-edu-step ${step.unlocked?'unlocked':'locked'}`}>
                   <div className="cc-edu-step-circ">{step.unlocked?'✓':'🔒'}</div>
@@ -2844,6 +2879,8 @@ export default function CommandCentre({
   pathwayData,
   watchlistData,
   evidenceData,
+  liveTiles,
+  recentEduModules,
 }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
@@ -2901,7 +2938,7 @@ export default function CommandCentre({
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} />
       case 'education':
-        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} />
+        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} />
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} />
       case 'local-intel':
@@ -2915,7 +2952,7 @@ export default function CommandCentre({
       default:
         return null
     }
-  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, countryOptions, roleOptions, handleCountryChange, handleRoleChange, pathwayData, watchlistData, evidenceData])
+  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, liveTiles, recentEduModules, pathwayData, countryOptions, roleOptions, handleCountryChange, handleRoleChange, watchlistData, evidenceData])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
