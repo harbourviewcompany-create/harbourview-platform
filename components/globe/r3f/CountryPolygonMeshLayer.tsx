@@ -22,6 +22,7 @@ const SUB_NATIONALS: Record<string, (typeof canadaProvinces[number])[]> = {
 function buildGlobeEntries(subNationalIso2s: string[]) {
   const expanded = new Set(subNationalIso2s)
   expanded.add('US') // US always split
+  expanded.add('CA') // CA always split (provinces)
   const excluded = new Set(Object.keys(SUB_NATIONALS).filter(k => expanded.has(k)))
   return [
     ...naturalEarthCountriesPayload.countries.filter(c => !excluded.has(c.iso2)),
