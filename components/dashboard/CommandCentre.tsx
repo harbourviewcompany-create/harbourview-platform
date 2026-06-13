@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -35,7 +35,6 @@ type Props = {
   pipeline?:        PipelineCounts
   wantedListings?:  WantedListing[]
   countryIntel?:    CountryIntelProfile | null
-  localIntel?:      LocalIntelData | null
   pathwayData?:     PathwayData
   watchlistData?:   WatchlistData
   evidenceData?:    EvidenceData
@@ -82,7 +81,7 @@ const FLAG_MAP: Record<string, string> = {
 function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
   const dc  = (intel?.data_completeness ?? '').toLowerCase()
   const opp = intel?.opportunity_score ?? null
-  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : dc === 'stub' ? 50 : 38
+  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : 38
   const mkt  = opp != null ? Math.min(94, Math.max(20, Math.round(opp * 0.94))) : Math.max(20, base - 5)
   return [
     { label: 'Regulatory',        pct: Math.min(94, base) },
@@ -1104,16 +1103,85 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
       { label: 'Ontario, Canada',status: 'Stable',        active: false },
     ]
   }, [signals, country])
-  const POLICY_QS = [
-    'Will local option sales tax authority expand?',
-    'How will packaging rules align with child-resistant standards?',
-    'Could advertising restrictions broaden to digital channels?',
-  ]
-  const SOURCE_GAPS = [
-    { label: 'Local Ordinance Texts',           level: 'medium' },
-    { label: 'Enforcement Disposition Data',    level: 'high'   },
-    { label: 'Court Decisions (Appellate)',     level: 'medium' },
-  ]
+  const POLICY_QS = useMemo(() => {
+    // Aggregate signal titles into policy areas; generate open questions per area
+    const areaCounts: Record<string, number> = {}
+    regSignals.concat(signals).forEach(s => {
+      const a = derivePolicyArea(s.title)
+      areaCounts[a] = (areaCounts[a] ?? 0) + 1
+    })
+    const topAreas = Object.entries(areaCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([area]) => area)
+
+    const AREA_QUESTIONS: Record<string, string> = {
+      'Licensing & Permits':       `How will ${country.label} licensing caps or moratoriums evolve?`,
+      'Testing & Compliance':      `How will testing standards align with international benchmarks in ${country.label}?`,
+      'Export Access':             `Which export pathway developments will open new markets from ${country.label}?`,
+      'Import Rules':              `How will import permit and documentation requirements change?`,
+      'Tax & Pricing':             'Will taxation policy changes affect product pricing and margin structure?',
+      'Advertising & Marketing':   'Could advertising restrictions broaden to digital and social channels?',
+      'Product Standards':         'How will product and packaging standards evolve under current reform proposals?',
+      'Enforcement':               `What enforcement priorities are most likely to affect operators in ${country.label}?`,
+      'Federal & National Policy': `How will national-level regulatory reform affect ${country.label} operations?`,
+      'Medical Programme':         `What changes to the medical programme will affect patient access in ${country.label}?`,
+      'Other Regulatory':          `How will upcoming regulatory amendments affect compliance obligations?`,
+    }
+
+    if (topAreas.length > 0) {
+      return topAreas.map(a => AREA_QUESTIONS[a] ?? `How will ${a.toLowerCase()} developments affect ${country.label} operators?`)
+    }
+
+    // Fallback: country-aware generic questions
+    if (country.iso2 === 'US') return [
+      'Will local option sales tax authority expand?',
+      'How will packaging rules align with child-resistant standards?',
+      'Could advertising restrictions broaden to digital channels?',
+    ]
+    return [
+      `How will ${country.label} regulatory reform affect operator licensing obligations?`,
+      `What market access pathway changes are expected in the next legislative cycle?`,
+      `How will international standards influence ${country.label} testing and compliance requirements?`,
+    ]
+  }, [regSignals, signals, country])
+  const SOURCE_GAPS = useMemo(() => {
+    // Derive gaps from which signal groups have zero or low representation
+    const GROUP_SOURCE_MAP: Record<string, { label: string; level: 'high' | 'medium' | 'low' }> = {
+      'REGULATORY':           { label: 'Regulatory Guidance & Bulletins',   level: 'high'   },
+      'TESTING & COMPLIANCE': { label: 'Testing Standards & Lab Reports',   level: 'high'   },
+      'EXPORT ACCESS':        { label: 'Export Pathway Documentation',      level: 'medium' },
+      'MARKET ACCESS':        { label: 'Market Access Intelligence',        level: 'medium' },
+      'SUPPLY CHAIN':         { label: 'Supply Chain & Distribution Data',  level: 'medium' },
+      'LICENSING':            { label: 'Licensing & Permit Registers',      level: 'high'   },
+      'ENFORCEMENT':          { label: 'Enforcement Disposition Data',      level: 'high'   },
+      'POLICY UPDATES':       { label: 'Legislative & Policy Tracking',     level: 'medium' },
+    }
+    const signalGroups = new Set(signals.map(s => deriveSignalGroup(s.title)))
+    const covered      = new Set(regSignals.map(s => deriveSignalGroup(s.title)))
+
+    // Groups that exist in the map but have zero regulatory signals = gaps
+    const gaps = Object.entries(GROUP_SOURCE_MAP)
+      .filter(([group]) => !covered.has(group as SignalGroup))
+      .map(([, v]) => v)
+      .slice(0, 3)
+
+    if (gaps.length > 0) return gaps
+
+    // Fallback: use countryIntel data_completeness as a proxy
+    const dc = (countryIntel?.data_completeness ?? '').toLowerCase()
+    if (dc === 'partial' || dc === 'low') return [
+      { label: 'Local Ordinance & Municipal Texts',  level: 'medium' as const },
+      { label: 'Enforcement Disposition Data',       level: 'high'   as const },
+      { label: 'Court & Appellate Decisions',        level: 'medium' as const },
+    ]
+    // Full coverage fallback
+    return [
+      { label: 'Enforcement Disposition Data',       level: 'high'   as const },
+      { label: 'Local Ordinance Texts',              level: 'medium' as const },
+      { label: 'Court Decisions (Appellate)',        level: 'medium' as const },
+    ]
+  }, [signals, regSignals, countryIntel])
 
   const displaySignals = regSignals.length > 0 ? regSignals : signals
 
@@ -1645,30 +1713,19 @@ function buildAuthorities(country: { iso2: string; label: string }) {
 }
 
 const LocalIntelPage = React.memo(function LocalIntelPage({
-  country, region, role, signals, countryIntel, localIntel,
+  country, region, role, signals, countryIntel,
 }: {
   country:      { iso2: string; label: string }
   region:       string
   role:         string
   signals:      DashboardSignal[]
   countryIntel?: CountryIntelProfile | null
-  localIntel?:  LocalIntelData | null
 }) {
-  const hasLiveLocalIntel = localIntel?.coverageStatus === 'available'
-
-  const municipalities = useMemo(() => {
-    if (hasLiveLocalIntel && localIntel!.municipalities.length > 0) return localIntel!.municipalities
-    return buildMunicipalData(country, region)
-  }, [country, region, hasLiveLocalIntel, localIntel])
-
-  const authorities = useMemo(() => {
-    if (hasLiveLocalIntel && localIntel!.authorities) return localIntel!.authorities
-    return buildAuthorities(country)
-  }, [country, hasLiveLocalIntel, localIntel])
+  const municipalities = useMemo(() => buildMunicipalData(country, region), [country, region])
+  const authorities    = useMemo(() => buildAuthorities(country), [country])
 
   // ── Dynamic local intel content derived from countryIntel + signals ──────────
   const LI_CONSTRAINTS = useMemo(() => {
-    if (hasLiveLocalIntel && localIntel!.constraints.length > 0) return localIntel!.constraints
     if (countryIntel) {
       const items: { icon: string; label: string; text: string }[] = []
       if (countryIntel.medical_status) items.push({ icon:'◎', label:'Medical Programme', text:`Status: ${fmtStatus(countryIntel.medical_status)}. Operator compliance required under national health authority rules.` })
@@ -1689,10 +1746,9 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       { icon:'◷', label:'Compliance Obligations',  text:'Maintain current documentation and certification as required by national regulations.' },
       { icon:'⊞', label:'Local Requirements',      text:'Subnational and municipal requirements may vary; confirm with local government offices.' },
     ]
-  }, [country, countryIntel, hasLiveLocalIntel, localIntel])
+  }, [country, countryIntel])
 
   const LI_ROUTES = useMemo(() => {
-    if (hasLiveLocalIntel && localIntel!.routes.length > 0) return localIntel!.routes
     if (country.iso2 === 'US') return [
       { icon:'⬡', label:'In-State Cultivation → Processing', text:'Vertical integration required; limited third-party processing options.' },
       { icon:'◈', label:'Processing → Dispensary',           text:'Direct delivery with prior regulatory approval; chain-of-custody mandatory.' },
@@ -1713,21 +1769,17 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       { icon:'◈', label:'Import / Export Pathways',  text:'Import/export routes subject to national regulatory framework. Request a pathway briefing.' },
       { icon:'◎', label:'Documentation Requirements',text:'Chain-of-custody, COA, and permit documentation required for all commercial movements.' },
     ]
-  }, [country, countryIntel, hasLiveLocalIntel, localIntel])
+  }, [country, countryIntel])
 
-  const LI_COVERAGE = useMemo(() => {
-    if (hasLiveLocalIntel && localIntel!.coverage.length > 0) return localIntel!.coverage
-    return [
-      { label: 'National Regulatory Sources',  level: 'high'   as const },
-      { label: 'Agency Guidance & Bulletins',  level: 'high'   as const },
-      { label: 'Trade & Industry Sources',     level: 'medium' as const },
-      { label: 'Local Government Notices',     level: 'medium' as const },
-      { label: 'Legal & Legislative Tracking', level: 'high'   as const },
-    ]
-  }, [hasLiveLocalIntel, localIntel])
+  const LI_COVERAGE = useMemo(() => [
+    { label: 'National Regulatory Sources',  level: 'high'   as const },
+    { label: 'Agency Guidance & Bulletins',  level: 'high'   as const },
+    { label: 'Trade & Industry Sources',     level: 'medium' as const },
+    { label: 'Local Government Notices',     level: 'medium' as const },
+    { label: 'Legal & Legislative Tracking', level: 'high'   as const },
+  ], [])
 
   const LI_OPEN_QS = useMemo(() => {
-    if (hasLiveLocalIntel && localIntel!.openQuestions.length > 0) return localIntel!.openQuestions
     const sigQs = signals.slice(0, 3).map(s => {
       const area = derivePolicyArea(s.title)
       return `How will ${area.toLowerCase()} developments affect operations in ${country.label}${region ? ` · ${region}` : ''}?`
@@ -1743,7 +1795,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       `How will regulatory developments affect market access in ${country.label}?`,
       `What documentation requirements apply to commercial activity in ${country.label}?`,
     ]
-  }, [signals, country, region, hasLiveLocalIntel, localIntel])
+  }, [signals, country, region])
 
   const operatingNotes = useMemo(() => {
     const fromSignals = signals.slice(0, 5).map(s => ({
@@ -1813,12 +1865,10 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
             <div className="cc-li-org">
               {/* Level 0 — top node */}
               <div className="cc-li-org-level top">
-                {authorities.top && (
-                  <div className={`cc-li-org-node ${authorities.top.type}`}>
-                    <span className="cc-li-org-node-name">{authorities.top.name}</span>
-                    <span className="cc-li-org-node-role">{authorities.top.role}</span>
-                  </div>
-                )}
+                <div className={`cc-li-org-node ${authorities.top.type}`}>
+                  <span className="cc-li-org-node-name">{authorities.top.name}</span>
+                  <span className="cc-li-org-node-role">{authorities.top.role}</span>
+                </div>
               </div>
               <div className="cc-li-org-connector top-mid" />
               {/* Level 1 */}
@@ -2001,13 +2051,14 @@ const REQ_STATUS_COLOR: Record<string, string> = {
 // ── AccessPathwayPage ─────────────────────────────────────────────────────────
 
 const AccessPathwayPage = React.memo(function AccessPathwayPage({
-  country, region, role, signals, pathwayData,
+  country, region, role, signals, pathwayData, countryIntel,
 }: {
   country:      { iso2: string; label: string }
   region:       string
   role:         string
   signals:      DashboardSignal[]
   pathwayData?: PathwayData
+  countryIntel?: CountryIntelProfile | null
 }) {
   const {
     template, steps = [], requirements = [],
@@ -2030,11 +2081,22 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
     return g === 'REGULATORY' || g === 'TESTING & COMPLIANCE'
   }).slice(0, 3)
 
-  const CONF_BARS = [
-    { label: 'Regulatory',      pct: 85 },
-    { label: 'Access Pathway',  pct: 75 },
-    { label: 'Evidence Content',pct: 70 },
-  ]
+  // Derive CONF_BARS: prefer countryIntel-sourced bars, blend in live pathway pct
+  const CONF_BARS = useMemo(() => {
+    const base = buildConfidenceBars(countryIntel).filter(b =>
+      ['Regulatory', 'Access Pathway', 'Education Content'].includes(b.label),
+    )
+    // Replace "Access Pathway" bar with live pathway completion pct when available
+    return base.map(b =>
+      b.label === 'Access Pathway' && pct > 0
+        ? { ...b, pct }
+        : b,
+    )
+  }, [countryIntel, pct])
+  const confOverall = useMemo(() =>
+    Math.round(CONF_BARS.reduce((s, b) => s + b.pct, 0) / CONF_BARS.length),
+    [CONF_BARS],
+  )
 
   if (!template) {
     return (
@@ -2208,10 +2270,10 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               <svg viewBox="0 0 64 64" className="cc-donut-svg">
                 <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="7"/>
                 <circle cx="32" cy="32" r="26" fill="none" stroke="var(--cc-gold)" strokeWidth="7"
-                  strokeDasharray={`${163.4*75/100} 163.4`} strokeLinecap="round" transform="rotate(-90 32 32)"/>
+                  strokeDasharray={`${163.4*confOverall/100} 163.4`} strokeLinecap="round" transform="rotate(-90 32 32)"/>
               </svg>
               <div className="cc-donut-label">
-                <strong>75%</strong>
+                <strong>{confOverall}%</strong>
                 <small>Overall<br/>Confidence</small>
               </div>
             </div>
@@ -3036,7 +3098,6 @@ export default function CommandCentre({
   pipeline,
   wantedListings = [],
   countryIntel,
-  localIntel,
   pathwayData,
   watchlistData,
   evidenceData,
@@ -3093,7 +3154,7 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} />
       case 'evidence':
@@ -3103,7 +3164,7 @@ export default function CommandCentre({
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />
       case 'local-intel':
-        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} />
+        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} />
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} />
       case 'watchlist':
@@ -3113,7 +3174,7 @@ export default function CommandCentre({
       default:
         return null
     }
-  }, [activePage, country, region, role, roleLabel, countryIntel, localIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, liveTiles, recentEduModules, pathwayData, countryOptions, roleOptions, handleCountryChange, handleRoleChange, watchlistData, evidenceData])
+  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, liveTiles, recentEduModules, pathwayData, countryOptions, roleOptions, handleCountryChange, handleRoleChange, watchlistData, evidenceData])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
