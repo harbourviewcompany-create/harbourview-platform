@@ -1589,16 +1589,6 @@ const SettingsPage = React.memo(function SettingsPage({
 // LI_CONSTRAINTS, LI_ROUTES, LI_COVERAGE, LI_OPEN_QS: derived dynamically inside LocalIntelPage
 
 function buildMunicipalData(country: { iso2: string; label: string }, region: string) {
-  if (country.iso2 === 'US') {
-    const base = region || 'Florida'
-    return [
-      { name: 'Miami-Dade County',      status: 'medium' as const, note: 'Dispensary caps in place' },
-      { name: 'Orlando (Orange County)',status: 'high'   as const, note: 'Zoning moratorium active' },
-      { name: 'Tampa (Hillsborough)',   status: 'high'   as const, note: 'Conditional approvals paused' },
-      { name: 'Jacksonville (Duval)',   status: 'low'    as const, note: 'Accepting applications' },
-      { name: 'Palm Beach County',      status: 'medium' as const, note: 'Case-by-case review' },
-    ]
-  }
   return [
     { name: `${country.label} Capital Region`, status: 'medium' as const, note: 'Review municipal requirements' },
     { name: `${country.label} Metro Areas`,    status: 'low'    as const, note: 'Contact local authorities' },
@@ -1606,26 +1596,6 @@ function buildMunicipalData(country: { iso2: string; label: string }, region: st
 }
 
 function buildAuthorities(country: { iso2: string; label: string }) {
-  if (country.iso2 === 'US') {
-    return {
-      top: { name: 'Office of Medical Marijuana Use (OMMU)', role: 'Program Lead', type: 'primary' as const },
-      mid: [
-        { name: 'FL Dept of Health',                          role: 'Health Oversight',        type: 'primary' as const },
-        { name: 'FL Dept of Agriculture & Consumer Services', role: 'Lab & Product Oversight', type: 'oversight' as const },
-        { name: 'FL Office of Insurance Regulation',          role: 'Licensing & Compliance',  type: 'oversight' as const },
-      ],
-      bot: [
-        { name: 'Division of Law Enforcement (MMJ Team)', role: 'Investigations & Enforcement', type: 'enforcement' as const },
-        { name: 'Local Law Enforcement Agencies',         role: 'Local Enforcement',            type: 'enforcement' as const },
-      ],
-      keyList: [
-        { name: 'Office of Medical Marijuana Use (OMMU)',            role: 'Program lead & licensure' },
-        { name: 'Florida Department of Health',                      role: 'Health oversight' },
-        { name: 'FL Dept of Agriculture & Consumer Services',        role: 'Lab & product oversight' },
-        { name: 'Division of Law Enforcement (MMJ Enforcement Team)',role: 'Investigations & enforcement' },
-      ],
-    }
-  }
   return {
     top: { name: `${country.label} National Regulator`, role: 'Primary Regulatory Body', type: 'primary' as const },
     mid: [
@@ -1677,12 +1647,6 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       if (countryIntel.export_status) items.push({ icon:'↑', label:'Export Access', text:`Pathway: ${fmtStatus(countryIntel.export_status)}. GMP, country-of-origin, and consignment documentation required.` })
       if (items.length > 0) return items
     }
-    if (country.iso2 === 'US') return [
-      { icon:'⊞', label:'Zoning & Land Use',     text:'Local zoning approval required in most jurisdictions; moratoriums active in several counties.' },
-      { icon:'⊟', label:'Cap & Licensing Limits', text:'Dispensary caps at state level; local license quotas may apply.' },
-      { icon:'◉', label:'Facility Siting',        text:'Buffer zones near schools, places of worship, and parks strictly enforced.' },
-      { icon:'◷', label:'Inspection Backlog',     text:'Inspection backlog may extend time to licensure renewal or modification.' },
-    ]
     return [
       { icon:'◎', label:'Licensing Requirements',  text:`Verify licensing and permit requirements with the ${country.label} national regulatory authority.` },
       { icon:'⊟', label:'Market Access Rules',     text:'Contact local authorities to confirm current market access conditions and operational constraints.' },
@@ -1693,12 +1657,6 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
 
   const LI_ROUTES = useMemo(() => {
     if (hasLiveLocalIntel && localIntel!.routes.length > 0) return localIntel!.routes
-    if (country.iso2 === 'US') return [
-      { icon:'⬡', label:'In-State Cultivation → Processing', text:'Vertical integration required; limited third-party processing options.' },
-      { icon:'◈', label:'Processing → Dispensary',           text:'Direct delivery with prior regulatory approval; chain-of-custody mandatory.' },
-      { icon:'⊟', label:'Out-of-State Inputs',               text:'Restricted; only approved ancillary inputs permitted.' },
-      { icon:'◎', label:'Waste Disposal',                    text:'Use licensed waste transporters; records retention required.' },
-    ]
     const cats = countryIntel?.opportunity_categories ?? []
     if (cats.length > 0) {
       const ICON_MAP: Record<string, string> = { export:'↑', import:'↓', medical:'◎', retail:'⊞', cultivation:'⬡', processing:'⬟', distribution:'◈' }
@@ -1733,11 +1691,6 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       return `How will ${area.toLowerCase()} developments affect operations in ${country.label}${region ? ` · ${region}` : ''}?`
     })
     if (sigQs.length > 0) return sigQs
-    if (country.iso2 === 'US') return [
-      'How will county-level zoning variances affect facility proximity requirements?',
-      'What are local enforcement priorities for packaging and labelling?',
-      'Will additional municipal licence caps be adopted in the next legislative cycle?',
-    ]
     return [
       `What are the current enforcement priorities for licensed operators in ${country.label}?`,
       `How will regulatory developments affect market access in ${country.label}?`,
@@ -1773,7 +1726,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
           <div>
             <div className="cc-li-header-title">
               <span className="cc-li-header-icon">
-                {country.iso2 === 'US' ? '🌴' : country.iso2 === 'CA' ? '🍁' : '🌐'}
+                🌐
               </span>
               <h2>{country.label}{region ? ` ${region}` : ''} Local Intel</h2>
             </div>
