@@ -82,7 +82,7 @@ const FLAG_MAP: Record<string, string> = {
 function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
   const dc  = (intel?.data_completeness ?? '').toLowerCase()
   const opp = intel?.opportunity_score ?? null
-  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : 38
+  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : dc === 'stub' ? 50 : 38
   const mkt  = opp != null ? Math.min(94, Math.max(20, Math.round(opp * 0.94))) : Math.max(20, base - 5)
   return [
     { label: 'Regulatory',        pct: Math.min(94, base) },
