@@ -1813,10 +1813,12 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
             <div className="cc-li-org">
               {/* Level 0 — top node */}
               <div className="cc-li-org-level top">
-                <div className={`cc-li-org-node ${authorities.top.type}`}>
-                  <span className="cc-li-org-node-name">{authorities.top.name}</span>
-                  <span className="cc-li-org-node-role">{authorities.top.role}</span>
-                </div>
+                {authorities.top && (
+                  <div className={`cc-li-org-node ${authorities.top.type}`}>
+                    <span className="cc-li-org-node-name">{authorities.top.name}</span>
+                    <span className="cc-li-org-node-role">{authorities.top.role}</span>
+                  </div>
+                )}
               </div>
               <div className="cc-li-org-connector top-mid" />
               {/* Level 1 */}
