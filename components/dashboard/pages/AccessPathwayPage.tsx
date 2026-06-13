@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import type { CountryIntelProfile, PipelineCounts } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, PathwayData } from '@/lib/dashboard/dashboardLiveData'
 
 export interface AccessPathwayPageProps {
   country:      { iso2: string; label: string }
@@ -9,21 +9,31 @@ export interface AccessPathwayPageProps {
   role:         string
   countryIntel?: CountryIntelProfile | null
   pipeline?:    PipelineCounts
+  pathwayData?: PathwayData | null
 }
 
 type Stage = { id: string; label: string; desc: string; status: 'complete' | 'active' | 'pending' }
 
-function buildPathway(role: string, countryIntel?: CountryIntelProfile | null): Stage[] {
+function buildPathway(role: string, countryIntel?: CountryIntelProfile | null, pathwayData?: PathwayData | null): Stage[] {
   const marketAccess = countryIntel?.market_access_status?.toLowerCase() ?? ''
   const isOpen = marketAccess.includes('open') || marketAccess.includes('active') || marketAccess.includes('regulated')
 
+  // Derive stage statuses from live pathway progress if available
+  // current_step is 1-indexed: steps < current_step are complete, current_step is active, rest pending
+  const currentStep = pathwayData?.progress?.current_step ?? 3 // default: market intel active
+  function stageStatus(stageNum: number): 'complete' | 'active' | 'pending' {
+    if (stageNum < currentStep)  return 'complete'
+    if (stageNum === currentStep) return 'active'
+    return 'pending'
+  }
+
   const base: Stage[] = [
-    { id: 'profile',    label: 'Role Verification',      desc: 'Confirm professional credentials and operating region.',  status: 'complete' },
-    { id: 'nda',        label: 'Compliance NDA',          desc: 'Execute Harbourview platform access and NDA agreement.',   status: 'complete' },
-    { id: 'market',     label: 'Market Intelligence',     desc: 'Access jurisdiction brief, regulatory status, and signals.', status: 'active'   },
-    { id: 'intro',      label: 'Counterparty Introduction',desc: 'Matched introduction to verified counterparties.',        status: 'pending'  },
-    { id: 'diligence',  label: 'Due Diligence Package',   desc: 'Request documentation, COA, permits, GMP certification.',  status: 'pending'  },
-    { id: 'dealroom',   label: 'Deal Room',               desc: 'Secure channel for term sheets, LOIs, and transaction.', status: 'pending'  },
+    { id: 'profile',    label: 'Role Verification',       desc: 'Confirm professional credentials and operating region.',    status: stageStatus(1) },
+    { id: 'nda',        label: 'Compliance NDA',           desc: 'Execute Harbourview platform access and NDA agreement.',    status: stageStatus(2) },
+    { id: 'market',     label: 'Market Intelligence',      desc: 'Access jurisdiction brief, regulatory status, and signals.',status: stageStatus(3) },
+    { id: 'intro',      label: 'Counterparty Introduction',desc: 'Matched introduction to verified counterparties.',          status: stageStatus(4) },
+    { id: 'diligence',  label: 'Due Diligence Package',    desc: 'Request documentation, COA, permits, GMP certification.',   status: stageStatus(5) },
+    { id: 'dealroom',   label: 'Deal Room',                desc: 'Secure channel for term sheets, LOIs, and transaction.',    status: stageStatus(6) },
   ]
 
   // Role-specific stage overrides
@@ -64,9 +74,9 @@ function StageRow({ stage, idx }: { stage: Stage; idx: number }) {
 }
 
 export const AccessPathwayPage = React.memo(function AccessPathwayPage({
-  country, role, countryIntel, pipeline,
+  country, role, countryIntel, pipeline, pathwayData,
 }: AccessPathwayPageProps) {
-  const stages = buildPathway(role, countryIntel)
+  const stages = buildPathway(role, countryIntel, pathwayData)
   const activeStage = stages.find(s => s.status === 'active')
   const completedCount = stages.filter(s => s.status === 'complete').length
 
