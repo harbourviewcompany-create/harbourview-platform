@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, ReactNode } from 'next'
 
 export const metadata: Metadata = {
   title: {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
  * ShellWrapper suppresses public nav/footer for all /country/* paths.
  * JurisdictionBriefingPage renders its own CC header/breadcrumb.
  */
-export default function CountryLayout({ children }: { children: React.ReactNode }) {
+export default function CountryLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#020814] text-white">
       {children}
