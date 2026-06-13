@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getWatchlistData, getEvidenceData, getRecentEduModules } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel } from '@/lib/dashboard/dashboardLiveData'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -189,7 +189,7 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, watchlistData, evidenceData, recentEduModules] = await Promise.all([
+  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, watchlistData, evidenceData, recentEduModules, localIntel] = await Promise.all([
     fetchDashboardSignals(8),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
@@ -201,6 +201,7 @@ export default async function DashboardPage({
     getWatchlistData(userId),
     getEvidenceData(userId, countryIso2),
     getRecentEduModules(3),
+    getLocalIntel(countryIso2),
   ])
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
@@ -218,6 +219,7 @@ export default async function DashboardPage({
       pipeline={pipeline}
       wantedListings={wantedListings}
       countryIntel={countryIntel ?? undefined}
+      localIntel={localIntel ?? undefined}
       pathwayData={pathwayData}
       watchlistData={watchlistData}
       evidenceData={evidenceData}
