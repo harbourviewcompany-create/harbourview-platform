@@ -28,7 +28,18 @@ jobs:
         run: npm run typecheck
 
       - name: Build
-        run: npm run build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/harbourview-regulatory-signals-build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-signals-build-log
+          path: /tmp/harbourview-regulatory-signals-build.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Public visibility test
         run: npm run test:visibility
