@@ -6,9 +6,11 @@ import {
   getCommercialCountryDashboardRecord,
   countryHeatmapLayers,
   countryDashboardRoles,
+  seedComparisonCountryScores,
   type CountryHeatmapLayer,
   type CountryDashboardRole,
 } from '@/lib/dashboard/commercialDashboard'
+import type { ComparisonCountryScore } from '@/lib/dashboard/dashboardLiveData'
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from './_components'
@@ -158,13 +160,18 @@ const LATLNG: Record<string, [number,number]> = {
 export function CountryIntelDashboard({
   country,
   signalCount = 0,
+  comparisonScores = [],
 }: {
   country: CountryDashboardSummary
   signalCount?: number
+  comparisonScores?: ComparisonCountryScore[]
 }) {
   const { role: ctxRole } = useDashboard()
   const [selectedLayer, setSelectedLayer] = useState<CountryHeatmapLayer>('marketplace_activity')
   const [activeRole, setActiveRole]       = useState<CountryDashboardRole>(() => mapContextRole(ctxRole))
+
+  // Seed live comparison scores on mount and when data changes
+  useEffect(() => { if (comparisonScores.length) seedComparisonCountryScores(comparisonScores) }, [comparisonScores])
 
   useEffect(() => { setActiveRole(mapContextRole(ctxRole)) }, [ctxRole])
 
