@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -350,12 +350,13 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
 const SignalsPage = React.memo(function SignalsPage({
-  country, region, role, signals,
+  country, region, role, signals, watchlistData,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
   signals: DashboardSignal[]
+  watchlistData?: WatchlistData
 }) {
   const [filterImpact,  setFilterImpact]  = useState('all')
   const [filterConf,    setFilterConf]    = useState('all')
@@ -384,18 +385,42 @@ const SignalsPage = React.memo(function SignalsPage({
   const hasFilters   = filterImpact !== 'all' || filterConf !== 'all' || filterType !== 'all'
   const nextBest     = signals.find(s => s.confidence >= 80)
 
-  const SAVED_FILTERS = [
-    { label: `${country.label} Regulatory Watch`, tags: 'Regulatory · High Impact' },
-    { label: 'Cultivation Ops',        tags: 'Supply Chain · Testing' },
-    { label: 'Export Opportunities',   tags: 'Export · Market Access' },
-  ]
-  const HIGH_WATCH = [
-    { label: 'License Caps & Moratorium',  n: 2 },
-    { label: 'Testing Standards',          n: 3 },
-    { label: 'Water & Environmental Rules',n: 1 },
-    { label: 'Federal Rescheduling',       n: 2 },
-    { label: 'Export Market Access',       n: 4 },
-  ]
+  const SAVED_FILTERS = useMemo(() => {
+    const rules = watchlistData?.rules ?? []
+    if (rules.length > 0) {
+      const TYPE_LABELS: Record<string, string> = {
+        jurisdiction: 'Jurisdiction Watch', signal: 'Signal Feed',
+        pathway: 'Access Pathway',          policy: 'Policy Monitor',
+        marketplace: 'Market Watch',        source: 'Source Monitor',
+      }
+      return rules.slice(0, 3).map(r => ({
+        label: TYPE_LABELS[r.rule_type] ?? r.rule_type.replace(/_/g, ' ') + ' Watch',
+        tags:  r.keywords.slice(0, 2).join(' · ') || r.rule_type,
+      }))
+    }
+    return [
+      { label: `${country.label} Regulatory Watch`, tags: 'Regulatory · High Impact' },
+      { label: 'Cultivation Ops',        tags: 'Supply Chain · Testing' },
+      { label: 'Export Opportunities',   tags: 'Export · Market Access' },
+    ]
+  }, [watchlistData, country])
+
+  const HIGH_WATCH = useMemo(() => {
+    const areaCount: Record<string, number> = {}
+    signals.forEach(s => {
+      const a = derivePolicyArea(s.title)
+      areaCount[a] = (areaCount[a] ?? 0) + 1
+    })
+    const entries = Object.entries(areaCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    if (entries.length > 0) return entries.map(([label, n]) => ({ label, n }))
+    return [
+      { label: 'License Caps & Moratorium',  n: 2 },
+      { label: 'Testing Standards',          n: 3 },
+      { label: 'Water & Environmental Rules', n: 1 },
+      { label: 'Federal Rescheduling',       n: 2 },
+      { label: 'Export Market Access',       n: 4 },
+    ]
+  }, [signals])
 
   return (
     <div className="cc-page cc-two-col-page">
@@ -562,7 +587,7 @@ const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData,
 }: {
   country:         { iso2: string; label: string }
   region:          string
@@ -570,6 +595,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   marketplaceRows?: Partial<DashboardMarketplaceRows>
   wantedListings?:  WantedListing[]
   wantedCount?:     number
+  pathwayData?:     PathwayData
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
   const [search,    setSearch]    = useState('')
@@ -595,21 +621,53 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return r
   }, [activeTab, marketplaceRows, wantedListings, search, country])
 
-  const ACCESS_REQS = [
-    { label: `${country.label} Licence`,                  ok: true,  detail: 'Verified · Expires Feb 14, 2026' },
-    { label: 'Facility Registration & Site Plan',         ok: true,  detail: 'Verified · May 23, 2025' },
-    { label: 'Standard Operating Procedures',            ok: false, detail: 'Pending' },
-    { label: 'Traceability System Documentation',        ok: false, detail: 'Pending' },
-  ]
-  const VERIFY_GAPS = [
-    { label: 'EU-GMP Certification',   detail: 'Required for EU export routes' },
-    { label: 'Pest Management Plan',   detail: 'Requires export-level detail' },
-    { label: 'Residual Testing SOP',   detail: 'Needs method verification' },
-  ]
+  const ACCESS_REQS = useMemo(() => {
+    const step1 = pathwayData?.steps.find(s => s.step_number === 1)
+    const reqs  = step1
+      ? (pathwayData?.requirements.filter(r => r.step_id === step1.id && r.is_required) ?? [])
+      : []
+    if (reqs.length > 0) {
+      return reqs.slice(0, 4).map(r => {
+        const st = pathwayData?.requirementStatuses.find(rs => rs.requirement_id === r.id)
+        const ok = st?.status === 'verified'
+        const detail = ok
+          ? `Verified${st?.reviewed_at ? ' · ' + new Date(st.reviewed_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}`
+          : st?.status === 'in_review' ? 'Under review' : 'Pending'
+        return { label: r.title, ok, detail }
+      })
+    }
+    return [
+      { label: `${country.label} Licence`,              ok: false, detail: 'Pending' },
+      { label: 'Facility Registration & Site Plan',     ok: false, detail: 'Pending' },
+      { label: 'Standard Operating Procedures',        ok: false, detail: 'Pending' },
+      { label: 'Traceability System Documentation',    ok: false, detail: 'Pending' },
+    ]
+  }, [pathwayData, country])
+
+  const VERIFY_GAPS = useMemo(() => {
+    const gaps = (pathwayData?.requirements ?? [])
+      .filter(r => {
+        const st = pathwayData?.requirementStatuses.find(rs => rs.requirement_id === r.id)
+        return !st || st.status === 'pending'
+      })
+      .slice(0, 3)
+    if (gaps.length > 0) {
+      return gaps.map(r => {
+        const step = pathwayData?.steps.find(s => s.id === r.step_id)
+        return { label: r.title, detail: r.description ?? step?.title ?? 'Required for access pathway' }
+      })
+    }
+    return [
+      { label: 'EU-GMP Certification',   detail: 'Required for EU export routes' },
+      { label: 'Pest Management Plan',   detail: 'Requires export-level detail' },
+      { label: 'Residual Testing SOP',   detail: 'Needs method verification' },
+    ]
+  }, [pathwayData])
+
   const COUNTERPARTY = [
-    { label: 'Harbourview Due Diligence',    detail: 'Completed May 20, 2025' },
-    { label: 'Sanctions & Watchlist Screen', detail: 'Clear · May 20, 2025' },
-    { label: 'Financial Standing',           detail: 'Good' },
+    { label: 'Harbourview Due Diligence',    detail: 'Review in progress' },
+    { label: 'Sanctions & Watchlist Screen', detail: 'Pending verification' },
+    { label: 'Financial Standing',           detail: 'Submit documentation' },
   ]
 
   return (
@@ -981,12 +1039,14 @@ const RW_TABS = [
 ]
 
 const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
-  country, region, role, signals,
+  country, region, role, signals, watchlistData, countryIntel,
 }: {
-  country: { iso2: string; label: string }
-  region:  string
-  role:    string
-  signals: DashboardSignal[]
+  country:       { iso2: string; label: string }
+  region:        string
+  role:          string
+  signals:       DashboardSignal[]
+  watchlistData?: WatchlistData
+  countryIntel?:  CountryIntelProfile | null
 }) {
   const [activeTab, setActiveTab] = useState('recent')
 
@@ -1000,29 +1060,49 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
 
   const lastChange = regSignals[0] ?? signals[0] ?? null
 
-  const RW_CONF_BARS = [
-    { label: 'Regulatory',       pct: 85 },
-    { label: 'Market Data',      pct: 80 },
-    { label: 'Legal Intel',      pct: 75 },
-    { label: 'Education Content',pct: 50 },
-  ]
+  const RW_CONF_BARS = useMemo(() => buildConfidenceBars(countryIntel).slice(0, 4), [countryIntel])
   const rwOverall = Math.round(RW_CONF_BARS.reduce((s, b) => s + b.pct, 0) / RW_CONF_BARS.length)
 
-  const WATCH_TRIGGERS = [
-    { label: 'Rulemaking (DOH / OMMU)', on: true  },
-    { label: 'Legislation & Bills',     on: true  },
-    { label: 'Taxation Changes',        on: true  },
-    { label: 'Enforcement Actions',     on: true  },
-    { label: 'Local Ordinances',        on: false },
-    { label: 'Federal Developments',    on: false },
-  ]
-  const COMPARABLE = [
-    { label: 'California',    status: 'Stable',        active: false },
-    { label: 'Michigan',      status: 'Reform Active', active: true  },
-    { label: 'Massachusetts', status: 'Reform Active', active: true  },
-    { label: 'Colorado',      status: 'Stable',        active: false },
-    { label: 'Ontario, Canada',status: 'Stable',       active: false },
-  ]
+  const WATCH_TRIGGERS = useMemo(() => {
+    const rules = watchlistData?.rules ?? []
+    if (rules.length > 0) {
+      const TYPE_LABELS: Record<string, string> = {
+        jurisdiction: 'Jurisdiction Changes',  signal: 'Signal Monitoring',
+        pathway: 'Pathway Updates',            marketplace: 'Marketplace Activity',
+        source: 'Source Monitoring',           policy: 'Policy Changes',
+      }
+      return rules.map(r => ({
+        label: TYPE_LABELS[r.rule_type] ?? r.rule_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        on: true,
+      }))
+    }
+    return [
+      { label: 'Rulemaking (Regulatory)', on: true  },
+      { label: 'Legislation & Bills',     on: true  },
+      { label: 'Taxation Changes',        on: true  },
+      { label: 'Enforcement Actions',     on: true  },
+      { label: 'Local Ordinances',        on: false },
+      { label: 'Federal Developments',    on: false },
+    ]
+  }, [watchlistData])
+
+  const COMPARABLE = useMemo(() => {
+    const uniqueMarkets = [...new Set(signals.map(s => s.market).filter(m => m && m !== country.label))]
+    if (uniqueMarkets.length > 0) {
+      return uniqueMarkets.slice(0, 5).map(m => ({
+        label:  m,
+        status: signals.filter(s => s.market === m).some(s => s.confidence >= 80) ? 'Reform Active' : 'Stable',
+        active: signals.filter(s => s.market === m).some(s => s.confidence >= 80),
+      }))
+    }
+    return [
+      { label: 'California',     status: 'Stable',        active: false },
+      { label: 'Michigan',       status: 'Reform Active', active: true  },
+      { label: 'Massachusetts',  status: 'Reform Active', active: true  },
+      { label: 'Colorado',       status: 'Stable',        active: false },
+      { label: 'Ontario, Canada',status: 'Stable',        active: false },
+    ]
+  }, [signals, country])
   const POLICY_QS = [
     'Will local option sales tax authority expand?',
     'How will packaging rules align with child-resistant standards?',
@@ -1505,30 +1585,7 @@ const SettingsPage = React.memo(function SettingsPage({
 
 // ── LocalIntelPage ────────────────────────────────────────────────────────────
 
-const LI_CONSTRAINTS = [
-  { icon: '⊞', label: 'Zoning & Land Use',     text: 'Local zoning approval required in most jurisdictions; moratoriums active in several counties.' },
-  { icon: '⊟', label: 'Cap & Licensing Limits', text: 'Dispensary caps at state level; local license quotas may apply.' },
-  { icon: '◉', label: 'Facility Siting',        text: 'Buffer zones near schools, places of worship, and parks strictly enforced.' },
-  { icon: '◷', label: 'Inspection Backlog',     text: 'OIR inspection backlog may extend time to licensure renewal or modification.' },
-]
-const LI_ROUTES = [
-  { icon: '⬡', label: 'In-State Cultivation → Processing', text: 'Vertical integration required; limited third-party processing options.' },
-  { icon: '◈', label: 'Processing → Dispensary',           text: 'Direct delivery with prior OMMU approval; chain-of-custody mandatory.' },
-  { icon: '⊟', label: 'Out-of-State Inputs',               text: 'Restricted; only approved ancillary inputs permitted.' },
-  { icon: '◎', label: 'Waste Disposal',                    text: 'Use licensed waste transporters; records retention required.' },
-]
-const LI_COVERAGE = [
-  { label: 'State Regulatory Bulletins', level: 'high'   as const },
-  { label: 'Agency Guidance',            level: 'high'   as const },
-  { label: 'Local Government Notices',   level: 'medium' as const },
-  { label: 'Industry & Trade Sources',   level: 'medium' as const },
-  { label: 'Legal & Legislative Tracking', level: 'high' as const },
-]
-const LI_OPEN_QS = [
-  'How will County X apply zoning variances for dispensary proximity?',
-  'What are local enforcement priorities for edibles & packaging?',
-  'Will additional municipal license caps be adopted in H2 2025?',
-]
+// LI_CONSTRAINTS, LI_ROUTES, LI_COVERAGE, LI_OPEN_QS: derived dynamically inside LocalIntelPage
 
 function buildMunicipalData(country: { iso2: string; label: string }, region: string) {
   if (country.iso2 === 'US') {
@@ -1597,6 +1654,79 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
 }) {
   const municipalities = useMemo(() => buildMunicipalData(country, region), [country, region])
   const authorities    = useMemo(() => buildAuthorities(country), [country])
+
+  // ── Dynamic local intel content derived from countryIntel + signals ──────────
+  const LI_CONSTRAINTS = useMemo(() => {
+    if (countryIntel) {
+      const items: { icon: string; label: string; text: string }[] = []
+      if (countryIntel.medical_status) items.push({ icon:'◎', label:'Medical Programme', text:`Status: ${fmtStatus(countryIntel.medical_status)}. Operator compliance required under national health authority rules.` })
+      if (countryIntel.market_access_status) items.push({ icon:'⊞', label:'Market Access', text:`Classification: ${fmtStatus(countryIntel.market_access_status)}. Verify operator entry requirements before commercial engagement.` })
+      if (countryIntel.import_status) items.push({ icon:'↓', label:'Import Constraints', text:`Pathway: ${fmtStatus(countryIntel.import_status)}. Documentation, permit and customs requirements apply.` })
+      if (countryIntel.export_status) items.push({ icon:'↑', label:'Export Access', text:`Pathway: ${fmtStatus(countryIntel.export_status)}. GMP, country-of-origin, and consignment documentation required.` })
+      if (items.length > 0) return items
+    }
+    if (country.iso2 === 'US') return [
+      { icon:'⊞', label:'Zoning & Land Use',     text:'Local zoning approval required in most jurisdictions; moratoriums active in several counties.' },
+      { icon:'⊟', label:'Cap & Licensing Limits', text:'Dispensary caps at state level; local license quotas may apply.' },
+      { icon:'◉', label:'Facility Siting',        text:'Buffer zones near schools, places of worship, and parks strictly enforced.' },
+      { icon:'◷', label:'Inspection Backlog',     text:'Inspection backlog may extend time to licensure renewal or modification.' },
+    ]
+    return [
+      { icon:'◎', label:'Licensing Requirements',  text:`Verify licensing and permit requirements with the ${country.label} national regulatory authority.` },
+      { icon:'⊟', label:'Market Access Rules',     text:'Contact local authorities to confirm current market access conditions and operational constraints.' },
+      { icon:'◷', label:'Compliance Obligations',  text:'Maintain current documentation and certification as required by national regulations.' },
+      { icon:'⊞', label:'Local Requirements',      text:'Subnational and municipal requirements may vary; confirm with local government offices.' },
+    ]
+  }, [country, countryIntel])
+
+  const LI_ROUTES = useMemo(() => {
+    if (country.iso2 === 'US') return [
+      { icon:'⬡', label:'In-State Cultivation → Processing', text:'Vertical integration required; limited third-party processing options.' },
+      { icon:'◈', label:'Processing → Dispensary',           text:'Direct delivery with prior regulatory approval; chain-of-custody mandatory.' },
+      { icon:'⊟', label:'Out-of-State Inputs',               text:'Restricted; only approved ancillary inputs permitted.' },
+      { icon:'◎', label:'Waste Disposal',                    text:'Use licensed waste transporters; records retention required.' },
+    ]
+    const cats = countryIntel?.opportunity_categories ?? []
+    if (cats.length > 0) {
+      const ICON_MAP: Record<string, string> = { export:'↑', import:'↓', medical:'◎', retail:'⊞', cultivation:'⬡', processing:'⬟', distribution:'◈' }
+      return cats.slice(0, 4).map(cat => {
+        const key  = cat.toLowerCase()
+        const icon = Object.entries(ICON_MAP).find(([k]) => key.includes(k))?.[1] ?? '⬡'
+        return { icon, label: cat.replace(/_/g,' ').replace(/\w/g, c => c.toUpperCase()), text: `${cat.replace(/_/g,' ')} commercial route available in ${country.label}.` }
+      })
+    }
+    return [
+      { icon:'⬡', label:'Domestic Supply Routes',    text:`Consult Harbourview to map available commercial routes for ${country.label}.` },
+      { icon:'◈', label:'Import / Export Pathways',  text:'Import/export routes subject to national regulatory framework. Request a pathway briefing.' },
+      { icon:'◎', label:'Documentation Requirements',text:'Chain-of-custody, COA, and permit documentation required for all commercial movements.' },
+    ]
+  }, [country, countryIntel])
+
+  const LI_COVERAGE = useMemo(() => [
+    { label: 'National Regulatory Sources',  level: 'high'   as const },
+    { label: 'Agency Guidance & Bulletins',  level: 'high'   as const },
+    { label: 'Trade & Industry Sources',     level: 'medium' as const },
+    { label: 'Local Government Notices',     level: 'medium' as const },
+    { label: 'Legal & Legislative Tracking', level: 'high'   as const },
+  ], [])
+
+  const LI_OPEN_QS = useMemo(() => {
+    const sigQs = signals.slice(0, 3).map(s => {
+      const area = derivePolicyArea(s.title)
+      return `How will ${area.toLowerCase()} developments affect operations in ${country.label}${region ? ` · ${region}` : ''}?`
+    })
+    if (sigQs.length > 0) return sigQs
+    if (country.iso2 === 'US') return [
+      'How will county-level zoning variances affect facility proximity requirements?',
+      'What are local enforcement priorities for packaging and labelling?',
+      'Will additional municipal licence caps be adopted in the next legislative cycle?',
+    ]
+    return [
+      `What are the current enforcement priorities for licensed operators in ${country.label}?`,
+      `How will regulatory developments affect market access in ${country.label}?`,
+      `What documentation requirements apply to commercial activity in ${country.label}?`,
+    ]
+  }, [signals, country, region])
 
   const operatingNotes = useMemo(() => {
     const fromSignals = signals.slice(0, 5).map(s => ({
@@ -2945,17 +3075,17 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} />
       case 'regulatory':
-        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} />
+        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />
       case 'local-intel':
         return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} />
       case 'signals':
-        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} />
+        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} />
       case 'watchlist':
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
