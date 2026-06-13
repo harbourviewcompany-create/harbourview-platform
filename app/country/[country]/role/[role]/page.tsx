@@ -111,25 +111,32 @@ const VIEW_SECTION_MAP: Record<string, MarketView> = {
 
 function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
   const view = VIEW_SECTION_MAP[l.marketplace_section] ?? 'cannabis'
-  const s = l.marketplace_section
-  const specClass: MarketRow[0] =
-    s.includes('equipment') || s === 'consumables' || s === 'packaging' ? 'equip'
-    : s.includes('service') || s.includes('logistics') || s.includes('lab') ? 'service'
-    : 'supply'
   const st = l.seller_type ?? ''
-  const ver   = st === 'verified_seller' || st === 'licensed_operator' ? 'VER:ok'   : 'VER:warn'
-  const proof = st === 'verified_seller' ? 'PROOF:ok' : 'PROOF:warn'
-  const reg   = (l.high_level_specs as Record<string, unknown>)?.regulatory_ready ? 'REG:ok' : 'REG:warn'
-  const trust = [ver, proof, reg, 'PUBLIC'].join('|')
-  const action = view === 'wanted' ? 'Respond to request'
-    : view === 'services' ? 'Request introduction'
-    : 'Request mediated access'
-  const status = l.price_display ?? l.condition ?? (l.is_featured ? 'Featured' : 'Listed')
-  const tags = [l.category, l.subcategory, l.product_type, l.location_country]
-    .filter((v): v is string => typeof v === 'string' && v.length > 0)
-    .slice(0, 4).join('|') || l.category
-  return [view, [specClass, l.category, l.title,
-    l.description || `${l.category} listing`, tags, trust, action, status]]
+  const verified = st === 'verified_seller' || st === 'licensed_operator'
+  const regulatoryReady = Boolean((l.high_level_specs as Record<string, unknown>)?.regulatory_ready)
+
+  const verification = verified ? 'Verified' : 'Pending Review'
+  const accessRoute  = verified ? 'Direct' : 'Mediated'
+
+  // Confidence score for the donut: base score lifted by verification signals.
+  let confidence = 55
+  if (verified)        confidence += 25
+  if (regulatoryReady) confidence += 12
+  if (l.is_featured)   confidence += 5
+  confidence = Math.min(96, confidence)
+
+  const category = [l.category, l.subcategory].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' · ')
+
+  return [view, [
+    l.title,
+    l.description || `${l.category} listing`,
+    l.location_country || '',
+    category || l.category,
+    verification,
+    accessRoute,
+    String(confidence),
+    l.id,
+  ]]
 }
 
 async function getCountryRoleMarketplaceRows(

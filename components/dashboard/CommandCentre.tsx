@@ -102,15 +102,118 @@ function fmtStatus(v: string | null | undefined, fallback = '—'): string {
   return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// ── Role-aware Briefing Room fields ─────────────────────────────────────────
+// The Briefing Room previously showed the same 5 generic fields (Medical
+// Program, Market Access, Import/Export Status, Opportunity) to every role —
+// meaningless to a Logistics/Customs broker, for example. Group roles into
+// the same 4 clusters used by the Access Pathway generic templates, and show
+// the 5 fields + framing sentence most relevant to that cluster.
+
+type BriefingFocus = 'production' | 'trade' | 'healthcare' | 'oversight'
+
+const ROLE_FOCUS: Record<string, BriefingFocus> = {
+  cultivator_producer:         'production',
+  geneticist_breeder:          'production',
+  processor_extractor:         'production',
+  gmp_quality:                  'production',
+  lab_qa:                       'production',
+  importer:                     'trade',
+  exporter:                     'trade',
+  distributor_wholesaler:       'trade',
+  logistics_customs:            'trade',
+  retail_operator:              'trade',
+  doctor_prescriber:            'healthcare',
+  pharmacist:                   'healthcare',
+  clinic_healthcare_operator:   'healthcare',
+  patient_caregiver_education:  'healthcare',
+  budtender:                    'healthcare',
+  regulatory_compliance:        'oversight',
+  legal_advisory:               'oversight',
+  investor_operator:            'oversight',
+  government_regulator:         'oversight',
+}
+
+function fmtTradeRoles(roles: string[] | null | undefined): string {
+  if (!roles || roles.length === 0) return 'Not Classified'
+  return roles.map(r => fmtStatus(r)).join(', ')
+}
+
+function getBriefingFields(focus: BriefingFocus | undefined, intel?: CountryIntelProfile | null): { icon: string; label: string; value: string }[] {
+  const regulator = intel?.regulator_label?.trim() || 'Not Identified'
+  switch (focus) {
+    case 'trade':
+      return [
+        { icon: '↓', label: 'Import Status',  value: fmtStatus(intel?.import_status, 'Not Available') },
+        { icon: '↑', label: 'Export Status',  value: fmtStatus(intel?.export_status, 'Not Available') },
+        { icon: '⊞', label: 'Trade Role(s)',  value: fmtTradeRoles(intel?.trade_roles) },
+        { icon: '⊛', label: 'Market Access',  value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
+        { icon: '◎', label: 'Regulator',      value: regulator },
+      ]
+    case 'production':
+      return [
+        { icon: '⊛', label: 'Market Access',   value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
+        { icon: '↑', label: 'Export Status',   value: fmtStatus(intel?.export_status, 'Not Available') },
+        { icon: '◎', label: 'Medical Program', value: fmtStatus(intel?.medical_status, 'No Active Program') },
+        { icon: '✦', label: 'Regulator',       value: regulator },
+        { icon: '⊙', label: 'Opportunity',     value: intel?.opportunity_score != null ? `${intel.opportunity_score}/100` : 'Not Scored' },
+      ]
+    case 'healthcare':
+      return [
+        { icon: '◎', label: 'Medical Program',    value: fmtStatus(intel?.medical_status, 'No Active Program') },
+        { icon: '⊕', label: 'Adult-Use Program',  value: fmtStatus(intel?.adult_use_status, 'No Active Program') },
+        { icon: '⊛', label: 'Market Access',      value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
+        { icon: '✦', label: 'Regulator',          value: regulator },
+        { icon: '↓', label: 'Import Status',      value: fmtStatus(intel?.import_status, 'Not Available') },
+      ]
+    case 'oversight':
+      return [
+        { icon: '⊛', label: 'Market Access',      value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
+        { icon: '◎', label: 'Medical Program',    value: fmtStatus(intel?.medical_status, 'No Active Program') },
+        { icon: '⊕', label: 'Adult-Use Program',  value: fmtStatus(intel?.adult_use_status, 'No Active Program') },
+        { icon: '✦', label: 'Regulator',          value: regulator },
+        { icon: '⊙', label: 'Opportunity',        value: intel?.opportunity_score != null ? `${intel.opportunity_score}/100` : 'Not Scored' },
+      ]
+    default:
+      return [
+        { icon: '◎', label: 'Medical Program', value: fmtStatus(intel?.medical_status,       'No Active Program') },
+        { icon: '⊛', label: 'Market Access',   value: fmtStatus(intel?.market_access_status, 'Status Unknown')    },
+        { icon: '↓', label: 'Import Status',   value: fmtStatus(intel?.import_status,        'Not Available')     },
+        { icon: '↑', label: 'Export Status',   value: fmtStatus(intel?.export_status,        'Not Available')     },
+        { icon: '⊙', label: 'Opportunity',     value: intel?.opportunity_score != null ? `${intel.opportunity_score}/100` : 'Not Scored' },
+      ]
+  }
+}
+
+function getBriefingFraming(focus: BriefingFocus | undefined, roleLabel: string, countryLabel: string): string | null {
+  if (!focus || !roleLabel) return null
+  switch (focus) {
+    case 'trade':
+      return `As a ${roleLabel}, the key questions for ${countryLabel} are: what's the import/export status, what trade role does the country play, and which regulator governs cross-border movement.`
+    case 'production':
+      return `As a ${roleLabel}, the key questions for ${countryLabel} are: does market access support production for domestic medical supply or export, and how does the opportunity score compare to other markets.`
+    case 'healthcare':
+      return `As a ${roleLabel}, the key questions for ${countryLabel} are: is there an active medical or adult-use programme you can operate within, and where do patients' products come from.`
+    case 'oversight':
+      return `As a ${roleLabel}, the key questions for ${countryLabel} are: overall market access status, programme maturity, and the opportunity profile for advisory or investment purposes.`
+    default:
+      return null
+  }
+}
+
+
 const BriefingRoom = React.memo(function BriefingRoom({
   country,
   region,
+  role,
+  roleLabel,
   countryIntel,
   signals,
   onCountrySelect,
 }: {
   country:          { iso2: string; label: string }
   region:           string
+  role?:            string
+  roleLabel?:       string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
   onCountrySelect?: (iso2: string) => void
@@ -118,6 +221,9 @@ const BriefingRoom = React.memo(function BriefingRoom({
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
   const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
   const overall  = overallConfidence(confBars)
+  const focus    = role ? ROLE_FOCUS[role] : undefined
+  const briefingFields = useMemo(() => getBriefingFields(focus, countryIntel), [focus, countryIntel])
+  const briefingFraming = useMemo(() => getBriefingFraming(focus, roleLabel ?? '', country.label), [focus, roleLabel, country.label])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -145,16 +251,12 @@ const BriefingRoom = React.memo(function BriefingRoom({
           <p className="cc-jx-summary">{countryIntel.public_summary}</p>
         )}
 
+        {briefingFraming && (
+          <p className="cc-jx-framing">{briefingFraming}</p>
+        )}
+
         <div className="cc-jx-fields">
-          {([
-            { icon: '◎', label: 'Medical Program', value: fmtStatus(countryIntel?.medical_status,       'No Active Program') },
-            { icon: '⊛', label: 'Market Access',   value: fmtStatus(countryIntel?.market_access_status, 'Status Unknown')    },
-            { icon: '↓', label: 'Import Status',   value: fmtStatus(countryIntel?.import_status,        'Not Available')     },
-            { icon: '↑', label: 'Export Status',   value: fmtStatus(countryIntel?.export_status,        'Not Available')     },
-            { icon: '⊙', label: 'Opportunity',     value: countryIntel?.opportunity_score != null
-                ? `${countryIntel.opportunity_score}/100`
-                : 'Not Scored' },
-          ] as { icon: string; label: string; value: string }[]).map(f => (
+          {briefingFields.map(f => (
             <div key={f.label} className="cc-jx-field">
               <span className="cc-jx-field-icon">{f.icon}</span>
               <div>
@@ -572,14 +674,14 @@ const SignalsPage = React.memo(function SignalsPage({
 
 // ── Marketplace helpers ────────────────────────────────────────────────────────
 
-const MKT_TABS: { id: MarketView; label: string }[] = [
-  { id: 'cannabis',      label: 'Listings' },
-  { id: 'wanted',        label: 'Wanted Demand' },
-  { id: 'opportunities', label: 'Buyer Routes' },
-  { id: 'equipment',     label: 'Equipment' },
-  { id: 'consumables',   label: 'Consumables' },
-  { id: 'services',      label: 'Services' },
-  { id: 'new-products',  label: 'Opportunities' },
+const MKT_TABS: { id: MarketView; label: string; emptyNoun: string }[] = [
+  { id: 'cannabis',      label: 'Listings',      emptyNoun: 'listings' },
+  { id: 'wanted',        label: 'Wanted Demand', emptyNoun: 'wanted demand listings' },
+  { id: 'opportunities', label: 'Buyer Routes',  emptyNoun: 'buyer route opportunities' },
+  { id: 'equipment',     label: 'Equipment',     emptyNoun: 'equipment listings' },
+  { id: 'consumables',   label: 'Consumables',   emptyNoun: 'consumables listings' },
+  { id: 'services',      label: 'Services',      emptyNoun: 'service listings' },
+  { id: 'new-products',  label: 'Opportunities', emptyNoun: 'opportunities' },
 ]
 
 // MarketRow tuple field indices
@@ -764,7 +866,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
         ) : (
           <div className="cc-empty-state">
             <span>⊞</span>
-            <p>No {MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} listings for {country.label}{region?` · ${region}`:''}.{' '}
+            <p>No {MKT_TABS.find(t=>t.id===activeTab)?.emptyNoun ?? 'listings'} for {country.label}{region?` · ${region}`:''}.{' '}
               {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
             </p>
           </div>
@@ -1589,6 +1691,16 @@ const SettingsPage = React.memo(function SettingsPage({
 // LI_CONSTRAINTS, LI_ROUTES, LI_COVERAGE, LI_OPEN_QS: derived dynamically inside LocalIntelPage
 
 function buildMunicipalData(country: { iso2: string; label: string }, region: string) {
+  if (country.iso2 === 'US') {
+    const base = region || 'Florida'
+    return [
+      { name: 'Miami-Dade County',      status: 'medium' as const, note: 'Dispensary caps in place' },
+      { name: 'Orlando (Orange County)',status: 'high'   as const, note: 'Zoning moratorium active' },
+      { name: 'Tampa (Hillsborough)',   status: 'high'   as const, note: 'Conditional approvals paused' },
+      { name: 'Jacksonville (Duval)',   status: 'low'    as const, note: 'Accepting applications' },
+      { name: 'Palm Beach County',      status: 'medium' as const, note: 'Case-by-case review' },
+    ]
+  }
   return [
     { name: `${country.label} Capital Region`, status: 'medium' as const, note: 'Review municipal requirements' },
     { name: `${country.label} Metro Areas`,    status: 'low'    as const, note: 'Contact local authorities' },
@@ -1596,6 +1708,26 @@ function buildMunicipalData(country: { iso2: string; label: string }, region: st
 }
 
 function buildAuthorities(country: { iso2: string; label: string }) {
+  if (country.iso2 === 'US') {
+    return {
+      top: { name: 'Office of Medical Marijuana Use (OMMU)', role: 'Program Lead', type: 'primary' as const },
+      mid: [
+        { name: 'FL Dept of Health',                          role: 'Health Oversight',        type: 'primary' as const },
+        { name: 'FL Dept of Agriculture & Consumer Services', role: 'Lab & Product Oversight', type: 'oversight' as const },
+        { name: 'FL Office of Insurance Regulation',          role: 'Licensing & Compliance',  type: 'oversight' as const },
+      ],
+      bot: [
+        { name: 'Division of Law Enforcement (MMJ Team)', role: 'Investigations & Enforcement', type: 'enforcement' as const },
+        { name: 'Local Law Enforcement Agencies',         role: 'Local Enforcement',            type: 'enforcement' as const },
+      ],
+      keyList: [
+        { name: 'Office of Medical Marijuana Use (OMMU)',            role: 'Program lead & licensure' },
+        { name: 'Florida Department of Health',                      role: 'Health oversight' },
+        { name: 'FL Dept of Agriculture & Consumer Services',        role: 'Lab & product oversight' },
+        { name: 'Division of Law Enforcement (MMJ Enforcement Team)',role: 'Investigations & enforcement' },
+      ],
+    }
+  }
   return {
     top: { name: `${country.label} National Regulator`, role: 'Primary Regulatory Body', type: 'primary' as const },
     mid: [
@@ -1647,6 +1779,12 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       if (countryIntel.export_status) items.push({ icon:'↑', label:'Export Access', text:`Pathway: ${fmtStatus(countryIntel.export_status)}. GMP, country-of-origin, and consignment documentation required.` })
       if (items.length > 0) return items
     }
+    if (country.iso2 === 'US') return [
+      { icon:'⊞', label:'Zoning & Land Use',     text:'Local zoning approval required in most jurisdictions; moratoriums active in several counties.' },
+      { icon:'⊟', label:'Cap & Licensing Limits', text:'Dispensary caps at state level; local license quotas may apply.' },
+      { icon:'◉', label:'Facility Siting',        text:'Buffer zones near schools, places of worship, and parks strictly enforced.' },
+      { icon:'◷', label:'Inspection Backlog',     text:'Inspection backlog may extend time to licensure renewal or modification.' },
+    ]
     return [
       { icon:'◎', label:'Licensing Requirements',  text:`Verify licensing and permit requirements with the ${country.label} national regulatory authority.` },
       { icon:'⊟', label:'Market Access Rules',     text:'Contact local authorities to confirm current market access conditions and operational constraints.' },
@@ -1657,6 +1795,12 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
 
   const LI_ROUTES = useMemo(() => {
     if (hasLiveLocalIntel && localIntel!.routes.length > 0) return localIntel!.routes
+    if (country.iso2 === 'US') return [
+      { icon:'⬡', label:'In-State Cultivation → Processing', text:'Vertical integration required; limited third-party processing options.' },
+      { icon:'◈', label:'Processing → Dispensary',           text:'Direct delivery with prior regulatory approval; chain-of-custody mandatory.' },
+      { icon:'⊟', label:'Out-of-State Inputs',               text:'Restricted; only approved ancillary inputs permitted.' },
+      { icon:'◎', label:'Waste Disposal',                    text:'Use licensed waste transporters; records retention required.' },
+    ]
     const cats = countryIntel?.opportunity_categories ?? []
     if (cats.length > 0) {
       const ICON_MAP: Record<string, string> = { export:'↑', import:'↓', medical:'◎', retail:'⊞', cultivation:'⬡', processing:'⬟', distribution:'◈' }
@@ -1691,6 +1835,11 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       return `How will ${area.toLowerCase()} developments affect operations in ${country.label}${region ? ` · ${region}` : ''}?`
     })
     if (sigQs.length > 0) return sigQs
+    if (country.iso2 === 'US') return [
+      'How will county-level zoning variances affect facility proximity requirements?',
+      'What are local enforcement priorities for packaging and labelling?',
+      'Will additional municipal licence caps be adopted in the next legislative cycle?',
+    ]
     return [
       `What are the current enforcement priorities for licensed operators in ${country.label}?`,
       `How will regulatory developments affect market access in ${country.label}?`,
@@ -1726,7 +1875,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
           <div>
             <div className="cc-li-header-title">
               <span className="cc-li-header-icon">
-                🌐
+                {country.iso2 === 'US' ? '🌴' : country.iso2 === 'CA' ? '🍁' : '🌐'}
               </span>
               <h2>{country.label}{region ? ` ${region}` : ''} Local Intel</h2>
             </div>
@@ -3044,7 +3193,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom country={country} region={region} role={role} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} />
       case 'marketplace':
@@ -3433,6 +3582,10 @@ const CSS = `
 .cc-jx-summary {
   font-size:12px;line-height:1.65;color:var(--cc-muted);
   border-left:2px solid var(--cc-gold);padding-left:12px;
+}
+.cc-jx-framing {
+  font-size:11px;line-height:1.6;color:var(--cc-dim);
+  font-style:italic;border-left:2px solid var(--cc-line);padding-left:12px;
 }
 .cc-jx-fields { display:flex;flex-direction:column;gap:10px; }
 .cc-jx-field {
