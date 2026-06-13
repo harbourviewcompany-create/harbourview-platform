@@ -241,18 +241,33 @@ const defaultScores: Record<CountryHeatmapLayer, number> = {
   source_coverage: 38,
 }
 
-const comparisonCountryScores: Array<{ slug: string; name: string; iso2: string; base: number }> = [
-  { slug: 'germany', name: 'Germany', iso2: 'DE', base: 76 },
-  { slug: 'mexico', name: 'Mexico', iso2: 'MX', base: 58 },
-  { slug: 'colombia', name: 'Colombia', iso2: 'CO', base: 64 },
-  { slug: 'chile', name: 'Chile', iso2: 'CL', base: 54 },
-  { slug: 'argentina', name: 'Argentina', iso2: 'AR', base: 57 },
-  { slug: 'united-states', name: 'United States', iso2: 'US', base: 72 },
-  { slug: 'india', name: 'India', iso2: 'IN', base: 47 },
-  { slug: 'china', name: 'China', iso2: 'CN', base: 45 },
-  { slug: 'south-africa', name: 'South Africa', iso2: 'ZA', base: 55 },
-  { slug: 'australia', name: 'Australia', iso2: 'AU', base: 69 },
+// Populated at runtime via getCommercialCountryDashboardRecord — overridden by live data when passed
+let _liveComparisonScores: Array<{ slug: string; name: string; iso2: string; base: number }> = [
+  { slug: 'germany',       name: 'Germany',       iso2: 'DE', base: 76 },
+  { slug: 'mexico',        name: 'Mexico',         iso2: 'MX', base: 58 },
+  { slug: 'colombia',      name: 'Colombia',       iso2: 'CO', base: 64 },
+  { slug: 'chile',         name: 'Chile',          iso2: 'CL', base: 54 },
+  { slug: 'argentina',     name: 'Argentina',      iso2: 'AR', base: 57 },
+  { slug: 'united-states', name: 'United States',  iso2: 'US', base: 72 },
+  { slug: 'india',         name: 'India',          iso2: 'IN', base: 47 },
+  { slug: 'china',         name: 'China',          iso2: 'CN', base: 45 },
+  { slug: 'south-africa',  name: 'South Africa',   iso2: 'ZA', base: 55 },
+  { slug: 'australia',     name: 'Australia',      iso2: 'AU', base: 69 },
 ]
+const comparisonCountryScores = _liveComparisonScores
+
+/** Call once from the server component to inject live opportunity scores */
+export function seedComparisonCountryScores(
+  live: Array<{ iso2: string; name: string; slug: string; opportunity_score: number }>,
+) {
+  if (!live.length) return
+  _liveComparisonScores = live.map(r => ({
+    slug: r.slug,
+    name: r.name,
+    iso2: r.iso2,
+    base: r.opportunity_score,
+  }))
+}
 
 function layerLabel(layer: CountryHeatmapLayer) {
   return countryHeatmapLayers.find((item) => item.id === layer)?.label ?? 'Marketplace Activity'
