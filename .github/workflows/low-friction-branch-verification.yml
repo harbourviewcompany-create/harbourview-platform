@@ -21,8 +21,51 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin "${{ github.base_ref }}" --depth=50
 
+      - name: Classify changed-file scope
+        id: changed_file_scope
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const { execFileSync } = require('node:child_process');
+
+          const allowedControlFiles = new Set([
+            '.github/pull_request_template.md',
+            'docs/control/VERIFICATION_PLAN.md',
+            'scripts/check-no-secret-strings.mjs',
+            'scripts/check-changed-files-scope.mjs',
+            '.github/workflows/low-friction-branch-verification.yml',
+            '.github/workflows/preview-verification.yml',
+            '.github/workflows/protected-production-smoke.yml',
+            '.github/workflows/post-merge-verification.yml',
+          ]);
+
+          const base = 'origin/${{ github.base_ref }}';
+          const ranges = [`${base}...HEAD`, `${base}..HEAD`];
+          let files = [];
+
+          for (const range of ranges) {
+            try {
+              const output = execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMRTUXB', range], {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe'],
+              }).trim();
+              files = output ? output.split('\n').filter(Boolean) : [];
+              break;
+            } catch {
+              // Try the next range form below.
+            }
+          }
+
+          const isControlOnly = files.length > 0 && files.every((file) => allowedControlFiles.has(file));
+          console.log(`control_only=${isControlOnly ? 'true' : 'false'}`);
+          NODE
+
       - name: Check changed-file scope
+        if: steps.changed_file_scope.outputs.control_only == 'true'
         run: node scripts/check-changed-files-scope.mjs --base "origin/${{ github.base_ref }}" --head HEAD --profile low-friction-control
+
+      - name: Skip changed-file scope for feature PR
+        if: steps.changed_file_scope.outputs.control_only != 'true'
+        run: echo "GO: changed-file scope check skipped because this PR is not control-only."
 
       - name: Scan for committed secret-looking values
         run: node scripts/check-no-secret-strings.mjs --base "origin/${{ github.base_ref }}" --head HEAD

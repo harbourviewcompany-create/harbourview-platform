@@ -197,7 +197,8 @@ Required behavior:
 
 - runs on pull requests
 - uses read-only repository permissions
-- checks changed-file scope for control-only PRs
+- classifies whether the changed-file set is control-only before running the low-friction control scope profile
+- checks changed-file scope for control-only PRs and skips that control-only profile for feature PRs
 - scans changed files and diffs for committed secret-looking values
 - confirms dry-run posture
 - does not use Supabase secrets
