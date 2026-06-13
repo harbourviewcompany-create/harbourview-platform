@@ -233,7 +233,14 @@ function createTopFaceWithHoles(
       const lenSq = nx * nx + ny * ny + nz * nz
       if (lenSq < 1e-20) continue // degenerate — drop
 
-      const dot = nx * ax + ny * ay + nz * az
+      // Use triangle centroid (not vertex a alone) for the outward-direction test.
+      // Vertex a can be far off-centroid on large polygons (Russia/Siberia spans
+      // ~140° longitude) causing the dot product sign to flip and winding to invert,
+      // which produces the black void visible in Siberia on the globe.
+      const centX = (ax + bx + cx) / 3
+      const centY = (ay + by + cy) / 3
+      const centZ = (az + bz + cz) / 3
+      const dot = nx * centX + ny * centY + nz * centZ
       if (dot >= 0) {
         indices.push(a, b, c)
       } else {

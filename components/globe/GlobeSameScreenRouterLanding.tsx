@@ -169,10 +169,16 @@ export function GlobeSameScreenRouterLanding() {
         <GlobeCanvas
           selectedCountryIso2={state.selectedCountryIso2}
           selectedCountryIso2s={state.selectedCountryIso2s}
-          focusedCountryIso2={state.focusedCountryIso2}
+          {/* Suppress the hover tooltip and hover events while any bottom-sheet modal
+              is open. The CountryGlobeLabel is a DOM overlay that renders above the
+              canvas z-index stack, so it bleeds through the sheet without this guard.
+              'role' and 'fallback' both render a RouterBottomSheet. */}
+          focusedCountryIso2={state.step === 'role' || state.step === 'fallback' ? undefined : state.focusedCountryIso2}
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
-          onHoverCountry={(countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
+          onHoverCountry={state.step === 'role' || state.step === 'fallback'
+            ? undefined
+            : (countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
           onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
         />
       )}
