@@ -166,13 +166,13 @@ export function GlobeSameScreenRouterLanding() {
       {fallbackReason ? (
         <PremiumStaticGlobeFallback reason={fallbackReason} />
       ) : (
+        // Suppress the hover tooltip and hover events while any bottom-sheet modal
+        // is open. The CountryGlobeLabel is a DOM overlay that renders above the
+        // canvas z-index stack, so it bleeds through the sheet without this guard.
+        // 'role' and 'fallback' both render a RouterBottomSheet.
         <GlobeCanvas
           selectedCountryIso2={state.selectedCountryIso2}
           selectedCountryIso2s={state.selectedCountryIso2s}
-          {/* Suppress the hover tooltip and hover events while any bottom-sheet modal
-              is open. The CountryGlobeLabel is a DOM overlay that renders above the
-              canvas z-index stack, so it bleeds through the sheet without this guard.
-              'role' and 'fallback' both render a RouterBottomSheet. */}
           focusedCountryIso2={state.step === 'role' || state.step === 'fallback' ? undefined : state.focusedCountryIso2}
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
