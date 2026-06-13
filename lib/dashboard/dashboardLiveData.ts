@@ -157,7 +157,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
         'trade_roles, opportunity_categories, regulator_label, last_updated_label',
       )
       .eq('iso_alpha2', iso2.toUpperCase())
-      .single()
+      .maybeSingle()
 
     if (!cd) return null
 
