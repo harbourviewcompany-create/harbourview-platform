@@ -553,3 +553,90 @@ export async function getRecentEduModules(limit = 3): Promise<RecentEduModule[]>
     }))
   } catch { return [] }
 }
+
+// ── getLocalIntel ──────────────────────────────────────────────────────────
+// Fetches subnational/local regulatory intel (authorities org chart, municipal
+// status, operating constraints/supply routes, evidence coverage, open
+// questions) from the local_intel_v1 tables. Returns coverageStatus so the UI
+// can honestly show "research pending" for countries not yet covered instead
+// of fabricated placeholder content.
+
+export type LocalAuthorityNode = { name: string; role: string; type: 'primary' | 'oversight' | 'enforcement' }
+
+export type LocalIntelAuthorities = {
+  top: LocalAuthorityNode | null
+  mid: LocalAuthorityNode[]
+  bot: LocalAuthorityNode[]
+  keyList: { name: string; role: string }[]
+}
+
+export type LocalIntelNote = { icon: string | null; label: string; text: string }
+export type LocalSubdivision = { name: string; status: 'high' | 'medium' | 'low'; note: string | null }
+export type LocalCoverageItem = { label: string; level: 'high' | 'medium' | 'low' }
+
+export type LocalIntelData = {
+  coverageStatus: 'available' | 'pending_research' | 'not_applicable'
+  authorities: LocalIntelAuthorities | null
+  municipalities: LocalSubdivision[]
+  constraints: LocalIntelNote[]
+  routes: LocalIntelNote[]
+  coverage: LocalCoverageItem[]
+  openQuestions: string[]
+}
+
+export async function getLocalIntel(iso2: string | null | undefined): Promise<LocalIntelData | null> {
+  if (!iso2) return null
+  const code = iso2.toUpperCase()
+  try {
+    const supabase = await createClient()
+    const [coverageRes, authRes, subRes, notesRes, covLevelsRes, qRes] = await Promise.all([
+      supabase.from('local_intel_coverage').select('coverage_status').eq('country_code', code).maybeSingle(),
+      supabase.from('local_authorities').select('org_tier, authority_type, authority_name, authority_role')
+        .eq('country_code', code).order('display_order'),
+      supabase.from('local_subdivisions_intel').select('subdivision_name, status_level, note')
+        .eq('country_code', code).order('display_order'),
+      supabase.from('local_operating_notes').select('note_category, icon, label, body_text')
+        .eq('country_code', code).order('display_order'),
+      supabase.from('local_evidence_coverage').select('category_label, coverage_level')
+        .eq('country_code', code).order('display_order'),
+      supabase.from('local_open_questions').select('question_text')
+        .eq('country_code', code).eq('status', 'open'),
+    ])
+
+    const coverageStatus = (coverageRes.data?.coverage_status as LocalIntelData['coverageStatus'] | undefined) ?? 'pending_research'
+
+    const authRows = authRes.data ?? []
+    const top = authRows.find(a => a.org_tier === 'top')
+    const toNode = (a: NonNullable<typeof top>): LocalAuthorityNode =>
+      ({ name: a.authority_name, role: a.authority_role, type: a.authority_type as LocalAuthorityNode['type'] })
+    const mid = authRows.filter(a => a.org_tier === 'mid')
+    const bot = authRows.filter(a => a.org_tier === 'bot')
+
+    const authorities: LocalIntelAuthorities | null = top ? {
+      top: toNode(top),
+      mid: mid.map(toNode),
+      bot: bot.map(toNode),
+      keyList: [top, ...mid].slice(0, 4).map(a => ({ name: a.authority_name, role: a.authority_role })),
+    } : null
+
+    const notes = notesRes.data ?? []
+
+    return {
+      coverageStatus,
+      authorities,
+      municipalities: (subRes.data ?? []).map(m => ({
+        name:   m.subdivision_name,
+        status: m.status_level as LocalSubdivision['status'],
+        note:   m.note,
+      })),
+      constraints: notes.filter(n => n.note_category === 'constraint')
+        .map(n => ({ icon: n.icon, label: n.label, text: n.body_text })),
+      routes: notes.filter(n => n.note_category === 'supply_route')
+        .map(n => ({ icon: n.icon, label: n.label, text: n.body_text })),
+      coverage: (covLevelsRes.data ?? []).map(c => ({ label: c.category_label, level: c.coverage_level as LocalCoverageItem['level'] })),
+      openQuestions: (qRes.data ?? []).map(q => q.question_text),
+    }
+  } catch {
+    return null
+  }
+}
