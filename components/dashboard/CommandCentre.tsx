@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -35,6 +35,7 @@ type Props = {
   pipeline?:        PipelineCounts
   wantedListings?:  WantedListing[]
   countryIntel?:    CountryIntelProfile | null
+  localIntel?:      LocalIntelData | null
   pathwayData?:     PathwayData
   watchlistData?:   WatchlistData
   evidenceData?:    EvidenceData
@@ -81,7 +82,7 @@ const FLAG_MAP: Record<string, string> = {
 function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
   const dc  = (intel?.data_completeness ?? '').toLowerCase()
   const opp = intel?.opportunity_score ?? null
-  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : dc === 'stub' ? 50 : 38
+  const base = dc === 'full' ? 88 : dc === 'high' ? 85 : dc === 'partial' ? 65 : 38
   const mkt  = opp != null ? Math.min(94, Math.max(20, Math.round(opp * 0.94))) : Math.max(20, base - 5)
   return [
     { label: 'Regulatory',        pct: Math.min(94, base) },
@@ -1644,19 +1645,30 @@ function buildAuthorities(country: { iso2: string; label: string }) {
 }
 
 const LocalIntelPage = React.memo(function LocalIntelPage({
-  country, region, role, signals, countryIntel,
+  country, region, role, signals, countryIntel, localIntel,
 }: {
   country:      { iso2: string; label: string }
   region:       string
   role:         string
   signals:      DashboardSignal[]
   countryIntel?: CountryIntelProfile | null
+  localIntel?:  LocalIntelData | null
 }) {
-  const municipalities = useMemo(() => buildMunicipalData(country, region), [country, region])
-  const authorities    = useMemo(() => buildAuthorities(country), [country])
+  const hasLiveLocalIntel = localIntel?.coverageStatus === 'available'
+
+  const municipalities = useMemo(() => {
+    if (hasLiveLocalIntel && localIntel!.municipalities.length > 0) return localIntel!.municipalities
+    return buildMunicipalData(country, region)
+  }, [country, region, hasLiveLocalIntel, localIntel])
+
+  const authorities = useMemo(() => {
+    if (hasLiveLocalIntel && localIntel!.authorities) return localIntel!.authorities
+    return buildAuthorities(country)
+  }, [country, hasLiveLocalIntel, localIntel])
 
   // ── Dynamic local intel content derived from countryIntel + signals ──────────
   const LI_CONSTRAINTS = useMemo(() => {
+    if (hasLiveLocalIntel && localIntel!.constraints.length > 0) return localIntel!.constraints
     if (countryIntel) {
       const items: { icon: string; label: string; text: string }[] = []
       if (countryIntel.medical_status) items.push({ icon:'◎', label:'Medical Programme', text:`Status: ${fmtStatus(countryIntel.medical_status)}. Operator compliance required under national health authority rules.` })
@@ -1677,9 +1689,10 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       { icon:'◷', label:'Compliance Obligations',  text:'Maintain current documentation and certification as required by national regulations.' },
       { icon:'⊞', label:'Local Requirements',      text:'Subnational and municipal requirements may vary; confirm with local government offices.' },
     ]
-  }, [country, countryIntel])
+  }, [country, countryIntel, hasLiveLocalIntel, localIntel])
 
   const LI_ROUTES = useMemo(() => {
+    if (hasLiveLocalIntel && localIntel!.routes.length > 0) return localIntel!.routes
     if (country.iso2 === 'US') return [
       { icon:'⬡', label:'In-State Cultivation → Processing', text:'Vertical integration required; limited third-party processing options.' },
       { icon:'◈', label:'Processing → Dispensary',           text:'Direct delivery with prior regulatory approval; chain-of-custody mandatory.' },
@@ -1700,17 +1713,21 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       { icon:'◈', label:'Import / Export Pathways',  text:'Import/export routes subject to national regulatory framework. Request a pathway briefing.' },
       { icon:'◎', label:'Documentation Requirements',text:'Chain-of-custody, COA, and permit documentation required for all commercial movements.' },
     ]
-  }, [country, countryIntel])
+  }, [country, countryIntel, hasLiveLocalIntel, localIntel])
 
-  const LI_COVERAGE = useMemo(() => [
-    { label: 'National Regulatory Sources',  level: 'high'   as const },
-    { label: 'Agency Guidance & Bulletins',  level: 'high'   as const },
-    { label: 'Trade & Industry Sources',     level: 'medium' as const },
-    { label: 'Local Government Notices',     level: 'medium' as const },
-    { label: 'Legal & Legislative Tracking', level: 'high'   as const },
-  ], [])
+  const LI_COVERAGE = useMemo(() => {
+    if (hasLiveLocalIntel && localIntel!.coverage.length > 0) return localIntel!.coverage
+    return [
+      { label: 'National Regulatory Sources',  level: 'high'   as const },
+      { label: 'Agency Guidance & Bulletins',  level: 'high'   as const },
+      { label: 'Trade & Industry Sources',     level: 'medium' as const },
+      { label: 'Local Government Notices',     level: 'medium' as const },
+      { label: 'Legal & Legislative Tracking', level: 'high'   as const },
+    ]
+  }, [hasLiveLocalIntel, localIntel])
 
   const LI_OPEN_QS = useMemo(() => {
+    if (hasLiveLocalIntel && localIntel!.openQuestions.length > 0) return localIntel!.openQuestions
     const sigQs = signals.slice(0, 3).map(s => {
       const area = derivePolicyArea(s.title)
       return `How will ${area.toLowerCase()} developments affect operations in ${country.label}${region ? ` · ${region}` : ''}?`
@@ -1726,7 +1743,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
       `How will regulatory developments affect market access in ${country.label}?`,
       `What documentation requirements apply to commercial activity in ${country.label}?`,
     ]
-  }, [signals, country, region])
+  }, [signals, country, region, hasLiveLocalIntel, localIntel])
 
   const operatingNotes = useMemo(() => {
     const fromSignals = signals.slice(0, 5).map(s => ({
@@ -3017,6 +3034,7 @@ export default function CommandCentre({
   pipeline,
   wantedListings = [],
   countryIntel,
+  localIntel,
   pathwayData,
   watchlistData,
   evidenceData,
@@ -3083,7 +3101,7 @@ export default function CommandCentre({
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />
       case 'local-intel':
-        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} />
+        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} />
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} />
       case 'watchlist':
@@ -3093,7 +3111,7 @@ export default function CommandCentre({
       default:
         return null
     }
-  }, [activePage, country, region, role, roleLabel, countryIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, liveTiles, recentEduModules, pathwayData, countryOptions, roleOptions, handleCountryChange, handleRoleChange, watchlistData, evidenceData])
+  }, [activePage, country, region, role, roleLabel, countryIntel, localIntel, signals, marketplaceRows, wantedListings, wantedCount, eduCategories, liveTiles, recentEduModules, pathwayData, countryOptions, roleOptions, handleCountryChange, handleRoleChange, watchlistData, evidenceData])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
