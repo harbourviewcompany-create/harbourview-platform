@@ -102,118 +102,15 @@ function fmtStatus(v: string | null | undefined, fallback = '—'): string {
   return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// ── Role-aware Briefing Room fields ─────────────────────────────────────────
-// The Briefing Room previously showed the same 5 generic fields (Medical
-// Program, Market Access, Import/Export Status, Opportunity) to every role —
-// meaningless to a Logistics/Customs broker, for example. Group roles into
-// the same 4 clusters used by the Access Pathway generic templates, and show
-// the 5 fields + framing sentence most relevant to that cluster.
-
-type BriefingFocus = 'production' | 'trade' | 'healthcare' | 'oversight'
-
-const ROLE_FOCUS: Record<string, BriefingFocus> = {
-  cultivator_producer:         'production',
-  geneticist_breeder:          'production',
-  processor_extractor:         'production',
-  gmp_quality:                  'production',
-  lab_qa:                       'production',
-  importer:                     'trade',
-  exporter:                     'trade',
-  distributor_wholesaler:       'trade',
-  logistics_customs:            'trade',
-  retail_operator:              'trade',
-  doctor_prescriber:            'healthcare',
-  pharmacist:                   'healthcare',
-  clinic_healthcare_operator:   'healthcare',
-  patient_caregiver_education:  'healthcare',
-  budtender:                    'healthcare',
-  regulatory_compliance:        'oversight',
-  legal_advisory:               'oversight',
-  investor_operator:            'oversight',
-  government_regulator:         'oversight',
-}
-
-function fmtTradeRoles(roles: string[] | null | undefined): string {
-  if (!roles || roles.length === 0) return 'Not Classified'
-  return roles.map(r => fmtStatus(r)).join(', ')
-}
-
-function getBriefingFields(focus: BriefingFocus | undefined, intel?: CountryIntelProfile | null): { icon: string; label: string; value: string }[] {
-  const regulator = intel?.regulator_label?.trim() || 'Not Identified'
-  switch (focus) {
-    case 'trade':
-      return [
-        { icon: '↓', label: 'Import Status',  value: fmtStatus(intel?.import_status, 'Not Available') },
-        { icon: '↑', label: 'Export Status',  value: fmtStatus(intel?.export_status, 'Not Available') },
-        { icon: '⊞', label: 'Trade Role(s)',  value: fmtTradeRoles(intel?.trade_roles) },
-        { icon: '⊛', label: 'Market Access',  value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
-        { icon: '◎', label: 'Regulator',      value: regulator },
-      ]
-    case 'production':
-      return [
-        { icon: '⊛', label: 'Market Access',   value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
-        { icon: '↑', label: 'Export Status',   value: fmtStatus(intel?.export_status, 'Not Available') },
-        { icon: '◎', label: 'Medical Program', value: fmtStatus(intel?.medical_status, 'No Active Program') },
-        { icon: '✦', label: 'Regulator',       value: regulator },
-        { icon: '⊙', label: 'Opportunity',     value: intel?.opportunity_score != null ? `${intel.opportunity_score}/100` : 'Not Scored' },
-      ]
-    case 'healthcare':
-      return [
-        { icon: '◎', label: 'Medical Program',    value: fmtStatus(intel?.medical_status, 'No Active Program') },
-        { icon: '⊕', label: 'Adult-Use Program',  value: fmtStatus(intel?.adult_use_status, 'No Active Program') },
-        { icon: '⊛', label: 'Market Access',      value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
-        { icon: '✦', label: 'Regulator',          value: regulator },
-        { icon: '↓', label: 'Import Status',      value: fmtStatus(intel?.import_status, 'Not Available') },
-      ]
-    case 'oversight':
-      return [
-        { icon: '⊛', label: 'Market Access',      value: fmtStatus(intel?.market_access_status, 'Status Unknown') },
-        { icon: '◎', label: 'Medical Program',    value: fmtStatus(intel?.medical_status, 'No Active Program') },
-        { icon: '⊕', label: 'Adult-Use Program',  value: fmtStatus(intel?.adult_use_status, 'No Active Program') },
-        { icon: '✦', label: 'Regulator',          value: regulator },
-        { icon: '⊙', label: 'Opportunity',        value: intel?.opportunity_score != null ? `${intel.opportunity_score}/100` : 'Not Scored' },
-      ]
-    default:
-      return [
-        { icon: '◎', label: 'Medical Program', value: fmtStatus(intel?.medical_status,       'No Active Program') },
-        { icon: '⊛', label: 'Market Access',   value: fmtStatus(intel?.market_access_status, 'Status Unknown')    },
-        { icon: '↓', label: 'Import Status',   value: fmtStatus(intel?.import_status,        'Not Available')     },
-        { icon: '↑', label: 'Export Status',   value: fmtStatus(intel?.export_status,        'Not Available')     },
-        { icon: '⊙', label: 'Opportunity',     value: intel?.opportunity_score != null ? `${intel.opportunity_score}/100` : 'Not Scored' },
-      ]
-  }
-}
-
-function getBriefingFraming(focus: BriefingFocus | undefined, roleLabel: string, countryLabel: string): string | null {
-  if (!focus || !roleLabel) return null
-  switch (focus) {
-    case 'trade':
-      return `As a ${roleLabel}, the key questions for ${countryLabel} are: what's the import/export status, what trade role does the country play, and which regulator governs cross-border movement.`
-    case 'production':
-      return `As a ${roleLabel}, the key questions for ${countryLabel} are: does market access support production for domestic medical supply or export, and how does the opportunity score compare to other markets.`
-    case 'healthcare':
-      return `As a ${roleLabel}, the key questions for ${countryLabel} are: is there an active medical or adult-use programme you can operate within, and where do patients' products come from.`
-    case 'oversight':
-      return `As a ${roleLabel}, the key questions for ${countryLabel} are: overall market access status, programme maturity, and the opportunity profile for advisory or investment purposes.`
-    default:
-      return null
-  }
-}
-
-
 const BriefingRoom = React.memo(function BriefingRoom({
   country,
   region,
-  role,
-  roleLabel,
   countryIntel,
   signals,
   onCountrySelect,
 }: {
   country:          { iso2: string; label: string }
   region:           string
-  role?:            string
-  roleLabel?:       string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
   onCountrySelect?: (iso2: string) => void
@@ -221,9 +118,6 @@ const BriefingRoom = React.memo(function BriefingRoom({
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
   const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
   const overall  = overallConfidence(confBars)
-  const focus    = role ? ROLE_FOCUS[role] : undefined
-  const briefingFields = useMemo(() => getBriefingFields(focus, countryIntel), [focus, countryIntel])
-  const briefingFraming = useMemo(() => getBriefingFraming(focus, roleLabel ?? '', country.label), [focus, roleLabel, country.label])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -251,12 +145,16 @@ const BriefingRoom = React.memo(function BriefingRoom({
           <p className="cc-jx-summary">{countryIntel.public_summary}</p>
         )}
 
-        {briefingFraming && (
-          <p className="cc-jx-framing">{briefingFraming}</p>
-        )}
-
         <div className="cc-jx-fields">
-          {briefingFields.map(f => (
+          {([
+            { icon: '◎', label: 'Medical Program', value: fmtStatus(countryIntel?.medical_status,       'No Active Program') },
+            { icon: '⊛', label: 'Market Access',   value: fmtStatus(countryIntel?.market_access_status, 'Status Unknown')    },
+            { icon: '↓', label: 'Import Status',   value: fmtStatus(countryIntel?.import_status,        'Not Available')     },
+            { icon: '↑', label: 'Export Status',   value: fmtStatus(countryIntel?.export_status,        'Not Available')     },
+            { icon: '⊙', label: 'Opportunity',     value: countryIntel?.opportunity_score != null
+                ? `${countryIntel.opportunity_score}/100`
+                : 'Not Scored' },
+          ] as { icon: string; label: string; value: string }[]).map(f => (
             <div key={f.label} className="cc-jx-field">
               <span className="cc-jx-field-icon">{f.icon}</span>
               <div>
@@ -3193,7 +3091,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={role} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} />
       case 'marketplace':
@@ -3582,10 +3480,6 @@ const CSS = `
 .cc-jx-summary {
   font-size:12px;line-height:1.65;color:var(--cc-muted);
   border-left:2px solid var(--cc-gold);padding-left:12px;
-}
-.cc-jx-framing {
-  font-size:11px;line-height:1.6;color:var(--cc-dim);
-  font-style:italic;border-left:2px solid var(--cc-line);padding-left:12px;
 }
 .cc-jx-fields { display:flex;flex-direction:column;gap:10px; }
 .cc-jx-field {
