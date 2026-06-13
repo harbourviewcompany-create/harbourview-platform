@@ -48,7 +48,6 @@ const SLUG_ALIASES: Record<string, string> = {
   'united-states-of-america': 'united-states',
 }
 
-/** Map URL role slugs to canonical RoleId values. */
 const ROLE_SLUG_TO_ID: Record<string, string> = {
   'doctor': 'doctor_prescriber',
   'prescriber': 'doctor_prescriber',
@@ -106,10 +105,6 @@ export type CCRouteType =
   | 'state_role'
   | 'province_role'
 
-/**
- * Review state for all data fields.
- * Never use raw DB enum values (e.g. needs_review) in UI.
- */
 export type CCReviewState = 'reviewed' | 'pending' | 'unavailable'
 
 export interface CCRouteSegments {
@@ -210,7 +205,7 @@ export interface JurisdictionRouteContract {
   ctas: CCCtasContract
 }
 
-// ── Resolution helpers ─────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function slugToDisplayName(slug: string): string {
   return slug.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
@@ -266,10 +261,6 @@ function pendingConfidence(): CCConfidenceContract {
 
 // ── Public API ─────────────────────────────────────────────────────────────────
 
-/**
- * Resolve URL segments into a typed route context.
- * Returns null if the country segment cannot be resolved.
- */
 export function resolveJurisdictionRoute(segments: CCRouteSegments): CCResolvedRoute | null {
   const country = resolveCountrySlug(segments.countrySlug)
   if (!country) return null
@@ -305,11 +296,6 @@ export function resolveJurisdictionRoute(segments: CCRouteSegments): CCResolvedR
   }
 }
 
-/**
- * Build the full typed route contract.
- * All fields are backed by the contract or render pending/unavailable.
- * Raw DB enum values (e.g. needs_review) never appear in this contract.
- */
 export function buildJurisdictionContract(
   route: CCResolvedRoute,
   enrichment?: { publicSummary?: string | null; programStatus?: string | null },
