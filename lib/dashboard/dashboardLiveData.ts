@@ -145,14 +145,49 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
   if (!iso2) return null
   try {
     const supabase = await createClient()
-    const { data, error } = await supabase
+
+    // Primary source: countries table (status fields, scores, completeness)
+    const { data: cd } = await supabase
+      .from('countries')
+      .select(
+        'country_name, iso_alpha2, region, subregion, ' +
+        'market_access_status, medical_status, adult_use_status, ' +
+        'import_status, export_status, signals_status, ' +
+        'opportunity_score, data_completeness, public_summary, ' +
+        'trade_roles, opportunity_categories, regulator_label, last_updated_label',
+      )
+      .eq('iso_alpha2', iso2.toUpperCase())
+      .single()
+
+    if (!cd) return null
+
+    // Secondary: country_intel for richer narrative content (optional)
+    const { data: ci } = await supabase
       .from('country_intel')
-      .select('country_code, country_name, public_summary, commercial_pathway_summary, review_status, regulatory_tier')
+      .select('commercial_pathway_summary, review_status, regulatory_tier')
       .eq('country_code', iso2.toUpperCase())
       .eq('review_status', 'active')
-      .single()
-    if (error || !data) return null
-    return data
+      .maybeSingle()
+
+    return {
+      country_code:               cd.iso_alpha2,
+      country_name:               cd.country_name,
+      public_summary:             cd.public_summary,
+      commercial_pathway_summary: ci?.commercial_pathway_summary ?? null,
+      review_status:              ci?.review_status ?? 'active',
+      regulatory_tier:            ci?.regulatory_tier ?? null,
+      region:                     cd.region,
+      market_access_status:       cd.market_access_status,
+      medical_status:             cd.medical_status,
+      adult_use_status:           cd.adult_use_status,
+      import_status:              cd.import_status,
+      export_status:              cd.export_status,
+      opportunity_score:          cd.opportunity_score,
+      trade_roles:                cd.trade_roles,
+      opportunity_categories:     cd.opportunity_categories,
+      regulator_label:            cd.regulator_label,
+      data_completeness:          cd.data_completeness,
+    }
   } catch { return null }
 }
 
