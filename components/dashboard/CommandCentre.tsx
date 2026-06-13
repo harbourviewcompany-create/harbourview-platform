@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -52,7 +53,7 @@ const GlobeCanvas = dynamic(
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
+const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName, slug: c.slug }))
 
 type NavItem    = { id: CommandPage; label: string; icon: string }
 type NavSection = { label?: string; items: NavItem[] }
@@ -3129,6 +3130,8 @@ export default function CommandCentre({
     return found ?? { iso2: 'GLOBAL', label: 'Global Market' }
   }, [initialCountryIso2])
 
+  const router = useRouter()
+
   const [country,      setCountry]     = useState(initialCountry)
   const [region,       setRegion]      = useState('')
   const [role,         setRole]        = useState(initialRoleId ?? '')
@@ -3159,8 +3162,12 @@ export default function CommandCentre({
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleCountryChange = useCallback((iso2: string) => {
     const found = COUNTRIES.find(c => c.iso2 === iso2)
-    if (found) { setCountry(found); setRegion('') }
-  }, [])
+    if (!found) return
+    // Navigate to the new country page so countryIntel re-fetches server-side.
+    // Updating local state only leaves countryIntel stale (the FR/Ireland mismatch).
+    const targetRole = role || initialRoleId || 'pharmacist'
+    router.push(`/country/${found.slug}/role/${targetRole}`)
+  }, [role, initialRoleId, router])
 
   const handleRoleChange = useCallback((roleId: string) => {
     setRole(roleId)
