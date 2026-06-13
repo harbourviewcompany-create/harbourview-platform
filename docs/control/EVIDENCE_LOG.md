@@ -1,7 +1,7 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-05-28
-Status: Finish-line reset scaffold with preserved legacy evidence entries
+Last updated: 2026-06-11
+Status: Finish-line reset scaffold with MP-SCHEMA-001 follow-up verification HOLD recorded
 Authority: Canonical evidence log for Harbourview finish-line execution
 
 ## Purpose
@@ -30,10 +30,10 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Area | Current evidence status | Notes |
 |---|---|---|
 | Repo control docs | In progress | Pass 1 creates/updates the five control docs |
-| Build/typecheck/lint | Unknown | Not run in Pass 1 |
-| Deployment | Unknown | Not verified in Pass 1 |
+| Build/typecheck/lint | Unknown | MP-SCHEMA-001 follow-up PR requests clean verification; exact command outputs are pending |
+| Deployment | Unknown | Not verified in Pass 1; PR #530 Cloudflare preview succeeded, but canonical Vercel production proof remains separate |
 | Public route checks | Unknown | Not run in Pass 1 |
-| Public/private leakage checks | Unknown | Not run in Pass 1 |
+| Public/private leakage checks | Partial static coverage | MP-SCHEMA-001 DTO tests exist; runtime `test:visibility` output remains pending |
 | Admin/auth/RLS checks | Unknown | Not run in Pass 1 |
 | Marketplace flows | Unknown | Not run in Pass 1 |
 | Production writes | Not authorized | Must remain gated and explicit |
@@ -43,6 +43,39 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Current |
+| 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Current HOLD |
+
+## MP-SCHEMA-001 Verification Follow-up
+
+**Evidence ID:** `HV-MP-SCHEMA-001-VERIFY-20260611`
+
+**Source change:** PR `#530`, MP-SCHEMA-001 unified marketplace listings schema, DTO validation, and tests.
+
+**Follow-up branch:** `docs/mp-schema-001-verify-20260611`
+
+**Follow-up scope:** docs/control evidence and registry discipline only. No runtime code, schema, migrations, DTO implementation, tests, dependencies, auth, RLS, deployment settings, Supabase settings, or production write behavior are intentionally changed by this follow-up.
+
+**Required commands:**
+
+- `npm ci`
+- `npm run check:migrations`
+- `npm run typecheck`
+- `npm run lint`
+- `npx vitest run tests/harbourview/unified-listings-dto.test.ts`
+- `npm run test:visibility`
+- `npm run build`
+- Supabase migration dry-run/review when available
+
+**Current result:** HOLD pending clean runner output and Supabase migration dry-run/review evidence.
+
+**Known prior findings:**
+
+- Project Registry Discipline failure for PR `#530` was caused by missing registry-impact PR metadata, not by a confirmed schema/runtime defect.
+- Low-Friction Branch Verification failure for PR `#530` was expected because the original schema PR changed `lib/`, `supabase/`, and `tests/`, outside the control-only profile.
+- Branch Verification failed for PR `#530`, but exact job logs were unavailable through the connected GitHub tool, so no concrete failing command/error line was available to patch.
+- PR `#530` Cloudflare Pages preview reported deploy success for commit `7ca4b75`; Vercel/Netlify preview issues were not accepted as schema/runtime proof.
+
+**GO criteria:** Exact outputs must prove all required commands pass, runtime leakage verification passes, and Supabase migration dry-run/review is non-blocking.
 
 ## Deployment Evidence
 
@@ -53,8 +86,9 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 ## Security / Leakage Evidence
 
 | Date | Check | Scope | Result | Link / artifact | Status |
-|---|---|---|---|---|---|
-| TBD | TBD | TBD | Not verified in Pass 1 | TBD | Unknown |
+|---|---|---|---|---|
+| 2026-06-11 | MP-SCHEMA-001 DTO boundary static/test coverage | Unified listing DTO allowlist and forbidden-key test file from PR #530 | Partial coverage present; runtime public-route leakage still pending | `tests/harbourview/unified-listings-dto.test.ts`; `npm run test:visibility` pending | Current HOLD |
+| TBD | Runtime public leakage verification | Public routes / built app | Not verified in Pass 1 or this evidence-only update | TBD | Unknown |
 
 ## Admin / Auth / RLS Evidence
 
@@ -65,7 +99,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 ## Marketplace Flow Evidence
 
 | Date | Flow | Result | Link / artifact | Status |
-|---|---|---|---|---|
+|---|---|---|---|
 | TBD | TBD | Not verified in Pass 1 | TBD | Unknown |
 
 ## Known Unproven Claims
@@ -76,6 +110,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Current feature readiness | Pass 1 did not inspect app runtime or tests | Build/test/probe evidence from current repo/deployment | Open |
 | Current admin/auth/RLS readiness | Pass 1 did not run role/access checks | Current role matrix/access verification | Open |
 | Current public/private leakage posture | Pass 1 did not run leakage probes | Current static/runtime leakage checks | Open |
+| MP-SCHEMA-001 release readiness | Required post-merge verification commands and Supabase dry-run/review are not yet recorded | Clean outputs for npm/migration/typecheck/lint/Vitest/visibility/build plus Supabase review | Open |
 
 ## Preserved Legacy Evidence Entries
 
@@ -148,173 +183,3 @@ Expected Pass 1 evidence:
 - No auth/RLS changed.
 - No deployment setting changed.
 - No Notion, Drive, Linear, or Monday workspace changed.
-
-## 2026-06-01: Working-alpha completion pass (implementation agent)
-
-**Evidence ID:** `HV-ALPHA-COMPLETION-20260601`
-
-**Branch:** `main`
-
-**Commit:** `836497ee3aad88ea174bb6275f87ea420a94799a`
-
-**Scope:** HV-ALPHA-001 through HV-ALPHA-009 — working-alpha content and code quality pass. No Supabase schema, RLS, auth, middleware, deployment settings, or production writes changed.
-
-**Work summary:**
-
-- Replaced all 18 education route shells with full PublicSurfacePage content (GMP, GACP, GDP, pharmacy, testing, pharmacovigilance, policy, briefings, review-required, request, quality-compliance, importer-distributor, cultivation-production, procurement, glossary)
-- Fixed all 6 educationTracks hrefs pointing back to /education hub; added 4 redirect pages for duplicate routes
-- Replaced 2 coming-soon forms with real client form components (ComplianceRequestForm, ClinicalEducationRequestForm)
-- Built 7 compliance explainers with full substantive content
-- Expanded 4 intelligence sub-pages from 38-line shells to full IntelligenceModulePage content
-- Upgraded signals, compliance regions, and country pages from raw HTML to platform design
-- Added generateMetadata to 16 pages missing it; split 2 bare 'use client' page.tsx files
-- Fixed all 58 TypeScript errors introduced by remote type refactors (AdminResult generic narrowing)
-- Fixed 3 build errors in HarbourviewDashboard; fixed all lint to 0 errors 0 warnings
-- Fixed 6 test script failures (ripgrep dependency, tsc flags, zod resolution, tsx routing)
-- Created migration implement_is_signal_admin.sql (was permanent placeholder returning false)
-- Added openGraph to 3 hub pages; added missing HAR-37 role terms; deleted unused component
-- Documented 6 undocumented env vars; added README canonical status block
-
-**Commands and results:**
-
-- `npm run typecheck` — PASS (0 errors)
-- `npm run lint` — PASS (0 errors, 0 warnings)
-- `npm run build` — PASS (compiled successfully)
-- `npm run test:full-scope-launch-readiness` — PASS (all 7 checks)
-- All 36 runnable test scripts — PASS (36/36; 1 skip: compliance-visibility requires live Supabase)
-
-**Not run / blocked:**
-
-- Production route map probe: BLOCKED — requires `HARBOURVIEW_PUBLIC_BASE_URL=https://harbourview.vercel.app`
-- Production public leakage probe: BLOCKED — requires live deployment and env
-- Marketplace smoke writes: BLOCKED — requires SUPABASE_SERVICE_ROLE_KEY and explicit write gates
-- Admin role matrix against production: BLOCKED — requires test accounts and live /admin
-
-**Gate status after this pass:**
-
-- Gate 1 (Build Recovery): GO — build is clean on current main
-- Gate 4 (Static Verification): GO — typecheck, lint, build, all static tests pass
-- Gates 2, 3, 5-14: HOLD — require live infrastructure, operator decisions, or external access
-
-**Public/private leakage assessment:** All 36 runnable leakage/boundary tests pass. No static evidence of leakage introduced.
-
-**GO/HOLD decision:** GO for HV-ALPHA-001 through HV-ALPHA-009 scope. HOLD for full production certification (Gates 2, 3, 5-14) pending live infrastructure verification.
-
-## 2026-05-31: Production globe hardening verification attempt
-
-**Evidence ID:** `HV-GLOBE-PRODUCTION-HARDENING-20260531`
-
-**Branch:** Current working branch
-
-**Scope:** Public Harbourview globe rendering layers, globe material tokens, human-readable state/province labels, search shell contrast, role bottom-sheet contrast, and route-flow UI styling.
-
-**Commands and results (UTC):**
-- `npm install` — WARNING/BLOCKED: registry/network policy caused the install to hang; the attempt was stopped and the prior `node_modules` tree was restored before verification continued.
-- `npm run lint` — PASS with pre-existing warnings in unrelated files.
-- `npm run typecheck` — FAIL: existing dashboard implicit-any errors and missing Supabase package/type errors block repository-wide typecheck.
-- `npm run test:globe-router` — FAIL: existing Natural Earth/search-universe assertions fail; `globe-foundation` and `globe-polygon-rendering` pass after this patch.
-- `npm run test` — FAIL: stops on the same `test:globe-router` failures.
-- `node scripts/test-globe-router-scope.mjs && node scripts/test-globe-router-mounted.mjs` — PASS.
-- `npm run build` — FAIL: production build compiles but fails validity checks on existing `components/dashboard/HarbourviewDashboard.tsx` implicit-any errors.
-- `npm run test:secret-scan` — PASS.
-- `npm start` — FAIL: no production `.next` build is available because `npm run build` fails.
-- `npm run test:e2e` — WARNING/BLOCKED: registry policy blocks `npx -p @playwright/test@1.54.0`.
-- `npm run capture:browser` — WARNING/BLOCKED: no script named `capture:browser` exists in `package.json`.
-- `npm run dev` plus `curl -I http://127.0.0.1:3000/` — PASS: local development server returned HTTP 200 for `/`.
-
-**Evidence artifacts:**
-- Browser screenshots were not captured because no browser/Playwright runtime is installed and registry policy blocked fetching Playwright.
-- No secrets or private operational data were printed or committed.
-
-**Operational conclusion:**
-- Globe-layer, material, label, search, and role-sheet changes are implemented locally.
-- Production GO remains HOLD until repository-wide typecheck/build blockers are resolved and browser smoke/screenshot verification can run.
-
-## 2026-05-31: Globe hardening blocker resolution follow-up
-
-**Evidence ID:** `HV-GLOBE-BLOCKER-RESOLUTION-20260531`
-
-**Branch:** Current working branch
-
-**Scope:** Follow-up to unblock the prior production globe hardening PR validation by resolving repository-wide typecheck/build blockers and stale globe test expectations.
-
-**Commands and results (UTC):**
-- `npm run typecheck` — PASS.
-- `npm run test:globe-router` — PASS (54/54 tests).
-- `npm run test` — PASS (64/64 tests across the configured test bundle).
-- `npm run lint` — PASS with pre-existing warnings.
-- `npm run build` — PASS.
-- `npm run test:secret-scan` — PASS.
-- `timeout 10s npm start` — WARNING: server reached Ready, then the timeout intentionally terminated the long-running process; Next reported standalone output should use `node .next/standalone/server.js`.
-- `PORT=3001 timeout 10s node .next/standalone/server.js` — WARNING: standalone server reached Ready, then the timeout intentionally terminated the long-running process.
-- `npm run test:e2e` — WARNING/BLOCKED: registry policy still blocks fetching `@playwright/test@1.54.0` with HTTP 403.
-
-**Evidence artifacts:**
-- No browser screenshots were captured in this follow-up because Playwright remains unavailable under registry policy.
-- No secrets or private operational data were printed or committed.
-
-**Operational conclusion:**
-- Build/typecheck/configured unit test blockers from the prior globe hardening pass are resolved locally.
-- Browser e2e/screenshot verification remains environment-blocked until Playwright or an equivalent browser runner is available.
-
-- Added a Signal Engine-only hardening migration that moves the admin RLS helper into a non-exposed `private` schema, pins `search_path`, forces RLS on the 14 canonical Signal Engine tables, rewrites policies to the private helper, and drops the exposed public helper functions.
-- Included a live Supabase Management API evidence collector for security advisors and Signal Engine-filtered logs with redaction.
-- Included a local static verifier for the hardening workspace.
-- Documented an execution plan covering evidence capture, migration execution, post-change advisor verification, rollback, and acceptance criteria.
-
-**Commands and results (UTC):**
-
-- `node scripts/signal-engine/verify-signal-engine-hardening.mjs` — PASS
-- `node scripts/signal-engine/fetch-live-supabase-signal-security.mjs --skip-logs --out /tmp/should-not-write.json` — BLOCKED as expected without `SUPABASE_ACCESS_TOKEN`; no live advisor/log evidence was written.
-- `npm run lint` — PASS
-- `npm run check:migrations` — FAIL on pre-existing duplicate migration prefix `20260601000000` for marketplace supply engine and dashboard preferences migrations; not introduced by this workspace.
-- `npm run test -- --passWithNoTests` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; not introduced by this workspace.
-- `npm run typecheck` — FAIL on current dashboard `CommandCentre` export/prop mismatch; not introduced by this workspace.
-- `npm run build` — FAIL on the same current dashboard `CommandCentre` export mismatch after successful compilation; not introduced by this workspace.
-- `node scripts/secret-scan.mjs` — PASS
-
-**Not run / blocked:**
-
-- Live Supabase advisor/log capture: BLOCKED because `SUPABASE_ACCESS_TOKEN` is not present in the agent environment.
-- Supabase migration push: NOT RUN from this environment; apply through the team-approved Supabase workflow after pre-change evidence capture.
-
-**Compliance & data handling:** No secrets, raw Supabase logs, JWTs, API keys, or private user data were committed. The live capture script redacts token-like and project REST path content before writing evidence files.
-
-## 2026-06-06 — Supabase + Airtable Integration Foundation
-
-**Scope:** Added Harbourview integration contract migrations, public/private DTO allowlists, server/browser Supabase client helpers, and a dry-run-first Airtable sync Edge Function foundation. No production Airtable sync was run and no Airtable writeback was attempted.
-
-**Commands and results (UTC):**
-
-- `npm run typecheck` — PASS after excluding Deno Edge Function sources from the Next.js `tsc` project.
-- `npm run lint` — PASS with pre-existing warnings in `app/vault/page.tsx`.
-- `npm run test -- --passWithNoTests` — FAIL on pre-existing globe foundation expectations for camera defaults and azimuth limits; unrelated to this integration foundation.
-- `npm run build` — FAIL on pre-existing Next.js `app/login/page.tsx` `searchParams` type mismatch after successful compilation; unrelated to this integration foundation.
-- `npx supabase --version` — PASS (`2.105.0`).
-- `npx supabase status` — BLOCKED because Docker daemon is unavailable.
-- `npx supabase db reset` — BLOCKED because Docker daemon is unavailable.
-- `npx supabase migration list` — BLOCKED because the project is not linked to a Supabase project ref in this workspace.
-- `npx supabase db lint` — BLOCKED because local Postgres at `127.0.0.1:54322` is unavailable.
-- `grep -R "SUPABASE_SERVICE_ROLE_KEY\|service_role" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.vercel .` — REVIEWED; matches are server/admin/test/docs/migration references, with new application helper isolated in `lib/harbourview/supabase/service-role.ts` using `server-only`.
-- `deno --version` and local `deno run supabase/functions/airtable-sync/index.ts` — BLOCKED because Deno is not installed in the workspace.
-
-**Evidence notes:**
-
-- RLS enablement is installed in `supabase/migrations/20260606090300_hv_integration_rls_policies.sql` for all 18 Harbourview base tables.
-- Public DTO views are allowlisted in `supabase/migrations/20260606090200_hv_integration_indexes_views.sql` and the TypeScript allowlist is in `lib/harbourview/dto/allowlists.ts`.
-- Static DTO leakage check reported no forbidden fields in public view select lists.
-- Airtable writeback remained disabled and was not run.
-
-**Operational conclusion:** CONFIG_HOLD. Code and static checks are complete, but local Supabase/Docker and Deno runtime are unavailable, so migration apply, database lint, RLS runtime queries, and dry-run function invocation could not be completed in this environment.
-
-
-## 2026-06-06 — Supabase + Airtable Foundation Follow-up
-
-**Scope:** Tightened the foundation after review by adding `public_approved_only` / `private_sync` mode eligibility validation, console dry-run audit output, and an education-resource public DTO view that enforces verified evidence plus approved claim review.
-
-**Commands and results (UTC):**
-
-- `npm run typecheck` — PASS.
-- Static DTO leakage check — PASS with `dto_select_leaks= []`.
-
-**Operational conclusion:** CONFIG_HOLD remains because local Supabase/Docker and Deno runtime are unavailable for migration apply, DB lint, runtime RLS queries, and Edge Function invocation.
