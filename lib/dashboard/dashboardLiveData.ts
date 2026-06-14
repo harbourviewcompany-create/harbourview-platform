@@ -1,6 +1,5 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
-import { getPathwayTemplateRoleCandidates } from './pathwayRoleGroups'
 import { getGenericPathwayTemplate } from './genericPathways'
 
 // ── 1. Pipeline counts from marketplace_inquiries ─────────────────────────────
@@ -265,19 +264,13 @@ export async function getOrgPathwayProgress(
     const orgId = membership?.workspace_id
     if (!orgId) return empty
 
-    // Pathway template for this country + role.
-    // Bespoke templates are authored once per pathway-group (supplier /
-    // buyer / advisor-investor), so try the exact role first, then any
-    // other role in the same group.
-    const candidates = getPathwayTemplateRoleCandidates(roleId)
-    const { data: templateRows } = await supabase
+    // Pathway template for this country + role
+    const { data: template } = await supabase
       .from('cc_pathway_templates')
-      .select('id, name, total_steps, role_id')
+      .select('id, name, total_steps')
       .eq('country_iso2', countryIso2.toUpperCase())
-      .in('role_id', candidates)
-    const template = (templateRows ?? []).sort(
-      (a, b) => candidates.indexOf(a.role_id) - candidates.indexOf(b.role_id),
-    )[0]
+      .eq('role_id', roleId)
+      .single()
     if (!template) return empty
 
     // Steps
@@ -500,15 +493,12 @@ export async function getPublicPathwayTemplate(
   try {
     const supabase = await createClient()
 
-    const candidates = getPathwayTemplateRoleCandidates(roleId)
-    const { data: templateRows } = await supabase
+    const { data: template } = await supabase
       .from('cc_pathway_templates')
-      .select('id, name, total_steps, role_id')
+      .select('id, name, total_steps')
       .eq('country_iso2', countryIso2.toUpperCase())
-      .in('role_id', candidates)
-    const template = (templateRows ?? []).sort(
-      (a, b) => candidates.indexOf(a.role_id) - candidates.indexOf(b.role_id),
-    )[0]
+      .eq('role_id', roleId)
+      .single()
 
     if (!template) return getGenericFallbackPathway(supabase, countryIso2, roleId)
 
@@ -678,38 +668,43 @@ export async function getLocalIntel(iso2: string | null | undefined): Promise<Lo
   }
 }
 
-// ── Comparison country scores from countries table ────────────────────────────
-export type ComparisonCountryScore = {
-  iso2: string
-  name: string
-  slug: string
-  opportunity_score: number
-  market_access_status: string | null
-  data_completeness: string | null
+// ── Source registry coverage ──────────────────────────────────────────────────
+// Queries public.source_registry to return active source counts by type + tier
+// for the given country ISO2 code. Used by RegulatoryWatchPage SOURCE_GAPS.
+export type SourceCoverageRow = {
+  source_type: string  // 'news' | 'trade' | 'regulator'
+  tier:        number  // 1 (official) | 2 (professional) | 3 (supplementary)
+  count:       number
 }
 
-export async function getComparisonCountryScores(
-  excludeIso2?: string | null,
-  limit = 10,
-): Promise<ComparisonCountryScore[]> {
+export async function getSourceCoverage(countryIso2: string | null): Promise<SourceCoverageRow[]> {
+  if (!countryIso2) return []
   try {
     const supabase = await createClient()
-    let q = supabase
-      .from('countries')
-      .select('iso_alpha2,country_name,opportunity_score,market_access_status,data_completeness')
-      .not('opportunity_score', 'is', null)
-      .order('opportunity_score', { ascending: false })
-      .limit(limit + 1)
-    if (excludeIso2) q = q.neq('iso_alpha2', excludeIso2.toUpperCase())
-    const { data } = await q
-    return (data ?? []).slice(0, limit).map(r => ({
-      iso2:                r.iso_alpha2,
-      name:                r.country_name,
-      slug:                r.country_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      opportunity_score:   r.opportunity_score ?? 0,
-      market_access_status: r.market_access_status,
-      data_completeness:   r.data_completeness,
-    }))
-  } catch { return [] }
-}
+    const { data, error } = await supabase
+      .from('source_registry')
+      .select('source_type, tier')
+      .eq('iso', countryIso2.toUpperCase())
+      .eq('is_active', true)
+    if (error || !data || data.length === 0) return []
 
+    // Aggregate counts by source_type + tier
+    const agg: Record<string, Record<number, number>> = {}
+    for (const r of data) {
+      const st  = typeof r.source_type === 'string' ? r.source_type : 'unknown'
+      const t   = typeof r.tier === 'number' ? r.tier : 99
+      agg[st]       = agg[st] ?? {}
+      agg[st][t]    = (agg[st][t] ?? 0) + 1
+    }
+
+    return Object.entries(agg).flatMap(([source_type, tiers]) =>
+      Object.entries(tiers).map(([tier, count]) => ({
+        source_type,
+        tier:  Number(tier),
+        count,
+      })),
+    )
+  } catch {
+    return []
+  }
+}
