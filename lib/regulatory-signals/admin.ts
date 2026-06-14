@@ -169,6 +169,73 @@ export async function updateRegulatorySignalReview(formData: FormData, userId: s
   return updated
 }
 
+// ── Bridge: regulatory_signals.signals (published) → public.signals ──────────
+// public.signals is what fetchDashboardSignals reads to populate country/role
+// Intelligence pages (see dashboardServerData.ts). When a regulatory signal
+// is published here, mirror it into public.signals with reviewed=true so it
+// surfaces on the relevant country's dashboard. When un-published (rejected/
+// archived after having been published), mark the mirrored row reviewed=false
+// rather than deleting it, so the history stays intact.
+
+const SIGNAL_TYPE_TO_LANE: Record<string, string> = {
+  import_export_pathway:        'trade',
+  customs_trade_requirement:    'trade',
+}
+
+const IMPACT_TO_PRI: Record<string, string> = {
+  critical: 'URGENT',
+  high:     'HIGH',
+  moderate: 'MEDIUM',
+  low:      'LOW',
+}
+
+const IMPACT_TO_COMMERCIAL: Record<string, string> = {
+  critical: 'high',
+  high:     'high',
+  moderate: 'medium',
+  low:      'low',
+}
+
+const CONFIDENCE_TO_SCORE: Record<string, number> = {
+  official_confirmed: 95,
+  high:                85,
+  medium:              65,
+  low:                 40,
+}
+
+function publicSignalId(regulatorySignalId: string) {
+  return `rs-${regulatorySignalId}`
+}
+
+async function syncRegulatorySignalToPublicFeed(record: RegulatorySignalRecord, reviewed: boolean) {
+  const r = record as unknown as Record<string, unknown>
+  const signalType = String(r.signal_type ?? 'regulatory_change')
+  const impact     = String(r.impact_level ?? 'moderate')
+  const confidence = String(r.confidence ?? 'medium')
+
+  await adminRequest('/rest/v1/signals?on_conflict=id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({
+      id:                publicSignalId(record.id),
+      date:              r.signal_date ?? new Date().toISOString(),
+      cat:               signalType,
+      top_lane:          SIGNAL_TYPE_TO_LANE[signalType] ?? 'regulatory',
+      pri:               IMPACT_TO_PRI[impact] ?? 'MEDIUM',
+      commercial_impact: IMPACT_TO_COMMERCIAL[impact] ?? 'medium',
+      score:             CONFIDENCE_TO_SCORE[confidence] ?? 50,
+      headline:          r.headline,
+      summary:           r.public_summary ?? r.public_implication ?? null,
+      source:            r.regulator_name ?? r.source_type ?? null,
+      url:               r.canonical_source_url ?? null,
+      tier:              r.source_tier ?? null,
+      verification:      r.source_tier === 'tier_1_official' ? 'verified' : null,
+      country:           r.country_name ?? null,
+      reviewed,
+    }),
+  })
+}
+
 export async function transitionRegulatorySignalStatus(id: string, toStatus: string, userId: string, note: string) {
   const current = await getRegulatorySignal(id)
   if (!current.ok) return current
@@ -199,6 +266,13 @@ export async function transitionRegulatorySignalStatus(id: string, toStatus: str
       method: 'POST',
       body: JSON.stringify({ signal_id: id, publisher_id: userId, published_at: new Date().toISOString(), publication_notes: note || null }),
     })
+    const published = (updated.data as RegulatorySignalRecord[])[0]
+    if (published) await syncRegulatorySignalToPublicFeed(published, true)
+  } else if ((toStatus === 'rejected' || toStatus === 'archived') && (current.data as any).review_status === 'published') {
+    // Was previously published and is now being withdrawn — hide from the
+    // public feed without deleting the historical row.
+    const withdrawn = (updated.data as RegulatorySignalRecord[])[0]
+    if (withdrawn) await syncRegulatorySignalToPublicFeed(withdrawn, false)
   }
 
   return updated
