@@ -89,7 +89,7 @@ export interface CommandCentreData {
 // ─── Main Fetcher ─────────────────────────────────────────────────────────────
 
 export async function fetchCommandCentreData(): Promise<CommandCentreData> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [
     statsResult,
@@ -241,7 +241,7 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
 // ─── Individual fetchers (for partial refreshes / suspense boundaries) ────────
 
 export async function fetchTopSignals(limit = 8): Promise<CommandCentreSignal[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from('signals')
     .select('id, date, cat, pri, score, headline, country, verification, tier, reviewed, top_lane')
@@ -252,7 +252,7 @@ export async function fetchTopSignals(limit = 8): Promise<CommandCentreSignal[]>
 }
 
 export async function fetchAgentTasks(limit = 10): Promise<CommandCentreAgentTask[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from('ia_agent_tasks')
     .select('id, queue, title, object_type, object_label, priority, suggested_action, status, agent_label, next_action, created_at')
@@ -263,7 +263,7 @@ export async function fetchAgentTasks(limit = 10): Promise<CommandCentreAgentTas
 }
 
 export async function fetchMarketplaceCandidates(limit = 8): Promise<CommandCentreMarketplaceCandidate[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from('marketplace_candidates')
     .select('id, title_public_draft, marketplace_category, country, confidence, discovered_at')
