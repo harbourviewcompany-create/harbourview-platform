@@ -449,6 +449,28 @@ const SignalsPage = React.memo(function SignalsPage({
     ]
   }, [signals])
 
+  const countriesTracked = useMemo(
+    () => new Set(signals.map(s => s.market).filter(Boolean)).size,
+    [signals],
+  )
+  const highImpactCount = useMemo(
+    () => signals.filter(s => deriveImpact(s.confidence) === 'High').length,
+    [signals],
+  )
+
+  const TOP_MARKETS = useMemo(() => {
+    const counts: Record<string, { flag: string; n: number }> = {}
+    signals.forEach(s => {
+      if (!s.market) return
+      counts[s.market] ??= { flag: s.flag, n: 0 }
+      counts[s.market]!.n++
+    })
+    return Object.entries(counts)
+      .sort((a, b) => b[1].n - a[1].n)
+      .slice(0, 6)
+      .map(([market, v]) => ({ market, ...v }))
+  }, [signals])
+
   return (
     <div className="cc-page cc-two-col-page">
       {/* ── Main feed ───────────────────────────────────────── */}
@@ -456,6 +478,23 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
+          <div className="cc-intel-stats">
+            <div className="cc-intel-stat">
+              <strong>{signals.length}</strong>
+              <span>signals tracked</span>
+            </div>
+            <div className="cc-intel-stat-div" />
+            <div className="cc-intel-stat">
+              <strong>{countriesTracked}</strong>
+              <span>countries / markets</span>
+            </div>
+            <div className="cc-intel-stat-div" />
+            <div className="cc-intel-stat">
+              <strong className="hot">{highImpactCount}</strong>
+              <span>high-impact this period</span>
+            </div>
+            <div className="cc-intel-live"><span className="cc-refresh-dot" />Live feed</div>
+          </div>
         </div>
 
         <div className="cc-filter-bar">
@@ -505,11 +544,14 @@ const SignalsPage = React.memo(function SignalsPage({
                     <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                     <div className="cc-sig-body">
                       <strong>{s.title}</strong>
-                      <small>{s.market}{region ? ` · ${region}` : ''} · {s.timeAgo}</small>
+                      <small>
+                        <span className="cc-sig-flag">{s.flag}</span>
+                        {s.market}{region ? ` · ${region}` : ''} · {s.sourceLabel} · {s.timeAgo}
+                      </small>
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>
-                      <span>Affects operations in {s.market}{region ? ` · ${region}` : ''}</span>
+                      <span>{s.commercialImpact}</span>
                     </div>
                     <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
                     <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
@@ -522,10 +564,6 @@ const SignalsPage = React.memo(function SignalsPage({
                       />
                       <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
                     </svg>
-                    <div className="cc-sig-date">
-                      <em>Date</em>
-                      <span>{s.timeAgo}</span>
-                    </div>
                     <div className="cc-sig-acts">
                       <button className="cc-sig-brief">Open brief</button>
                       <button className="cc-sig-watch">↗ Add to watchlist</button>
@@ -538,20 +576,28 @@ const SignalsPage = React.memo(function SignalsPage({
         </div>
 
         <div className="cc-feed-footer">
-          <span>Showing {Math.min(filtered.length, 6)}&nbsp;of&nbsp;{signals.length} signals</span>
-          <span className="cc-auto-refresh"><span className="cc-refresh-dot"/>Auto-refresh on · Updated 2 min ago</span>
-          <div className="cc-pagination">
-            <button className="cc-page-btn">‹</button>
-            <button className="cc-page-btn active">1</button>
-            <button className="cc-page-btn">2</button>
-            <button className="cc-page-btn">3</button>
-            <button className="cc-page-btn">›</button>
-          </div>
+          <span>Showing {filtered.length}&nbsp;of&nbsp;{signals.length} tracked signals{hasFilters ? ' (filtered)' : ''}</span>
+          <span className="cc-auto-refresh"><span className="cc-refresh-dot"/>Live · global feed updates continuously</span>
         </div>
       </div>
 
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">GLOBAL COVERAGE</div>
+          {TOP_MARKETS.map(m => (
+            <div key={m.market} className="cc-coverage-row">
+              <span className="cc-coverage-flag">{m.flag}</span>
+              <span className="cc-coverage-market">{m.market}</span>
+              <span className="cc-coverage-bar"><span style={{ width: `${Math.min(100, (m.n / (TOP_MARKETS[0]?.n || 1)) * 100)}%` }} /></span>
+              <span className="cc-coverage-n">{m.n}</span>
+            </div>
+          ))}
+          <small className="cc-right-prose" style={{marginTop:2}}>
+            {countriesTracked} markets monitored across {signals.length} live signals, refreshed from regulatory, trade, and industry sources worldwide.
+          </small>
+        </div>
+
         <div className="cc-right-section">
           <div className="cc-right-head">SAVED FILTERS</div>
           {SAVED_FILTERS.map(f => (
@@ -3791,6 +3837,33 @@ const CSS = `
   color:var(--cc-ink);margin:0 0 6px;
 }
 .cc-inner-header p { font-size:12px;color:var(--cc-muted);margin:0;line-height:1.55; }
+
+.cc-intel-stats {
+  display:flex;align-items:center;gap:14px;margin-top:12px;
+  padding:10px 14px;border-radius:10px;
+  background:rgba(255,255,255,.02);border:1px solid var(--cc-line);
+}
+.cc-intel-stat { display:flex;flex-direction:column;gap:1px;line-height:1.2; }
+.cc-intel-stat strong { font-family:var(--cc-mono);font-size:16px;color:var(--cc-ink);font-weight:700; }
+.cc-intel-stat strong.hot { color:var(--cc-amber); }
+.cc-intel-stat span { font-size:9px;color:var(--cc-dim);letter-spacing:.05em;text-transform:uppercase; }
+.cc-intel-stat-div { width:1px;height:24px;background:var(--cc-line); }
+.cc-intel-live {
+  margin-left:auto;display:flex;align-items:center;gap:6px;
+  font-size:10px;color:var(--cc-green);letter-spacing:.08em;text-transform:uppercase;
+}
+
+.cc-coverage-row {
+  display:grid;grid-template-columns:18px 1fr 70px 22px;
+  align-items:center;gap:8px;padding:5px 0;
+}
+.cc-coverage-flag { font-size:13px; }
+.cc-coverage-market { font-size:11px;color:var(--cc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.cc-coverage-bar { height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden; }
+.cc-coverage-bar span { display:block;height:100%;background:var(--cc-gold);border-radius:2px; }
+.cc-coverage-n { font-family:var(--cc-mono);font-size:10px;color:var(--cc-dim);text-align:right; }
+
+.cc-sig-flag { margin-right:5px; }
 .cc-section-label {
   font-family:var(--cc-mono);font-size:9px;letter-spacing:.16em;
   color:var(--cc-dim);text-transform:uppercase;
@@ -3833,16 +3906,6 @@ const CSS = `
   width:6px;height:6px;border-radius:50%;background:var(--cc-green);
   box-shadow:0 0 5px var(--cc-green);flex-shrink:0;
   animation:pulseDot 2s ease infinite;
-}
-.cc-pagination { display:flex;gap:3px;align-items:center; }
-.cc-page-btn {
-  min-width:26px;height:26px;border-radius:6px;
-  border:1px solid var(--cc-line);background:transparent;
-  color:var(--cc-muted);font:inherit;font-size:11px;cursor:pointer;
-  transition:background .1s,color .1s;padding:0 6px;
-}
-.cc-page-btn:hover,.cc-page-btn.active {
-  background:rgba(212,168,75,.1);border-color:rgba(212,168,75,.3);color:var(--cc-gold);
 }
 .cc-right-prose {
   font-size:11px;line-height:1.65;color:var(--cc-muted);margin:0;
@@ -3921,7 +3984,7 @@ const CSS = `
 .cc-sig-group-hd span { font-size:12px;color:var(--cc-gold); }
 .cc-sig-row {
   display:grid;
-  grid-template-columns:12px 1fr 220px 72px 44px 80px 200px;
+  grid-template-columns:12px 1fr 240px 72px 44px 160px;
   align-items:center;gap:12px;
   padding:14px 24px;
   border-bottom:1px solid var(--cc-line);
@@ -3938,8 +4001,6 @@ const CSS = `
 .cc-sig-body small  { display:block;font-size:10px;color:var(--cc-dim);margin-top:2px; }
 .cc-sig-why em   { display:block;font-style:normal;font-size:9px;color:var(--cc-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px; }
 .cc-sig-why span { font-size:10px;color:var(--cc-muted);line-height:1.4; }
-.cc-sig-date em  { display:block;font-style:normal;font-size:9px;color:var(--cc-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px; }
-.cc-sig-date span{ font-size:10px;color:var(--cc-muted); }
 .cc-sig-acts { display:flex;flex-direction:column;gap:4px;align-items:flex-start; }
 .cc-sig-brief {
   padding:5px 12px;border-radius:6px;

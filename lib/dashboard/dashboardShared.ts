@@ -13,6 +13,8 @@ export type DashboardSignal = {
   timeAgo: string
   confidence: number
   commercialImpact: string
+  sourceLabel: string
+  flag: string
 }
 
 export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {

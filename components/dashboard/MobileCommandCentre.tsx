@@ -169,8 +169,9 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
           <div className="hvm-list-stack">
             {signals.slice(0, 4).map((signal, index) => (
               <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
-                <strong>{signal.title}</strong>
-                <small>{signal.market} · {signal.timeAgo} · {signal.confidence}% confidence</small>
+                <strong>{signal.flag} {signal.title}</strong>
+                <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
+                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
               </div>
             ))}
           </div>
@@ -614,6 +615,13 @@ const MOBILE_CSS = `
   margin: 8px 0 0;
   color: rgba(245,240,232,.62);
   font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.hvm-signal-impact {
+  margin: 6px 0 0;
+  color: rgba(245,240,232,.55);
+  font-size: 13px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
