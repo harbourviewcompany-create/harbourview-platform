@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -35,6 +35,7 @@ type Props = {
   pipeline?:        PipelineCounts
   wantedListings?:  WantedListing[]
   countryIntel?:    CountryIntelProfile | null
+  localIntel?:      LocalIntelData | null
   pathwayData?:     PathwayData
   watchlistData?:    WatchlistData
   evidenceData?:     EvidenceData
@@ -2067,21 +2068,6 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
   )
 })
 
-// ── Access Pathway types ──────────────────────────────────────────────────────
-
-export type PathwayTemplate      = { id: string; name: string; total_steps: number }
-export type PathwayStep          = { id: string; step_number: number; title: string; description: string | null; unlock_condition: string }
-export type PathwayRequirement   = { id: string; step_id: string; title: string; description: string | null; evidence_type: string; is_required: boolean; sort_order: number }
-export type OrgPathwayProgress   = { current_step: number; status: string; last_action_at: string }
-export type OrgRequirementStatus = { requirement_id: string; status: 'pending'|'in_review'|'verified'|'rejected'|'waived'; submitted_at: string | null; reviewed_at: string | null }
-export type PathwayData          = {
-  template:            PathwayTemplate | null
-  steps:               PathwayStep[]
-  requirements:        PathwayRequirement[]
-  progress:            OrgPathwayProgress | null
-  requirementStatuses: OrgRequirementStatus[]
-}
-
 const REQ_STATUS_ICON: Record<string, string> = {
   verified: '✓', in_review: '◎', pending: '○', rejected: '✕', waived: '—',
 }
@@ -2337,18 +2323,6 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
 })
 
 // ── Watchlist types ───────────────────────────────────────────────────────────
-
-export type WatchlistItem = {
-  id: string; item_type: string; ref_id: string | null
-  title: string; subtitle: string | null; tags: string[]
-  jurisdiction: string | null; confidence_pct: number | null
-  latest_change_at: string | null; latest_change_note: string | null
-  next_action: string | null; watch_status: string
-  created_at: string; updated_at: string
-}
-export type WatchRule          = { id: string; rule_type: string; keywords: string[] }
-export type NotificationSummary= { total_alerts: number; awaiting_review: number; resolved: number; snoozed: number }
-export type WatchlistData      = { items: WatchlistItem[]; rules: WatchRule[]; notifications: NotificationSummary }
 
 type WatchlistTab = 'jurisdiction'|'signal'|'pathway'|'marketplace_item'|'source'|'policy'
 
