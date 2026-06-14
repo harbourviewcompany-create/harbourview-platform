@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { getPathwayTemplateRoleCandidates } from './pathwayRoleGroups'
 import { getGenericPathwayTemplate } from './genericPathways'
 
 // ── 1. Pipeline counts from marketplace_inquiries ─────────────────────────────
@@ -264,13 +265,19 @@ export async function getOrgPathwayProgress(
     const orgId = membership?.workspace_id
     if (!orgId) return empty
 
-    // Pathway template for this country + role
-    const { data: template } = await supabase
+    // Pathway template for this country + role.
+    // Bespoke templates are authored once per pathway-group (supplier /
+    // buyer / advisor-investor), so try the exact role first, then any
+    // other role in the same group.
+    const candidates = getPathwayTemplateRoleCandidates(roleId)
+    const { data: templateRows } = await supabase
       .from('cc_pathway_templates')
-      .select('id, name, total_steps')
+      .select('id, name, total_steps, role_id')
       .eq('country_iso2', countryIso2.toUpperCase())
-      .eq('role_id', roleId)
-      .single()
+      .in('role_id', candidates)
+    const template = (templateRows ?? []).sort(
+      (a, b) => candidates.indexOf(a.role_id) - candidates.indexOf(b.role_id),
+    )[0]
     if (!template) return empty
 
     // Steps
@@ -493,12 +500,15 @@ export async function getPublicPathwayTemplate(
   try {
     const supabase = await createClient()
 
-    const { data: template } = await supabase
+    const candidates = getPathwayTemplateRoleCandidates(roleId)
+    const { data: templateRows } = await supabase
       .from('cc_pathway_templates')
-      .select('id, name, total_steps')
+      .select('id, name, total_steps, role_id')
       .eq('country_iso2', countryIso2.toUpperCase())
-      .eq('role_id', roleId)
-      .single()
+      .in('role_id', candidates)
+    const template = (templateRows ?? []).sort(
+      (a, b) => candidates.indexOf(a.role_id) - candidates.indexOf(b.role_id),
+    )[0]
 
     if (!template) return getGenericFallbackPathway(supabase, countryIso2, roleId)
 
