@@ -12,7 +12,13 @@ export interface AccessPathwayPageProps {
   pathwayData?: PathwayData | null
 }
 
-type Stage = { id: string; label: string; desc: string; status: 'complete' | 'active' | 'pending' }
+type Stage = {
+  id:     string
+  stepId: string | null
+  label:  string
+  desc:   string
+  status: 'complete' | 'active' | 'pending'
+}
 
 function buildPathway(role: string, countryIntel?: CountryIntelProfile | null, pathwayData?: PathwayData | null): Stage[] {
   const marketAccess = countryIntel?.market_access_status?.toLowerCase() ?? ''
