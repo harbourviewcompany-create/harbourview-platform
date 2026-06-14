@@ -194,7 +194,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
 
   const countryName = dashboard.country.countryName
   const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, countryStatus, liveTiles, pathwayData, recentEduModules] = await Promise.all([
-    fetchDashboardSignals(8, countryName),
+    fetchDashboardSignals(40, countryName),
     getPipelineCounts(),
     getWantedListings(countryIso2),
     getWantedRequestsCount(),

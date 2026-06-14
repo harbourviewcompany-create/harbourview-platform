@@ -190,7 +190,7 @@ export default async function DashboardPage({
   const roleId      = urlRole    ?? storedRoleId
 
   const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, watchlistData, evidenceData, recentEduModules, localIntel] = await Promise.all([
-    fetchDashboardSignals(8),
+    fetchDashboardSignals(40),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),
