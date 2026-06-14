@@ -66,6 +66,82 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
   }
 }
 
+
+// ── Map regulatory_signals.public_signals row → PublicRegulatorySignal ────────
+// public_signals view columns: id, slug, headline, signal_type, confidence,
+//   impact_level, country_code, country_name, region, jurisdiction,
+//   regulator_name, signal_date, source_tier, source_type, canonical_source_url,
+//   public_summary, public_implication, published_at, last_reviewed_at
+function mapApprovedRow(r: Record<string, unknown>): PublicRegulatorySignal | null {
+  const headline = typeof r.headline === 'string' ? r.headline.trim() : null
+  if (!headline) return null
+
+  const rawConf = typeof r.confidence === 'string' ? r.confidence.toLowerCase() : ''
+  const confidence: PublicRegulatorySignal['confidence'] =
+    rawConf === 'high' ? 'high' : rawConf === 'medium' ? 'medium' : 'low'
+
+  const rawImpact = typeof r.impact_level === 'string' ? r.impact_level.toLowerCase() : ''
+  const impact_level: PublicRegulatorySignal['impact_level'] =
+    rawImpact === 'critical' ? 'critical'
+    : rawImpact === 'high'   ? 'high'
+    : rawImpact === 'moderate' || rawImpact === 'medium' ? 'moderate'
+    : 'low'
+
+  return {
+    id:                   typeof r.id === 'string'                    ? r.id                    : String(r.id ?? ''),
+    slug:                 typeof r.slug === 'string'                  ? r.slug                  : String(r.id ?? ''),
+    headline,
+    signal_type:          (r.signal_type as PublicRegulatorySignal['signal_type']) ?? 'regulatory_change',
+    confidence,
+    impact_level,
+    country_code:         typeof r.country_code === 'string'          ? r.country_code          : null,
+    country_name:         typeof r.country_name === 'string'          ? r.country_name          : null,
+    region:               typeof r.region === 'string'                ? r.region                : null,
+    jurisdiction:         typeof r.jurisdiction === 'string'          ? r.jurisdiction          : '',
+    regulator_name:       typeof r.regulator_name === 'string'        ? r.regulator_name        : '',
+    signal_date:          typeof r.signal_date === 'string'           ? r.signal_date.slice(0,10) : new Date().toISOString().slice(0,10),
+    source_tier:          (r.source_tier  as PublicRegulatorySignal['source_tier'])  ?? 'tier_2_professional',
+    source_type:          (r.source_type  as PublicRegulatorySignal['source_type'])  ?? 'specialist_publication',
+    canonical_source_url: typeof r.canonical_source_url === 'string' ? r.canonical_source_url  : null,
+    public_summary:       typeof r.public_summary === 'string'        ? r.public_summary        : 'No summary available.',
+    public_implication:   typeof r.public_implication === 'string'    ? r.public_implication    : 'Review for commercial relevance.',
+    published_at:         typeof r.published_at === 'string'          ? r.published_at.slice(0,10) : new Date().toISOString().slice(0,10),
+    last_reviewed_at:     typeof r.last_reviewed_at === 'string'      ? r.last_reviewed_at.slice(0,10) : new Date().toISOString().slice(0,10),
+  }
+}
+
+// ── Priority 1: regulatory_signals.public_signals (reviewed, public-safe) ─────
+// Uses Accept-Profile header so the anon key queries the regulatory_signals schema.
+// Returns 0 rows until editorial pipeline publishes content — falls through gracefully.
+async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return []
+
+  try {
+    const params = new URLSearchParams({
+      select: 'id,slug,headline,signal_type,confidence,impact_level,country_code,country_name,region,jurisdiction,regulator_name,signal_date,source_tier,source_type,canonical_source_url,public_summary,public_implication,published_at,last_reviewed_at',
+      order:  'published_at.desc',
+      limit:  '50',
+    })
+    const res = await fetch(`${url}/rest/v1/public_signals?${params}`, {
+      headers: {
+        apikey:            key,
+        Authorization:     `Bearer ${key}`,
+        Accept:            'application/json',
+        'Accept-Profile':  'regulatory_signals',
+      },
+      next: { revalidate: 300 },
+    })
+    if (!res.ok) return []
+    const rows: Record<string, unknown>[] = await res.json()
+    if (!Array.isArray(rows)) return []
+    return rows.map(mapApprovedRow).filter((s): s is PublicRegulatorySignal => s !== null)
+  } catch {
+    return []
+  }
+}
+
 // ── Anon-key query against public.signals ─────────────────────────────────────
 // Uses NEXT_PUBLIC_ vars so this works on public-facing pages without
 // requiring SUPABASE_SERVICE_ROLE_KEY or HARBOURVIEW_ADMIN_REVIEW_ENABLED
@@ -139,8 +215,20 @@ export type PublicRegulatorySignalFeed = {
 }
 
 export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatorySignalFeed> {
-  const published = await fetchReviewedSignals()
+  // Priority 1: regulatory_signals.public_signals — editorially reviewed, public-safe
+  // (0 rows until editorial pipeline publishes; falls through silently)
+  const approved = await fetchApprovedSignals()
+  if (approved.length) {
+    return {
+      signals: approved,
+      source: 'live-approved',
+      publicLabel: 'Editorially reviewed public-safe signals',
+      reviewBoundary: 'Signals sourced from the reviewed regulatory signals pipeline. Private captures, analyst notes and internal review material remain excluded.',
+    }
+  }
 
+  // Priority 2: public.signals (reviewed=true) — automated intake, human-flagged
+  const published = await fetchReviewedSignals()
   if (published.length) {
     return {
       signals: published,
