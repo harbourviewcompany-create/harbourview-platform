@@ -27,6 +27,10 @@ const COUNTRY_FLAGS: Record<string, string> = {
   'European Union': '🇪🇺', 'Portugal': '🇵🇹', 'Switzerland': '🇨🇭', 'New Zealand': '🇳🇿',
   'Lesotho': '🇱🇸', 'Trinidad and Tobago': '🇹🇹', 'Ghana': '🇬🇭', 'Malta': '🇲🇹',
   'North Macedonia': '🇲🇰', 'Poland': '🇵🇱', 'Jamaica': '🇯🇲', 'Kenya': '🇰🇪',
+  'France': '🇫🇷', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Denmark': '🇩🇰',
+  'Czechia': '🇨🇿', 'Czech Republic': '🇨🇿', 'Uruguay': '🇺🇾', 'Greece': '🇬🇷',
+  'Slovenia': '🇸🇮', 'Argentina': '🇦🇷', 'Peru': '🇵🇪', 'Chile': '🇨🇱',
+  'Belgium': '🇧🇪', 'Luxembourg': '🇱🇺', 'Zimbabwe': '🇿🇼',
   'Caribbean': '🌴', 'Global': '🌐',
 }
 
