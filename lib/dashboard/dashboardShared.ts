@@ -6,6 +6,7 @@ import type { RoleId } from '@/types/globe-router'
 
 export type DashboardSignal = {
   id: string
+  slug?: string          // present for editorial signals; undefined for IA/curated
   title: string
   type: string
   market: string
@@ -13,8 +14,6 @@ export type DashboardSignal = {
   timeAgo: string
   confidence: number
   commercialImpact: string
-  sourceLabel: string
-  flag: string
 }
 
 export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {
