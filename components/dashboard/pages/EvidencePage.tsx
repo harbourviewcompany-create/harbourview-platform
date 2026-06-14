@@ -56,7 +56,7 @@ export const EvidencePage = React.memo(function EvidencePage({
           <p className="ev-sub">
             {country.label}
             {countryIntel?.review_status ? ` · Review: ${countryIntel.review_status}` : ''}
-            {countryIntel?.data_completeness ? ` · ${countryIntel.data_completeness} coverage` : ''}
+            {countryIntel?.data_completeness ? ` · ${({ stub: 'Basic', partial: 'Partial', high: 'High', full: 'Full' } as Record<string,string>)[countryIntel.data_completeness] ?? countryIntel.data_completeness} coverage` : ''}
           </p>
         </div>
         <a href="/intelligence/methodology" className="ev-cta-outline">Full Methodology →</a>
@@ -107,7 +107,7 @@ export const EvidencePage = React.memo(function EvidencePage({
             <div className="ev-coverage-grid">
               {[
                 { label: 'Review Status',    val: countryIntel?.review_status      ?? 'Pending'  },
-                { label: 'Data Completeness',val: countryIntel?.data_completeness  ?? 'Stub'     },
+                { label: 'Data Completeness',val: ({ stub: 'Basic', partial: 'Partial', high: 'High', full: 'Full' } as Record<string,string>)[countryIntel?.data_completeness ?? ''] ?? countryIntel?.data_completeness ?? 'Not assessed' },
                 { label: 'Regulatory Tier',  val: countryIntel?.regulatory_tier    ?? 'Unclassed'},
                 { label: 'Source Region',    val: countryIntel?.region             ?? 'Unknown'  },
               ].map(row => (
