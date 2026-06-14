@@ -708,3 +708,40 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
     return []
   }
 }
+
+// Restored — deleted by feat(dashboard)/getSourceCoverage commit; still imported
+// by app/dashboard/country/[country]/CountryIntelDashboard.tsx
+export type ComparisonCountryScore = {
+  iso2: string
+  name: string
+  slug: string
+  opportunity_score: number
+  market_access_status: string | null
+  data_completeness: string | null
+}
+
+export async function getComparisonCountryScores(
+  excludeIso2?: string | null,
+  limit = 10,
+): Promise<ComparisonCountryScore[]> {
+  try {
+    const supabase = await createClient()
+    let q = supabase
+      .from('countries')
+      .select('iso_alpha2,country_name,opportunity_score,market_access_status,data_completeness')
+      .not('opportunity_score', 'is', null)
+      .order('opportunity_score', { ascending: false })
+      .limit(limit + 1)
+    if (excludeIso2) q = q.neq('iso_alpha2', excludeIso2.toUpperCase())
+    const { data } = await q
+    return (data ?? []).slice(0, limit).map(r => ({
+      iso2:                r.iso_alpha2,
+      name:                r.country_name,
+      slug:                r.country_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      opportunity_score:   r.opportunity_score ?? 0,
+      market_access_status: r.market_access_status,
+      data_completeness:   r.data_completeness,
+    }))
+  } catch { return [] }
+}
+
