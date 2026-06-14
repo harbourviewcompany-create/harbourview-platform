@@ -27,13 +27,16 @@ function buildPathway(role: string, countryIntel?: CountryIntelProfile | null, p
     return 'pending'
   }
 
+  // Use live step data when available, otherwise fall back to hardcoded labels
+  const liveSteps = pathwayData?.steps ?? []
+
   const base: Stage[] = [
-    { id: 'profile',    label: 'Role Verification',       desc: 'Confirm professional credentials and operating region.',    status: stageStatus(1) },
-    { id: 'nda',        label: 'Compliance NDA',           desc: 'Execute Harbourview platform access and NDA agreement.',    status: stageStatus(2) },
-    { id: 'market',     label: 'Market Intelligence',      desc: 'Access jurisdiction brief, regulatory status, and signals.',status: stageStatus(3) },
-    { id: 'intro',      label: 'Counterparty Introduction',desc: 'Matched introduction to verified counterparties.',          status: stageStatus(4) },
-    { id: 'diligence',  label: 'Due Diligence Package',    desc: 'Request documentation, COA, permits, GMP certification.',   status: stageStatus(5) },
-    { id: 'dealroom',   label: 'Deal Room',                desc: 'Secure channel for term sheets, LOIs, and transaction.',    status: stageStatus(6) },
+    { id: 'profile',   stepId: liveSteps[0]?.id ?? null, label: liveSteps[0]?.title ?? 'Role Verification',       desc: liveSteps[0]?.description ?? 'Confirm professional credentials and operating region.',    status: stageStatus(1) },
+    { id: 'nda',       stepId: liveSteps[1]?.id ?? null, label: liveSteps[1]?.title ?? 'Compliance NDA',           desc: liveSteps[1]?.description ?? 'Execute Harbourview platform access and NDA agreement.',    status: stageStatus(2) },
+    { id: 'market',    stepId: liveSteps[2]?.id ?? null, label: liveSteps[2]?.title ?? 'Market Intelligence',      desc: liveSteps[2]?.description ?? 'Access jurisdiction brief, regulatory status, and signals.',status: stageStatus(3) },
+    { id: 'intro',     stepId: liveSteps[3]?.id ?? null, label: liveSteps[3]?.title ?? 'Counterparty Introduction',desc: liveSteps[3]?.description ?? 'Matched introduction to verified counterparties.',          status: stageStatus(4) },
+    { id: 'diligence', stepId: liveSteps[4]?.id ?? null, label: liveSteps[4]?.title ?? 'Due Diligence Package',   desc: liveSteps[4]?.description ?? 'Request documentation, COA, permits, GMP certification.',   status: stageStatus(5) },
+    { id: 'dealroom',  stepId: liveSteps[5]?.id ?? null, label: liveSteps[5]?.title ?? 'Deal Room',               desc: liveSteps[5]?.description ?? 'Secure channel for term sheets, LOIs, and transaction.',    status: stageStatus(6) },
   ]
 
   // Role-specific stage overrides
@@ -53,7 +56,19 @@ function buildPathway(role: string, countryIntel?: CountryIntelProfile | null, p
   return base
 }
 
-function StageRow({ stage, idx }: { stage: Stage; idx: number }) {
+function StageRow({ stage, idx, requirements, requirementStatuses }: {
+  stage: Stage
+  idx:   number
+  requirements:       Array<{ id: string; step_id: string; title: string; is_required: boolean }>
+  requirementStatuses: Array<{ requirement_id: string; status: string }>
+}) {
+  const stageReqs = stage.stepId
+    ? requirements.filter(r => r.step_id === stage.stepId)
+    : []
+  const verifiedCount = stageReqs.filter(r =>
+    requirementStatuses.find(s => s.requirement_id === r.id && s.status === 'verified')
+  ).length
+  const hasReqs = stageReqs.length > 0
   const iconMap = { complete: '✓', active: '◎', pending: '○' }
   const classMap = { complete: 'ap-stage--complete', active: 'ap-stage--active', pending: 'ap-stage--pending' }
   return (
@@ -66,6 +81,11 @@ function StageRow({ stage, idx }: { stage: Stage; idx: number }) {
         <div className="ap-stage-label">{stage.label}</div>
         <div className="ap-stage-desc">{stage.desc}</div>
       </div>
+      {stageReqs.length > 0 && stage.status !== 'pending' && (
+        <span className="ap-req-pill">
+          {verifiedCount}/{stageReqs.length} req{stageReqs.length !== 1 ? 's' : ''}
+        </span>
+      )}
       {stage.status === 'active' && (
         <a href="/intake" className="ap-stage-cta">Continue →</a>
       )}
@@ -100,7 +120,15 @@ export const AccessPathwayPage = React.memo(function AccessPathwayPage({
         <div className="ap-left">
           <div className="ap-section-head">PATHWAY STAGES</div>
           <div className="ap-stages">
-            {stages.map((s, i) => <StageRow key={s.id} stage={s} idx={i} />)}
+            {stages.map((s, i) => (
+              <StageRow
+                key={s.id}
+                stage={s}
+                idx={i}
+                requirements={pathwayData?.requirements ?? []}
+                requirementStatuses={pathwayData?.requirementStatuses ?? []}
+              />
+            ))}
           </div>
         </div>
 
@@ -265,4 +293,8 @@ const CSS = `
 
 .ap-cta-head { font-size:12px;font-weight:600;color:#f5f0e8; }
 .ap-cta-body { font-size:11px;color:rgba(245,240,232,.45);line-height:1.55; }
+.ap-req-pill {
+  font-size:9px;padding:2px 7px;border-radius:99px;flex-shrink:0;margin-top:3px;
+  background:rgba(93,202,165,.08);border:1px solid rgba(93,202,165,.2);color:rgba(93,202,165,.8);
+}
 `
