@@ -110,8 +110,54 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
     }))
 }
 
+type CuratedSignalRow = {
+  id: string
+  headline: string
+  cat: string | null
+  top_lane: string | null
+  pri: string | null
+  score: number | null
+  country: string | null
+  date: string | null
+  created_at: string
+}
+
+const LANE_TO_TAG: Record<string, string> = {
+  regulatory:   'regulatory_change',
+  trade:        'new_product_category',
+  market:       'importer_activity',
+  supply:       'distressed_asset',
+  financial:    'facility_expansion',
+}
+
+function priToCommercial(pri: string | null): string {
+  const p = (pri ?? '').toLowerCase()
+  if (p === 'urgent' || p === 'high') return 'high'
+  if (p === 'medium')                 return 'medium'
+  return 'low'
+}
+
+// ── Map curated public.signals row → DashboardSignal ──────────────────────────
+function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
+  const laneKey = (s.top_lane ?? s.cat ?? '').toLowerCase()
+  const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
+  const tag     = laneKey in LANE_TO_TAG ? (SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change)
+    : { label: 'INTEL', color: '#D9A441', bg: 'rgba(217,164,65,0.12)', border: 'rgba(217,164,65,0.28)' }
+  return {
+    id:               s.id,
+    title:            stripHtml(s.headline),
+    type:             tagKey,
+    market:           s.country ?? '',
+    tag,
+    timeAgo:          timeAgo(s.date ?? s.created_at),
+    confidence:       typeof s.score === 'number' ? s.score : 50,
+    commercialImpact: priToCommercial(s.pri),
+  }
+}
+
 // ── fetchDashboardSignals ─────────────────────────────────────────────────────
-// Priority: regulatory_signals (published + public_safe) → IA signals → fixtures
+// Priority: regulatory_signals (published + public_safe) → curated public.signals
+//           → IA signals → fixtures
 //
 // When countryName is provided, country-relevant signals are surfaced first,
 // with global / other-country signals filling remaining slots.
@@ -143,7 +189,36 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
-  // 2. Intelligence-automation signals table
+  // 2. Curated public.signals — 165+ reviewed rows across 30+ countries,
+  //    the output of the global regulatory ingestion + analyst review pass.
+  //    This is what powers the "Mexico Importer Signals" etc. country pages.
+  try {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('signals')
+      .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+      .eq('reviewed', true)
+      .order('score', { ascending: false })
+      .limit(200)
+
+    if (!error && data && data.length > 0) {
+      const all = data as CuratedSignalRow[]
+
+      if (countryName) {
+        const nameLower = countryName.toLowerCase()
+        const countryMatch = all.filter(s => s.country?.toLowerCase() === nameLower)
+        const noCountry    = all.filter(s => !s.country)
+        const others       = all.filter(s => s.country && s.country.toLowerCase() !== nameLower)
+        const prioritised  = [...countryMatch, ...noCountry, ...others]
+        return prioritised.slice(0, limit).map(curatedToSignal)
+      }
+
+      return all.slice(0, limit).map(curatedToSignal)
+    }
+  } catch { /* fall through */ }
+
+  // 3. Intelligence-automation signals table
   try {
     const result = await listIaSignals()
     if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
@@ -161,7 +236,7 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
-  // 3. No live signals yet — return empty array; dashboard shows empty state
+  // 4. No live signals yet — return empty array; dashboard shows empty state
   return []
 }
 
