@@ -54,18 +54,43 @@ const GlobeCanvas = dynamic(
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
-const NAV_ITEMS: { id: CommandPage; label: string; icon: string }[] = [
-  { id: 'briefing',       label: 'Briefing Room',      icon: '◎' },
-  { id: 'access-pathway', label: 'Access Pathway',     icon: '⬡' },
-  { id: 'marketplace',    label: 'Marketplace & Access',icon: '⊞' },
-  { id: 'evidence',       label: 'Evidence & Sources', icon: '⊟' },
-  { id: 'education',      label: 'Education Hub',      icon: '⬛' },
-  { id: 'regulatory',     label: 'Regulatory Watch',   icon: '◷' },
-  { id: 'local-intel',    label: 'Local Intel',        icon: '◉' },
-  { id: 'signals',        label: 'Signals',            icon: '≋' },
-  { id: 'watchlist',      label: 'Watchlist',          icon: '◈' },
-  { id: 'settings',       label: 'Settings',           icon: '⊙' },
+type NavItem    = { id: CommandPage; label: string; icon: string }
+type NavSection = { label?: string; items: NavItem[] }
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { id: 'briefing',    label: 'Briefing Room', icon: '◎' },
+      { id: 'marketplace', label: 'Marketplace',   icon: '⊞' },
+      { id: 'signals',     label: 'Intelligence',  icon: '≋' },
+      { id: 'education',   label: 'Education',     icon: '⬛' },
+      { id: 'watchlist',   label: 'Watchlist',     icon: '◈' },
+    ],
+  },
+  {
+    label: 'Prescribers',
+    items: [
+      { id: 'access-pathway', label: 'Access Pathway',   icon: '⬡' },
+      { id: 'regulatory',     label: 'Regulatory Watch', icon: '◷' },
+      { id: 'local-intel',    label: 'Local Intel',      icon: '◉' },
+    ],
+  },
+  {
+    label: 'Research',
+    items: [
+      { id: 'evidence', label: 'Research', icon: '⊟' },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
+      { id: 'settings', label: 'Settings', icon: '⊙' },
+    ],
+  },
 ]
+
+// Flat list — used by pageTitle, CommandPalette, mobile nav
+const NAV_ITEMS_FLAT: NavItem[] = NAV_SECTIONS.flatMap(s => s.items)
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
@@ -2690,7 +2715,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
     <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <div className="cc-inner-header">
-          <h2>{country.label}{role ? ` ${role}` : ''} Evidence &amp; Sources</h2>
+          <h2>{country.label}{role ? ` ${role}` : ''} Research</h2>
           <p>Curated, verified, and mapped evidence to support compliant{role ? ` ${role.toLowerCase()}` : ''} operations.</p>
         </div>
 
@@ -2979,7 +3004,7 @@ function CommandPalette({
   }, [open])
 
   const items = useMemo<CmdItem[]>(() => [
-    ...NAV_ITEMS.map(n => ({
+    ...NAV_ITEMS_FLAT.map(n => ({
       id: n.id, group: 'Navigation', label: n.label, icon: n.icon,
       action: () => { onPage(n.id); onClose() },
     })),
@@ -3153,7 +3178,7 @@ export default function CommandCentre({
     role ? (ROLE_PROFILES[role as keyof typeof ROLE_PROFILES]?.short ?? role) : '',
     [role],
   )
-  const pageTitle = useMemo(() => NAV_ITEMS.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
+  const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleCountryChange = useCallback((iso2: string) => {
@@ -3269,17 +3294,26 @@ export default function CommandCentre({
       {/* ── Sidebar ───────────────────────────────────────────────── */}
       <nav className="cc-sidebar" aria-label="Command centre navigation">
         <div className="cc-sidebar-nav">
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              className={`cc-nav-btn${activePage === item.id ? ' active' : ''}`}
-              onClick={() => setActivePage(item.id)}
-              aria-current={activePage === item.id ? 'page' : undefined}
-            >
-              <span className="cc-nav-icon" aria-hidden="true">{item.icon}</span>
-              <em>{item.label}</em>
-            </button>
+          {NAV_SECTIONS.map((section, si) => (
+            <div key={si} className="cc-nav-section">
+              {section.label && (
+                <div className="cc-nav-section-header" aria-hidden="true">
+                  {section.label}
+                </div>
+              )}
+              {section.items.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`cc-nav-btn${activePage === item.id ? ' active' : ''}`}
+                  onClick={() => setActivePage(item.id)}
+                  aria-current={activePage === item.id ? 'page' : undefined}
+                >
+                  <span className="cc-nav-icon" aria-hidden="true">{item.icon}</span>
+                  <em>{item.label}</em>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
 
@@ -3299,7 +3333,7 @@ export default function CommandCentre({
 
       {/* ── Mobile nav ────────────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
-        {NAV_ITEMS.slice(0, 5).map(item => (
+        {NAV_SECTIONS[0].items.map(item => (
           <button
             key={item.id}
             className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}
@@ -4010,7 +4044,7 @@ const CSS = `
   transition:background .1s;
 }
 .cc-mkt-row:hover { background:rgba(255,255,255,.025); }
-.cc-mkt-cell { font-size:12px;color:var(--cc-text);min-width:0; }
+.cc-mkt-cell { font-size:12px;color:var(--cc-text);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis; }
 .opp-col { display:flex;align-items:flex-start;gap:10px; }
 .cc-opp-icon {
   width:34px;height:34px;border-radius:8px;flex-shrink:0;
@@ -4867,6 +4901,18 @@ const CSS = `
   .cc-briefing-left,.cc-briefing-right { border:none;border-bottom:1px solid var(--cc-line); }
   .cc-methodology { flex-wrap:wrap; }
   .cc-header-right .cc-user-chip { display:none; }
+}
+/* ── Sidebar sections ────────────────────────────────────────────────────────── */
+.cc-nav-section { display:flex;flex-direction:column;gap:2px; }
+.cc-nav-section + .cc-nav-section {
+  margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--cc-line);
+}
+.cc-nav-section-header {
+  font-family:var(--cc-mono);font-size:8px;letter-spacing:.18em;
+  color:var(--cc-dim);text-transform:uppercase;
+  padding:2px 10px 6px;
+  pointer-events:none;user-select:none;
 }
 `
 
