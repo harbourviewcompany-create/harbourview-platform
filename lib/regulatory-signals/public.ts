@@ -27,7 +27,6 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
 
   const id = typeof r.id === 'string' ? r.id : String(r.id ?? '')
   const score  = typeof r.score === 'number' ? r.score : 0
-  const impact = typeof r.commercial_impact === 'string' ? r.commercial_impact.toLowerCase() : 'low'
   const cat    = typeof r.cat === 'string' ? r.cat : 'SOURCE_ENGINE'
   const dateStr = typeof r.date === 'string' ? r.date.slice(0, 10)
                 : typeof r.created_at === 'string' ? r.created_at.slice(0, 10)
@@ -37,11 +36,16 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
     score >= 80 ? 'high' : score >= 55 ? 'medium' : 'low'
 
   const impactLevel: PublicRegulatorySignal['impact_level'] =
-    impact === 'critical' ? 'critical'
-    : impact === 'high'   ? 'high'
-    : impact === 'medium' ? 'moderate'
-    : impact === 'moderate' ? 'moderate'
+    score >= 75 ? 'critical'
+    : score >= 60 ? 'high'
+    : score >= 40 ? 'moderate'
     : 'low'
+
+  const tierStr = typeof r.tier === 'string' ? r.tier.toLowerCase() : ''
+  const sourceTier: PublicRegulatorySignal['source_tier'] =
+    tierStr.includes('1') ? 'tier_1_official'
+    : tierStr.includes('2') ? 'tier_2_professional'
+    : 'tier_3_secondary'
 
   return {
     id,
@@ -56,11 +60,13 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
     jurisdiction: '',
     regulator_name: typeof r.source === 'string' ? r.source : '',
     signal_date: dateStr,
-    source_tier: 'tier_2_professional',
+    source_tier: sourceTier,
     source_type: 'specialist_publication' as const,
     canonical_source_url: typeof r.url === 'string' ? r.url : null,
     public_summary: typeof r.summary === 'string' ? r.summary : 'No summary available.',
-    public_implication: 'Review this signal for commercial relevance to your jurisdiction.',
+    public_implication: typeof r.commercial_impact === 'string' && r.commercial_impact
+      ? r.commercial_impact
+      : 'Review this signal for commercial relevance to your jurisdiction.',
     published_at: dateStr,
     last_reviewed_at: dateStr,
   }

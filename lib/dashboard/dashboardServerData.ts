@@ -18,6 +18,23 @@ function stripHtml(raw: string): string {
     .replace(/\s{2,}/g, ' ').trim().slice(0, 180)
 }
 
+// ── Country name → flag emoji ──────────────────────────────────────────────────
+const COUNTRY_FLAGS: Record<string, string> = {
+  'Mexico': '🇲🇽', 'Germany': '🇩🇪', 'United Kingdom': '🇬🇧', 'Netherlands': '🇳🇱',
+  'Brazil': '🇧🇷', 'Colombia': '🇨🇴', 'Thailand': '🇹🇭', 'Australia': '🇦🇺',
+  'South Africa': '🇿🇦', 'Romania': '🇷🇴', 'Bulgaria': '🇧🇬', 'Israel': '🇮🇱',
+  'Morocco': '🇲🇦', 'United States': '🇺🇸', 'USA': '🇺🇸', 'Canada': '🇨🇦',
+  'European Union': '🇪🇺', 'Portugal': '🇵🇹', 'Switzerland': '🇨🇭', 'New Zealand': '🇳🇿',
+  'Lesotho': '🇱🇸', 'Trinidad and Tobago': '🇹🇹', 'Ghana': '🇬🇭', 'Malta': '🇲🇹',
+  'North Macedonia': '🇲🇰', 'Poland': '🇵🇱', 'Jamaica': '🇯🇲', 'Kenya': '🇰🇪',
+  'Caribbean': '🌴', 'Global': '🌐',
+}
+
+function flagFor(market: string | null | undefined): string {
+  if (!market) return '🌐'
+  return COUNTRY_FLAGS[market] ?? '🌐'
+}
+
 // ── Signal tag display mapping ────────────────────────────────────────────────
 export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   regulatory_change:        { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
@@ -59,12 +76,6 @@ function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
   }
 }
 
-function impactToCommercial(lvl: PublicRegulatorySignal['impact_level']): string {
-  if (lvl === 'critical' || lvl === 'high') return 'high'
-  if (lvl === 'moderate')                   return 'medium'
-  return 'low'
-}
-
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const h = Math.floor(diff / 3_600_000)
@@ -79,15 +90,18 @@ function timeAgo(dateStr: string): string {
 function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
   const tagKey = REG_TYPE_TO_TAG[s.signal_type] ?? 'regulatory_change'
   const tag    = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
+  const market = s.country_name ?? s.region ?? ''
   return {
     id:               s.id,
     title:            stripHtml(s.headline),
     type:             tagKey,
-    market:           s.country_name ?? s.region ?? '',
+    market,
     tag,
     timeAgo:          timeAgo(s.published_at ?? s.signal_date),
     confidence:       confidenceToScore(s.confidence),
-    commercialImpact: impactToCommercial(s.impact_level),
+    commercialImpact: s.public_implication,
+    sourceLabel:      s.regulator_name || 'Harbourview Intelligence',
+    flag:             flagFor(market),
   }
 }
 
@@ -107,6 +121,8 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
       timeAgo: timeAgo(s.detectedAt),
       confidence: s.confidence,
       commercialImpact: s.commercialImpact,
+      sourceLabel: 'Harbourview Intelligence',
+      flag: flagFor(s.market),
     }))
 }
 
