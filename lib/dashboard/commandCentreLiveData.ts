@@ -100,7 +100,7 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
     candidatesResult,
   ] = await Promise.all([
     // Signal + listing aggregate stats
-    supabase.rpc('get_command_centre_stats').maybeSingle().catch(() => ({ data: null, error: null })),
+    Promise.resolve(supabase.rpc('get_command_centre_stats').maybeSingle()).catch(() => ({ data: null, error: null })),
 
     // Admin dashboard counts view
     supabase
@@ -177,7 +177,8 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
   const uniqueListingCountries = new Set((listingCountries ?? []).map((r) => r.location_country)).size
 
   // ── Source health
-  const sources = sourceHealthResult.data ?? []
+  type SourceRow = { is_active: boolean | null; last_checked_at: string | null }
+  const sources = (sourceHealthResult.data ?? []) as SourceRow[]
   const now = Date.now()
   const activeSources = sources.filter((s) => s.is_active).length
   const inactiveSources = sources.filter((s) => !s.is_active).length
