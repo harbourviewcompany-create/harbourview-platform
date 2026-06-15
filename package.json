@@ -12,14 +12,12 @@
   "dependencies": {
     "next": "15.0.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-compiler-runtime": "latest"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "babel-plugin-react-compiler": "latest",
     "eslint": "^8",
     "eslint-config-next": "15.0.4",
     "postcss": "^8",
