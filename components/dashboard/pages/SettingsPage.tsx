@@ -1,11 +1,14 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export interface SettingsPageProps {
-  country: { iso2: string; label: string }
-  region:  string
-  role:    string
+  country:    { iso2: string; label: string }
+  region:     string
+  role:       string
+  userEmail?: string | null
 }
 
 type NotifPref = { id: string; label: string; desc: string; enabled: boolean }
@@ -31,10 +34,18 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 }
 
 export const SettingsPage = React.memo(function SettingsPage({
-  country, role,
+  country, role, userEmail,
 }: SettingsPageProps) {
+  const router = useRouter()
   const [prefs, setPrefs] = useState<NotifPref[]>(DEFAULT_PREFS)
   const [saved, setSaved] = useState(false)
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
+  }
 
   function togglePref(id: string, val: boolean) {
     setPrefs(prev => prev.map(p => p.id === id ? { ...p, enabled: val } : p))
@@ -85,6 +96,12 @@ export const SettingsPage = React.memo(function SettingsPage({
 
           <div className="sg-section-head sg-section-head--spaced">SESSION</div>
           <div className="sg-context-card">
+            {userEmail && (
+              <div className="sg-ctx-row">
+                <span className="sg-ctx-label">Account</span>
+                <span className="sg-ctx-val sg-ctx-mono" style={{fontSize:'11px'}}>{userEmail}</span>
+              </div>
+            )}
             <div className="sg-ctx-row">
               <span className="sg-ctx-label">Session type</span>
               <span className="sg-ctx-val">Authenticated</span>
@@ -127,6 +144,14 @@ export const SettingsPage = React.memo(function SettingsPage({
               </div>
               <div className="sg-action-arrow">→</div>
             </a>
+            <button type="button" onClick={handleSignOut} className="sg-action-row" style={{width:'100%',textAlign:'left',background:'none',border:'none',cursor:'pointer'}}>
+              <div className="sg-action-icon" style={{color:'rgba(220,80,80,.7)'}}>⊗</div>
+              <div>
+                <div className="sg-action-label" style={{color:'rgba(220,80,80,.85)'}}>Sign Out</div>
+                <div className="sg-action-desc">End your current session</div>
+              </div>
+              <div className="sg-action-arrow">→</div>
+            </button>
           </div>
         </div>
 
