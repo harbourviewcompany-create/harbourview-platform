@@ -136,12 +136,14 @@ const BriefingRoom = React.memo(function BriefingRoom({
   countryIntel,
   signals,
   onCountrySelect,
+  onPage,
 }: {
   country:          { iso2: string; label: string }
   region:           string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
   onCountrySelect?: (iso2: string) => void
+  onPage?:          (p: CommandPage) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
   const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
@@ -193,7 +195,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
           ))}
         </div>
 
-        <button className="cc-jx-btn">View Full Jurisdiction Profile →</button>
+        <button className="cc-jx-btn" onClick={() => onPage?.('access-pathway')}>View Full Jurisdiction Profile →</button>
       </aside>
 
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
@@ -301,7 +303,14 @@ const BriefingRoom = React.memo(function BriefingRoom({
                   <strong>{r.label}</strong>
                   <small>{r.status}</small>
                 </div>
-                <button className="cc-watch-region-btn">View</button>
+                <button
+                  className="cc-watch-region-btn"
+                  onClick={() => {
+                    const found = COUNTRIES.find(c => c.label === r.label)
+                    if (found && onCountrySelect) { onCountrySelect(found.iso2) }
+                    else { onPage?.('signals') }
+                  }}
+                >View</button>
               </div>
             ))}
           </div>
@@ -2936,28 +2945,6 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   )
 })
 
-// ── Placeholder pages (scaffolded, real content in next passes) ───────────────
-
-const ScaffoldPage = React.memo(function ScaffoldPage({
-  title, country, region, role,
-}: {
-  title: string
-  country: { label: string }
-  region: string
-  role: string
-}) {
-  return (
-    <div className="cc-page cc-scaffold">
-      <div className="cc-scaffold-inner">
-        <div className="cc-scaffold-icon">◎</div>
-        <h2>{title}</h2>
-        <p>{country.label}{region ? ` · ${region}` : ''} · {role || 'All roles'}</p>
-        <div className="cc-scaffold-note">Full page implementation in progress</div>
-      </div>
-    </div>
-  )
-})
-
 // ── Command palette ───────────────────────────────────────────────────────────
 
 type CmdItem = { id: string; group: string; label: string; sub?: string; icon?: string; action: () => void }
@@ -3176,7 +3163,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} onPage={setActivePage} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} />
       case 'marketplace':
