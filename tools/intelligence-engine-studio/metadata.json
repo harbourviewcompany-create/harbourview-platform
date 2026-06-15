@@ -1,0 +1,6 @@
+{
+  "name": "HarbourView Platform",
+  "description": "HarbourView B2B cannabis intelligence & marketplace platform",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

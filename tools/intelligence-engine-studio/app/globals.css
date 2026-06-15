@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --font-playfair: var(--font-playfair), serif;
+  --font-sans: var(--font-dm-sans), sans-serif;
+
+  --color-hv-navy: #0B1A2F;
+  --color-hv-navy-dark: #0B1929;
+  --color-hv-gold: #C6A55A;
+  --color-hv-gold-light: #C9A84C;
+  --color-hv-offwhite: #F5F1E8;
+}
