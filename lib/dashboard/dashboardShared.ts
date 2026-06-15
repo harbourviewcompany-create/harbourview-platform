@@ -15,7 +15,7 @@ export type DashboardSignal = {
   confidence: number
   commercialImpact: string
   sourceLabel: string    // source attribution (regulator name or 'Harbourview Intelligence')
-  flag: string           // country flag emoji for signal origin display
+  flag?: string          // country flag emoji; optional — not all signal sources supply it
 }
 
 export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {
