@@ -19,6 +19,12 @@ export type MarketplaceCategoryKey =
   | 'wanted_requests'
   | 'qualified_access'
   | 'education'
+  // Vision-plan additions
+  | 'licensing_opportunities'
+  | 'real_estate_facilities'
+  | 'technology_software'
+  | 'investment_opportunities'
+  | 'research_assets'
 
 export type MarketplaceSection =
   | 'supply'
@@ -47,6 +53,12 @@ export type MarketplaceListingTypeKey =
   | 'genetics_program'
   | 'qualified_access_request'
   | 'education_resource'
+  // Vision-plan additions
+  | 'licensing_opportunity'
+  | 'real_estate_facility'
+  | 'technology_software'
+  | 'investment_opportunity'
+  | 'research_asset'
 
 export type MarketplaceRecordType =
   | 'equipment'
