@@ -17,11 +17,10 @@ const nextConfig: NextConfig = {
       },
     ],
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60 * 60 * 24,
+    minimumCacheTTL: 60 * 60 * 24, // 24h image cache
   },
   poweredByHeader: false,
   compress: true,
-  output: 'standalone',
 }
 
 export default nextConfig
