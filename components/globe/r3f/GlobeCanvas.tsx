@@ -138,7 +138,7 @@ export function GlobeCanvas({
           // Exposure pulled to 0.78 so ACES knee compresses specular peaks
           // before they clip to white — highlights feel surface-driven, not pasted.
           state.gl.toneMapping = ACESFilmicToneMapping
-          state.gl.toneMappingExposure = 0.68
+          state.gl.toneMappingExposure = 0.60
           // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
@@ -149,8 +149,8 @@ export function GlobeCanvas({
         {/* Metallic plate lighting: low ambient to avoid flat gold, a champagne key
             pulled to 1.55 (was 2.35) so ACES compression kills white-blob specular,
             soft bronze/cool rim fills for reflective falloff. */}
-        <ambientLight intensity={0.20} color="#f4dfad" />
-        <directionalLight position={[5.5, 3.8, 4.2]} intensity={1.35} color="#fff3c4" />
+        <ambientLight intensity={0.13} color="#f4dfad" />
+        <directionalLight position={[5.5, 3.8, 4.2]} intensity={0.92} color="#fff3c4" />
         <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.48} color="#c99f4a" />
         <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.24} color="#8fa7c8" />
         <hemisphereLight args={['#243b5e', '#080409', 0.44]} />
