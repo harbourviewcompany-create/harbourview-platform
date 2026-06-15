@@ -9,6 +9,7 @@ export const HV_PUBLIC_DTO_ALLOWLISTS = {
 } as const;
 
 export const HV_FORBIDDEN_PUBLIC_DTO_FIELDS = [
+  // Generic private / internal field names
   'private_notes',
   'notes_private',
   'summary_private',
@@ -20,13 +21,48 @@ export const HV_FORBIDDEN_PUBLIC_DTO_FIELDS = [
   'operator_comments',
   'review_notes_private',
   'internal_score',
+  'internal_notes',
+  'internal_quality_score',
+  // Reviewer / model provenance — never in public responses
+  'reviewer_id',
+  'model_id',
+  'prompt_version',
+  'raw_signal_text',
+  'raw_evidence_text',
+  'evidence_notes_private',
+  // Commercial / contact details
+  'price_internal',
+  'price_details',
+  'contact_email',
+  'contact_phone',
+  'contact_name',
+  'fetch_method',
+  'fetch_credentials_ref',
+  // AI scoring fields — never expose raw scores
+  'confidence_score',
+  'deal_readiness_score',
+  'recall_exposure_flag',
+  // Passport-level fields — hard FORBIDDEN per DTO allowlist spec
+  'payment_readiness_signals',
+  'completeness_score',
+  'licence_number',
+  'storage_path',
+  'file_hash',
+  'verified_by',
+  'flags',
 ] as const;
 
 export type HvPublicDtoName = keyof typeof HV_PUBLIC_DTO_ALLOWLISTS;
 
-export function assertPublicDtoAllowlist(dtoName: HvPublicDtoName, fields: readonly string[]): boolean {
-  const allowlist = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS[dtoName]);
-  return fields.every((field) => allowlist.has(field) && !HV_FORBIDDEN_PUBLIC_DTO_FIELDS.includes(field as never));
+export function assertPublicDtoAllowlist(dtoName: HvPublicDtoName, fields: readonly string[]): void {
+  const allowlist  = new Set<string>(HV_PUBLIC_DTO_ALLOWLISTS[dtoName]);
+  const forbidden  = new Set<string>(HV_FORBIDDEN_PUBLIC_DTO_FIELDS);
+  const violations = fields.filter((f) => !allowlist.has(f) || forbidden.has(f));
+  if (violations.length > 0) {
+    throw new Error(
+      `Public DTO allowlist violation for '${dtoName}': [${violations.join(', ')}]`,
+    );
+  }
 }
 
 /** Throws if any key in `record` is a known forbidden public DTO field. */
@@ -41,11 +77,11 @@ export function assertNoForbiddenFields(record: Record<string, unknown>): void {
 
 /** Tables that contain passport-level data and must never have a public DTO. */
 export const HV_PASSPORT_TABLES_NO_PUBLIC_DTO = [
-  'hv_cultivar_passports',
-  'hv_genetic_lineage',
-  'hv_terpene_profiles',
-  'hv_lab_certificates',
-  'hv_claim_evidence',
+  'hv_passports',
+  'hv_passport_scores',
+  'hv_licences',
+  'hv_evidence_documents',
+  'hv_claims',
   'hv_claim_reviews',
   'hv_admin_review_queue',
 ] as const
