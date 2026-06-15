@@ -39,7 +39,7 @@ export function resolveCountryMaterialState({
     // dark gold, not black. Lower than before so lighting contrast (not uniform
     // self-glow) creates the 3D depth.
     emissive: '#7c691f',
-    emissiveIntensity: 0.22,
+    emissiveIntensity: 0.13,
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.
@@ -54,7 +54,7 @@ export function resolveCountryMaterialState({
 
   if (layerId === 'opportunity_heat') {
     base.emissive = '#8f7628'
-    base.emissiveIntensity = 0.18
+    base.emissiveIntensity = 0.12
   }
 
   if (layerId === 'documentation_burden') {
@@ -71,7 +71,7 @@ export function resolveCountryMaterialState({
         // Focused border: bright crisp gold edge-lift — precise, not blobby
         borderColor: hvTokens.globe.borderMutedGoldSoft,
         emissive: '#9a7c12',
-        emissiveIntensity: 0.28,
+        emissiveIntensity: 0.20,
         roughness: 0.24,
         metalness: 0.92,
         clearcoat: 0.62,
@@ -86,7 +86,7 @@ export function resolveCountryMaterialState({
         // Selected border: maximum brightness to feel locked/activated
         borderColor: '#f4e18e',
         emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.30,
+        emissiveIntensity: 0.22,
         roughness: 0.18,
         metalness: 0.96,
         clearcoat: 0.78,
@@ -98,7 +98,7 @@ export function resolveCountryMaterialState({
         plateBase: '#d9bd6c',
         borderColor: hvTokens.globe.borderMutedGoldSoft,
         emissive: '#d8c16e',
-        emissiveIntensity: 0.28,
+        emissiveIntensity: 0.20,
         roughness: 0.25,
         metalness: 0.9,
         clearcoat: 0.58,
