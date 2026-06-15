@@ -5,11 +5,10 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const MAX_IMAGES = 5
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const IMAGE_BUCKET = 'marketplace-item-originals'
 
-// Fields pulled from FormData into top-level candidate columns; everything else → private_specs
 const RESERVED_KEYS = new Set([
   'title', 'message', 'category_key', 'listing_type_key', 'listing_type',
   'country', 'price_or_budget', 'listing_headline', 'target_markets',
@@ -19,9 +18,7 @@ const RESERVED_KEYS = new Set([
 export async function POST(req: NextRequest) {
   // ── 1. Auth ────────────────────────────────────────────────────────────────
   const user = await getAuthenticatedUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // ── 2. Parse FormData ──────────────────────────────────────────────────────
   let form: FormData
@@ -31,19 +28,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
   }
 
-  // Honeypot check
+  // Honeypot
   if ((form.get('hp_field') as string | null)?.trim()) {
     return NextResponse.json({ status: 'success', message: 'Submission received.' })
   }
 
-  // ── 3. Extract required fields ─────────────────────────────────────────────
-  const title = (form.get('title') as string | null)?.trim() ?? ''
-  const description = (form.get('message') as string | null)?.trim() ?? ''
-  const categoryKey = (form.get('category_key') as string | null)?.trim() ?? ''
-  const listingTypeKey = (form.get('listing_type_key') as string | null)?.trim() ?? null
-  const listingTypeLabel = (form.get('listing_type') as string | null)?.trim() ?? null
-  const country = (form.get('country') as string | null)?.trim() || null
-  const priceOrBudget = (form.get('price_or_budget') as string | null)?.trim() || null
+  // ── 3. Extract fields ──────────────────────────────────────────────────────
+  // Real column names: marketplace_category, candidate_type, listing_type, price_raw, raw_payload
+  const title        = (form.get('title')           as string | null)?.trim() ?? ''
+  const description  = (form.get('message')         as string | null)?.trim() ?? ''
+  const categoryKey  = (form.get('category_key')    as string | null)?.trim() ?? ''
+  const typeKey      = (form.get('listing_type_key') as string | null)?.trim() ?? ''
+  const typeLabel    = (form.get('listing_type')     as string | null)?.trim() ?? ''
+  const country      = (form.get('country')          as string | null)?.trim() || null
+  const priceRaw     = (form.get('price_or_budget')  as string | null)?.trim() || null
 
   if (title.length < 3) {
     return NextResponse.json({ error: 'Title is required (min 3 characters)' }, { status: 400 })
@@ -52,45 +50,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Category is required' }, { status: 400 })
   }
 
-  // ── 4. Collect extra fields into private_specs ─────────────────────────────
-  const privateSpecs: Record<string, string> = {}
+  // ── 4. Collect extra structured fields into raw_payload ────────────────────
+  const rawPayload: Record<string, string> = {}
   for (const [key, value] of form.entries()) {
-    if (
-      !RESERVED_KEYS.has(key) &&
-      typeof value === 'string' &&
-      value.trim()
-    ) {
-      privateSpecs[key] = value.trim()
+    if (!RESERVED_KEYS.has(key) && typeof value === 'string' && value.trim()) {
+      rawPayload[key] = value.trim()
     }
   }
-  if (description) privateSpecs.description = description
-  if (priceOrBudget) privateSpecs.price_or_budget = priceOrBudget
-  if (listingTypeLabel) privateSpecs.listing_type = listingTypeLabel
+  if (description)  rawPayload.description   = description
+  if (priceRaw)     rawPayload.price_or_budget = priceRaw
 
-  // ── 5. Insert marketplace_candidates row ──────────────────────────────────
+  // ── 5. Insert row ──────────────────────────────────────────────────────────
   const svc = await createSupabaseServiceClient()
 
   const { data: candidate, error: insertErr } = await svc
     .from('marketplace_candidates')
     .insert({
-      title_public_draft: title,
-      category_key: categoryKey,
-      listing_type_key: listingTypeKey ?? null,
-      country: country ?? null,
-      submitted_by: user.id,
-      submission_source: 'self_serve',
-      status: 'needs_review',
-      publication_status: 'not_publishable',
-      verification_status: 'unverified',
-      seller_authorization_status: 'unknown',
-      monetization_path: 'manual_review',
-      discovered_at: new Date().toISOString(),
-      private_specs: privateSpecs,
-      high_level_specs: {},
-      public_payload: { category: categoryKey, country: country ?? null },
-      required_documents: [],
-      asking_price_text: priceOrBudget ?? null,
-      submission_images: [],
+      // Core columns (matching actual schema)
+      candidate_type:       typeKey || 'unknown',
+      marketplace_category: categoryKey,
+      listing_type:         typeLabel || null,
+      title_public_draft:   title,
+      description_internal: description || null,
+      country:              country,
+      price_raw:            priceRaw,
+      status:               'needs_review',
+      seller_type:          'self_serve',
+      // Self-serve tracking columns (added by migration)
+      submitted_by:         user.id,
+      submission_source:    'self_serve',
+      submission_images:    [],
+      // Structured extras in raw_payload
+      raw_payload:          rawPayload,
+      discovered_at:        new Date().toISOString(),
     })
     .select('id')
     .single()
@@ -105,7 +97,7 @@ export async function POST(req: NextRequest) {
 
   const candidateId = candidate.id as string
 
-  // ── 6. Handle image uploads ────────────────────────────────────────────────
+  // ── 6. Image uploads ───────────────────────────────────────────────────────
   const imageEntries = form.getAll('images')
   const imageFiles = imageEntries
     .filter((e): e is File => e instanceof File && e.size > 0)
@@ -116,23 +108,16 @@ export async function POST(req: NextRequest) {
   for (const file of imageFiles) {
     if (!ALLOWED_MIME.has(file.type)) continue
     if (file.size > MAX_IMAGE_BYTES) continue
-
     const ext = file.type.split('/')[1] ?? 'jpg'
     const storagePath = `submissions/${candidateId}/original/${crypto.randomUUID()}.${ext}`
     const buffer = await file.arrayBuffer()
-
     const { error: uploadErr } = await svc.storage
       .from(IMAGE_BUCKET)
       .upload(storagePath, buffer, { contentType: file.type, upsert: false })
-
-    if (!uploadErr) {
-      imagePaths.push(storagePath)
-    } else {
-      console.error('[marketplace/submit] image upload error', uploadErr)
-    }
+    if (!uploadErr) imagePaths.push(storagePath)
+    else console.error('[marketplace/submit] image upload error', uploadErr)
   }
 
-  // ── 7. Persist image paths ─────────────────────────────────────────────────
   if (imagePaths.length > 0) {
     await svc
       .from('marketplace_candidates')
