@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -268,7 +269,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               ))}
             </div>
           </div>
-          <a href="/source-methodology" className="cc-right-link">Confidence methodology →</a>
+          <Link href="/source-methodology" className="cc-right-link">Confidence methodology →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -303,7 +304,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               </div>
             ))}
           </div>
-          <a href="/signals/countries" className="cc-right-link">View all jurisdictions →</a>
+          <Link href="/signals/countries" className="cc-right-link">View all jurisdictions →</Link>
         </div>
 
         {recentChanges.length > 0 && (
@@ -321,7 +322,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
                 </div>
               ))}
             </div>
-            <a href="/signals" className="cc-right-link">View all change activity →</a>
+            <Link href="/signals" className="cc-right-link">View all change activity →</Link>
           </div>
         )}
       </aside>
@@ -527,8 +528,8 @@ const SignalsPage = React.memo(function SignalsPage({
                       <span>{s.timeAgo}</span>
                     </div>
                     <div className="cc-sig-acts">
-                      <a href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</a>
-                      <a href="/signals" className="cc-sig-watch">↗ Add to watchlist</a>
+                      <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
+                      <Link href="/signals" className="cc-sig-watch">↗ Add to watchlist</Link>
                     </div>
                   </div>
                 )
@@ -563,7 +564,7 @@ const SignalsPage = React.memo(function SignalsPage({
               <button className="cc-apply-btn">Apply</button>
             </div>
           ))}
-          <a href="/signals" className="cc-right-link">Manage saved filters →</a>
+          <Link href="/signals" className="cc-right-link">Manage saved filters →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -574,13 +575,13 @@ const SignalsPage = React.memo(function SignalsPage({
               <span className="cc-topic-count">{t.n}</span>
             </div>
           ))}
-          <a href="/signals" className="cc-right-link">View all topics →</a>
+          <Link href="/signals" className="cc-right-link">View all topics →</Link>
         </div>
 
         <div className="cc-right-section">
           <div className="cc-right-head">SIGNAL METHODOLOGY</div>
           <p className="cc-right-prose">Signals are sourced from regulatory releases, market data, trade intelligence, and verified industry sources. Each signal is scored for impact and confidence based on source credibility and recency.</p>
-          <a href="/source-methodology" className="cc-right-link">Learn more about our methodology →</a>
+          <Link href="/source-methodology" className="cc-right-link">Learn more about our methodology →</Link>
         </div>
 
         {nextBest && (
@@ -588,7 +589,7 @@ const SignalsPage = React.memo(function SignalsPage({
             <div className="cc-right-head">NEXT BEST ACTION</div>
             <p className="cc-right-prose">{nextBest.title.length > 90 ? nextBest.title.slice(0,90)+'…' : nextBest.title}</p>
             <button className="cc-nba-btn">Open Signal Brief ↗</button>
-            <a href="/signals" className="cc-right-link">View all recommended actions →</a>
+            <Link href="/signals" className="cc-right-link">View all recommended actions →</Link>
           </div>
         )}
       </aside>
@@ -810,7 +811,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View all requirements →</a>
+          <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View all requirements →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -824,7 +825,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <a href="/compliance" className="cc-right-link">Address gaps →</a>
+          <Link href="/compliance" className="cc-right-link">Address gaps →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -838,7 +839,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <a href="/marketplace/reviewed-connections" className="cc-right-link">View counterparty profile →</a>
+          <Link href="/marketplace/reviewed-connections" className="cc-right-link">View counterparty profile →</Link>
         </div>
       </aside>
     </div>
@@ -993,7 +994,7 @@ const EducationPage = React.memo(function EducationPage({
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
         <div className="cc-right-section">
-          <div className="cc-right-head">RELATED EVIDENCE <a href="/education" className="cc-right-link ml-auto">View all →</a></div>
+          <div className="cc-right-head">RELATED EVIDENCE <Link href="/education" className="cc-right-link ml-auto">View all →</Link></div>
           {REL_EVIDENCE.map(e => (
             <div key={e.title} className="cc-edu-ev-row">
               <span className="cc-edu-ev-icon">⊟</span>
@@ -1006,11 +1007,11 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
           ))}
-          <a href="/intelligence/source-engine" className="cc-right-link">Go to Evidence &amp; Sources →</a>
+          <Link href="/intelligence/source-engine" className="cc-right-link">Go to Evidence &amp; Sources →</Link>
         </div>
 
         <div className="cc-right-section">
-          <div className="cc-right-head">RECENTLY UPDATED MODULES <a href="/education" className="cc-right-link ml-auto">View all →</a></div>
+          <div className="cc-right-head">RECENTLY UPDATED MODULES <Link href="/education" className="cc-right-link ml-auto">View all →</Link></div>
           {RECENT_UPDATES.map(u => (
             <div key={u.title} className="cc-edu-ev-row">
               <span className="cc-edu-ev-icon">⊟</span>
@@ -1035,7 +1036,7 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
             <button className="cc-nba-btn full">Continue module →</button>
-            <a href="/education" className="cc-right-link">View module details →</a>
+            <Link href="/education" className="cc-right-link">View module details →</Link>
           </div>
         )}
 
@@ -1278,7 +1279,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
                 ))}
               </div>
             </div>
-            <a href="/signals" className="cc-right-link">View change brief →</a>
+            <Link href="/signals" className="cc-right-link">View change brief →</Link>
           </div>
 
           <div className="cc-rw-card">
@@ -1352,7 +1353,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
                   <div className="cc-rw-cell"><span className="cc-affects-yes">✓ Yes</span></div>
                   <div className="cc-rw-cell"><span className="cc-source-badge">Official Source</span></div>
                   <div className="cc-rw-cell">
-                    <a href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</a>
+                    <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
                   </div>
                 </div>
               )
@@ -1361,7 +1362,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
         </div>
 
         <div className="cc-feed-footer">
-          <a href="/signals" className="cc-right-link">View all events →</a>
+          <Link href="/signals" className="cc-right-link">View all events →</Link>
         </div>
       </div>
 
@@ -1375,7 +1376,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-trigger-dot ${t.on ? 'on' : ''}`}>●</span>
             </div>
           ))}
-          <a href="/signals" className="cc-right-link">Manage triggers →</a>
+          <Link href="/signals" className="cc-right-link">Manage triggers →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -1387,7 +1388,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-comp-dot ${j.active ? 'active' : ''}`}>●</span>
             </div>
           ))}
-          <a href="/signals/countries" className="cc-right-link">View comparisons →</a>
+          <Link href="/signals/countries" className="cc-right-link">View comparisons →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -1398,7 +1399,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span>{q}</span>
             </div>
           ))}
-          <a href="/intelligence" className="cc-right-link">View all questions →</a>
+          <Link href="/intelligence" className="cc-right-link">View all questions →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -1409,7 +1410,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-gap-badge ${g.level}`}>{g.level === 'high' ? 'High Gap' : 'Medium Gap'}</span>
             </div>
           ))}
-          <a href="/intelligence/source-engine" className="cc-right-link">Improve coverage →</a>
+          <Link href="/intelligence/source-engine" className="cc-right-link">Improve coverage →</Link>
         </div>
       </aside>
     </div>
@@ -1665,7 +1666,7 @@ const SettingsPage = React.memo(function SettingsPage({
               <span className={`cc-preset-type ${p.type.toLowerCase()}`}>{p.type}</span>
             </div>
           ))}
-          <a href="/signals" className="cc-right-link">View all saved views →</a>
+          <Link href="/signals" className="cc-right-link">View all saved views →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -1891,7 +1892,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               ))}
             </div>
-            <a href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'10px',display:'inline-block'}}>View full state brief →</a>
+            <Link href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'10px',display:'inline-block'}}>View full state brief →</Link>
           </div>
 
           {/* Authorities org chart */}
@@ -1937,7 +1938,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
 
             <div className="cc-li-auth-footer">
               <small>Hover or select for details</small>
-              <a href="/intelligence" className="cc-right-link">Explore authorities →</a>
+              <Link href="/intelligence" className="cc-right-link">Explore authorities →</Link>
             </div>
           </div>
         </div>
@@ -1960,7 +1961,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </span>
               </div>
             ))}
-            <a href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all municipalities →</a>
+            <Link href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all municipalities →</Link>
           </div>
 
           {/* Local Access Constraints */}
@@ -1975,7 +1976,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               </div>
             ))}
-            <a href="/compliance" className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View constraint detail →</a>
+            <Link href="/compliance" className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View constraint detail →</Link>
           </div>
 
           {/* Local Commercial Routes */}
@@ -1990,7 +1991,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               </div>
             ))}
-            <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View routing guidance →</a>
+            <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View routing guidance →</Link>
           </div>
 
           {/* Evidence Gaps */}
@@ -2002,7 +2003,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 <p>{q}</p>
               </div>
             ))}
-            <a href="/intelligence/request" className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>Submit intel request →</a>
+            <Link href="/intelligence/request" className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>Submit intel request →</Link>
           </div>
         </div>
 
@@ -2022,7 +2023,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               <button className="cc-apply-btn" style={{flexShrink:0}}>View</button>
             </div>
           ))}
-          <a href="/intelligence" className="cc-right-link">View all authorities →</a>
+          <Link href="/intelligence" className="cc-right-link">View all authorities →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -2039,7 +2040,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               </div>
             </div>
           ))}
-          <a href="/intelligence/source-engine" className="cc-right-link">View coverage map →</a>
+          <Link href="/intelligence/source-engine" className="cc-right-link">View coverage map →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -2050,7 +2051,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               <span>{q}</span>
             </div>
           ))}
-          <a href="/intelligence" className="cc-right-link">View all questions →</a>
+          <Link href="/intelligence" className="cc-right-link">View all questions →</Link>
         </div>
 
         {nextBest && (
@@ -2060,7 +2061,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               Engage local planning authorities to confirm current zoning status for {country.label}{region ? ` · ${region}` : ''}.
             </p>
             <button className="cc-nba-btn full" style={{marginTop:'8px'}}>Create Action</button>
-            <a href="/signals" className="cc-right-link" style={{marginTop:'6px',display:'inline-block'}}>View Suggested Actions →</a>
+            <Link href="/signals" className="cc-right-link" style={{marginTop:'6px',display:'inline-block'}}>View Suggested Actions →</Link>
           </div>
         )}
       </aside>
@@ -2189,7 +2190,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                 <p className="cc-right-prose">
                   {currentStep.description ?? `Complete all required evidence for step ${currentStep.step_number} to advance your pathway.`}
                 </p>
-                <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View {country.label} requirements →</a>
+                <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View {country.label} requirements →</Link>
 
                 <div className="cc-ap-status-card">
                   <div className="cc-ap-section-lbl">CURRENT STATUS</div>
@@ -2235,7 +2236,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                     )
                   })}
                 </div>
-                <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all requirements →</a>
+                <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all requirements →</Link>
               </div>
             </div>
 
@@ -2272,7 +2273,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               </div>
             )
           })}
-          <a href="/intelligence/source-engine" className="cc-right-link">View all documents →</a>
+          <Link href="/intelligence/source-engine" className="cc-right-link">View all documents →</Link>
         </div>
 
         {relSignals.length > 0 && (
@@ -2287,7 +2288,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                 </div>
               </div>
             ))}
-            <a href="/signals" className="cc-right-link">View all signals →</a>
+            <Link href="/signals" className="cc-right-link">View all signals →</Link>
           </div>
         )}
 
@@ -2315,7 +2316,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               ))}
             </div>
           </div>
-          <a href="/source-methodology" className="cc-right-link">Confidence methodology →</a>
+          <Link href="/source-methodology" className="cc-right-link">Confidence methodology →</Link>
         </div>
       </aside>
     </div>
@@ -2501,7 +2502,7 @@ const WatchlistPage = React.memo(function WatchlistPage({
         </div>
 
         <div className="cc-right-section">
-          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <a href="/education" className="cc-right-link ml-auto">View all →</a></div>
+          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <Link href="/education" className="cc-right-link ml-auto">View all →</Link></div>
           {recentActivity.length === 0
             ? <p className="cc-right-prose">No recent activity.</p>
             : recentActivity.map(item => (
@@ -2873,7 +2874,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               </div>
             </div>
           ))}
-          <a href="/intelligence/source-engine" className="cc-right-link">View all gaps →</a>
+          <Link href="/intelligence/source-engine" className="cc-right-link">View all gaps →</Link>
         </div>
 
         {reviewQueue.length > 0 && (
@@ -2888,14 +2889,14 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
                 </div>
               </div>
             ))}
-            <a href="/admin/regulatory-signals" className="cc-right-link">View review queue →</a>
+            <Link href="/admin/regulatory-signals" className="cc-right-link">View review queue →</Link>
           </div>
         )}
 
         <div className="cc-right-section">
           <div className="cc-right-head">CONFIDENCE METHODOLOGY</div>
           <p className="cc-right-prose">Weighted scoring across source authority, jurisdiction relevance, recency, and consistency.</p>
-          <a href="/source-methodology" className="cc-right-link">View methodology →</a>
+          <Link href="/source-methodology" className="cc-right-link">View methodology →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -2916,7 +2917,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               <span className="cc-conf-bar-pct">{row.n} ({row.pct}%)</span>
             </div>
           ))}
-          <a href="/intelligence/source-engine" className="cc-right-link">View freshness report →</a>
+          <Link href="/intelligence/source-engine" className="cc-right-link">View freshness report →</Link>
         </div>
 
         <div className="cc-right-section">
