@@ -128,7 +128,7 @@ async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
     const params = new URLSearchParams({
       select: 'id,slug,headline,signal_type,confidence,impact_level,country_code,country_name,region,jurisdiction,regulator_name,signal_date,source_tier,source_type,canonical_source_url,public_summary,public_implication,published_at,last_reviewed_at',
       order:  'published_at.desc',
-      limit:  '50',
+      limit:  '300',
     })
     const res = await fetch(`${url}/rest/v1/public_signals?${params}`, {
       headers: {
@@ -161,7 +161,7 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
       select: 'id,date,cat,headline,summary,score,country,commercial_impact,source,url,tier,created_at',
       reviewed: 'eq.true',
       order:    'date.desc',
-      limit:    '50',
+      limit:    '300',
     })
     const res = await fetch(`${url}/rest/v1/signals?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },

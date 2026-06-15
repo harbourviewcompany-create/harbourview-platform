@@ -94,6 +94,38 @@ function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
 
 export type { DashboardSignal } from './dashboardShared'
 
+// ── Round-robin signals across countries so the global feed reflects genuinely
+// global coverage rather than being dominated by whichever country has the
+// most ingested rows (and thus the most recent dates). Within each country,
+// original order (most-recent-first) is preserved.
+function diversifyByCountry<T>(rows: T[], limit: number, getCountry: (r: T) => string | null | undefined): T[] {
+  if (rows.length <= limit) return rows
+  const byCountry = new Map<string, T[]>()
+  for (const r of rows) {
+    const c = getCountry(r) ?? '__none__'
+    const list = byCountry.get(c)
+    if (list) list.push(r)
+    else byCountry.set(c, [r])
+  }
+  const result: T[] = []
+  let round = 0
+  while (result.length < limit) {
+    let added = false
+    for (const list of byCountry.values()) {
+      const item = list[round]
+      if (item) {
+        result.push(item)
+        added = true
+        if (result.length >= limit) break
+      }
+    }
+    if (!added) break
+    round++
+  }
+  return result
+}
+
+
 // ── Map AutomationSignal → DashboardSignal ────────────────────────────────────
 function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSignal[] {
   return signals
@@ -188,7 +220,7 @@ export async function fetchDashboardSignals(
         return prioritised.slice(0, limit).map(regulatoryToSignal)
       }
 
-      return all.slice(0, limit).map(regulatoryToSignal)
+      return diversifyByCountry(all, limit, s => s.country_name).map(regulatoryToSignal)
     }
   } catch { /* fall through */ }
 
