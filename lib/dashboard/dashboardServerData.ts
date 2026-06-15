@@ -18,6 +18,27 @@ function stripHtml(raw: string): string {
     .replace(/\s{2,}/g, ' ').trim().slice(0, 180)
 }
 
+// ── Country name → flag emoji ──────────────────────────────────────────────────
+const COUNTRY_FLAGS: Record<string, string> = {
+  'Mexico': '🇲🇽', 'Germany': '🇩🇪', 'United Kingdom': '🇬🇧', 'Netherlands': '🇳🇱',
+  'Brazil': '🇧🇷', 'Colombia': '🇨🇴', 'Thailand': '🇹🇭', 'Australia': '🇦🇺',
+  'South Africa': '🇿🇦', 'Romania': '🇷🇴', 'Bulgaria': '🇧🇬', 'Israel': '🇮🇱',
+  'Morocco': '🇲🇦', 'United States': '🇺🇸', 'USA': '🇺🇸', 'Canada': '🇨🇦',
+  'European Union': '🇪🇺', 'Portugal': '🇵🇹', 'Switzerland': '🇨🇭', 'New Zealand': '🇳🇿',
+  'Lesotho': '🇱🇸', 'Trinidad and Tobago': '🇹🇹', 'Ghana': '🇬🇭', 'Malta': '🇲🇹',
+  'North Macedonia': '🇲🇰', 'Poland': '🇵🇱', 'Jamaica': '🇯🇲', 'Kenya': '🇰🇪',
+  'France': '🇫🇷', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Denmark': '🇩🇰',
+  'Czechia': '🇨🇿', 'Czech Republic': '🇨🇿', 'Uruguay': '🇺🇾', 'Greece': '🇬🇷',
+  'Slovenia': '🇸🇮', 'Argentina': '🇦🇷', 'Peru': '🇵🇪', 'Chile': '🇨🇱',
+  'Belgium': '🇧🇪', 'Luxembourg': '🇱🇺', 'Zimbabwe': '🇿🇼',
+  'Caribbean': '🌴', 'Global': '🌐',
+}
+
+function flagFor(market: string | null | undefined): string {
+  if (!market) return '🌐'
+  return COUNTRY_FLAGS[market] ?? '🌐'
+}
+
 // ── Signal tag display mapping ────────────────────────────────────────────────
 export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   regulatory_change:        { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
@@ -59,12 +80,6 @@ function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
   }
 }
 
-function impactToCommercial(lvl: PublicRegulatorySignal['impact_level']): string {
-  if (lvl === 'critical' || lvl === 'high') return 'high'
-  if (lvl === 'moderate')                   return 'medium'
-  return 'low'
-}
-
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const h = Math.floor(diff / 3_600_000)
@@ -79,20 +94,55 @@ function timeAgo(dateStr: string): string {
 function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
   const tagKey = REG_TYPE_TO_TAG[s.signal_type] ?? 'regulatory_change'
   const tag    = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
+  const market = s.country_name ?? s.region ?? ''
   return {
     id:               s.id,
     slug:             s.slug,
     title:            stripHtml(s.headline),
     type:             tagKey,
-    market:           s.country_name ?? s.region ?? '',
+    market,
     tag,
     timeAgo:          timeAgo(s.published_at ?? s.signal_date),
     confidence:       confidenceToScore(s.confidence),
-    commercialImpact: impactToCommercial(s.impact_level),
+    commercialImpact: s.public_implication,
+    sourceLabel:      s.regulator_name || 'Harbourview Intelligence',
+    flag:             flagFor(market),
   }
 }
 
 export type { DashboardSignal } from './dashboardShared'
+
+// ── Round-robin signals across countries so the global feed reflects genuinely
+// global coverage rather than being dominated by whichever country has the
+// most ingested rows (and thus the most recent dates). Within each country,
+// original order (most-recent-first) is preserved.
+function diversifyByCountry<T>(rows: T[], limit: number, getCountry: (r: T) => string | null | undefined): T[] {
+  if (rows.length <= limit) return rows
+  const byCountry = new Map<string, T[]>()
+  for (const r of rows) {
+    const c = getCountry(r) ?? '__none__'
+    const list = byCountry.get(c)
+    if (list) list.push(r)
+    else byCountry.set(c, [r])
+  }
+  const result: T[] = []
+  let round = 0
+  while (result.length < limit) {
+    let added = false
+    for (const list of byCountry.values()) {
+      const item = list[round]
+      if (item) {
+        result.push(item)
+        added = true
+        if (result.length >= limit) break
+      }
+    }
+    if (!added) break
+    round++
+  }
+  return result
+}
+
 
 // ── Map AutomationSignal → DashboardSignal ────────────────────────────────────
 function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSignal[] {
@@ -109,6 +159,8 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
       timeAgo: timeAgo(s.detectedAt),
       confidence: s.confidence,
       commercialImpact: s.commercialImpact,
+      sourceLabel: 'Harbourview Intelligence',
+      flag: flagFor(s.market),
     }))
 }
 
@@ -132,11 +184,11 @@ const LANE_TO_TAG: Record<string, string> = {
   financial:    'facility_expansion',
 }
 
-function priToCommercial(pri: string | null): string {
+function priToCommercial(pri: string | null, lane: string, country: string): string {
   const p = (pri ?? '').toLowerCase()
-  if (p === 'urgent' || p === 'high') return 'high'
-  if (p === 'medium')                 return 'medium'
-  return 'low'
+  const urgency = p === 'urgent' ? 'Urgent' : p === 'high' ? 'High-priority' : p === 'medium' ? 'Medium-priority' : 'Monitoring-level'
+  const laneLabel = lane ? `${lane} signal` : 'signal'
+  return `${urgency} ${laneLabel}${country ? ` for ${country}` : ''} -- review for relevance to current operations and pathway status.`
 }
 
 // ── Map curated public.signals row → DashboardSignal ──────────────────────────
@@ -145,16 +197,19 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
   const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
   const tag     = laneKey in LANE_TO_TAG ? (SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change)
     : { label: 'INTEL', color: '#D9A441', bg: 'rgba(217,164,65,0.12)', border: 'rgba(217,164,65,0.28)' }
+  const market = s.country ?? ''
   return {
     id:               s.id,
     slug:             undefined,    // public.signals has no slug; route uses /signals feed
     title:            stripHtml(s.headline),
     type:             tagKey,
-    market:           s.country ?? '',
+    market,
     tag,
     timeAgo:          timeAgo(s.date ?? s.created_at),
     confidence:       typeof s.score === 'number' ? s.score : 50,
-    commercialImpact: priToCommercial(s.pri),
+    commercialImpact: priToCommercial(s.pri, laneKey, market),
+    sourceLabel:      'Harbourview Regulatory Watch',
+    flag:             flagFor(market),
   }
 }
 
@@ -188,7 +243,7 @@ export async function fetchDashboardSignals(
         return prioritised.slice(0, limit).map(regulatoryToSignal)
       }
 
-      return all.slice(0, limit).map(regulatoryToSignal)
+      return diversifyByCountry(all, limit, s => s.country_name).map(regulatoryToSignal)
     }
   } catch { /* fall through */ }
 
