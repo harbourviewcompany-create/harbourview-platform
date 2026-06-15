@@ -166,6 +166,7 @@ export default async function DashboardPage({
   const urlRole    = normalizeRoleParam(firstParam(params.role))
 
   let userId:           string | null = null
+  let userEmail:        string | null = null
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
 
@@ -174,6 +175,7 @@ export default async function DashboardPage({
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       userId = user.id
+      userEmail = user.email ?? null
       const { data: prefs } = await supabase
         .from('user_dashboard_preferences')
         .select('country_iso2, role_id')
@@ -226,6 +228,7 @@ export default async function DashboardPage({
       evidenceData={evidenceData}
       recentEduModules={recentEduModules}
       sourceCoverage={sourceCoverage}
+      userEmail={userEmail}
     />
   )
 }
