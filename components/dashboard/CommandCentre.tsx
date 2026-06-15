@@ -268,7 +268,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               ))}
             </div>
           </div>
-          <a href="#" className="cc-right-link">Confidence methodology →</a>
+          <a href="/source-methodology" className="cc-right-link">Confidence methodology →</a>
         </div>
 
         <div className="cc-right-section">
@@ -303,7 +303,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               </div>
             ))}
           </div>
-          <a href="#" className="cc-right-link">View all jurisdictions →</a>
+          <a href="/signals/countries" className="cc-right-link">View all jurisdictions →</a>
         </div>
 
         {recentChanges.length > 0 && (
@@ -321,7 +321,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
                 </div>
               ))}
             </div>
-            <a href="#" className="cc-right-link">View all change activity →</a>
+            <a href="/signals" className="cc-right-link">View all change activity →</a>
           </div>
         )}
       </aside>
@@ -449,28 +449,6 @@ const SignalsPage = React.memo(function SignalsPage({
     ]
   }, [signals])
 
-  const countriesTracked = useMemo(
-    () => new Set(signals.map(s => s.market).filter(Boolean)).size,
-    [signals],
-  )
-  const highImpactCount = useMemo(
-    () => signals.filter(s => deriveImpact(s.confidence) === 'High').length,
-    [signals],
-  )
-
-  const TOP_MARKETS = useMemo(() => {
-    const counts: Record<string, { flag: string; n: number }> = {}
-    signals.forEach(s => {
-      if (!s.market) return
-      counts[s.market] ??= { flag: s.flag, n: 0 }
-      counts[s.market]!.n++
-    })
-    return Object.entries(counts)
-      .sort((a, b) => b[1].n - a[1].n)
-      .slice(0, 6)
-      .map(([market, v]) => ({ market, ...v }))
-  }, [signals])
-
   return (
     <div className="cc-page cc-two-col-page">
       {/* ── Main feed ───────────────────────────────────────── */}
@@ -478,23 +456,6 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
-          <div className="cc-intel-stats">
-            <div className="cc-intel-stat">
-              <strong>{signals.length}</strong>
-              <span>signals tracked</span>
-            </div>
-            <div className="cc-intel-stat-div" />
-            <div className="cc-intel-stat">
-              <strong>{countriesTracked}</strong>
-              <span>countries / markets</span>
-            </div>
-            <div className="cc-intel-stat-div" />
-            <div className="cc-intel-stat">
-              <strong className="hot">{highImpactCount}</strong>
-              <span>high-impact this period</span>
-            </div>
-            <div className="cc-intel-live"><span className="cc-refresh-dot" />Live feed</div>
-          </div>
         </div>
 
         <div className="cc-filter-bar">
@@ -544,14 +505,11 @@ const SignalsPage = React.memo(function SignalsPage({
                     <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                     <div className="cc-sig-body">
                       <strong>{s.title}</strong>
-                      <small>
-                        <span className="cc-sig-flag">{s.flag}</span>
-                        {s.market}{region ? ` · ${region}` : ''} · {s.sourceLabel} · {s.timeAgo}
-                      </small>
+                      <small>{s.market}{region ? ` · ${region}` : ''} · {s.timeAgo}</small>
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>
-                      <span>{s.commercialImpact}</span>
+                      <span>Affects operations in {s.market}{region ? ` · ${region}` : ''}</span>
                     </div>
                     <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
                     <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
@@ -564,9 +522,13 @@ const SignalsPage = React.memo(function SignalsPage({
                       />
                       <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
                     </svg>
+                    <div className="cc-sig-date">
+                      <em>Date</em>
+                      <span>{s.timeAgo}</span>
+                    </div>
                     <div className="cc-sig-acts">
-                      <button className="cc-sig-brief">Open brief</button>
-                      <button className="cc-sig-watch">↗ Add to watchlist</button>
+                      <a href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</a>
+                      <a href="/signals" className="cc-sig-watch">↗ Add to watchlist</a>
                     </div>
                   </div>
                 )
@@ -576,28 +538,20 @@ const SignalsPage = React.memo(function SignalsPage({
         </div>
 
         <div className="cc-feed-footer">
-          <span>Showing {filtered.length}&nbsp;of&nbsp;{signals.length} tracked signals{hasFilters ? ' (filtered)' : ''}</span>
-          <span className="cc-auto-refresh"><span className="cc-refresh-dot"/>Live · global feed updates continuously</span>
+          <span>Showing {Math.min(filtered.length, 6)}&nbsp;of&nbsp;{signals.length} signals</span>
+          <span className="cc-auto-refresh"><span className="cc-refresh-dot"/>Auto-refresh on · Updated 2 min ago</span>
+          <div className="cc-pagination">
+            <button className="cc-page-btn">‹</button>
+            <button className="cc-page-btn active">1</button>
+            <button className="cc-page-btn">2</button>
+            <button className="cc-page-btn">3</button>
+            <button className="cc-page-btn">›</button>
+          </div>
         </div>
       </div>
 
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
-        <div className="cc-right-section">
-          <div className="cc-right-head">GLOBAL COVERAGE</div>
-          {TOP_MARKETS.map(m => (
-            <div key={m.market} className="cc-coverage-row">
-              <span className="cc-coverage-flag">{m.flag}</span>
-              <span className="cc-coverage-market">{m.market}</span>
-              <span className="cc-coverage-bar"><span style={{ width: `${Math.min(100, (m.n / (TOP_MARKETS[0]?.n || 1)) * 100)}%` }} /></span>
-              <span className="cc-coverage-n">{m.n}</span>
-            </div>
-          ))}
-          <small className="cc-right-prose" style={{marginTop:2}}>
-            {countriesTracked} markets monitored across {signals.length} live signals, refreshed from regulatory, trade, and industry sources worldwide.
-          </small>
-        </div>
-
         <div className="cc-right-section">
           <div className="cc-right-head">SAVED FILTERS</div>
           {SAVED_FILTERS.map(f => (
@@ -609,7 +563,7 @@ const SignalsPage = React.memo(function SignalsPage({
               <button className="cc-apply-btn">Apply</button>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Manage saved filters →</a>
+          <a href="/signals" className="cc-right-link">Manage saved filters →</a>
         </div>
 
         <div className="cc-right-section">
@@ -620,13 +574,13 @@ const SignalsPage = React.memo(function SignalsPage({
               <span className="cc-topic-count">{t.n}</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all topics →</a>
+          <a href="/signals" className="cc-right-link">View all topics →</a>
         </div>
 
         <div className="cc-right-section">
           <div className="cc-right-head">SIGNAL METHODOLOGY</div>
           <p className="cc-right-prose">Signals are sourced from regulatory releases, market data, trade intelligence, and verified industry sources. Each signal is scored for impact and confidence based on source credibility and recency.</p>
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Learn more about our methodology →</a>
+          <a href="/source-methodology" className="cc-right-link">Learn more about our methodology →</a>
         </div>
 
         {nextBest && (
@@ -634,7 +588,7 @@ const SignalsPage = React.memo(function SignalsPage({
             <div className="cc-right-head">NEXT BEST ACTION</div>
             <p className="cc-right-prose">{nextBest.title.length > 90 ? nextBest.title.slice(0,90)+'…' : nextBest.title}</p>
             <button className="cc-nba-btn">Open Signal Brief ↗</button>
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all recommended actions →</a>
+            <a href="/signals" className="cc-right-link">View all recommended actions →</a>
           </div>
         )}
       </aside>
@@ -856,7 +810,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all requirements →</a>
+          <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View all requirements →</a>
         </div>
 
         <div className="cc-right-section">
@@ -870,7 +824,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Address gaps →</a>
+          <a href="/compliance" className="cc-right-link">Address gaps →</a>
         </div>
 
         <div className="cc-right-section">
@@ -884,7 +838,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View counterparty profile →</a>
+          <a href="/marketplace/reviewed-connections" className="cc-right-link">View counterparty profile →</a>
         </div>
       </aside>
     </div>
@@ -1039,7 +993,7 @@ const EducationPage = React.memo(function EducationPage({
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
         <div className="cc-right-section">
-          <div className="cc-right-head">RELATED EVIDENCE <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link ml-auto">View all →</a></div>
+          <div className="cc-right-head">RELATED EVIDENCE <a href="/education" className="cc-right-link ml-auto">View all →</a></div>
           {REL_EVIDENCE.map(e => (
             <div key={e.title} className="cc-edu-ev-row">
               <span className="cc-edu-ev-icon">⊟</span>
@@ -1052,11 +1006,11 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Go to Evidence &amp; Sources →</a>
+          <a href="/intelligence/source-engine" className="cc-right-link">Go to Evidence &amp; Sources →</a>
         </div>
 
         <div className="cc-right-section">
-          <div className="cc-right-head">RECENTLY UPDATED MODULES <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link ml-auto">View all →</a></div>
+          <div className="cc-right-head">RECENTLY UPDATED MODULES <a href="/education" className="cc-right-link ml-auto">View all →</a></div>
           {RECENT_UPDATES.map(u => (
             <div key={u.title} className="cc-edu-ev-row">
               <span className="cc-edu-ev-icon">⊟</span>
@@ -1081,7 +1035,7 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
             <button className="cc-nba-btn full">Continue module →</button>
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View module details →</a>
+            <a href="/education" className="cc-right-link">View module details →</a>
           </div>
         )}
 
@@ -1324,7 +1278,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
                 ))}
               </div>
             </div>
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View change brief →</a>
+            <a href="/signals" className="cc-right-link">View change brief →</a>
           </div>
 
           <div className="cc-rw-card">
@@ -1398,7 +1352,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
                   <div className="cc-rw-cell"><span className="cc-affects-yes">✓ Yes</span></div>
                   <div className="cc-rw-cell"><span className="cc-source-badge">Official Source</span></div>
                   <div className="cc-rw-cell">
-                    <button className="cc-sig-brief">Open brief</button>
+                    <a href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</a>
                   </div>
                 </div>
               )
@@ -1407,7 +1361,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
         </div>
 
         <div className="cc-feed-footer">
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all events →</a>
+          <a href="/signals" className="cc-right-link">View all events →</a>
         </div>
       </div>
 
@@ -1421,7 +1375,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-trigger-dot ${t.on ? 'on' : ''}`}>●</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Manage triggers →</a>
+          <a href="/signals" className="cc-right-link">Manage triggers →</a>
         </div>
 
         <div className="cc-right-section">
@@ -1433,7 +1387,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-comp-dot ${j.active ? 'active' : ''}`}>●</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View comparisons →</a>
+          <a href="/signals/countries" className="cc-right-link">View comparisons →</a>
         </div>
 
         <div className="cc-right-section">
@@ -1444,7 +1398,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span>{q}</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all questions →</a>
+          <a href="/intelligence" className="cc-right-link">View all questions →</a>
         </div>
 
         <div className="cc-right-section">
@@ -1455,7 +1409,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-gap-badge ${g.level}`}>{g.level === 'high' ? 'High Gap' : 'Medium Gap'}</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Improve coverage →</a>
+          <a href="/intelligence/source-engine" className="cc-right-link">Improve coverage →</a>
         </div>
       </aside>
     </div>
@@ -1711,7 +1665,7 @@ const SettingsPage = React.memo(function SettingsPage({
               <span className={`cc-preset-type ${p.type.toLowerCase()}`}>{p.type}</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all saved views →</a>
+          <a href="/signals" className="cc-right-link">View all saved views →</a>
         </div>
 
         <div className="cc-right-section">
@@ -1937,7 +1891,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               ))}
             </div>
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'10px',display:'inline-block'}}>View full state brief →</a>
+            <a href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'10px',display:'inline-block'}}>View full state brief →</a>
           </div>
 
           {/* Authorities org chart */}
@@ -1983,7 +1937,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
 
             <div className="cc-li-auth-footer">
               <small>Hover or select for details</small>
-              <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Explore authorities →</a>
+              <a href="/intelligence" className="cc-right-link">Explore authorities →</a>
             </div>
           </div>
         </div>
@@ -2006,7 +1960,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </span>
               </div>
             ))}
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all municipalities →</a>
+            <a href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all municipalities →</a>
           </div>
 
           {/* Local Access Constraints */}
@@ -2021,7 +1975,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               </div>
             ))}
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View constraint detail →</a>
+            <a href="/compliance" className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View constraint detail →</a>
           </div>
 
           {/* Local Commercial Routes */}
@@ -2036,7 +1990,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               </div>
             ))}
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View routing guidance →</a>
+            <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View routing guidance →</a>
           </div>
 
           {/* Evidence Gaps */}
@@ -2048,7 +2002,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 <p>{q}</p>
               </div>
             ))}
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>Submit intel request →</a>
+            <a href="/intelligence/request" className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>Submit intel request →</a>
           </div>
         </div>
 
@@ -2068,7 +2022,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               <button className="cc-apply-btn" style={{flexShrink:0}}>View</button>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all authorities →</a>
+          <a href="/intelligence" className="cc-right-link">View all authorities →</a>
         </div>
 
         <div className="cc-right-section">
@@ -2085,7 +2039,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               </div>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View coverage map →</a>
+          <a href="/intelligence/source-engine" className="cc-right-link">View coverage map →</a>
         </div>
 
         <div className="cc-right-section">
@@ -2096,7 +2050,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               <span>{q}</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all questions →</a>
+          <a href="/intelligence" className="cc-right-link">View all questions →</a>
         </div>
 
         {nextBest && (
@@ -2106,7 +2060,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               Engage local planning authorities to confirm current zoning status for {country.label}{region ? ` · ${region}` : ''}.
             </p>
             <button className="cc-nba-btn full" style={{marginTop:'8px'}}>Create Action</button>
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'6px',display:'inline-block'}}>View Suggested Actions →</a>
+            <a href="/signals" className="cc-right-link" style={{marginTop:'6px',display:'inline-block'}}>View Suggested Actions →</a>
           </div>
         )}
       </aside>
@@ -2235,7 +2189,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                 <p className="cc-right-prose">
                   {currentStep.description ?? `Complete all required evidence for step ${currentStep.step_number} to advance your pathway.`}
                 </p>
-                <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View {country.label} requirements →</a>
+                <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View {country.label} requirements →</a>
 
                 <div className="cc-ap-status-card">
                   <div className="cc-ap-section-lbl">CURRENT STATUS</div>
@@ -2281,7 +2235,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                     )
                   })}
                 </div>
-                <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all requirements →</a>
+                <a href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all requirements →</a>
               </div>
             </div>
 
@@ -2318,7 +2272,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               </div>
             )
           })}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all documents →</a>
+          <a href="/intelligence/source-engine" className="cc-right-link">View all documents →</a>
         </div>
 
         {relSignals.length > 0 && (
@@ -2333,7 +2287,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                 </div>
               </div>
             ))}
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all signals →</a>
+            <a href="/signals" className="cc-right-link">View all signals →</a>
           </div>
         )}
 
@@ -2361,7 +2315,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               ))}
             </div>
           </div>
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">Confidence methodology →</a>
+          <a href="/source-methodology" className="cc-right-link">Confidence methodology →</a>
         </div>
       </aside>
     </div>
@@ -2547,7 +2501,7 @@ const WatchlistPage = React.memo(function WatchlistPage({
         </div>
 
         <div className="cc-right-section">
-          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link ml-auto">View all →</a></div>
+          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <a href="/education" className="cc-right-link ml-auto">View all →</a></div>
           {recentActivity.length === 0
             ? <p className="cc-right-prose">No recent activity.</p>
             : recentActivity.map(item => (
@@ -2919,7 +2873,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               </div>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View all gaps →</a>
+          <a href="/intelligence/source-engine" className="cc-right-link">View all gaps →</a>
         </div>
 
         {reviewQueue.length > 0 && (
@@ -2934,14 +2888,14 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
                 </div>
               </div>
             ))}
-            <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View review queue →</a>
+            <a href="/admin/regulatory-signals" className="cc-right-link">View review queue →</a>
           </div>
         )}
 
         <div className="cc-right-section">
           <div className="cc-right-head">CONFIDENCE METHODOLOGY</div>
           <p className="cc-right-prose">Weighted scoring across source authority, jurisdiction relevance, recency, and consistency.</p>
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View methodology →</a>
+          <a href="/source-methodology" className="cc-right-link">View methodology →</a>
         </div>
 
         <div className="cc-right-section">
@@ -2962,7 +2916,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               <span className="cc-conf-bar-pct">{row.n} ({row.pct}%)</span>
             </div>
           ))}
-          <a href="#" onClick={e=>e.preventDefault()} className="cc-right-link">View freshness report →</a>
+          <a href="/intelligence/source-engine" className="cc-right-link">View freshness report →</a>
         </div>
 
         <div className="cc-right-section">
@@ -3837,33 +3791,6 @@ const CSS = `
   color:var(--cc-ink);margin:0 0 6px;
 }
 .cc-inner-header p { font-size:12px;color:var(--cc-muted);margin:0;line-height:1.55; }
-
-.cc-intel-stats {
-  display:flex;align-items:center;gap:14px;margin-top:12px;
-  padding:10px 14px;border-radius:10px;
-  background:rgba(255,255,255,.02);border:1px solid var(--cc-line);
-}
-.cc-intel-stat { display:flex;flex-direction:column;gap:1px;line-height:1.2; }
-.cc-intel-stat strong { font-family:var(--cc-mono);font-size:16px;color:var(--cc-ink);font-weight:700; }
-.cc-intel-stat strong.hot { color:var(--cc-amber); }
-.cc-intel-stat span { font-size:9px;color:var(--cc-dim);letter-spacing:.05em;text-transform:uppercase; }
-.cc-intel-stat-div { width:1px;height:24px;background:var(--cc-line); }
-.cc-intel-live {
-  margin-left:auto;display:flex;align-items:center;gap:6px;
-  font-size:10px;color:var(--cc-green);letter-spacing:.08em;text-transform:uppercase;
-}
-
-.cc-coverage-row {
-  display:grid;grid-template-columns:18px 1fr 70px 22px;
-  align-items:center;gap:8px;padding:5px 0;
-}
-.cc-coverage-flag { font-size:13px; }
-.cc-coverage-market { font-size:11px;color:var(--cc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.cc-coverage-bar { height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden; }
-.cc-coverage-bar span { display:block;height:100%;background:var(--cc-gold);border-radius:2px; }
-.cc-coverage-n { font-family:var(--cc-mono);font-size:10px;color:var(--cc-dim);text-align:right; }
-
-.cc-sig-flag { margin-right:5px; }
 .cc-section-label {
   font-family:var(--cc-mono);font-size:9px;letter-spacing:.16em;
   color:var(--cc-dim);text-transform:uppercase;
@@ -3906,6 +3833,16 @@ const CSS = `
   width:6px;height:6px;border-radius:50%;background:var(--cc-green);
   box-shadow:0 0 5px var(--cc-green);flex-shrink:0;
   animation:pulseDot 2s ease infinite;
+}
+.cc-pagination { display:flex;gap:3px;align-items:center; }
+.cc-page-btn {
+  min-width:26px;height:26px;border-radius:6px;
+  border:1px solid var(--cc-line);background:transparent;
+  color:var(--cc-muted);font:inherit;font-size:11px;cursor:pointer;
+  transition:background .1s,color .1s;padding:0 6px;
+}
+.cc-page-btn:hover,.cc-page-btn.active {
+  background:rgba(212,168,75,.1);border-color:rgba(212,168,75,.3);color:var(--cc-gold);
 }
 .cc-right-prose {
   font-size:11px;line-height:1.65;color:var(--cc-muted);margin:0;
@@ -3984,7 +3921,7 @@ const CSS = `
 .cc-sig-group-hd span { font-size:12px;color:var(--cc-gold); }
 .cc-sig-row {
   display:grid;
-  grid-template-columns:12px 1fr 240px 72px 44px 160px;
+  grid-template-columns:12px 1fr 220px 72px 44px 80px 200px;
   align-items:center;gap:12px;
   padding:14px 24px;
   border-bottom:1px solid var(--cc-line);
@@ -4001,6 +3938,8 @@ const CSS = `
 .cc-sig-body small  { display:block;font-size:10px;color:var(--cc-dim);margin-top:2px; }
 .cc-sig-why em   { display:block;font-style:normal;font-size:9px;color:var(--cc-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px; }
 .cc-sig-why span { font-size:10px;color:var(--cc-muted);line-height:1.4; }
+.cc-sig-date em  { display:block;font-style:normal;font-size:9px;color:var(--cc-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px; }
+.cc-sig-date span{ font-size:10px;color:var(--cc-muted); }
 .cc-sig-acts { display:flex;flex-direction:column;gap:4px;align-items:flex-start; }
 .cc-sig-brief {
   padding:5px 12px;border-radius:6px;
