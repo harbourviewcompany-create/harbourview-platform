@@ -43,6 +43,7 @@ type Props = {
   liveTiles?:        LiveEduTile[]
   recentEduModules?: RecentEduModule[]
   sourceCoverage?:   SourceCoverageRow[]
+  userEmail?:        string | null
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -3121,7 +3122,12 @@ export default function CommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  userEmail,
 }: Props) {
+  const _ep = (userEmail?.split('@')[0] ?? '').split('.').filter(Boolean)
+  const userInitials = _ep.length >= 2 ? (_ep[0][0] + _ep[1][0]).toUpperCase() : (userEmail ?? '').slice(0, 2).toUpperCase() || 'HV'
+  const userDisplayName = _ep.length >= 2 ? _ep.map((p: string) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') : (userEmail ?? 'Account')
+
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
     const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
@@ -3256,9 +3262,9 @@ export default function CommandCentre({
           </button>
 
           <div className="cc-user-chip">
-            <div className="cc-user-avatar">TC</div>
+            <div className="cc-user-avatar">{userInitials}</div>
             <div className="cc-user-info">
-              <strong>Taylor Chambers</strong>
+              <strong>{userDisplayName}</strong>
               <small>Harbourview</small>
             </div>
             <span className="cc-user-arrow">▾</span>
