@@ -2,6 +2,9 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  experimental: {
+    authInterrupts: true,
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
@@ -13,7 +16,7 @@ const nextConfig: NextConfig = {
       },
     ],
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60 * 60 * 24, // 24h image cache
+    minimumCacheTTL: 60 * 60 * 24,
   },
   poweredByHeader: false,
   compress: true,
