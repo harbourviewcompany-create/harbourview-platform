@@ -510,7 +510,7 @@ const SignalsPage = React.memo(function SignalsPage({
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>
-                      <span>Affects operations in {s.market}{region ? ` · ${region}` : ''}</span>
+                      <span>Affects operations in {s.market || country.label}{region ? ` · ${region}` : ''}</span>
                     </div>
                     <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
                     <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
@@ -791,7 +791,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
         ) : (
           <div className="cc-empty-state">
             <span>⊞</span>
-            <p>No {MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} listings for {country.label}{region?` · ${region}`:''}.{' '}
+            <p>No {activeTab === 'cannabis' ? '' : (MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase() ?? '') + ' '}listings for {country.label}{region?` · ${region}`:''}.{' '}
               {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
             </p>
           </div>
@@ -929,7 +929,7 @@ const EducationPage = React.memo(function EducationPage({
       {/* ── Main ────────────────────────────────────────────── */}
       <div className="cc-two-main">
         <div className="cc-inner-header cc-edu-header-row">
-          <span className="cc-edu-hd-icon">⬛</span>
+          <span className="cc-edu-hd-icon">📋</span>
           <div>
             <h2>{country.label} {roleDisp} Learning Path</h2>
             <p>Build the knowledge and documentation discipline that drives compliance, export eligibility, and market access.</p>
@@ -4890,4 +4890,5 @@ const CSS = `
   pointer-events:none;user-select:none;
 }
 `
+
 
