@@ -14,6 +14,12 @@ export const MARKETPLACE_LISTING_TYPE_OPTIONS = [
   'Genetics Program',
   'Qualified Access Request',
   'Education Resource',
+  // Vision-plan additions
+  'Licensing Opportunity',
+  'Facility / Real Estate',
+  'Technology & Software',
+  'Investment Opportunity',
+  'Research Asset',
 ] as const
 
 export type MarketplaceListingTypeOption = (typeof MARKETPLACE_LISTING_TYPE_OPTIONS)[number]
@@ -57,6 +63,24 @@ const LISTING_TYPE_ALIASES: Record<string, MarketplaceListingTypeOption> = {
   qualified_access_request: 'Qualified Access Request',
   education: 'Education Resource',
   education_resource: 'Education Resource',
+  // Vision-plan aliases
+  licensing: 'Licensing Opportunity',
+  licensing_opportunity: 'Licensing Opportunity',
+  licensing_opportunities: 'Licensing Opportunity',
+  facility: 'Facility / Real Estate',
+  real_estate: 'Facility / Real Estate',
+  real_estate_facility: 'Facility / Real Estate',
+  real_estate_facilities: 'Facility / Real Estate',
+  technology: 'Technology & Software',
+  tech: 'Technology & Software',
+  software: 'Technology & Software',
+  technology_software: 'Technology & Software',
+  investment: 'Investment Opportunity',
+  investment_opportunity: 'Investment Opportunity',
+  investment_opportunities: 'Investment Opportunity',
+  research: 'Research Asset',
+  research_asset: 'Research Asset',
+  research_assets: 'Research Asset',
 }
 
 function normalizeTypeInput(value: string) {
