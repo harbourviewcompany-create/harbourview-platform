@@ -470,7 +470,7 @@ export function DynamicMarketplaceIntakeForm({
 
       <p className="text-xs text-[#F5F1E8]/30 leading-5">
         By submitting you confirm you have authority to list this asset and agree to
-        Harbourview's operator vetting process. No public visibility is granted without
+        Harbourview&apos;s operator vetting process. No public visibility is granted without
         explicit Harbourview approval.
       </p>
     </form>
