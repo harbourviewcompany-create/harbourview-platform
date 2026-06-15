@@ -8,16 +8,20 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     ppr: true,
-    reactCompiler: {
-      target: '18',
-      runtimeModule: 'react-compiler-runtime',
-    },
   },
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: '**' },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
     ],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24,
   },
+  poweredByHeader: false,
+  compress: true,
+  output: 'standalone',
 }
 
 export default nextConfig
