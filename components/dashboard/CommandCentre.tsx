@@ -286,7 +286,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
               },
               ...signals
                 .map(s => s.market)
-                .filter((m, i, a) => m !== country.label && a.indexOf(m) === i)
+                .filter((m, i, a) => !!m && m !== country.label && a.indexOf(m) === i)
                 .slice(0, 4)
                 .map(m => ({
                   label: m,
@@ -1553,7 +1553,7 @@ const SettingsPage = React.memo(function SettingsPage({
             <div className="cc-settings-row-right">
               <div>
                 <span>5 Saved Views</span>
-                <small>Last updated May 28, 2025</small>
+                <small>Last updated {new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</small>
               </div>
               <span className="cc-settings-chev">›</span>
             </div>
