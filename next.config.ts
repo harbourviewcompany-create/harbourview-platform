@@ -6,8 +6,9 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
+  // Disable PPR to reduce build time
   experimental: {
-    ppr: true,
+    // ppr: true,  // Disabled: causes Vercel timeout
   },
   images: {
     remotePatterns: [
