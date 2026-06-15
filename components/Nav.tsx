@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { NavAuthButton } from '@/components/NavAuthButton'
 
 type NavItem = {
   label: string
@@ -157,6 +158,8 @@ export default function Nav() {
             ))}
           </nav>
 
+          <NavAuthButton />
+
           <Link href="/intake" className="btn-marketplace hidden px-5 py-2.5 text-[10px] xl:inline-flex">
             Start Confidential Intake
           </Link>
@@ -195,6 +198,9 @@ export default function Nav() {
                   {link.label}
                 </Link>
               ))}
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3">
+              <NavAuthButton mobile />
             </div>
           </nav>
         </div>
