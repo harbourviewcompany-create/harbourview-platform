@@ -57,13 +57,13 @@ export function RoleChipSelector({
             className={`min-h-11 rounded-full border px-4 text-left text-xs font-semibold tracking-[0.03em] transition ${
               selectedRoleId === role.id
                 ? 'border-[#f1dfaa] bg-[#d7bd72]/22 text-[#fff8e6] shadow-[0_0_18px_rgba(215,189,114,0.12)]'
-                : 'border-[#e0c77f]/28 bg-white/[0.06] text-white/84 hover:border-[#f1dfaa]/58 hover:bg-white/[0.09] hover:text-white'
+                : 'border-[#e0c77f]/55 bg-white/[0.13] text-[#f5f1e8] hover:border-[#f1dfaa]/75 hover:bg-white/[0.18] hover:text-white'
             }`}
           >
             {role.label}
           </button>
         )) : (
-          <div className="rounded-2xl border border-[#e0c77f]/24 bg-white/[0.055] p-4 text-sm text-white/78">
+          <div className="rounded-2xl border border-[#e0c77f]/50 bg-white/[0.12] p-4 text-sm text-white/78">
             <p>We can still route this. Describe your role or choose Not sure.</p>
             <button
               type="button"
