@@ -17,17 +17,13 @@ export default async function MyListingsPage() {
 
   const { data: submissions, error } = await svc
     .from('marketplace_candidates')
-    .select(
-      'id, title_public_draft, category_key, listing_type_key, publication_status, status, discovered_at, submission_images, country',
-    )
+    .select('id, title_public_draft, marketplace_category, listing_type, status, created_at, submission_images, country')
     .eq('submitted_by', user.id)
     .eq('submission_source', 'self_serve')
-    .order('discovered_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(100)
 
-  if (error) {
-    console.error('[my-listings] query error', error)
-  }
+  if (error) console.error('[my-listings] query error', error)
 
   return (
     <MyListingsClient
