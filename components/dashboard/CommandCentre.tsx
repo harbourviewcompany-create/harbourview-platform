@@ -98,14 +98,12 @@ const NAV_ITEMS_FLAT: NavItem[] = NAV_SECTIONS.flatMap(s => s.items)
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
-const FLAG_MAP: Record<string, string> = {
-  US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷',
-  AU: '🇦🇺', NL: '🇳🇱', MX: '🇲🇽', IL: '🇮🇱', CO: '🇨🇴',
-  PT: '🇵🇹', IT: '🇮🇹', ES: '🇪🇸', CH: '🇨🇭', PL: '🇵🇱',
-  CZ: '🇨🇿', AT: '🇦🇹', BE: '🇧🇪', LU: '🇱🇺', DK: '🇩🇰',
-  SE: '🇸🇪', NO: '🇳🇴', FI: '🇫🇮', GR: '🇬🇷', IE: '🇮🇪',
-  ZA: '🇿🇦', BR: '🇧🇷', AR: '🇦🇷', TH: '🇹🇭', NZ: '🇳🇿',
-  JP: '🇯🇵', SG: '🇸🇬',
+// Converts any ISO 3166-1 alpha-2 code → emoji flag (all 196 countries)
+// Uses Unicode Regional Indicator Symbols — no lookup table needed
+function isoToFlag(iso2: string): string {
+  if (!iso2 || iso2.length !== 2) return '🌐'
+  const cp = (c: string) => 0x1F1E6 + c.toUpperCase().charCodeAt(0) - 65
+  return String.fromCodePoint(cp(iso2[0]), cp(iso2[1]))
 }
 
 function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
@@ -163,7 +161,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{FLAG_MAP[country.iso2] ?? '🌐'}</div>
+          <div className="cc-jx-flag">{isoToFlag(country.iso2) ?? '🌐'}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}
@@ -486,14 +484,6 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
-          <div className="cc-intel-stats">
-            <div className="cc-intel-stat"><strong>{signals.length}</strong><span>signals tracked</span></div>
-            <div className="cc-intel-stat-div"/>
-            <div className="cc-intel-stat"><strong>{new Set(signals.map(s=>s.market).filter(Boolean)).size}</strong><span>countries</span></div>
-            <div className="cc-intel-stat-div"/>
-            <div className="cc-intel-stat"><strong className="hot">{signals.filter(s=>s.confidence>=75).length}</strong><span>high-impact</span></div>
-            <div className="cc-intel-live"><span className="cc-refresh-dot"/>Live feed</div>
-          </div>
         </div>
 
         <div className="cc-filter-bar">
@@ -543,14 +533,11 @@ const SignalsPage = React.memo(function SignalsPage({
                     <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                     <div className="cc-sig-body">
                       <strong>{s.title}</strong>
-                      <small>
-                        {(s as any).flag && <span style={{marginRight:4}}>{(s as any).flag}</span>}
-                        {s.market ? `${s.market} · ` : ''}{(s as any).sourceLabel || 'Harbourview Intelligence'} · {s.timeAgo}
-                      </small>
+                      <small>{s.market ? `${s.market}${region ? ` · ${region}` : ''} · ` : ''}{s.timeAgo}</small>
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>
-                      <span>{s.commercialImpact || `Affects operations in ${s.market || country.label}${region ? ` · ${region}` : ''}`}</span>
+                      <span>Affects operations in {s.market || country.label}{region ? ` · ${region}` : ''}</span>
                     </div>
                     <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
                     <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
@@ -563,6 +550,10 @@ const SignalsPage = React.memo(function SignalsPage({
                       />
                       <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
                     </svg>
+                    <div className="cc-sig-date">
+                      <em>Date</em>
+                      <span>{s.timeAgo}</span>
+                    </div>
                     <div className="cc-sig-acts">
                       <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
                       <Link href="/signals" className="cc-sig-watch">↗ Add to watchlist</Link>
@@ -591,24 +582,6 @@ const SignalsPage = React.memo(function SignalsPage({
 
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
-        <div className="cc-right-section">
-          <div className="cc-right-head">GLOBAL COVERAGE</div>
-          {(() => {
-            const cnts: Record<string,{flag:string;n:number}> = {}
-            signals.forEach(s => { if (!s.market) return; cnts[s.market] = cnts[s.market] ?? { flag: (s as any).flag || '🌐', n:0 }; cnts[s.market]!.n++ })
-            const top = Object.entries(cnts).sort((a,b)=>b[1].n-a[1].n).slice(0,7)
-            const mx = top[0]?.[1].n||1
-            return top.map(([m,v])=>(
-              <div key={m} className="cc-coverage-row">
-                <span>{v.flag}</span>
-                <span className="cc-coverage-market">{m}</span>
-                <span className="cc-coverage-bar"><span style={{width:`${Math.round(v.n/mx*100)}%`}}/></span>
-                <span className="cc-coverage-n">{v.n}</span>
-              </div>
-            ))
-          })()}
-          <small className="cc-right-prose">{new Set(signals.map(s=>s.market).filter(Boolean)).size} markets · {signals.length} signals</small>
-        </div>
         <div className="cc-right-section">
           <div className="cc-right-head">SAVED FILTERS</div>
           {SAVED_FILTERS.map(f => (
@@ -1484,16 +1457,15 @@ const SAVED_PRESETS = [
 ]
 
 const SettingsPage = React.memo(function SettingsPage({
-  country, region, role, countryOptions = [], roleOptions = [], onCountryChange, onRoleChange, userEmail,
+  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange,
 }: {
   country:          { iso2: string; label: string }
   region:           string
   role:             string
-  countryOptions?:  SelectOpt[]
-  roleOptions?:     SelectOpt[]
+  countryOptions:   SelectOpt[]
+  roleOptions:      SelectOpt[]
   onCountryChange?: (iso2: string) => void
   onRoleChange?:    (role: string) => void
-  userEmail?:       string | null
 }) {
   const [watchlistAlerts, setWatchlistAlerts] = useState(true)
   const [signalsAlerts,   setSignalsAlerts]   = useState(true)
@@ -3160,6 +3132,7 @@ export default function CommandCentre({
   pathwayData,
   watchlistData,
   evidenceData,
+  localIntel,
   liveTiles,
   recentEduModules,
   sourceCoverage,
@@ -3244,16 +3217,15 @@ export default function CommandCentre({
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />
       case 'local-intel':
-        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} />
+        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} />
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} />
       case 'watchlist':
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
-        return <SettingsPage country={country} region={region} role={role} userEmail={userEmail} />
+        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
       default:
         return null
-    }
     }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -3392,6 +3364,7 @@ export default function CommandCentre({
     </div>
   )
 }
+
 
 
 
