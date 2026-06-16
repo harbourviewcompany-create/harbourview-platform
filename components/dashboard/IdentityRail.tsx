@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
@@ -32,90 +32,109 @@ function ChevronDownIcon() {
   )
 }
 
+const INPUT_STYLE: React.CSSProperties = {
+  width: '100%',
+  background: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(198,165,90,0.2)',
+  borderRadius: '3px',
+  padding: '7px 10px',
+  fontSize: '12px',
+  color: '#F5F1E8',
+  outline: 'none',
+}
+
 export function IdentityRail({ onMarketClick }: Props) {
   const { countryName, role } = useDashboard()
   const countries = useAllCountries()
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
+
+  const [user, setUser]           = useState<User | null | undefined>(undefined)
+  const [menuOpen, setMenuOpen]   = useState(false)
+  const [email, setEmail]         = useState('')
+  const [password, setPassword]   = useState('')
+  const [authError, setAuthError] = useState('')
+  const [loading, setLoading]     = useState(false)
+  const menuRef                   = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) setMenuOpen(false)
     })
     return () => subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen])
+
+  async function handleSignIn(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setAuthError('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+    if (error) {
+      setAuthError(error.message)
+    } else {
+      router.refresh()
+    }
+  }
+
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/')
+    setMenuOpen(false)
     router.refresh()
   }
 
-  const roleLabel = getDashboardRoleLabel(role)
+  const roleLabel    = getDashboardRoleLabel(role)
   const countryCount = countries.status === 'ok' ? countries.data.length : null
 
-  // Derive initials from email
-  const emailLocal = user?.email?.split('@')[0] ?? ''
-  const emailParts = emailLocal.split('.').filter(Boolean)
-  const initials = emailParts.length >= 2
+  const emailLocal  = user?.email?.split('@')[0] ?? ''
+  const emailParts  = emailLocal.split('.').filter(Boolean)
+  const initials    = emailParts.length >= 2
     ? (emailParts[0][0] + emailParts[1][0]).toUpperCase()
     : emailLocal.slice(0, 2).toUpperCase() || 'HV'
 
   return (
     <header
       className="sticky top-0 z-50 flex h-[52px] items-center justify-between px-5"
-      style={{
-        background: 'rgba(4,9,18,0.97)',
-        borderBottom: '1px solid rgba(198,165,90,0.14)',
-        backdropFilter: 'blur(12px)',
-      }}
+      style={{ background: 'rgba(4,9,18,0.97)', borderBottom: '1px solid rgba(198,165,90,0.14)', backdropFilter: 'blur(12px)' }}
     >
       {/* Left — brand + context */}
       <div className="flex items-center gap-4">
-        <Link
-          href="/"
-          className="font-serif text-[15px] tracking-[0.22em] uppercase transition-opacity hover:opacity-80"
-          style={{ color: '#F0D39A' }}
-        >
+        <Link href="/" className="font-serif text-[15px] tracking-[0.22em] uppercase transition-opacity hover:opacity-80" style={{ color: '#F0D39A' }}>
           Harbourview
         </Link>
 
         <div className="h-4 w-px" style={{ background: 'rgba(198,165,90,0.15)' }} />
 
-        {/* Market selector chip */}
         <button
           onClick={onMarketClick}
           className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] tracking-[0.04em] transition-all hover:bg-[rgba(198,165,90,0.14)]"
-          style={{
-            border:     '1px solid rgba(198,165,90,0.2)',
-            background: 'rgba(198,165,90,0.08)',
-            color:      '#F0D39A',
-          }}
+          style={{ border: '1px solid rgba(198,165,90,0.2)', background: 'rgba(198,165,90,0.08)', color: '#F0D39A' }}
         >
-          <span className="flex h-3.5 w-3.5 items-center justify-center" style={{ color: 'rgba(198,165,90,0.7)' }}>
-            <GlobeIcon />
-          </span>
+          <span className="flex h-3.5 w-3.5 items-center justify-center" style={{ color: 'rgba(198,165,90,0.7)' }}><GlobeIcon /></span>
           <span>{countryName}</span>
           <ChevronDownIcon />
         </button>
 
-        {/* Role chip */}
-        <div
-          className="hidden items-center rounded-full px-2.5 py-1 text-[11px] tracking-[0.04em] sm:flex"
-          style={{
-            border:     '1px solid rgba(198,165,90,0.12)',
-            background: 'rgba(198,165,90,0.04)',
-            color:      'rgba(240,211,154,0.6)',
-          }}
-        >
+        <div className="hidden items-center rounded-full px-2.5 py-1 text-[11px] tracking-[0.04em] sm:flex"
+          style={{ border: '1px solid rgba(198,165,90,0.12)', background: 'rgba(198,165,90,0.04)', color: 'rgba(240,211,154,0.6)' }}>
           {roleLabel}
         </div>
 
-        {/* Coverage count */}
         {countryCount && (
           <span className="hidden text-[10px] tracking-[0.06em] xl:block" style={{ color: 'rgba(198,165,90,0.35)' }}>
             {countryCount} tracked markets
@@ -124,75 +143,106 @@ export function IdentityRail({ onMarketClick }: Props) {
       </div>
 
       {/* Right — account */}
-      <div className="relative flex items-center gap-2.5">
-        {user === null ? (
-          /* Not signed in — show Sign In link */
-          <Link
-            href="/login"
-            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-all"
-            style={{
-              border:     '1px solid rgba(198,165,90,0.28)',
-              background: 'rgba(198,165,90,0.08)',
-              color:      '#F0D39A',
-            }}
-          >
-            Sign In
-          </Link>
-        ) : user !== undefined ? (
-          /* Signed in — show initials avatar + dropdown */
-          <>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Account menu"
-              aria-expanded={menuOpen}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
-              style={{
-                background: 'rgba(198,165,90,0.1)',
-                border:     '1px solid rgba(198,165,90,0.2)',
-                color:      '#F0D39A',
-              }}
-            >
-              {initials}
-            </button>
+      <div ref={menuRef} className="relative flex items-center">
 
-            {menuOpen && (
-              <div className="absolute right-0 top-full z-[70] w-52 pt-2">
-                <div
-                  className="rounded-sm p-2 shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-                  style={{ background: 'rgba(2,8,20,0.98)', border: '1px solid rgba(198,165,90,0.14)' }}
-                >
+        {/* Loading skeleton */}
+        {user === undefined && (
+          <div className="h-7 w-7 animate-pulse rounded-full" style={{ background: 'rgba(198,165,90,0.1)' }} />
+        )}
+
+        {/* Avatar button — signed in OR not signed in, same button */}
+        {user !== undefined && (
+          <button
+            type="button"
+            onClick={() => { setMenuOpen(o => !o); setAuthError('') }}
+            aria-label={user ? 'Account menu' : 'Sign in'}
+            aria-expanded={menuOpen}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
+            style={{ background: 'rgba(198,165,90,0.1)', border: '1px solid rgba(198,165,90,0.25)', color: '#F0D39A' }}
+          >
+            {user ? initials : '→'}
+          </button>
+        )}
+
+        {/* Dropdown */}
+        {menuOpen && user !== undefined && (
+          <div className="absolute right-0 top-full z-[70] w-64 pt-2">
+            <div className="rounded-sm shadow-[0_18px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+              style={{ background: 'rgba(2,8,20,0.98)', border: '1px solid rgba(198,165,90,0.16)' }}>
+
+              {user ? (
+                /* ── Signed-in state ── */
+                <div className="p-2">
                   <div className="mb-1 border-b px-4 py-2" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.32)' }}>Signed in as</p>
-                    <p className="mt-0.5 truncate text-[11px]" style={{ color: 'rgba(240,211,154,0.7)' }}>{user.email}</p>
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.3)' }}>Signed in as</p>
+                    <p className="mt-0.5 truncate text-[11px]" style={{ color: 'rgba(240,211,154,0.75)' }}>{user.email}</p>
                   </div>
-                  <Link
-                    href="/account"
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-sm px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
-                    style={{ color: 'rgba(255,255,255,0.65)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(198,165,90,0.1)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
+                  <Link href="/account" onClick={() => setMenuOpen(false)}
+                    className="block rounded-sm px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors hover:bg-[rgba(198,165,90,0.1)]"
+                    style={{ color: 'rgba(255,255,255,0.65)' }}>
                     Account
                   </Link>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="w-full rounded-sm px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
-                    style={{ color: 'rgba(220,80,80,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(220,80,80,0.08)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
+                  <button type="button" onClick={handleSignOut}
+                    className="w-full rounded-sm px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors hover:bg-[rgba(220,80,80,0.1)]"
+                    style={{ color: 'rgba(220,80,80,0.75)', background: 'none', border: 'none', cursor: 'pointer' }}>
                     Sign Out
                   </button>
                 </div>
-              </div>
-            )}
-          </>
-        ) : (
-          /* Loading — skeleton pill */
-          <div className="h-5 w-16 animate-pulse rounded-full" style={{ background: 'rgba(198,165,90,0.1)' }} />
+              ) : (
+                /* ── Sign-in form ── */
+                <div className="p-4">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'rgba(240,211,154,0.6)' }}>
+                    Sign in to Harbourview
+                  </p>
+                  <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required
+                      autoFocus
+                      style={INPUT_STYLE}
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required
+                      style={INPUT_STYLE}
+                    />
+                    {authError && (
+                      <p style={{ fontSize: '11px', color: 'rgba(220,80,80,0.9)', margin: 0 }}>{authError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      style={{
+                        marginTop: '4px',
+                        padding: '8px',
+                        background: loading ? 'rgba(198,165,90,0.15)' : 'rgba(198,165,90,0.18)',
+                        border: '1px solid rgba(198,165,90,0.35)',
+                        borderRadius: '3px',
+                        color: '#F0D39A',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        cursor: loading ? 'wait' : 'pointer',
+                      }}
+                    >
+                      {loading ? 'Signing in…' : 'Sign In'}
+                    </button>
+                  </form>
+                  <Link href="/login" onClick={() => setMenuOpen(false)}
+                    style={{ display: 'block', marginTop: '10px', textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </header>
