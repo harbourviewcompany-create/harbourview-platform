@@ -1,16 +1,37 @@
 'use client'
 
 import React from 'react'
+import type { WatchlistData } from '@/lib/dashboard/dashboardLiveData'
 
 export interface WatchlistPageProps {
-  country: { iso2: string; label: string }
-  region:  string
-  role:    string
+  country:       { iso2: string; label: string }
+  region:        string
+  role:          string
+  watchlistData?: WatchlistData | null
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  const days = Math.floor(ms / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return '1 day ago'
+  if (days < 30) return `${days}d ago`
+  return `${Math.floor(days / 30)}mo ago`
+}
+
+const ITEM_ICONS: Record<string, string> = {
+  jurisdiction: '🌐', signal: '≋', pathway: '◈',
+  marketplace_item: '⊞', source: '⊟', policy: '◎',
 }
 
 export const WatchlistPage = React.memo(function WatchlistPage({
-  country,
+  country, watchlistData,
 }: WatchlistPageProps) {
+  const items = watchlistData?.items ?? []
+  const notifs = watchlistData?.notifications
+  const rules  = watchlistData?.rules ?? []
+  const hasItems = items.length > 0
   return (
     <div className="wl-root">
       <style>{CSS}</style>
@@ -18,12 +39,34 @@ export const WatchlistPage = React.memo(function WatchlistPage({
       <div className="wl-header">
         <div>
           <h1 className="wl-heading">Watchlist</h1>
-          <p className="wl-sub">Track markets, signals, and counterparties</p>
+          <p className="wl-sub">
+            {hasItems ? `${items.length} tracked item${items.length !== 1 ? 's' : ''} · ${rules.length} active watch rule${rules.length !== 1 ? 's' : ''}` : 'Track markets, signals, and counterparties'}
+          </p>
         </div>
         <a href="/intelligence" className="wl-cta-outline">Browse Markets</a>
       </div>
 
-      {/* Current market being viewed */}
+      {/* Notification summary — only when data exists */}
+      {notifs && (notifs.total_alerts > 0) && (
+        <div className="wl-notifs">
+          <div className="wl-section-head">NOTIFICATIONS</div>
+          <div className="wl-notif-grid">
+            {[
+              { label: 'Total',    val: notifs.total_alerts,    color: 'var(--wl-gold)' },
+              { label: 'Awaiting', val: notifs.awaiting_review, color: '#5b9bd5' },
+              { label: 'Resolved', val: notifs.resolved,        color: '#4caf82' },
+              { label: 'Snoozed',  val: notifs.snoozed,         color: 'rgba(245,240,232,.4)' },
+            ].map(r => (
+              <div key={r.label} className="wl-notif-cell">
+                <span className="wl-notif-val" style={{ color: r.color }}>{r.val}</span>
+                <span className="wl-notif-label">{r.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Current session market */}
       <div className="wl-current">
         <div className="wl-section-head">CURRENTLY VIEWING</div>
         <div className="wl-current-card">
@@ -36,8 +79,39 @@ export const WatchlistPage = React.memo(function WatchlistPage({
         </div>
       </div>
 
-      {/* Empty state */}
-      <div className="wl-empty">
+      {hasItems ? (
+        <div className="wl-items">
+          <div className="wl-section-head">WATCHING ({items.length})</div>
+          <div className="wl-item-list">
+            {items.map(item => (
+              <div key={item.id} className="wl-item">
+                <div className="wl-item-icon">{ITEM_ICONS[item.item_type] ?? '◈'}</div>
+                <div className="wl-item-body">
+                  <div className="wl-item-top">
+                    <span className="wl-item-title">{item.title}</span>
+                    {item.jurisdiction && <span className="wl-item-tag">{item.jurisdiction}</span>}
+                    {(item.tags ?? []).map((t: string) => (
+                      <span key={t} className="wl-item-tag wl-item-tag--muted">{t}</span>
+                    ))}
+                  </div>
+                  {item.subtitle && <div className="wl-item-sub">{item.subtitle}</div>}
+                  {item.latest_change_note && (
+                    <div className="wl-item-change">
+                      {item.latest_change_note}
+                      {item.latest_change_at && <span className="wl-item-time"> · {timeAgo(item.latest_change_at)}</span>}
+                    </div>
+                  )}
+                  {item.next_action && <div className="wl-item-next">→ {item.next_action}</div>}
+                </div>
+                {typeof item.confidence_pct === 'number' && (
+                  <div className="wl-item-conf">{item.confidence_pct}%</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="wl-empty">
         <div className="wl-empty-icon">◈</div>
         <div className="wl-empty-title">Your watchlist is empty</div>
         <p className="wl-empty-body">
@@ -64,7 +138,8 @@ export const WatchlistPage = React.memo(function WatchlistPage({
           <a href="/intake" className="wl-cta-gold">Upgrade for Watchlist Access →</a>
           <a href="/intelligence" className="wl-cta-outline">Browse Markets to Add</a>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   )
 })
@@ -120,6 +195,36 @@ const CSS = `
   transition:background .12s;
 }
 .wl-add-btn:hover { background:rgba(212,168,75,.14); }
+
+.wl-notifs { padding:12px 24px 0; }
+.wl-notif-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:420px; }
+.wl-notif-cell { padding:10px 8px;border-radius:10px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07); }
+.wl-notif-val { display:block;font-size:18px;font-weight:700;line-height:1; }
+.wl-notif-label { display:block;font-size:9px;color:rgba(245,240,232,.4);margin-top:3px;letter-spacing:.03em; }
+
+.wl-items { padding:16px 24px 0; }
+.wl-item-list { display:flex;flex-direction:column;gap:8px; }
+.wl-item {
+  display:flex;align-items:flex-start;gap:12px;
+  padding:13px 14px;border-radius:10px;
+  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);
+}
+.wl-item-icon { font-size:17px;flex-shrink:0;margin-top:1px; }
+.wl-item-body { flex:1;min-width:0;display:flex;flex-direction:column;gap:3px; }
+.wl-item-top { display:flex;align-items:center;gap:6px;flex-wrap:wrap; }
+.wl-item-title { font-size:12.5px;font-weight:600;color:#f5f0e8; }
+.wl-item-tag {
+  font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+  padding:1px 6px;border-radius:4px;
+  background:rgba(212,168,75,.1);border:1px solid rgba(212,168,75,.25);color:#d4a84b;
+}
+.wl-item-tag--muted { background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08);color:rgba(245,240,232,.45); }
+.wl-item-sub { font-size:11px;color:rgba(245,240,232,.45); }
+.wl-item-change { font-size:10.5px;color:rgba(245,240,232,.5); }
+.wl-item-time { color:rgba(245,240,232,.3); }
+.wl-item-next { font-size:10.5px;color:#5b9bd5; }
+.wl-item-conf { font-size:13px;font-weight:700;color:#d4a84b;flex-shrink:0;padding:4px 8px;border-radius:6px;background:rgba(212,168,75,.08); }
+
 
 .wl-empty {
   display:flex;flex-direction:column;align-items:center;
