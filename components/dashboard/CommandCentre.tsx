@@ -1459,15 +1459,16 @@ const SAVED_PRESETS = [
 ]
 
 const SettingsPage = React.memo(function SettingsPage({
-  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange,
+  country, region, role, countryOptions = [], roleOptions = [], onCountryChange, onRoleChange, userEmail,
 }: {
   country:          { iso2: string; label: string }
   region:           string
   role:             string
-  countryOptions:   SelectOpt[]
-  roleOptions:      SelectOpt[]
+  countryOptions?:  SelectOpt[]
+  roleOptions?:     SelectOpt[]
   onCountryChange?: (iso2: string) => void
   onRoleChange?:    (role: string) => void
+  userEmail?:       string | null
 }) {
   const [watchlistAlerts, setWatchlistAlerts] = useState(true)
   const [signalsAlerts,   setSignalsAlerts]   = useState(true)
