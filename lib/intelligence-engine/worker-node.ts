@@ -41,7 +41,7 @@ export class WorkerNode {
     while (this.isRunning) {
       try {
         await this.processBatch();
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(`[WorkerNode:${this.workerId}] Exhaustive loop error:`, err);
       }
       
@@ -108,12 +108,13 @@ export class WorkerNode {
         throw new Error(result.error_message || 'Unknown network stream failure');
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.circuitBreaker.recordFailure(domain);
-      console.error(`[WorkerNode] Error processing ${target.source_name}:`, err.message);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[WorkerNode] Error processing ${target.source_name}:`, message);
       
       // Pass the failure down the queue for tracking and backoff assignment
-      await this.queue.markFailure(target.id, err.message, 1); // Real system queries current consecutive failure state
+      await this.queue.markFailure(target.id, message, 1);
     }
   }
 
