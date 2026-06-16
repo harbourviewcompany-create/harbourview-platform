@@ -7,7 +7,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryStatusFromDB, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryStatusFromDB, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel } from '@/lib/dashboard/dashboardLiveData'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -212,17 +212,18 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
   ])
 
   // Tier 2 — deferred (streamed in after shell renders)
-  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, liveTiles, recentEduModules, watchlistData, evidenceData, sourceCoverage] = await Promise.all([
+  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, liveTiles, recentEduModules, watchlistData, evidenceData, sourceCoverage, localIntel] = await Promise.all([
     fetchDashboardSignals(40, countryName),
     getPipelineCounts(),
     getWantedListings(countryIso2),
-    getWantedRequestsCount(),
+    getWantedRequestsCount(countryIso2),
     getCountryRoleMarketplaceRows(countryIso2),
     getLiveEduTiles(roleId),
     getRecentEduModules(),
     getWatchlistData(userId),
     getEvidenceData(userId, countryIso2),
     getSourceCoverage(countryIso2),
+    getLocalIntel(countryIso2),
   ])
 
   return (
@@ -238,6 +239,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
       watchlistData={watchlistData}
       evidenceData={evidenceData}
       sourceCoverage={sourceCoverage}
+      localIntel={localIntel}
       wantedListings={wantedListings}
       liveTiles={liveTiles}
       pathwayData={pathwayData}
@@ -267,4 +269,5 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     />
   )
 }
+
 
