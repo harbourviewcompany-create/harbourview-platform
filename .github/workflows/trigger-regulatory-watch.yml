@@ -1,0 +1,45 @@
+name: Trigger Regulatory Watch (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'production'
+        type: choice
+        options: [production, preview]
+
+# Manually triggers the /api/cron/regulatory-watch endpoint so the cron
+# can be tested or run on-demand without waiting for Vercel's daily schedule.
+# Requires CRON_SECRET to be set as a GitHub Actions secret AND as a
+# Vercel environment variable (Settings → Environment Variables → CRON_SECRET).
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger regulatory-watch cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE_URL: https://harbourview.vercel.app
+        run: |
+          echo "Triggering regulatory-watch at $BASE_URL..."
+          response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$BASE_URL/api/cron/regulatory-watch")
+          
+          http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_STATUS:")
+          
+          echo "HTTP Status: $http_status"
+          echo "Response: $body"
+          
+          if [ "$http_status" != "200" ]; then
+            echo "::error::Cron trigger failed with status $http_status"
+            echo "::warning::Check that CRON_SECRET is also set as a Vercel environment variable"
+            echo "::warning::Vercel Dashboard → harbourview project → Settings → Environment Variables → Add CRON_SECRET"
+            exit 1
+          fi
+          
+          echo "✓ Regulatory watch cron triggered successfully"
