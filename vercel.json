@@ -6,6 +6,10 @@
   "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh",
   "crons": [
     {
+      "path": "/api/cron/intelligence-ingest",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/scrape",
       "schedule": "0 6 * * *"
     },
