@@ -9,9 +9,15 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:globe-router && npm run test:country-role && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
-    "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh"
+    "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
+    "intelligence:discover": "tsx scripts/engine/global-discovery.ts",
+    "intelligence:ingest": "tsx scripts/engine/run-ingestion.ts",
+    "intelligence:deep-discovery": "tsx scripts/engine/run-deep-discovery.ts",
+    "intelligence:worker": "tsx scripts/engine/start-worker.ts",
+    "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.4.0",
     "@opennextjs/cloudflare": "^1.19.8",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
