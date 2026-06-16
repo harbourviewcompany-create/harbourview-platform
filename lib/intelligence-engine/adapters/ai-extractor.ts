@@ -45,7 +45,9 @@ export class HuggingFaceExtractor {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: `Extract cannabis market intelligence from the following text. Respond strictly in JSON matching the SignalDTO structure. Country context: ${countryCode}.\n\nText: ${result.raw_content.slice(0, 4000)}`,
+          inputs: `Extract cannabis market intelligence from the following text. Respond strictly in JSON matching the SignalDTO structure. Country context: ${countryCode}.
+
+Text: ${result.raw_content.slice(0, 4000)}`,
           parameters: {
             max_new_tokens: 1024,
             return_full_text: false,
@@ -57,19 +59,20 @@ export class HuggingFaceExtractor {
         throw new Error(`HF API HTTP ${response.status}`);
       }
 
-      const responseBody = await response.json();
+      const responseBody = await response.json() as Array<{ generated_text?: string }>;
       const generatedText = responseBody[0]?.generated_text || '{}';
       
       // Attempt to parse JSON from the model
       const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      const parsedJson = JSON.parse(jsonMatch ? jsonMatch[0] : generatedText);
+      const parsedJson: unknown = JSON.parse(jsonMatch ? jsonMatch[0] : generatedText);
 
       // Validate against our rigorous Zod schema
       const validSignal = SignalDTOSchema.parse(parsedJson);
       return validSignal;
 
-    } catch (err: any) {
-      console.error(`[HF] Extraction failed for target_id ${result.target_id}:`, err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[HF] Extraction failed for target_id ${result.target_id}:`, message);
       return null;
     }
   }
