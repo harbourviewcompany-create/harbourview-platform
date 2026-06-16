@@ -11,6 +11,15 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ScrapeTarget } from '../types';
 
+interface SourceRegistryRow {
+  id: string;
+  source_url: string;
+  iso: string | null;
+  source_name: string;
+  adapter: string | null;
+  crawl_cadence: string | null;
+}
+
 export class DistributedTaskQueue {
   constructor(private supabase: SupabaseClient) {}
 
@@ -26,13 +35,13 @@ export class DistributedTaskQueue {
     });
 
     if (!rpcError && rpcData) {
-      return (rpcData as any[]).map(this.mapRow);
+      return (rpcData as SourceRegistryRow[]).map(this.mapRow);
     }
 
     return this.fallbackAcquire(limit, workerId);
   }
 
-  private mapRow(row: any): ScrapeTarget {
+  private mapRow(row: SourceRegistryRow): ScrapeTarget {
     return {
       id:            row.id,
       country_code:  row.iso || 'GLOBAL',
@@ -57,7 +66,7 @@ export class DistributedTaskQueue {
 
     if (!targets || targets.length === 0) return [];
 
-    const ids = targets.map((t: any) => t.id);
+    const ids = (targets as Array<{ id: string }>).map((t) => t.id);
     const leaseTime = new Date(Date.now() + 5 * 60000).toISOString();
 
     const { data: locked, error } = await this.supabase
@@ -67,7 +76,7 @@ export class DistributedTaskQueue {
       .select('id, source_url, iso, source_name, adapter, crawl_cadence');
 
     if (error || !locked) return [];
-    return locked.map(this.mapRow);
+    return (locked as SourceRegistryRow[]).map(this.mapRow);
   }
 
   /** Release lock and schedule next crawl. */
