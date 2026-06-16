@@ -2973,28 +2973,6 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   )
 })
 
-// ── Placeholder pages (scaffolded, real content in next passes) ───────────────
-
-const ScaffoldPage = React.memo(function ScaffoldPage({
-  title, country, region, role,
-}: {
-  title: string
-  country: { label: string }
-  region: string
-  role: string
-}) {
-  return (
-    <div className="cc-page cc-scaffold">
-      <div className="cc-scaffold-inner">
-        <div className="cc-scaffold-icon">◎</div>
-        <h2>{title}</h2>
-        <p>{country.label}{region ? ` · ${region}` : ''} · {role || 'All roles'}</p>
-        <div className="cc-scaffold-note">Full page implementation in progress</div>
-      </div>
-    </div>
-  )
-})
-
 // ── Command palette ───────────────────────────────────────────────────────────
 
 type CmdItem = { id: string; group: string; label: string; sub?: string; icon?: string; action: () => void }
@@ -3159,12 +3137,32 @@ export default function CommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  userEmail,
 }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
     const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
     return found ?? { iso2: 'GLOBAL', label: 'Global Market' }
   }, [initialCountryIso2])
+
+  // ── Live auth user — header chip initials & display name ───────────────────
+  const userInitials = useMemo(() => {
+    if (!userEmail) return 'HV'
+    const namePart = userEmail.split('@')[0]
+    const parts = namePart.split(/[._-]+/).filter(Boolean)
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+    return namePart.slice(0, 2).toUpperCase()
+  }, [userEmail])
+
+  const userDisplayName = useMemo(() => {
+    if (!userEmail) return 'Account'
+    const namePart = userEmail.split('@')[0]
+    const parts = namePart.split(/[._-]+/).filter(Boolean)
+    if (parts.length >= 2) {
+      return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+    }
+    return namePart.charAt(0).toUpperCase() + namePart.slice(1)
+  }, [userEmail])
 
   const [country,      setCountry]     = useState(initialCountry)
   const [region,       setRegion]      = useState('')
@@ -3293,9 +3291,9 @@ export default function CommandCentre({
           </button>
 
           <div className="cc-user-chip">
-            <div className="cc-user-avatar">TC</div>
+            <div className="cc-user-avatar">{userInitials}</div>
             <div className="cc-user-info">
-              <strong>Taylor Chambers</strong>
+              <strong>{userDisplayName}</strong>
               <small>Harbourview</small>
             </div>
             <span className="cc-user-arrow">▾</span>
