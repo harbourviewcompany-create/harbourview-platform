@@ -10,6 +10,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/intelligence-extract",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/scrape",
       "schedule": "0 6 * * *"
     },
