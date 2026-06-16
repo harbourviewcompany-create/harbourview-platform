@@ -12,6 +12,19 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ScrapeTarget, ScraperResult } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
 
+interface SourceRegistryRow {
+  id: string;
+  source_url: string;
+  iso: string | null;
+  source_name: string;
+  adapter: string | null;
+  crawl_cadence: string | null;
+  is_active: boolean;
+  crawl_allowed: boolean;
+  next_crawl_at: string | null;
+  locked_until: string | null;
+}
+
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
   private htmlAdapter: HTMLDataAdapter;
@@ -35,7 +48,7 @@ export class IntelligenceOrchestrator {
 
     if (error) throw new Error(`Failed to fetch targets: ${error.message}`);
 
-    return (data || []).map((row: any) => ({
+    return (data as SourceRegistryRow[] || []).map((row) => ({
       id: row.id,
       country_code: row.iso || 'GLOBAL',
       source_name: row.source_name,
@@ -55,14 +68,15 @@ export class IntelligenceOrchestrator {
 
       try {
         result = await this.htmlAdapter.fetch(target);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         result = {
           target_id: target.id,
           timestamp: new Date().toISOString(),
           raw_content: '',
           content_hash: '',
           status: 'failed',
-          error_message: err.message,
+          error_message: message,
         };
       }
 
