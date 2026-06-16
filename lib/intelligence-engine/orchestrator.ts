@@ -53,7 +53,7 @@ export class IntelligenceOrchestrator {
       country_code: row.iso || 'GLOBAL',
       source_name: row.source_name,
       base_url: row.source_url,
-      adapter_type: row.adapter || 'html_diff',
+      adapter_type: (row.adapter || 'html_diff') as "html_diff" | "rss" | "json_api" | "playwright_full",
       cadence_hours: row.crawl_cadence ? 24 : 24, // cadence stored as text; default 24h
     }));
   }
