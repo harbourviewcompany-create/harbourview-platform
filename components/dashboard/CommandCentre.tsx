@@ -3224,7 +3224,7 @@ export default function CommandCentre({
       case 'watchlist':
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
-        return <SettingsPage country={country} region={region} role={role} userEmail={userEmail} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
+        return <SettingsPage country={country} region={region} role={role} userEmail={userEmail} />
       default:
         return null
     }
