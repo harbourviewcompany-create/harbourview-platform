@@ -17,7 +17,7 @@ const optionalUrl = optionalStr.pipe(z.string().url().optional());
 
 /**
  * All HF_ environment variables are server-only.
- * NEXT_PUBLIC_HF_* variables are NEVER authorized.
+ * Browser-exposed ("NEXT_PUBLIC_" prefixed) HF variables are NEVER authorized.
  */
 const schema = z.object({
   HF_ORG: requiredStr.default('Harbourview'),
