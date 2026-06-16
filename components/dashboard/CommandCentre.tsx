@@ -3227,6 +3227,7 @@ export default function CommandCentre({
       default:
         return null
     }
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
