@@ -192,7 +192,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
           ))}
         </div>
 
-        <a className="cc-jx-btn" href={`/country/${country.iso2.toLowerCase()}`}>View Full Jurisdiction Profile →</a>
+        <a className="cc-jx-btn" href={`/country/${country.label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`}>View Full Jurisdiction Profile →</a>
       </aside>
 
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
@@ -1684,7 +1684,7 @@ const SettingsPage = React.memo(function SettingsPage({
               <span className="cc-security-icon">⊙</span>
               <div>
                 <strong>Session Status</strong>
-                <small>Started today</small>
+                <small>Started {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
               </div>
               <span className="cc-security-badge active">Active</span>
             </div>
@@ -4897,6 +4897,7 @@ const CSS = `
   pointer-events:none;user-select:none;
 }
 `
+
 
 
 
