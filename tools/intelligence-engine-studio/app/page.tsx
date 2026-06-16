@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
+// firebase/auth is not installed at the workspace root — use a local type instead
+type User = { uid: string; email: string | null; displayName: string | null }
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { initAuth, googleSignIn, logout, getAccessToken } from '../lib/firebase-auth';
 
