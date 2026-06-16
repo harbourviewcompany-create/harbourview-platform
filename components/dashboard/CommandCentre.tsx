@@ -44,6 +44,7 @@ type Props = {
   liveTiles?:        LiveEduTile[]
   recentEduModules?: RecentEduModule[]
   sourceCoverage?:   SourceCoverageRow[]
+  userEmail?:        string | null
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -534,7 +535,7 @@ const SignalsPage = React.memo(function SignalsPage({
                     <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                     <div className="cc-sig-body">
                       <strong>{s.title}</strong>
-                      <small>{s.market ? `${s.market}${region ? \` · ${region}\` : ''} · ` : ''}{s.timeAgo}</small>
+                      <small>{s.market ? `${s.market}${region ? ` · ${region}` : ''} · ` : ''}{s.timeAgo}</small>
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>

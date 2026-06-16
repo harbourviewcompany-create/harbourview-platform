@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import { createClient } from '@/lib/supabase/server'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
@@ -194,6 +195,15 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     : baseEduCategories
 
   const countryName = dashboard.country.countryName
+
+  // Resolve authenticated userId (null for unauthenticated visitors)
+  let userId: string | null = null
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.id) userId = user.id
+  } catch { /* unauthenticated */ }
+
   // Split into two tiers:
   // Tier 1 — critical path (needed for initial paint)
   const [countryStatus, pathwayData] = await Promise.all([
@@ -210,8 +220,8 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     getCountryRoleMarketplaceRows(countryIso2),
     getLiveEduTiles(roleId),
     getRecentEduModules(),
-    getWatchlistData(countryIso2),
-    getEvidenceData(countryIso2),
+    getWatchlistData(userId),
+    getEvidenceData(userId, countryIso2),
     getSourceCoverage(countryIso2),
   ])
 
