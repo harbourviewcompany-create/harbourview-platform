@@ -502,16 +502,19 @@ export function getEmptyCountryStatusBar(): CountryStatusBar {
 }
 
 // ── Wanted Requests count ─────────────────────────────────────────────────────
-export async function getWantedRequestsCount(): Promise<number> {
+export async function getWantedRequestsCount(countryIso2?: string | null): Promise<number> {
   try {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { count, error } = await supabase
+    let q = supabase
       .from('listings')
       .select('id', { count: 'exact', head: true })
       .eq('listing_type', 'wanted')
       .eq('status', 'published')
+    if (countryIso2) q = q.eq('location_country', countryIso2.toUpperCase())
+    const { count, error } = await q
     if (!error && typeof count === 'number') return count
   } catch { /* Supabase unavailable */ }
   return 0
 }
+
