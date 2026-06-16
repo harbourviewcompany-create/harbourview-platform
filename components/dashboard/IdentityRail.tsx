@@ -1,9 +1,13 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useDashboard } from '@/lib/dashboard/DashboardContext'
 import { getDashboardRoleLabel } from '@/lib/dashboard/globeRouteContext'
 import { useAllCountries } from '@/hooks/useAllCountries'
+import { createClient } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
 
 interface Props {
   onMarketClick: () => void
@@ -28,21 +32,38 @@ function ChevronDownIcon() {
   )
 }
 
-function UserIcon() {
-  return (
-    <svg viewBox="0 0 16 16" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="8" cy="5.5" r="2.5"/>
-      <path d="M2.5 14.5c0-3.5 2.5-5 5.5-5s5.5 1.5 5.5 5"/>
-    </svg>
-  )
-}
-
 export function IdentityRail({ onMarketClick }: Props) {
   const { countryName, role } = useDashboard()
   const countries = useAllCountries()
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
+  }
 
   const roleLabel = getDashboardRoleLabel(role)
   const countryCount = countries.status === 'ok' ? countries.data.length : null
+
+  // Derive initials from email
+  const emailLocal = user?.email?.split('@')[0] ?? ''
+  const emailParts = emailLocal.split('.').filter(Boolean)
+  const initials = emailParts.length >= 2
+    ? (emailParts[0][0] + emailParts[1][0]).toUpperCase()
+    : emailLocal.slice(0, 2).toUpperCase() || 'HV'
 
   return (
     <header
@@ -103,33 +124,59 @@ export function IdentityRail({ onMarketClick }: Props) {
       </div>
 
       {/* Right — account */}
-      <div className="flex items-center gap-2.5">
-        {/* Free tier badge */}
-        <div
-          className="hidden rounded-full px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] sm:block"
-          style={{
-            background: 'rgba(29,158,117,0.1)',
-            border:     '1px solid rgba(29,158,117,0.24)',
-            color:      '#5dcaa5',
-          }}
-        >
-          Free tier
-        </div>
-
-        {/* Avatar */}
-        <div
-          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[11px] font-semibold transition-opacity hover:opacity-80"
+      <div className="relative flex items-center gap-2.5">
+        {/* Avatar — initials or HV fallback */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Account menu"
+          aria-expanded={menuOpen}
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
           style={{
             background: 'rgba(198,165,90,0.1)',
             border:     '1px solid rgba(198,165,90,0.2)',
             color:      '#F0D39A',
           }}
-          title="Account"
         >
-          <span className="flex h-4 w-4 items-center justify-center" style={{ color: 'rgba(240,211,154,0.8)' }}>
-            <UserIcon />
-          </span>
-        </div>
+          {initials}
+        </button>
+
+        {/* Dropdown */}
+        {menuOpen && (
+          <div className="absolute right-0 top-full z-[70] w-52 pt-2">
+            <div
+              className="rounded-sm p-2 shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+              style={{ background: 'rgba(2,8,20,0.98)', border: '1px solid rgba(198,165,90,0.14)' }}
+            >
+              {user?.email && (
+                <div className="mb-1 border-b px-4 py-2" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.32)' }}>Signed in as</p>
+                  <p className="mt-0.5 truncate text-[11px]" style={{ color: 'rgba(240,211,154,0.7)' }}>{user.email}</p>
+                </div>
+              )}
+              <Link
+                href="/account"
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-sm px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                style={{ color: 'rgba(255,255,255,0.65)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(198,165,90,0.1)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                Account
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="w-full rounded-sm px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                style={{ color: 'rgba(220,80,80,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(220,80,80,0.08)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </header>
   )
