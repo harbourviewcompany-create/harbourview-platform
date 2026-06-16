@@ -7,7 +7,6 @@
  */
 
 import { z } from 'zod';
-import { createClient } from '@supabase/supabase-js';
 
 // --- Types & Schemas ---
 
@@ -18,7 +17,7 @@ export const ScrapeTargetSchema = z.object({
   base_url: z.string(),
   cadence_hours: z.number().default(24),
   adapter_type: z.enum(['html_diff', 'rss', 'json_api', 'playwright_full']),
-  metadata: z.record(z.string(), z.any()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type ScrapeTarget = z.infer<typeof ScrapeTargetSchema>;
@@ -41,5 +40,5 @@ export interface IDataAdapter {
 }
 
 export interface IExtractionStrategy {
-  extract(rawResult: ScraperResult): Promise<any>;
+  extract(rawResult: ScraperResult): Promise<unknown>;
 }
