@@ -38,14 +38,15 @@ export class HTMLDataAdapter implements IDataAdapter {
         content_hash: contentHash,
         status: 'success',
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       return {
         target_id: target.id,
         timestamp,
         raw_content: '',
         content_hash: '',
         status: 'failed',
-        error_message: err.message,
+        error_message: message,
       };
     }
   }
