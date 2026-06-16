@@ -125,57 +125,74 @@ export function IdentityRail({ onMarketClick }: Props) {
 
       {/* Right — account */}
       <div className="relative flex items-center gap-2.5">
-        {/* Avatar — initials or HV fallback */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Account menu"
-          aria-expanded={menuOpen}
-          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
-          style={{
-            background: 'rgba(198,165,90,0.1)',
-            border:     '1px solid rgba(198,165,90,0.2)',
-            color:      '#F0D39A',
-          }}
-        >
-          {initials}
-        </button>
-
-        {/* Dropdown */}
-        {menuOpen && (
-          <div className="absolute right-0 top-full z-[70] w-52 pt-2">
-            <div
-              className="rounded-sm p-2 shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-              style={{ background: 'rgba(2,8,20,0.98)', border: '1px solid rgba(198,165,90,0.14)' }}
+        {user === null ? (
+          /* Not signed in — show Sign In link */
+          <Link
+            href="/login"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-all"
+            style={{
+              border:     '1px solid rgba(198,165,90,0.28)',
+              background: 'rgba(198,165,90,0.08)',
+              color:      '#F0D39A',
+            }}
+          >
+            Sign In
+          </Link>
+        ) : user !== undefined ? (
+          /* Signed in — show initials avatar + dropdown */
+          <>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Account menu"
+              aria-expanded={menuOpen}
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
+              style={{
+                background: 'rgba(198,165,90,0.1)',
+                border:     '1px solid rgba(198,165,90,0.2)',
+                color:      '#F0D39A',
+              }}
             >
-              {user?.email && (
-                <div className="mb-1 border-b px-4 py-2" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.32)' }}>Signed in as</p>
-                  <p className="mt-0.5 truncate text-[11px]" style={{ color: 'rgba(240,211,154,0.7)' }}>{user.email}</p>
+              {initials}
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-[70] w-52 pt-2">
+                <div
+                  className="rounded-sm p-2 shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                  style={{ background: 'rgba(2,8,20,0.98)', border: '1px solid rgba(198,165,90,0.14)' }}
+                >
+                  <div className="mb-1 border-b px-4 py-2" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.32)' }}>Signed in as</p>
+                    <p className="mt-0.5 truncate text-[11px]" style={{ color: 'rgba(240,211,154,0.7)' }}>{user.email}</p>
+                  </div>
+                  <Link
+                    href="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-sm px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.65)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(198,165,90,0.1)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    Account
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="w-full rounded-sm px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                    style={{ color: 'rgba(220,80,80,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(220,80,80,0.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    Sign Out
+                  </button>
                 </div>
-              )}
-              <Link
-                href="/account"
-                onClick={() => setMenuOpen(false)}
-                className="block rounded-sm px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
-                style={{ color: 'rgba(255,255,255,0.65)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(198,165,90,0.1)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                Account
-              </Link>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="w-full rounded-sm px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
-                style={{ color: 'rgba(220,80,80,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(220,80,80,0.08)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Loading — skeleton pill */
+          <div className="h-5 w-16 animate-pulse rounded-full" style={{ background: 'rgba(198,165,90,0.1)' }} />
         )}
       </div>
     </header>
