@@ -1793,13 +1793,14 @@ function buildAuthorities(country: { iso2: string; label: string }) {
 }
 
 const LocalIntelPage = React.memo(function LocalIntelPage({
-  country, region, role, signals, countryIntel,
+  country, region, role, signals, countryIntel, localIntel,
 }: {
   country:      { iso2: string; label: string }
   region:       string
   role:         string
   signals:      DashboardSignal[]
   countryIntel?: CountryIntelProfile | null
+  localIntel?:   LocalIntelData | null
 }) {
   const municipalities = useMemo(() => buildMunicipalData(country, region), [country, region])
   const authorities    = useMemo(() => buildAuthorities(country), [country])
