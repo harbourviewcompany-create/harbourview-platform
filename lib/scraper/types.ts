@@ -19,7 +19,7 @@ export interface ScraperConfig {
   adapter_type: AdapterType;
   cadence_hours: number; // Polling frequency
   is_active: boolean;
-  metadata?: Record<string, any>; // Optional params for specific adapter needs
+  metadata?: Record<string, unknown>; // Optional params for specific adapter needs
 }
 
 /**
