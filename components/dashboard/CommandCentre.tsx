@@ -609,23 +609,36 @@ const SignalsPage = React.memo(function SignalsPage({
 
 // ── Marketplace helpers ────────────────────────────────────────────────────────
 
-const MKT_TABS: { id: MarketView; label: string }[] = [
-  { id: 'cannabis',      label: 'Listings' },
-  { id: 'wanted',        label: 'Wanted Demand' },
-  { id: 'opportunities', label: 'Buyer Routes' },
-  { id: 'equipment',     label: 'Equipment' },
-  { id: 'consumables',   label: 'Consumables' },
-  { id: 'services',      label: 'Services' },
-  { id: 'new-products',  label: 'Opportunities' },
+const MKT_TABS: { id: MarketView; label: string; icon: string }[] = [
+  { id: 'cannabis',      label: 'Listings',       icon: '◈' },
+  { id: 'wanted',        label: 'Wanted',          icon: '≋' },
+  { id: 'equipment',     label: 'Equipment',       icon: '⊞' },
+  { id: 'consumables',   label: 'Consumables',     icon: '⊟' },
+  { id: 'services',      label: 'Services',        icon: '◉' },
+  { id: 'opportunities', label: 'Opportunities',   icon: '◷' },
+  { id: 'new-products',  label: 'New Products',    icon: '⬡' },
 ]
 
 // MarketRow tuple field indices
 const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7 } as const
 
+// signal types treated as marketplace-relevant for Opportunity Stream
+const MKT_SIG_TYPES = new Set([
+  'buyer_demand','equipment_surplus','documentation_readiness',
+  'distressed_asset','relationship_opportunity','importer_activity',
+  'regulatory_change','market_move',
+])
+
+function sigImpactColor(impact: string) {
+  if (impact === 'high')   return 'var(--cc-red)'
+  if (impact === 'medium') return 'var(--cc-amber)'
+  return 'var(--cc-dim)'
+}
+
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, signals, pipeline,
 }: {
   country:         { iso2: string; label: string }
   region:          string
@@ -634,9 +647,17 @@ const MarketplacePage = React.memo(function MarketplacePage({
   wantedListings?:  WantedListing[]
   wantedCount?:     number
   pathwayData?:     PathwayData
+  signals?:         DashboardSignal[]
+  pipeline?:        PipelineCounts
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
   const [search,    setSearch]    = useState('')
+
+  // total listing count across all categories
+  const totalListings = useMemo(() =>
+    Object.values(marketplaceRows ?? {}).reduce((n, r) => n + (r?.length ?? 0), 0),
+    [marketplaceRows],
+  )
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab] ?? []
@@ -659,84 +680,116 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return r
   }, [activeTab, marketplaceRows, wantedListings, search, country])
 
-  const ACCESS_REQS = useMemo(() => {
-    const step1 = pathwayData?.steps.find(s => s.step_number === 1)
-    const reqs  = step1
-      ? (pathwayData?.requirements.filter(r => r.step_id === step1.id && r.is_required) ?? [])
-      : []
-    if (reqs.length > 0) {
-      return reqs.slice(0, 4).map(r => {
-        const st = pathwayData?.requirementStatuses.find(rs => rs.requirement_id === r.id)
-        const ok = st?.status === 'verified'
-        const detail = ok
-          ? `Verified${st?.reviewed_at ? ' · ' + new Date(st.reviewed_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : ''}`
-          : st?.status === 'in_review' ? 'Under review' : 'Pending'
-        return { label: r.title, ok, detail }
-      })
-    }
-    return [
-      { label: `${country.label} Licence`,              ok: false, detail: 'Pending' },
-      { label: 'Facility Registration & Site Plan',     ok: false, detail: 'Pending' },
-      { label: 'Standard Operating Procedures',        ok: false, detail: 'Pending' },
-      { label: 'Traceability System Documentation',    ok: false, detail: 'Pending' },
-    ]
-  }, [pathwayData, country])
+  // Opportunity Stream — marketplace-relevant signals + fallback
+  const streamSignals = useMemo(() => {
+    const mktSigs = (signals ?? []).filter(s => MKT_SIG_TYPES.has(s.type))
+    if (mktSigs.length >= 4) return mktSigs.slice(0, 6)
+    return (signals ?? []).slice(0, 6)
+  }, [signals])
 
-  const VERIFY_GAPS = useMemo(() => {
-    const gaps = (pathwayData?.requirements ?? [])
-      .filter(r => {
-        const st = pathwayData?.requirementStatuses.find(rs => rs.requirement_id === r.id)
-        return !st || st.status === 'pending'
-      })
-      .slice(0, 3)
-    if (gaps.length > 0) {
-      return gaps.map(r => {
-        const step = pathwayData?.steps.find(s => s.id === r.step_id)
-        return { label: r.title, detail: r.description ?? step?.title ?? 'Required for access pathway' }
-      })
-    }
-    return [
-      { label: 'EU-GMP Certification',   detail: 'Required for EU export routes' },
-      { label: 'Pest Management Plan',   detail: 'Requires export-level detail' },
-      { label: 'Residual Testing SOP',   detail: 'Needs method verification' },
-    ]
-  }, [pathwayData])
-
-  const COUNTERPARTY = [
-    { label: 'Harbourview Due Diligence',    detail: 'Review in progress' },
-    { label: 'Sanctions & Watchlist Screen', detail: 'Pending verification' },
-    { label: 'Financial Standing',           detail: 'Submit documentation' },
-  ]
+  // Pipeline steps
+  const pipelineSteps = useMemo(() => [
+    { label: 'Wanted',       val: pipeline?.wanted       ?? 0, color: 'var(--cc-gold)'   },
+    { label: 'Matched',      val: pipeline?.matched      ?? 0, color: 'var(--cc-blue)'   },
+    { label: 'Proof Review', val: pipeline?.proof_review ?? 0, color: 'var(--cc-violet)' },
+    { label: 'Inquiry',      val: pipeline?.inquiry      ?? 0, color: 'var(--cc-green)'  },
+    { label: 'Deal Room',    val: pipeline?.deal_room    ?? 0, color: 'var(--cc-amber)'  },
+  ], [pipeline])
 
   return (
     <div className="cc-page cc-two-col-page">
-      {/* ── Main table ──────────────────────────────────────── */}
+
+      {/* ── Main exchange area ────────────────────────────────────── */}
       <div className="cc-two-main">
-        <div className="cc-inner-header">
-          <h2>{country.label}{role ? ` ${role}` : ''} Marketplace &amp; Access</h2>
-          <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview&apos;s market access team.</p>
+
+        {/* Exchange header */}
+        <div className="cc-inner-header" style={{ paddingBottom: 0 }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16 }}>
+            <div>
+              <div style={{ fontFamily:'var(--cc-mono)', fontSize:9, letterSpacing:'.18em', color:'var(--cc-dim)', textTransform:'uppercase', marginBottom:4 }}>
+                GLOBAL CANNABIS EXCHANGE
+              </div>
+              <h2 style={{ margin:0, fontFamily:'var(--cc-serif)', fontSize:22, fontWeight:400, color:'var(--cc-ink)', letterSpacing:'-.01em' }}>
+                Marketplace &amp; Access
+              </h2>
+              <div style={{ marginTop:4, display:'flex', gap:16, fontFamily:'var(--cc-mono)', fontSize:9, color:'var(--cc-dim)', letterSpacing:'.12em', textTransform:'uppercase' }}>
+                <span style={{ color:'var(--cc-gold)', fontWeight:700 }}>{totalListings}</span> Listings
+                <span>·</span>
+                <span>{MKT_TABS.length}</span> Categories
+                <span>·</span>
+                <span>Reviewed before routing</span>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+              <a href="/marketplace/sell?type=wanted"
+                style={{ display:'inline-flex', alignItems:'center', padding:'7px 12px', borderRadius:8,
+                  border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.04)',
+                  color:'rgba(245,240,232,.65)', fontSize:11, textDecoration:'none', whiteSpace:'nowrap' }}>
+                Post Wanted
+              </a>
+              <a href="/marketplace/sell"
+                style={{ display:'inline-flex', alignItems:'center', padding:'7px 14px', borderRadius:8,
+                  background:'linear-gradient(135deg,#d4a84b,#b88c35)',
+                  color:'#0d1117', fontSize:11, fontWeight:700, textDecoration:'none', whiteSpace:'nowrap' }}>
+                Submit Listing →
+              </a>
+            </div>
+          </div>
         </div>
 
-        <div className="cc-mkt-tabs">
-          {MKT_TABS.map(t => (
-            <button key={t.id}
-              className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-              onClick={() => setActiveTab(t.id)}
-            >
-              {t.label}
-              {t.id==='wanted' && wantedCount ? <span className="cc-tab-badge">{wantedCount}</span> : null}
-            </button>
+        {/* Pipeline bar */}
+        <div style={{ display:'flex', alignItems:'center', padding:'10px 24px', borderBottom:'1px solid var(--cc-line)', flexShrink:0, gap:0, background:'rgba(3,7,17,.3)' }}>
+          {pipelineSteps.map((s, i) => (
+            <React.Fragment key={s.label}>
+              <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px' }}>
+                <div style={{ width:7, height:7, borderRadius:'50%', background:s.val > 0 ? s.color : 'rgba(255,255,255,.12)', flexShrink:0, boxShadow: s.val > 0 ? `0 0 6px ${s.color}` : 'none' }} />
+                <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                  <span style={{ fontFamily:'var(--cc-mono)', fontSize:8, color:'var(--cc-dim)', letterSpacing:'.12em', textTransform:'uppercase' }}>{s.label}</span>
+                  <span style={{ fontSize:16, fontWeight:700, lineHeight:1, color: s.val > 0 ? s.color : 'rgba(255,255,255,.18)' }}>{s.val}</span>
+                </div>
+              </div>
+              {i < pipelineSteps.length - 1 && (
+                <span style={{ color:'rgba(255,255,255,.14)', fontSize:16, padding:'0 2px', flexShrink:0 }}>›</span>
+              )}
+            </React.Fragment>
           ))}
+          <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+            <Link href="/marketplace" style={{ fontFamily:'var(--cc-mono)', fontSize:9, color:'var(--cc-dim)', letterSpacing:'.1em', textDecoration:'none', padding:'3px 8px', border:'1px solid var(--cc-line)', borderRadius:4 }}>
+              Full Exchange ↗
+            </Link>
+          </div>
         </div>
 
+        {/* Category tabs */}
+        <div className="cc-mkt-tabs">
+          {MKT_TABS.map(t => {
+            const cnt = t.id === 'wanted'
+              ? (wantedCount ?? 0) + (marketplaceRows?.wanted?.length ?? 0)
+              : (marketplaceRows?.[t.id]?.length ?? 0)
+            return (
+              <button key={t.id}
+                className={`cc-mkt-tab${activeTab === t.id ? ' active' : ''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                <span style={{ fontSize:11 }}>{t.icon}</span>
+                {t.label}
+                {cnt > 0 && <span className="cc-tab-badge">{cnt}</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Search + filter bar */}
         <div className="cc-mkt-filters">
           <div className="cc-mkt-search-wrap">
             <span>⌕</span>
-            <input className="cc-mkt-search" placeholder="Search listings…" value={search} onChange={e=>setSearch(e.target.value)} />
+            <input className="cc-mkt-search" placeholder="Search listings, suppliers, categories…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <button className="cc-mkt-filter-btn">≡ Filters</button>
+          <button className="cc-mkt-filter-btn">↓ Export</button>
         </div>
 
+        {/* Listings table */}
         {rows.length > 0 ? (
           <>
             <div className="cc-mkt-table">
@@ -749,37 +802,44 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 <span className="cc-mkt-th">EVIDENCE</span>
                 <span className="cc-mkt-th">ACTIONS</span>
               </div>
-              {rows.slice(0,10).map((row, i) => {
-                const conf = parseInt(row[MR.CONFIDENCE])||72
-                const ok   = row[MR.VERIFICATION]?.toLowerCase()==='verified'
+              {rows.slice(0, 12).map((row, i) => {
+                const conf = parseInt(row[MR.CONFIDENCE]) || 72
+                const ok   = row[MR.VERIFICATION]?.toLowerCase() === 'verified'
+                const isFeatured = row[MR.ACCESS_ROUTE]?.toLowerCase().includes('featured')
                 return (
-                  <div key={row[MR.ID]||String(i)} className="cc-mkt-row">
+                  <div key={row[MR.ID] || String(i)} className="cc-mkt-row" style={ isFeatured ? { borderLeft:'2px solid rgba(212,168,75,.4)' } : {} }>
                     <div className="cc-mkt-cell opp-col">
-                      <div className="cc-opp-icon">◎</div>
+                      <div className="cc-opp-icon">{
+                        row[MR.CATEGORY]?.toLowerCase().includes('genetic') ? '◈' :
+                        row[MR.CATEGORY]?.toLowerCase().includes('equip')   ? '⊞' :
+                        row[MR.CATEGORY]?.toLowerCase().includes('service')  ? '◉' :
+                        row[MR.CATEGORY]?.toLowerCase().includes('wanted')   ? '≋' :
+                        '◎'
+                      }</div>
                       <div className="cc-opp-body">
                         <strong>{row[MR.TITLE]}</strong>
-                        {row[MR.DESC] && <p>{row[MR.DESC].slice(0,80)}{row[MR.DESC].length>80?'…':''}</p>}
+                        {row[MR.DESC] && <p>{row[MR.DESC].slice(0, 80)}{row[MR.DESC].length > 80 ? '…' : ''}</p>}
                         {row[MR.CATEGORY] && <span className="cc-opp-tag">{row[MR.CATEGORY]}</span>}
                       </div>
                     </div>
-                    <div className="cc-mkt-cell">{row[MR.CATEGORY]||'—'}</div>
+                    <div className="cc-mkt-cell">{row[MR.CATEGORY] || '—'}</div>
                     <div className="cc-mkt-cell cc-juris-cell">
-                      <span>{row[MR.JURISDICTION]||country.iso2}</span>
-                      {ok && <span className="cc-export-tag">Export-Ready</span>}
+                      <span>{row[MR.JURISDICTION] || country.iso2}</span>
+                      {ok && <span className="cc-export-tag">Reviewed</span>}
                     </div>
                     <div className="cc-mkt-cell">
-                      <span className={`cc-verify-badge ${ok?'ok':'pending'}`}>
-                        {ok?'✓':'○'} {row[MR.VERIFICATION]||'Pending Review'}
+                      <span className={`cc-verify-badge ${ok ? 'ok' : 'pending'}`}>
+                        {ok ? '✓' : '○'} {row[MR.VERIFICATION] || 'Pending Review'}
                       </span>
                     </div>
-                    <div className="cc-mkt-cell">{row[MR.ACCESS_ROUTE]||'Mediated'}</div>
+                    <div className="cc-mkt-cell">{row[MR.ACCESS_ROUTE] || 'Mediated'}</div>
                     <div className="cc-mkt-cell">
                       <svg viewBox="0 0 36 36" className="cc-mini-donut">
                         <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4"/>
                         <circle cx="18" cy="18" r="14" fill="none"
-                          stroke={conf>=80?'var(--cc-green)':conf>=65?'var(--cc-amber)':'var(--cc-red)'}
+                          stroke={conf >= 80 ? 'var(--cc-green)' : conf >= 65 ? 'var(--cc-amber)' : 'var(--cc-red)'}
                           strokeWidth="4"
-                          strokeDasharray={`${87.96*conf/100} 87.96`}
+                          strokeDasharray={`${87.96 * conf / 100} 87.96`}
                           strokeLinecap="round" transform="rotate(-90 18 18)"
                         />
                         <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{conf}%</text>
@@ -788,69 +848,110 @@ const MarketplacePage = React.memo(function MarketplacePage({
                     <div className="cc-mkt-cell cc-acts-col">
                       <button className="cc-act-primary">Request access</button>
                       <button className="cc-act-sec">Watch</button>
-                      <button className="cc-act-sec">Requirements</button>
                     </div>
                   </div>
                 )
               })}
             </div>
             <div className="cc-feed-footer">
-              <span>Showing {Math.min(rows.length,10)} of {rows.length} opportunities</span>
+              <span>Showing {Math.min(rows.length, 12)} of {rows.length} opportunities</span>
+              <div className="cc-auto-refresh">
+                <span className="cc-refresh-dot" />
+                <span style={{ fontFamily:'var(--cc-mono)', fontSize:9, color:'var(--cc-dim)', letterSpacing:'.1em' }}>REVIEWED · PRIVATE ROUTING</span>
+              </div>
+              <Link href="/marketplace" style={{ fontFamily:'var(--cc-mono)', fontSize:9, color:'var(--cc-gold)', marginLeft:'auto', letterSpacing:'.1em', textDecoration:'none' }}>
+                Browse full exchange →
+              </Link>
             </div>
           </>
         ) : (
           <div className="cc-empty-state">
             <span>⊞</span>
-            <p>No {activeTab === 'cannabis' ? '' : (MKT_TABS.find(t=>t.id===activeTab)?.label.toLowerCase() ?? '') + ' '}listings for {country.label}{region?` · ${region}`:''}.{' '}
-              {activeTab!=='wanted' && <button className="cc-right-link" onClick={()=>setActiveTab('wanted')}>Browse wanted demand →</button>}
+            <p>
+              {activeTab === 'wanted'
+                ? `${wantedCount && wantedCount > 0 ? wantedCount : 'No'} active wanted requests for ${country.label}.`
+                : `No ${MKT_TABS.find(t => t.id === activeTab)?.label.toLowerCase() ?? ''} listings for ${country.label}${region ? ` · ${region}` : ''}.`}
+              {' '}
+              {activeTab !== 'wanted' && (
+                <button className="cc-right-link" onClick={() => setActiveTab('wanted')}>Browse wanted demand →</button>
+              )}
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Right panel ─────────────────────────────────────── */}
+      {/* ── Right panel: Opportunity Stream ───────────────────────── */}
       <aside className="cc-two-right">
+
+        {/* Opportunity Stream */}
         <div className="cc-right-section">
-          <div className="cc-right-head">MARKETPLACE ACCESS REQUIREMENTS</div>
-          {ACCESS_REQS.map(r => (
-            <div key={r.label} className="cc-req-row">
-              <span className={`cc-req-icon ${r.ok?'ok':'pending'}`}>{r.ok?'✓':'○'}</span>
-              <div>
-                <strong>{r.label}</strong>
-                <small>{r.detail}</small>
+          <div className="cc-right-head">
+            OPPORTUNITY STREAM
+            <span className="cc-right-info" title="Market intelligence signals relevant to exchange activity">ⓘ</span>
+          </div>
+          {streamSignals.length > 0 ? streamSignals.map((s, i) => (
+            <div key={s.id || i} style={{ display:'flex', gap:8, alignItems:'flex-start', padding:'8px 0', borderBottom:'1px solid var(--cc-line)' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, flexShrink:0, paddingTop:2 }}>
+                <div style={{ width:7, height:7, borderRadius:'50%', background: sigImpactColor(s.commercialImpact) }} />
+                {s.flag && <span style={{ fontSize:12, lineHeight:1 }}>{s.flag}</span>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:11, color:'var(--cc-ink)', lineHeight:1.35, fontWeight:500 }}>{s.title}</div>
+                <div style={{ marginTop:3, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:'var(--cc-mono)', fontSize:8, letterSpacing:'.1em', padding:'1px 5px', borderRadius:3,
+                    background: s.tag?.bg ?? 'rgba(255,255,255,.06)',
+                    color: s.tag?.color ?? 'var(--cc-dim)',
+                    border: `1px solid ${s.tag?.border ?? 'rgba(255,255,255,.1)'}` }}>
+                    {s.tag?.label ?? s.type}
+                  </span>
+                  <span style={{ fontSize:9, color:'var(--cc-dim)' }}>{s.market}</span>
+                  <span style={{ fontSize:9, color:'var(--cc-dim)' }}>·</span>
+                  <span style={{ fontSize:9, color:'var(--cc-dim)' }}>{s.timeAgo}</span>
+                </div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, flexShrink:0 }}>
+                <span style={{ fontFamily:'var(--cc-mono)', fontSize:9, fontWeight:700, color: s.confidence >= 80 ? 'var(--cc-green)' : s.confidence >= 65 ? 'var(--cc-amber)' : 'var(--cc-dim)' }}>
+                  {s.confidence}%
+                </span>
               </div>
             </div>
-          ))}
-          <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View all requirements →</Link>
+          )) : (
+            <p className="cc-right-prose">No market signals available for this context.</p>
+          )}
+          <Link href="/signals" className="cc-right-link">View all signals →</Link>
         </div>
 
+        {/* Pipeline status compact */}
         <div className="cc-right-section">
-          <div className="cc-right-head">VERIFICATION GAPS</div>
-          {VERIFY_GAPS.map(g => (
-            <div key={g.label} className="cc-req-row">
-              <span className="cc-req-icon gap">△</span>
-              <div>
-                <strong>{g.label}</strong>
-                <small>{g.detail}</small>
-              </div>
+          <div className="cc-right-head">DEAL PIPELINE</div>
+          {pipelineSteps.map(s => (
+            <div key={s.label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--cc-line)', fontSize:11 }}>
+              <span style={{ color:'var(--cc-muted)' }}>{s.label}</span>
+              <span style={{ fontFamily:'var(--cc-mono)', fontSize:13, fontWeight:700, color: s.val > 0 ? s.color : 'rgba(255,255,255,.2)' }}>{s.val}</span>
             </div>
           ))}
-          <Link href="/compliance" className="cc-right-link">Address gaps →</Link>
+          <p className="cc-right-prose" style={{ marginTop:8 }}>Deal flow starts when a supplier or buyer submits for Harbourview review.</p>
         </div>
 
+        {/* Submit CTA */}
         <div className="cc-right-section">
-          <div className="cc-right-head">COUNTERPARTY STATUS</div>
-          {COUNTERPARTY.map(c => (
-            <div key={c.label} className="cc-req-row">
-              <span className="cc-req-icon ok">✓</span>
-              <div>
-                <strong>{c.label}</strong>
-                <small>{c.detail}</small>
-              </div>
+          <div className="cc-right-head">SUBMIT TO EXCHANGE</div>
+          <div className="cc-nba-card">
+            <span className="cc-nba-card-icon">◎</span>
+            <div>
+              <strong>List an opportunity</strong>
+              <small>Supply, services, equipment, genetics, or distressed assets</small>
+              <p>Harbourview reviews submissions before any introduction or routing.</p>
             </div>
-          ))}
-          <Link href="/marketplace/reviewed-connections" className="cc-right-link">View counterparty profile →</Link>
+          </div>
+          <a href="/marketplace/sell" className="cc-nba-btn full" style={{ marginTop:8, display:'block', padding:'9px 14px', borderRadius:8, textDecoration:'none', textAlign:'center' }}>
+            Submit Listing →
+          </a>
+          <a href="/marketplace/sell?type=wanted" className="cc-nba-btn full" style={{ marginTop:6, display:'block', padding:'9px 14px', borderRadius:8, textDecoration:'none', textAlign:'center', background:'rgba(212,168,75,.06)', border:'1px solid rgba(212,168,75,.25)', color:'var(--cc-gold)' }}>
+            Post Wanted Request
+          </a>
         </div>
+
       </aside>
     </div>
   )
@@ -3167,7 +3268,7 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} signals={signals} pipeline={pipeline} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} />
       case 'education':
