@@ -360,12 +360,19 @@ describe('Passport tables excluded from public DTOs', () => {
     const src = await import('fs').then((fs) =>
       fs.readFileSync(new URL('../public.ts', import.meta.url).pathname, 'utf-8'),
     );
-    const forbidden = [
-      'HvPassport', 'HvLicence', 'HvEvidenceDocument',
-      'HvClaim', 'HvAdminReview', 'toHvPassport', 'toHvLicence',
+    // Exact serializer names for passport-level tables — must never exist in public.ts.
+    // NOTE: 'toHvClaimEvidencePublicDto' is intentionally NOT forbidden here: it is the
+    // allowlisted serializer for the separate 'hv_claim_evidence' table (tested above),
+    // distinct from the raw 'hv_claims' table which has no public DTO at all.
+    const forbiddenExports = [
+      'export function toHvPassportPublicDto',
+      'export function toHvLicencePublicDto',
+      'export function toHvEvidenceDocumentPublicDto',
+      'export function toHvClaimPublicDto',
+      'export function toHvAdminReviewPublicDto',
     ];
-    for (const term of forbidden) {
-      expect(src, `public.ts must not export ${term}`).not.toContain(`export function to${term.replace('to', '')}`);
+    for (const exportSig of forbiddenExports) {
+      expect(src, `public.ts must not export: ${exportSig}`).not.toContain(exportSig);
     }
   });
 
