@@ -5,7 +5,8 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
-import { listIaSignalsByMarket } from '@/lib/intelligence-automation/db'
+import { fetchDashboardSignals } from '@/lib/dashboard/dashboardServerData'
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
 type Props = { params: Promise<{ country: string }> }
 
@@ -147,33 +148,27 @@ export default async function SignalsPage({ params }: Props) {
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveSignals(panel.state, country.displayName)
 
-  // ── Pull live IA signals, fall back to static registry ──────────────────
-  const iaResult      = await listIaSignalsByMarket(country.displayName)
-  const iaSignals     = iaResult.ok
-    ? iaResult.data.filter(s => s.stage !== 'archived')
-    : []
+  // ── Pull live signals (regulatory feed -> curated signals table -> IA),
+  //    fall back to static registry / derived defaults ─────────────────────
+  const liveSignals = await fetchDashboardSignals(12, country.displayName)
 
-  function iaToFeedSignal(s: (typeof iaSignals)[number]): FeedSignal {
-    let tone = 'slate'
-    if (s.type === 'regulatory_change' || s.type === 'documentation_readiness') tone = 'green'
-    else if (s.commercialImpact === 'high')   tone = 'green'
-    else if (s.type === 'buyer_demand' || s.type === 'importer_activity' || s.type === 'distributor_activity') tone = 'blue'
-    else if (s.commercialImpact === 'medium') tone = 'gold'
+  function liveToFeedSignal(s: DashboardSignal): FeedSignal {
+    const tone = s.confidence >= 80 ? 'green' : s.confidence >= 60 ? 'gold' : 'blue'
     return {
-      tag:      s.type.replace(/_/g, ' '),
+      tag:      s.tag.label,
       headline: s.title,
-      date:     s.detectedAt,
+      date:     s.timeAgo,
       tone,
     }
   }
 
   const derived: SignalsDerived = (() => {
-    // Prefer live IA signals → then static registry → then derived defaults
-    if (iaSignals.length > 0) {
+    // Prefer live signals (regulatory feed → curated signals table → IA) → static registry → derived defaults
+    if (liveSignals.length > 0) {
       return {
         ...baseDerived,
-        feedSignals: iaSignals.map(iaToFeedSignal),
-        sourceNote: `${iaSignals.length} active signal${iaSignals.length !== 1 ? 's' : ''} from Harbourview intelligence database. Sources include national regulator publications, operator disclosures, importer directories, and market monitoring feeds. Last updated ${iaSignals[0]?.detectedAt ?? 'recently'}.`,
+        feedSignals: liveSignals.map(liveToFeedSignal),
+        sourceNote: `${liveSignals.length} active signal${liveSignals.length !== 1 ? 's' : ''} from Harbourview's regulatory and market intelligence feed, covering ${country.displayName} and related jurisdictions. Sources include national regulator publications, operator disclosures, importer directories, and reviewed analyst intake.`,
       }
     }
     if (intel?.signals) {
@@ -192,7 +187,7 @@ export default async function SignalsPage({ params }: Props) {
   })()
 
   const availableCount = derived.categories.filter((c) => c.available).length
-  const iaLive = iaSignals.length > 0
+  const signalsLive = liveSignals.length > 0
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -227,9 +222,9 @@ export default async function SignalsPage({ params }: Props) {
           >
             {badge.label}
           </span>
-          {iaLive && (
+          {signalsLive && (
             <span className="shrink-0 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-emerald-400">
-              {iaSignals.length} live
+              {liveSignals.length} live
             </span>
           )}
         </div>
