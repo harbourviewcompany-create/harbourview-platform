@@ -162,12 +162,17 @@ export async function GET(request: Request) {
         signal_id:       s.id,
       }))
 
-      const { error: logErr } = await supabase
-        .from('signal_digest_log')
-        .upsert(logRows, { onConflict: 'subscription_id,signal_id', ignoreDuplicates: true })
-
-      if (logErr)
-        console.warn(`intelligence_notify_cron: digest_log insert partial error:`, logErr.message)
+      // Insert per-row so unique conflicts (already sent) are silently skipped.
+      // Batch upsert with onConflict is not typed in @supabase/supabase-js@2.108.x.
+      // 23505 = unique_violation: (subscription_id, signal_id) already logged — expected.
+      for (const row of logRows) {
+        const { error: rowLogErr } = await supabase
+          .from('signal_digest_log')
+          .insert(row)
+        if (rowLogErr && rowLogErr.code !== '23505') {
+          console.warn(`intelligence_notify_cron: digest_log insert warn:`, rowLogErr.message)
+        }
+      }
 
       // Update last_sent_at
       await supabase
@@ -188,4 +193,5 @@ export async function GET(request: Request) {
   console.info('intelligence_notify_cron: complete', summary)
   return NextResponse.json(summary)
 }
+
 
