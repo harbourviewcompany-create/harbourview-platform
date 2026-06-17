@@ -5,6 +5,7 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { listIaSignalsByMarket } from '@/lib/intelligence-automation/db'
+import { queryByMarket } from '@/lib/intelligence/graphQueries'
 
 type Props = { params: Promise<{ country: string }> }
 
@@ -189,6 +190,7 @@ export default async function IntelligencePage({ params }: Props) {
 
   // ── Live signals from IA DB ───────────────────────────────────────────────
   const signalsResult = await listIaSignalsByMarket(country.displayName)
+  const graphResult   = await queryByMarket(country.displayName)
   const liveSignals   = signalsResult.ok
     ? signalsResult.data.filter(s => s.stage !== 'archived')
     : []
@@ -420,6 +422,123 @@ export default async function IntelligencePage({ params }: Props) {
           </p>
         </div>
       )}
+
+      {/* ── Market graph entities ── */}
+      {graphResult.nodes.length > 0 && (() => {
+        const TYPE_COLORS: Record<string, { text: string; border: string; bg: string }> = {
+          market:       { text: '#C6A55A', border: 'rgba(198,165,90,0.3)',  bg: 'rgba(198,165,90,0.08)' },
+          country:      { text: '#C6A55A', border: 'rgba(198,165,90,0.3)',  bg: 'rgba(198,165,90,0.08)' },
+          importer:     { text: '#F5A623', border: 'rgba(245,166,35,0.3)',  bg: 'rgba(245,166,35,0.08)' },
+          seller:       { text: '#5DC8A5', border: 'rgba(93,200,165,0.3)',  bg: 'rgba(93,200,165,0.08)' },
+          distributor:  { text: '#5DA8C8', border: 'rgba(93,168,200,0.3)',  bg: 'rgba(93,168,200,0.08)' },
+          buyer:        { text: '#82C7E8', border: 'rgba(130,199,232,0.3)', bg: 'rgba(130,199,232,0.08)' },
+          pathway:      { text: '#B07ED4', border: 'rgba(176,126,212,0.3)', bg: 'rgba(176,126,212,0.08)' },
+          consultant:   { text: '#D46EA0', border: 'rgba(212,110,160,0.3)', bg: 'rgba(212,110,160,0.08)' },
+          source:       { text: '#7DC8C8', border: 'rgba(125,200,200,0.3)', bg: 'rgba(125,200,200,0.08)' },
+          category:     { text: 'rgba(243,240,234,0.5)', border: 'rgba(255,255,255,0.12)', bg: 'rgba(255,255,255,0.04)' },
+        }
+        const STRENGTH_COLOR: Record<string, string> = {
+          strong: '#5DC8A5',
+          medium: '#F5A623',
+          weak:   'rgba(243,240,234,0.3)',
+        }
+        // Entities directly in this market (exclude the market node itself for cleaner display)
+        const marketEntities = graphResult.nodes.filter(n => n.type !== 'market' && n.type !== 'country')
+        const marketNode     = graphResult.nodes.find(n => n.type === 'market' || n.type === 'country')
+        const evidencedEdges = graphResult.edges.filter(e => e.evidenced)
+
+        return (
+          <div className="mb-5">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
+                Market graph
+              </p>
+              <div className="flex items-center gap-3 text-[10px]">
+                {marketNode && (
+                  <span style={{ color: 'rgba(243,240,234,0.3)' }}>
+                    {graphResult.totalNodes} nodes · {graphResult.totalEdges} edges total
+                  </span>
+                )}
+                <span
+                  className="rounded px-2 py-0.5"
+                  style={{
+                    background: graphResult.source === 'live' ? 'rgba(93,200,165,0.1)' : 'rgba(255,255,255,0.04)',
+                    color:      graphResult.source === 'live' ? '#5DC8A5' : 'rgba(243,240,234,0.3)',
+                    fontSize: '9px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                  }}
+                >
+                  {graphResult.source}
+                </span>
+              </div>
+            </div>
+
+            {/* Entity cards */}
+            {marketEntities.length > 0 && (
+              <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                {marketEntities.slice(0, 6).map(entity => {
+                  const colors = TYPE_COLORS[entity.type] ?? TYPE_COLORS.category
+                  return (
+                    <div
+                      key={entity.id}
+                      className="flex items-start gap-3 rounded-xl px-3 py-2.5"
+                      style={{ background: 'rgba(7,15,30,0.65)', border: `1px solid ${colors.border}` }}
+                    >
+                      <span
+                        className="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[8px] uppercase tracking-[0.1em]"
+                        style={{ background: colors.bg, color: colors.text, border: `1px solid ${colors.border}` }}
+                      >
+                        {entity.type.replace(/_/g, ' ')}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-[12px] font-medium text-white">{entity.label}</p>
+                        <div className="mt-0.5 flex gap-2 text-[10px]" style={{ color: 'rgba(243,240,234,0.35)' }}>
+                          {entity.connectionCount > 0 && <span>{entity.connectionCount} connections</span>}
+                          {entity.signalCount > 0 && <span>{entity.signalCount} signals</span>}
+                          {entity.lastActivity && <span>{entity.lastActivity}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Evidenced relationships */}
+            {evidencedEdges.length > 0 && (
+              <div
+                className="rounded-xl p-3"
+                style={{ background: 'rgba(7,15,30,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                <p className="mb-2 text-[9px] uppercase tracking-[0.12em]" style={{ color: 'rgba(198,165,90,0.4)' }}>
+                  Active relationships · {evidencedEdges.length} evidenced
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {evidencedEdges.slice(0, 5).map(edge => (
+                    <div key={edge.id} className="flex items-center gap-2 text-[11px]">
+                      <span className="truncate text-white" style={{ maxWidth: '36%' }}>{edge.fromLabel}</span>
+                      <span
+                        className="shrink-0 rounded px-1.5 py-0.5 text-[9px] uppercase tracking-[0.08em]"
+                        style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(243,240,234,0.35)' }}
+                      >
+                        {edge.type.replace(/_/g, ' ')}
+                      </span>
+                      <span className="truncate text-white" style={{ maxWidth: '36%' }}>{edge.toLabel}</span>
+                      <span
+                        className="ml-auto shrink-0 text-[9px] font-semibold"
+                        style={{ color: STRENGTH_COLOR[edge.strength] ?? STRENGTH_COLOR.weak }}
+                      >
+                        {edge.strength}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Actions ── */}
       <div className="mb-8 flex flex-wrap gap-2.5">
