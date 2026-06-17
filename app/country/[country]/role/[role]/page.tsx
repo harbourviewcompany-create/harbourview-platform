@@ -198,10 +198,11 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
 
   // Resolve authenticated userId (null for unauthenticated visitors)
   let userId: string | null = null
+  let userEmail: string | null = null
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (user?.id) userId = user.id
+    if (user?.id) { userId = user.id; userEmail = user.email ?? null }
   } catch { /* unauthenticated */ }
 
   // Split into two tiers:
@@ -240,6 +241,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
       evidenceData={evidenceData}
       sourceCoverage={sourceCoverage}
       localIntel={localIntel}
+      userEmail={userEmail}
       wantedListings={wantedListings}
       liveTiles={liveTiles}
       pathwayData={pathwayData}
@@ -269,5 +271,6 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     />
   )
 }
+
 
 
