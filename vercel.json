@@ -14,8 +14,12 @@
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/cron/scrape",
+      "path": "/api/cron/intelligence-embed",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/regulatory-watch",
