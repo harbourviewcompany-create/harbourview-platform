@@ -3294,7 +3294,7 @@ export default function CommandCentre({
             <div className="cc-user-avatar">{userInitials}</div>
             <div className="cc-user-info">
               <strong>{userDisplayName}</strong>
-              <small>Harbourview</small>
+              <small>{userEmail ? userEmail.split('@')[1]?.split('.')[0] ?? 'Harbourview' : 'Harbourview'}</small>
             </div>
             <span className="cc-user-arrow">▾</span>
           </div>
@@ -3330,8 +3330,8 @@ export default function CommandCentre({
         <div className="cc-sidebar-status">
           <span className="cc-status-dot" />
           <div>
-            <strong>System Online</strong>
-            <small>All systems operational</small>
+            <strong>{sourceCoverage && sourceCoverage.length > 0 ? 'System Online' : 'Checking…'}</strong>
+            <small>{sourceCoverage && sourceCoverage.length > 0 ? `${sourceCoverage.length} source${sourceCoverage.length !== 1 ? 's' : ''} active` : 'Awaiting data'}</small>
           </div>
         </div>
       </nav>
