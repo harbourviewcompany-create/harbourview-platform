@@ -1800,7 +1800,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
   role:         string
   signals:      DashboardSignal[]
   countryIntel?: CountryIntelProfile | null
-  localIntel?:   LocalIntelData | null
+  localIntel?:  LocalIntelData | null
 }) {
   const municipalities = useMemo(() => buildMunicipalData(country, region), [country, region])
   const authorities    = useMemo(() => buildAuthorities(country), [country])
@@ -3366,6 +3366,7 @@ export default function CommandCentre({
     </div>
   )
 }
+
 
 
 
