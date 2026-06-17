@@ -4,6 +4,8 @@ import './CommandCentre.css'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -3164,6 +3166,49 @@ export default function CommandCentre({
     return namePart.charAt(0).toUpperCase() + namePart.slice(1)
   }, [userEmail])
 
+  // ── Header account dropdown (inline sign-in / sign-out) ──────────────────
+  const router = useRouter()
+  const [acctMenuOpen, setAcctMenuOpen] = useState(false)
+  const [acctEmail, setAcctEmail] = useState('')
+  const [acctPassword, setAcctPassword] = useState('')
+  const [acctError, setAcctError] = useState('')
+  const [acctLoading, setAcctLoading] = useState(false)
+  const acctMenuRef = useRef<HTMLDivElement>(null)
+  const isSignedIn = Boolean(userEmail)
+
+  useEffect(() => {
+    if (!acctMenuOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (acctMenuRef.current && !acctMenuRef.current.contains(e.target as Node)) {
+        setAcctMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [acctMenuOpen])
+
+  async function handleHeaderSignIn(e: React.FormEvent) {
+    e.preventDefault()
+    setAcctLoading(true)
+    setAcctError('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email: acctEmail, password: acctPassword })
+    setAcctLoading(false)
+    if (error) {
+      setAcctError(error.message)
+    } else {
+      setAcctMenuOpen(false)
+      router.refresh()
+    }
+  }
+
+  async function handleHeaderSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setAcctMenuOpen(false)
+    router.refresh()
+  }
+
   const [country,      setCountry]     = useState(initialCountry)
   const [region,       setRegion]      = useState('')
   const [role,         setRole]        = useState(initialRoleId ?? '')
@@ -3290,13 +3335,71 @@ export default function CommandCentre({
             ⌘K
           </button>
 
-          <div className="cc-user-chip">
-            <div className="cc-user-avatar">{userInitials}</div>
-            <div className="cc-user-info">
-              <strong>{userDisplayName}</strong>
-              <small>Harbourview</small>
-            </div>
-            <span className="cc-user-arrow">▾</span>
+          <div ref={acctMenuRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="cc-user-chip"
+              onClick={() => { setAcctMenuOpen(o => !o); setAcctError('') }}
+              aria-haspopup="menu"
+              aria-expanded={acctMenuOpen}
+              style={{ cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left' }}
+            >
+              <div className="cc-user-avatar">{userInitials}</div>
+              <div className="cc-user-info">
+                <strong>{userDisplayName}</strong>
+                <small>{isSignedIn ? 'Harbourview' : 'Sign in'}</small>
+              </div>
+              <span className="cc-user-arrow">▾</span>
+            </button>
+
+            {acctMenuOpen && (
+              <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 70, width: isSignedIn ? '220px' : '270px', paddingTop: '8px' }}>
+                <div style={{ background: 'rgba(2,8,20,0.98)', border: '1px solid rgba(198,165,90,0.16)', borderRadius: '4px', boxShadow: '0 18px 50px rgba(0,0,0,0.55)', backdropFilter: 'blur(16px)' }}>
+                  {isSignedIn ? (
+                    <div style={{ padding: '8px' }}>
+                      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '8px 14px', marginBottom: '4px' }}>
+                        <p style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.3)', margin: 0 }}>Signed in as</p>
+                        <p style={{ marginTop: '2px', fontSize: '11px', color: 'rgba(240,211,154,0.75)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userEmail}</p>
+                      </div>
+                      <Link href="/account" onClick={() => setAcctMenuOpen(false)} style={{ display: 'block', padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.65)', textDecoration: 'none' }}>
+                        Account
+                      </Link>
+                      <button type="button" onClick={handleHeaderSignOut} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(220,80,80,0.75)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        Sign Out
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px' }}>
+                      <p style={{ marginBottom: '10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.16em', color: 'rgba(240,211,154,0.6)' }}>
+                        Sign in to Harbourview
+                      </p>
+                      <form onSubmit={handleHeaderSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <input
+                          type="email" placeholder="Email" value={acctEmail} required autoFocus
+                          onChange={e => setAcctEmail(e.target.value)}
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(198,165,90,0.2)', borderRadius: '3px', padding: '7px 10px', fontSize: '12px', color: '#F5F1E8', outline: 'none' }}
+                        />
+                        <input
+                          type="password" placeholder="Password" value={acctPassword} required
+                          onChange={e => setAcctPassword(e.target.value)}
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(198,165,90,0.2)', borderRadius: '3px', padding: '7px 10px', fontSize: '12px', color: '#F5F1E8', outline: 'none' }}
+                        />
+                        {acctError && <p style={{ fontSize: '11px', color: 'rgba(220,80,80,0.9)', margin: 0 }}>{acctError}</p>}
+                        <button
+                          type="submit" disabled={acctLoading}
+                          style={{ marginTop: '4px', padding: '8px', background: 'rgba(198,165,90,0.18)', border: '1px solid rgba(198,165,90,0.35)', borderRadius: '3px', color: '#F0D39A', fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: acctLoading ? 'wait' : 'pointer' }}
+                        >
+                          {acctLoading ? 'Signing in…' : 'Sign In'}
+                        </button>
+                      </form>
+                      <Link href="/login" onClick={() => setAcctMenuOpen(false)} style={{ display: 'block', marginTop: '10px', textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
+                        Forgot password?
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
