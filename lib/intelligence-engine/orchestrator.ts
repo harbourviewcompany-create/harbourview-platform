@@ -7,10 +7,19 @@
 // source_snapshots: raw_html → captured_text, content_hash → raw_html_hash, error_log → error_message
 // hv_import_staging: source_id → source_record_id, country_code → proposed_country_iso,
 //                    raw_text → raw_payload (jsonb), processing_status → status
+//
+// FIX (2026-06-17): queueForAIProcessing() was missing three NOT NULL columns
+// (workspace_id, import_batch_id, raw_payload_hash) on every insert into
+// hv_import_staging. Every single staged-row write has been silently failing
+// since this file was written — confirmed via direct query: 0 rows with
+// source_system='intelligence_engine' exist in hv_import_staging despite the
+// scraper producing fresh source_snapshots daily. This is the root cause of
+// the AI extraction pipeline never having anything to process.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ScrapeTarget, ScraperResult } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
+import crypto from 'node:crypto';
 
 interface SourceRegistryRow {
   id: string;
@@ -24,6 +33,11 @@ interface SourceRegistryRow {
   next_crawl_at: string | null;
   locked_until: string | null;
 }
+
+// Canonical Harbourview workspace — the only workspace_id in production use.
+// Matches the default param in public.hv_search_artifacts() and every row
+// currently in hv_import_staging / hv_artifacts / hv_embeddings.
+const HV_WORKSPACE_ID = 'a85840b4-c522-4cb8-9097-2f6c30a78417';
 
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
@@ -62,6 +76,12 @@ export class IntelligenceOrchestrator {
   async runExtraction(targets: ScrapeTarget[]) {
     console.log(`Starting ingestion run for ${targets.length} targets...`);
 
+    // One batch ID per cron invocation — lets us trace which run produced
+    // which staging rows (useful for retries / dead-letter triage).
+    const importBatchId = crypto.randomUUID();
+    let staged = 0;
+    let stageFailed = 0;
+
     for (const target of targets) {
       console.log(`[${target.country_code}] Scraping ${target.source_name}...`);
       let result: ScraperResult;
@@ -83,7 +103,9 @@ export class IntelligenceOrchestrator {
       await this.saveSnapshot(result, target);
 
       if (result.status === 'success') {
-        await this.queueForAIProcessing(result, target);
+        const ok = await this.queueForAIProcessing(result, target, importBatchId);
+        if (ok) staged++;
+        else stageFailed++;
       }
 
       // Advance next_crawl_at so this target isn't immediately re-acquired
@@ -93,6 +115,9 @@ export class IntelligenceOrchestrator {
         .update({ next_crawl_at: nextCrawl, locked_by: null, locked_until: null })
         .eq('id', target.id);
     }
+
+    console.log(`Ingestion run complete. staged=${staged} stageFailed=${stageFailed} batch=${importBatchId}`);
+    return { staged, stageFailed, importBatchId };
   }
 
   /** Save raw snapshot to source_snapshots. */
@@ -115,8 +140,15 @@ export class IntelligenceOrchestrator {
     }
   }
 
-  /** Stage changed content to hv_import_staging for AI extraction. */
-  private async queueForAIProcessing(result: ScraperResult, target: ScrapeTarget) {
+  /**
+   * Stage changed content to hv_import_staging for AI extraction.
+   * Returns true on successful insert (or intentional dedup-skip), false on error.
+   */
+  private async queueForAIProcessing(
+    result: ScraperResult,
+    target: ScrapeTarget,
+    importBatchId: string,
+  ): Promise<boolean> {
     // Dedup by content hash
     const { data: existingHash } = await this.supabase
       .from('hv_import_staging')
@@ -126,23 +158,33 @@ export class IntelligenceOrchestrator {
 
     if (existingHash) {
       console.log(`=> Content unchanged (hash: ${result.content_hash.substring(0, 8)}). Skipping.`);
-      return;
+      return true;
     }
 
+    // raw_payload_hash is a separate NOT NULL column from content_hash in the
+    // live schema — both describe the same underlying content, so reuse the
+    // already-computed hash rather than re-hashing the truncated payload.
+    const rawPayloadHash = result.content_hash || crypto.createHash('sha256').update(result.raw_content).digest('hex');
+
     const { error } = await this.supabase.from('hv_import_staging').insert({
-      source_record_id:   target.id,                          // source_id → source_record_id
-      source_url:         target.base_url,
-      source_system:      'intelligence_engine',
-      proposed_country_iso: target.country_code,             // country_code → proposed_country_iso
-      content_hash:       result.content_hash,
-      raw_payload:        { text: result.raw_content.slice(0, 50000) }, // raw_text → raw_payload (jsonb)
-      status:             'staged',                           // processing_status → status
+      workspace_id:        HV_WORKSPACE_ID,             // required, NOT NULL — was missing
+      import_batch_id:     importBatchId,               // required, NOT NULL — was missing
+      raw_payload_hash:    rawPayloadHash,               // required, NOT NULL — was missing
+      source_record_id:    target.id,                          // source_id → source_record_id
+      source_url:          target.base_url,
+      source_system:       'intelligence_engine',
+      proposed_country_iso: target.country_code,                // country_code → proposed_country_iso
+      content_hash:        result.content_hash,
+      raw_payload:          { text: result.raw_content.slice(0, 50000) }, // raw_text → raw_payload (jsonb)
+      status:               'staged',                            // processing_status → status
     });
 
     if (error) {
       console.error(`=> Failed to stage extraction for ${target.id}:`, error.message);
+      return false;
     } else {
       console.log(`=> Staged for AI extraction pipeline.`);
+      return true;
     }
   }
 }
