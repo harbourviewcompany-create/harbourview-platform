@@ -57,7 +57,7 @@ describe('public route smoke coverage', () => {
     'app/page.tsx',
     'app/dashboard/page.tsx',
     'app/dashboard/country/[country]/page.tsx',
-    'app/dashboard/country/[country]/[section]/page.tsx',
+    'app/dashboard/country/[country]/intelligence/page.tsx',
     'app/marketplace/page.tsx',
     'app/marketplace/sell/page.tsx',
     ...marketplaceRoutePages,
