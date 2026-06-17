@@ -18,6 +18,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/intelligence-notify",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/cron/scrape",
       "schedule": "0 8 * * *"
     },
