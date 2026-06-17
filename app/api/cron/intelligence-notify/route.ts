@@ -164,8 +164,7 @@ export async function GET(request: Request) {
 
       const { error: logErr } = await supabase
         .from('signal_digest_log')
-        .insert(logRows)
-        .onConflict('subscription_id,signal_id') // ignore duplicates
+        .upsert(logRows, { onConflict: 'subscription_id,signal_id', ignoreDuplicates: true })
 
       if (logErr)
         console.warn(`intelligence_notify_cron: digest_log insert partial error:`, logErr.message)
@@ -189,3 +188,4 @@ export async function GET(request: Request) {
   console.info('intelligence_notify_cron: complete', summary)
   return NextResponse.json(summary)
 }
+
