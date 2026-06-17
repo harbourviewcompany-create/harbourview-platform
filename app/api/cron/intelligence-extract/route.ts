@@ -1,14 +1,21 @@
 // app/api/cron/intelligence-extract/route.ts
 // Vercel Cron — reads hv_import_staging rows with status='staged' and runs
 // IntelligenceProcessor (Gemini 2.5 Flash) to extract structured signals,
-// writing results to ia_signals.
+// writing results to ia_signals (admin review queue) AND hv_artifacts
+// (canonical searchable store, consumed by public.hv_search_artifacts()).
 //
 // Pipeline: intelligence-ingest (02:00 UTC) → intelligence-extract (04:00 UTC)
+//           → embed-artifacts (05:00 UTC)
 // Processes up to BATCH_SIZE staged rows per invocation.
+//
+// CHANGE (2026-06-17): added hv_artifacts insert. Previously this route only
+// wrote to ia_signals, so even successful extractions never became
+// semantically searchable — hv_search_artifacts() has nothing to query
+// against without a matching hv_artifacts + hv_embeddings row.
 //
 // Required env vars:
 //   CRON_SECRET                     — shared cron bearer token
-//   GEMINI_API_KEY                  — Gemini 2.5 Flash structured extraction
+//   GEMINI_API_KEY                  — Gemini 2.5 Flash structured extraction (free tier)
 //   NEXT_PUBLIC_SUPABASE_URL        — Supabase project URL
 //   SUPABASE_SERVICE_ROLE_KEY       — service-role key (bypasses RLS)
 
@@ -22,6 +29,10 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 min — Vercel Pro
 
 const BATCH_SIZE = 10
+
+// Canonical Harbourview workspace — matches the default param in
+// public.hv_search_artifacts() and every existing hv_artifacts row.
+const HV_WORKSPACE_ID = 'a85840b4-c522-4cb8-9097-2f6c30a78417'
 
 // ── Country code → market display name ───────────────────────────────────────
 // iso_code column in source_registry uses 2-char ISO; proposed_country_iso may
@@ -112,6 +123,49 @@ function toSignalRow(
   }
 }
 
+/**
+ * Map an IntelligenceRecord to an hv_artifacts insert row.
+ * object_class='ai_summary' — the enum has no dedicated regulatory/trade/
+ * market buckets, so all Gemini-extracted records land here uniformly with
+ * the original signal_type/impact_level preserved in structured_data.
+ * lifecycle_stage='normalized' and review_status='pending' — extracted
+ * content needs an analyst pass before it is publication-eligible.
+ */
+function toArtifactRow(
+  record: IntelligenceRecord,
+  sourceUrl: string,
+  countryIso: string,
+): Record<string, unknown> {
+  return {
+    workspace_id:      HV_WORKSPACE_ID,
+    object_class:      'ai_summary',
+    classification:    'internal',
+    title:             record.title.slice(0, 500),
+    body:              record.summary,
+    structured_data: {
+      signal_type:             record.signal_type,
+      impact_level:            record.impact_level,
+      entities_mentioned:      record.entities_mentioned,
+      medical_impact:          record.medical_impact ?? null,
+      adult_use_impact:        record.adult_use_impact ?? null,
+      industrial_impact:       record.industrial_impact ?? null,
+      regulatory_changes:      record.regulatory_changes ?? [],
+      licensing_updates:       record.licensing_updates ?? [],
+      trade_route_information: record.trade_route_information ?? [],
+      extracted_by:            'gemini-2.5-flash',
+    },
+    source_system:     'intelligence_engine_extract',
+    source_record_id:  record.source_id,
+    source_url:        sourceUrl || null,
+    content_hash:      record.raw_content_reference,
+    lifecycle_stage:   'normalized',
+    review_status:     'pending',
+    jurisdiction_code: countryIso,
+    country_iso:       countryIso.length === 2 ? countryIso : null,
+    public_eligible:   false,
+  }
+}
+
 export async function GET(request: Request) {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const authHeader = request.headers.get('authorization')
@@ -173,7 +227,7 @@ export async function GET(request: Request) {
 
   // ── Process each row ────────────────────────────────────────────────────────
   const processor = new IntelligenceProcessor()
-  let extracted = 0, failed = 0, skipped = 0
+  let extracted = 0, failed = 0, skipped = 0, artifactsCreated = 0
 
   for (const row of staged) {
     const rawText    = row.raw_payload?.text ?? ''
@@ -225,6 +279,24 @@ export async function GET(request: Request) {
         continue
       }
 
+      // Also write to hv_artifacts so this content becomes semantically
+      // searchable once embed-artifacts cron picks it up. Best-effort —
+      // an hv_artifacts failure doesn't roll back the ia_signals write,
+      // since the admin review queue is the more critical path.
+      const artifactRow = toArtifactRow(record, row.source_url ?? '', countryIso)
+      const { error: artifactErr } = await supabase
+        .from('hv_artifacts')
+        .insert(artifactRow)
+
+      if (artifactErr) {
+        console.error(
+          `intelligence_extract_cron: hv_artifacts insert failed (staging_id=${row.id}):`,
+          artifactErr.message,
+        )
+      } else {
+        artifactsCreated++
+      }
+
       // Mark staging row done
       await supabase
         .from('hv_import_staging')
@@ -251,7 +323,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const summary = { ok: true, staged: staged.length, extracted, failed, skipped }
+  const summary = { ok: true, staged: staged.length, extracted, artifactsCreated, failed, skipped }
   console.info('intelligence_extract_cron: run complete', summary)
   return NextResponse.json(summary)
 }
