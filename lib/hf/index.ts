@@ -7,7 +7,8 @@
  *
  * Ticket 3: skeleton — env, client, repos, logging ✅
  * Ticket 5: leakage auditor ✅
- * Tickets 7–12: embedding, reranking, extraction, eval, Spaces — not yet implemented
+ * Ticket 7: BGE-M3 embeddings (free HF Serverless API) ✅
+ * Tickets 8–12: reranking, extraction, eval, Spaces — not yet implemented
  */
 
 export { HfError, type HfErrorCode } from './errors';
@@ -38,8 +39,19 @@ export {
   type UnsupportedClaim,
 } from './leakageAudit';
 
+// Ticket 7 — BGE-M3 embeddings ✅
+export {
+  embedText,
+  embedBatch,
+  probeEmbedEndpoint,
+  BGE_M3_DIM,
+  BGE_M3_MODEL_ID,
+  type EmbedResult,
+  type EmbedBatchResult,
+  type EmbedProbeResult,
+} from './embeddings';
+
 // Not yet exported (not yet implemented):
-// - embeddings.ts  (Ticket 7)
 // - reranker.ts    (Ticket 8)
 // - extraction.ts  (Ticket 10)
 // - evalRunner.ts  (Ticket 11)
