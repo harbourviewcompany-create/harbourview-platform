@@ -7,12 +7,13 @@
  *
  * Ticket 3: skeleton — env, client, repos, logging ✅
  * Ticket 5: leakage auditor ✅
- * Tickets 7–12: embedding, reranking, extraction, eval, Spaces — not yet implemented
+ * Ticket 7: embeddings (BGE-M3 1024-dim) ✅
+ * Tickets 8–12: reranking, extraction, eval, Spaces — not yet implemented
  */
 
-export { HfError, type HfErrorCode } from './errors';
-export { assertServerOnly } from './serverOnly';
-export { getHfEnv, parseHfEnv, getHfEnvHealth, type HfEnv } from './env';
+export { HfError, type HfErrorCode } from './errors'
+export { assertServerOnly } from './serverOnly'
+export { getHfEnv, parseHfEnv, getHfEnvHealth, type HfEnv } from './env'
 export {
   HF_ORG,
   HF_DATASET_REPOS,
@@ -26,9 +27,9 @@ export {
   type HfDatasetRepoId,
   type HfModelRepoId,
   type RepoVerificationResult,
-} from './repos';
-export { HfClient, getHfClient, _resetHfClientForTest } from './client';
-export { hfLog, type HfLogLevel, type HfLogEntry } from './logging';
+} from './repos'
+export { HfClient, getHfClient, _resetHfClientForTest } from './client'
+export { hfLog, type HfLogLevel, type HfLogEntry } from './logging'
 export {
   auditPublicPayload,
   assertAuditPass,
@@ -36,12 +37,14 @@ export {
   type LeakageAuditResult,
   type LeakageAuditStatus,
   type UnsupportedClaim,
-} from './leakageAudit';
+} from './leakageAudit'
+
+// Ticket 7 — BGE-M3 1024-dim embeddings ✅
+export { embedBGEM3, embedBGEM3Batch, toVectorLiteral } from './embeddings'
 
 // Not yet exported (not yet implemented):
-// - embeddings.ts  (Ticket 7)
-// - reranker.ts    (Ticket 8)
-// - extraction.ts  (Ticket 10)
-// - evalRunner.ts  (Ticket 11)
+// - reranker.ts  (Ticket 8)
+// - extraction.ts (Ticket 10)
+// - evalRunner.ts (Ticket 11)
 // - schemas.ts
 // - validators.ts
