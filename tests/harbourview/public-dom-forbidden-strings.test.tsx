@@ -6,8 +6,41 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CountrySearchOverlay } from '@/components/globe/CountrySearchOverlay'
 import { IntentCardGrid } from '@/components/globe/IntentCardGrid'
 import { MarketplaceListingCard } from '@/components/marketplace/MarketplaceListingCard'
-import { publicMarketplaceListings } from '@/lib/marketplace/publicListings'
+import type { PublicMarketplaceListing } from '@/lib/marketplace/publicListings'
 import { FORBIDDEN_PUBLIC_FIELD_NAMES } from '@/lib/intelligence-os/publicSafety'
+
+// publicMarketplaceListings is intentionally empty (live data comes from Supabase).
+// Use inline fixtures for DOM leakage checks so the tests remain meaningful.
+const fixtureListings: PublicMarketplaceListing[] = [
+  {
+    slug: 'test-eu-gmp-flower',
+    title: 'EU-GMP Certified Flower — 100kg Available',
+    section: 'Cannabis Inventory',
+    category: 'Flower',
+    listingType: 'supply',
+    condition: 'New',
+    price: 'Contact for pricing',
+    location: 'Germany',
+    publicSummary: 'Premium indoor-grown cannabis flower, EU-GMP certified.',
+    buyerFit: ['Licensed importer', 'EU-GMP distributor'],
+    complianceNote: 'Introduction via Harbourview review only.',
+    ctaLabel: 'Request introduction',
+  },
+  {
+    slug: 'test-extraction-equipment',
+    title: 'CO₂ Extraction Equipment — Commercial Scale',
+    section: 'Equipment',
+    category: 'Extraction',
+    listingType: 'equipment',
+    condition: 'Used',
+    price: 'Contact for pricing',
+    location: 'Canada',
+    publicSummary: 'Commercial-scale CO₂ extraction unit, maintained and operational.',
+    buyerFit: ['Licensed processor', 'Extractor'],
+    complianceNote: 'Introduction via Harbourview review only.',
+    ctaLabel: 'Request introduction',
+  },
+]
 
 const USER_PROVIDED_FORBIDDEN_LIST = ['sourceUrl', 'source_url', 'sourceName', 'source_name', 'buyer_demand']
 
@@ -34,14 +67,14 @@ describe('public DOM forbidden string guardrails', () => {
   })
 
   it('keeps marketplace card DOM public-safe', () => {
-    const cardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={publicMarketplaceListings[0]} />)
+    const cardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={fixtureListings[0]} />)
     assertNoForbiddenStrings(cardHtml, 'marketplace listing card')
   })
 
   it('covers homepage and marketplace surfaces as route-level DOM checks', () => {
     const homepageSearchHtml = renderToStaticMarkup(<CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />)
     const homepageResultsHtml = renderToStaticMarkup(<IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />)
-    const marketCardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={publicMarketplaceListings[1]} />)
+    const marketCardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={fixtureListings[1]} />)
 
     assertNoForbiddenStrings(homepageSearchHtml, '/ homepage globe search')
     assertNoForbiddenStrings(homepageResultsHtml, '/ homepage globe results')

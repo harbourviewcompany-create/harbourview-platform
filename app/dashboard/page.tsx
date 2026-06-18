@@ -196,7 +196,7 @@ export default async function DashboardPage({
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),
-    getWantedListings(),
+    getWantedListings(countryIso2),
     getCountryIntelProfile(countryIso2),
     getLiveEduTiles(roleId, 6),
     getOrgPathwayProgress(userId, countryIso2, roleId),
@@ -215,6 +215,7 @@ export default async function DashboardPage({
       key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}`}
       signals={signals}
       eduCategories={eduCategories}
+      liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}

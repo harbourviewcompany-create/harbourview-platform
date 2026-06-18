@@ -24,9 +24,30 @@ const VIEW_TABS: { id: MarketView; label: string; icon: string }[] = [
   { id: 'wanted',        label: 'Wanted Demand', icon: '≋' },
 ]
 
+function TrustBar({ trust }: { trust: string }) {
+  if (!trust) return null
+  const badges = trust.split('|').filter(Boolean).map((seg, i) => {
+    const colonIdx = seg.indexOf(':')
+    if (colonIdx === -1) {
+      return <span key={i} className="mp-trust-badge mp-trust-badge--muted">{seg === 'PUBLIC' ? 'Public listing' : seg}</span>
+    }
+    const key    = seg.slice(0, colonIdx)
+    const status = seg.slice(colonIdx + 1)
+    const ok     = status === 'ok'
+    const cls    = ok ? 'mp-trust-badge mp-trust-badge--ok' : 'mp-trust-badge mp-trust-badge--warn'
+    const label  =
+      key === 'VER'       ? (ok ? 'Seller verified'    : 'Seller unverified')  :
+      key === 'PROOF'     ? (ok ? 'Evidence verified'  : 'Evidence pending')   :
+      key === 'REG'       ? (ok ? 'Reg-ready'          : 'Reg review needed')  :
+      /^\d+$/.test(key)  ? `Score ${key}`                                      : key
+    return <span key={i} className={cls}>{label}</span>
+  })
+  return <div className="mp-trust-bar">{badges}</div>
+}
+
 // MarketRow = [specClass, typeLabel, title, description, tags, trust, action, price]
 function ListingCard({ row, idx }: { row: [string,string,string,string,string,string,string,string]; idx: number }) {
-  const [specClass, typeLabel, title, description, tags, , action, price] = row
+  const [specClass, typeLabel, title, description, tags, trust, action, price] = row
   const tagList = tags.split('|').filter(Boolean).slice(0, 3)
   const isWanted = specClass === 'wanted' || action?.toLowerCase().includes('demand')
   return (
@@ -39,6 +60,7 @@ function ListingCard({ row, idx }: { row: [string,string,string,string,string,st
       </div>
       <div className="mp-card-title">{title}</div>
       <div className="mp-card-desc">{description}</div>
+      {trust && <TrustBar trust={trust} />}
       <div className="mp-card-foot">
         <div className="mp-tags">
           {tagList.map(t => <span key={t} className="mp-tag">{t}</span>)}
@@ -266,6 +288,16 @@ const CSS = `
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
   color:rgba(245,240,232,.42);
 }
+.mp-trust-bar { display:flex;flex-wrap:wrap;gap:4px; }
+.mp-trust-badge {
+  font-family:'JetBrains Mono','Fira Mono',monospace;
+  font-size:9px;padding:2px 7px;border-radius:10px;letter-spacing:.03em;
+  border:1px solid rgba(255,255,255,.07);
+}
+.mp-trust-badge--ok   { color:#4caf82;background:rgba(76,175,130,.1);border-color:rgba(76,175,130,.2); }
+.mp-trust-badge--warn { color:#e8a838;background:rgba(232,168,56,.1);border-color:rgba(232,168,56,.2); }
+.mp-trust-badge--muted { color:rgba(245,240,232,.3);background:rgba(255,255,255,.04); }
+
 .mp-action-btn {
   font-size:10px;padding:5px 10px;border-radius:6px;
   border:1px solid rgba(212,168,75,.3);background:rgba(212,168,75,.07);

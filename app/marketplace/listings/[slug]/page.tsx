@@ -159,6 +159,12 @@ export default async function MarketplaceListingDetailPage({
             >
               {ctaLabel}
             </a>
+            <Link
+              href={`/marketplace/deals/new?listing=${encodeURIComponent(listing.id)}&title=${encodeURIComponent(listing.title)}`}
+              className="rounded-full border border-[#C6A55A]/40 px-5 py-3 text-center text-sm font-medium text-[#C6A55A] transition hover:border-[#C6A55A]/70 hover:bg-[#C6A55A]/10"
+            >
+              Open private deal room →
+            </Link>
           </div>
 
           <InquiryForm listingSlug={listing.slug ?? slug} listingTitle={listing.title} ctaLabel={ctaLabel} />
