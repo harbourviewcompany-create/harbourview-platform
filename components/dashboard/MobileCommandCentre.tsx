@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -474,6 +475,7 @@ export default function MobileCommandCentre({
   recentEduModules,
   sourceCoverage,
 }: Props) {
+  const router = useRouter()
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
@@ -488,6 +490,15 @@ export default function MobileCommandCentre({
   const handleCountryChange = (iso2: string) => {
     const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
     if (nextCountry) setCountry(nextCountry)
+  }
+
+  const handleApplyContext = () => {
+    setContextOpen(false)
+    const params = new URLSearchParams()
+    if (country.iso2 && country.iso2 !== 'GLOBAL') params.set('country', country.iso2)
+    if (role) params.set('role', role)
+    const qs = params.toString()
+    router.replace(qs ? `?${qs}` : '/dashboard')
   }
 
   const page = (() => {
@@ -559,7 +570,7 @@ export default function MobileCommandCentre({
                 {roleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <button className="hvm-sheet-apply" type="button" onClick={() => setContextOpen(false)}>Apply context</button>
+            <button className="hvm-sheet-apply" type="button" onClick={handleApplyContext}>Apply context</button>
           </div>
         </div>
       )}
