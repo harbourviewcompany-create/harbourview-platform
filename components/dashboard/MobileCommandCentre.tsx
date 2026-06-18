@@ -181,25 +181,58 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
   )
 }
 
-function AccessPathwayMobile({ country, roleLabel, countryIntel }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null }) {
+function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; pathwayData?: PathwayData | null }) {
   const pathwaySummary = fieldValue(countryIntel?.commercial_pathway_summary, 'Pathway evidence is under Harbourview review for this country-role context.')
   const reviewState = fieldValue(countryIntel?.review_status, 'Review gated')
+  const steps = pathwayData?.steps ?? []
+  const requirements = pathwayData?.requirements ?? []
+  const statuses = pathwayData?.requirementStatuses ?? []
+  const progress = pathwayData?.progress
+  const hasSteps = steps.length > 0
 
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <h2>Access Pathway</h2>
         <p>{country.label} · {roleLabel}</p>
-        <blockquote>{pathwaySummary}</blockquote>
+        {pathwayData?.template ? (
+          <blockquote>
+            {pathwayData.template.name}
+            {progress ? ` · Step ${progress.current_step} of ${pathwayData.template.total_steps}` : ` · ${pathwayData.template.total_steps} steps`}
+          </blockquote>
+        ) : (
+          <blockquote>{pathwaySummary}</blockquote>
+        )}
       </section>
 
       <div className="hvm-pathway-steps">
-        <SectionCard label="1 · Eligibility" title={fieldValue(countryIntel?.market_access_status)} detail="Confirm the selected role is permitted to participate in the country pathway before outreach or transaction work." />
-        <SectionCard label="2 · Importer requirements" title={fieldValue(countryIntel?.import_status)} detail="Importer authorization, permit mechanics, pharmacy or distributor participation, and role-specific limits must be source-reviewed." />
-        <SectionCard label="3 · Documents" title="Licence, authorization, COA and product dossier packet" detail="Use field-level review until live document requirements are loaded from verified regulatory sources." />
-        <SectionCard label="4 · Route constraints" title="Compliance-gated market access" detail="Controlled routes remain Harbourview-mediated. Public pages must not expose private counterparty evidence or raw provenance." />
-        <SectionCard label="5 · Review status" title={reviewState} detail="Move only reviewed public summary fields into the mobile experience. Keep admin notes and source evidence private." tone="warn" />
-        <SectionCard label="Next Harbourview action" title="Open pathway review queue" detail="Verify current source evidence, confirm role fit, then release a reviewed access brief for the selected country-role path." tone="ok" />
+        {hasSteps ? steps.map(step => {
+          const reqs = requirements.filter(r => r.step_id === step.id)
+          const doneCount = reqs.filter(r => {
+            const s = statuses.find(rs => rs.requirement_id === r.id)
+            return s?.status === 'verified' || s?.status === 'waived'
+          }).length
+          const tone = reqs.length > 0 && doneCount === reqs.length ? 'ok' : 'neutral'
+          const subtitle = reqs.length > 0 ? `${doneCount}/${reqs.length} requirements met` : step.title
+          return (
+            <SectionCard
+              key={step.id}
+              label={`${step.step_number} · ${step.title}`}
+              title={subtitle}
+              detail={step.description ?? 'Complete this step to advance your access pathway.'}
+              tone={tone}
+            />
+          )
+        }) : (
+          <>
+            <SectionCard label="1 · Eligibility" title={fieldValue(countryIntel?.market_access_status)} detail="Confirm the selected role is permitted to participate in the country pathway." />
+            <SectionCard label="2 · Importer requirements" title={fieldValue(countryIntel?.import_status)} detail="Importer authorization, permit mechanics, pharmacy or distributor participation, and role-specific limits." />
+            <SectionCard label="3 · Documents" title="Licence, authorization, COA and product dossier packet" detail="Document requirements loaded from verified regulatory sources once reviewed." />
+            <SectionCard label="4 · Route constraints" title="Compliance-gated market access" detail="Controlled routes remain Harbourview-mediated." />
+            <SectionCard label="5 · Review status" title={reviewState} detail="Only reviewed public summary fields appear in the mobile experience." tone="warn" />
+            <SectionCard label="Next action" title="Open pathway review queue" detail="Verify current source evidence, confirm role fit, then release a reviewed access brief." tone="ok" />
+          </>
+        )}
       </div>
     </div>
   )
@@ -291,14 +324,11 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
   )
 }
 
-function EvidenceMobile({ country, roleLabel, countryIntel }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null }) {
+function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, sourceCoverage }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[] }) {
   const reviewed = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
-  const sourceCards = [
-    { label: 'Regulatory source review', title: fieldValue(countryIntel?.regulator_label, `${country.label} authority review`), detail: 'Public mobile shell shows reviewed source categories only, not raw URLs or private evidence.' },
-    { label: 'Market access evidence', title: fieldValue(countryIntel?.market_access_status), detail: `${country.label} · ${roleLabel}. Commercial pathway claims stay review-gated until verified.` },
-    { label: 'Review state', title: fieldValue(countryIntel?.review_status, 'Review gated'), detail: `Last public-shell render: ${reviewed}. This is not a substitute for admin source review.` },
-    { label: 'Public/private boundary', title: 'DTO protected', detail: 'Admin notes, raw source evidence, provenance URLs and counterparty intelligence remain outside public/mobile rendering.' },
-  ]
+  const sources = evidenceData?.sources ?? []
+  const orgDocs = evidenceData?.orgDocs ?? []
+  const coverage = sourceCoverage ?? []
 
   return (
     <div className="hvm-page-stack">
@@ -307,30 +337,83 @@ function EvidenceMobile({ country, roleLabel, countryIntel }: { country: Country
         <p>{country.label} · {roleLabel}</p>
       </section>
 
-      <div className="hvm-source-ledger">
-        {sourceCards.map(card => (
-          <SectionCard key={card.label} label={card.label} title={card.title} detail={card.detail} />
-        ))}
-      </div>
-
-      <MobileAccordion title="Mobile source ledger detail" defaultOpen>
-        <div className="hvm-ledger-table" role="table" aria-label="Evidence source ledger">
-          <div role="row"><strong>Source class</strong><span>Government / regulatory / marketplace / education</span></div>
-          <div role="row"><strong>Evidence status</strong><span>{fieldValue(countryIntel?.data_completeness, PENDING_REVIEW)}</span></div>
-          <div role="row"><strong>Confidence state</strong><span>{fieldValue(countryIntel?.review_status, 'Review gated')}</span></div>
-          <div role="row"><strong>Public distinction</strong><span>Summary fields only; private evidence remains admin-only</span></div>
+      {sources.length > 0 ? (
+        <MobileAccordion title={`Platform sources (${sources.length})`} defaultOpen>
+          <div className="hvm-list-stack">
+            {sources.slice(0, 8).map(src => (
+              <div className="hvm-signal-card" key={src.id}>
+                <strong>{src.name}</strong>
+                <small>{src.category} · Reliability: {src.reliability} · {src.status}</small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      ) : (
+        <div className="hvm-source-ledger">
+          {[
+            { label: 'Regulatory source review', title: fieldValue(countryIntel?.regulator_label, `${country.label} authority review`), detail: 'Public mobile shell shows reviewed source categories only, not raw URLs or private evidence.' },
+            { label: 'Market access evidence', title: fieldValue(countryIntel?.market_access_status), detail: `${country.label} · ${roleLabel}. Commercial pathway claims stay review-gated until verified.` },
+            { label: 'Review state', title: fieldValue(countryIntel?.review_status, 'Review gated'), detail: `Last public-shell render: ${reviewed}.` },
+            { label: 'Public/private boundary', title: 'DTO protected', detail: 'Admin notes, raw source evidence, provenance URLs and counterparty intelligence remain outside public/mobile rendering.' },
+          ].map(card => (
+            <SectionCard key={card.label} label={card.label} title={card.title} detail={card.detail} />
+          ))}
         </div>
-      </MobileAccordion>
+      )}
+
+      {orgDocs.length > 0 && (
+        <MobileAccordion title={`My documents (${orgDocs.length})`}>
+          <div className="hvm-list-stack">
+            {orgDocs.map(doc => (
+              <div className="hvm-signal-card" key={doc.id}>
+                <strong>{doc.display_name}</strong>
+                <small>
+                  {doc.document_type} · {doc.verification_status}
+                  {doc.expiry_date ? ` · Expires ${new Date(doc.expiry_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                </small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {coverage.length > 0 && (
+        <MobileAccordion title="Source coverage breakdown">
+          <div className="hvm-ledger-table" role="table" aria-label="Source coverage">
+            {coverage.map((row, i) => (
+              <div role="row" key={i}>
+                <strong>{row.source_type} · Tier {row.tier}</strong>
+                <span>{row.count} active source{row.count !== 1 ? 's' : ''}</span>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {sources.length === 0 && orgDocs.length === 0 && coverage.length === 0 && (
+        <MobileAccordion title="Source ledger detail" defaultOpen>
+          <div className="hvm-ledger-table" role="table" aria-label="Evidence source ledger">
+            <div role="row"><strong>Source class</strong><span>Government / regulatory / marketplace / education</span></div>
+            <div role="row"><strong>Evidence status</strong><span>{fieldValue(countryIntel?.data_completeness, PENDING_REVIEW)}</span></div>
+            <div role="row"><strong>Confidence state</strong><span>{fieldValue(countryIntel?.review_status, 'Review gated')}</span></div>
+            <div role="row"><strong>Public distinction</strong><span>Summary fields only; private evidence remains admin-only</span></div>
+          </div>
+        </MobileAccordion>
+      )}
     </div>
   )
 }
 
-function EducationMobile({ country, roleLabel, eduCategories }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[] }) {
-  const modules = eduCategories.length > 0 ? eduCategories : [
-    { icon: '◎', title: 'Regulatory foundations', desc: 'Review country-specific rules and professional obligations.' },
-    { icon: '⬡', title: 'Documentation discipline', desc: 'Prepare evidence, COA, licence and product records.' },
-    { icon: '⊟', title: 'Market access readiness', desc: 'Understand mediated commercial access and review controls.' },
-  ]
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[] }) {
+  const tiles = liveTiles && liveTiles.length > 0
+    ? liveTiles
+    : eduCategories.length > 0
+      ? eduCategories
+      : [
+          { icon: '◎', title: 'Regulatory foundations', desc: 'Review country-specific rules and professional obligations.', slug: '' },
+          { icon: '⬡', title: 'Documentation discipline', desc: 'Prepare evidence, COA, licence and product records.', slug: '' },
+          { icon: '⊟', title: 'Market access readiness', desc: 'Understand mediated commercial access and review controls.', slug: '' },
+        ]
 
   return (
     <div className="hvm-page-stack">
@@ -340,7 +423,7 @@ function EducationMobile({ country, roleLabel, eduCategories }: { country: Count
       </section>
 
       <div className="hvm-education-list">
-        {modules.map((module, index) => (
+        {tiles.map((module, index) => (
           <article className="hvm-module-card" key={`${module.title}-${index}`}>
             <span>{module.icon}</span>
             <div>
@@ -352,13 +435,26 @@ function EducationMobile({ country, roleLabel, eduCategories }: { country: Count
         ))}
       </div>
 
-      <MobileAccordion title="Related evidence" defaultOpen>
-        <div className="hvm-list-stack">
-          <div className="hvm-signal-card"><strong>{country.label} regulatory framework overview</strong><small>Regulation · {PENDING_REVIEW}</small></div>
-          <div className="hvm-signal-card"><strong>Documentation and COA packet guidance</strong><small>Template · {PENDING_REVIEW}</small></div>
-          <div className="hvm-signal-card"><strong>Access-pathway evidence requirements</strong><small>Guidance · {PENDING_REVIEW}</small></div>
-        </div>
-      </MobileAccordion>
+      {recentEduModules && recentEduModules.length > 0 ? (
+        <MobileAccordion title="Recently updated modules" defaultOpen>
+          <div className="hvm-list-stack">
+            {recentEduModules.map((m, i) => (
+              <div className="hvm-signal-card" key={`${m.title}-${i}`}>
+                <strong>{m.title}</strong>
+                <small>{m.detail} · Updated {new Date(m.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}</small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      ) : (
+        <MobileAccordion title="Related evidence" defaultOpen>
+          <div className="hvm-list-stack">
+            <div className="hvm-signal-card"><strong>{country.label} regulatory framework overview</strong><small>Regulation · {PENDING_REVIEW}</small></div>
+            <div className="hvm-signal-card"><strong>Documentation and COA packet guidance</strong><small>Template · {PENDING_REVIEW}</small></div>
+            <div className="hvm-signal-card"><strong>Access-pathway evidence requirements</strong><small>Guidance · {PENDING_REVIEW}</small></div>
+          </div>
+        </MobileAccordion>
+      )}
     </div>
   )
 }
@@ -372,6 +468,11 @@ export default function MobileCommandCentre({
   marketplaceRows,
   wantedListings = [],
   countryIntel,
+  pathwayData,
+  evidenceData,
+  liveTiles,
+  recentEduModules,
+  sourceCoverage,
 }: Props) {
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
   const [country, setCountry] = useState<CountryOption>(initialCountry)
@@ -394,13 +495,13 @@ export default function MobileCommandCentre({
       case 'briefing':
         return <BriefingMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />
       case 'access-pathway':
-        return <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} />
+        return <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'evidence':
-        return <EvidenceMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} />
+        return <EvidenceMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} evidenceData={evidenceData} sourceCoverage={sourceCoverage} />
       case 'education':
-        return <EducationMobile country={country} roleLabel={roleLabel} eduCategories={eduCategories} />
+        return <EducationMobile country={country} roleLabel={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} />
       default:
         return null
     }
