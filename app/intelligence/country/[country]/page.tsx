@@ -4,6 +4,26 @@ import { getPublicCountryBySlug } from '@/lib/server/countriesQuery'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import { dashboardSections } from '@/lib/dashboard/countries'
+import { getLatestBriefing } from '@/lib/intelligence/jurisdictionSynthesis'
+
+const MATURITY_COLORS: Record<string, string> = {
+  emerging:    'text-amber-400',
+  developing:  'text-sky-400',
+  maturing:    'text-emerald-400',
+  mature:      'text-emerald-300',
+  restricted:  'text-red-400',
+  unknown:     'text-white/30',
+}
+
+const LEGAL_LABELS: Record<string, string> = {
+  medical_only:  'Medical only',
+  adult_use:     'Adult-use & medical',
+  decrim:        'Decriminalised',
+  illegal:       'Prohibited',
+  mixed:         'Mixed / varies by state',
+  transitional:  'Transitional — reform underway',
+  unknown:       'Status unverified',
+}
 
 const STATUS_COLORS: Record<string, string> = {
   open: 'text-emerald-300',
@@ -44,6 +64,10 @@ export default async function CountryIntelligenceDrilldownPage({
 
   // Try live Supabase data first
   const liveCountry = await getPublicCountryBySlug(countryParam)
+  // Resolve iso2 for briefing lookup regardless of which path renders
+  const resolvedForBriefing = resolveCountryRouteParam(countryParam)
+  const briefingIso2 = liveCountry?.iso_alpha2 ?? resolvedForBriefing?.iso2 ?? null
+  const briefing = briefingIso2 ? await getLatestBriefing(briefingIso2) : null
 
   if (liveCountry) {
     const statusColor = STATUS_COLORS[liveCountry.market_access_status] ?? STATUS_COLORS.unknown
@@ -109,6 +133,62 @@ export default async function CountryIntelligenceDrilldownPage({
               </article>
             ))}
           </section>
+
+          {briefing && (
+            <section className="mt-6 rounded-2xl border border-[#c6a55a]/20 bg-[#07101f] p-6">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/70">
+                  Weekly Intelligence Briefing
+                </p>
+                <p className="text-[10px] text-white/30 flex-shrink-0">
+                  w/e {briefing.week_ending} · {briefing.signal_count} signals
+                </p>
+              </div>
+              <h2 className="mt-3 text-base font-semibold text-[#f5f0e8] leading-snug">
+                {briefing.headline}
+              </h2>
+              <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/50">
+                  {LEGAL_LABELS[briefing.legal_status] ?? briefing.legal_status}
+                </span>
+                <span className={`rounded-full border border-white/10 bg-white/5 px-3 py-1 ${MATURITY_COLORS[briefing.market_maturity] ?? 'text-white/50'}`}>
+                  {briefing.market_maturity.charAt(0).toUpperCase() + briefing.market_maturity.slice(1)} market
+                </span>
+              </div>
+              <p className="mt-4 text-sm leading-7 text-white/65">{briefing.summary}</p>
+              {briefing.what_changed && (
+                <div className="mt-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-1">What changed</p>
+                  <p className="text-sm leading-6 text-white/55">{briefing.what_changed}</p>
+                </div>
+              )}
+              {briefing.operator_implications && (
+                <div className="mt-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-1">Operator implications</p>
+                  <p className="text-sm leading-6 text-white/55">{briefing.operator_implications}</p>
+                </div>
+              )}
+              {briefing.whats_coming && (
+                <div className="mt-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-1">What&apos;s coming</p>
+                  <p className="text-sm leading-6 text-white/55">{briefing.whats_coming}</p>
+                </div>
+              )}
+              {briefing.key_signals.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-2">Key signals this period</p>
+                  <ul className="space-y-1.5">
+                    {briefing.key_signals.map((sig, i) => (
+                      <li key={i} className="flex gap-2 text-xs text-white/45">
+                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#c6a55a]/40" />
+                        {sig}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="mt-6 rounded-2xl border border-white/10 bg-[#07101f] p-6">
             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/66">
@@ -183,6 +263,56 @@ export default async function CountryIntelligenceDrilldownPage({
             )
           })}
         </section>
+
+        {briefing && (
+          <section className="mt-6 rounded-2xl border border-[#c6a55a]/20 bg-[#07101f] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/70">
+                Weekly Intelligence Briefing
+              </p>
+              <p className="text-[10px] text-white/30 flex-shrink-0">
+                w/e {briefing.week_ending} · {briefing.signal_count} signals
+              </p>
+            </div>
+            <h2 className="mt-3 text-base font-semibold text-[#f5f0e8] leading-snug">
+              {briefing.headline}
+            </h2>
+            <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/50">
+                {LEGAL_LABELS[briefing.legal_status] ?? briefing.legal_status}
+              </span>
+              <span className={`rounded-full border border-white/10 bg-white/5 px-3 py-1 ${MATURITY_COLORS[briefing.market_maturity] ?? 'text-white/50'}`}>
+                {briefing.market_maturity.charAt(0).toUpperCase() + briefing.market_maturity.slice(1)} market
+              </span>
+            </div>
+            <p className="mt-4 text-sm leading-7 text-white/65">{briefing.summary}</p>
+            {briefing.what_changed && (
+              <div className="mt-4">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-1">What changed</p>
+                <p className="text-sm leading-6 text-white/55">{briefing.what_changed}</p>
+              </div>
+            )}
+            {briefing.operator_implications && (
+              <div className="mt-4">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-1">Operator implications</p>
+                <p className="text-sm leading-6 text-white/55">{briefing.operator_implications}</p>
+              </div>
+            )}
+            {briefing.key_signals.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-2">Key signals this period</p>
+                <ul className="space-y-1.5">
+                  {briefing.key_signals.map((sig, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-white/45">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#c6a55a]/40" />
+                      {sig}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#07101f] p-6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/66">
