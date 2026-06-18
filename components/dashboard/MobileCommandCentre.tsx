@@ -569,7 +569,7 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
         </section>
         <div className="hvm-meta-grid">
           <SectionCard label="Confidence" title={`${selectedSignal.confidence}%`} detail="Signal confidence score based on source quality and corroboration." tone={selectedSignal.confidence >= 70 ? 'ok' : 'warn'} />
-          <SectionCard label="Source" title={selectedSignal.sourceLabel} detail="Source category as reviewed for public display." />
+          <SectionCard label="Source" title={selectedSignal.sourceLabel ?? 'Harbourview Intelligence'} detail="Source category as reviewed for public display." />
         </div>
         <div className="hvm-card">
           <div className="hvm-kicker">Commercial impact</div>
