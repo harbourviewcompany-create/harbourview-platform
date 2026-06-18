@@ -192,7 +192,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
           ))}
         </div>
 
-        <a className="cc-jx-btn" href={`/dashboard/country/${country.iso2.toLowerCase()}`}>View Full Jurisdiction Profile →</a>
+        <a className="cc-jx-btn" href={`/country/${country.label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`}>View Full Jurisdiction Profile →</a>
       </aside>
 
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
