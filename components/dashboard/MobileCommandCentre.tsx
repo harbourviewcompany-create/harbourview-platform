@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -63,15 +62,6 @@ const MARKET_TABS: { id: MarketView; label: string }[] = [
   { id: 'new-products', label: 'New Products' },
 ]
 
-const TAB_HREF: Record<MarketView, string> = {
-  cannabis:        '/marketplace/cannabis-inventory',
-  wanted:          '/marketplace/wanted',
-  opportunities:   '/marketplace/business-opportunities',
-  equipment:       '/marketplace/cultivation-equipment',
-  consumables:     '/marketplace/consumables',
-  services:        '/marketplace/services',
-  'new-products':  '/marketplace/new-products',
-}
 
 const PENDING_REVIEW = 'Pending verified source review'
 
@@ -179,11 +169,11 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
         <MobileAccordion title="Recent signals">
           <div className="hvm-list-stack">
             {signals.slice(0, 4).map((signal, index) => (
-              <Link href="/signals" className="hvm-signal-card" key={`${signal.title}-${index}`}>
+              <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
                 <strong>{signal.flag} {signal.title}</strong>
                 <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
                 <p className="hvm-signal-impact">{signal.commercialImpact}</p>
-              </Link>
+              </div>
             ))}
           </div>
         </MobileAccordion>
@@ -252,6 +242,7 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData }: 
 function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0 }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
   const [search, setSearch] = useState('')
+  const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
 
   const cards = useMemo<MobileMarketCard[]>(() => {
     if (activeTab === 'wanted' && wantedListings.length > 0) {
@@ -275,6 +266,24 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
     return cards.filter(card => [card.title, card.description, card.category, card.jurisdiction].join(' ').toLowerCase().includes(q))
   }, [cards, search])
 
+  if (selectedCard) {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedCard(null)}>← Back to listings</button>
+        <section className="hvm-hero-card compact">
+          <div className="hvm-kicker">{selectedCard.category} · {selectedCard.jurisdiction}</div>
+          <h2>{selectedCard.title}</h2>
+          <p>{selectedCard.description}</p>
+        </section>
+        <div className="hvm-meta-grid">
+          <SectionCard label="Status" title={selectedCard.status} detail="Listing status as approved for public display." />
+          <SectionCard label="Access" title={selectedCard.action} detail="All counterparty contact and proof release are Harbourview-mediated." tone="ok" />
+        </div>
+        <SectionCard label="Next step" title="Submit via Harbourview intake" detail="Use the Command Centre intake flow to request mediated access. Counterparty details are released only after Harbourview review." />
+      </div>
+    )
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -297,7 +306,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
 
       <div className="hvm-market-list">
         {filteredCards.length > 0 ? filteredCards.slice(0, 12).map(card => (
-          <Link key={card.id} href={TAB_HREF[activeTab]} className="hvm-market-card">
+          <article
+            key={card.id}
+            className="hvm-market-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedCard(card)}
+            onKeyDown={e => e.key === 'Enter' && setSelectedCard(card)}
+          >
             <div className="hvm-market-card-top">
               <span>{card.category}</span>
               <small>{card.status}</small>
@@ -308,7 +324,7 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
               <span>{card.jurisdiction}</span>
               <strong>{card.action}</strong>
             </div>
-          </Link>
+          </article>
         )) : (
           <div className="hvm-empty-card">
             <strong>No public {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} rows for {country.label}.</strong>
@@ -415,8 +431,12 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
   )
 }
 
+type EduModule = { icon: string; title: string; desc: string; slug?: string }
+
 function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[] }) {
-  const tiles = liveTiles && liveTiles.length > 0
+  const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
+
+  const tiles: EduModule[] = liveTiles && liveTiles.length > 0
     ? liveTiles
     : eduCategories.length > 0
       ? eduCategories
@@ -426,6 +446,25 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           { icon: '⊟', title: 'Market access readiness', desc: 'Understand mediated commercial access and review controls.', slug: '' },
         ]
 
+  if (selectedModule) {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedModule(null)}>← Back to learning path</button>
+        <section className="hvm-hero-card compact">
+          <div className="hvm-kicker">{country.label} · {roleLabel}</div>
+          <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10 }}>{selectedModule.icon}</div>
+          <h2>{selectedModule.title}</h2>
+          <p>{selectedModule.desc}</p>
+        </section>
+        <div className="hvm-meta-grid">
+          <SectionCard label="Status" title="Not started" detail="Complete this module to advance your learning path for this country and role." />
+          <SectionCard label="Content type" title="Harbourview-curated module" detail="Content is jurisdiction and role-specific, reviewed before publication." tone="ok" />
+        </div>
+        <SectionCard label="Access" title="Available in Command Centre" detail="Full module content is delivered through the Harbourview Command Centre. No external resources required." />
+      </div>
+    )
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -434,20 +473,23 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
       </section>
 
       <div className="hvm-education-list">
-        {tiles.map((module, index) => {
-          const slug = 'slug' in module ? module.slug : ''
-          const href = slug ? `/education/${slug}` : '/education'
-          return (
-            <Link key={`${module.title}-${index}`} href={href} className="hvm-module-card">
-              <span>{module.icon}</span>
-              <div>
-                <strong>{index + 1}. {module.title}</strong>
-                <p>{module.desc}</p>
-                <small>{index < 2 ? 'Required' : 'Recommended'} · Not started</small>
-              </div>
-            </Link>
-          )
-        })}
+        {tiles.map((module, index) => (
+          <article
+            key={`${module.title}-${index}`}
+            className="hvm-module-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedModule(module)}
+            onKeyDown={e => e.key === 'Enter' && setSelectedModule(module)}
+          >
+            <span>{module.icon}</span>
+            <div>
+              <strong>{index + 1}. {module.title}</strong>
+              <p>{module.desc}</p>
+              <small>{index < 2 ? 'Required' : 'Recommended'} · Not started</small>
+            </div>
+          </article>
+        ))}
       </div>
 
       {recentEduModules && recentEduModules.length > 0 ? (
@@ -477,6 +519,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
 function SignalsMobile({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
   const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
+  const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -516,6 +559,26 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
     }
   }
 
+  if (selectedSignal) {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedSignal(null)}>← Back to signals</button>
+        <section className="hvm-hero-card compact">
+          <div className="hvm-kicker">{selectedSignal.market} · {selectedSignal.timeAgo}</div>
+          <h2>{selectedSignal.flag} {selectedSignal.title}</h2>
+        </section>
+        <div className="hvm-meta-grid">
+          <SectionCard label="Confidence" title={`${selectedSignal.confidence}%`} detail="Signal confidence score based on source quality and corroboration." tone={selectedSignal.confidence >= 70 ? 'ok' : 'warn'} />
+          <SectionCard label="Source" title={selectedSignal.sourceLabel} detail="Source category as reviewed for public display." />
+        </div>
+        <div className="hvm-card">
+          <div className="hvm-kicker">Commercial impact</div>
+          <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.6 }}>{selectedSignal.commercialImpact}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -541,11 +604,18 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
 
       <div className="hvm-list-stack">
         {filtered.length > 0 ? filtered.slice(0, 20).map((signal, index) => (
-          <Link href="/signals" className="hvm-signal-card" key={`${signal.title}-${index}`}>
+          <div
+            className="hvm-signal-card hvm-signal-card--tap"
+            key={`${signal.title}-${index}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedSignal(signal)}
+            onKeyDown={e => e.key === 'Enter' && setSelectedSignal(signal)}
+          >
             <strong>{signal.flag} {signal.title}</strong>
             <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
             <p className="hvm-signal-impact">{signal.commercialImpact}</p>
-          </Link>
+          </div>
         )) : (
           <div className="hvm-signal-card">
             <strong>No signals match your filter</strong>
@@ -864,8 +934,8 @@ const MOBILE_CSS = `
 .hvm-accordion summary::-webkit-details-marker { display: none; }
 .hvm-accordion-body { padding: 0 13px 13px; }
 .hvm-signal-card { padding: 14px; }
-a.hvm-signal-card { display: block; text-decoration: none; color: inherit; }
-a.hvm-signal-card:hover { border-color: rgba(212,168,75,.25); background: rgba(255,255,255,.065); }
+.hvm-signal-card--tap { cursor: pointer; }
+.hvm-signal-card--tap:hover { border-color: rgba(212,168,75,.25); background: rgba(255,255,255,.065); }
 .hvm-signal-card small, .hvm-module-card small {
   display: block;
   margin-top: 7px;
@@ -909,8 +979,16 @@ a.hvm-signal-card:hover { border-color: rgba(212,168,75,.25); background: rgba(2
   font-size: 16px;
   outline: none;
 }
-.hvm-market-card { padding: 15px; display: block; text-decoration: none; color: inherit; }
+.hvm-market-card { padding: 15px; cursor: pointer; }
 .hvm-market-card:hover { border-color: rgba(212,168,75,.35); background: rgba(255,255,255,.07); }
+.hvm-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none;
+  color: #d4a84b; font-size: 13px; font-weight: 700;
+  padding: 0; cursor: pointer; min-height: 44px;
+  letter-spacing: .04em;
+}
+.hvm-back-btn:hover { opacity: .7; }
 .hvm-market-card-top, .hvm-market-meta {
   display: flex;
   align-items: center;
@@ -930,7 +1008,7 @@ a.hvm-signal-card:hover { border-color: rgba(212,168,75,.25); background: rgba(2
 .hvm-ledger-table div:last-child { border-bottom: 0; }
 .hvm-ledger-table strong { color: #d4a84b; font-size: 13px; }
 .hvm-ledger-table span { color: rgba(245,240,232,.68); line-height: 1.4; overflow-wrap: anywhere; }
-.hvm-module-card { display: flex; gap: 13px; padding: 15px; text-decoration: none; color: inherit; }
+.hvm-module-card { display: flex; gap: 13px; padding: 15px; cursor: pointer; }
 .hvm-module-card:hover { border-color: rgba(212,168,75,.35); background: rgba(255,255,255,.07); }
 .hvm-module-card > span { flex: 0 0 34px; font-size: 28px; line-height: 1; }
 .hvm-bottom-nav {
