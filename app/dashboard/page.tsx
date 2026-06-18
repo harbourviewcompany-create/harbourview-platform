@@ -111,20 +111,24 @@ function getTrustBar(listing: PublicListing): string {
 }
 
 function mapListingToDashboardRow(listing: PublicListing): MarketRow {
-  const typeLabel  = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
+  const categoryLabel = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
   const regionLabel = listing.location_region ?? listing.location_country ?? listing.region
-  const statusLabel = listing.price_display ?? listing.condition ?? (listing.is_featured ? 'Featured' : 'Listed')
-  const tags = getListingTags(listing) || listing.category
+  const st = listing.seller_type ?? ''
+  const isVerified = st === 'verified_seller' || st === 'licensed_operator'
+  const rawScore = typeof (listing.high_level_specs as Record<string, unknown>)?.score === 'number'
+    ? (listing.high_level_specs as Record<string, unknown>).score as number
+    : 0
+  const confidence = rawScore > 0 ? String(rawScore) : isVerified ? '78' : '62'
 
   return [
-    getListingSpecType(listing),
-    typeLabel,
     listing.title,
-    safeText(listing.description, `${typeLabel} listing — ${regionLabel}.`),
-    tags,
-    getTrustBar(listing),
-    'Open listing',
-    statusLabel,
+    safeText(listing.description, `${categoryLabel} listing${regionLabel ? ' — ' + regionLabel : ''}.`),
+    listing.location_country ?? listing.region ?? '',
+    categoryLabel,
+    isVerified ? 'Verified' : 'Pending Review',
+    isVerified ? 'Licensed Direct' : 'Mediated',
+    confidence,
+    listing.id,
   ]
 }
 

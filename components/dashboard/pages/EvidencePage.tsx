@@ -59,7 +59,7 @@ export const EvidencePage = React.memo(function EvidencePage({
             {countryIntel?.data_completeness ? ` · ${({ stub: 'Basic', partial: 'Partial', high: 'High', full: 'Full' } as Record<string,string>)[countryIntel.data_completeness] ?? countryIntel.data_completeness} coverage` : ''}
           </p>
         </div>
-        <a href="/intelligence/methodology" className="ev-cta-outline">Full Methodology →</a>
+        <a href="/source-methodology" className="ev-cta-outline">Full Methodology →</a>
       </div>
 
       <div className="ev-body">
