@@ -14,6 +14,7 @@ jobs:
     env:
       HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
       HARBOURVIEW_PRODUCTION_VERIFY_OUT: artifacts/production-runtime-verification
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
     steps:
       - name: Checkout
