@@ -461,6 +461,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
 
 function SignalsMobile({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
+  const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -470,11 +471,52 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
     )
   }, [signals, search])
 
+  async function handleSubscribe() {
+    if (subState === 'subscribed' || subState === 'loading') return
+    setSubState('loading')
+    try {
+      const res = await fetch('/api/signals/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          markets: country.iso2 && country.iso2 !== 'GLOBAL' ? [country.iso2] : [],
+          frequency: 'daily',
+        }),
+      })
+      if (res.ok) { setSubState('subscribed'); return }
+      if (res.status === 403) { setSubState('upgrade'); return }
+      setSubState('error')
+    } catch {
+      setSubState('error')
+    }
+  }
+
+  async function handleUnsubscribe() {
+    setSubState('loading')
+    try {
+      const res = await fetch('/api/signals/subscribe', { method: 'DELETE' })
+      setSubState(res.ok ? 'idle' : 'error')
+    } catch {
+      setSubState('error')
+    }
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <h2>Intelligence</h2>
         <p>{country.label} · {signals.length} signal{signals.length !== 1 ? 's' : ''}</p>
+        <div className="hvm-sub-row">
+          {subState === 'upgrade' ? (
+            <span className="hvm-sub-upgrade">Intel plan required to subscribe</span>
+          ) : subState === 'subscribed' ? (
+            <button className="hvm-sub-btn active" onClick={handleUnsubscribe}>✓ Subscribed — tap to cancel</button>
+          ) : (
+            <button className="hvm-sub-btn" onClick={handleSubscribe} disabled={subState === 'loading'}>
+              {subState === 'loading' ? 'Subscribing…' : '+ Subscribe to daily signals'}
+            </button>
+          )}
+        </div>
       </section>
 
       <label className="hvm-search-label">
@@ -742,6 +784,16 @@ const MOBILE_CSS = `
   border-left: 3px solid #d4a84b;
   padding-left: 13px;
 }
+.hvm-sub-row { margin-top: 10px; }
+.hvm-sub-btn {
+  font-size: 12px; padding: 7px 14px; border-radius: 8px; cursor: pointer; font: inherit;
+  border: 1px solid rgba(212,168,75,.5); color: #d4a84b; background: rgba(212,168,75,.07);
+  transition: all .12s; width: 100%; text-align: left;
+}
+.hvm-sub-btn:hover:not(:disabled) { background: rgba(212,168,75,.15); border-color: #d4a84b; }
+.hvm-sub-btn:disabled { opacity: .5; cursor: default; }
+.hvm-sub-btn.active { border-color: rgba(76,175,130,.5); color: #4caf82; background: rgba(76,175,130,.07); }
+.hvm-sub-upgrade { font-size: 11px; color: rgba(245,240,232,.38); }
 .hvm-status-grid, .hvm-meta-grid, .hvm-source-ledger, .hvm-pathway-steps, .hvm-education-list, .hvm-market-list, .hvm-list-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

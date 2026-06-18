@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
 export interface SignalsPageProps {
@@ -12,6 +12,7 @@ export interface SignalsPageProps {
 }
 
 type Lane = 'all' | 'regulatory' | 'economic' | 'trade'
+type SubState = 'idle' | 'loading' | 'subscribed' | 'upgrade' | 'error'
 
 const LANE_COLORS: Record<string, string> = {
   regulatory: '#5b9bd5',
@@ -37,6 +38,37 @@ export const SignalsPage = React.memo(function SignalsPage({
   country, signals,
 }: SignalsPageProps) {
   const [lane, setLane] = useState<Lane>('all')
+  const [subState, setSubState] = useState<SubState>('idle')
+
+  const handleSubscribe = useCallback(async () => {
+    if (subState === 'subscribed' || subState === 'loading') return
+    setSubState('loading')
+    try {
+      const res = await fetch('/api/signals/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          markets: country.iso2 && country.iso2 !== 'GLOBAL' ? [country.iso2] : [],
+          frequency: 'daily',
+        }),
+      })
+      if (res.ok) { setSubState('subscribed'); return }
+      if (res.status === 403) { setSubState('upgrade'); return }
+      setSubState('error')
+    } catch {
+      setSubState('error')
+    }
+  }, [subState, country.iso2])
+
+  const handleUnsubscribe = useCallback(async () => {
+    setSubState('loading')
+    try {
+      const res = await fetch('/api/signals/subscribe', { method: 'DELETE' })
+      setSubState(res.ok ? 'idle' : 'error')
+    } catch {
+      setSubState('error')
+    }
+  }, [])
 
   const filtered = lane === 'all'
     ? signals
@@ -57,7 +89,24 @@ export const SignalsPage = React.memo(function SignalsPage({
           <h1 className="sp-heading">Intelligence Signals</h1>
           <p className="sp-sub">{country.label} · {signals.length} signals this period</p>
         </div>
-        <Link href="/signals" className="sp-link-btn">Full Signal Report →</Link>
+        <div className="sp-header-actions">
+          {subState === 'upgrade' ? (
+            <span className="sp-upgrade-note">Intel plan required →</span>
+          ) : subState === 'subscribed' ? (
+            <button className="sp-sub-btn sp-sub-btn--active" onClick={handleUnsubscribe}>
+              ✓ Subscribed
+            </button>
+          ) : (
+            <button
+              className="sp-sub-btn"
+              onClick={handleSubscribe}
+              disabled={subState === 'loading'}
+            >
+              {subState === 'loading' ? '…' : '+ Subscribe'}
+            </button>
+          )}
+          <Link href="/signals" className="sp-link-btn">Full Report →</Link>
+        </div>
       </div>
 
       {/* Lane filter */}
@@ -150,6 +199,8 @@ const CSS = `
 }
 .sp-sub { font-size:11px;color:rgba(245,240,232,.42);margin-top:3px; }
 
+.sp-header-actions { display:flex;align-items:center;gap:10px;flex-shrink:0; }
+
 .sp-link-btn {
   font-size:11px;color:#d4a84b;background:none;border:none;
   padding:0;cursor:pointer;font:inherit;text-decoration:none;
@@ -157,6 +208,19 @@ const CSS = `
   transition:opacity .12s;
 }
 .sp-link-btn:hover { opacity:.7; }
+
+.sp-sub-btn {
+  font-size:11px;padding:5px 12px;border-radius:7px;cursor:pointer;font:inherit;
+  border:1px solid rgba(212,168,75,.5);color:#d4a84b;background:rgba(212,168,75,.07);
+  transition:all .12s;flex-shrink:0;
+}
+.sp-sub-btn:hover:not(:disabled) { background:rgba(212,168,75,.15);border-color:#d4a84b; }
+.sp-sub-btn:disabled { opacity:.5;cursor:default; }
+.sp-sub-btn--active {
+  border-color:rgba(76,175,130,.5);color:#4caf82;background:rgba(76,175,130,.07);
+}
+.sp-sub-btn--active:hover { background:rgba(76,175,130,.14);border-color:#4caf82; }
+.sp-upgrade-note { font-size:11px;color:rgba(245,240,232,.4);flex-shrink:0; }
 
 .sp-lanes {
   display:flex;gap:4px;padding:12px 24px;flex-shrink:0;
