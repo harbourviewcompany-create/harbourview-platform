@@ -1,7 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import type { WatchlistData } from '@/lib/dashboard/dashboardLiveData'
+import { createClient } from '@/lib/supabase/client'
 
 export interface WatchlistPageProps {
   country:       { iso2: string; label: string }
@@ -28,6 +29,38 @@ const ITEM_ICONS: Record<string, string> = {
 export const WatchlistPage = React.memo(function WatchlistPage({
   country, watchlistData,
 }: WatchlistPageProps) {
+  const [addState, setAddState] = useState<'idle' | 'saving' | 'saved'>('idle')
+
+  async function handleAddToWatchlist() {
+    if (addState !== 'idle') return
+    setAddState('saving')
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        window.location.href = '/sign-in'
+        return
+      }
+      const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', session.user.id)
+        .limit(1)
+        .single()
+      if (!membership) { setAddState('idle'); return }
+      await supabase.from('cc_watchlist_items').insert({
+        org_id:       membership.workspace_id,
+        item_type:    'jurisdiction',
+        title:        country.label,
+        jurisdiction: country.iso2,
+        watch_status: 'active',
+      })
+      setAddState('saved')
+    } catch {
+      setAddState('idle')
+    }
+  }
+
   const items = watchlistData?.items ?? []
   const notifs = watchlistData?.notifications
   const rules  = watchlistData?.rules ?? []
@@ -75,7 +108,13 @@ export const WatchlistPage = React.memo(function WatchlistPage({
             <div className="wl-current-name">{country.label}</div>
             <div className="wl-current-label">Active session · Not saved</div>
           </div>
-          <button className="wl-add-btn">+ Add to Watchlist</button>
+          <button
+            className={`wl-add-btn${addState === 'saved' ? ' wl-add-btn--saved' : ''}`}
+            onClick={handleAddToWatchlist}
+            disabled={addState !== 'idle'}
+          >
+            {addState === 'saved' ? '✓ Watching' : addState === 'saving' ? 'Saving…' : '+ Add to Watchlist'}
+          </button>
         </div>
       </div>
 
@@ -192,9 +231,11 @@ const CSS = `
   font-size:11px;padding:6px 12px;border-radius:7px;
   border:1px solid rgba(212,168,75,.3);background:rgba(212,168,75,.06);
   color:#d4a84b;cursor:pointer;font:inherit;flex-shrink:0;
-  transition:background .12s;
+  transition:background .12s,color .12s,border-color .12s;
 }
-.wl-add-btn:hover { background:rgba(212,168,75,.14); }
+.wl-add-btn:hover:not(:disabled) { background:rgba(212,168,75,.14); }
+.wl-add-btn:disabled { opacity:.6;cursor:default; }
+.wl-add-btn--saved { border-color:rgba(76,175,130,.4);background:rgba(76,175,130,.1);color:#4caf82; }
 
 .wl-notifs { padding:12px 24px 0; }
 .wl-notif-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:420px; }
