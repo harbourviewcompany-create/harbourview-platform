@@ -65,6 +65,23 @@ const MARKET_TABS: { id: MarketView; label: string }[] = [
 
 const PENDING_REVIEW = 'Pending verified source review'
 
+const FIELD_LABELS: Record<string, string> = {
+  needs_review:   'Under review',
+  stub:           'Data pending',
+  pending:        'Pending',
+  verified:       'Verified',
+  published:      'Published',
+  approved:       'Approved',
+  review_gated:   'Under review',
+  not_started:    'Not started',
+  in_progress:    'In progress',
+  completed:      'Completed',
+  active:         'Active',
+  inactive:       'Inactive',
+  restricted:     'Restricted',
+  draft:          'Draft',
+}
+
 function titleCase(value: string): string {
   return value
     .replace(/[_-]+/g, ' ')
@@ -75,7 +92,8 @@ function titleCase(value: string): string {
 
 function fieldValue(value: string | number | null | undefined, fallback = PENDING_REVIEW): string {
   if (typeof value === 'number') return String(value)
-  return value && value.trim() ? value.trim() : fallback
+  const raw = value && value.trim() ? value.trim() : fallback
+  return FIELD_LABELS[raw] ?? raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 function roleDisplay(roleId: string): string {
@@ -693,20 +711,17 @@ export default function MobileCommandCentre({
     <div className="hvm-app">
       <style>{MOBILE_CSS}</style>
 
-      <header className="hvm-header">
-        <div className="hvm-wordmark" aria-label="Harbourview Command Centre">
-          <span>HARBOURVIEW</span>
-          <small>COMMAND CENTRE</small>
-        </div>
-        <button className="hvm-context-button" type="button" onClick={() => setContextOpen(true)}>Context</button>
-      </header>
-
       <section className="hvm-titlebar">
-        <div>
+        <div className="hvm-titlebar-text">
           <span className="hvm-title-kicker">{country.label} · {roleLabel}</span>
           <h1>{pageTitle}</h1>
         </div>
-        {activePage !== 'briefing' && <button type="button" onClick={() => setActivePage('briefing')}>Briefing</button>}
+        <div className="hvm-titlebar-actions">
+          {activePage !== 'briefing' && (
+            <button type="button" onClick={() => setActivePage('briefing')}>Briefing</button>
+          )}
+          <button type="button" onClick={() => setContextOpen(true)}>Context</button>
+        </div>
       </section>
 
       <main className="hvm-main">{page}</main>
@@ -765,39 +780,24 @@ const MOBILE_CSS = `
   padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   -webkit-text-size-adjust: 100%;
 }
-.hvm-header {
+.hvm-titlebar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
   max-width: 100%;
-  min-height: calc(64px + env(safe-area-inset-top, 0px));
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
-  background: rgba(3,7,17,.96);
-  border-bottom: 1px solid rgba(255,255,255,.09);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+  background: rgba(3,7,17,.97);
+  border-bottom: 1px solid rgba(255,255,255,.08);
   backdrop-filter: blur(14px);
 }
-.hvm-wordmark { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.hvm-wordmark span {
-  color: #d4a84b;
-  font-family: Georgia, serif;
-  font-size: clamp(18px, 5vw, 23px);
-  line-height: 1;
-  letter-spacing: .16em;
-  white-space: nowrap;
-}
-.hvm-wordmark small {
-  color: rgba(245,240,232,.38);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9px;
-  letter-spacing: .22em;
-  white-space: nowrap;
-}
-.hvm-context-button, .hvm-titlebar button, .hvm-sheet-head button, .hvm-sheet-apply {
+.hvm-titlebar-text { min-width: 0; flex: 1; }
+.hvm-titlebar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.hvm-titlebar-actions button, .hvm-sheet-head button, .hvm-sheet-apply {
   min-height: 44px;
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 999px;
@@ -805,18 +805,8 @@ const MOBILE_CSS = `
   color: rgba(245,240,232,.9);
   font: 700 13px/1 Inter, system-ui, sans-serif;
   padding: 0 14px;
+  cursor: pointer;
 }
-.hvm-titlebar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  max-width: 100%;
-  padding: 18px 16px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
-}
-.hvm-titlebar > div { min-width: 0; }
 .hvm-title-kicker {
   display: block;
   color: rgba(245,240,232,.46);
@@ -1063,8 +1053,7 @@ const MOBILE_CSS = `
 .hvm-sheet-panel option { color: #07111d; }
 .hvm-sheet-apply { background: rgba(212,168,75,.16); border-color: rgba(212,168,75,.45); color: #d4a84b; }
 @media (orientation: landscape) and (max-width: 767px) {
-  .hvm-header { min-height: calc(54px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
-  .hvm-titlebar { padding-top: 12px; padding-bottom: 10px; }
+  .hvm-titlebar { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
   .hvm-titlebar h1 { font-size: clamp(28px, 6vw, 38px); }
   .hvm-status-grid, .hvm-meta-grid, .hvm-source-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hvm-bottom-nav button { min-height: 54px; }
