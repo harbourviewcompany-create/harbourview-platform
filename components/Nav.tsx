@@ -33,6 +33,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Exchange Home', href: '/marketplace' },
       { label: 'Reviewed Listings', href: '/marketplace/listings' },
+      { label: 'Deal Rooms', href: '/marketplace/deals' },
       { label: 'Wanted Requests', href: '/marketplace/wanted' },
       { label: 'Sell or Export', href: '/marketplace/sell' },
       { label: 'Import Demand', href: '/marketplace/import-demand' },
@@ -49,6 +50,7 @@ const navGroups: NavGroup[] = [
       { label: 'Intelligence Home', href: '/intelligence' },
       { label: 'Country Briefs', href: '/intelligence/country-briefs' },
       { label: 'Market Briefings', href: '/markets' },
+      { label: 'Entry Playbooks', href: '/intelligence/playbooks' },
       { label: 'Regulatory Pathways', href: '/intelligence/regulatory-pathways' },
       { label: 'Licensing Pathways', href: '/intelligence/licensing-pathways' },
       { label: 'Logistics & Trade Routes', href: '/intelligence/logistics-trade-routes' },

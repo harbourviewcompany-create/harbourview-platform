@@ -5,6 +5,7 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import { dashboardSections } from '@/lib/dashboard/countries'
 import { getLatestBriefing } from '@/lib/intelligence/jurisdictionSynthesis'
+import { getPlaybook, DIFFICULTY_LABEL } from '@/lib/intelligence/jurisdictionPlaybooks'
 
 const MATURITY_COLORS: Record<string, string> = {
   emerging:    'text-amber-400',
@@ -68,6 +69,7 @@ export default async function CountryIntelligenceDrilldownPage({
   const resolvedForBriefing = resolveCountryRouteParam(countryParam)
   const briefingIso2 = liveCountry?.iso_alpha2 ?? resolvedForBriefing?.iso2 ?? null
   const briefing = briefingIso2 ? await getLatestBriefing(briefingIso2) : null
+  const playbook = briefingIso2 ? await getPlaybook(briefingIso2) : null
 
   if (liveCountry) {
     const statusColor = STATUS_COLORS[liveCountry.market_access_status] ?? STATUS_COLORS.unknown
@@ -187,6 +189,79 @@ export default async function CountryIntelligenceDrilldownPage({
                   </ul>
                 </div>
               )}
+            </section>
+          )}
+
+          {playbook && (
+            <section className="mt-6 rounded-2xl border border-[#c6a55a]/15 bg-[#07101f] p-6">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/70">
+                  Market Entry Playbook
+                </p>
+                <span className="text-[10px] text-white/30 flex-shrink-0">{playbook.typical_timeline_months}-month pathway</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/50">
+                  {DIFFICULTY_LABEL[playbook.difficulty]}
+                </span>
+                {playbook.estimated_cost_range && (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/40 font-mono">
+                    {playbook.estimated_cost_range}
+                  </span>
+                )}
+              </div>
+              {playbook.legal_framework_summary && (
+                <p className="mt-4 text-sm leading-7 text-white/60">{playbook.legal_framework_summary}</p>
+              )}
+              {playbook.steps.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-3">Entry Steps</p>
+                  <ol className="space-y-4">
+                    {playbook.steps.map(step => (
+                      <li key={step.step} className="flex gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#c6a55a]/30 bg-[#c6a55a]/10 text-[9px] font-bold text-[#c6a55a]">
+                          {step.step}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-white/80">{step.title}</p>
+                          <p className="mt-1 text-xs leading-5 text-white/45">{step.body}</p>
+                          <span className="mt-1 inline-block font-mono text-[9px] text-white/20">~{step.weeks}w</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              {playbook.key_regulators.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-2">Key Regulatory Bodies</p>
+                  <div className="space-y-2">
+                    {playbook.key_regulators.map(reg => (
+                      <div key={reg.name} className="flex flex-wrap gap-2 text-xs">
+                        <span className="font-semibold text-[#c6a55a]/70">{reg.name}</span>
+                        <span className="text-white/35">— {reg.role}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {playbook.common_pitfalls.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-2">Common Pitfalls</p>
+                  <ul className="space-y-1.5">
+                    {playbook.common_pitfalls.map((pitfall, i) => (
+                      <li key={i} className="flex gap-2 text-xs text-white/40">
+                        <span className="mt-0.5 flex-shrink-0 text-red-400/50">⚠</span>
+                        {pitfall}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
+                <span className="font-mono text-[9px] text-white/20">Updated {playbook.last_reviewed} · Orientation-level only</span>
+                <Link href="/intelligence/playbooks" className="text-[10px] text-[#c6a55a] hover:opacity-70">All playbooks →</Link>
+              </div>
             </section>
           )}
 
@@ -311,6 +386,79 @@ export default async function CountryIntelligenceDrilldownPage({
                 </ul>
               </div>
             )}
+          </section>
+        )}
+
+        {playbook && (
+          <section className="mt-6 rounded-2xl border border-[#c6a55a]/15 bg-[#07101f] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/70">
+                Market Entry Playbook
+              </p>
+              <span className="text-[10px] text-white/30 flex-shrink-0">{playbook.typical_timeline_months}-month pathway</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/50">
+                {DIFFICULTY_LABEL[playbook.difficulty]}
+              </span>
+              {playbook.estimated_cost_range && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/40 font-mono">
+                  {playbook.estimated_cost_range}
+                </span>
+              )}
+            </div>
+            {playbook.legal_framework_summary && (
+              <p className="mt-4 text-sm leading-7 text-white/60">{playbook.legal_framework_summary}</p>
+            )}
+            {playbook.steps.length > 0 && (
+              <div className="mt-5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-3">Entry Steps</p>
+                <ol className="space-y-4">
+                  {playbook.steps.map(step => (
+                    <li key={step.step} className="flex gap-3">
+                      <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#c6a55a]/30 bg-[#c6a55a]/10 text-[9px] font-bold text-[#c6a55a]">
+                        {step.step}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-white/80">{step.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-white/45">{step.body}</p>
+                        <span className="mt-1 inline-block font-mono text-[9px] text-white/20">~{step.weeks}w</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {playbook.key_regulators.length > 0 && (
+              <div className="mt-5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-2">Key Regulatory Bodies</p>
+                <div className="space-y-2">
+                  {playbook.key_regulators.map(reg => (
+                    <div key={reg.name} className="flex flex-wrap gap-2 text-xs">
+                      <span className="font-semibold text-[#c6a55a]/70">{reg.name}</span>
+                      <span className="text-white/35">— {reg.role}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {playbook.common_pitfalls.length > 0 && (
+              <div className="mt-5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[#c6a55a]/60 mb-2">Common Pitfalls</p>
+                <ul className="space-y-1.5">
+                  {playbook.common_pitfalls.map((pitfall, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-white/40">
+                      <span className="mt-0.5 flex-shrink-0 text-red-400/50">⚠</span>
+                      {pitfall}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
+              <span className="font-mono text-[9px] text-white/20">Updated {playbook.last_reviewed} · Orientation-level only</span>
+              <Link href="/intelligence/playbooks" className="text-[10px] text-[#c6a55a] hover:opacity-70">All playbooks →</Link>
+            </div>
           </section>
         )}
 
