@@ -62,7 +62,7 @@ export default async function PlaybooksIndexPage() {
             return (
               <Link
                 key={pb.country_iso2}
-                href={`/intelligence/country/${pb.country_iso2.toLowerCase()}`}
+                href={`/intelligence/playbooks/${pb.country_iso2.toLowerCase()}`}
                 className="pb-card"
                 style={{ '--accent': color } as React.CSSProperties}
               >
