@@ -62,7 +62,14 @@ describe('public route smoke coverage', () => {
     'app/marketplace/sell/page.tsx',
     ...marketplaceRoutePages,
     'app/intelligence/page.tsx',
+    'app/intelligence/playbooks/page.tsx',
     'app/signals/page.tsx',
+    'app/markets/page.tsx',
+    'app/professionals/page.tsx',
+    'app/professionals/[slug]/page.tsx',
+    'app/marketplace/deals/page.tsx',
+    'app/marketplace/deals/[id]/page.tsx',
+    'app/marketplace/deals/new/page.tsx',
   ]
 
   it('keeps required public pages mounted', () => {

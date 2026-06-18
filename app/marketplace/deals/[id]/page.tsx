@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 
@@ -28,7 +29,8 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled:    'Cancelled',
 }
 
-export default function DealRoomPage({ params }: { params: Promise<{ id: string }> }) {
+export default function DealRoomPage() {
+  const { id: roomId } = useParams<{ id: string }>()
   const [room, setRoom]       = useState<Room | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft]     = useState('')
@@ -36,17 +38,12 @@ export default function DealRoomPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError]     = useState<string | null>(null)
-  const [roomId, setRoomId]   = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const svc = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
-
-  useEffect(() => {
-    params.then(p => setRoomId(p.id))
-  }, [params])
 
   useEffect(() => {
     if (!roomId) return

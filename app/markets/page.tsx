@@ -254,7 +254,7 @@ const CSS = `
   transition: border-color .15s, background .15s, transform .12s;
 }
 .mkt-card:hover {
-  border-color: rgba(var(--accent), .3);
+  border-color: var(--accent);
   background: rgba(255,255,255,.04);
   transform: translateY(-1px);
 }
