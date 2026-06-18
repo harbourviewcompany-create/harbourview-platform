@@ -48,6 +48,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Intelligence Home', href: '/intelligence' },
       { label: 'Country Briefs', href: '/intelligence/country-briefs' },
+      { label: 'Market Briefings', href: '/markets' },
       { label: 'Regulatory Pathways', href: '/intelligence/regulatory-pathways' },
       { label: 'Licensing Pathways', href: '/intelligence/licensing-pathways' },
       { label: 'Logistics & Trade Routes', href: '/intelligence/logistics-trade-routes' },
@@ -72,6 +73,7 @@ const mobileNavLinks: NavItem[] = [
   { label: 'Marketplace', href: '/marketplace' },
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Intelligence', href: '/intelligence' },
+  { label: 'Markets', href: '/markets' },
   { label: 'Education', href: '/education' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
