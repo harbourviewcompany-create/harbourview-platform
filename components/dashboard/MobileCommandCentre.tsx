@@ -62,7 +62,25 @@ const MARKET_TABS: { id: MarketView; label: string }[] = [
   { id: 'new-products', label: 'New Products' },
 ]
 
+
 const PENDING_REVIEW = 'Pending verified source review'
+
+const FIELD_LABELS: Record<string, string> = {
+  needs_review:   'Under review',
+  stub:           'Data pending',
+  pending:        'Pending',
+  verified:       'Verified',
+  published:      'Published',
+  approved:       'Approved',
+  review_gated:   'Under review',
+  not_started:    'Not started',
+  in_progress:    'In progress',
+  completed:      'Completed',
+  active:         'Active',
+  inactive:       'Inactive',
+  restricted:     'Restricted',
+  draft:          'Draft',
+}
 
 function titleCase(value: string): string {
   return value
@@ -74,7 +92,8 @@ function titleCase(value: string): string {
 
 function fieldValue(value: string | number | null | undefined, fallback = PENDING_REVIEW): string {
   if (typeof value === 'number') return String(value)
-  return value && value.trim() ? value.trim() : fallback
+  const raw = value && value.trim() ? value.trim() : fallback
+  return FIELD_LABELS[raw] ?? raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 function roleDisplay(roleId: string): string {
@@ -241,6 +260,7 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData }: 
 function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0 }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
   const [search, setSearch] = useState('')
+  const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
 
   const cards = useMemo<MobileMarketCard[]>(() => {
     if (activeTab === 'wanted' && wantedListings.length > 0) {
@@ -264,6 +284,24 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
     return cards.filter(card => [card.title, card.description, card.category, card.jurisdiction].join(' ').toLowerCase().includes(q))
   }, [cards, search])
 
+  if (selectedCard) {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedCard(null)}>← Back to listings</button>
+        <section className="hvm-hero-card compact">
+          <div className="hvm-kicker">{selectedCard.category} · {selectedCard.jurisdiction}</div>
+          <h2>{selectedCard.title}</h2>
+          <p>{selectedCard.description}</p>
+        </section>
+        <div className="hvm-meta-grid">
+          <SectionCard label="Status" title={selectedCard.status} detail="Listing status as approved for public display." />
+          <SectionCard label="Access" title={selectedCard.action} detail="All counterparty contact and proof release are Harbourview-mediated." tone="ok" />
+        </div>
+        <SectionCard label="Next step" title="Submit via Harbourview intake" detail="Use the Command Centre intake flow to request mediated access. Counterparty details are released only after Harbourview review." />
+      </div>
+    )
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -286,7 +324,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
 
       <div className="hvm-market-list">
         {filteredCards.length > 0 ? filteredCards.slice(0, 12).map(card => (
-          <article key={card.id} className="hvm-market-card">
+          <article
+            key={card.id}
+            className="hvm-market-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedCard(card)}
+            onKeyDown={e => e.key === 'Enter' && setSelectedCard(card)}
+          >
             <div className="hvm-market-card-top">
               <span>{card.category}</span>
               <small>{card.status}</small>
@@ -404,8 +449,12 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
   )
 }
 
+type EduModule = { icon: string; title: string; desc: string; slug?: string }
+
 function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[] }) {
-  const tiles = liveTiles && liveTiles.length > 0
+  const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
+
+  const tiles: EduModule[] = liveTiles && liveTiles.length > 0
     ? liveTiles
     : eduCategories.length > 0
       ? eduCategories
@@ -414,6 +463,25 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           { icon: '⬡', title: 'Documentation discipline', desc: 'Prepare evidence, COA, licence and product records.', slug: '' },
           { icon: '⊟', title: 'Market access readiness', desc: 'Understand mediated commercial access and review controls.', slug: '' },
         ]
+
+  if (selectedModule) {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedModule(null)}>← Back to learning path</button>
+        <section className="hvm-hero-card compact">
+          <div className="hvm-kicker">{country.label} · {roleLabel}</div>
+          <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10 }}>{selectedModule.icon}</div>
+          <h2>{selectedModule.title}</h2>
+          <p>{selectedModule.desc}</p>
+        </section>
+        <div className="hvm-meta-grid">
+          <SectionCard label="Status" title="Not started" detail="Complete this module to advance your learning path for this country and role." />
+          <SectionCard label="Content type" title="Harbourview-curated module" detail="Content is jurisdiction and role-specific, reviewed before publication." tone="ok" />
+        </div>
+        <SectionCard label="Access" title="Available in Command Centre" detail="Full module content is delivered through the Harbourview Command Centre. No external resources required." />
+      </div>
+    )
+  }
 
   return (
     <div className="hvm-page-stack">
@@ -424,7 +492,14 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
 
       <div className="hvm-education-list">
         {tiles.map((module, index) => (
-          <article className="hvm-module-card" key={`${module.title}-${index}`}>
+          <article
+            key={`${module.title}-${index}`}
+            className="hvm-module-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedModule(module)}
+            onKeyDown={e => e.key === 'Enter' && setSelectedModule(module)}
+          >
             <span>{module.icon}</span>
             <div>
               <strong>{index + 1}. {module.title}</strong>
@@ -462,6 +537,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
 function SignalsMobile({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
   const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
+  const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -501,6 +577,26 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
     }
   }
 
+  if (selectedSignal) {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedSignal(null)}>← Back to signals</button>
+        <section className="hvm-hero-card compact">
+          <div className="hvm-kicker">{selectedSignal.market} · {selectedSignal.timeAgo}</div>
+          <h2>{selectedSignal.flag} {selectedSignal.title}</h2>
+        </section>
+        <div className="hvm-meta-grid">
+          <SectionCard label="Confidence" title={`${selectedSignal.confidence}%`} detail="Signal confidence score based on source quality and corroboration." tone={selectedSignal.confidence >= 70 ? 'ok' : 'warn'} />
+          <SectionCard label="Source" title={selectedSignal.sourceLabel ?? 'Harbourview Intelligence'} detail="Source category as reviewed for public display." />
+        </div>
+        <div className="hvm-card">
+          <div className="hvm-kicker">Commercial impact</div>
+          <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.6 }}>{selectedSignal.commercialImpact}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -526,7 +622,14 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
 
       <div className="hvm-list-stack">
         {filtered.length > 0 ? filtered.slice(0, 20).map((signal, index) => (
-          <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
+          <div
+            className="hvm-signal-card hvm-signal-card--tap"
+            key={`${signal.title}-${index}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedSignal(signal)}
+            onKeyDown={e => e.key === 'Enter' && setSelectedSignal(signal)}
+          >
             <strong>{signal.flag} {signal.title}</strong>
             <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
             <p className="hvm-signal-impact">{signal.commercialImpact}</p>
@@ -608,20 +711,17 @@ export default function MobileCommandCentre({
     <div className="hvm-app">
       <style>{MOBILE_CSS}</style>
 
-      <header className="hvm-header">
-        <div className="hvm-wordmark" aria-label="Harbourview Command Centre">
-          <span>HARBOURVIEW</span>
-          <small>COMMAND CENTRE</small>
-        </div>
-        <button className="hvm-context-button" type="button" onClick={() => setContextOpen(true)}>Context</button>
-      </header>
-
       <section className="hvm-titlebar">
-        <div>
+        <div className="hvm-titlebar-text">
           <span className="hvm-title-kicker">{country.label} · {roleLabel}</span>
           <h1>{pageTitle}</h1>
         </div>
-        {activePage !== 'briefing' && <button type="button" onClick={() => setActivePage('briefing')}>Briefing</button>}
+        <div className="hvm-titlebar-actions">
+          {activePage !== 'briefing' && (
+            <button type="button" onClick={() => setActivePage('briefing')}>Briefing</button>
+          )}
+          <button type="button" onClick={() => setContextOpen(true)}>Context</button>
+        </div>
       </section>
 
       <main className="hvm-main">{page}</main>
@@ -680,39 +780,24 @@ const MOBILE_CSS = `
   padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   -webkit-text-size-adjust: 100%;
 }
-.hvm-header {
+.hvm-titlebar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
   max-width: 100%;
-  min-height: calc(64px + env(safe-area-inset-top, 0px));
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
-  background: rgba(3,7,17,.96);
-  border-bottom: 1px solid rgba(255,255,255,.09);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+  background: rgba(3,7,17,.97);
+  border-bottom: 1px solid rgba(255,255,255,.08);
   backdrop-filter: blur(14px);
 }
-.hvm-wordmark { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.hvm-wordmark span {
-  color: #d4a84b;
-  font-family: Georgia, serif;
-  font-size: clamp(18px, 5vw, 23px);
-  line-height: 1;
-  letter-spacing: .16em;
-  white-space: nowrap;
-}
-.hvm-wordmark small {
-  color: rgba(245,240,232,.38);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9px;
-  letter-spacing: .22em;
-  white-space: nowrap;
-}
-.hvm-context-button, .hvm-titlebar button, .hvm-sheet-head button, .hvm-sheet-apply {
+.hvm-titlebar-text { min-width: 0; flex: 1; }
+.hvm-titlebar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.hvm-titlebar-actions button, .hvm-sheet-head button, .hvm-sheet-apply {
   min-height: 44px;
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 999px;
@@ -720,18 +805,8 @@ const MOBILE_CSS = `
   color: rgba(245,240,232,.9);
   font: 700 13px/1 Inter, system-ui, sans-serif;
   padding: 0 14px;
+  cursor: pointer;
 }
-.hvm-titlebar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  max-width: 100%;
-  padding: 18px 16px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
-}
-.hvm-titlebar > div { min-width: 0; }
 .hvm-title-kicker {
   display: block;
   color: rgba(245,240,232,.46);
@@ -849,6 +924,8 @@ const MOBILE_CSS = `
 .hvm-accordion summary::-webkit-details-marker { display: none; }
 .hvm-accordion-body { padding: 0 13px 13px; }
 .hvm-signal-card { padding: 14px; }
+.hvm-signal-card--tap { cursor: pointer; }
+.hvm-signal-card--tap:hover { border-color: rgba(212,168,75,.25); background: rgba(255,255,255,.065); }
 .hvm-signal-card small, .hvm-module-card small {
   display: block;
   margin-top: 7px;
@@ -892,7 +969,16 @@ const MOBILE_CSS = `
   font-size: 16px;
   outline: none;
 }
-.hvm-market-card { padding: 15px; }
+.hvm-market-card { padding: 15px; cursor: pointer; }
+.hvm-market-card:hover { border-color: rgba(212,168,75,.35); background: rgba(255,255,255,.07); }
+.hvm-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none;
+  color: #d4a84b; font-size: 13px; font-weight: 700;
+  padding: 0; cursor: pointer; min-height: 44px;
+  letter-spacing: .04em;
+}
+.hvm-back-btn:hover { opacity: .7; }
 .hvm-market-card-top, .hvm-market-meta {
   display: flex;
   align-items: center;
@@ -912,7 +998,8 @@ const MOBILE_CSS = `
 .hvm-ledger-table div:last-child { border-bottom: 0; }
 .hvm-ledger-table strong { color: #d4a84b; font-size: 13px; }
 .hvm-ledger-table span { color: rgba(245,240,232,.68); line-height: 1.4; overflow-wrap: anywhere; }
-.hvm-module-card { display: flex; gap: 13px; padding: 15px; }
+.hvm-module-card { display: flex; gap: 13px; padding: 15px; cursor: pointer; }
+.hvm-module-card:hover { border-color: rgba(212,168,75,.35); background: rgba(255,255,255,.07); }
 .hvm-module-card > span { flex: 0 0 34px; font-size: 28px; line-height: 1; }
 .hvm-bottom-nav {
   position: fixed;
@@ -966,8 +1053,7 @@ const MOBILE_CSS = `
 .hvm-sheet-panel option { color: #07111d; }
 .hvm-sheet-apply { background: rgba(212,168,75,.16); border-color: rgba(212,168,75,.45); color: #d4a84b; }
 @media (orientation: landscape) and (max-width: 767px) {
-  .hvm-header { min-height: calc(54px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
-  .hvm-titlebar { padding-top: 12px; padding-bottom: 10px; }
+  .hvm-titlebar { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
   .hvm-titlebar h1 { font-size: clamp(28px, 6vw, 38px); }
   .hvm-status-grid, .hvm-meta-grid, .hvm-source-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hvm-bottom-nav button { min-height: 54px; }
