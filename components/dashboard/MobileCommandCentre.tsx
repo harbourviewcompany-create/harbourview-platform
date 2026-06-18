@@ -8,7 +8,7 @@ import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 
-type CommandPage = 'briefing' | 'access-pathway' | 'marketplace' | 'evidence' | 'education'
+type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education'
 
 type Props = {
   signals: DashboardSignal[]
@@ -46,11 +46,10 @@ type MobileMarketCard = {
 const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
-  { id: 'briefing', label: 'Briefing', icon: '◎' },
-  { id: 'access-pathway', label: 'Pathway', icon: '⬡' },
-  { id: 'marketplace', label: 'Market', icon: '⊞' },
-  { id: 'evidence', label: 'Evidence', icon: '⊟' },
-  { id: 'education', label: 'Education', icon: '⬛' },
+  { id: 'briefing',    label: 'Briefing',      icon: '◎' },
+  { id: 'marketplace', label: 'Market',         icon: '⊞' },
+  { id: 'signals',     label: 'Intelligence',   icon: '≋' },
+  { id: 'education',   label: 'Education',      icon: '⬡' },
 ]
 
 const MARKET_TABS: { id: MarketView; label: string }[] = [
@@ -460,6 +459,53 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
   )
 }
 
+function SignalsMobile({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
+  const [search, setSearch] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return signals
+    return signals.filter(s =>
+      [s.title, s.market, s.commercialImpact].join(' ').toLowerCase().includes(q)
+    )
+  }, [signals, search])
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Intelligence</h2>
+        <p>{country.label} · {signals.length} signal{signals.length !== 1 ? 's' : ''}</p>
+      </section>
+
+      <label className="hvm-search-label">
+        <span>Filter signals</span>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by market, signal, impact…" />
+      </label>
+
+      <div className="hvm-list-stack">
+        {filtered.length > 0 ? filtered.slice(0, 20).map((signal, index) => (
+          <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
+            <strong>{signal.flag} {signal.title}</strong>
+            <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
+            <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+          </div>
+        )) : (
+          <div className="hvm-signal-card">
+            <strong>No signals match your filter</strong>
+            <small>Try clearing the search or changing your country context.</small>
+          </div>
+        )}
+        {filtered.length === 0 && signals.length === 0 && (
+          <div className="hvm-signal-card">
+            <strong>No intelligence signals loaded</strong>
+            <small>Select a country to load curated regulatory and market signals.</small>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function MobileCommandCentre({
   signals,
   eduCategories,
@@ -505,12 +551,10 @@ export default function MobileCommandCentre({
     switch (activePage) {
       case 'briefing':
         return <BriefingMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />
-      case 'access-pathway':
-        return <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
-      case 'evidence':
-        return <EvidenceMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} evidenceData={evidenceData} sourceCoverage={sourceCoverage} />
+      case 'signals':
+        return <SignalsMobile country={country} signals={signals} />
       case 'education':
         return <EducationMobile country={country} roleLabel={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} />
       default:
@@ -825,7 +869,7 @@ const MOBILE_CSS = `
   bottom: 0;
   z-index: 25;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   width: 100%;
   max-width: 100%;
