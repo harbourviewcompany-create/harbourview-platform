@@ -21,6 +21,7 @@ const PROTECTED_PREFIXES = [
   '/account',
   '/vault',
   '/admin',
+  '/dashboard',
   '/marketplace/sell',
   '/marketplace/my-listings',
 ]
