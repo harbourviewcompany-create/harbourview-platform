@@ -97,12 +97,13 @@ export class WorkerNode {
 
       if (result.status === 'success') {
         this.circuitBreaker.recordSuccess(domain);
+        // Save raw snapshot — sets processing_status='pending_extraction' so the
+        // intelligence-ingest cron picks it up and stages it properly into
+        // hv_import_staging with workspace/batch tracking.
+        // Do NOT write directly to hv_import_staging from the worker: that table
+        // requires workspace_id, source_system, import_batch_id, raw_payload (jsonb)
+        // which the worker does not have at this stage.
         await this.saveSnapshot(result);
-        
-        // Push content forward to AI processing extraction phase (staged locally)
-        await this.stageForAI(result, target);
-        
-        // Complete the task and reset failure states
         await this.queue.markSuccess(target.id, target.cadence_hours);
       } else {
         throw new Error(result.error_message || 'Unknown network stream failure');
