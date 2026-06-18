@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -61,6 +62,16 @@ const MARKET_TABS: { id: MarketView; label: string }[] = [
   { id: 'services', label: 'Services' },
   { id: 'new-products', label: 'New Products' },
 ]
+
+const TAB_HREF: Record<MarketView, string> = {
+  cannabis:        '/marketplace/cannabis-inventory',
+  wanted:          '/marketplace/wanted',
+  opportunities:   '/marketplace/business-opportunities',
+  equipment:       '/marketplace/cultivation-equipment',
+  consumables:     '/marketplace/consumables',
+  services:        '/marketplace/services',
+  'new-products':  '/marketplace/new-products',
+}
 
 const PENDING_REVIEW = 'Pending verified source review'
 
@@ -168,11 +179,11 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
         <MobileAccordion title="Recent signals">
           <div className="hvm-list-stack">
             {signals.slice(0, 4).map((signal, index) => (
-              <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
+              <Link href="/signals" className="hvm-signal-card" key={`${signal.title}-${index}`}>
                 <strong>{signal.flag} {signal.title}</strong>
                 <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
                 <p className="hvm-signal-impact">{signal.commercialImpact}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </MobileAccordion>
@@ -286,7 +297,7 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
 
       <div className="hvm-market-list">
         {filteredCards.length > 0 ? filteredCards.slice(0, 12).map(card => (
-          <article key={card.id} className="hvm-market-card">
+          <Link key={card.id} href={TAB_HREF[activeTab]} className="hvm-market-card">
             <div className="hvm-market-card-top">
               <span>{card.category}</span>
               <small>{card.status}</small>
@@ -297,7 +308,7 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
               <span>{card.jurisdiction}</span>
               <strong>{card.action}</strong>
             </div>
-          </article>
+          </Link>
         )) : (
           <div className="hvm-empty-card">
             <strong>No public {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} rows for {country.label}.</strong>
@@ -423,16 +434,20 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
       </section>
 
       <div className="hvm-education-list">
-        {tiles.map((module, index) => (
-          <article className="hvm-module-card" key={`${module.title}-${index}`}>
-            <span>{module.icon}</span>
-            <div>
-              <strong>{index + 1}. {module.title}</strong>
-              <p>{module.desc}</p>
-              <small>{index < 2 ? 'Required' : 'Recommended'} · Not started</small>
-            </div>
-          </article>
-        ))}
+        {tiles.map((module, index) => {
+          const slug = 'slug' in module ? module.slug : ''
+          const href = slug ? `/education/${slug}` : '/education'
+          return (
+            <Link key={`${module.title}-${index}`} href={href} className="hvm-module-card">
+              <span>{module.icon}</span>
+              <div>
+                <strong>{index + 1}. {module.title}</strong>
+                <p>{module.desc}</p>
+                <small>{index < 2 ? 'Required' : 'Recommended'} · Not started</small>
+              </div>
+            </Link>
+          )
+        })}
       </div>
 
       {recentEduModules && recentEduModules.length > 0 ? (
@@ -526,11 +541,11 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
 
       <div className="hvm-list-stack">
         {filtered.length > 0 ? filtered.slice(0, 20).map((signal, index) => (
-          <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
+          <Link href="/signals" className="hvm-signal-card" key={`${signal.title}-${index}`}>
             <strong>{signal.flag} {signal.title}</strong>
             <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
             <p className="hvm-signal-impact">{signal.commercialImpact}</p>
-          </div>
+          </Link>
         )) : (
           <div className="hvm-signal-card">
             <strong>No signals match your filter</strong>
@@ -849,6 +864,8 @@ const MOBILE_CSS = `
 .hvm-accordion summary::-webkit-details-marker { display: none; }
 .hvm-accordion-body { padding: 0 13px 13px; }
 .hvm-signal-card { padding: 14px; }
+a.hvm-signal-card { display: block; text-decoration: none; color: inherit; }
+a.hvm-signal-card:hover { border-color: rgba(212,168,75,.25); background: rgba(255,255,255,.065); }
 .hvm-signal-card small, .hvm-module-card small {
   display: block;
   margin-top: 7px;
@@ -892,7 +909,8 @@ const MOBILE_CSS = `
   font-size: 16px;
   outline: none;
 }
-.hvm-market-card { padding: 15px; }
+.hvm-market-card { padding: 15px; display: block; text-decoration: none; color: inherit; }
+.hvm-market-card:hover { border-color: rgba(212,168,75,.35); background: rgba(255,255,255,.07); }
 .hvm-market-card-top, .hvm-market-meta {
   display: flex;
   align-items: center;
@@ -912,7 +930,8 @@ const MOBILE_CSS = `
 .hvm-ledger-table div:last-child { border-bottom: 0; }
 .hvm-ledger-table strong { color: #d4a84b; font-size: 13px; }
 .hvm-ledger-table span { color: rgba(245,240,232,.68); line-height: 1.4; overflow-wrap: anywhere; }
-.hvm-module-card { display: flex; gap: 13px; padding: 15px; }
+.hvm-module-card { display: flex; gap: 13px; padding: 15px; text-decoration: none; color: inherit; }
+.hvm-module-card:hover { border-color: rgba(212,168,75,.35); background: rgba(255,255,255,.07); }
 .hvm-module-card > span { flex: 0 0 34px; font-size: 28px; line-height: 1; }
 .hvm-bottom-nav {
   position: fixed;
