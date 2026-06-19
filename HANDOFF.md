@@ -6,6 +6,98 @@
 
 ---
 
+## Session: Jun 19 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — depth pass on thin surfaces (PR #759, branch `claude/depth-pass-jun18`)
+
+Audited the full repo tree for shallow/incomplete public surfaces (per Tyler's "review what's thin, build it deeper" request). Found three with dead-end CTAs or missing detail views, built all three, then ran real verification commands rather than just listing them.
+
+| Feature | Route / File | Status |
+|---|---|---|
+| Standalone playbook detail page | `app/intelligence/playbooks/[country]/page.tsx` — full step timeline (visual Gantt bar), regulator cards, pitfalls, embedded current briefing | ✅ PR #759 open |
+| Playbooks index now links to detail page | `app/intelligence/playbooks/page.tsx` — card `href` changed from country drilldown detour to `/intelligence/playbooks/[iso2]` | ✅ PR #759 open |
+| Admin: on-demand briefing synthesis | `app/admin/(protected)/intelligence/briefings/page.tsx` + `app/api/admin/intelligence/synthesize-trigger/route.ts` — per-market + bulk "Synthesise All", reuses `synthesiseJurisdiction()` and `getAdminAuthCheck()` | ✅ PR #759 open |
+| Professional directory application flow | `app/professionals/apply/page.tsx` + `ProfessionalApplicationForm.tsx` + `app/actions/submitProfessionalApplication.ts` | ✅ PR #759 open |
+| Fixed professionals directory CTAs | `app/professionals/page.tsx`, `app/professionals/[slug]/page.tsx` — "Apply to Join" was pointing at `/intake` (marketplace listing form, wrong context); now points to `/professionals/apply` | ✅ PR #759 open |
+
+### Verification (actually run, not just listed)
+
+- `npm install` — 799 packages, clean install
+- `npm run typecheck` — caught **one real bug**: `TS2783` duplicate `ok` key in `synthesize-trigger/route.ts` (`{ ok: result.ok, iso2, ...result }` — the spread silently overwrote the explicit key). Fixed, pushed as follow-up commit, now passes clean.
+- `npm run lint` — zero warnings on any new file; all pre-existing warnings are on untouched files
+- `npm run build` — succeeds, zero errors. All 4 new routes present in route manifest.
+
+### Schema verification before writing queries
+
+Before inserting into `hv_professionals`, fetched the actual migration (`20260618163726_hv_professionals.sql`) and found the server action's first draft would have failed: no `contact_email` column exists, and `status` column defaults to `'active'` (not `'pending'`) — would have made unreviewed applications publicly visible immediately. Fixed before pushing: contact email folded into `bio_public` with a marker, `status: 'pending'` set explicitly on insert.
+
+### Security note
+
+⚠️ A GitHub fine-grained PAT was pasted in plaintext into the chat at the start of this session. It was used for this session's work since it was already exposed, but **should be rotated** — same recurring issue noted in prior sessions re: GitHub secret scanning auto-revoking exposed PATs.
+
+### Current Blockers (carried over, unchanged this session)
+
+| Blocker | Severity | Detail |
+|---|---|---|
+| Supabase Preview CI | 🔴 P0 | `Remote migration versions not found in local migrations directory` — migrations applied directly to `zvxdgdkukjrrwamdpqrg` without corresponding files in `supabase/migrations/`. Confirmed this session: `jurisdiction_playbooks` table creation migration was **not found** in the tree at all (only `hv_professionals` and `jurisdiction_briefings` have matching migration files). Breaks branch-level preview pipeline until reconciled. |
+| production-runtime-verification | 🔴 P0 | Failing on every merge (carried from Jun 18). Not investigated this session — scope was the depth pass only. |
+| Workers Build (Cloudflare) | 🟡 P1 | Carried from Jun 18, not investigated. |
+| Google Cloud Build (×2) | 🟡 P1 | Carried from Jun 18, not investigated. |
+
+### Open PRs — Status
+
+PR #759 (this session) is new and ready for review/merge — build/typecheck/lint all verified clean.
+
+All PR statuses from the Jun 18 session (#737, #720, #729, #728, #695, #723, #738, #722, #725, #724, #726, #732, #733) carry over unchanged — not touched this session.
+
+---
+
+## Proposed Next Priorities
+
+> Tyler to confirm, reorder, or replace before next session starts.
+
+1. **Merge PR #759** — depth pass on playbooks/briefings/professionals, fully verified (typecheck/lint/build all pass).
+2. **Reconcile `jurisdiction_playbooks` migration drift** — table exists in prod, seeded with 20 markets, but has no file in `supabase/migrations/`. Same root cause as the existing Supabase Preview CI P0; should be fixed together via `supabase db diff` against `zvxdgdkukjrrwamdpqrg`.
+3. **Fix Supabase migration drift generally** — unchanged from Jun 18 priority #1, still blocking preview pipeline and PR #729.
+4. **Diagnose production-runtime-verification** — unchanged from Jun 18 priority #2.
+5. **Rebase #737 and #720** — unchanged from Jun 18 priority #3.
+6. **Merge safe Dependabot PRs** — #723, #738 unchanged from Jun 18 priority #4.
+7. **Close #695** — unchanged from Jun 18 priority #5.
+8. **Branch cleanup** — unchanged from Jun 18 priority #6.
+9. **New from this session**: build out admin review UI for pending `hv_professionals` rows (currently land as `status: 'pending'` with no dedicated admin list/approve view — would need to be added to `/admin/candidates` or a new `/admin/professionals` page to actually close the loop on applications).
+
+---
+
+## Platform State Snapshot — Jun 19 2026
+
+| Area | State |
+|---|---|
+| Vercel production | ✅ READY — unchanged from Jun 18 (`fe223c4f`), PR #759 not yet merged |
+| TypeScript | ✅ Clean on `main` and on `claude/depth-pass-jun18` branch (post-fix) |
+| Supabase `zvxdgdkukjrrwamdpqrg` | ✅ Live — migration drift confirmed on `jurisdiction_playbooks` in addition to prior known drift |
+| Playbooks | ✅ Now has standalone detail pages (pending PR #759 merge) |
+| Jurisdiction briefings | ✅ Now has on-demand admin trigger in addition to weekly cron (pending PR #759 merge) |
+| Professionals directory | 🟡 Apply flow built (pending PR #759 merge); still needs admin review UI for pending applications |
+| Deal rooms | ✅ Unchanged from Jun 18 — table + real-time conversation UI |
+| HF Inference Endpoint | ⏸ Parked — unchanged from Jun 18 |
+
+---
+
+## Session Protocol
+
+At the end of every session, the active agent:
+1. Prepends a new `## Session: [date]` block above this one
+2. Lists what was built (PR numbers where applicable)
+3. Lists current blockers with severity
+4. Lists open PR status changes
+5. Proposes next priorities
+
+Tyler confirms/edits the "Next priorities" section before or at the start of the next session.
+
+---
+
 ## Session: Jun 18 2026
 
 ### Agent: Claude (Sonnet 4.6)
