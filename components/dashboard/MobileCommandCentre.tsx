@@ -66,6 +66,21 @@ const MARKET_TABS: { id: MarketView; label: string }[] = [
 
 const PENDING_REVIEW = 'Pending verified source review'
 
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  regulator:                  'Regulatory Authority',
+  government:                 'Government',
+  trade:                      'Trade & Industry',
+  news:                       'News & Media',
+  academic:                   'Academic',
+  industry:                   'Industry',
+  international:              'International',
+  marketplace:                'Marketplace',
+  education:                  'Educational',
+  cannabis_licence_database:  'Licence Database',
+  laboratory:                 'Laboratory',
+  legal:                      'Legal & Compliance',
+}
+
 const FIELD_LABELS: Record<string, string> = {
   needs_review:   'Under review',
   stub:           'Data pending',
@@ -94,7 +109,12 @@ function titleCase(value: string): string {
 function fieldValue(value: string | number | null | undefined, fallback = PENDING_REVIEW): string {
   if (typeof value === 'number') return String(value)
   const raw = value && value.trim() ? value.trim() : fallback
-  return FIELD_LABELS[raw] ?? raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  if (FIELD_LABELS[raw]) return FIELD_LABELS[raw]
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 function roleDisplay(roleId: string): string {
@@ -210,18 +230,9 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'settings',   label: 'Settings' },
 ]
 
-function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, onCountryChange, onRoleChange }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void }) {
-  const [sub, setSub] = useState<BriefingSub>('overview')
-
+function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, onCountryChange, onRoleChange, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; sub: BriefingSub }) {
   return (
     <div className="hvm-page-stack">
-      <div className="hvm-scroll-tabs" role="tablist" aria-label="Briefing sections">
-        {BRIEF_TABS.map(tab => (
-          <button key={tab.id} type="button" className={sub === tab.id ? 'active' : ''} onClick={() => setSub(tab.id)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
       {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />}
       {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
@@ -457,7 +468,11 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
           <div className="hvm-ledger-table" role="table" aria-label="Source coverage">
             {coverage.map((row, i) => (
               <div role="row" key={i}>
-                <strong>{row.source_type} · Tier {row.tier}</strong>
+                <strong>
+                  {SOURCE_TYPE_LABELS[row.source_type]
+                    ?? row.source_type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                  } · Tier {row.tier}
+                </strong>
                 <span>{row.count} active source{row.count !== 1 ? 's' : ''}</span>
               </div>
             ))}
@@ -932,18 +947,9 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
   )
 }
 
-function SignalsMobile({ country, signals, watchlistData, countryIntel }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
-  const [sub, setSub] = useState<SignalSub>('feed')
-
+function SignalsMobile({ country, signals, watchlistData, countryIntel, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sub: SignalSub }) {
   return (
     <div className="hvm-page-stack">
-      <div className="hvm-scroll-tabs" role="tablist" aria-label="Intelligence sections">
-        {SIGNALS_TABS.map(tab => (
-          <button key={tab.id} type="button" className={sub === tab.id ? 'active' : ''} onClick={() => setSub(tab.id)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
       {sub === 'feed'       && <SignalsFeed country={country} signals={signals} />}
       {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />}
       {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} />}
@@ -1286,6 +1292,8 @@ export default function MobileCommandCentre({
   const [role, setRole] = useState(initialRoleId ?? '')
   const [activePage, setActivePage] = useState<CommandPage>('briefing')
   const [contextOpen, setContextOpen] = useState(false)
+  const [briefingSub, setBriefingSub] = useState<BriefingSub>('overview')
+  const [signalsSub, setSignalsSub] = useState<SignalSub>('feed')
 
   const countryOptions = useMemo<SelectOption[]>(() => COUNTRIES.map(c => ({ value: c.iso2, label: c.label })), [])
   const roleOptions = useMemo<SelectOption[]>(() => Object.entries(ROLE_PROFILES).map(([value, profile]) => ({ value, label: profile.label })), [])
@@ -1306,6 +1314,12 @@ export default function MobileCommandCentre({
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
 
+  const titlebartabs = (() => {
+    if (activePage === 'briefing') return { tabs: BRIEF_TABS, activeId: briefingSub, onSelect: (id: string) => setBriefingSub(id as BriefingSub) }
+    if (activePage === 'signals')  return { tabs: SIGNALS_TABS, activeId: signalsSub, onSelect: (id: string) => setSignalsSub(id as SignalSub) }
+    return null
+  })()
+
   const page = (() => {
     switch (activePage) {
       case 'briefing':
@@ -1316,12 +1330,13 @@ export default function MobileCommandCentre({
             pathwayData={pathwayData} localIntel={localIntel}
             countryOptions={countryOptions} roleOptions={roleOptions}
             onCountryChange={handleCountryChange} onRoleChange={setRole}
+            sub={briefingSub}
           />
         )
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'signals':
-        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />
+        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sub={signalsSub} />
       case 'education':
         return (
           <EducationMobile
@@ -1341,13 +1356,24 @@ export default function MobileCommandCentre({
       <style>{MOBILE_CSS}</style>
 
       <section className="hvm-titlebar">
-        <div className="hvm-titlebar-text">
-          <span className="hvm-title-kicker">{country.label} · {roleLabel}</span>
-          <h1>{pageTitle}</h1>
+        <div className="hvm-titlebar-top">
+          <div className="hvm-titlebar-text">
+            <span className="hvm-title-kicker">{country.label} · {roleLabel}</span>
+            <h1>{pageTitle}</h1>
+          </div>
+          <div className="hvm-titlebar-actions">
+            <button type="button" onClick={() => setContextOpen(true)}>Context</button>
+          </div>
         </div>
-        <div className="hvm-titlebar-actions">
-          <button type="button" onClick={() => setContextOpen(true)}>Context</button>
-        </div>
+        {titlebartabs && (
+          <div className="hvm-scroll-tabs" role="tablist" aria-label={`${pageTitle} sections`}>
+            {titlebartabs.tabs.map(tab => (
+              <button key={tab.id} type="button" className={titlebartabs.activeId === tab.id ? 'active' : ''} onClick={() => titlebartabs.onSelect(tab.id)}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       <main className="hvm-main">{page}</main>
@@ -1411,15 +1437,19 @@ const MOBILE_CSS = `
   top: 0;
   z-index: 20;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
   width: 100%;
   max-width: 100%;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
   background: rgba(3,7,17,.97);
   border-bottom: 1px solid rgba(255,255,255,.08);
   backdrop-filter: blur(14px);
+}
+.hvm-titlebar-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
 }
 .hvm-titlebar-text { min-width: 0; flex: 1; }
 .hvm-titlebar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -1563,18 +1593,20 @@ const MOBILE_CSS = `
   line-height: 1.4;
 }
 .hvm-scroll-tabs {
-  position: sticky;
-  top: calc(84px + env(safe-area-inset-top, 0px));
-  z-index: 10;
-  background: rgba(3,7,17,.97);
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  margin: 0 -16px;
-  padding: 8px 16px 10px;
   display: flex;
   gap: 9px;
   overflow-x: auto;
+  padding: 8px 16px 10px;
+  margin: 0 -16px;
   max-width: calc(100% + 32px);
   scrollbar-width: none;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.hvm-titlebar .hvm-scroll-tabs {
+  margin: 0;
+  padding: 0 16px 12px;
+  max-width: 100%;
+  border-bottom: none;
 }
 .hvm-scroll-tabs::-webkit-scrollbar { display: none; }
 .hvm-scroll-tabs button {
@@ -1718,9 +1750,8 @@ const MOBILE_CSS = `
   color: rgba(245,240,232,.7); font-size: 15px; font-weight: 700; cursor: pointer;
 }
 @media (orientation: landscape) and (max-width: 767px) {
-  .hvm-titlebar { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
+  .hvm-titlebar-top { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
   .hvm-titlebar h1 { font-size: clamp(24px, 6vw, 34px); }
-  .hvm-scroll-tabs { top: calc(66px + env(safe-area-inset-top, 0px)); }
   .hvm-status-grid, .hvm-meta-grid, .hvm-source-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hvm-bottom-nav button { min-height: 54px; }
 }
