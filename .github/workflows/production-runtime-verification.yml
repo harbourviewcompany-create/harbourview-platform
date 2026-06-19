@@ -39,3 +39,17 @@ jobs:
           name: harbourview-production-runtime-verification
           path: artifacts/production-runtime-verification
           if-no-files-found: error
+
+      - name: Post report as commit comment
+        if: always()
+        run: |
+          if [ -f "artifacts/production-runtime-verification/report.md" ]; then
+            BODY=$(cat artifacts/production-runtime-verification/report.md)
+            curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+              -d "$(jq -n --arg body "$BODY" '{body: $body}')"
+          else
+            echo "No report.md found"
+          fi
