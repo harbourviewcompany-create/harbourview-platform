@@ -14,7 +14,7 @@ const routes = [
   { path: '/marketplace', expected: 'ok' },
   { path: '/marketplace/listings', expected: 'ok' },
   { path: '/marketplace/wanted', expected: 'ok' },
-  { path: '/marketplace/sell', expected: 'ok' },
+  { path: '/marketplace/sell', expected: 'auth-denied' }, // gated in middleware.ts PROTECTED_PREFIXES
   { path: '/markets', expected: 'ok' },
   { path: '/contact', expected: 'ok' },
   { path: '/intake', expected: 'ok' },
