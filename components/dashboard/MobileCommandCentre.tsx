@@ -451,6 +451,214 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
 
 type EduModule = { icon: string; title: string; desc: string; slug?: string }
 
+const MODULE_TOPICS: Record<string, { topics: string[]; action: string }> = {
+  'Dispensing Controls': {
+    topics: [
+      'Prescription validation and controlled-substance handling protocols',
+      'Drug interaction screening and contraindication review',
+      'Patient consultation and informed-consent requirements',
+      'Good Pharmacy Practice standards and audit readiness',
+      'Record-keeping, pharmacovigilance and adverse-event reporting',
+    ],
+    action: 'Review dispensing SOP',
+  },
+  'Compliance & Reg.': {
+    topics: [
+      'National regulatory authority requirements and licence conditions',
+      'Authorization classes, permit types and renewal obligations',
+      'Inspection readiness: documentation, SOPs and audit trail',
+      'Continuing competency and professional obligations',
+      'Enforcement exposure and voluntary disclosure procedures',
+    ],
+    action: 'Check compliance calendar',
+  },
+  'Country Rules': {
+    topics: [
+      'Medical cannabis programme status and legislative framework',
+      'Permitted indications, formulations and quantity limits',
+      'Import and export regime, INCB permits and customs controls',
+      'Licence classes, authorization pathways and regulator contact',
+      'Jurisdiction-specific restrictions and upcoming regulatory changes',
+    ],
+    action: 'View regulatory brief',
+  },
+  'Documentation': {
+    topics: [
+      'Certificate of Analysis (COA) interpretation and verification',
+      'Product dossier structure and GMP certificate requirements',
+      'Supplier verification, counterparty checks and due diligence',
+      'Traceability record structure and chain-of-custody obligations',
+      'Submission templates, format standards and filing deadlines',
+    ],
+    action: 'Access document templates',
+  },
+  'Export Regulations': {
+    topics: [
+      'Export licence classes, permit applications and processing times',
+      'INCB notification requirements and Article 12 obligations',
+      'Destination-country import permit mechanics and equivalence rules',
+      'EU-GMP certification, phytosanitary and customs documentation',
+      'Controlled shipment packaging, labelling and transit procedures',
+    ],
+    action: 'Review export pathway',
+  },
+  'Import Frameworks': {
+    topics: [
+      'Import licence requirements, quota allocation and application process',
+      'Controlled substance INCB permits and national quota management',
+      'Distributor authorization, pharmacy participation and custody rules',
+      'Customs procedures, inspection requirements and duty classification',
+      'Country-specific quantity limits, formulation restrictions and labelling',
+    ],
+    action: 'Review import pathway',
+  },
+  'Market Access': {
+    topics: [
+      'Commercial market entry pathways and access restrictions by role',
+      'Mediated access protocols and counterparty disclosure controls',
+      'Regulatory approval timeline and milestone mapping',
+      'Market size, competitor landscape and pricing intelligence',
+      'Strategic positioning and risk classification for selected role',
+    ],
+    action: 'Request market brief',
+  },
+  'Trade & Access': {
+    topics: [
+      'International trade framework and applicable bilateral treaties',
+      'Counterparty verification and commercial due diligence requirements',
+      'Partner and distributor identification and qualification process',
+      'Harbourview-mediated access workflow and contact-release controls',
+      'Risk classification and commercial review decision matrix',
+    ],
+    action: 'View trade pathway',
+  },
+  'GMP Standards': {
+    topics: [
+      'Good Manufacturing Practice framework (EU-GMP, GACP, GDP)',
+      'Facility authorization, site master file and inspection requirements',
+      'Quality management system: SOPs, deviations and CAPA process',
+      'Batch release, product testing obligations and stability studies',
+      'Supplier qualification, approved vendor list and audit procedures',
+    ],
+    action: 'Review GMP checklist',
+  },
+  'Prescribing Pathways': {
+    topics: [
+      'Clinical authorization requirements and prescriber eligibility criteria',
+      'Patient eligibility, approved indications and diagnosis documentation',
+      'Prescription format, quantity limits, duration and renewal rules',
+      'Informed consent, monitoring requirements and follow-up obligations',
+      'Adverse event recording, PSUR submissions and reporting timelines',
+    ],
+    action: 'Review prescribing SOP',
+  },
+  'Clinical Evidence': {
+    topics: [
+      'Current randomized controlled trial landscape and evidence base',
+      'Meta-analyses and systematic review summaries by indication',
+      'Cannabinoid pharmacology, mechanisms of action and receptor profile',
+      'Efficacy and safety data stratified by formulation and population',
+      'Evidence quality classification and regulatory acceptance criteria',
+    ],
+    action: 'View evidence library',
+  },
+  'Pharmacology': {
+    topics: [
+      'Endocannabinoid system, receptor pharmacology (CB1, CB2, TRPV1)',
+      'Cannabinoid profiles: THC, CBD, CBG, CBN and minor cannabinoids',
+      'Drug-drug interaction risk assessment and CYP450 pathway effects',
+      'Pharmacokinetics, bioavailability and onset by formulation route',
+      'Special population considerations: elderly, paediatric, renal/hepatic',
+    ],
+    action: 'Review pharmacology module',
+  },
+  'Logistics & Customs': {
+    topics: [
+      'Controlled substance shipping requirements, sealing and labelling',
+      'Customs documentation, import/export permits and HS codes',
+      'Cold chain, temperature monitoring and GDP requirements',
+      'Carrier selection, route risk assessment and insurance requirements',
+      'Delay, seizure and loss-of-shipment protocols and notifications',
+    ],
+    action: 'Review logistics checklist',
+  },
+  'Trade & Cross-Border': {
+    topics: [
+      'Cross-border shipment permit framework: INCB and national requirements',
+      'Harmonized tariff codes and controlled substance customs classification',
+      'Phytosanitary certificate, fumigation and plant import restrictions',
+      'Insurance, Incoterms 2020 and liability allocation by trade route',
+      'Destination-country controlled substance import documentation matrix',
+    ],
+    action: 'View cross-border guide',
+  },
+  'Cultivation Standards': {
+    topics: [
+      'Good Agricultural and Collection Practice (GACP) requirements',
+      'Harvest and post-harvest handling, drying and storage protocols',
+      'Permitted genetics, THC/CBD limits and variety registration obligations',
+      'Water, soil, integrated pest management and contamination controls',
+      'Chain-of-custody from harvest to processor and traceability records',
+    ],
+    action: 'Review cultivation standards',
+  },
+  'Lab & Testing Protocols': {
+    topics: [
+      'Certificate of Analysis scope, required analytes and acceptance criteria',
+      'ISO 17025 and GLP accreditation standards for cannabis laboratories',
+      'Contaminant panels: pesticides, heavy metals, mycotoxins and residual solvents',
+      'Potency testing methods: HPLC, GC, and validated reference standards',
+      'Shelf-life studies, stability testing and re-test interval requirements',
+    ],
+    action: 'Review testing protocols',
+  },
+  'Investment & Operations': {
+    topics: [
+      'Capital requirements: licence acquisition, build-out and working capital',
+      'M&A, asset transfer and regulatory change-of-ownership procedures',
+      'Operational setup: facility compliance, staffing and SOPs',
+      'Revenue modelling, unit economics and market-entry payback timeline',
+      'Risk matrix: regulatory, market, currency and execution exposures',
+    ],
+    action: 'View investment framework',
+  },
+  'Regulatory Compliance': {
+    topics: [
+      'Compliance programme design: policies, procedures and controls',
+      'Regulatory change monitoring and impact assessment process',
+      'Internal audit, gap analysis and remediation planning',
+      'Regulator engagement, licence renewals and condition management',
+      'Training, competency verification and culture of compliance',
+    ],
+    action: 'Review compliance framework',
+  },
+  'Evidence gap review': {
+    topics: [
+      'This country-role pathway requires additional evidence before full verification',
+      'Harbourview is reviewing regulatory, market and licence-class data for this route',
+      'Interim guidance is available through the mediated intake process',
+      'Submit pathway verification requests via the intake workflow for priority review',
+      'Evidence gaps are addressed as source review and regulatory data are confirmed',
+    ],
+    action: 'Submit pathway review request',
+  },
+}
+
+function getModuleContent(title: string): { topics: string[]; action: string } {
+  const key = Object.keys(MODULE_TOPICS).find(k => title.toLowerCase().includes(k.toLowerCase()))
+  if (key) return MODULE_TOPICS[key]
+  return {
+    topics: [
+      `${title} content is jurisdiction and role-specific`,
+      'Harbourview-curated content is reviewed before publication',
+      'Topics cover regulatory, commercial and compliance dimensions for your role',
+      `${title} modules are updated as source evidence and regulatory changes are confirmed`,
+      'Use the intake flow to request priority content for a specific market or question',
+    ],
+    action: 'Request content review',
+  }
+}
+
 function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[] }) {
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
@@ -465,6 +673,8 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
         ]
 
   if (selectedModule) {
+    const { topics, action } = getModuleContent(selectedModule.title)
+    const isGap = selectedModule.title.toLowerCase().includes('evidence gap') || selectedModule.title.toLowerCase().includes('gap review')
     return (
       <div className="hvm-page-stack">
         <button className="hvm-back-btn" type="button" onClick={() => setSelectedModule(null)}>← Back to learning path</button>
@@ -474,11 +684,20 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           <h2>{selectedModule.title}</h2>
           <p>{selectedModule.desc}</p>
         </section>
-        <div className="hvm-meta-grid">
-          <SectionCard label="Status" title="Not started" detail="Complete this module to advance your learning path for this country and role." />
-          <SectionCard label="Content type" title="Harbourview-curated module" detail="Content is jurisdiction and role-specific, reviewed before publication." tone="ok" />
+        <div className="hvm-list-stack">
+          {topics.map((topic, i) => (
+            <div className="hvm-card" key={i}>
+              <div className="hvm-kicker">{isGap ? 'Note' : `Topic ${i + 1}`}</div>
+              <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55 }}>{topic}</p>
+            </div>
+          ))}
         </div>
-        <SectionCard label="Access" title="Available in Command Centre" detail="Full module content is delivered through the Harbourview Command Centre. No external resources required." />
+        <SectionCard
+          label="Next step"
+          title={`${action} · ${country.label}`}
+          detail={isGap ? 'Use the Harbourview intake flow to request priority review for this country-role pathway.' : 'Use the intake flow or contact Harbourview to access detailed content, templates and counterparty-reviewed guidance for this module.'}
+          tone="ok"
+        />
       </div>
     )
   }
