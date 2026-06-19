@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     }
     try {
       const result = await synthesiseJurisdiction(market.iso2, market.name)
-      return NextResponse.json({ ok: result.ok, iso2, ...result })
+      return NextResponse.json({ iso2, ...result })
     } catch (e) {
       return NextResponse.json({ ok: false, iso2, error: e instanceof Error ? e.message : String(e) })
     }
