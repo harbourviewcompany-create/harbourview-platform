@@ -87,7 +87,7 @@ export default async function ProfessionalsDirectoryPage() {
             All profiles are individually verified by the Harbourview team.
           </p>
           <div className="pro-header-actions">
-            <Link href="/intake" className="pro-cta-primary">Join the Directory →</Link>
+            <Link href="/professionals/apply" className="pro-cta-primary">Join the Directory →</Link>
             <Link href="/contact" className="pro-cta-secondary">Request Introduction</Link>
           </div>
           <div className="pro-trust-note">
@@ -173,7 +173,7 @@ export default async function ProfessionalsDirectoryPage() {
                 and institutional affiliation — no promotional content, no advertising.
               </p>
               <div className="pro-empty-actions">
-                <Link href="/intake" className="pro-cta-primary">Apply to Join →</Link>
+                <Link href="/professionals/apply" className="pro-cta-primary">Apply to Join →</Link>
                 <Link href="/contact" className="pro-cta-secondary">Ask a question</Link>
               </div>
             </div>
