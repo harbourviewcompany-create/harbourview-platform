@@ -171,7 +171,7 @@ export default async function ProfessionalProfilePage({
 
           <div className="pp-cta-row">
             <Link href="/contact" className="pp-cta-primary">Request Introduction via Harbourview</Link>
-            <Link href="/intake" className="pp-cta-secondary">Join the Directory</Link>
+            <Link href="/professionals/apply" className="pp-cta-secondary">Join the Directory</Link>
           </div>
 
           <p className="pp-disclaimer">
