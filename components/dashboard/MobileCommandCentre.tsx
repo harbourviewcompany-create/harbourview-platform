@@ -52,6 +52,7 @@ const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'education',   label: 'Education',      icon: '⬡' },
 ]
 
+
 const MARKET_TABS: { id: MarketView; label: string }[] = [
   { id: 'cannabis', label: 'Listings' },
   { id: 'wanted', label: 'Wanted' },
@@ -147,7 +148,7 @@ function MobileAccordion({ title, children, defaultOpen = false }: { title: stri
   )
 }
 
-function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[] }) {
+function BriefingOverview({ country, roleLabel, countryIntel, signals }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[] }) {
   const summary = fieldValue(
     countryIntel?.public_summary,
     `${country.label} dashboard context is available for ${roleLabel}. Field-level source review is shown where verified data has not been loaded.`,
@@ -155,7 +156,7 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
   const updatedLabel = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
-    <div className="hvm-page-stack">
+    <>
       <section className="hvm-hero-card">
         <div className="hvm-country-row">
           <span className="hvm-country-mark">🌐</span>
@@ -196,6 +197,35 @@ function BriefingMobile({ country, roleLabel, countryIntel, signals }: { country
           </div>
         </MobileAccordion>
       )}
+    </>
+  )
+}
+
+type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'settings'
+
+const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
+  { id: 'overview',   label: 'Overview' },
+  { id: 'pathway',    label: 'Pathway' },
+  { id: 'local-intel',label: 'Local Intel' },
+  { id: 'settings',   label: 'Settings' },
+]
+
+function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, onCountryChange, onRoleChange }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void }) {
+  const [sub, setSub] = useState<BriefingSub>('overview')
+
+  return (
+    <div className="hvm-page-stack">
+      <div className="hvm-scroll-tabs" role="tablist" aria-label="Briefing sections">
+        {BRIEF_TABS.map(tab => (
+          <button key={tab.id} type="button" className={sub === tab.id ? 'active' : ''} onClick={() => setSub(tab.id)}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />}
+      {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />}
+      {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} />}
     </div>
   )
 }
@@ -659,7 +689,15 @@ function getModuleContent(title: string): { topics: string[]; action: string } {
   }
 }
 
-function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[] }) {
+type EduSub = 'modules' | 'research'
+
+const EDU_TABS: { id: EduSub; label: string }[] = [
+  { id: 'modules',  label: 'Modules' },
+  { id: 'research', label: 'Research' },
+]
+
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, evidenceData, sourceCoverage }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[] }) {
+  const [sub, setSub] = useState<EduSub>('modules')
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
   const tiles: EduModule[] = liveTiles && liveTiles.length > 0
@@ -704,56 +742,80 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
 
   return (
     <div className="hvm-page-stack">
-      <section className="hvm-hero-card compact">
-        <h2>{country.label} Learning Path</h2>
-        <p>{roleLabel}</p>
-      </section>
-
-      <div className="hvm-education-list">
-        {tiles.map((module, index) => (
-          <article
-            key={`${module.title}-${index}`}
-            className="hvm-module-card"
-            role="button"
-            tabIndex={0}
-            onClick={() => setSelectedModule(module)}
-            onKeyDown={e => e.key === 'Enter' && setSelectedModule(module)}
-          >
-            <span>{module.icon}</span>
-            <div>
-              <strong>{index + 1}. {module.title}</strong>
-              <p>{module.desc}</p>
-              <small>{index < 2 ? 'Required' : 'Recommended'} · Not started</small>
-            </div>
-          </article>
+      <div className="hvm-scroll-tabs" role="tablist" aria-label="Education sections">
+        {EDU_TABS.map(tab => (
+          <button key={tab.id} type="button" className={sub === tab.id ? 'active' : ''} onClick={() => setSub(tab.id)}>
+            {tab.label}
+          </button>
         ))}
       </div>
 
-      {recentEduModules && recentEduModules.length > 0 ? (
-        <MobileAccordion title="Recently updated modules" defaultOpen>
-          <div className="hvm-list-stack">
-            {recentEduModules.map((m, i) => (
-              <div className="hvm-signal-card" key={`${m.title}-${i}`}>
-                <strong>{m.title}</strong>
-                <small>{m.detail} · Updated {new Date(m.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}</small>
-              </div>
+      {sub === 'modules' && (
+        <>
+          <section className="hvm-hero-card compact">
+            <h2>{country.label} Learning Path</h2>
+            <p>{roleLabel}</p>
+          </section>
+
+          <div className="hvm-education-list">
+            {tiles.map((module, index) => (
+              <article
+                key={`${module.title}-${index}`}
+                className="hvm-module-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedModule(module)}
+                onKeyDown={e => e.key === 'Enter' && setSelectedModule(module)}
+              >
+                <span>{module.icon}</span>
+                <div>
+                  <strong>{index + 1}. {module.title}</strong>
+                  <p>{module.desc}</p>
+                  <small>{index < 2 ? 'Required' : 'Recommended'} · Not started</small>
+                </div>
+              </article>
             ))}
           </div>
-        </MobileAccordion>
-      ) : (
-        <MobileAccordion title="Related evidence" defaultOpen>
-          <div className="hvm-list-stack">
-            <div className="hvm-signal-card"><strong>{country.label} regulatory framework overview</strong><small>Regulation · {PENDING_REVIEW}</small></div>
-            <div className="hvm-signal-card"><strong>Documentation and COA packet guidance</strong><small>Template · {PENDING_REVIEW}</small></div>
-            <div className="hvm-signal-card"><strong>Access-pathway evidence requirements</strong><small>Guidance · {PENDING_REVIEW}</small></div>
-          </div>
-        </MobileAccordion>
+
+          {recentEduModules && recentEduModules.length > 0 ? (
+            <MobileAccordion title="Recently updated modules" defaultOpen>
+              <div className="hvm-list-stack">
+                {recentEduModules.map((m, i) => (
+                  <div className="hvm-signal-card" key={`${m.title}-${i}`}>
+                    <strong>{m.title}</strong>
+                    <small>{m.detail} · Updated {new Date(m.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}</small>
+                  </div>
+                ))}
+              </div>
+            </MobileAccordion>
+          ) : (
+            <MobileAccordion title="Related evidence" defaultOpen>
+              <div className="hvm-list-stack">
+                <div className="hvm-signal-card"><strong>{country.label} regulatory framework overview</strong><small>Regulation · {PENDING_REVIEW}</small></div>
+                <div className="hvm-signal-card"><strong>Documentation and COA packet guidance</strong><small>Template · {PENDING_REVIEW}</small></div>
+                <div className="hvm-signal-card"><strong>Access-pathway evidence requirements</strong><small>Guidance · {PENDING_REVIEW}</small></div>
+              </div>
+            </MobileAccordion>
+          )}
+        </>
+      )}
+
+      {sub === 'research' && (
+        <EvidenceMobile country={country} roleLabel={roleLabel} evidenceData={evidenceData} sourceCoverage={sourceCoverage} />
       )}
     </div>
   )
 }
 
-function SignalsMobile({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
+type SignalSub = 'feed' | 'regulatory' | 'watchlist'
+
+const SIGNALS_TABS: { id: SignalSub; label: string }[] = [
+  { id: 'feed',       label: 'Signals' },
+  { id: 'regulatory', label: 'Regulatory' },
+  { id: 'watchlist',  label: 'Watchlist' },
+]
+
+function SignalsFeed({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
   const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
@@ -870,6 +932,337 @@ function SignalsMobile({ country, signals }: { country: CountryOption; signals: 
   )
 }
 
+function SignalsMobile({ country, signals, watchlistData, countryIntel }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
+  const [sub, setSub] = useState<SignalSub>('feed')
+
+  return (
+    <div className="hvm-page-stack">
+      <div className="hvm-scroll-tabs" role="tablist" aria-label="Intelligence sections">
+        {SIGNALS_TABS.map(tab => (
+          <button key={tab.id} type="button" className={sub === tab.id ? 'active' : ''} onClick={() => setSub(tab.id)}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {sub === 'feed'       && <SignalsFeed country={country} signals={signals} />}
+      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />}
+      {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} />}
+    </div>
+  )
+}
+
+function WatchlistMobile({ country, roleLabel, watchlistData }: { country: CountryOption; roleLabel: string; watchlistData?: WatchlistData | null }) {
+  const items = watchlistData?.items ?? []
+  const rules = watchlistData?.rules ?? []
+  const notifs = watchlistData?.notifications
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Watchlist</h2>
+        <p>{country.label} · {roleLabel}</p>
+        {notifs && notifs.total_alerts > 0 && (
+          <blockquote>{notifs.awaiting_review} awaiting review · {notifs.resolved} resolved · {notifs.snoozed} snoozed</blockquote>
+        )}
+      </section>
+
+      {items.length > 0 ? (
+        <MobileAccordion title={`Watched items (${items.length})`} defaultOpen>
+          <div className="hvm-list-stack">
+            {items.slice(0, 10).map(item => (
+              <div className="hvm-signal-card" key={item.id}>
+                <strong>{item.title}</strong>
+                <small>
+                  {item.item_type.replace(/_/g, ' ')}
+                  {item.jurisdiction ? ` · ${item.jurisdiction}` : ''}
+                  {item.confidence_pct != null ? ` · ${item.confidence_pct}% confidence` : ''}
+                </small>
+                {item.subtitle && <p className="hvm-signal-impact">{item.subtitle}</p>}
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      ) : (
+        <SectionCard
+          label="Watchlist"
+          title="No items watched yet"
+          detail="Add jurisdictions, signals, pathways or market listings to your watchlist from the Intelligence and Market tabs."
+        />
+      )}
+
+      {rules.length > 0 && (
+        <MobileAccordion title={`Watch rules (${rules.length})`}>
+          <div className="hvm-list-stack">
+            {rules.slice(0, 6).map(rule => (
+              <div className="hvm-signal-card" key={rule.id}>
+                <strong>{rule.rule_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Watch</strong>
+                <small>{rule.keywords.slice(0, 3).join(' · ') || 'All signals'}</small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      <SectionCard
+        label="Next step"
+        title={`Add to watchlist · ${country.label}`}
+        detail="Use the Intelligence or Marketplace tabs to add items. Watchlist alerts deliver via your notification settings."
+        tone="ok"
+      />
+    </div>
+  )
+}
+
+function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
+  const regSignals = useMemo(() => {
+    const reg = signals.filter(s => {
+      const t = s.title.toLowerCase()
+      return /regulatory|licen|compliance|reform|legislation|enforcement|permit/.test(t)
+    })
+    return (reg.length > 0 ? reg : signals).slice(0, 8)
+  }, [signals])
+
+  const watchTriggers = useMemo(() => {
+    const rules = watchlistData?.rules ?? []
+    if (rules.length > 0) {
+      return rules.slice(0, 5).map(r => ({
+        label: r.rule_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        on: true,
+      }))
+    }
+    return [
+      { label: 'Rulemaking (Regulatory)', on: true },
+      { label: 'Legislation & Bills', on: true },
+      { label: 'Enforcement Actions', on: true },
+      { label: 'Taxation Changes', on: false },
+      { label: 'Local Ordinances', on: false },
+    ]
+  }, [watchlistData])
+
+  const lastChange = regSignals[0] ?? signals[0] ?? null
+  const status = fieldValue(countryIntel?.medical_status, 'Review pending')
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Regulatory Watch</h2>
+        <p>{country.label} · {roleLabel}</p>
+        <blockquote>Program status: {status}</blockquote>
+      </section>
+
+      {lastChange && (
+        <SectionCard
+          label="Last regulatory change"
+          title={lastChange.title.length > 80 ? lastChange.title.slice(0, 80) + '…' : lastChange.title}
+          detail={`${lastChange.market} · ${lastChange.timeAgo} · ${lastChange.confidence}% confidence`}
+          tone={lastChange.confidence >= 70 ? 'ok' : 'warn'}
+        />
+      )}
+
+      <MobileAccordion title={`Recent regulatory signals (${Math.min(regSignals.length, 6)})`} defaultOpen>
+        <div className="hvm-list-stack">
+          {regSignals.slice(0, 6).map((signal, index) => (
+            <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
+              <strong>{signal.flag} {signal.title}</strong>
+              <small>{signal.market} · {signal.timeAgo} · {signal.confidence}% confidence</small>
+              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+            </div>
+          ))}
+          {regSignals.length === 0 && (
+            <div className="hvm-signal-card">
+              <strong>No regulatory signals loaded</strong>
+              <small>Select a country context to load curated regulatory signals.</small>
+            </div>
+          )}
+        </div>
+      </MobileAccordion>
+
+      <MobileAccordion title="Watch triggers">
+        <div className="hvm-list-stack">
+          {watchTriggers.map(t => (
+            <div className="hvm-signal-card hvm-trigger-row" key={t.label}>
+              <span>{t.label}</span>
+              <span style={{ color: t.on ? '#4caf82' : 'rgba(245,240,232,.3)', fontSize: 13, fontWeight: 700 }}>
+                {t.on ? '● On' : '○ Off'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+    </div>
+  )
+}
+
+function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryIntel }: { country: CountryOption; roleLabel: string; signals: DashboardSignal[]; localIntel?: LocalIntelData | null; countryIntel?: CountryIntelProfile | null }) {
+  const constraints = useMemo(() => {
+    if (localIntel?.constraints && localIntel.constraints.length > 0) return localIntel.constraints
+    if (countryIntel) {
+      const items: { icon: string; label: string; text: string }[] = []
+      if (countryIntel.medical_status) items.push({ icon: '◎', label: 'Medical Programme', text: `Status: ${fieldValue(countryIntel.medical_status)}. Operator compliance required under national health authority rules.` })
+      if (countryIntel.market_access_status) items.push({ icon: '⊞', label: 'Market Access', text: `Classification: ${fieldValue(countryIntel.market_access_status)}. Verify operator entry requirements before commercial engagement.` })
+      if (countryIntel.import_status) items.push({ icon: '↓', label: 'Import Constraints', text: `Pathway: ${fieldValue(countryIntel.import_status)}. Documentation, permit and customs requirements apply.` })
+      if (items.length > 0) return items
+    }
+    return [
+      { icon: '◎', label: 'Licensing Requirements', text: `Verify licensing and permit requirements with the ${country.label} national regulatory authority.` },
+      { icon: '⊟', label: 'Market Access Rules', text: 'Confirm current market access conditions and operational constraints with local authorities.' },
+      { icon: '◷', label: 'Compliance Obligations', text: 'Maintain current documentation and certification as required by national regulations.' },
+    ]
+  }, [localIntel, countryIntel, country])
+
+  const municipalities = localIntel?.municipalities ?? []
+
+  const openQuestions = useMemo(() => {
+    if (localIntel?.openQuestions && localIntel.openQuestions.length > 0) return localIntel.openQuestions
+    return signals.slice(0, 3)
+      .map(s => `How will ${s.title.slice(0, 60).trimEnd()}… developments affect ${country.label} operations?`)
+      .concat([`What are the current enforcement priorities for licensed operators in ${country.label}?`])
+      .slice(0, 3)
+  }, [localIntel, signals, country])
+
+  const keyList = localIntel?.authorities?.keyList ?? []
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Local Intel</h2>
+        <p>{country.label} · {roleLabel}</p>
+        {localIntel?.coverageStatus && (
+          <blockquote>Coverage: {localIntel.coverageStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</blockquote>
+        )}
+      </section>
+
+      <MobileAccordion title="Local access constraints" defaultOpen>
+        <div className="hvm-list-stack">
+          {constraints.map((c, i) => (
+            <div className="hvm-signal-card" key={i}>
+              <strong>{c.icon ? `${c.icon} ` : ''}{c.label}</strong>
+              <p className="hvm-signal-impact">{c.text}</p>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      {municipalities.length > 0 && (
+        <MobileAccordion title={`Municipal watch (${municipalities.length})`}>
+          <div className="hvm-list-stack">
+            {municipalities.map((m, i) => (
+              <div className="hvm-signal-card hvm-muni-row" key={i}>
+                <div style={{ flex: 1 }}>
+                  <strong style={{ fontSize: 15 }}>{m.name}</strong>
+                  {m.note && <p className="hvm-signal-impact">{m.note}</p>}
+                </div>
+                <span className={`hvm-muni-badge hvm-muni-badge--${m.status}`}>
+                  {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {keyList.length > 0 && (
+        <MobileAccordion title="Key authorities">
+          <div className="hvm-list-stack">
+            {keyList.map((a, i) => (
+              <div className="hvm-signal-card" key={i}>
+                <strong>⊙ {a.name}</strong>
+                <small style={{ color: 'rgba(245,240,232,.48)', marginTop: 5, display: 'block' }}>{a.role}</small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {openQuestions.length > 0 && (
+        <MobileAccordion title="Open intelligence questions">
+          <div className="hvm-list-stack">
+            {openQuestions.map((q, i) => (
+              <div className="hvm-signal-card" key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ color: '#d4a84b', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>?</span>
+                <p style={{ margin: 0, color: 'rgba(245,240,232,.75)', fontSize: 15, lineHeight: 1.5 }}>{q}</p>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      <SectionCard
+        label="Intelligence gap"
+        title={`Submit local intel request · ${country.label}`}
+        detail="Use the Harbourview intake flow to request priority local intelligence review for this jurisdiction."
+        tone="ok"
+      />
+    </div>
+  )
+}
+
+function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void }) {
+  const [notifWatchlist, setNotifWatchlist] = useState(true)
+  const [notifSignals, setNotifSignals] = useState(true)
+  const today = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Settings</h2>
+        <p>{country.label} · {roleLabel}</p>
+      </section>
+
+      <MobileAccordion title="Jurisdiction context" defaultOpen>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <label className="hvm-settings-label">
+            <span>Country</span>
+            <select className="hvm-settings-select" value={country.iso2} onChange={e => onCountryChange(e.target.value)}>
+              {countryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="hvm-settings-label">
+            <span>Role</span>
+            <select className="hvm-settings-select" value={role} onChange={e => onRoleChange(e.target.value)}>
+              <option value="">All roles</option>
+              {roleOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
+        </div>
+      </MobileAccordion>
+
+      <MobileAccordion title="Notification preferences">
+        <div className="hvm-list-stack">
+          {([
+            { label: 'Watchlist alerts', sub: 'Notify on new matches & changes', value: notifWatchlist, toggle: () => setNotifWatchlist(v => !v) },
+            { label: 'Intelligence signals', sub: 'High-confidence signal alerts', value: notifSignals, toggle: () => setNotifSignals(v => !v) },
+          ]).map(item => (
+            <div className="hvm-signal-card hvm-notif-row" key={item.label}>
+              <div style={{ flex: 1 }}>
+                <strong style={{ fontSize: 15 }}>{item.label}</strong>
+                <small style={{ display: 'block', marginTop: 4, color: 'rgba(245,240,232,.48)' }}>{item.sub}</small>
+              </div>
+              <button
+                type="button"
+                className={`hvm-toggle${item.value ? ' on' : ''}`}
+                onClick={item.toggle}
+                aria-pressed={item.value}
+              >
+                <span className="hvm-toggle-thumb" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      <div className="hvm-meta-grid">
+        <SectionCard label="Session" title="Active" detail={`Started ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} tone="ok" />
+        <SectionCard label="Data as of" title={today} detail="Live source cadence depends on configured watchers and review state." />
+      </div>
+
+      <form action="/api/auth/signout" method="post">
+        <button type="submit" className="hvm-signout-btn">Sign out</button>
+      </form>
+    </div>
+  )
+}
+
 export default function MobileCommandCentre({
   signals,
   eduCategories,
@@ -880,7 +1273,9 @@ export default function MobileCommandCentre({
   wantedListings = [],
   countryIntel,
   pathwayData,
+  watchlistData,
   evidenceData,
+  localIntel,
   liveTiles,
   recentEduModules,
   sourceCoverage,
@@ -914,13 +1309,28 @@ export default function MobileCommandCentre({
   const page = (() => {
     switch (activePage) {
       case 'briefing':
-        return <BriefingMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />
+        return (
+          <BriefingMobile
+            country={country} roleLabel={roleLabel} roleId={role}
+            countryIntel={countryIntel} signals={signals}
+            pathwayData={pathwayData} localIntel={localIntel}
+            countryOptions={countryOptions} roleOptions={roleOptions}
+            onCountryChange={handleCountryChange} onRoleChange={setRole}
+          />
+        )
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
       case 'signals':
-        return <SignalsMobile country={country} signals={signals} />
+        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />
       case 'education':
-        return <EducationMobile country={country} roleLabel={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} />
+        return (
+          <EducationMobile
+            country={country} roleLabel={roleLabel}
+            eduCategories={eduCategories} liveTiles={liveTiles}
+            recentEduModules={recentEduModules}
+            evidenceData={evidenceData} sourceCoverage={sourceCoverage}
+          />
+        )
       default:
         return null
     }
@@ -1271,6 +1681,36 @@ const MOBILE_CSS = `
 .hvm-sheet-panel label { display: grid; gap: 7px; color: rgba(245,240,232,.55); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .hvm-sheet-panel option { color: #07111d; }
 .hvm-sheet-apply { background: rgba(212,168,75,.16); border-color: rgba(212,168,75,.45); color: #d4a84b; }
+.hvm-trigger-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.hvm-muni-row { display: flex; align-items: flex-start; gap: 10px; }
+.hvm-muni-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
+.hvm-muni-badge--high   { background: rgba(230,165,51,.15); color: #e6a533; }
+.hvm-muni-badge--medium { background: rgba(91,155,213,.15); color: #5b9bd5; }
+.hvm-muni-badge--low    { background: rgba(76,175,130,.15);  color: #4caf82; }
+.hvm-notif-row { display: flex; align-items: center; gap: 12px; }
+.hvm-toggle {
+  flex-shrink: 0; width: 46px; height: 26px; border-radius: 13px;
+  border: none; cursor: pointer; position: relative; transition: background .2s;
+  background: rgba(255,255,255,.15);
+}
+.hvm-toggle.on { background: #4caf82; }
+.hvm-toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .2s;
+}
+.hvm-toggle.on .hvm-toggle-thumb { left: 23px; }
+.hvm-settings-label { display: grid; gap: 7px; color: rgba(245,240,232,.55); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.hvm-settings-select {
+  width: 100%; min-height: 50px; border: 1px solid rgba(255,255,255,.13);
+  border-radius: 14px; background: rgba(255,255,255,.055);
+  color: rgba(245,240,232,.94); padding: 0 14px; font-size: 16px; outline: none;
+}
+.hvm-settings-select option { color: #07111d; }
+.hvm-signout-btn {
+  width: 100%; min-height: 50px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.055);
+  color: rgba(245,240,232,.7); font-size: 15px; font-weight: 700; cursor: pointer;
+}
 @media (orientation: landscape) and (max-width: 767px) {
   .hvm-titlebar { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
   .hvm-titlebar h1 { font-size: clamp(28px, 6vw, 38px); }
