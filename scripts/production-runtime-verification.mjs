@@ -5,6 +5,7 @@ import { join } from 'node:path'
 
 const BASE_URL = (process.env.HARBOURVIEW_PUBLIC_BASE_URL || 'https://harbourview.vercel.app').replace(/\/$/, '')
 const OUT_DIR = process.env.HARBOURVIEW_PRODUCTION_VERIFY_OUT || 'artifacts/production-runtime-verification'
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 const routes = [
   { path: '/', expected: 'ok' },
@@ -13,7 +14,8 @@ const routes = [
   { path: '/marketplace', expected: 'ok' },
   { path: '/marketplace/listings', expected: 'ok' },
   { path: '/marketplace/wanted', expected: 'ok' },
-  { path: '/marketplace/sell', expected: 'ok' },
+  { path: '/marketplace/sell', expected: 'auth-denied' }, // gated in middleware.ts PROTECTED_PREFIXES
+  { path: '/markets', expected: 'ok' },
   { path: '/contact', expected: 'ok' },
   { path: '/intake', expected: 'ok' },
   { path: '/admin', expected: 'auth-denied' },
@@ -72,6 +74,7 @@ async function fetchRoute(route) {
         accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'cache-control': 'no-cache',
         pragma: 'no-cache',
+        ...(BYPASS_TOKEN ? { 'x-vercel-protection-bypass': BYPASS_TOKEN } : {}),
       },
     })
 
