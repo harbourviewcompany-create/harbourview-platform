@@ -716,16 +716,16 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
     return (
       <div className="hvm-page-stack">
         <button className="hvm-back-btn" type="button" onClick={() => setSelectedModule(null)}>← Back to learning path</button>
-        <section className="hvm-hero-card compact">
+        <section className={`hvm-hero-card compact${isGap ? ' hvm-hero-card--info' : ''}`}>
           <div className="hvm-kicker">{country.label} · {roleLabel}</div>
-          <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10 }}>{selectedModule.icon}</div>
-          <h2>{selectedModule.title}</h2>
-          <p>{selectedModule.desc}</p>
+          <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10 }}>{isGap ? '📋' : selectedModule.icon}</div>
+          <h2>{isGap ? 'Pathway in review' : selectedModule.title}</h2>
+          <p>{isGap ? `Harbourview is building verified intelligence for ${country.label} · ${roleLabel}. Interim guidance is available below.` : selectedModule.desc}</p>
         </section>
         <div className="hvm-list-stack">
           {topics.map((topic, i) => (
             <div className="hvm-card" key={i}>
-              <div className="hvm-kicker">{isGap ? 'Note' : `Topic ${i + 1}`}</div>
+              <div className="hvm-kicker">{isGap ? `Step ${i + 1}` : `Topic ${i + 1}`}</div>
               <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55 }}>{topic}</p>
             </div>
           ))}
@@ -1346,9 +1346,6 @@ export default function MobileCommandCentre({
           <h1>{pageTitle}</h1>
         </div>
         <div className="hvm-titlebar-actions">
-          {activePage !== 'briefing' && (
-            <button type="button" onClick={() => setActivePage('briefing')}>Briefing</button>
-          )}
           <button type="button" onClick={() => setContextOpen(true)}>Context</button>
         </div>
       </section>
@@ -1450,10 +1447,12 @@ const MOBILE_CSS = `
   margin: 5px 0 0;
   color: #f5f0e8;
   font-family: Georgia, serif;
-  font-size: clamp(32px, 10vw, 44px);
+  font-size: clamp(28px, 9vw, 40px);
   line-height: .98;
   letter-spacing: -.035em;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hvm-main { width: 100%; max-width: 100%; padding: 16px; overflow-x: hidden; }
 .hvm-page-stack { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 100%; }
@@ -1508,6 +1507,7 @@ const MOBILE_CSS = `
 .hvm-card { padding: 15px; }
 .hvm-card-ok { border-color: rgba(76,175,130,.26); }
 .hvm-card-warn { border-color: rgba(230,165,51,.28); }
+.hvm-hero-card--info { border-color: rgba(91,155,213,.3); background: rgba(91,155,213,.06); }
 .hvm-kicker {
   color: rgba(245,240,232,.42);
   font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -1563,11 +1563,17 @@ const MOBILE_CSS = `
   line-height: 1.4;
 }
 .hvm-scroll-tabs {
+  position: sticky;
+  top: calc(84px + env(safe-area-inset-top, 0px));
+  z-index: 10;
+  background: rgba(3,7,17,.97);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  margin: 0 -16px;
+  padding: 8px 16px 10px;
   display: flex;
   gap: 9px;
   overflow-x: auto;
-  max-width: 100%;
-  padding: 2px 0 8px;
+  max-width: calc(100% + 32px);
   scrollbar-width: none;
 }
 .hvm-scroll-tabs::-webkit-scrollbar { display: none; }
@@ -1713,7 +1719,8 @@ const MOBILE_CSS = `
 }
 @media (orientation: landscape) and (max-width: 767px) {
   .hvm-titlebar { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
-  .hvm-titlebar h1 { font-size: clamp(28px, 6vw, 38px); }
+  .hvm-titlebar h1 { font-size: clamp(24px, 6vw, 34px); }
+  .hvm-scroll-tabs { top: calc(66px + env(safe-area-inset-top, 0px)); }
   .hvm-status-grid, .hvm-meta-grid, .hvm-source-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hvm-bottom-nav button { min-height: 54px; }
 }
