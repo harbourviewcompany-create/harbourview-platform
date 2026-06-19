@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   production-runtime-verification:
     runs-on: ubuntu-latest
@@ -42,14 +45,23 @@ jobs:
 
       - name: Post report as commit comment
         if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f "artifacts/production-runtime-verification/report.md" ]; then
             BODY=$(cat artifacts/production-runtime-verification/report.md)
-            curl -s -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
+              -H "Authorization: token $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
-              -d "$(jq -n --arg body "$BODY" '{body: $body}')"
+              -d "$(jq -n --arg body "$BODY" '{body: $body}')")
+            echo "HTTP status: $HTTP_CODE"
+            cat /tmp/response.json
+            if [ "$HTTP_CODE" -ge 300 ]; then
+              echo "::error::Failed to post commit comment (HTTP $HTTP_CODE)"
+              exit 1
+            fi
           else
-            echo "No report.md found"
+            echo "::error::No report.md found"
+            exit 1
           fi
