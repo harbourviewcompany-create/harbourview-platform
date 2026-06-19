@@ -7,6 +7,7 @@
   "crons": [
     { "path": "/api/cron/intelligence-ingest",        "schedule": "0 2 * * *" },
     { "path": "/api/cron/intelligence-extract",       "schedule": "0 4 * * *" },
+    { "path": "/api/cron/embed-artifacts",            "schedule": "0 5 * * *" },
     { "path": "/api/cron/intelligence-embed",         "schedule": "0 6 * * *" },
     { "path": "/api/cron/intelligence-notify",        "schedule": "0 7 * * *" },
     { "path": "/api/cron/scrape",                     "schedule": "0 8 * * *" },
