@@ -179,11 +179,14 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       .maybeSingle()
 
     // Tertiary: cc_jurisdiction_briefings — rich market intelligence content
-    const { data: jb } = await supabase
+    // Use order+limit instead of maybeSingle() to safely handle multiple rows per country
+    const { data: jbRows } = await supabase
       .from('cc_jurisdiction_briefings')
       .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
       .eq('country_iso2', iso2.toUpperCase())
-      .maybeSingle()
+      .order('last_reviewed_date', { ascending: false })
+      .limit(1)
+    const jb = jbRows?.[0] ?? null
 
     return {
       country_code:               cd.iso_alpha2,
