@@ -443,7 +443,7 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
                 <small>
                   {SOURCE_TYPE_LABELS[src.category] ?? fieldValue(src.category)}
                   {' · '}{fieldValue(src.reliability)} reliability
-                  {src.last_checked ? ` · Checked ${new Date(src.last_checked).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : ''}
+                  {src.last_checked ? (() => { const d = new Date(src.last_checked!); return isNaN(d.getTime()) ? '' : ` · Checked ${d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` })() : ''}
                 </small>
                 {src.markets && src.markets.length > 0 && (
                   <p className="hvm-signal-impact">
