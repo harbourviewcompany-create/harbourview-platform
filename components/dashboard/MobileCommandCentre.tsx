@@ -130,6 +130,13 @@ function fieldValue(value: string | number | null | undefined, fallback = PENDIN
     .join(' ')
 }
 
+function formatLastChecked(lastChecked?: string | Date | null): string {
+  if (!lastChecked) return ''
+  const d = new Date(lastChecked)
+  if (Number.isNaN(d.getTime())) return ''
+  return ` · Checked ${d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}`
+}
+
 function roleDisplay(roleId: string): string {
   if (!roleId) return 'All Roles'
   return ROLE_PROFILES[roleId as keyof typeof ROLE_PROFILES]?.short
@@ -192,7 +199,8 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals }: { count
     countryIntel?.briefing_patient_access ||
     countryIntel?.briefing_physician_access ||
     countryIntel?.briefing_market_dynamics ||
-    countryIntel?.briefing_regulatory_outlook
+    countryIntel?.briefing_regulatory_outlook ||
+    countryIntel?.briefing_regulatory_body
   )
 
   return (
@@ -481,7 +489,7 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
                 <small>
                   {SOURCE_TYPE_LABELS[src.category] ?? fieldValue(src.category)}
                   {' · '}{fieldValue(src.reliability)} reliability
-                  {src.last_checked ? (() => { const d = new Date(src.last_checked!); return isNaN(d.getTime()) ? '' : ` · Checked ${d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` })() : ''}
+                  {formatLastChecked(src.last_checked)}
                 </small>
                 {src.markets && src.markets.length > 0 && (
                   <p className="hvm-signal-impact">

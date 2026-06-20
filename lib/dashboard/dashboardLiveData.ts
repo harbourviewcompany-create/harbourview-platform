@@ -109,10 +109,15 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     .sort((a, b) => b.roleMatch - a.roleMatch)
     .slice(0, limit)
 
+    const truncateDescription = (description?: string | null): string => {
+      const normalized = description?.trim().replace(/\s+/g, ' ') || 'Education module'
+      return normalized.length > 120 ? `${normalized.slice(0, 119)}…` : normalized
+    }
+
     return scored.map(m => ({
       icon: (roleId && AUDIENCE_ICON[roleId]) ?? '📖',
       title: m.title,
-      desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : (() => { const d = m.description?.trim().replace(/\s+/g, ' ') || 'Education module'; return d.length > 120 ? `${d.slice(0, 119)}…` : d })(),
+      desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : truncateDescription(m.description),
       slug: m.slug,
     }))
   } catch { return [] }
