@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { listIaCounterparties } from '@/lib/intelligence-automation/db';
-import { AddCounterpartyForm, LogInteractionButton } from './CounterpartyActions';
+import { AddCounterpartyForm, LogInteractionButton, DocStatusSelect } from './CounterpartyActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,9 +86,7 @@ export default async function IntelCounterpartiesPage() {
                   <LogInteractionButton id={r.id} currentCount={r.interactionCount} />
                 </td>
                 <td className="p-4">
-                  <span className={`text-xs font-semibold uppercase tracking-[0.12em] ${docColors[r.documentationStatus]}`}>
-                    {r.documentationStatus}
-                  </span>
+                  <DocStatusSelect id={r.id} status={r.documentationStatus} />
                 </td>
                 <td className="p-4 text-xs text-[#F5F1E8]/55">{r.lastInteraction || '—'}</td>
               </tr>

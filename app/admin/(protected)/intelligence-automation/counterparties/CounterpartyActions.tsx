@@ -104,7 +104,7 @@ export function AddCounterpartyForm() {
         </div>
         <div>
           <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Needs profile</label>
-          <input value={form.needsProfile} onChange={(e) => update('needsProfile', e.target.value)} placeholder="What they're looking to buy" className={inputClass} />
+          <input value={form.needsProfile} onChange={(e) => update('needsProfile', e.target.value)} placeholder="What they\'re looking to buy" className={inputClass} />
         </div>
         <div>
           <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Supply profile</label>
@@ -161,5 +161,48 @@ export function LogInteractionButton({ id, currentCount }: { id: string; current
     >
       {submitting ? 'Logging…' : '+ Log contact'}
     </button>
+  )
+}
+
+const DOC_STATUSES = ['complete', 'partial', 'missing'] as const
+type DocStatus = (typeof DOC_STATUSES)[number]
+
+const docSelectColors: Record<DocStatus, string> = {
+  complete: 'text-emerald-400 border-emerald-400/30',
+  partial:  'text-amber-400 border-amber-400/30',
+  missing:  'text-red-400 border-red-400/30',
+}
+
+export function DocStatusSelect({ id, status }: { id: string; status: DocStatus }) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+  const [submitting, setSubmitting] = useState(false)
+  const [value, setValue] = useState(status)
+
+  async function updateStatus(next: DocStatus) {
+    setValue(next)
+    setSubmitting(true)
+    const res = await fetch(`/api/admin/intelligence/counterparties/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentationStatus: next }),
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      startTransition(() => router.refresh())
+    } else {
+      setValue(status)
+    }
+  }
+
+  return (
+    <select
+      value={value}
+      disabled={submitting}
+      onChange={(e) => updateStatus(e.target.value as DocStatus)}
+      className={`rounded-lg border bg-black/30 px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50 ${docSelectColors[value]}`}
+    >
+      {DOC_STATUSES.map((s) => <option key={s} value={s} className="bg-[#0B1A2F] text-[#F5F1E8]">{s}</option>)}
+    </select>
   )
 }
