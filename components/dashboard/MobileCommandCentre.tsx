@@ -27,6 +27,7 @@ type Props = {
   liveTiles?:        LiveEduTile[]
   recentEduModules?: RecentEduModule[]
   sourceCoverage?:   SourceCoverageRow[]
+  userEmail?:        string | null
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -240,13 +241,13 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'settings',   label: 'Settings' },
 ]
 
-function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, onCountryChange, onRoleChange, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; sub: BriefingSub }) {
+function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, onCountryChange, onRoleChange, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />}
       {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
-      {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} />}
+      {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
     </div>
   )
 }
@@ -1282,7 +1283,7 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
   )
 }
 
-function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void }) {
+function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange, userEmail }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; userEmail?: string | null }) {
   const [notifWatchlist, setNotifWatchlist] = useState(true)
   const [notifSignals, setNotifSignals] = useState(true)
   const today = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1341,9 +1342,18 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
         <SectionCard label="Data as of" title={today} detail="Live source cadence depends on configured watchers and review state." />
       </div>
 
-      <form action="/api/auth/signout" method="post">
-        <button type="submit" className="hvm-signout-btn">Sign out</button>
-      </form>
+      {userEmail ? (
+        <>
+          <div className="hvm-account-row">
+            <span className="hvm-account-email">{userEmail}</span>
+          </div>
+          <form action="/api/auth/signout" method="post">
+            <button type="submit" className="hvm-signout-btn">Sign out</button>
+          </form>
+        </>
+      ) : (
+        <a href="/login" className="hvm-signin-btn">Sign in to your account</a>
+      )}
     </div>
   )
 }
@@ -1364,6 +1374,7 @@ export default function MobileCommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  userEmail,
 }: Props) {
   const router = useRouter()
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
@@ -1409,7 +1420,7 @@ export default function MobileCommandCentre({
             pathwayData={pathwayData} localIntel={localIntel}
             countryOptions={countryOptions} roleOptions={roleOptions}
             onCountryChange={handleCountryChange} onRoleChange={setRole}
-            sub={briefingSub}
+            sub={briefingSub} userEmail={userEmail}
           />
         )
       case 'marketplace':
@@ -1488,6 +1499,17 @@ export default function MobileCommandCentre({
               </select>
             </label>
             <button className="hvm-sheet-apply" type="button" onClick={handleApplyContext}>Apply context</button>
+            <div className="hvm-sheet-divider" />
+            {userEmail ? (
+              <div className="hvm-sheet-account">
+                <span className="hvm-sheet-account-email">{userEmail}</span>
+                <form action="/api/auth/signout" method="post" style={{ margin: 0 }}>
+                  <button type="submit" className="hvm-sheet-signout">Sign out</button>
+                </form>
+              </div>
+            ) : (
+              <a href="/login" className="hvm-sheet-signin">Sign in to your account</a>
+            )}
           </div>
         </div>
       )}
@@ -1827,6 +1849,44 @@ const MOBILE_CSS = `
   width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.055);
   color: rgba(245,240,232,.7); font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.hvm-signin-btn {
+  display: block; width: 100%; min-height: 50px; border-radius: 14px;
+  border: 1px solid rgba(96,165,250,.4); background: rgba(96,165,250,.1);
+  color: rgba(96,165,250,.95); font-size: 15px; font-weight: 700; cursor: pointer;
+  text-align: center; line-height: 50px; text-decoration: none;
+}
+.hvm-account-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-radius: 12px;
+  background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
+  margin-bottom: 10px;
+}
+.hvm-account-email {
+  flex: 1; font-size: 13px; color: rgba(245,240,232,.6);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hvm-sheet-divider {
+  height: 1px; background: rgba(255,255,255,.08); margin: 14px 0;
+}
+.hvm-sheet-account {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.hvm-sheet-account-email {
+  font-size: 12px; color: rgba(245,240,232,.48);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 2px;
+}
+.hvm-sheet-signout {
+  width: 100%; min-height: 44px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.045);
+  color: rgba(245,240,232,.65); font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.hvm-sheet-signin {
+  display: block; width: 100%; min-height: 44px; border-radius: 12px;
+  border: 1px solid rgba(96,165,250,.35); background: rgba(96,165,250,.08);
+  color: rgba(96,165,250,.9); font-size: 14px; font-weight: 600; cursor: pointer;
+  text-align: center; line-height: 44px; text-decoration: none;
 }
 @media (orientation: landscape) and (max-width: 767px) {
   .hvm-titlebar-top { padding-top: calc(8px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
