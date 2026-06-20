@@ -112,7 +112,7 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     return scored.map(m => ({
       icon: (roleId && AUDIENCE_ICON[roleId]) ?? '📖',
       title: m.title,
-      desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : `Education module`,
+      desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : (m.description?.trim() || 'Education module'),
       slug: m.slug,
     }))
   } catch { return [] }

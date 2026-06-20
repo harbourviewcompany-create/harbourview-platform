@@ -69,9 +69,12 @@ const PENDING_REVIEW = 'Pending verified source review'
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   regulator:                  'Regulatory Authority',
   government:                 'Government',
+  government_notices:         'Government Notices',
   trade:                      'Trade & Industry',
   news:                       'News & Media',
+  news_media:                 'News & Media',
   academic:                   'Academic',
+  clinical:                   'Clinical Research',
   industry:                   'Industry',
   international:              'International',
   marketplace:                'Marketplace',
@@ -79,6 +82,13 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   cannabis_licence_database:  'Licence Database',
   laboratory:                 'Laboratory',
   legal:                      'Legal & Compliance',
+  packaging_supplier:         'Packaging & Supply',
+  importer_distributor_list:  'Importer / Distributor',
+  distributor:                'Distributor',
+  pharmacy:                   'Pharmacy',
+  association:                'Industry Association',
+  ngo:                        'NGO / Advocacy',
+  standard_setter:            'Standards Body',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -429,7 +439,16 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
             {sources.slice(0, 8).map(src => (
               <div className="hvm-signal-card" key={src.id}>
                 <strong>{src.name}</strong>
-                <small>{src.category} · Reliability: {src.reliability} · {src.status}</small>
+                <small>
+                  {SOURCE_TYPE_LABELS[src.category] ?? fieldValue(src.category)}
+                  {' · '}{fieldValue(src.reliability)} reliability
+                  {src.last_checked ? ` · Checked ${new Date(src.last_checked).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : ''}
+                </small>
+                {src.markets && src.markets.length > 0 && (
+                  <p className="hvm-signal-impact">
+                    {src.markets.slice(0, 4).join(' · ')}{src.markets.length > 4 ? ` +${src.markets.length - 4} more` : ''}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -687,6 +706,66 @@ const MODULE_TOPICS: Record<string, { topics: string[]; action: string }> = {
     ],
     action: 'Submit pathway review request',
   },
+  'Export Readiness': {
+    topics: [
+      'Verify your distributor or producer licence explicitly authorises export and controlled-substance cross-border transfer in your jurisdiction',
+      'Secure an INCB Article 12 export permit and confirm the destination country has issued the corresponding import permit before any shipment',
+      'Prepare the full export documentation packet: EU-GMP or equivalent certificate, batch COA, product specification, customs invoice, and packing list',
+      'Confirm destination-country product registration status, permitted THC/CBD concentration limits, and approved formulation types before committing to supply',
+      'Understand controlled-substance labelling requirements for international transit: language, quantity declarations, and INCB permit reference number placement',
+    ],
+    action: 'Begin export licence application',
+  },
+  'Buyer Pathway': {
+    topics: [
+      'Confirm your wholesale distributor or importer authorisation covers controlled-substance import under national pharmaceutical or cannabis law',
+      'Submit the import permit application to your national competent authority with quota allocation request, product specification, and source-country export permit reference',
+      'Select an EU-GMP or equivalent certified supply partner and verify their current GMP certificate scope, batch COA, and product registration status',
+      'Establish compliant goods-receipt procedures: physical inspection, quarantine hold, QP batch release sign-off, temperature records, and receipting documentation',
+      'Define re-supply cadence, minimum order volumes, contract terms, and mediated-access pricing structure within regulatory and commercial frameworks',
+    ],
+    action: 'Start import permit application',
+  },
+  'GMP Compliance': {
+    topics: [
+      'EU-GMP Chapter 3 (premises and equipment) and GDP Directive 2013/C 343/01 obligations for wholesale medicinal cannabis distribution',
+      'Written SOPs for receipt, quarantine, storage, dispatch, return, and recall of controlled products — all with temperature-controlled audit trail',
+      'Qualified Person (QP) responsibilities: batch release sign-off, deviation and OOS management, CAPA documentation, and annual product review',
+      'Product recall and withdrawal procedures: tier-1 field alert timelines, stock reconciliation, pharmacy/hospital notification chain, and competent authority reporting',
+      'Internal audit programme: annual GDP self-inspection, supplier qualification visits, approved vendor list maintenance, and audit response tracking',
+    ],
+    action: 'Download GDP compliance checklist',
+  },
+  'Wholesale Distribution': {
+    topics: [
+      'Wholesale dealer authorisation scope: permitted product categories, storage conditions, and approved customer classes under national law',
+      'GDP-compliant receiving and dispatch: purchase order matching, delivery verification, serialisation and traceability record creation',
+      'Cold-chain maintenance: validated storage areas, temperature monitoring systems, alarm response procedures, and mapping qualification records',
+      'Controlled-substance security requirements: physical access controls, inventory reconciliation frequency, and loss or theft reporting obligations',
+      'Customer due-diligence: verifying pharmacy, hospital, or downstream licence status before each supply transaction',
+    ],
+    action: 'Review wholesale licence conditions',
+  },
+  'Cannabis Law': {
+    topics: [
+      'National legislative framework governing medical cannabis: enabling act, ministerial regulations, and competent authority designation',
+      'Controlled substance scheduling: which cannabinoids are scheduled, applicable quantity thresholds, and derogation or reclassification history',
+      'Licence class hierarchy: cultivation, production, processing, wholesale, retail, import, export, and research authorisations',
+      'Enforcement landscape: recent inspection findings, penalty structures, suspension and revocation precedents, and voluntary disclosure provisions',
+      'Upcoming regulatory changes: bills in progress, consultation periods, and anticipated impact on current licence conditions and operational procedures',
+    ],
+    action: 'View regulatory brief',
+  },
+  'Regulatory Framework': {
+    topics: [
+      'Current status of the national medical cannabis programme: legal basis, authorised use cases, and permitted product categories',
+      'Competent authority structure: which agency issues licences, inspects premises, approves products, and handles import/export permits',
+      'Licence application requirements: eligibility criteria, supporting documents, facility standards, and indicative processing timelines',
+      'Good practice standards: applicable GMP, GDP, GACP, and GSP guidelines and how they interact with national cannabis-specific regulations',
+      'Annual compliance obligations: licence renewal, reporting requirements, adverse event notifications, and record retention periods',
+    ],
+    action: 'Access regulatory brief',
+  },
 }
 
 function getModuleContent(title: string): { topics: string[]; action: string } {
@@ -694,13 +773,13 @@ function getModuleContent(title: string): { topics: string[]; action: string } {
   if (key) return MODULE_TOPICS[key]
   return {
     topics: [
-      `${title} content is jurisdiction and role-specific`,
-      'Harbourview-curated content is reviewed before publication',
-      'Topics cover regulatory, commercial and compliance dimensions for your role',
-      `${title} modules are updated as source evidence and regulatory changes are confirmed`,
-      'Use the intake flow to request priority content for a specific market or question',
+      `Review the regulatory and licence requirements applicable to ${title} in your selected jurisdiction`,
+      `Identify the permit classes, authority contacts, and application timelines relevant to ${title}`,
+      `Prepare the documentation and evidence package — COA, GMP certificates, product specifications — required for compliance in this area`,
+      `Understand competent authority inspection scope, enforcement exposure, and voluntary disclosure procedures for ${title}`,
+      `Submit a priority content request via the Harbourview intake flow to receive curated guidance for this module and jurisdiction`,
     ],
-    action: 'Request content review',
+    action: `Request ${title} briefing`,
   }
 }
 
