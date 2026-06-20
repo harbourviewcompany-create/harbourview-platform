@@ -130,6 +130,13 @@ function fieldValue(value: string | number | null | undefined, fallback = PENDIN
     .join(' ')
 }
 
+function formatLastChecked(lastChecked?: string | Date | null): string {
+  if (!lastChecked) return ''
+  const d = new Date(lastChecked)
+  if (Number.isNaN(d.getTime())) return ''
+  return ` · Checked ${d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}`
+}
+
 function roleDisplay(roleId: string): string {
   if (!roleId) return 'All Roles'
   return ROLE_PROFILES[roleId as keyof typeof ROLE_PROFILES]?.short
@@ -184,7 +191,17 @@ function MobileAccordion({ title, children, defaultOpen = false }: { title: stri
 function BriefingOverview({ country, roleLabel, countryIntel, signals }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[] }) {
   const summary = countryIntel?.public_summary?.trim()
     || `${country.label} dashboard context is available for ${roleLabel}.`
-  const updatedLabel = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  const programStatus = countryIntel?.briefing_program_status
+    || fieldValue(countryIntel?.medical_status, 'Regulated medical access')
+
+  const hasJurisdictionBriefing = !!(
+    countryIntel?.briefing_patient_access ||
+    countryIntel?.briefing_physician_access ||
+    countryIntel?.briefing_market_dynamics ||
+    countryIntel?.briefing_regulatory_outlook ||
+    countryIntel?.briefing_regulatory_body
+  )
 
   return (
     <>
@@ -197,26 +214,55 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals }: { count
           </div>
         </div>
         <blockquote>{summary}</blockquote>
+        {programStatus && (
+          <div className="hvm-program-badge">{programStatus}</div>
+        )}
       </section>
 
       <div className="hvm-status-grid">
-        <SectionCard label="Program status" title={fieldValue(countryIntel?.medical_status, 'Medical access review')} tone="ok" />
-        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status)} />
-        <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status)} />
-        <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status)} />
+        <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
+        <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
+        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
+        <SectionCard label="Adult-use" title={fieldValue(countryIntel?.adult_use_status, 'Not applicable')} />
       </div>
 
-      <MobileAccordion title="Source, verification, update and coverage" defaultOpen>
-        <div className="hvm-meta-grid">
-          <SectionCard label="Data sources" title="Government, regulatory, market and reviewed industry sources" detail="No raw provenance or admin evidence is exposed in the public mobile shell." />
-          <SectionCard label="Verification" title={fieldValue(countryIntel?.review_status, 'Review gated')} detail="Public summaries are separated from private source evidence and internal notes." />
-          <SectionCard label="Update cadence" title="Regulatory and marketplace review queue" detail={`Dashboard rendered ${updatedLabel}. Live source cadence depends on configured watchers and review state.`} />
-          <SectionCard label="Coverage" title={fieldValue(countryIntel?.data_completeness, 'Coverage review pending')} detail="Coverage reflects loaded country data and reviewed public fields only." />
-        </div>
-      </MobileAccordion>
+      {hasJurisdictionBriefing && (
+        <>
+          {countryIntel?.briefing_patient_access && (
+            <MobileAccordion title="Patient &amp; consumer access" defaultOpen>
+              <p className="hvm-briefing-body">{countryIntel.briefing_patient_access}</p>
+            </MobileAccordion>
+          )}
+
+          {countryIntel?.briefing_physician_access && (
+            <MobileAccordion title="Physician &amp; prescriber access">
+              <p className="hvm-briefing-body">{countryIntel.briefing_physician_access}</p>
+            </MobileAccordion>
+          )}
+
+          {countryIntel?.briefing_market_dynamics && (
+            <MobileAccordion title="Market dynamics">
+              <p className="hvm-briefing-body">{countryIntel.briefing_market_dynamics}</p>
+            </MobileAccordion>
+          )}
+
+          {countryIntel?.briefing_regulatory_outlook && (
+            <MobileAccordion title="Regulatory outlook">
+              <p className="hvm-briefing-body">{countryIntel.briefing_regulatory_outlook}</p>
+            </MobileAccordion>
+          )}
+
+          {countryIntel?.briefing_regulatory_body && (
+            <div className="hvm-regulator-row">
+              <span className="hvm-kicker">Competent authority</span>
+              <span>{countryIntel.briefing_regulatory_body}</span>
+            </div>
+          )}
+        </>
+      )}
 
       {signals.length > 0 && (
-        <MobileAccordion title="Recent signals">
+        <MobileAccordion title="Recent intelligence signals">
           <div className="hvm-list-stack">
             {signals.slice(0, 4).map((signal, index) => (
               <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
@@ -443,7 +489,7 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
                 <small>
                   {SOURCE_TYPE_LABELS[src.category] ?? fieldValue(src.category)}
                   {' · '}{fieldValue(src.reliability)} reliability
-                  {src.last_checked ? (() => { const d = new Date(src.last_checked!); return isNaN(d.getTime()) ? '' : ` · Checked ${d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` })() : ''}
+                  {formatLastChecked(src.last_checked)}
                 </small>
                 {src.markets && src.markets.length > 0 && (
                   <p className="hvm-signal-impact">
@@ -825,12 +871,11 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             </div>
           ))}
         </div>
-        <SectionCard
-          label="Next step"
-          title={`${action} · ${country.label}`}
-          detail={isGap ? 'Use the Harbourview intake flow to request priority review for this country-role pathway.' : 'Use the intake flow or contact Harbourview to access detailed content, templates and counterparty-reviewed guidance for this module.'}
-          tone="ok"
-        />
+        <a href="/intake" className="hvm-cta-card">
+          <span className="hvm-kicker">Next step</span>
+          <strong>{action} · {country.label}</strong>
+          <span className="hvm-cta-arrow">Request access →</span>
+        </a>
       </div>
     )
   }
@@ -1850,6 +1895,30 @@ const MOBILE_CSS = `
   border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.055);
   color: rgba(245,240,232,.7); font-size: 15px; font-weight: 700; cursor: pointer;
 }
+.hvm-program-badge {
+  display: inline-block; margin-top: 10px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(96,165,250,.12); border: 1px solid rgba(96,165,250,.3);
+  color: rgba(96,165,250,.9); font-size: 12px; font-weight: 600;
+}
+.hvm-briefing-body {
+  font-size: 14px; line-height: 1.65; color: rgba(245,240,232,.78);
+  margin: 0; padding: 0;
+}
+.hvm-regulator-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px; border-radius: 14px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+  font-size: 13px; color: rgba(245,240,232,.65);
+}
+.hvm-cta-card {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 18px 20px; border-radius: 16px;
+  background: rgba(96,165,250,.08); border: 1px solid rgba(96,165,250,.25);
+  text-decoration: none; color: inherit;
+}
+.hvm-cta-card strong { font-size: 16px; color: rgba(245,240,232,.94); }
+.hvm-cta-arrow { font-size: 13px; color: rgba(96,165,250,.9); font-weight: 600; }
 .hvm-signin-btn {
   display: block; width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(96,165,250,.4); background: rgba(96,165,250,.1);
