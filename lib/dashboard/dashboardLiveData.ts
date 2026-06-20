@@ -139,6 +139,14 @@ export type CountryIntelProfile = {
   opportunity_categories?: string[] | null
   regulator_label?: string | null
   data_completeness?: string | null
+  // Jurisdiction briefing — rich narrative content from cc_jurisdiction_briefings
+  briefing_program_status?: string | null
+  briefing_patient_access?: string | null
+  briefing_physician_access?: string | null
+  briefing_market_dynamics?: string | null
+  briefing_regulatory_outlook?: string | null
+  briefing_regulatory_body?: string | null
+  briefing_last_reviewed?: string | null
 }
 
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
@@ -165,6 +173,13 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       .eq('review_status', 'active')
       .maybeSingle()
 
+    // Tertiary: cc_jurisdiction_briefings — rich market intelligence content
+    const { data: jb } = await supabase
+      .from('cc_jurisdiction_briefings')
+      .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
+      .eq('country_iso2', iso2.toUpperCase())
+      .maybeSingle()
+
     return {
       country_code:               cd.iso_alpha2,
       country_name:               cd.country_name,
@@ -183,6 +198,13 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       opportunity_categories:     cd.opportunity_categories,
       regulator_label:            cd.regulator_label,
       data_completeness:          cd.data_completeness,
+      briefing_program_status:    jb?.program_status ?? null,
+      briefing_patient_access:    jb?.patient_access ?? null,
+      briefing_physician_access:  jb?.physician_access ?? null,
+      briefing_market_dynamics:   jb?.market_dynamics ?? null,
+      briefing_regulatory_outlook: jb?.regulatory_outlook ?? null,
+      briefing_regulatory_body:   jb?.regulatory_body ?? null,
+      briefing_last_reviewed:     jb?.last_reviewed_date ?? null,
     }
   } catch { return null }
 }
