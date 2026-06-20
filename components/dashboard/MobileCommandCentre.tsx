@@ -103,7 +103,9 @@ function titleCase(value: string): string {
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\w/g, char => char.toUpperCase())
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function fieldValue(value: string | number | null | undefined, fallback = PENDING_REVIEW): string {
@@ -149,12 +151,12 @@ function normalizeMarketRow(row: MarketRow, index: number, country: CountryOptio
   }
 }
 
-function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string; title: string; detail: string; tone?: 'neutral' | 'ok' | 'warn' }) {
+function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string; title: string; detail?: string; tone?: 'neutral' | 'ok' | 'warn' }) {
   return (
     <div className={`hvm-card hvm-card-${tone}`}>
       <div className="hvm-kicker">{label}</div>
       <strong>{title}</strong>
-      <p>{detail}</p>
+      {detail && <p>{detail}</p>}
     </div>
   )
 }
@@ -169,10 +171,8 @@ function MobileAccordion({ title, children, defaultOpen = false }: { title: stri
 }
 
 function BriefingOverview({ country, roleLabel, countryIntel, signals }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[] }) {
-  const summary = fieldValue(
-    countryIntel?.public_summary,
-    `${country.label} dashboard context is available for ${roleLabel}. Field-level source review is shown where verified data has not been loaded.`,
-  )
+  const summary = countryIntel?.public_summary?.trim()
+    || `${country.label} dashboard context is available for ${roleLabel}.`
   const updatedLabel = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
@@ -189,10 +189,10 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals }: { count
       </section>
 
       <div className="hvm-status-grid">
-        <SectionCard label="Program status" title={fieldValue(countryIntel?.medical_status, 'Medical access review')} detail="Country medical-program status as approved for public dashboard display." tone="ok" />
-        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status)} detail="Commercial access posture for the selected jurisdiction and role." />
-        <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status)} detail="Importer route visibility remains review-gated where source evidence is incomplete." />
-        <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status)} detail="Export posture is presented as public summary only; private evidence stays outside the mobile DTO." />
+        <SectionCard label="Program status" title={fieldValue(countryIntel?.medical_status, 'Medical access review')} tone="ok" />
+        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status)} />
+        <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status)} />
+        <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status)} />
       </div>
 
       <MobileAccordion title="Source, verification, update and coverage" defaultOpen>
@@ -1001,7 +1001,7 @@ function WatchlistMobile({ country, roleLabel, watchlistData }: { country: Count
           <div className="hvm-list-stack">
             {rules.slice(0, 6).map(rule => (
               <div className="hvm-signal-card" key={rule.id}>
-                <strong>{rule.rule_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Watch</strong>
+                <strong>{rule.rule_type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch</strong>
                 <small>{rule.keywords.slice(0, 3).join(' · ') || 'All signals'}</small>
               </div>
             ))}
@@ -1032,7 +1032,7 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
     const rules = watchlistData?.rules ?? []
     if (rules.length > 0) {
       return rules.slice(0, 5).map(r => ({
-        label: r.rule_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        label: r.rule_type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         on: true,
       }))
     }
@@ -1134,7 +1134,7 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
         <h2>Local Intel</h2>
         <p>{country.label} · {roleLabel}</p>
         {localIntel?.coverageStatus && (
-          <blockquote>Coverage: {localIntel.coverageStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</blockquote>
+          <blockquote>Coverage: {localIntel.coverageStatus.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</blockquote>
         )}
       </section>
 
