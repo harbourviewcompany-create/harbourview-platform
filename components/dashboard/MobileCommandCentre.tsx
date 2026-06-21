@@ -773,6 +773,16 @@ const MODULE_TOPICS: Record<string, { topics: string[]; action: string }> = {
     ],
     action: 'Start import permit application',
   },
+  'GDP Logistics': {
+    topics: [
+      'GDP Directive 2013/C 343/01 obligations for wholesale distribution of medicinal cannabis — storage, transport, and documentation requirements',
+      'Cold chain qualification: temperature mapping studies, validated storage areas, continuous monitoring systems, and alarm response procedures',
+      'Transport SOP requirements: carrier qualification, vehicle validation, chain-of-custody documentation, and delivery verification records',
+      'Controlled-substance shipment packaging integrity, labelling standards, INCB permit reference placement, and transit documentation matrix',
+      'Return goods policy, product recall logistics procedures, stock reconciliation, and competent authority notification timelines',
+    ],
+    action: 'Download GDP logistics checklist',
+  },
   'GMP Compliance': {
     topics: [
       'EU-GMP Chapter 3 (premises and equipment) and GDP Directive 2013/C 343/01 obligations for wholesale medicinal cannabis distribution',
@@ -874,7 +884,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
         <a href="/intake" className="hvm-cta-card">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
-          <span className="hvm-cta-arrow">Request access →</span>
+          <span className="hvm-cta-arrow">Get briefing →</span>
         </a>
       </div>
     )
