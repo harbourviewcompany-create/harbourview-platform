@@ -390,7 +390,32 @@ function _createCountryBufferGeometryInner(
     }
   }
 
-  geometry.setAttribute('position', new BufferAttribute(new Float32Array(allPositions), 3))
+  // Centroid winding pass — corrects wall triangles where the 2D→sphere
+  // projection reverses the expected CCW orientation for antimeridian-spanning
+  // countries (Russia, Fiji, USA Alaska). createTopFaceWithHoles already runs
+  // an equivalent correction for top-face triangles; this pass is idempotent
+  // for those and fixes the wall triangles that were left uncorrected.
+  //
+  // Positions are converted to Float32 first so the dot-product sign matches
+  // the renderer precision; using float64 (number[]) can produce a different
+  // sign on near-degenerate wall quads after the GPU converts to float32.
+  const posF32 = new Float32Array(allPositions)
+  for (let t = 0; t < allIndices.length; t += 3) {
+    const a = allIndices[t], b = allIndices[t + 1], c = allIndices[t + 2]
+    const ax = posF32[a * 3], ay = posF32[a * 3 + 1], az = posF32[a * 3 + 2]
+    const bx = posF32[b * 3], by = posF32[b * 3 + 1], bz = posF32[b * 3 + 2]
+    const cx = posF32[c * 3], cy = posF32[c * 3 + 1], cz = posF32[c * 3 + 2]
+    const ex = bx - ax, ey = by - ay, ez = bz - az
+    const fx = cx - ax, fy = cy - ay, fz = cz - az
+    const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx
+    if (nx * nx + ny * ny + nz * nz < 1e-20) continue
+    if (nx * (ax + bx + cx) + ny * (ay + by + cy) + nz * (az + bz + cz) < 0) {
+      allIndices[t + 1] = c
+      allIndices[t + 2] = b
+    }
+  }
+
+  geometry.setAttribute('position', new BufferAttribute(posF32, 3))
   geometry.setIndex(allIndices)
 
   // Radial normals: always point outward from sphere centre — exact and fast.

@@ -177,6 +177,39 @@ describe('Harbourview globe polygon rendering stage', () => {
     geometry.dispose()
   })
 
+  it('produces zero inward-facing triangles for Russia extruded plate (wall winding regression)', () => {
+    const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')
+    expect(russia).toBeTruthy()
+
+    const geometry = createCountryBufferGeometry(russia!, {
+      geometryMode: 'extruded',
+      simplifyTolerance: 0.04,
+    })
+
+    const posAttr = geometry.getAttribute('position')
+    const idxAttr = geometry.index
+    expect(posAttr).toBeTruthy()
+    expect(idxAttr).toBeTruthy()
+
+    const pa = posAttr.array as Float32Array
+    const ia = idxAttr!.array as Uint16Array | Uint32Array
+    let inward = 0
+    for (let t = 0; t < ia.length; t += 3) {
+      const a = ia[t], b = ia[t + 1], c = ia[t + 2]
+      const ax = pa[a * 3], ay = pa[a * 3 + 1], az = pa[a * 3 + 2]
+      const bx = pa[b * 3], by = pa[b * 3 + 1], bz = pa[b * 3 + 2]
+      const cx = pa[c * 3], cy = pa[c * 3 + 1], cz = pa[c * 3 + 2]
+      const ex = bx - ax, ey = by - ay, ez = bz - az
+      const fx = cx - ax, fy = cy - ay, fz = cz - az
+      const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx
+      if (nx * nx + ny * ny + nz * nz < 1e-20) continue
+      if (nx * (ax + bx + cx) + ny * (ay + by + cy) + nz * (az + bz + cz) < 0) inward++
+    }
+
+    expect(inward).toBe(0)
+    geometry.dispose()
+  })
+
   it('returns empty geometry metadata for invalid country rings', () => {
     const invalidCountry: HarbourviewCountryGeometry = {
       iso2: 'ZZ',
