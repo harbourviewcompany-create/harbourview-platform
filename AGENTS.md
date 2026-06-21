@@ -34,6 +34,21 @@ Recommended control docs:
 - `docs/control/PROJECT_REGISTRY.md`
 - `docs/control/FINAL_PRODUCTION_READINESS_AUDIT.md`
 
+## Depth & Competitive Bar (Required Before Marking Any Feature "Done")
+This is a content/architecture gate, separate from and in addition to the QA commands below. `npm run build` passing does not satisfy it. The goal: every public-facing surface should be deeper than comparable products in the space, not just functionally correct.
+
+1. **Entity audit before judging a page "thin."** Don't eyeball it — query the schema for every concept the page touches:
+   `select table_name from information_schema.tables where table_schema='public' and table_name ilike '%<concept>%'`
+   If a table already holds the relevant data, a page that doesn't surface or link to it is thin — regardless of how polished its own copy is.
+
+2. **Cross-link check.** If a public page describes a concept that also has live, entity-specific data elsewhere in the app (e.g. a per-country, per-listing, or per-signal detail page), the generic page must link to it. Two pages covering the same entity with zero cross-reference between them is a defect, even if both individually render and pass CI.
+
+3. **Static-wrapper pages require a stated justification.** Patterns like `IntelligenceModulePage` (static copy, no live data) are reserved for genuine privacy/RLS boundaries. The PR body must cite the specific RLS policy or data-sensitivity reason. If no such reason exists and live public data is available, wire it — don't default to static because the template is already there.
+
+4. **Competitive benchmark, logged in the PR.** Before building or rebuilding a public intelligence/marketplace surface, note how 1–2 comparable products (e.g. Prohibition Partners, BDSA, Citeline, Brightfield Group) present the equivalent surface, and what Harbourview does that they don't (semantic search, 348-source registry, live signal pipeline, etc.). That differentiator must be visible on the page itself, not just present in `lib/`.
+
+5. **Multi-level depth, not single-page depth.** A genuinely deep feature has an index view, an entity-detail view, and — where the data supports it — a sub-entity view (mirrors the playbooks pattern: index → country detail → step-level data). One well-written static page is not depth.
+
 ## Required QA Commands by Change Type
 Run the highest applicable set before opening/merging a PR.
 
@@ -96,6 +111,7 @@ Use this template for all PRs:
 - [ ] tests
 - [ ] build
 - [ ] runtime/route verification (if applicable)
+- [ ] depth & competitive bar cleared (entity audit, cross-links, static-wrapper justified if used, competitive note)
 
 Commands run:
 - `...`
