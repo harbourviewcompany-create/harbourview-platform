@@ -1,6 +1,7 @@
 import 'server-only'
 import {
   fetchAdminSupabaseJson,
+  fetchAdminSupabaseJsonMutation,
   getAdminDataClient,
   type AdminDataResult,
 } from '@/lib/supabase/adminDataClient'
@@ -8,6 +9,7 @@ import type {
   AutomationSource,
   AutomationSignal,
   RelationshipMemoryRecord,
+  CounterpartyRole,
   ScoringRecord,
   AgentWorkItem,
   EvidenceVaultEntry,
@@ -495,4 +497,61 @@ export async function advanceIaSignalStage(
   }
 
   return { ok: true, data: null, source: 'db' as const }
+}
+
+// ── Counterparty mutations ──────────────────────────────────────────────────
+
+export type CreateCounterpartyInput = {
+  name: string
+  role: CounterpartyRole
+  markets: string[]
+  categories: string[]
+  needsProfile?: string
+  supplyProfile?: string
+  notes?: string
+}
+
+export async function createIaCounterparty(
+  input: CreateCounterpartyInput,
+): Promise<AdminDataResult<null>> {
+  const id = `rm-${Date.now()}`
+  return fetchAdminSupabaseJsonMutation('/rest/v1/ia_counterparties', 'POST', {
+    id,
+    name: input.name,
+    role: input.role,
+    markets: input.markets,
+    categories: input.categories,
+    needs_profile: input.needsProfile ?? null,
+    supply_profile: input.supplyProfile ?? null,
+    interaction_count: 0,
+    introduction_count: 0,
+    documentation_status: 'missing',
+    last_interaction: null,
+    notes: input.notes ?? null,
+  })
+}
+
+export async function logIaCounterpartyInteraction(
+  counterpartyId: string,
+  currentInteractionCount: number,
+): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation(
+    `/rest/v1/ia_counterparties?id=eq.${encodeURIComponent(counterpartyId)}`,
+    'PATCH',
+    {
+      interaction_count: currentInteractionCount + 1,
+      last_interaction: new Date().toISOString().slice(0, 10),
+    },
+  )
+}
+
+export async function updateIaCounterpartyDocumentationStatus(
+  counterpartyId: string,
+  documentationStatus: RelationshipMemoryRecord['documentationStatus'],
+): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation(
+    `/rest/v1/ia_counterparties?id=eq.${encodeURIComponent(counterpartyId)}`,
+    'PATCH',
+    { documentation_status: documentationStatus },
+  )
 }
