@@ -1,3 +1,62 @@
+## Session: Jun 21 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — depth pass, "what's thin" follow-through
+
+Continuation of the Jun 19 depth pass. User asked "what's thin and needs more work," then worked through the list one item at a time with verification after each merge (CI green + Vercel production deploy confirmed `READY` before moving on, not just PR-merged).
+
+| Feature | PR | What shipped |
+|---|---|---|
+| Education hub live data | #756 | `/education` now renders the 12 real published `education_modules` rows grouped by track, replacing a hardcoded 6-card placeholder. New `/education/modules/[slug]` detail route. New `lib/server/educationModulesQuery.ts`. |
+| Counterparty mutations | #766 | Admin `ia_counterparties` page could only list 12 seeded rows — no create, no interaction logging. Added `createIaCounterparty`, `logIaCounterpartyInteraction`, two API routes, `CounterpartyActions.tsx` (AddCounterpartyForm, LogInteractionButton). |
+| Counterparty doc-status | #767 | Closed out a half-built piece from #766 — `updateIaCounterpartyDocumentationStatus` existed in `db.ts` with no route/UI. Added `DocStatusSelect` dropdown, extended the PATCH route to branch on which field is present. |
+| Depth pass (merged, written previous session) | #759 | Playbook detail pages (`/intelligence/playbooks/[country]`), admin on-demand briefing synthesis trigger, professional directory application flow (`/professionals/apply`). Was sitting open since Jun 19 — merged this session after confirming CI clean. |
+| Watchlist remove action | #769 | `cc_watchlist_items` could be added but never removed — RLS already had a member-scoped delete policy, the UI just never called it. Added `handleRemove` with optimistic local state + rollback. |
+
+### Important correction made mid-session
+
+Initially flagged `/intelligence/counterparty-intelligence` (public) as "thin" — it is **not**. It's a deliberate privacy boundary: the page explicitly states no private counterparty data is published there, and `ia_counterparties` RLS confirmed admin/operator-only access. The real gap was on the **admin side** (no mutation UI), not the public side. Caught this before wiring live data into the public page, which would have leaked private CRM-style data (interaction counts, notes) to the open internet.
+
+Same pattern held for Watchlists: `/intelligence/watchlists` (public) is a correct static description; the real feature lives in the authenticated dashboard (`WatchlistPage.tsx`, workspace-scoped via `cc_watchlist_items`), which was already mostly built — just missing the remove action.
+
+**Lesson for future sessions**: before wiring a "thin" public page to live data, check RLS first. If a table is admin/operator-gated or workspace-member-gated, the public page being static is correct design, not a bug — the gap is almost always inside the authenticated/admin surface instead.
+
+### Process note: production verification
+
+Early in this session, PRs were merged based on CI passing (`tsc --noEmit`, `verify`) without confirming the actual Vercel production deployment reached `READY`. Corrected after the user asked "did you miss anything" — every merge from #766 onward was followed by polling `Vercel:get_deployment` until `READY` before reporting completion. This should be the standing practice going forward, not just for this session.
+
+### Known gaps, explicitly not fixed (flagged, not silently dropped)
+
+- **Counterparties**: no edit or delete for existing rows (only create + log-interaction + doc-status). `markets` field is free text — no normalization against `country_intel` country codes/names, so "Germany" / "germany" / "DE" could all exist as different values across rows.
+- **Watchlists**: `cc_watch_rules` (2 seeded rows) are fetched into `watchlistData.rules` but never rendered or manageable — only the count appears in the header subtitle. Needs a rule-builder UI, not just a wiring fix. Bigger scope, deferred.
+- **Education**: `education_modules.audience` enum (`doctor_prescriber`, `clinic_healthcare_operator`, etc.) doesn't match `EducationRole` in `lib/education/country-role.ts` (`doctor`, `clinic`, etc.) — two taxonomies that have drifted apart. Added a local `AUDIENCE_LABELS` map scoped to the new query file rather than reconciling system-wide.
+- **"Enforce registry impact discipline" check**: intermittently failed even when the PR body satisfied every condition in `scripts/check-project-registry-discipline.mjs` by direct simulation. Job logs are hosted on an Azure blob host (`productionresultssa*.blob.core.windows.net`) not in the network egress allowlist — could not diagnose root cause. Not a required status check, so doesn't block merges, but worth either fixing, removing, or allowlisting the log host so a future session can actually debug it.
+
+### Still-thin surfaces not yet touched
+
+- **Genetics** (`/genetics`, `/genetics/cultivars`) — `hv_passports`, `hv_claims`, `hv_licences`, `genetics_routing_records` all still 0 rows. Stale Codex branches exist for cultivar passport network; never merged.
+- **Logistics & trade routes** (`/intelligence/logistics-trade-routes`) — static `IntelligenceModulePage` wrapper, not yet audited for an authenticated/admin equivalent the way counterparties and watchlists had one.
+- **Licensing pathways** (`/intelligence/licensing-pathways`) — same wrapper pattern, likely duplicates Access Pathways; not yet audited.
+- **Supplier directory** (`/supplier-directory`) — `supplier_profiles` = 0 rows, no intake flow found yet (unlike professionals, which now has one via #759).
+- **Deal rooms** (`/marketplace/deals`) — built (#744) but `deal_rooms` = 0 rows; functional, just unused so far. Not a code gap, an adoption gap.
+
+### Current data snapshot (Jun 21, end of session)
+
+| Table | Rows |
+|---|---|
+| `education_modules` | 12 |
+| `ia_counterparties` | 12 |
+| `cc_watchlist_items` | 6 |
+| `signal_subscriptions` | 4 (up from 0 — feature is being used) |
+| `cc_watch_rules` | 2 |
+| `hv_professionals` | 0 (apply flow just merged, expected) |
+| `supplier_profiles` | 0 |
+| `deal_rooms` | 0 |
+| `hv_passports` / `hv_claims` / `hv_licences` / `genetics_routing_records` | 0 |
+
+---
+
 # HANDOFF.md — Harbourview Session Log
 
 > **Protocol**: Updated at the end of every session by whichever agent last touched the repo.  
