@@ -24,6 +24,14 @@ export type ScraperCategory =
   | 'import_demand'
   | 'distressed_inventory'
   | 'distressed_businesses'
+  // Intelligence & data categories (global cannabis market monitoring)
+  | 'regulatory'
+  | 'market_data'
+  | 'policy'
+  | 'financial'
+  | 'science'
+  | 'compliance'
+  | 'product'
 
 export interface ScraperSource {
   id: string
