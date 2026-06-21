@@ -1,6 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
+import {
+  getApprovedSupplierProfiles,
+  SELLER_TYPE_LABELS,
+  REGION_LABELS,
+  CATEGORY_LABELS,
+} from '@/lib/server/supplierProfilesQuery'
+
+export const revalidate = 1800
 
 export const metadata: Metadata = {
   title: 'Supplier Discovery | Harbourview',
@@ -17,14 +25,17 @@ const categories = [
   { title: 'Technology & data', body: 'Seed-to-sale, compliance software, analytics and operational technology.' },
 ]
 
-export default function SupplierDirectoryPage() {
+export default async function SupplierDirectoryPage() {
+  const profiles = await getApprovedSupplierProfiles()
+  const hasProfiles = profiles.length > 0
+
   return (
     <>
       <PublicHero
         eyebrow="Supplier Discovery"
         title="Reviewed supplier profiles for regulated cannabis operations."
         actions={[
-          { label: 'Submit your company', href: '/intake' },
+          { label: 'Submit your company', href: '/supplier-directory/apply' },
           { label: 'Request an introduction', href: '/contact', variant: 'secondary' },
         ]}
       >
@@ -55,31 +66,66 @@ export default function SupplierDirectoryPage() {
         </div>
       </PublicSection>
 
-      <PublicSection tone="navy">
-        <div className="flex flex-col items-center py-10 text-center">
-          <div className="mb-6 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-40" />
-          <p className="mb-2 text-lg font-semibold text-[#f5f1e8]">No profiles listed yet</p>
-          <p className="mb-8 max-w-xl text-sm leading-7 text-white/54">
-            Harbourview supplier profiles are added through a controlled review process.
-            Submit your company via intake or request an introduction for a supplier
-            category you need.
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/intake" className="btn-marketplace text-sm">
-              Submit your company
-            </Link>
-            <Link href="/contact" className="btn-intelligence text-sm">
-              Request an introduction
-            </Link>
+      {hasProfiles ? (
+        <PublicSection tone="navy">
+          <SectionHeader
+            eyebrow="Reviewed profiles"
+            title={`${profiles.length} supplier${profiles.length !== 1 ? 's' : ''} currently listed.`}
+          />
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {profiles.map((p) => (
+              <PublicCard key={p.id} className="p-6">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-gold/75">
+                    {SELLER_TYPE_LABELS[p.seller_type] ?? p.seller_type}
+                  </span>
+                  <span className="text-[11px] text-white/40">{REGION_LABELS[p.region] ?? p.region}</span>
+                </div>
+                {p.company_name && (
+                  <h3 className="mb-2 text-base font-semibold text-[#f4f1eb]">{p.company_name}</h3>
+                )}
+                <p className="mb-4 text-sm leading-7 text-white/62">{p.description}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {p.categories.map((c) => (
+                    <span key={c} className="rounded-full border border-gold/20 bg-gold/5 px-2 py-0.5 text-[10px] text-gold/80">
+                      {CATEGORY_LABELS[c] ?? c}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs leading-5 text-white/35">
+                  Public supplier summary. Introduction requests are reviewed before routing.
+                </p>
+              </PublicCard>
+            ))}
           </div>
-        </div>
-      </PublicSection>
+        </PublicSection>
+      ) : (
+        <PublicSection tone="navy">
+          <div className="flex flex-col items-center py-10 text-center">
+            <div className="mb-6 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-40" />
+            <p className="mb-2 text-lg font-semibold text-[#f5f1e8]">No profiles listed yet</p>
+            <p className="mb-8 max-w-xl text-sm leading-7 text-white/54">
+              Harbourview supplier profiles are added through a controlled review process.
+              Submit your company via intake or request an introduction for a supplier
+              category you need.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link href="/supplier-directory/apply" className="btn-marketplace text-sm">
+                Submit your company
+              </Link>
+              <Link href="/contact" className="btn-intelligence text-sm">
+                Request an introduction
+              </Link>
+            </div>
+          </div>
+        </PublicSection>
+      )}
 
       <FooterCta
         eyebrow="Want to be listed?"
         title="Submit your company for Harbourview review."
         actions={[
-          { label: 'Submit via intake', href: '/intake' },
+          { label: 'Submit application', href: '/supplier-directory/apply' },
           { label: 'Contact Harbourview', href: '/contact', variant: 'secondary' },
         ]}
       >
