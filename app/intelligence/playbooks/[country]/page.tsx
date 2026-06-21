@@ -297,6 +297,7 @@ export default async function PlaybookDetailPage({
           </p>
           <div className="pd-footnote-links">
             <Link href="/intelligence/playbooks">All Playbooks →</Link>
+            <Link href="/intelligence/licensing-pathways">Licence Category Guide →</Link>
             <Link href="/markets">Market Briefings →</Link>
             <Link href="/signals">Signals →</Link>
           </div>

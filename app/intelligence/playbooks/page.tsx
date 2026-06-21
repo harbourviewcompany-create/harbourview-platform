@@ -112,6 +112,7 @@ export default async function PlaybooksIndexPage() {
             Regulatory frameworks change frequently — verify current requirements with qualified local counsel before committing to any market.
           </p>
           <div className="pb-footnote-links">
+            <Link href="/intelligence/licensing-pathways">Licence Category Guide →</Link>
             <Link href="/markets">Market Briefings →</Link>
             <Link href="/intelligence">Intelligence Home →</Link>
             <Link href="/contact">Request Custom Playbook →</Link>
