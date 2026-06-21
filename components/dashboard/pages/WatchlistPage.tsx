@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import type { WatchlistData } from '@/lib/dashboard/dashboardLiveData'
 import { createClient } from '@/lib/supabase/client'
 
@@ -30,6 +30,28 @@ export const WatchlistPage = React.memo(function WatchlistPage({
   country, watchlistData,
 }: WatchlistPageProps) {
   const [addState, setAddState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [localItems, setLocalItems] = useState(watchlistData?.items ?? [])
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLocalItems(watchlistData?.items ?? [])
+  }, [watchlistData])
+
+  async function handleRemove(id: string) {
+    if (removingId) return
+    setRemovingId(id)
+    const previous = localItems
+    setLocalItems(previous.filter((item) => item.id !== id))
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('cc_watchlist_items').delete().eq('id', id)
+      if (error) throw error
+    } catch {
+      setLocalItems(previous)
+    } finally {
+      setRemovingId(null)
+    }
+  }
 
   async function handleAddToWatchlist() {
     if (addState !== 'idle') return
@@ -61,7 +83,7 @@ export const WatchlistPage = React.memo(function WatchlistPage({
     }
   }
 
-  const items = watchlistData?.items ?? []
+  const items = localItems
   const notifs = watchlistData?.notifications
   const rules  = watchlistData?.rules ?? []
   const hasItems = items.length > 0
@@ -145,6 +167,15 @@ export const WatchlistPage = React.memo(function WatchlistPage({
                 {typeof item.confidence_pct === 'number' && (
                   <div className="wl-item-conf">{item.confidence_pct}%</div>
                 )}
+                <button
+                  className="wl-item-remove"
+                  onClick={() => handleRemove(item.id)}
+                  disabled={removingId === item.id}
+                  aria-label={`Remove ${item.title} from watchlist`}
+                  title="Remove from watchlist"
+                >
+                  {removingId === item.id ? '…' : '✕'}
+                </button>
               </div>
             ))}
           </div>
@@ -265,6 +296,15 @@ const CSS = `
 .wl-item-time { color:rgba(245,240,232,.3); }
 .wl-item-next { font-size:10.5px;color:#5b9bd5; }
 .wl-item-conf { font-size:13px;font-weight:700;color:#d4a84b;flex-shrink:0;padding:4px 8px;border-radius:6px;background:rgba(212,168,75,.08); }
+.wl-item-remove {
+  flex-shrink:0;width:22px;height:22px;border-radius:6px;
+  border:1px solid rgba(255,255,255,.08);background:transparent;
+  color:rgba(245,240,232,.3);font-size:11px;cursor:pointer;font:inherit;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.wl-item-remove:hover:not(:disabled) { background:rgba(220,80,80,.1);border-color:rgba(220,80,80,.3);color:#e08080; }
+.wl-item-remove:disabled { opacity:.5;cursor:default; }
 
 
 .wl-empty {
