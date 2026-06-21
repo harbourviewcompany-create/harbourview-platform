@@ -1,0 +1,64 @@
+import 'server-only'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+export type SupplierProfile = {
+  id: string
+  seller_type: string
+  region: string
+  categories: string[]
+  description: string
+  company_name: string | null
+  created_at: string
+}
+
+export const SELLER_TYPE_LABELS: Record<string, string> = {
+  licensed_producer: 'Licensed Producer',
+  distributor: 'Distributor',
+  wholesaler: 'Wholesaler',
+  retailer: 'Retailer',
+  investor: 'Investor',
+  other: 'Other',
+}
+
+export const REGION_LABELS: Record<string, string> = {
+  north_america: 'North America',
+  europe: 'Europe',
+  asia_pacific: 'Asia-Pacific',
+  latin_america: 'Latin America',
+  middle_east_africa: 'Middle East & Africa',
+  global: 'Global',
+}
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  cultivation_equipment: 'Cultivation Equipment',
+  processing_equipment: 'Processing Equipment',
+  consumables: 'Consumables & Inputs',
+  packaging: 'Packaging',
+  logistics: 'Logistics & Distribution',
+  labs_testing: 'Labs & Testing',
+  professional_services: 'Professional Services',
+  services: 'Services & Advisory',
+  genetics: 'Genetics',
+  supplier_directory: 'General Supply',
+}
+
+export async function getApprovedSupplierProfiles(): Promise<SupplierProfile[]> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  try {
+    const params = new URLSearchParams({
+      select: 'id,seller_type,region,categories,description,company_name,created_at',
+      status: 'eq.approved',
+      order: 'created_at.desc',
+    })
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/supplier_profiles?${params}`, {
+      next: { revalidate: 1800 },
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
+}
