@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { FrontSide, BackSide, AdditiveBlending, type MeshPhysicalMaterial } from 'three'
+import { FrontSide, BackSide, DoubleSide, AdditiveBlending, type MeshPhysicalMaterial } from 'three'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
@@ -140,7 +140,7 @@ function HoverPulseMesh({
           iridescenceIOR={1.35}
           onBeforeCompile={metallicGoldShader}
           customProgramCacheKey={() => getMetallicGoldProgramCacheKey({ isFocused, isSelected })}
-          side={FrontSide}
+          side={DoubleSide}
           depthTest
           depthWrite
           polygonOffset

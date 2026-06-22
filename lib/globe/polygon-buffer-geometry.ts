@@ -220,34 +220,12 @@ function createTopFaceWithHoles(
       throw new RangeError('earcut index out of range')
     }
 
-    indices = []
-    for (const [a, b, c] of rawTriangles) {
-      const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2]
-      const bx = positions[b * 3], by = positions[b * 3 + 1], bz = positions[b * 3 + 2]
-      const cx = positions[c * 3], cy = positions[c * 3 + 1], cz = positions[c * 3 + 2]
-      const ex = bx - ax, ey = by - ay, ez = bz - az
-      const fx = cx - ax, fy = cy - ay, fz = cz - az
-      const nx = ey * fz - ez * fy
-      const ny = ez * fx - ex * fz
-      const nz = ex * fy - ey * fx
-      const lenSq = nx * nx + ny * ny + nz * nz
-      if (lenSq < 1e-20) continue // degenerate — drop
-
-      // Use triangle centroid (not vertex a alone) for the outward-direction test.
-      // Vertex a can be far off-centroid on large polygons (Russia/Siberia spans
-      // ~140° longitude) causing the dot product sign to flip and winding to invert,
-      // which produces the black void visible in Siberia on the globe.
-      const centX = (ax + bx + cx) / 3
-      const centY = (ay + by + cy) / 3
-      const centZ = (az + bz + cz) / 3
-      const dot = nx * centX + ny * centY + nz * centZ
-      if (dot >= 0) {
-        indices.push(a, b, c)
-      } else {
-        // Inward-facing due to spherical curvature at high latitudes — flip winding.
-        indices.push(a, c, b)
-      }
-    }
+    // Push earcut indices as-is. The global Float32 winding pass in
+    // _createCountryBufferGeometryInner is the single source of truth for
+    // outward-facing orientation. Running a separate Float64 winding check here
+    // can double-flip borderline triangles (GPU FMA arithmetic differs from
+    // CPU float64), which is what caused the Russia black-void regression.
+    indices = rawTriangles.flat()
   } catch {
     indices = createTopFanIndices(outer.length)
   }
