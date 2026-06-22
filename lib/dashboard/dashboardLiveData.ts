@@ -13,23 +13,39 @@ export type PipelineCounts = {
 
 export async function getPipelineCounts(): Promise<PipelineCounts> {
   // Returns platform-wide aggregate counts (not scoped to the current user).
-  // This function is intentionally admin-style: all authenticated operators can
-  // see how many inquiries are in each stage. Access is gated by the /dashboard
-  // auth middleware. If per-user scoping is ever needed, add .eq('submitter_id', userId).
+  // Access is gated by the /dashboard auth middleware.
+  // Uses HEAD count queries — zero row data transfer, one DB round-trip per
+  // status bucket. Replaces the previous full table scan + in-memory reduce.
   const fallback: PipelineCounts = { wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 }
   try {
     const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('marketplace_inquiries')
-      .select('review_status')
-    if (error || !data) return fallback
-    return data.reduce((acc, row) => {
-      if (row.review_status === 'received' || row.review_status === 'reviewing') acc.inquiry++
-      if (row.review_status === 'contacted') acc.proof_review++
-      if (row.review_status === 'qualified') acc.matched++
-      if (row.review_status === 'closed')    acc.deal_room++
-      return acc
-    }, { ...fallback })
+
+    const [inquiryRes, proofRes, matchedRes, dealRes] = await Promise.all([
+      supabase
+        .from('marketplace_inquiries')
+        .select('*', { count: 'exact', head: true })
+        .in('review_status', ['received', 'reviewing']),
+      supabase
+        .from('marketplace_inquiries')
+        .select('*', { count: 'exact', head: true })
+        .eq('review_status', 'contacted'),
+      supabase
+        .from('marketplace_inquiries')
+        .select('*', { count: 'exact', head: true })
+        .eq('review_status', 'qualified'),
+      supabase
+        .from('marketplace_inquiries')
+        .select('*', { count: 'exact', head: true })
+        .eq('review_status', 'closed'),
+    ])
+
+    return {
+      wanted:       0, // wanted_requests are tracked in listings, not inquiries
+      inquiry:      inquiryRes.count   ?? 0,
+      proof_review: proofRes.count     ?? 0,
+      matched:      matchedRes.count   ?? 0,
+      deal_room:    dealRes.count      ?? 0,
+    }
   } catch { return fallback }
 }
 
@@ -90,24 +106,41 @@ const AUDIENCE_ICON: Record<string, string> = {
 export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promise<LiveEduTile[]> {
   try {
     const supabase = await createClient()
-    // Try modules first — they have audience[] and publication_state
-    const query = supabase
-      .from('education_modules')
-      .select('slug, title, description, audience, sensitivity, track_id')
-      .eq('publication_state', 'published')
-      .limit(limit * 3) // fetch extra to filter by role
-    const { data: modules, error } = await query
+
+    // Push role filtering to the DB rather than over-fetching 3x and slicing
+    // in memory. Try role-specific modules first; fall back to 'general'
+    // audience if nothing matches so the tile section is never empty.
+    let modules: Array<{ slug: string; title: string; description: string | null; audience: string[]; sensitivity: string; track_id: string }> | null = null
+    let error: unknown = null
+
+    if (roleId) {
+      // Postgres array overlap: contains(audience, ARRAY[roleId])
+      const res = await supabase
+        .from('education_modules')
+        .select('slug, title, description, audience, sensitivity, track_id')
+        .eq('publication_state', 'published')
+        .contains('audience', [roleId])
+        .limit(limit)
+      error = res.error
+      modules = res.data
+    }
+
+    // Fall back to general if role match returned nothing
+    if (!modules || modules.length === 0) {
+      const res = await supabase
+        .from('education_modules')
+        .select('slug, title, description, audience, sensitivity, track_id')
+        .eq('publication_state', 'published')
+        .contains('audience', ['general'])
+        .limit(limit)
+      error = res.error
+      modules = res.data
+    }
+
     if (error || !modules || modules.length === 0) return []
 
-    // Score by role match
-    const scored = modules.map(m => {
-      const audience: string[] = m.audience ?? []
-      const roleMatch = roleId && audience.includes(roleId) ? 2
-        : audience.includes('general') ? 1 : 0
-      return { ...m, roleMatch }
-    })
-    .sort((a, b) => b.roleMatch - a.roleMatch)
-    .slice(0, limit)
+    // No in-memory scoring needed — DB already filtered by role
+    const scored = modules
 
     const truncateDescription = (description?: string | null): string => {
       const normalized = description?.trim().replace(/\s+/g, ' ') || 'Education module'

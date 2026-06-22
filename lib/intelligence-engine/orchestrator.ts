@@ -27,6 +27,22 @@ interface SourceRegistryRow {
   locked_until: string | null;
 }
 
+
+/** Map the text-encoded crawl_cadence column values to a numeric hours value. */
+function parseCadenceHours(raw: string | null): number {
+  if (!raw) return 24
+  switch (raw.toLowerCase().trim()) {
+    case 'hourly':  return 1
+    case 'daily':   return 24
+    case 'weekly':  return 168
+    case 'monthly': return 720
+    default: {
+      const n = parseFloat(raw)
+      return Number.isFinite(n) && n > 0 ? n : 24
+    }
+  }
+}
+
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
   private htmlAdapter: HTMLDataAdapter;
@@ -84,7 +100,7 @@ export class IntelligenceOrchestrator {
       source_name: row.source_name,
       base_url: row.source_url,
       adapter_type: (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
-      cadence_hours: row.crawl_cadence ? 24 : 24, // cadence stored as text; default 24h
+      cadence_hours: parseCadenceHours(row.crawl_cadence),
     }));
   }
 

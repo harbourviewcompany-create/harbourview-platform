@@ -191,15 +191,29 @@ export async function getInternalCultivarPassports() {
  * gates this call behind `await requireAdminAuth()`. Uses the service-role
  * client so the queue is complete regardless of per-row RLS visibility.
  */
+// Column lists scoped to what toAdminGeneticsReviewDTO actually consumes.
+// Avoids transferring large unneeded columns (e.g. raw evidence blobs, JSONB payloads)
+// and adds per-table row limits so the admin queue page stays fast as data grows.
+const ADMIN_CULTIVAR_COLS =
+  'id,slug,name,scientific_name,breeder_profile_id,rights_holder_profile_id,owner_user_id,is_public,status,created_at,updated_at'
+const ADMIN_OPPORTUNITY_COLS =
+  'id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,created_at'
+const ADMIN_EVIDENCE_COLS =
+  'id,cultivar_id,evidence_type,title,summary,file_path,file_is_private,verification_status,created_at'
+const ADMIN_ACCESS_REQUEST_COLS =
+  'id,cultivar_id,requester_profile_id,requester_user_id,intent,status,created_at,reviewed_at'
+const ADMIN_CLAIM_REVIEW_COLS =
+  'id,cultivar_id,reviewer_id,claim_type,decision,notes,created_at'
+
 export async function getAdminGeneticsReviewQueue() {
   const supabase = await createSupabaseServiceClient()
 
   const [cultivarsRes, opportunitiesRes, evidenceRes, accessRequestsRes, claimReviewsRes, auditEventsRes] = await Promise.all([
-    supabase.from('cultivar_passports').select('*'),
-    supabase.from('cultivar_country_opportunities').select('*'),
-    supabase.from('genetics_evidence_items').select('*'),
-    supabase.from('genetics_access_requests').select('*'),
-    supabase.from('genetics_claim_reviews').select('*'),
+    supabase.from('cultivar_passports').select(ADMIN_CULTIVAR_COLS).order('created_at', { ascending: false }).limit(500),
+    supabase.from('cultivar_country_opportunities').select(ADMIN_OPPORTUNITY_COLS).order('created_at', { ascending: false }).limit(500),
+    supabase.from('genetics_evidence_items').select(ADMIN_EVIDENCE_COLS).order('created_at', { ascending: false }).limit(500),
+    supabase.from('genetics_access_requests').select(ADMIN_ACCESS_REQUEST_COLS).order('created_at', { ascending: false }).limit(500),
+    supabase.from('genetics_claim_reviews').select(ADMIN_CLAIM_REVIEW_COLS).order('created_at', { ascending: false }).limit(500),
     supabase.from('genetics_audit_events').select('*').order('created_at', { ascending: false }).limit(200),
   ])
 
@@ -215,12 +229,12 @@ export async function getAdminGeneticsReviewQueue() {
   }
 
   return toAdminGeneticsReviewDTO({
-    cultivars: (cultivarsRes.data ?? []) as CultivarPassportRow[],
-    opportunities: (opportunitiesRes.data ?? []) as CultivarCountryOpportunityRow[],
-    evidence: (evidenceRes.data ?? []) as GeneticsEvidenceItemRow[],
-    accessRequests: (accessRequestsRes.data ?? []) as GeneticsAccessRequestRow[],
-    claimReviews: (claimReviewsRes.data ?? []) as GeneticsClaimReviewRow[],
-    auditEvents: (auditEventsRes.data ?? []) as GeneticsAuditEventRow[],
+    cultivars: (cultivarsRes.data ?? []) as unknown as CultivarPassportRow[],
+    opportunities: (opportunitiesRes.data ?? []) as unknown as CultivarCountryOpportunityRow[],
+    evidence: (evidenceRes.data ?? []) as unknown as GeneticsEvidenceItemRow[],
+    accessRequests: (accessRequestsRes.data ?? []) as unknown as GeneticsAccessRequestRow[],
+    claimReviews: (claimReviewsRes.data ?? []) as unknown as GeneticsClaimReviewRow[],
+    auditEvents: (auditEventsRes.data ?? []) as unknown as GeneticsAuditEventRow[],
   })
 }
 

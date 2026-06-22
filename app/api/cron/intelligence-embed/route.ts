@@ -106,36 +106,42 @@ export async function GET(request: Request) {
   // ── Embed each signal ───────────────────────────────────────────────────────
   let embedded = 0, failed = 0
 
-  for (const signal of toProcess) {
-    const inputText = buildEmbedInput(signal)
+  // Process in parallel batches of 4 — reduces worst-case wall time by ~75%
+  // within the 300s maxDuration budget while respecting HF rate limits.
+  const PARALLEL = 4
+  for (let i = 0; i < toProcess.length; i += PARALLEL) {
+    const chunk = toProcess.slice(i, i + PARALLEL)
+    await Promise.all(chunk.map(async (signal) => {
+      const inputText = buildEmbedInput(signal)
 
-    try {
-      const embeddingVector = await embedBGEM3(inputText)
+      try {
+        const embeddingVector = await embedBGEM3(inputText)
 
-      const { error: upsertErr } = await supabase
-        .from('ia_signal_embeddings')
-        .upsert(
-          {
-            signal_id:  signal.id,
-            embedding:  toVectorLiteral(embeddingVector),
-            model:      'bge-m3',
-          },
-          { onConflict: 'signal_id' },
-        )
+        const { error: upsertErr } = await supabase
+          .from('ia_signal_embeddings')
+          .upsert(
+            {
+              signal_id:  signal.id,
+              embedding:  toVectorLiteral(embeddingVector),
+              model:      'bge-m3',
+            },
+            { onConflict: 'signal_id' },
+          )
 
-      if (upsertErr) {
-        console.error(`intelligence_embed_cron: upsert failed (id=${signal.id}):`, upsertErr.message)
+        if (upsertErr) {
+          console.error(`intelligence_embed_cron: upsert failed (id=${signal.id}):`, upsertErr.message)
+          failed++
+          return
+        }
+
+        embedded++
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`intelligence_embed_cron: embed failed (id=${signal.id}):`, msg)
         failed++
-        continue
       }
-
-      embedded++
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error(`intelligence_embed_cron: embed failed (id=${signal.id}):`, msg)
-      failed++
-    }
-  }
+    }))  // end Promise.all chunk
+  }  // end batch loop
 
   const summary = { ok: true, total: toProcess.length, embedded, failed }
   console.info('intelligence_embed_cron: run complete', summary)
