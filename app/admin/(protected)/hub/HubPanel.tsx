@@ -610,7 +610,19 @@ function DealBoard({ api, toast }) {
 
   useEffect(()=>{load();},[load]);
 
-  const stPill = s=><Pill type={{active:"green",stalled:"red",closed:"gray",pending:"warn",introduced:"blue"}[s]||"gray"}>{s||"—"}</Pill>;
+  // genetics_routing_records.status (routing/qualification stage — see
+  // lib/introduction-routing/geneticsExecution.ts GeneticsRoutingExecutionStatus).
+  // This is distinct from the separate deal_status field (lib/introduction-routing/geneticsDealflow.ts).
+  const stPill = s=><Pill type={{
+    new_request:"gray",
+    needs_qualification:"warn",
+    needs_buyer_permission:"warn",
+    needs_holder_permission:"warn",
+    ready_for_intro:"gold",
+    introduced:"blue",
+    declined:"red",
+    archived:"gray",
+  }[s]||"gray"}>{(s||"—").replace(/_/g," ")}</Pill>;
 
   if(loading) return <div className="empty"><Spinner size={24}/></div>;
 
@@ -619,8 +631,8 @@ function DealBoard({ api, toast }) {
       <div className="kpi-grid" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
         {[
           {val:records.length,label:"Total Records"},
-          {val:records.filter(r=>r.status==="active").length,label:"Active",cls:"success"},
-          {val:records.filter(r=>r.status==="stalled").length,label:"Stalled",cls:"danger"},
+          {val:records.filter(r=>r.status==="ready_for_intro").length,label:"Ready for Intro",cls:"success"},
+          {val:records.filter(r=>r.stale_escalated).length,label:"Stalled",cls:"danger"},
           {val:events.length,label:"Events Logged"},
         ].map(k=>(
           <div className="kpi" key={k.label}>
@@ -640,15 +652,18 @@ function DealBoard({ api, toast }) {
         <div className="table-wrap">
           {records.length===0?<div className="empty">No routing records</div>:
           <div style={{overflowX:"auto"}}><table>
-            <thead><tr><th>ID</th><th>Buyer</th><th>Seller</th><th>Strain/SKU</th><th>Status</th><th>Score</th><th>Created</th></tr></thead>
+            <thead><tr><th>ID</th><th>Requester</th><th>Profile / Drop</th><th>Intent → Market</th><th>Status</th><th>Score</th><th>Created</th></tr></thead>
             <tbody>{records.map(r=>(
               <tr key={r.id}>
                 <td><span className="cell-mono">{r.id?.slice(0,8)}…</span></td>
-                <td><span style={{fontSize:12,color:"#D4C9B8"}}>{truncate(r.buyer_id||r.buyer_name||"—",25)}</span></td>
-                <td><span style={{fontSize:12,color:"#A0B0C8"}}>{truncate(r.seller_id||r.seller_name||"—",25)}</span></td>
-                <td><span style={{fontSize:11,color:"#6A7E9B"}}>{truncate(r.strain||r.sku||r.product||"—",30)}</span></td>
+                <td>
+                  <span style={{fontSize:12,color:"#D4C9B8"}}>{truncate(r.requester_company||"—",25)}</span><br/>
+                  <span style={{fontSize:10,color:"#4A5E80"}}>{r.requester_email||"—"}</span>
+                </td>
+                <td><span style={{fontSize:12,color:"#A0B0C8"}}>{truncate(`${r.profile_slug||"—"} / ${r.drop_id||"—"}`,30)}</span></td>
+                <td><span style={{fontSize:11,color:"#6A7E9B"}}>{truncate(`${r.intent||"—"} → ${r.target_market||"—"}`,30)}</span></td>
                 <td>{stPill(r.status)}</td>
-                <td><span className="cell-mono">{r.prime_score||r.score||"—"}</span></td>
+                <td><span className="cell-mono">{r.score ?? "—"}{r.score_band?` (${r.score_band})`:""}</span></td>
                 <td><span style={{fontSize:11,color:"#4A5E80"}}>{fmtDate(r.created_at)}</span></td>
               </tr>
             ))}</tbody>
@@ -658,13 +673,13 @@ function DealBoard({ api, toast }) {
         <div className="table-wrap">
           {events.length===0?<div className="empty">No events logged</div>:
           <div style={{overflowX:"auto"}}><table>
-            <thead><tr><th>Record</th><th>Event</th><th>Actor</th><th>Outcome</th><th>Date</th></tr></thead>
+            <thead><tr><th>Record</th><th>Event</th><th>Summary</th><th>Actor</th><th>Date</th></tr></thead>
             <tbody>{events.map(e=>(
               <tr key={e.id}>
-                <td><span className="cell-mono">{e.record_id?.slice(0,8)||"—"}…</span></td>
-                <td><Pill type="blue">{e.event_type||"—"}</Pill></td>
-                <td><span style={{fontSize:11,color:"#6A7E9B"}}>{e.actor||e.actor_id||"—"}</span></td>
-                <td><Pill type={{introduction_made:"green",route_rejected:"red",score_adjusted:"warn"}[e.outcome]||"gray"}>{e.outcome||"—"}</Pill></td>
+                <td><span className="cell-mono">{e.routing_record_id?.slice(0,8)||"—"}…</span></td>
+                <td><Pill type="blue">{(e.event_type||"—").replace(/_/g," ")}</Pill></td>
+                <td><span style={{fontSize:11,color:"#A0B0C8"}}>{truncate(e.event_summary||"—",40)}</span></td>
+                <td><span style={{fontSize:11,color:"#6A7E9B"}}>{e.actor||"system"}</span></td>
                 <td><span style={{fontSize:11,color:"#4A5E80"}}>{fmtDt(e.created_at)}</span></td>
               </tr>
             ))}</tbody>

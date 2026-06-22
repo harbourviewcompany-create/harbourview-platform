@@ -10,13 +10,22 @@ import { z } from 'zod';
 
 // --- Types & Schemas ---
 
+// Canonical adapter type values understood by the engine.
+// - html_snapshot / html_diff : lightweight HTML fetch (HTMLDataAdapter)
+// - rss                       : RSS/Atom feed — parsed as text by HTMLDataAdapter until a
+//                               dedicated RSS adapter is built
+// - api / json_api            : JSON REST endpoint — fetched as text by HTMLDataAdapter until
+//                               a dedicated JSON adapter is built
+// - playwright_full           : headless browser (PlaywrightDataAdapter)
+// DB source_registry.adapter stores these as plain text; the orchestrator normalises before
+// building a ScrapeTarget so both 'html_snapshot' and 'html_diff' route to HTMLDataAdapter.
 export const ScrapeTargetSchema = z.object({
   id: z.string(),
   country_code: z.string().length(3), // ISO Alpha-3
   source_name: z.string(),
   base_url: z.string(),
   cadence_hours: z.number().default(24),
-  adapter_type: z.enum(['html_snapshot', 'rss', 'api', 'playwright_full']),
+  adapter_type: z.enum(['html_snapshot', 'html_diff', 'rss', 'api', 'json_api', 'playwright_full']),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

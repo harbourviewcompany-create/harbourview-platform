@@ -2,17 +2,16 @@
 // Column mapping (engine name → actual source_registry column):
 //   base_url      ← source_url
 //   country_code  ← iso
-//   adapter_type  ← adapter
-//   cadence_hours ← crawl_cadence  (stored as text e.g. "daily", "hourly" — defaulted to 24h)
+//   adapter_type  ← adapter  (DB values: html_snapshot | rss | api; normalised below)
+//   cadence_hours ← crawl_cadence  (stored as text: "daily" | "hourly" | "weekly" | "monthly")
 // source_snapshots: raw_html → captured_text, content_hash → raw_html_hash, error_log → error_message
 // hv_import_staging: source_id → source_record_id, country_code → proposed_country_iso,
 //                    raw_text → raw_payload (jsonb), processing_status → status
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { IDataAdapter, ScrapeTarget, ScraperResult } from './types';
+import { ScrapeTarget, ScraperResult, IDataAdapter } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
-import { RSSDataAdapter } from './adapters/rss-fetcher';
-import { APIDataAdapter } from './adapters/api-fetcher';
+import { PlaywrightDataAdapter } from './adapters/playwright-fetcher';
 
 interface SourceRegistryRow {
   id: string;
@@ -27,27 +26,35 @@ interface SourceRegistryRow {
   locked_until: string | null;
 }
 
+// Normalise the raw `adapter` value stored in source_registry to the canonical
+// adapter_type enum understood by the engine.
+function normaliseAdapterType(raw: string | null): ScrapeTarget['adapter_type'] {
+  switch ((raw ?? '').toLowerCase()) {
+    case 'playwright_full': return 'playwright_full';
+    case 'rss':             return 'rss';
+    case 'api':
+    case 'json_api':        return 'json_api';
+    case 'html_diff':       return 'html_diff';
+    case 'html_snapshot':
+    default:                return 'html_snapshot';
+  }
+}
 
-/** Map the text-encoded crawl_cadence column values to a numeric hours value. */
+// Parse crawl_cadence text → integer hours.
 function parseCadenceHours(raw: string | null): number {
-  if (!raw) return 24
-  switch (raw.toLowerCase().trim()) {
-    case 'hourly':  return 1
-    case 'daily':   return 24
-    case 'weekly':  return 168
-    case 'monthly': return 720
-    default: {
-      const n = parseFloat(raw)
-      return Number.isFinite(n) && n > 0 ? n : 24
-    }
+  switch ((raw ?? '').toLowerCase()) {
+    case 'hourly':  return 1;
+    case 'daily':   return 24;
+    case 'weekly':  return 168;
+    case 'monthly': return 720;
+    default:        return 24; // safe default for unrecognised values
   }
 }
 
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
   private htmlAdapter: HTMLDataAdapter;
-  private rssAdapter: RSSDataAdapter;
-  private apiAdapter: APIDataAdapter;
+  private playwrightAdapter: PlaywrightDataAdapter;
 
   constructor() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -55,32 +62,7 @@ export class IntelligenceOrchestrator {
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
     this.supabase = createClient(url, key, { auth: { persistSession: false } });
     this.htmlAdapter = new HTMLDataAdapter();
-    this.rssAdapter = new RSSDataAdapter();
-    this.apiAdapter = new APIDataAdapter();
-  }
-
-  /**
-   * Picks the adapter for a target's declared adapter_type.
-   * Returns null for playwright_full — there is no headless-browser
-   * capability in this environment yet (source_registry currently has zero
-   * rows set to playwright_full, but the type is kept so it can be assigned
-   * to a future JS-rendered source without a schema change). Returning null
-   * here means runExtraction reports an honest `blocked` result instead of
-   * silently falling back to a fetch method that can't render the page.
-   */
-  private selectAdapter(adapterType: ScrapeTarget['adapter_type']): IDataAdapter | null {
-    switch (adapterType) {
-      case 'rss':
-        return this.rssAdapter;
-      case 'api':
-        return this.apiAdapter;
-      case 'html_snapshot':
-        return this.htmlAdapter;
-      case 'playwright_full':
-        return null;
-      default:
-        return this.htmlAdapter;
-    }
+    this.playwrightAdapter = new PlaywrightDataAdapter();
   }
 
   /** Pull targets due for crawling from source_registry. */
@@ -99,7 +81,7 @@ export class IntelligenceOrchestrator {
       country_code: row.iso || 'GLOBAL',
       source_name: row.source_name,
       base_url: row.source_url,
-      adapter_type: (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
+      adapter_type: normaliseAdapterType(row.adapter),
       cadence_hours: parseCadenceHours(row.crawl_cadence),
     }));
   }
@@ -109,34 +91,43 @@ export class IntelligenceOrchestrator {
     console.log(`Starting ingestion run for ${targets.length} targets...`);
 
     for (const target of targets) {
-      console.log(`[${target.country_code}] Scraping ${target.source_name}...`);
+      console.log(`[${target.country_code}] Scraping ${target.source_name} via ${target.adapter_type}...`);
       let result: ScraperResult;
 
-      const adapter = this.selectAdapter(target.adapter_type);
+      try {
+        // Route to the correct adapter based on adapter_type.
+        // RSS and JSON endpoints don't have dedicated adapters yet — they fall
+        // back to HTMLDataAdapter which fetches the raw text payload and hashes
+        // it. This is sufficient for change-detection until proper parsers land.
+        const adapter: IDataAdapter = (() => {
+          switch (target.adapter_type) {
+            case 'playwright_full':
+              return this.playwrightAdapter;
+            case 'rss':
+              console.log(`  → RSS adapter not yet built; falling back to htmlAdapter for ${target.source_name}`);
+              return this.htmlAdapter;
+            case 'api':
+            case 'json_api':
+              console.log(`  → JSON API adapter not yet built; falling back to htmlAdapter for ${target.source_name}`);
+              return this.htmlAdapter;
+            case 'html_diff':
+            case 'html_snapshot':
+            default:
+              return this.htmlAdapter;
+          }
+        })();
 
-      if (!adapter) {
+        result = await adapter.fetch(target);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         result = {
           target_id: target.id,
           timestamp: new Date().toISOString(),
           raw_content: '',
           content_hash: '',
-          status: 'blocked',
-          error_message: `No adapter implemented for adapter_type "${target.adapter_type}" — headless-browser rendering is not available in this environment yet.`,
+          status: 'failed',
+          error_message: message,
         };
-      } else {
-        try {
-          result = await adapter.fetch(target);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          result = {
-            target_id: target.id,
-            timestamp: new Date().toISOString(),
-            raw_content: '',
-            content_hash: '',
-            status: 'failed',
-            error_message: message,
-          };
-        }
       }
 
       await this.saveSnapshot(result, target);
@@ -145,8 +136,8 @@ export class IntelligenceOrchestrator {
         await this.queueForAIProcessing(result, target);
       }
 
-      // Advance next_crawl_at so this target isn't immediately re-acquired
-      const nextCrawl = new Date(Date.now() + 24 * 3600000).toISOString();
+      // Advance next_crawl_at based on the target's actual cadence.
+      const nextCrawl = new Date(Date.now() + target.cadence_hours * 3600000).toISOString();
       await this.supabase
         .from('source_registry')
         .update({ next_crawl_at: nextCrawl, locked_by: null, locked_until: null })
