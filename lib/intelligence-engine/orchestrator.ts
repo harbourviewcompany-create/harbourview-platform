@@ -136,7 +136,7 @@ export class IntelligenceOrchestrator {
         await this.queueForAIProcessing(result, target);
       }
 
-      // Advance next_crawl_at based on the target's actual cadence.
+      // Advance next_crawl_at by this target's actual cadence (not a blanket 24h)
       const nextCrawl = new Date(Date.now() + target.cadence_hours * 3600000).toISOString();
       await this.supabase
         .from('source_registry')
