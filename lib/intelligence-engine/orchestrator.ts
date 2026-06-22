@@ -9,8 +9,10 @@
 //                    raw_text → raw_payload (jsonb), processing_status → status
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { ScrapeTarget, ScraperResult } from './types';
+import { IDataAdapter, ScrapeTarget, ScraperResult } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
+import { RSSDataAdapter } from './adapters/rss-fetcher';
+import { APIDataAdapter } from './adapters/api-fetcher';
 
 interface SourceRegistryRow {
   id: string;
@@ -28,6 +30,8 @@ interface SourceRegistryRow {
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
   private htmlAdapter: HTMLDataAdapter;
+  private rssAdapter: RSSDataAdapter;
+  private apiAdapter: APIDataAdapter;
 
   constructor() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -35,6 +39,32 @@ export class IntelligenceOrchestrator {
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
     this.supabase = createClient(url, key, { auth: { persistSession: false } });
     this.htmlAdapter = new HTMLDataAdapter();
+    this.rssAdapter = new RSSDataAdapter();
+    this.apiAdapter = new APIDataAdapter();
+  }
+
+  /**
+   * Picks the adapter for a target's declared adapter_type.
+   * Returns null for playwright_full — there is no headless-browser
+   * capability in this environment yet (source_registry currently has zero
+   * rows set to playwright_full, but the type is kept so it can be assigned
+   * to a future JS-rendered source without a schema change). Returning null
+   * here means runExtraction reports an honest `blocked` result instead of
+   * silently falling back to a fetch method that can't render the page.
+   */
+  private selectAdapter(adapterType: ScrapeTarget['adapter_type']): IDataAdapter | null {
+    switch (adapterType) {
+      case 'rss':
+        return this.rssAdapter;
+      case 'api':
+        return this.apiAdapter;
+      case 'html_snapshot':
+        return this.htmlAdapter;
+      case 'playwright_full':
+        return null;
+      default:
+        return this.htmlAdapter;
+    }
   }
 
   /** Pull targets due for crawling from source_registry. */
@@ -53,7 +83,7 @@ export class IntelligenceOrchestrator {
       country_code: row.iso || 'GLOBAL',
       source_name: row.source_name,
       base_url: row.source_url,
-      adapter_type: (row.adapter || 'html_diff') as "html_diff" | "rss" | "json_api" | "playwright_full",
+      adapter_type: (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
       cadence_hours: row.crawl_cadence ? 24 : 24, // cadence stored as text; default 24h
     }));
   }
@@ -66,18 +96,31 @@ export class IntelligenceOrchestrator {
       console.log(`[${target.country_code}] Scraping ${target.source_name}...`);
       let result: ScraperResult;
 
-      try {
-        result = await this.htmlAdapter.fetch(target);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
+      const adapter = this.selectAdapter(target.adapter_type);
+
+      if (!adapter) {
         result = {
           target_id: target.id,
           timestamp: new Date().toISOString(),
           raw_content: '',
           content_hash: '',
-          status: 'failed',
-          error_message: message,
+          status: 'blocked',
+          error_message: `No adapter implemented for adapter_type "${target.adapter_type}" — headless-browser rendering is not available in this environment yet.`,
         };
+      } else {
+        try {
+          result = await adapter.fetch(target);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          result = {
+            target_id: target.id,
+            timestamp: new Date().toISOString(),
+            raw_content: '',
+            content_hash: '',
+            status: 'failed',
+            error_message: message,
+          };
+        }
       }
 
       await this.saveSnapshot(result, target);
