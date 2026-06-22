@@ -29,11 +29,18 @@ export type PublicListing = {
 const SELECT_COLS =
   'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at'
 
+// Public listing pages are read-heavy and change only when an admin publishes.
+// Revalidate every 5 minutes — eliminates the direct DB hit for the vast
+// majority of requests while keeping content fresh enough for commercial use.
+// Auth-gated pages (my-listings, sell) must NOT use this helper — they call
+// Supabase directly with the user session.
+const PUBLIC_LISTING_CACHE: RequestInit = { next: { revalidate: 300 } }
+
 async function queryListings(params: URLSearchParams): Promise<PublicListing[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${TARGET_PUBLIC_VIEW}?${params.toString()}`, {
-      cache: 'no-store',
+      ...PUBLIC_LISTING_CACHE,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -88,8 +95,6 @@ export async function getPublicListingBySlug(slug: string): Promise<PublicListin
  * if the country-scoped query returns nothing.
  */
 // Strict ISO 3166-1 alpha-2 pattern — two uppercase letters only.
-// Validated here so that callers that skip normalisation cannot inject
-// arbitrary PostgREST filter syntax into the `or=` query parameter.
 const ISO2_RE = /^[A-Z]{2}$/
 
 export async function getListingsBySections(
@@ -102,9 +107,6 @@ export async function getListingsBySections(
   const p = baseParams(limit)
   p.set('marketplace_section', `in.(${sections.join(',')})`)
 
-  // Guard: only apply the country filter when the code is a valid ISO2.
-  // An invalid/subnational code (e.g. "US-GA") silently falls through to the
-  // unfiltered global query rather than injecting into the PostgREST filter.
   const safeIso2 = countryIso2 && ISO2_RE.test(countryIso2.trim().toUpperCase())
     ? countryIso2.trim().toUpperCase()
     : null
@@ -115,7 +117,6 @@ export async function getListingsBySections(
 
   const rows = await queryListings(p)
 
-  // Country filter returned nothing — fall back to unfiltered
   if (countryIso2 && rows.length === 0) {
     const fallback = baseParams(limit)
     fallback.set('marketplace_section', `in.(${sections.join(',')})`)
