@@ -1,3 +1,59 @@
+## Session: Jun 22 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — PR triage, data seeding, open PR cleanup
+
+| Action | PR | Detail |
+|---|---|---|
+| Merged #794 (globe test) | ✅ merged | Russia winding regression test — was draft, marked ready, merged |
+| Rebased + merged #795 | ✅ merged | Genetics query column names, HubPanel DealBoard columns, orchestrator cadence comment — 1 trivial conflict resolved |
+| Rebased + merged #787 | ✅ merged | Sources registry 348 → 516 (+168 sources globally) — was draft, marked ready, merged |
+| Cherry-picked + merged #797 | ✅ merged | 193-country cannabis briefings (6 migration batches) + education CPD fields + drug_interaction_reference claim type. PR #765 (original branch) had 2746 unique commits from fork — cherry-pick was only viable strategy |
+| Seeded genetics directory | ✅ merged #798 | 12 cultivar passports, 6 genetics profiles, 10 country opportunities, 6 service providers — `cultivar_passports` was 0 rows per Jun 21 snapshot |
+| Closed stale #765 | ✅ closed | Its content fully in via #797; explained in closing comment |
+
+### Data snapshot after this session
+
+| Table | Before | After |
+|---|---|---|
+| `jurisdiction_briefings` | ~20 (active markets only) | ~213 (193 UN member states seeded) |
+| `cultivar_passports` | 0 | 12 public passports |
+| `genetics_profiles` | 0 | 6 breeder entities |
+| `cultivar_country_opportunities` | 0 | 10 cross-market listings |
+| `genetics_service_providers` | 0 | 6 public service listings |
+| `source_registry` sources | 348 | 516 (+168) |
+| `education_modules` cpd fields | missing | added (cpd_accreditation_body, cpd_credit_hours, cpd_jurisdiction) |
+
+### Open PRs remaining
+
+| PR | Branch | State | Action |
+|---|---|---|---|
+| #733 | lucide-react 0.x→1.18 | open | 🔴 HOLD — major icon API rewrite |
+| #732 | vitest 2→4 | open | 🔴 HOLD — major breaking API changes |
+| #726 | tailwindcss 3→4 | open | 🔴 HOLD — major, breaks design system |
+| #724 | eslint 9→10 | open | 🔴 HOLD — major, breaking rule changes |
+
+All four remaining open PRs are held major-version Dependabot bumps. Nothing actionable without dedicated upgrade work.
+
+### Blockers (carried, unchanged this session)
+
+| Blocker | Severity |
+|---|---|
+| Supabase Preview CI (`Remote migration versions not found`) | 🔴 P0 |
+| Workers Build (Cloudflare) failing | 🟡 P1 |
+| Google Cloud Build (×2) failing | 🟡 P1 |
+
+### Next priorities
+
+1. **Fix Supabase migration drift** — still the P0 blocker for the preview pipeline.
+2. **Diagnose Cloudflare Workers Build** — failing on main since Jun 18.
+3. **Admin review UI for pending `hv_professionals` / `supplier_profiles`** — applications land as `status:'pending'` with no dedicated admin list/approve view yet.
+4. **Watchlist rule-builder UI** — `cc_watch_rules` has 2 rows, no UI to manage them.
+5. **Merge the 4 held major Dependabot bumps** when there's a dedicated upgrade session.
+
+---
+
 ## Session: Jun 21 2026
 
 ### Agent: Claude (Sonnet 4.6)
