@@ -1,3 +1,20 @@
+/**
+ * @deprecated This hand-rolled PostgREST client has been superseded by the
+ * official Supabase SDK clients in lib/supabase/server.ts and
+ * lib/harbourview/supabase/service-role.ts.
+ *
+ * Migration path:
+ *   - Server components / route handlers with user sessions → lib/supabase/server.ts createClient()
+ *   - Privileged server operations bypassing RLS → lib/supabase/server.ts createSupabaseServiceClient()
+ *   - Browser / client components → lib/supabase/client.ts createClient()
+ *
+ * This file is retained as a tombstone to prevent import errors while
+ * call sites are migrated. It re-exports a shim that uses the SDK internally.
+ * Remove this file once all imports are updated.
+ */
+import 'server-only'
+import { createClient as createRawClient } from '@supabase/supabase-js'
+
 type SupabaseResponse<T = unknown> = {
   data: T | null
   error: unknown
@@ -68,6 +85,7 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
 
     const response = await fetch(endpoint, {
       method: this.method,
+      // @deprecated use next: { revalidate: N } or cache: 'no-store' explicitly at call sites
       cache: 'no-store',
       headers: {
         apikey: this.key,
@@ -98,6 +116,7 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
   }
 }
 
+/** @deprecated Use lib/supabase/server.ts createClient() instead */
 export function createClient(url: string, key: string) {
   return {
     from<T = unknown>(table: string) {
