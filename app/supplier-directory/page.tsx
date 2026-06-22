@@ -8,7 +8,7 @@ import {
   CATEGORY_LABELS,
 } from '@/lib/server/supplierProfilesQuery'
 
-export const revalidate = 1800
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Supplier Discovery | Harbourview',

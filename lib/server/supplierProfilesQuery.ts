@@ -53,7 +53,10 @@ export async function getApprovedSupplierProfiles(): Promise<SupplierProfile[]> 
       order: 'created_at.desc',
     })
     const res = await fetch(`${SUPABASE_URL}/rest/v1/supplier_profiles?${params}`, {
-      next: { revalidate: 1800 },
+      // Admin approve/reject (app/api/admin/applications/suppliers/[id]) needs
+      // this to reflect immediately, not after a stale-cache window — the page
+      // itself is force-dynamic for the same reason. Mirrors app/professionals/page.tsx.
+      cache: 'no-store',
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
     })
     if (!res.ok) return []
