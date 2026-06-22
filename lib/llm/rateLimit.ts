@@ -44,10 +44,10 @@ async function checkRateLimitDB(
   now: Date,
 ): Promise<RateLimitResult | null> {
   try {
-    const { createHarbourviewServiceRoleSupabaseClient } = await import(
-      '@/lib/harbourview/supabase/service-role'
+    const { createSupabaseServiceClient } = await import(
+      '@/lib/supabase/server'
     )
-    const supabase = createHarbourviewServiceRoleSupabaseClient()
+    const supabase = await createSupabaseServiceClient()
 
     const window = windowStart(now)
     const resetAt = new Date(window)
