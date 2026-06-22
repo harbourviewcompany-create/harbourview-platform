@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getAllPlaybooks, DIFFICULTY_LABEL, DIFFICULTY_COLOR } from '@/lib/intelligence/jurisdictionPlaybooks'
+import type { JurisdictionPlaybook, PlaybookRegulator } from '@/lib/intelligence/jurisdictionPlaybooks'
 
 export const metadata: Metadata = {
   title: 'Jurisdiction Entry Playbooks — Cannabis Market Entry Intelligence | Harbourview',
@@ -56,7 +57,7 @@ export default async function PlaybooksIndexPage() {
         </header>
 
         <div className="pb-grid">
-          {playbooks.map(pb => {
+          {playbooks.map((pb: JurisdictionPlaybook) => {
             const flag = COUNTRY_FLAGS[pb.country_iso2] ?? '🌐'
             const color = DIFFICULTY_COLOR[pb.difficulty] ?? '#d4a84b'
             return (
@@ -91,7 +92,7 @@ export default async function PlaybooksIndexPage() {
 
                 {pb.key_regulators.length > 0 && (
                   <div className="pb-regulators">
-                    {pb.key_regulators.slice(0, 2).map(r => (
+                    {pb.key_regulators.slice(0, 2).map((r: PlaybookRegulator) => (
                       <span key={r.name} className="pb-regulator-chip">{r.name}</span>
                     ))}
                   </div>
