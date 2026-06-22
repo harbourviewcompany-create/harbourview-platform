@@ -91,3 +91,32 @@ export async function getPlaybook(iso2: string): Promise<JurisdictionPlaybook | 
     return null
   }
 }
+
+export async function getAllPlaybooks(): Promise<JurisdictionPlaybook[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return []
+
+  try {
+    const params = new URLSearchParams({
+      select: PLAYBOOK_COLUMNS,
+      status: 'eq.published',
+      order: 'country_name.asc',
+    })
+
+    const res = await fetch(`${url}/rest/v1/jurisdiction_playbooks?${params}`, {
+      next: { revalidate: PLAYBOOK_REVALIDATE },
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+      },
+    })
+
+    if (!res.ok) return []
+    const rows = await res.json()
+    return (rows as JurisdictionPlaybook[]) ?? []
+  } catch {
+    return []
+  }
+}
