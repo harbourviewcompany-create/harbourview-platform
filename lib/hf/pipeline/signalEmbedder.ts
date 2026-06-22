@@ -76,34 +76,39 @@ export async function embedUnprocessedSignals(
 
   let embedded = 0, skipped = 0, failed = 0
 
-  // ── 2. Embed + write back one at a time (matches intelligence-embed pattern) ─
-  for (const signal of rows) {
-    const inputText = buildEmbedInput(signal).trim()
-    if (inputText.length < 8) { skipped++; continue }
+  // ── 2. Embed + write back in parallel batches of 4 ──────────────────────────
+  // Reduces worst-case wall time by ~75% vs serial, within the 300s cron budget.
+  const PARALLEL = 4
+  for (let i = 0; i < rows.length; i += PARALLEL) {
+    const chunk = rows.slice(i, i + PARALLEL)
+    await Promise.all(chunk.map(async (signal) => {
+      const inputText = buildEmbedInput(signal).trim()
+      if (inputText.length < 8) { skipped++; return }
 
-    try {
-      const vector = await embedBGEM3(inputText)
+      try {
+        const vector = await embedBGEM3(inputText)
 
-      const { error: updateErr } = await supabase
-        .from('signals')
-        .update({
-          embedding_1024:  toVectorLiteral(vector),
-          embedding_model: 'bge-m3',
-          embedded_at:     new Date().toISOString(),
-        })
-        .eq('id', signal.id)
+        const { error: updateErr } = await supabase
+          .from('signals')
+          .update({
+            embedding_1024:  toVectorLiteral(vector),
+            embedding_model: 'bge-m3',
+            embedded_at:     new Date().toISOString(),
+          })
+          .eq('id', signal.id)
 
-      if (updateErr) {
-        console.error(`[signalEmbedder] write failed (id=${signal.id}):`, updateErr.message)
+        if (updateErr) {
+          console.error(`[signalEmbedder] write failed (id=${signal.id}):`, updateErr.message)
+          failed++
+        } else {
+          embedded++
+        }
+      } catch (err) {
+        console.error(`[signalEmbedder] embed failed (id=${signal.id}):`, err)
         failed++
-      } else {
-        embedded++
       }
-    } catch (err) {
-      console.error(`[signalEmbedder] embed failed (id=${signal.id}):`, err)
-      failed++
-    }
-  }
+    }))  // end Promise.all chunk
+  }  // end batch loop
 
   const summary = { total: rows.length, embedded, skipped, failed }
   console.info('[signalEmbedder] run complete', summary)
