@@ -122,9 +122,10 @@ export class WorkerNode {
     await this.supabase.from('source_snapshots').insert({
       source_id: result.target_id,
       captured_at: result.timestamp,
-      raw_html: result.raw_content,
-      content_hash: result.content_hash,
+      captured_text: result.raw_content,       // was: raw_html (column does not exist)
+      raw_html_hash: result.content_hash,      // was: content_hash (column does not exist)
       processing_status: 'pending_extraction', // Queued for AI pipeline phase Next
+      fetch_status: 'ok',
     });
   }
 
@@ -134,15 +135,15 @@ export class WorkerNode {
       .from('hv_import_staging')
       .select('id')
       .eq('content_hash', result.content_hash)
-      .single();
+      .maybeSingle();
 
     if (!data) {
       await this.supabase.from('hv_import_staging').insert({
-        source_id: target.id,
-        country_code: target.country_code,
+        source_record_id: target.id,                 // was: source_id (column does not exist)
+        proposed_country_iso: target.country_code,   // was: country_code (column does not exist)
         content_hash: result.content_hash,
-        raw_text: result.raw_content,
-        processing_status: 'staged',
+        raw_payload: { text: result.raw_content },    // was: raw_text (column does not exist; raw_payload is jsonb)
+        status: 'staged',                             // was: processing_status (column does not exist)
       });
     }
   }
