@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getPublicCultivarPassportBySlug } from '@/lib/genetics/demoData'
+import { getPublicCultivarPassportBySlug } from '@/lib/genetics/queries'
 
 export const metadata: Metadata = { title: 'Cultivar Passport | Harbourview' }
 
 export default async function CultivarPassportPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const passport = getPublicCultivarPassportBySlug(slug)
+  const passport = await getPublicCultivarPassportBySlug(slug)
   if (!passport) notFound()
 
   return (

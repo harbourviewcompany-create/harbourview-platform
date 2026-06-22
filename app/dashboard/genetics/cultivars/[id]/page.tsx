@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation'
-import { getInternalCultivarPassports } from '@/lib/genetics/demoData'
+import { getInternalCultivarPassports } from '@/lib/genetics/queries'
 
 export default async function DashboardCultivarPassportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const passport = getInternalCultivarPassports().find((item) => item.id === id)
+  const passports = await getInternalCultivarPassports()
+  const passport = passports.find((item) => item.id === id)
   if (!passport) notFound()
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-10 text-[#F5F1E8] md:px-10">

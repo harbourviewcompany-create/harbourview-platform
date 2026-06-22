@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPublicServiceProviders } from '@/lib/genetics/demoData'
+import { getPublicServiceProviders } from '@/lib/genetics/queries'
 
 export const metadata: Metadata = { title: 'Genetics Service Providers | Harbourview' }
 
-export default function GeneticsServicesPage() {
-  const providers = getPublicServiceProviders()
+export default async function GeneticsServicesPage() {
+  const providers = await getPublicServiceProviders()
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-12 text-[#F5F1E8] md:px-10">
       <section className="mx-auto max-w-6xl space-y-6">

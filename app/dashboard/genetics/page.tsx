@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getInternalCultivarPassports } from '@/lib/genetics/demoData'
+import { getInternalCultivarPassports } from '@/lib/genetics/queries'
 
 export const metadata: Metadata = { title: 'Genetics Dashboard | Harbourview' }
 
-export default function DashboardGeneticsPage() {
-  const passports = getInternalCultivarPassports()
+export default async function DashboardGeneticsPage() {
+  const passports = await getInternalCultivarPassports()
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-10 text-[#F5F1E8] md:px-10">
       <section className="mx-auto max-w-6xl space-y-6">

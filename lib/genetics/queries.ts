@@ -1,0 +1,279 @@
+import 'server-only'
+import { createClient, createSupabaseServiceClient } from '@/lib/supabase/server'
+import {
+  toAdminGeneticsReviewDTO,
+  toInternalCultivarPassportDTO,
+  toPublicCultivarPassportDTO,
+  type PublicCultivarPassportDTO,
+} from './dto'
+import type {
+  CultivarAliasRow,
+  CultivarCountryOpportunityRow,
+  CultivarPassportRow,
+  GeneticsAccessRequestRow,
+  GeneticsAuditEventRow,
+  GeneticsClaimReviewRow,
+  GeneticsCollaborationProjectRow,
+  GeneticsEvidenceItemRow,
+  GeneticsProfileRow,
+  GeneticsServiceProviderRow,
+} from './types'
+
+// Live Supabase-backed replacement for lib/genetics/demoData.ts.
+// Public functions rely on RLS (cultivar_passports_public_read, etc.) via the
+// session-aware client — they never use the service-role client, matching the
+// boundary enforced by tests/genetics/cultivarPassportNetwork.test.tsx.
+// Dashboard functions also use the session-aware client so RLS scopes results
+// to the signed-in user's own profiles/passports (or admin/reviewer roles).
+// Only the admin review queue — gated behind requireAdminAuth() upstream —
+// uses the service-role client to see the full unfiltered queue.
+
+type SupabaseLike = Awaited<ReturnType<typeof createClient>>
+
+async function fetchRelatedRowsForCultivars(supabase: SupabaseLike, cultivarIds: string[]) {
+  if (cultivarIds.length === 0) {
+    return {
+      aliases: [] as CultivarAliasRow[],
+      opportunities: [] as CultivarCountryOpportunityRow[],
+      evidence: [] as GeneticsEvidenceItemRow[],
+      collaborations: [] as GeneticsCollaborationProjectRow[],
+    }
+  }
+
+  const [aliasesRes, opportunitiesRes, evidenceRes, collaborationsRes] = await Promise.all([
+    supabase.from('cultivar_aliases').select('*').in('cultivar_id', cultivarIds),
+    supabase.from('cultivar_country_opportunities').select('*').in('cultivar_id', cultivarIds),
+    supabase.from('genetics_evidence_items').select('*').in('cultivar_id', cultivarIds),
+    supabase.from('genetics_collaboration_projects').select('*').in('linked_cultivar_id', cultivarIds),
+  ])
+
+  if (aliasesRes.error) console.error('[genetics_queries] cultivar_aliases fetch failed', aliasesRes.error.message)
+  if (opportunitiesRes.error) console.error('[genetics_queries] cultivar_country_opportunities fetch failed', opportunitiesRes.error.message)
+  if (evidenceRes.error) console.error('[genetics_queries] genetics_evidence_items fetch failed', evidenceRes.error.message)
+  if (collaborationsRes.error) console.error('[genetics_queries] genetics_collaboration_projects fetch failed', collaborationsRes.error.message)
+
+  return {
+    aliases: (aliasesRes.data ?? []) as CultivarAliasRow[],
+    opportunities: (opportunitiesRes.data ?? []) as CultivarCountryOpportunityRow[],
+    evidence: (evidenceRes.data ?? []) as GeneticsEvidenceItemRow[],
+    collaborations: (collaborationsRes.data ?? []) as GeneticsCollaborationProjectRow[],
+  }
+}
+
+async function fetchProfilesByIds(supabase: SupabaseLike, ids: Array<string | null>) {
+  const uniqueIds = [...new Set(ids.filter((id): id is string => Boolean(id)))]
+  const map = new Map<string, GeneticsProfileRow>()
+  if (uniqueIds.length === 0) return map
+
+  const { data, error } = await supabase.from('genetics_profiles').select('*').in('id', uniqueIds)
+  if (error) {
+    console.error('[genetics_queries] genetics_profiles fetch failed', error.message)
+    return map
+  }
+  for (const row of (data ?? []) as GeneticsProfileRow[]) map.set(row.id, row)
+  return map
+}
+
+function buildPublicDto(
+  cultivar: CultivarPassportRow,
+  related: {
+    aliases: CultivarAliasRow[]
+    opportunities: CultivarCountryOpportunityRow[]
+    evidence: GeneticsEvidenceItemRow[]
+    collaborations: GeneticsCollaborationProjectRow[]
+  },
+  profiles: Map<string, GeneticsProfileRow>,
+): PublicCultivarPassportDTO {
+  return toPublicCultivarPassportDTO({
+    cultivar,
+    aliases: related.aliases.filter((alias) => alias.cultivar_id === cultivar.id),
+    breeder: cultivar.breeder_profile_id ? profiles.get(cultivar.breeder_profile_id) ?? null : null,
+    rightsHolder: cultivar.rights_holder_profile_id ? profiles.get(cultivar.rights_holder_profile_id) ?? null : null,
+    opportunities: related.opportunities.filter((opportunity) => opportunity.cultivar_id === cultivar.id),
+    evidence: related.evidence.filter((item) => item.cultivar_id === cultivar.id),
+    collaborations: related.collaborations.filter((project) => project.linked_cultivar_id === cultivar.id),
+  })
+}
+
+/** Public passport list — used by /genetics and /genetics/cultivars. RLS scopes to is_public rows only. */
+export async function getPublicCultivarPassports(): Promise<PublicCultivarPassportDTO[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('cultivar_passports')
+    .select('*')
+    .eq('is_public', true)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[genetics_queries] getPublicCultivarPassports failed', error.message)
+    return []
+  }
+
+  const cultivars = (data ?? []) as CultivarPassportRow[]
+  if (cultivars.length === 0) return []
+
+  const ids = cultivars.map((cultivar) => cultivar.id)
+  const related = await fetchRelatedRowsForCultivars(supabase, ids)
+  const profileIds = cultivars.flatMap((cultivar) => [cultivar.breeder_profile_id, cultivar.rights_holder_profile_id])
+  const profiles = await fetchProfilesByIds(supabase, profileIds)
+
+  return cultivars.map((cultivar) => buildPublicDto(cultivar, related, profiles))
+}
+
+/** Single public passport by slug — used by /genetics/cultivars/[slug]. */
+export async function getPublicCultivarPassportBySlug(slug: string): Promise<PublicCultivarPassportDTO | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('cultivar_passports')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_public', true)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[genetics_queries] getPublicCultivarPassportBySlug failed', error.message)
+    return null
+  }
+  if (!data) return null
+
+  const cultivar = data as CultivarPassportRow
+  const related = await fetchRelatedRowsForCultivars(supabase, [cultivar.id])
+  const profiles = await fetchProfilesByIds(supabase, [cultivar.breeder_profile_id, cultivar.rights_holder_profile_id])
+
+  return buildPublicDto(cultivar, related, profiles)
+}
+
+/**
+ * Dashboard-scoped passports (internal view) — used by /dashboard/genetics/*.
+ * Uses the session-aware client so RLS (cultivar_passports_owner_all, etc.)
+ * naturally restricts rows to the signed-in user's own passports, or to the
+ * full set for admin/reviewer roles. Unlike the public lookup, this does not
+ * require is_public — a draft/private passport must still be visible to its
+ * own owner in their dashboard.
+ */
+export async function getInternalCultivarPassports() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('cultivar_passports').select('*').order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[genetics_queries] getInternalCultivarPassports failed', error.message)
+    return []
+  }
+
+  const cultivars = (data ?? []) as CultivarPassportRow[]
+  if (cultivars.length === 0) return []
+
+  const ids = cultivars.map((cultivar) => cultivar.id)
+  const related = await fetchRelatedRowsForCultivars(supabase, ids)
+  const profileIds = cultivars.flatMap((cultivar) => [cultivar.breeder_profile_id, cultivar.rights_holder_profile_id])
+  const profiles = await fetchProfilesByIds(supabase, profileIds)
+
+  const { data: accessRequestData, error: accessRequestError } = await supabase
+    .from('genetics_access_requests')
+    .select('*')
+    .in('cultivar_id', ids)
+  if (accessRequestError) console.error('[genetics_queries] genetics_access_requests fetch failed', accessRequestError.message)
+  const accessRequests = (accessRequestData ?? []) as GeneticsAccessRequestRow[]
+
+  return cultivars.map((cultivar) => {
+    const publicDto = buildPublicDto(cultivar, related, profiles)
+    return toInternalCultivarPassportDTO(publicDto, {
+      cultivar,
+      evidence: related.evidence.filter((item) => item.cultivar_id === cultivar.id),
+      accessRequests: accessRequests.filter((request) => request.cultivar_id === cultivar.id),
+      opportunities: related.opportunities.filter((opportunity) => opportunity.cultivar_id === cultivar.id),
+    })
+  })
+}
+
+/**
+ * Admin claim-review queue — used by /admin/genetics/review, which already
+ * gates this call behind `await requireAdminAuth()`. Uses the service-role
+ * client so the queue is complete regardless of per-row RLS visibility.
+ */
+export async function getAdminGeneticsReviewQueue() {
+  const supabase = await createSupabaseServiceClient()
+
+  const [cultivarsRes, opportunitiesRes, evidenceRes, accessRequestsRes, claimReviewsRes, auditEventsRes] = await Promise.all([
+    supabase.from('cultivar_passports').select('*'),
+    supabase.from('cultivar_country_opportunities').select('*'),
+    supabase.from('genetics_evidence_items').select('*'),
+    supabase.from('genetics_access_requests').select('*'),
+    supabase.from('genetics_claim_reviews').select('*'),
+    supabase.from('genetics_audit_events').select('*').order('created_at', { ascending: false }).limit(200),
+  ])
+
+  for (const [label, res] of Object.entries({
+    cultivars: cultivarsRes,
+    opportunities: opportunitiesRes,
+    evidence: evidenceRes,
+    accessRequests: accessRequestsRes,
+    claimReviews: claimReviewsRes,
+    auditEvents: auditEventsRes,
+  })) {
+    if (res.error) console.error(`[genetics_queries] admin queue fetch failed (${label})`, res.error.message)
+  }
+
+  return toAdminGeneticsReviewDTO({
+    cultivars: (cultivarsRes.data ?? []) as CultivarPassportRow[],
+    opportunities: (opportunitiesRes.data ?? []) as CultivarCountryOpportunityRow[],
+    evidence: (evidenceRes.data ?? []) as GeneticsEvidenceItemRow[],
+    accessRequests: (accessRequestsRes.data ?? []) as GeneticsAccessRequestRow[],
+    claimReviews: (claimReviewsRes.data ?? []) as GeneticsClaimReviewRow[],
+    auditEvents: (auditEventsRes.data ?? []) as GeneticsAuditEventRow[],
+  })
+}
+
+/** Public service-provider directory — used by /genetics/services. */
+export async function getPublicServiceProviders() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('genetics_service_providers').select('*').eq('is_public', true)
+
+  if (error) {
+    console.error('[genetics_queries] getPublicServiceProviders failed', error.message)
+    return []
+  }
+
+  const providers = (data ?? []) as GeneticsServiceProviderRow[]
+  if (providers.length === 0) return []
+
+  const profiles = await fetchProfilesByIds(supabase, providers.map((provider) => provider.profile_id))
+
+  return providers.map((provider) => ({
+    id: provider.id,
+    displayName: profiles.get(provider.profile_id)?.display_name ?? 'Harbourview-listed provider',
+    service_category: provider.service_category,
+    service_summary: provider.service_summary,
+    country_code: provider.country_code,
+    jurisdiction_label: provider.jurisdiction_label,
+    verification_level: provider.verification_level,
+  }))
+}
+
+/** Public collaboration-project list — used by /genetics/collaboration. */
+export async function getPublicCollaborationProjects() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('genetics_collaboration_projects')
+    .select('*')
+    .eq('visibility', 'public_summary')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[genetics_queries] getPublicCollaborationProjects failed', error.message)
+    return []
+  }
+
+  return ((data ?? []) as GeneticsCollaborationProjectRow[]).map((project) => ({
+    id: project.id,
+    slug: project.slug,
+    title: project.title,
+    projectType: project.project_type,
+    status: project.status,
+    countryCode: project.country_code,
+    jurisdictionLabel: project.jurisdiction_label,
+    publicSummary: project.public_summary,
+    evidenceNeeded: project.evidence_needed,
+    cta: 'Start collaboration' as const,
+  }))
+}

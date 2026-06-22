@@ -1,10 +1,27 @@
 import React from 'react'
 ;(globalThis as { React?: typeof React }).React = React
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
+
+// app/genetics/cultivars/[slug]/page.tsx now reads from lib/genetics/queries.ts
+// (live Supabase). Mock it here so this render test exercises the real page
+// component against the same fixture rows demoData.ts already provides,
+// without requiring a live DB connection in the unit test environment.
+vi.mock('@/lib/genetics/queries', async () => {
+  const demoData = await vi.importActual<typeof import('@/lib/genetics/demoData')>('@/lib/genetics/demoData')
+  return {
+    getPublicCultivarPassportBySlug: async (slug: string) => demoData.getPublicCultivarPassportBySlug(slug),
+    getPublicCultivarPassports: async () => demoData.getPublicCultivarPassports(),
+    getPublicServiceProviders: async () => demoData.getPublicServiceProviders(),
+    getPublicCollaborationProjects: async () => demoData.getPublicCollaborationProjects(),
+    getInternalCultivarPassports: async () => demoData.getInternalCultivarPassports(),
+    getAdminGeneticsReviewQueue: async () => demoData.getAdminGeneticsReviewQueue(),
+  }
+})
+
 import CultivarPassportPage from '@/app/genetics/cultivars/[slug]/page'
 import { demoAccessGrants, demoAccessRequests, demoEvidenceItems, demoGeneticsProfiles, getAdminGeneticsReviewQueue, getInternalCultivarPassports, getPublicCultivarPassportBySlug, getPublicCultivarPassports } from '@/lib/genetics/demoData'
 import { approvedRequestDoesNotGrantEvidence, grantAllowsEvidence } from '@/lib/genetics/accessGrants'
@@ -116,7 +133,7 @@ describe('Cultivar Passport Network P0 DTO boundaries', () => {
 
 
   it('uses explicit SQL grants and private storage policy instead of broad approved-request evidence access', () => {
-    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260607120000_cultivar_passport_network_p0.sql'), 'utf8')
+    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260607130000_cultivar_passport_network_p0.sql'), 'utf8')
     expect(migration).toContain('create table genetics_access_grants')
     expect(migration).toContain('create table genetics_claims')
     expect(migration).toContain('genetics_evidence_items_grant_read')

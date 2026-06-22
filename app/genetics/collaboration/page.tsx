@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPublicCollaborationProjects } from '@/lib/genetics/demoData'
+import { getPublicCollaborationProjects } from '@/lib/genetics/queries'
 
 export const metadata: Metadata = { title: 'Genetics Collaboration | Harbourview' }
 
-export default function GeneticsCollaborationPage() {
-  const projects = getPublicCollaborationProjects()
+export default async function GeneticsCollaborationPage() {
+  const projects = await getPublicCollaborationProjects()
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-12 text-[#F5F1E8] md:px-10">
       <section className="mx-auto max-w-6xl space-y-6">

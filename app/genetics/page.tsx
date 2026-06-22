@@ -1,16 +1,18 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/demoData'
+import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 
 export const metadata: Metadata = {
   title: 'Cultivar Passport Network | Harbourview',
   description: 'Controlled genetics passport, evidence, access, service-provider, and collaboration routing for regulated cannabis operators.',
 }
 
-export default function GeneticsLandingPage() {
-  const cultivars = getPublicCultivarPassports()
-  const services = getPublicServiceProviders()
-  const collaborations = getPublicCollaborationProjects()
+export default async function GeneticsLandingPage() {
+  const [cultivars, services, collaborations] = await Promise.all([
+    getPublicCultivarPassports(),
+    getPublicServiceProviders(),
+    getPublicCollaborationProjects(),
+  ])
 
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-12 text-[#F5F1E8] md:px-10">
