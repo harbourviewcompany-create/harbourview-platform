@@ -1,7 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
+import { createClient as createRawClient } from '@supabase/supabase-js'
 
+// ── Session-aware server client (cookie-passing, respects RLS) ────────────────
+// Use this for all server components, route handlers, and server actions that
+// operate on behalf of an authenticated user. Queries run under the user's JWT
+// so RLS policies apply correctly.
 export async function createClient() {
   const cookieStore = await cookies()
 
@@ -15,11 +20,12 @@ export async function createClient() {
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2]))
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
+            )
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Called from a Server Component — safe to ignore since middleware
+            // handles session refresh.
           }
         },
       },
@@ -27,20 +33,18 @@ export async function createClient() {
   )
 }
 
-// ── Passport MVP additions ─────────────────────────────────────────────────
-// These aliases/helpers are used by the passport API routes.
-// createClient remains the canonical export for all existing server components.
-
 /** Alias for createClient — used by passport and org routes */
 export const createSupabaseServerClient = createClient
 
-/** Service-role client for privileged server operations */
+// ── Service-role client (bypasses RLS — server-only, privileged operations) ──
+// Use only where RLS must be bypassed (admin queues, cron jobs, seeding).
+// Always gate call sites with an explicit auth check (requireAdminAuth, CRON_SECRET, etc.)
+// before calling this client — it has full database access.
 export async function createSupabaseServiceClient() {
-  const { createClient: createSbClient } = await import('@supabase/supabase-js')
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('[harbourview] SUPABASE_SERVICE_ROLE_KEY not configured')
-  return createSbClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createRawClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
 /** Returns the authenticated user or null — short-circuits auth boilerplate in route handlers */
