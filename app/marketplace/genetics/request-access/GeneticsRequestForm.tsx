@@ -86,6 +86,21 @@ export default function RequestGeneticsAccessPage() {
         'GENETICS',
       )
       setState({ status: result.ok ? 'success' : 'error', message: result.message })
+
+      // Best-effort: also feed the scored introduction-routing engine so admin/operator
+      // review queues (genetics_routing_records/events) reflect this request. Failures
+      // here never affect the form's success/error state above.
+      fetch('/api/genetics/access-request', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company, email, country, operatorType, licenceStatus,
+          targetMarket, timeline, profileOfInterest, requestDetail,
+        }),
+      }).catch(() => {
+        // intentionally swallowed — see comment above
+      })
     })
   }
 
