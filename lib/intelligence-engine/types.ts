@@ -16,7 +16,11 @@ export const ScrapeTargetSchema = z.object({
   source_name: z.string(),
   base_url: z.string(),
   cadence_hours: z.number().default(24),
-  adapter_type: z.enum(['html_diff', 'rss', 'json_api', 'playwright_full']),
+  // Confirmed live via source_registry.adapter (2026-06-21): values in production are
+  // 'html_snapshot' (530 rows), 'rss' (190 rows), 'api' (7 rows). 'playwright_full' is
+  // reserved for future JS-rendered sources — 0 live rows use it today, and the adapter
+  // backing it (adapters/playwright-fetcher.ts) is a mock pending real implementation.
+  adapter_type: z.enum(['html_snapshot', 'rss', 'api', 'playwright_full']),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

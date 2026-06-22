@@ -11,6 +11,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ScrapeTarget, ScraperResult } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
+import { PlaywrightDataAdapter } from './adapters/playwright-fetcher';
 
 interface SourceRegistryRow {
   id: string;
@@ -28,6 +29,12 @@ interface SourceRegistryRow {
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
   private htmlAdapter: HTMLDataAdapter;
+  // NOTE: PlaywrightDataAdapter is currently a mock (see adapters/playwright-fetcher.ts).
+  // Routing playwright_full targets here is correct, but until that adapter has a real
+  // headless-browser implementation, any such target will "succeed" with placeholder
+  // content rather than failing loudly. 0 live source_registry rows use playwright_full
+  // today, so this is a documented future-readiness gap, not an active regression.
+  private playwrightAdapter: PlaywrightDataAdapter;
 
   constructor() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -35,6 +42,7 @@ export class IntelligenceOrchestrator {
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
     this.supabase = createClient(url, key, { auth: { persistSession: false } });
     this.htmlAdapter = new HTMLDataAdapter();
+    this.playwrightAdapter = new PlaywrightDataAdapter();
   }
 
   /** Pull targets due for crawling from source_registry. */
@@ -53,7 +61,7 @@ export class IntelligenceOrchestrator {
       country_code: row.iso || 'GLOBAL',
       source_name: row.source_name,
       base_url: row.source_url,
-      adapter_type: (row.adapter || 'html_diff') as "html_diff" | "rss" | "json_api" | "playwright_full",
+      adapter_type: (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
       cadence_hours: row.crawl_cadence ? 24 : 24, // cadence stored as text; default 24h
     }));
   }
@@ -63,11 +71,16 @@ export class IntelligenceOrchestrator {
     console.log(`Starting ingestion run for ${targets.length} targets...`);
 
     for (const target of targets) {
-      console.log(`[${target.country_code}] Scraping ${target.source_name}...`);
+      console.log(`[${target.country_code}] Scraping ${target.source_name} [${target.adapter_type}]...`);
       let result: ScraperResult;
 
+      // Route by adapter_type. html_snapshot/rss/api are all plain-HTTP-GET fetches at
+      // this layer (parsing/extraction differences belong downstream, not here) —
+      // playwright_full is the only type requiring a different fetch mechanism.
+      const adapter = target.adapter_type === 'playwright_full' ? this.playwrightAdapter : this.htmlAdapter;
+
       try {
-        result = await this.htmlAdapter.fetch(target);
+        result = await adapter.fetch(target);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         result = {
