@@ -1,5 +1,5 @@
 import 'server-only'
-import { createHarbourviewServiceRoleSupabaseClient } from '@/lib/harbourview/supabase/service-role'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { grantAllowsEvidence } from './accessGrants'
 import type { GeneticsAccessGrantRow, GeneticsEvidenceItemRow } from './types'
 
@@ -18,7 +18,7 @@ export async function createGeneticsEvidenceSignedUrl(input: {
   const allowed = input.grants.some((grant) => grantAllowsEvidence(grant, input.evidence, input.granteeProfileId))
   if (!allowed) return { ok: false as const, reason: 'missing_explicit_grant' }
 
-  const supabase = createHarbourviewServiceRoleSupabaseClient()
+  const supabase = await createSupabaseServiceClient()
   const { data, error } = await supabase.storage
     .from(GENETICS_EVIDENCE_PRIVATE_BUCKET)
     .createSignedUrl(input.evidence.file_path, GENETICS_EVIDENCE_SIGNED_URL_TTL_SECONDS)
