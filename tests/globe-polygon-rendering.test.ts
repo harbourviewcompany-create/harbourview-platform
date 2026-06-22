@@ -91,7 +91,8 @@ describe('Harbourview globe polygon rendering stage', () => {
 
     expect(smallIslandDistance).toBeLessThan(continentalDistance)
     expect(continentalDistance).toBeLessThan(giantDistance)
-    expect(smallIslandDistance).toBeGreaterThanOrEqual(4.4)
+    // MIN_FOCUS_DISTANCE = 3.2 (intentionally allows tight zoom for tiny countries like Luxembourg)
+    expect(smallIslandDistance).toBeGreaterThanOrEqual(3.2)
     expect(giantDistance).toBeLessThanOrEqual(6.8)
   })
 
@@ -183,6 +184,43 @@ describe('Harbourview globe polygon rendering stage', () => {
 
     const geometry = createCountryBufferGeometry(russia!, {
       geometryMode: 'extruded',
+      simplifyTolerance: 0.04,
+    })
+
+    const posAttr = geometry.getAttribute('position')
+    const idxAttr = geometry.index
+    expect(posAttr).toBeTruthy()
+    expect(idxAttr).toBeTruthy()
+
+    const pa = posAttr.array as Float32Array
+    const ia = idxAttr!.array as Uint16Array | Uint32Array
+    let inward = 0
+    for (let t = 0; t < ia.length; t += 3) {
+      const a = ia[t], b = ia[t + 1], c = ia[t + 2]
+      const ax = pa[a * 3], ay = pa[a * 3 + 1], az = pa[a * 3 + 2]
+      const bx = pa[b * 3], by = pa[b * 3 + 1], bz = pa[b * 3 + 2]
+      const cx = pa[c * 3], cy = pa[c * 3 + 1], cz = pa[c * 3 + 2]
+      const ex = bx - ax, ey = by - ay, ez = bz - az
+      const fx = cx - ax, fy = cy - ay, fz = cz - az
+      const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx
+      if (nx * nx + ny * ny + nz * nz < 1e-20) continue
+      if (nx * (ax + bx + cx) + ny * (ay + by + cy) + nz * (az + bz + cz) < 0) inward++
+    }
+
+    expect(inward).toBe(0)
+    geometry.dispose()
+  })
+
+  it('produces zero inward-facing triangles for Russia with exact production parameters', () => {
+    const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')
+    expect(russia).toBeTruthy()
+
+    // plateLift=0.026 + extrusionHeight=0.058 + radius=2.35 → topRadius=2.434 (same as default)
+    // bottomRadius differs: 2.376 vs default 2.374 — validates global winding pass at prod values
+    const geometry = createCountryBufferGeometry(russia!, {
+      geometryMode: 'extruded',
+      plateLift: 0.026,
+      extrusionHeight: 0.058,
       simplifyTolerance: 0.04,
     })
 
