@@ -2,21 +2,20 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
 
-const CACHE_BYPASS_VALUE =
-  'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
-
+// Only apply no-store headers to routes that serve authenticated or
+// personalised content. Public informational routes must remain CDN-cacheable.
 function applyNoStoreHeaders(response: NextResponse) {
-  response.headers.set('Cache-Control', CACHE_BYPASS_VALUE)
+  const NO_STORE = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
+  response.headers.set('Cache-Control', NO_STORE)
   response.headers.set('CDN-Cache-Control', 'no-store')
   response.headers.set('Vercel-CDN-Cache-Control', 'no-store')
   response.headers.set('Surrogate-Control', 'no-store')
   response.headers.set('Pragma', 'no-cache')
   response.headers.set('Expires', '0')
-  response.headers.set('X-Harbourview-Runtime-Cache-Bypass', 'pr75-pr76-production-route-cleanup-2026-05-06')
   return response
 }
 
-// Routes that require authentication
+// Routes that require authentication — middleware actively checks session.
 const PROTECTED_PREFIXES = [
   '/account',
   '/vault',
@@ -33,7 +32,7 @@ export async function middleware(request: NextRequest) {
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 
-  // Legacy redirects
+  // Legacy redirects — stamp no-store because redirects shouldn't be cached
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
     '/marketplace/wanted-requests': '/marketplace/wanted',
@@ -96,28 +95,33 @@ export async function middleware(request: NextRequest) {
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
+    // Protected and authenticated — prevent caching of personalised responses
     return applyNoStoreHeaders(response)
   }
 
-  return applyNoStoreHeaders(NextResponse.next())
+  // Public route — do NOT stamp no-store. Let Next.js ISR / Vercel CDN cache
+  // these responses normally. The individual page/fetch handlers control their
+  // own revalidation via next: { revalidate: N }.
+  return NextResponse.next()
 }
 
 export const config = {
+  // Only run middleware on routes that need auth checking or legacy redirects.
+  // Public content routes (/country, /intelligence, /signals, /marketplace read-only,
+  // /education, /genetics, /network, /compliance) are intentionally excluded so
+  // Vercel can serve them from the CDN without invoking a serverless function.
   matcher: [
-    '/',
+    '/admin/:path*',
     '/dashboard/:path*',
     '/account/:path*',
     '/vault/:path*',
-    '/marketplace/:path*',
-    '/signals/:path*',
-    '/intelligence/:path*',
-    '/intake/:path*',
-    '/contact/:path*',
-    '/network/:path*',
-    '/education/:path*',
-    '/compliance/:path*',
-    '/admin/:path*',
+    '/marketplace/sell/:path*',
+    '/marketplace/my-listings/:path*',
+    // Legacy redirect paths
+    '/marketplace/submit-listing',
+    '/marketplace/wanted-requests',
     '/commercial-intelligence',
-    '/country/:path*',
+    // Intake — gated by session context downstream
+    '/intake/:path*',
   ],
 }
