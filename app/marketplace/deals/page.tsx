@@ -80,7 +80,7 @@ export default async function DealRoomsPage() {
                 Sign in or create an account to initiate or access private negotiations.
               </p>
               <div className="dr-auth-actions">
-                <Link href="/auth/signin" className="dr-cta-primary">Sign in →</Link>
+                <Link href="/login" className="dr-cta-primary">Sign in →</Link>
                 <Link href="/contact" className="dr-cta-secondary">Request access</Link>
               </div>
             </div>

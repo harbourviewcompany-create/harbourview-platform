@@ -1,7 +1,9 @@
 // lib/intelligence-engine/queue/task-queue.ts
 // Column mapping (engine name → actual source_registry column):
 //   base_url      ← source_url
-//   country_code  ← iso
+//   country_code  ← iso (Alpha-2, converted to Alpha-3 via toIso3() — see
+//                   lib/intelligence-engine/iso-codes.ts. Downstream Zod
+//                   schemas expect Alpha-3; iso column is Alpha-2.)
 //   adapter_type  ← adapter
 //   cadence_hours ← crawl_cadence
 // Queue-management columns added via migration:
@@ -10,6 +12,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ScrapeTarget } from '../types';
+import { toIso3 } from '../iso-codes';
 
 interface SourceRegistryRow {
   id: string;
@@ -44,7 +47,7 @@ export class DistributedTaskQueue {
   private mapRow(row: SourceRegistryRow): ScrapeTarget {
     return {
       id:            row.id,
-      country_code:  row.iso || 'GLOBAL',
+      country_code:  toIso3(row.iso),
       source_name:   row.source_name,
       base_url:      row.source_url,
       adapter_type:  (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
