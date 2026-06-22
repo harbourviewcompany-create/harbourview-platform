@@ -195,15 +195,15 @@ export async function getInternalCultivarPassports() {
 // Avoids transferring large unneeded columns (e.g. raw evidence blobs, JSONB payloads)
 // and adds per-table row limits so the admin queue page stays fast as data grows.
 const ADMIN_CULTIVAR_COLS =
-  'id,slug,name,scientific_name,breeder_profile_id,rights_holder_profile_id,owner_user_id,is_public,status,created_at,updated_at'
+  'id,slug,display_name,breeder_profile_id,rights_holder_profile_id,owner_user_id,is_public,claim_status,claim_review_status,evidence_score_summary,verification_summary,created_at,updated_at'
 const ADMIN_OPPORTUNITY_COLS =
-  'id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,created_at'
+  'id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,material_transfer_status,jurisdiction_gate_status,public_note,private_note,requires_admin_review,review_status,created_at'
 const ADMIN_EVIDENCE_COLS =
-  'id,cultivar_id,evidence_type,title,summary,file_path,file_is_private,verification_status,created_at'
+  'id,cultivar_id,evidence_type,title,public_summary,visibility,claim_status,review_status,private_notes,file_path,file_is_private,expires_at,created_at'
 const ADMIN_ACCESS_REQUEST_COLS =
-  'id,cultivar_id,requester_profile_id,requester_user_id,intent,status,created_at,reviewed_at'
+  'id,cultivar_id,requester_profile_id,request_type,declared_purpose,target_country_code,target_jurisdiction_label,status,requires_nda,requires_licence_review,requires_admin_review,review_notes_private,created_at,updated_at'
 const ADMIN_CLAIM_REVIEW_COLS =
-  'id,cultivar_id,reviewer_id,claim_type,decision,notes,created_at'
+  'id,cultivar_id,evidence_item_id,reviewer_user_id,claim_label,claim_status,review_status,public_note,private_note,created_at'
 
 export async function getAdminGeneticsReviewQueue() {
   const supabase = await createSupabaseServiceClient()

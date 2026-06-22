@@ -21,7 +21,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <nav className="mt-5 flex flex-wrap gap-2 text-sm">
             <Link href="/admin/hub" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Hub</Link>
             <Link href="/admin/inquiries" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Inquiries</Link>
-            <Link href="/admin/applications" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Applications</Link>
             <Link href="/admin/listings" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Listings</Link>
             <Link href="/admin/deal-dashboard" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Deal dashboard</Link>
             <Link href="/admin/routing/genetics" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Genetics routing</Link>
