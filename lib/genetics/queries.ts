@@ -229,12 +229,12 @@ export async function getAdminGeneticsReviewQueue() {
   }
 
   return toAdminGeneticsReviewDTO({
-    cultivars: (cultivarsRes.data ?? []) as CultivarPassportRow[],
-    opportunities: (opportunitiesRes.data ?? []) as CultivarCountryOpportunityRow[],
-    evidence: (evidenceRes.data ?? []) as GeneticsEvidenceItemRow[],
-    accessRequests: (accessRequestsRes.data ?? []) as GeneticsAccessRequestRow[],
-    claimReviews: (claimReviewsRes.data ?? []) as GeneticsClaimReviewRow[],
-    auditEvents: (auditEventsRes.data ?? []) as GeneticsAuditEventRow[],
+    cultivars: (cultivarsRes.data ?? []) as unknown as CultivarPassportRow[],
+    opportunities: (opportunitiesRes.data ?? []) as unknown as CultivarCountryOpportunityRow[],
+    evidence: (evidenceRes.data ?? []) as unknown as GeneticsEvidenceItemRow[],
+    accessRequests: (accessRequestsRes.data ?? []) as unknown as GeneticsAccessRequestRow[],
+    claimReviews: (claimReviewsRes.data ?? []) as unknown as GeneticsClaimReviewRow[],
+    auditEvents: (auditEventsRes.data ?? []) as unknown as GeneticsAuditEventRow[],
   })
 }
 
