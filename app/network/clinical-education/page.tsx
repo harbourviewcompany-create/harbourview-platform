@@ -2,10 +2,18 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import {
-  clinicalEducationCountryReadiness,
-  clinicalEducationModules,
+  clinicalEducationCountryReadiness as fixtureCountryReadiness,
+  clinicalEducationModules as fixtureModules,
   type ClinicalEducationModule,
 } from '@/lib/fixtures/clinical-education'
+import {
+  getClinicalEducationCountryReadiness,
+  getClinicalEducationModules,
+} from '@/lib/server/clinicalEducationQuery'
+
+// Force dynamic rendering — fetches live Supabase data at request time, with the
+// bundled fixture as a fallback so the page never renders empty.
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Clinical Education | Harbourview Network',
@@ -192,8 +200,14 @@ function ModuleCard({ item }: { item: ClinicalEducationModule }) {
   )
 }
 
-export default function ClinicalEducationHub() {
-  const items = clinicalEducationModules.filter((item) => item.slug !== 'clinical-education')
+export default async function ClinicalEducationHub() {
+  const [dbModules, dbReadiness] = await Promise.all([
+    getClinicalEducationModules(),
+    getClinicalEducationCountryReadiness(),
+  ])
+  const allModules = dbModules.length > 0 ? dbModules : fixtureModules
+  const countryReadiness = dbReadiness.length > 0 ? dbReadiness : fixtureCountryReadiness
+  const items = allModules.filter((item) => item.slug !== 'clinical-education')
   const modulesById = new Map(items.map((item) => [item.id, item]))
 
   return (
@@ -375,7 +389,7 @@ export default function ClinicalEducationHub() {
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4">
-                {clinicalEducationCountryReadiness.map((country) => (
+                {countryReadiness.map((country) => (
                   <article key={country.country} className="rounded-2xl border border-navy/10 bg-white p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="text-lg font-semibold text-navy">{country.country}</h3>
