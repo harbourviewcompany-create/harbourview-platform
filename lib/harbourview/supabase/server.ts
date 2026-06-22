@@ -1,15 +1,8 @@
-import 'server-only';
-import { createClient } from '@supabase/supabase-js';
+/**
+ * @deprecated This file has been superseded by lib/supabase/server.ts
+ *
+ * Use `createClient()` or `createSupabaseServerClient()` from `@/lib/supabase/server`.
+ * This file will be removed in a future cleanup pass.
+ */
 
-export function createHarbourviewServerSupabaseClient() {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error('Missing server Supabase URL or anon key.');
-  }
-
-  return createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+export { createClient as createHarbourviewServerSupabaseClient } from '@/lib/supabase/server'
