@@ -21,6 +21,7 @@ export const HIGH_RISK_CLAIM_TYPES: ReadonlySet<EducationClaimType> = new Set([
   'medical_scientific',
   'clinical_workflow',
   'dosage_reference',
+  'drug_interaction_reference',
   'pharmacist_workflow',
   'legal_regulatory',
   'import_export',

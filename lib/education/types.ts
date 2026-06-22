@@ -37,6 +37,7 @@ export type EducationClaimType =
   | 'medical_scientific'
   | 'clinical_workflow'
   | 'dosage_reference'
+  | 'drug_interaction_reference'
   | 'pharmacist_workflow'
   | 'legal_regulatory'
   | 'import_export'
