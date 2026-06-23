@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getApprovedSupplierProfiles } from '@/lib/server/supplierProfilesQuery'
+import { getApprovedSupplierProfiles, SELLER_TYPE_LABELS } from '@/lib/server/supplierProfilesQuery'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +43,6 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
                 VERIFIED SUPPLIER
               </div>
               <h1 className="text-4xl font-serif tracking-tight">{supplier.company_name}</h1>
-              {supplier.title && <p className="text-xl text-white/60 mt-1">{supplier.title}</p>}
             </div>
             <div className="text-right text-sm text-white/50">
               {supplier.hq_country && <div>HQ: {supplier.hq_country}</div>}
@@ -111,16 +110,4 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
       </div>
     </main>
   )
-}
-
-const SELLER_TYPE_LABELS: Record<string, string> = {
-  cultivator: 'Cultivator / Grower',
-  processor: 'Processor / Manufacturer',
-  distributor: 'Distributor / Wholesaler',
-  equipment: 'Equipment & Technology Provider',
-  genetics: 'Genetics / Breeder',
-  lab_testing: 'Testing Lab / Analytics',
-  packaging: 'Packaging & Compliance',
-  services: 'Services & Consulting',
-  other: 'Other',
 }

@@ -22,14 +22,17 @@ export default async function SupplierDirectoryPage() {
           { label: 'Submit your company', href: '/supplier-directory/apply' },
           { label: 'Request an introduction', href: '/contact', variant: 'secondary' },
         ]}
-      />
+      >
+        Every profile listed here has been reviewed before publication. Introduction requests are routed through Harbourview, not direct contact.
+      </PublicHero>
 
       {hasProfiles ? (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Reviewed Profiles" title="Verified Suppliers" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {profiles.map((p) => (
-              <PublicCard key={p.id} className="p-6" href={`/supplier-directory/${p.profile_slug}`}>
+              <Link key={p.id} href={`/supplier-directory/${p.profile_slug}`} className="block">
+                <PublicCard className="p-6 h-full transition hover:border-gold/30">
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <span className="text-[11px] uppercase tracking-[0.18em] text-gold/75">
                     {SELLER_TYPE_LABELS[p.seller_type] ?? p.seller_type}
@@ -58,7 +61,8 @@ export default async function SupplierDirectoryPage() {
                 <p className="mt-4 text-xs leading-5 text-white/35">
                   Verified supplier. Introduction requests are reviewed before routing.
                 </p>
-              </PublicCard>
+                </PublicCard>
+              </Link>
             ))}
           </div>
         </PublicSection>
@@ -71,7 +75,13 @@ export default async function SupplierDirectoryPage() {
         </PublicSection>
       )}
 
-      <FooterCta />
+      <FooterCta
+        eyebrow="Join the directory"
+        title="Get your company in front of reviewed buyers."
+        actions={[
+          { label: 'Submit your company', href: '/supplier-directory/apply' },
+        ]}
+      />
     </main>
   )
 }
