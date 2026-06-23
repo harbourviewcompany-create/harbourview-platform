@@ -118,4 +118,19 @@ export class DistributedTaskQueue {
       })
       .eq('id', targetId);
   }
+
+  /**
+   * Release the lease without touching consecutive_failures/next_crawl_at.
+   * For cases where the target itself didn't fail — e.g. its domain's
+   * circuit breaker is open because a *different* source on the same
+   * domain has been failing. Penalizing this source's own backoff schedule
+   * for a neighbor's failures would be wrong; it should simply be picked
+   * up again on the next poll cycle once the domain circuit closes.
+   */
+  async releaseLock(targetId: string) {
+    await this.supabase
+      .from('source_registry')
+      .update({ locked_by: null, locked_until: null })
+      .eq('id', targetId);
+  }
 }
