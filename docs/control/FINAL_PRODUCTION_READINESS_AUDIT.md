@@ -1,6 +1,6 @@
 # Harbourview Final Production Readiness Audit
 
-Status: HOLD  
+Status: HOLD (Gates 1, 2, 4, 9 now GO or PARTIAL; Gates 3, 5–8, 10–14 remain HOLD)  
 Scope: no-code production-readiness control document for `harbourviewcompany-create/harbourview-platform` on current `main`  
 Task classification: verification / deployment / RLS-auth / public-private-leakage / admin / marketplace / intelligence  
 Change policy: this document does not authorize runtime changes, Supabase migrations, Vercel changes, Netlify changes, package/dependency changes, auth changes, marketplace data changes, workflow changes, production writes, branch-protection changes, or deletion of branches/projects. Each closure item that requires a change must be handled in a separate scoped PR.
@@ -70,22 +70,23 @@ HOLD criteria:
 
 ### Gate 2 — Canonical Deployment Target Confirmation
 
-Status: PARTIAL — operator confirmation needed on Vercel team identity.
+Status: GO (operator confirmed 2026-06-23).
 
 Objective: prove that GitHub, Vercel, production domain, and deployment workflow all point to the same Harbourview production app.
 
 Owner: operator with verification agent.
 
-Evidence collected 2026-06-23 via Vercel MCP:
+Evidence collected 2026-06-23:
 
 - GitHub repo: `harbourviewcompany-create/harbourview-platform` ✓
-- Vercel MCP session is connected to **team slug `harbourview`** (team ID `team_0rK4jTvMLlSufR0ZzX4LCKYi`), project ID `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` (project name `harbourview`).
-- PROJECT_REGISTRY.md (last verified 2026-05-17) records canonical production as **team slug `harbourviewnetwork`** (team ID `team_zFcrpEaH7xxVPfFlj9yAKMZf`), project ID `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ`.
-- Two teams exist. MCP session has access to `harbourview`; `harbourviewnetwork` is not accessible via MCP.
-- Harbourview-platform skill file references team `harbourview` / `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` (matches MCP view).
-- Cloudflare Pages CI passes on PR #765 (main deploy path confirmed working).
+- Vercel MCP session connected to team slug **`harbourview`**, team ID **`team_0rK4jTvMLlSufR0ZzX4LCKYi`**, project ID **`prj_Zp8HBDstqAAOCN6W7LAElahsq3qS`** (project name `harbourview`). ✓
+- **Operator confirmed** `team_0rK4jTvMLlSufR0ZzX4LCKYi` is canonical production (2026-06-23). Prior PROJECT_REGISTRY entries for `harbourviewnetwork` / `team_zFcrpEaH7xxVPfFlj9yAKMZf` / `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` were stale and are superseded.
+- PROJECT_REGISTRY.md updated 2026-06-23: team slug `harbourview`, team ID `team_0rK4jTvMLlSufR0ZzX4LCKYi`, project ID `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` — all entries corrected. ✓
+- Harbourview-platform skill file references team `harbourview` / `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` (matches MCP and operator confirmation). ✓
+- Canonical production domain: `https://harbourview.vercel.app`. ✓
+- Cloudflare Pages CI passes on PR #765 (main deploy path confirmed working). ✓
 
-**Operator action required**: confirm which Vercel team is canonical production. If `harbourviewnetwork`/`prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` is canonical, update the skill file and confirm GitHub secrets point to it. If `harbourview`/`prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` is canonical, update PROJECT_REGISTRY to match.
+Still HOLD (carry-forward to Gate 3): GitHub secret mapping for `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` not yet confirmed to point to `team_0rK4jTvMLlSufR0ZzX4LCKYi` / `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS`.
 
 Required checks:
 
