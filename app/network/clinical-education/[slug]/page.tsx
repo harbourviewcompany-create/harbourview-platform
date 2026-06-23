@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { clinicalEducationModules } from '@/lib/fixtures/clinical-education'
+import { clinicalEducationModules as fixtureModules } from '@/lib/fixtures/clinical-education'
+import { getClinicalEducationModuleBySlug } from '@/lib/server/clinicalEducationQuery'
 import { ClinicalEducationHero, ClinicalEducationModuleDetail } from '@/components/clinical-education/ClinicalEducationComponents'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const item = clinicalEducationModules.find((m) => m.slug === slug)
+  const item = (await getClinicalEducationModuleBySlug(slug)) ?? fixtureModules.find((m) => m.slug === slug)
   if (!item) return { title: 'Module Not Found | Harbourview Clinical Education' }
   return {
     title: `${item.title} | Harbourview Clinical Education`,
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ClinicalEducationModulePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const educationItem = clinicalEducationModules.find((item) => item.slug === slug)
+  const educationItem = (await getClinicalEducationModuleBySlug(slug)) ?? fixtureModules.find((item) => item.slug === slug)
 
   if (!educationItem) return notFound()
 
