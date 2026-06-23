@@ -1,0 +1,40 @@
+# Container for the distributed intelligence-engine worker
+# (scripts/engine/start-worker.ts / lib/intelligence-engine/worker-node.ts).
+#
+# This is intentionally separate from the main Next.js app's deployment
+# (Vercel) — the worker is a long-running process, which Vercel's serverless
+# functions cannot be. Build and run this image on any host that supports a
+# persistent container: Fly.io, Railway, Google Cloud Run (with
+# min-instances >= 1, since Cloud Run's default scale-to-zero model isn't
+# appropriate for a continuous poller), AWS ECS/Fargate, or a plain VM.
+#
+# Build:  docker build -f Dockerfile.worker -t harbourview-intelligence-worker .
+# Run:    docker run --env-file .env.worker -p 8080:8080 harbourview-intelligence-worker
+#
+# Required env vars: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+# Optional: POLL_INTERVAL_MS (default 5000), WORKER_BATCH_SIZE (default 10),
+#           PORT (default 8080, used by the /healthz endpoint)
+
+FROM node:24-slim AS base
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Install dependencies first (separate layer for build-cache efficiency).
+# tsx is a devDependency but is the runtime entrypoint here (no separate
+# compile step) — installing without --omit=dev is intentional.
+COPY package.json package-lock.json* ./
+RUN npm install --no-audit --no-fund
+
+# Copy only what the worker actually needs at runtime: the engine code, the
+# entrypoint script, and shared config. Avoids dragging the whole Next.js
+# app (app/, components/, public/, etc.) into this image.
+COPY tsconfig.json ./
+COPY lib/intelligence-engine ./lib/intelligence-engine
+COPY scripts/engine ./scripts/engine
+
+EXPOSE 8080
+
+# Runs as a non-root user inside the official node image.
+USER node
+
+CMD ["npx", "tsx", "scripts/engine/start-worker.ts"]
