@@ -1,4 +1,4 @@
-import { getPublicGeneticsProfiles } from '@/lib/marketplace/geneticsShowcase'
+import { getPublicGeneticsProfilesSync } from '@/lib/marketplace/geneticsShowcase'
 
 export type GeneticsFilterSearchParams = {
   q?: string
@@ -59,7 +59,7 @@ export function assertNoPrivateGeneticsFields(payload: unknown) {
   }
 }
 
-export function toPublicGeneticsProfileCard(profile: ReturnType<typeof getPublicGeneticsProfiles>[number]): PublicGeneticsProfileCard {
+export function toPublicGeneticsProfileCard(profile: ReturnType<typeof getPublicGeneticsProfilesSync>[number]): PublicGeneticsProfileCard {
   const card = {
     slug: profile.slug,
     name: profile.name,
@@ -75,7 +75,7 @@ export function toPublicGeneticsProfileCard(profile: ReturnType<typeof getPublic
   return card
 }
 
-export function toPublicGeneticsDropCards(profile: ReturnType<typeof getPublicGeneticsProfiles>[number]): PublicGeneticsDropCard[] {
+export function toPublicGeneticsDropCards(profile: ReturnType<typeof getPublicGeneticsProfilesSync>[number]): PublicGeneticsDropCard[] {
   const cards = profile.drops.map((drop) => ({
     id: drop.id,
     profileSlug: profile.slug,
@@ -94,13 +94,13 @@ export function toPublicGeneticsDropCards(profile: ReturnType<typeof getPublicGe
 }
 
 export function getPublicGeneticsProfileCards() {
-  const cards = getPublicGeneticsProfiles().map(toPublicGeneticsProfileCard)
+  const cards = getPublicGeneticsProfilesSync().map(toPublicGeneticsProfileCard)
   assertNoPrivateGeneticsFields(cards)
   return cards
 }
 
 export function getPublicGeneticsDropCards() {
-  const cards = getPublicGeneticsProfiles().flatMap(toPublicGeneticsDropCards)
+  const cards = getPublicGeneticsProfilesSync().flatMap(toPublicGeneticsDropCards)
   assertNoPrivateGeneticsFields(cards)
   return cards
 }

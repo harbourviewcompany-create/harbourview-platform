@@ -3,13 +3,15 @@ import Link from 'next/link'
 import { GeneticsSearchFilters } from '@/components/marketplace/genetics/GeneticsSearchFilters'
 import { GeneticsProfileCard } from '@/components/marketplace/genetics/GeneticsProfileCard'
 import { CurrentDropCard } from '@/components/marketplace/genetics/CurrentDropCard'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 import {
   filterPublicGeneticsDrops,
   filterPublicGeneticsProfiles,
-  getPublicGeneticsDropCards,
-  getPublicGeneticsProfileCards,
+  toPublicGeneticsProfileCard,
+  toPublicGeneticsDropCards,
   type GeneticsFilterSearchParams,
 } from '@/lib/marketplace/genetics/publicProjection'
+import { getPublicGeneticsProfiles } from '@/lib/marketplace/geneticsShowcase'
 
 // Force dynamic rendering — page fetches live Supabase data at request time
 export const dynamic = 'force-dynamic'
@@ -34,11 +36,15 @@ export default async function GeneticsShowcasePage({
     access: resolvedSearchParams.access || '',
   }
 
-  const profiles = filterPublicGeneticsProfiles(getPublicGeneticsProfileCards(), filters)
-  const drops = filterPublicGeneticsDrops(getPublicGeneticsDropCards(), filters)
+  const { profiles: rawProfiles, source } = await getPublicGeneticsProfiles()
+  const profileCards = rawProfiles.map(toPublicGeneticsProfileCard)
+  const dropCards = rawProfiles.flatMap(toPublicGeneticsDropCards)
+  const profiles = filterPublicGeneticsProfiles(profileCards, filters)
+  const drops = filterPublicGeneticsDrops(dropCards, filters)
 
   return (
     <>
+      <FixtureBanner isFixture={source === 'fixture'} label="Fixture data — cultivar_passports table empty or service role not configured" />
       <section className="border-b border-gold/10 bg-[#061120] py-16 text-white sm:py-20 lg:py-24">
         <div className="page-container">
           <div className="max-w-5xl">
