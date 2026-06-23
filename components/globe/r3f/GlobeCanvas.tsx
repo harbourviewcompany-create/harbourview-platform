@@ -13,7 +13,6 @@ import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
-import { RussiaLighthouseEmblem } from './RussiaLighthouseEmblem'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
 // Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
@@ -150,8 +149,8 @@ export function GlobeCanvas({
         {/* Metallic plate lighting: low ambient to avoid flat gold, a champagne key
             pulled to 1.55 (was 2.35) so ACES compression kills white-blob specular,
             soft bronze/cool rim fills for reflective falloff. */}
-        <ambientLight intensity={0.13} color="#f4dfad" />
-        <directionalLight position={[3.2, 5.5, 5.8]} intensity={0.65} color="#fff3c4" />
+        <ambientLight intensity={0.15} color="#f4dfad" />
+        <directionalLight position={[3.2, 5.5, 5.8]} intensity={0.74} color="#fff3c4" />
         <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.38} color="#c99f4a" />
         <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.24} color="#8fa7c8" />
         <hemisphereLight args={['#243b5e', '#080409', 0.44]} />
@@ -185,8 +184,6 @@ export function GlobeCanvas({
             <CountryBorderLayer />
             {/* Hover label — floats above the plate centroid while hovering */}
             {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
-            {/* Gold lighthouse emblem anchored at Russia's centroid */}
-            <RussiaLighthouseEmblem />
           </group>
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
