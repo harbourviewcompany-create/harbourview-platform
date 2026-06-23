@@ -1,10 +1,3 @@
--- The advisor flags these views as security_definer_view (ERROR), but for this codebase
--- that is a reviewed, intentional exception: they are curated PUBLIC projections that
--- expose only whitelisted columns of already-public rows. SECURITY DEFINER is what lets
--- anon read that projection WITHOUT a base-table grant. Converting them to security_invoker
--- would require granting anon direct SELECT on the underlying tables, exposing every column
--- of qualifying rows to direct queries -- a regression. Documented in-DB so future audits
--- do not re-litigate. (Internal-ops definer views were handled separately by revoking anon.)
 
 do $$
 declare v text;

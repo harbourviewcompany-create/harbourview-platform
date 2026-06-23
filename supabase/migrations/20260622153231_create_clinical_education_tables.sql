@@ -1,6 +1,3 @@
--- Clinical Education data layer: moves app/network/clinical-education off the
--- bundled fixture and onto Supabase. Public, non-promotional educational
--- content: anon/authenticated may read; writes are service_role only.
 
 create table if not exists public.clinical_education_modules (
   id                            text primary key,
@@ -47,7 +44,6 @@ create table if not exists public.clinical_education_country_readiness (
   professional_reviewer_needed      boolean not null default false,
   brief_availability                text,
   sort_order                        integer not null default 0,
-  constraint clinical_education_country_readiness_country_key unique (country),
   created_at                        timestamptz not null default now(),
   updated_at                        timestamptz not null default now()
 );
@@ -55,6 +51,7 @@ create table if not exists public.clinical_education_country_readiness (
 alter table public.clinical_education_modules            enable row level security;
 alter table public.clinical_education_country_readiness  enable row level security;
 
+-- Public, non-promotional educational content: anon/authenticated may read; writes are service_role only.
 create policy clinical_education_modules_public_read
   on public.clinical_education_modules for select to anon, authenticated using (true);
 create policy clinical_education_country_readiness_public_read
