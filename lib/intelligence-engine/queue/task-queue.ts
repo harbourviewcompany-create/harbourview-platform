@@ -21,6 +21,7 @@ interface SourceRegistryRow {
   source_name: string;
   adapter: string | null;
   crawl_cadence: string | null;
+  consecutive_failures: number | null;
 }
 
 export class DistributedTaskQueue {
@@ -52,6 +53,7 @@ export class DistributedTaskQueue {
       base_url:      row.source_url,
       adapter_type:  (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
       cadence_hours: 24,
+      consecutive_failures: row.consecutive_failures ?? 0,
     };
   }
 
@@ -76,7 +78,7 @@ export class DistributedTaskQueue {
       .from('source_registry')
       .update({ locked_by: workerId, locked_until: leaseTime })
       .in('id', ids)
-      .select('id, source_url, iso, source_name, adapter, crawl_cadence');
+      .select('id, source_url, iso, source_name, adapter, crawl_cadence, consecutive_failures');
 
     if (error || !locked) return [];
     return (locked as SourceRegistryRow[]).map(this.mapRow);

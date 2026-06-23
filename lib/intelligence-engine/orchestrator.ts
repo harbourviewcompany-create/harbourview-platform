@@ -11,7 +11,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ScrapeTarget, ScraperResult, IDataAdapter } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
-import { PlaywrightDataAdapter } from './adapters/playwright-fetcher';
+import { RSSDataAdapter } from './adapters/rss-fetcher';
+import { APIDataAdapter } from './adapters/api-fetcher';
 
 interface SourceRegistryRow {
   id: string;
@@ -24,17 +25,17 @@ interface SourceRegistryRow {
   crawl_allowed: boolean;
   next_crawl_at: string | null;
   locked_until: string | null;
+  consecutive_failures: number | null;
 }
 
 // Normalise the raw `adapter` value stored in source_registry to the canonical
-// adapter_type enum understood by the engine.
+// adapter_type enum understood by the engine. The DB only ever stores
+// html_snapshot | rss | api today (0 rows use playwright_full currently).
 function normaliseAdapterType(raw: string | null): ScrapeTarget['adapter_type'] {
   switch ((raw ?? '').toLowerCase()) {
     case 'playwright_full': return 'playwright_full';
     case 'rss':             return 'rss';
-    case 'api':
-    case 'json_api':        return 'json_api';
-    case 'html_diff':       return 'html_diff';
+    case 'api':              return 'api';
     case 'html_snapshot':
     default:                return 'html_snapshot';
   }
@@ -54,7 +55,8 @@ function parseCadenceHours(raw: string | null): number {
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
   private htmlAdapter: HTMLDataAdapter;
-  private playwrightAdapter: PlaywrightDataAdapter;
+  private rssAdapter: RSSDataAdapter;
+  private apiAdapter: APIDataAdapter;
 
   constructor() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,14 +64,15 @@ export class IntelligenceOrchestrator {
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
     this.supabase = createClient(url, key, { auth: { persistSession: false } });
     this.htmlAdapter = new HTMLDataAdapter();
-    this.playwrightAdapter = new PlaywrightDataAdapter();
+    this.rssAdapter = new RSSDataAdapter();
+    this.apiAdapter = new APIDataAdapter();
   }
 
   /** Pull targets due for crawling from source_registry. */
   async getTargets(limit = 100): Promise<ScrapeTarget[]> {
     const { data, error } = await this.supabase
       .from('source_registry')
-      .select('id, source_url, iso, source_name, adapter, crawl_cadence, is_active, crawl_allowed, next_crawl_at, locked_until')
+      .select('id, source_url, iso, source_name, adapter, crawl_cadence, is_active, crawl_allowed, next_crawl_at, locked_until, consecutive_failures')
       .eq('is_active', true)
       .eq('crawl_allowed', true)
       .limit(limit);
@@ -83,6 +86,7 @@ export class IntelligenceOrchestrator {
       base_url: row.source_url,
       adapter_type: normaliseAdapterType(row.adapter),
       cadence_hours: parseCadenceHours(row.crawl_cadence),
+      consecutive_failures: row.consecutive_failures ?? 0,
     }));
   }
 
@@ -96,28 +100,27 @@ export class IntelligenceOrchestrator {
 
       try {
         // Route to the correct adapter based on adapter_type.
-        // RSS and JSON endpoints don't have dedicated adapters yet — they fall
-        // back to HTMLDataAdapter which fetches the raw text payload and hashes
-        // it. This is sufficient for change-detection until proper parsers land.
-        const adapter: IDataAdapter = (() => {
-          switch (target.adapter_type) {
-            case 'playwright_full':
-              return this.playwrightAdapter;
-            case 'rss':
-              console.log(`  → RSS adapter not yet built; falling back to htmlAdapter for ${target.source_name}`);
-              return this.htmlAdapter;
-            case 'api':
-            case 'json_api':
-              console.log(`  → JSON API adapter not yet built; falling back to htmlAdapter for ${target.source_name}`);
-              return this.htmlAdapter;
-            case 'html_diff':
-            case 'html_snapshot':
-            default:
-              return this.htmlAdapter;
-          }
-        })();
+        // playwright_full has 0 live rows today and no headless-browser
+        // capability exists in this environment — report an honest `blocked`
+        // result rather than silently falling back to a fetch method that
+        // can't render JS.
+        if (target.adapter_type === 'playwright_full') {
+          result = {
+            target_id: target.id,
+            timestamp: new Date().toISOString(),
+            raw_content: '',
+            content_hash: '',
+            status: 'blocked',
+            error_message: 'No adapter implemented for adapter_type "playwright_full" — headless-browser rendering is not available in this environment yet.',
+          };
+        } else {
+          const adapter: IDataAdapter =
+            target.adapter_type === 'rss' ? this.rssAdapter :
+            target.adapter_type === 'api' ? this.apiAdapter :
+            this.htmlAdapter;
 
-        result = await adapter.fetch(target);
+          result = await adapter.fetch(target);
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         result = {
@@ -136,12 +139,39 @@ export class IntelligenceOrchestrator {
         await this.queueForAIProcessing(result, target);
       }
 
-      // Advance next_crawl_at by this target's actual cadence (not a blanket 24h)
-      const nextCrawl = new Date(Date.now() + target.cadence_hours * 3600000).toISOString();
-      await this.supabase
-        .from('source_registry')
-        .update({ next_crawl_at: nextCrawl, locked_by: null, locked_until: null })
-        .eq('id', target.id);
+      // Schedule the next attempt. On success, reset to the normal cadence
+      // and clear the failure streak. On failure (or `blocked`), back off
+      // exponentially (1h -> 256h, capped at 8 doublings) instead of
+      // retrying on the same cadence regardless of how many times in a row
+      // it's failed — consecutive_failures/network_status/last_error_log
+      // already existed on source_registry but nothing was writing to them.
+      if (result.status === 'success') {
+        await this.supabase
+          .from('source_registry')
+          .update({
+            next_crawl_at: new Date(Date.now() + target.cadence_hours * 3600000).toISOString(),
+            locked_by: null,
+            locked_until: null,
+            consecutive_failures: 0,
+            network_status: 'online',
+            last_error_log: null,
+          })
+          .eq('id', target.id);
+      } else {
+        const newFailures = target.consecutive_failures + 1;
+        const backoffHours = Math.pow(2, Math.min(newFailures, 8));
+        await this.supabase
+          .from('source_registry')
+          .update({
+            next_crawl_at: new Date(Date.now() + backoffHours * 3600000).toISOString(),
+            locked_by: null,
+            locked_until: null,
+            consecutive_failures: newFailures,
+            network_status: newFailures > 5 ? 'offline' : 'degraded',
+            last_error_log: result.error_message || `status: ${result.status}`,
+          })
+          .eq('id', target.id);
+      }
     }
   }
 
