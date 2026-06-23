@@ -368,15 +368,13 @@ function _createCountryBufferGeometryInner(
     }
   }
 
-  // Centroid winding pass — corrects wall triangles where the 2D→sphere
-  // projection reverses the expected CCW orientation for antimeridian-spanning
-  // countries (Russia, Fiji, USA Alaska). createTopFaceWithHoles already runs
-  // an equivalent correction for top-face triangles; this pass is idempotent
-  // for those and fixes the wall triangles that were left uncorrected.
-  //
-  // Positions are converted to Float32 first so the dot-product sign matches
-  // the renderer precision; using float64 (number[]) can produce a different
-  // sign on near-degenerate wall quads after the GPU converts to float32.
+  // Global Float32 winding pass — the single source of truth for outward-facing
+  // orientation across all triangle types (top faces and walls). Top faces arrive
+  // from earcut without per-triangle correction; walls may have reversed winding
+  // after 2D→sphere projection for antimeridian-spanning countries (Russia, Fiji,
+  // USA Alaska). Positions are converted to Float32 first so the dot-product sign
+  // matches GPU precision; using float64 (number[]) can produce a different sign
+  // on borderline triangles due to FMA arithmetic on mobile GPUs.
   const posF32 = new Float32Array(allPositions)
   for (let t = 0; t < allIndices.length; t += 3) {
     const a = allIndices[t], b = allIndices[t + 1], c = allIndices[t + 2]
