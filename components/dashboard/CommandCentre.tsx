@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -100,12 +101,6 @@ const NAV_ITEMS_FLAT: NavItem[] = NAV_SECTIONS.flatMap(s => s.items)
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
 // Converts any ISO 3166-1 alpha-2 code → emoji flag (all 196 countries)
-// Uses Unicode Regional Indicator Symbols — no lookup table needed
-function isoToFlag(iso2: string): string {
-  if (!iso2 || iso2.length !== 2) return '🌐'
-  const cp = (c: string) => 0x1F1E6 + c.toUpperCase().charCodeAt(0) - 65
-  return String.fromCodePoint(cp(iso2[0]), cp(iso2[1]))
-}
 
 function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
   const dc  = (intel?.data_completeness ?? '').toLowerCase()
@@ -162,7 +157,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{isoToFlag(country.iso2) ?? '🌐'}</div>
+          <div className="cc-jx-flag">{flagEmoji(country.iso2)}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}

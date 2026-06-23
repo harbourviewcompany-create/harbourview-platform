@@ -2,26 +2,10 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useCallback, useTransition } from 'react'
+import { FILTER_REGIONS, CONSUMABLES_PRODUCT_TYPES } from '@/lib/marketplace/formOptions'
 
-const REGIONS = [
-  { value: 'all', label: 'All regions' },
-  { value: 'europe', label: 'Europe' },
-  { value: 'asia_pacific', label: 'Asia Pacific' },
-  { value: 'north_america', label: 'North America' },
-  { value: 'latin_america', label: 'Latin America' },
-  { value: 'global', label: 'Global' },
-]
-
-const PRODUCT_TYPES = [
-  { value: 'all', label: 'All products' },
-  { value: 'pre-roll cones', label: 'Pre-roll cones' },
-  { value: 'pouches', label: 'Pouches' },
-  { value: 'jars', label: 'Jars' },
-  { value: 'labels', label: 'Labels' },
-  { value: 'packaging', label: 'Packaging' },
-  { value: 'lab', label: 'Lab & QA' },
-  { value: 'extraction', label: 'Extraction' },
-]
+const REGIONS = FILTER_REGIONS
+const PRODUCT_TYPES = CONSUMABLES_PRODUCT_TYPES
 
 const selectClass =
   'rounded-full border border-white/10 bg-[#0B1A2F] px-4 py-2.5 text-sm text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2 appearance-none cursor-pointer hover:border-[#C6A55A]/40 transition-colors'
