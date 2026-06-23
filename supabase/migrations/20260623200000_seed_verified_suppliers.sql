@@ -1,0 +1,93 @@
+-- supabase/migrations/20260623200000_seed_verified_suppliers.sql
+-- Seed a small set of verified suppliers for the public Supplier Directory
+
+INSERT INTO public.supplier_profiles (
+  profile_slug,
+  company_name,
+  contact_name,
+  title,
+  seller_type,
+  categories,
+  regions_served,
+  description_public,
+  website,
+  hq_country,
+  services_offered,
+  status,
+  verification_status
+) VALUES
+(
+  'northern-cultivators',
+  'Northern Cultivators Inc.',
+  'Elena Voss',
+  'Head of Sales',
+  'cultivator',
+  ARRAY['flower', 'genetics'],
+  ARRAY['CA', 'US'],
+  'Premium indoor and outdoor cultivation specializing in high-CBD and balanced THC cultivars. Licensed producer with full traceability and sustainable practices.',
+  'https://northerncultivators.example.com',
+  'CA',
+  ARRAY['Bulk flower supply', 'Genetics licensing', 'Contract growing'],
+  'active',
+  'verified'
+),
+(
+  'pacific-processors',
+  'Pacific Processors Ltd.',
+  'Marcus Hale',
+  'Director of Operations',
+  'processor',
+  ARRAY['edibles', 'vapes', 'concentrates'],
+  ARRAY['CA', 'US', 'DE'],
+  'Full-service extraction and manufacturing facility. CO2 and ethanol extraction, formulation, and white-label production for licensed brands.',
+  'https://pacificprocessors.example.com',
+  'CA',
+  ARRAY['CO2 extraction', 'Formulation & filling', 'White label manufacturing'],
+  'active',
+  'verified'
+),
+(
+  'apex-equipment',
+  'Apex Equipment Solutions',
+  'Dr. Lena Park',
+  'VP Business Development',
+  'equipment',
+  ARRAY['equipment'],
+  ARRAY['US', 'CA', 'EU'],
+  'Specialized cultivation and processing equipment including LED lighting systems, climate control, and automated trimming solutions designed for regulated cannabis facilities.',
+  'https://apexequipment.example.com',
+  'US',
+  ARRAY['Equipment sales & installation', 'Technical training', 'Maintenance contracts'],
+  'active',
+  'verified'
+),
+(
+  'heritage-genetics',
+  'Heritage Genetics',
+  'Samuel Reed',
+  'Founder & Head Breeder',
+  'genetics',
+  ARRAY['genetics', 'flower'],
+  ARRAY['CA', 'US', 'NL'],
+  'Boutique genetics company focused on stable, high-performing cultivars with excellent terpene profiles. IP-protected strains and tissue culture services.',
+  'https://heritagegenetics.example.com',
+  'CA',
+  ARRAY['Licensed genetics', 'Tissue culture', 'Breeding consulting'],
+  'active',
+  'verified'
+),
+(
+  'precision-labs',
+  'Precision Labs Canada',
+  'Dr. Priya Sharma',
+  'Laboratory Director',
+  'lab_testing',
+  ARRAY['testing'],
+  ARRAY['CA', 'US'],
+  'ISO-accredited cannabis testing laboratory offering full-panel testing, method development, and regulatory compliance support for licensed producers across Canada and the U.S.',
+  'https://precisionlabs.example.com',
+  'CA',
+  ARRAY['Full panel testing', 'Method validation', 'Regulatory consulting'],
+  'active',
+  'verified'
+);
