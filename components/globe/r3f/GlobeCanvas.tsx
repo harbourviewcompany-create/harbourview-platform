@@ -13,7 +13,6 @@ import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
-import { RussiaLighthouseEmblem } from './RussiaLighthouseEmblem'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
 // Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
@@ -185,8 +184,6 @@ export function GlobeCanvas({
             <CountryBorderLayer />
             {/* Hover label — floats above the plate centroid while hovering */}
             {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
-            {/* Gold lighthouse emblem anchored at Russia's centroid */}
-            <RussiaLighthouseEmblem />
           </group>
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
