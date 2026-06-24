@@ -46,7 +46,7 @@ export function CountrySelector({ open, onClose }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="flex w-[520px] max-h-[540px] flex-col overflow-hidden rounded-2xl"
+        className="flex w-full max-w-[520px] max-h-[540px] flex-col overflow-hidden rounded-2xl mx-4"
         style={{ background: 'var(--hv-bg-900, #06101B)', border: '1px solid rgba(198,165,90,0.22)' }}
       >
         {/* Head */}

@@ -4,6 +4,7 @@ import './CommandCentre.css'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -3185,6 +3186,8 @@ export default function CommandCentre({
   sourceCoverage,
   userEmail,
 }: Props) {
+  const router = useRouter()
+
   // ── State ──────────────────────────────────────────────────────────────────
   const initialCountry = useMemo(() => {
     const found = COUNTRIES.find(c => c.iso2 === initialCountryIso2)
@@ -3240,12 +3243,22 @@ export default function CommandCentre({
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleCountryChange = useCallback((iso2: string) => {
     const found = COUNTRIES.find(c => c.iso2 === iso2)
-    if (found) { setCountry(found); setRegion('') }
-  }, [])
+    if (!found) return
+    setCountry(found)
+    setRegion('')
+    const params = new URLSearchParams()
+    params.set('country', iso2)
+    if (role) params.set('role', role)
+    router.replace(`/dashboard?${params.toString()}`, { scroll: false })
+  }, [role, router])
 
   const handleRoleChange = useCallback((roleId: string) => {
     setRole(roleId)
-  }, [])
+    const params = new URLSearchParams()
+    if (country.iso2 !== 'GLOBAL') params.set('country', country.iso2)
+    params.set('role', roleId)
+    router.replace(`/dashboard?${params.toString()}`, { scroll: false })
+  }, [country.iso2, router])
 
   // ── Page renderer ──────────────────────────────────────────────────────────
   const renderPage = () => {

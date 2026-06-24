@@ -1565,6 +1565,34 @@
   .cc-briefing-left,.cc-briefing-right { border:none;border-bottom:1px solid var(--cc-line); }
   .cc-methodology { flex-wrap:wrap; }
   .cc-header-right .cc-user-chip { display:none; }
+
+  /* Two-column pages (access pathway, evidence, education, watchlist, local intel):
+     stack right panel below main content instead of a fixed 280px sidebar */
+  .cc-two-col-page {
+    grid-template-columns:1fr;
+    grid-template-rows:1fr auto;
+    overflow-y:auto;
+  }
+  .cc-two-right {
+    border-left:none;
+    border-top:1px solid var(--cc-line);
+    max-height:300px;
+    overflow-y:auto;
+  }
+
+  /* Data tables: allow horizontal scroll so columns don't squish */
+  .cc-mkt-table { overflow-x:auto; }
+  .cc-mkt-thead,.cc-mkt-row { min-width:700px; }
+
+  .cc-rw-table-wrap { overflow-x:auto; }
+  .cc-rw-thead,.cc-rw-row { min-width:890px; }
+
+  .cc-sig-feed { overflow-x:auto; }
+  .cc-sig-row { min-width:580px; }
+
+  /* Education rows: hide progress/action columns, keep icon + content */
+  .cc-edu-row { grid-template-columns:44px 1fr;min-width:0; }
+  .cc-edu-row > :nth-child(3),.cc-edu-row > :nth-child(4) { display:none; }
 }
 /* ── Sidebar sections ────────────────────────────────────────────────────────── */
 .cc-nav-section { display:flex;flex-direction:column;gap:2px; }
