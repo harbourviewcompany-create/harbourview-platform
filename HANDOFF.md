@@ -1,3 +1,23 @@
+## Session: Jun 23 2026 (evening, continued)
+
+### Agent: Claude (claude.ai)
+
+### Built this session (continuation — "fix these" pass on the items flagged above)
+
+- `tools/intelligence-engine-studio/`: brought to parity with the main app's worker hardening (it had every bug the main app had before today — hardcoded failure count, in-memory-only circuit breaker, no rss/api adapters, no heartbeat/health endpoint, sync stop()+immediate exit). Caught and fixed a regression I introduced mid-port: blindly copying the main app's `selectAdapter()` switch silently dropped this app's `json_api` → `APIDataAdapter` route.
+- `lib/country-data/server.ts`: `country_intel` was a phantom table this morning; a concurrent session has since created it — with a different schema than the scaffold assumed (`country_code` not `iso2`, `country_name` not `name`). Fixed to match the real table, cross-checked against `lib/dashboard/dashboardLiveData.ts`'s existing query.
+- `lib/genetics/storage.ts` (signed-URL evidence access) had zero callers. New `getGranteeAccessGrants()` query + `/dashboard/genetics/granted-access` page + server action + client button — a grantee can now actually request and open a signed link to evidence they were granted. Server action re-verifies the grant server-side; never trusts client-supplied grant data.
+- Implemented `Retry-After` handling end-to-end: `ScraperResult` gains `http_status`/`retry_after_seconds`, all 3 real adapters populate both, `worker-node.ts`'s retry logic honors it (capped at 30s) in both apps.
+- Added 29 tests (zero existed for any of this logic before today): Retry-After parsing, the distributed circuit breaker against a fake Supabase client, genetics scoring/gating, access-grant validation. All passing.
+
+### Current Status / Not done
+
+- Ran the **full** existing vitest suite, not just new files: 17 test files fail on bare `main`, confirmed via stash to be pre-existing and unrelated to anything touched today (lib/hf/, dashboard, middleware matchers, globe motion, security fuzzing, supabase admin client). Flagging, not fixing — outside this task's scope and spans domains with no context here.
+- The v2 worker is still not deployed anywhere (still waiting on a host decision — Fly.io ~$2/mo or Railway $5/mo were the cheapest real options as of today). All the hardening above is dormant until something actually runs it.
+- `tools/intelligence-engine-studio/`'s actual deployment target is still unconfirmed — its `.env.example` references Cloud Run/AI-Studio/Gemini, not the Supabase env vars its own code reads at runtime.
+
+---
+
 ## Session: Jun 23 2026 (afternoon/evening)
 
 ### Agent: Claude (claude.ai)
