@@ -1,0 +1,12 @@
+ALTER VIEW public.public_country_profile_dto SET (security_invoker = true);
+ALTER VIEW public.marketplace_public_listings_v1 SET (security_invoker = true);
+ALTER VIEW public.signals_intelligence_feed SET (security_invoker = true);
+ALTER VIEW public.platform_coverage_summary SET (security_invoker = true);
+ALTER VIEW public.genetics_public_profiles SET (security_invoker = true);
+ALTER VIEW public.genetics_public_cultivar_passports SET (security_invoker = true);
+ALTER VIEW public.genetics_public_cultivar_aliases SET (security_invoker = true);
+ALTER VIEW public.genetics_public_country_opportunities SET (security_invoker = true);
+ALTER VIEW public.genetics_public_evidence_summaries SET (security_invoker = true);
+ALTER VIEW public.genetics_public_claims SET (security_invoker = true);
+ALTER VIEW public.genetics_public_collaboration_projects SET (security_invoker = true);
+ALTER VIEW public.genetics_public_service_providers SET (security_invoker = true);
