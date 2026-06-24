@@ -39,6 +39,8 @@ export const ScraperResultSchema = z.object({
   content_hash: z.string(),
   status: z.enum(['success', 'failed', 'unchanged', 'blocked']),
   error_message: z.string().optional(),
+  http_status: z.number().optional(),
+  retry_after_seconds: z.number().optional(),
 });
 
 export type ScraperResult = z.infer<typeof ScraperResultSchema>;

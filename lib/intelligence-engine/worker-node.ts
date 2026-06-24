@@ -126,7 +126,7 @@ export class WorkerNode {
     }
   }
 
-  /** A few quick retries with jitter for transient errors only (timeouts, 429/5xx). Permanent errors (4xx other than 429, parse failures) are not retried here — they fall through to the circuit breaker / backoff schedule immediately. */
+  /** A few quick retries with jitter for transient errors only (timeouts, 429/5xx). Permanent errors (4xx other than 429, parse failures) are not retried here — they fall through to the circuit breaker / backoff schedule immediately. Honors Retry-After when the adapter surfaced one (capped at 30s — anything longer isn't worth blocking this batch for; the source's own exponential backoff schedule takes over instead). */
   private async fetchWithRetry(adapter: IDataAdapter, target: ScrapeTarget, maxAttempts = 3): Promise<ScraperResult> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -134,7 +134,10 @@ export class WorkerNode {
         const result = await adapter.fetch(target);
         if (result.status === 'success' || result.status === 'unchanged') return result;
         if (attempt < maxAttempts && RETRYABLE_STATUS_PATTERN.test(result.error_message ?? '')) {
-          await sleep(300 * attempt + Math.random() * 200);
+          const waitMs = result.retry_after_seconds !== undefined
+            ? Math.min(result.retry_after_seconds, 30) * 1000
+            : 300 * attempt + Math.random() * 200;
+          await sleep(waitMs);
           continue;
         }
         return result;

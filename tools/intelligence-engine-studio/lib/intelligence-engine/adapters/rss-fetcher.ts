@@ -1,4 +1,5 @@
 import { IDataAdapter, ScrapeTarget, ScraperResult } from '../types';
+import { parseRetryAfterSeconds } from './http-helpers';
 import crypto from 'crypto';
 
 /**
@@ -32,6 +33,8 @@ export class RSSDataAdapter implements IDataAdapter {
           content_hash: '',
           status: 'failed',
           error_message: `HTTP ${response.status}: ${response.statusText}`,
+          http_status: response.status,
+          retry_after_seconds: parseRetryAfterSeconds(response),
         };
       }
 
@@ -47,6 +50,7 @@ export class RSSDataAdapter implements IDataAdapter {
           content_hash: contentHash,
           status: 'failed',
           error_message: 'No <item>/<entry> elements found — response does not look like a valid RSS/Atom feed.',
+          http_status: response.status,
         };
       }
 
@@ -56,6 +60,7 @@ export class RSSDataAdapter implements IDataAdapter {
         raw_content: xml,
         content_hash: contentHash,
         status: 'success',
+        http_status: response.status,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
