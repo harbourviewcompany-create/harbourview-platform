@@ -45,7 +45,7 @@ export default async function PendingApplicationsPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {professionals.map((p) => (
+            {professionals.map((p: import('@/lib/admin/applicationsQuery').PendingProfessional) => (
               <div key={p.id} className="flex items-start justify-between gap-4 rounded-xl border border-[#C6A55A]/20 bg-[#0B1A2F] p-4">
                 <div>
                   <p className="font-medium text-[#F5F1E8]">
@@ -78,7 +78,7 @@ export default async function PendingApplicationsPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {suppliers.map((s) => (
+            {suppliers.map((s: import('@/lib/admin/applicationsQuery').PendingSupplierProfile) => (
               <div key={s.id} className="flex items-start justify-between gap-4 rounded-xl border border-[#C6A55A]/20 bg-[#0B1A2F] p-4">
                 <div>
                   <p className="font-medium text-[#F5F1E8]">
@@ -86,14 +86,14 @@ export default async function PendingApplicationsPage() {
                     <span className="ml-2 text-xs capitalize text-[#C6A55A]/80">{s.seller_type.replace(/_/g, ' ')}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-[#F5F1E8]/45">
-                    {s.contact_name ?? 'No contact name'}{s.contact_email ? ` · ${s.contact_email}` : ''} · {s.region.replace(/_/g, ' ')}
+                    {s.contact_name ?? 'No contact name'} · {(s.regions_served ?? []).join(', ')}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {s.categories.map((c) => (
+                    {s.categories.map((c: string) => (
                       <span key={c} className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] text-[#F5F1E8]/55">{c.replace(/_/g, ' ')}</span>
                     ))}
                   </div>
-                  <p className="mt-2 max-w-xl text-xs leading-5 text-[#F5F1E8]/55">{s.description}</p>
+                  <p className="mt-2 max-w-xl text-xs leading-5 text-[#F5F1E8]/55">{s.description_public}</p>
                   <p className="mt-2 text-[10px] text-[#F5F1E8]/30">Submitted {fmt(s.created_at)}</p>
                 </div>
                 <DecisionButtons kind="suppliers" id={s.id} />
