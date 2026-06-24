@@ -137,7 +137,7 @@ export default async function RegulatoryPathwaysPage() {
         {briefings.length > 0 && (
           <section className="rp-section">
             <h2 className="rp-section-title">Live Market Status by Framework</h2>
-            <p className="rp-section-sub">Current legal framework across {briefings.length} jurisdictions from Harbourview's weekly intelligence synthesis.</p>
+            <p className="rp-section-sub">Current legal framework across {briefings.length} jurisdictions from Harbourview&apos;s weekly intelligence synthesis.</p>
             <div className="rp-framework-groups">
               {statusOrder.filter(s => byStatus[s]?.length > 0).map(status => (
                 <div key={status} className="rp-framework-group">
@@ -194,7 +194,7 @@ export default async function RegulatoryPathwaysPage() {
           <h2 className="rp-cta-title">Specific pathway questions go through private intake</h2>
           <p className="rp-cta-body">
             Questions involving named products, active submissions, licence applications, or specific
-            regulatory engagements are handled through Harbourview's confidential intake — not this
+            regulatory engagements are handled through Harbourview&apos;s confidential intake — not this
             public surface. Harbourview does not provide legal advice.
           </p>
           <div className="rp-cta-actions">
