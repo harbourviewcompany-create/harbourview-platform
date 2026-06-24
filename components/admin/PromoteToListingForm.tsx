@@ -2,44 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { promoteInquiryToListing } from '@/app/actions/promoteToListing';
+import { LISTING_CATEGORIES, LISTING_SELLER_TYPES, SUPPLY_REGIONS } from '@/lib/marketplace/formOptions';
 
-const CATEGORIES = [
-  ['consumables', 'Consumables & Operating Supplies'],
-  ['cannabis_inventory', 'Cannabis Inventory'],
-  ['new_products', 'New Products'],
-  ['used_surplus', 'Used & Surplus Equipment'],
-  ['export_ready', 'Export Ready'],
-  ['import_demand', 'Import Demand'],
-  ['genetics', 'Genetics'],
-  ['processing_equipment', 'Processing Equipment'],
-  ['cultivation_equipment', 'Cultivation Equipment'],
-  ['labs_testing', 'Labs & Testing'],
-  ['logistics', 'Logistics'],
-  ['packaging', 'Packaging'],
-  ['professional_services', 'Professional Services'],
-  ['services', 'Services'],
-  ['business_opportunities', 'Business Opportunities'],
-  ['distressed_inventory', 'Distressed Inventory'],
-  ['distressed_businesses', 'Distressed Businesses'],
-] as const;
-
-const SELLER_TYPES = [
-  ['licensed_producer', 'Licensed Producer'],
-  ['distributor', 'Distributor'],
-  ['wholesaler', 'Wholesaler'],
-  ['retailer', 'Retailer'],
-  ['investor', 'Investor'],
-  ['other', 'Other'],
-] as const;
-
-const REGIONS = [
-  ['europe', 'Europe'],
-  ['north_america', 'North America'],
-  ['asia_pacific', 'Asia Pacific'],
-  ['latin_america', 'Latin America'],
-  ['middle_east_africa', 'Middle East & Africa'],
-  ['global', 'Global'],
-] as const;
+const CATEGORIES   = LISTING_CATEGORIES;
+const SELLER_TYPES = LISTING_SELLER_TYPES;
+const REGIONS      = SUPPLY_REGIONS;
 
 type Props = {
   inquiryId: string;
@@ -110,14 +77,14 @@ export function PromoteToListingForm({ inquiryId, prefillName, prefillMessage }:
           <label className="text-sm text-[#F5F1E8]/75">
             Category *
             <select name="category" required className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2">
-              {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {CATEGORIES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
 
           <label className="text-sm text-[#F5F1E8]/75">
             Seller type
             <select name="seller_type" className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2">
-              {SELLER_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {SELLER_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
 
@@ -134,7 +101,7 @@ export function PromoteToListingForm({ inquiryId, prefillName, prefillMessage }:
           <label className="text-sm text-[#F5F1E8]/75">
             Region
             <select name="region" className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2">
-              {REGIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {REGIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
 

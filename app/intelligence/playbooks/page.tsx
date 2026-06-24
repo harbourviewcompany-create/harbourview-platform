@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getAllPlaybooks, DIFFICULTY_LABEL, DIFFICULTY_COLOR } from '@/lib/intelligence/jurisdictionPlaybooks'
 import type { JurisdictionPlaybook, PlaybookRegulator } from '@/lib/intelligence/jurisdictionPlaybooks'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 export const metadata: Metadata = {
   title: 'Jurisdiction Entry Playbooks — Cannabis Market Entry Intelligence | Harbourview',
@@ -15,13 +16,6 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = 'force-dynamic'
-
-const COUNTRY_FLAGS: Record<string, string> = {
-  DE: '🇩🇪', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', NL: '🇳🇱',
-  PT: '🇵🇹', TH: '🇹🇭', IL: '🇮🇱', CO: '🇨🇴', ZA: '🇿🇦',
-  MT: '🇲🇹', LU: '🇱🇺', CZ: '🇨🇿', NZ: '🇳🇿', MX: '🇲🇽',
-  BR: '🇧🇷', CH: '🇨🇭', FR: '🇫🇷', ES: '🇪🇸', PL: '🇵🇱',
-}
 
 const DIFFICULTY_ICON: Record<string, string> = {
   low:       '●○○○',
@@ -58,7 +52,7 @@ export default async function PlaybooksIndexPage() {
 
         <div className="pb-grid">
           {playbooks.map((pb: JurisdictionPlaybook) => {
-            const flag = COUNTRY_FLAGS[pb.country_iso2] ?? '🌐'
+            const flag = flagEmoji(pb.country_iso2)
             const color = DIFFICULTY_COLOR[pb.difficulty] ?? '#d4a84b'
             return (
               <Link

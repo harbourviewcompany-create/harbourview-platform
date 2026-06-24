@@ -4,6 +4,7 @@ import React, { useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 // ── Globe (SSR off — Three.js) ────────────────────────────────────────────────
 
@@ -35,12 +36,6 @@ function getOverall(bars: { pct: number }[]) {
   return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
 }
 
-// ── Flag helper ───────────────────────────────────────────────────────────────
-
-const FLAG: Record<string, string> = {
-  US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪',
-  FR: '🇫🇷', AU: '🇦🇺', NL: '🇳🇱', MX: '🇲🇽',
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -76,7 +71,7 @@ export const BriefingRoom = React.memo(function BriefingRoom({
         <header className="br-section-head">JURISDICTION BRIEF</header>
 
         <div className="br-jx-hero">
-          <span className="br-flag">{FLAG[country.iso2] ?? '🌐'}</span>
+          <span className="br-flag">{flagEmoji(country.iso2)}</span>
           <div>
             <div className="br-country">{country.label}</div>
             {region && <div className="br-region">{region}</div>}
@@ -233,7 +228,7 @@ export const BriefingRoom = React.memo(function BriefingRoom({
             </div>
           </div>
 
-          <a href="#" className="br-link">Confidence methodology →</a>
+          <button className="br-link br-link-btn" type="button" disabled>Confidence methodology →</button>
         </section>
 
         {/* Watch regions */}
@@ -259,7 +254,7 @@ export const BriefingRoom = React.memo(function BriefingRoom({
             ))}
           </div>
 
-          <a href="#" className="br-link">View all jurisdictions →</a>
+          <button className="br-link br-link-btn" type="button" disabled>View all jurisdictions →</button>
         </section>
 
         {/* Recent change notes */}
@@ -282,7 +277,7 @@ export const BriefingRoom = React.memo(function BriefingRoom({
               ))}
             </div>
 
-            <a href="#" className="br-link">View all change activity →</a>
+            <button className="br-link br-link-btn" type="button" disabled>View all change activity →</button>
           </section>
         )}
 
@@ -451,6 +446,7 @@ const CSS = `
   transition:opacity .12s;
 }
 .br-link:hover { opacity:.7; }
+.br-link-btn:disabled { opacity:.4;cursor:default; }
 
 /* Confidence */
 .br-confidence  { display:flex;gap:14px;align-items:flex-start; }

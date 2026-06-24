@@ -1,42 +1,17 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import {
+  SUPPLY_REGIONS,
+  CONSUMABLES_CATEGORIES,
+  CONSUMABLES_CERTIFICATIONS,
+  CONSUMABLES_INCOTERMS,
+} from '@/lib/marketplace/formOptions'
 
-const PRODUCT_CATEGORIES = [
-  'Pre-roll cones',
-  'Child-resistant pouches',
-  'Glass dispensary jars',
-  'Concentrate jars',
-  'Exit bags',
-  'Humidity control packs',
-  'Labels & stickers',
-  'Extraction solvents',
-  'Lab consumables',
-  'PPE & facility supplies',
-  'Cultivation inputs',
-  'Other consumables',
-]
-
-const CERTIFICATIONS = [
-  'ISO 9001',
-  'GMP',
-  'EN 14375 (CR packaging)',
-  'ASTM D3475 (CR packaging)',
-  'REACH compliant',
-  'FSC (paper products)',
-  'FDA registered facility',
-  'Other',
-]
-
-const REGIONS = [
-  { value: 'asia_pacific', label: 'Asia Pacific (China, India, etc.)' },
-  { value: 'europe', label: 'Europe' },
-  { value: 'north_america', label: 'North America' },
-  { value: 'latin_america', label: 'Latin America' },
-  { value: 'global', label: 'Global / Multiple regions' },
-]
-
-const INCOTERMS = ['FOB', 'CIF', 'DAP', 'DDP', 'EXW', 'FCA']
+const PRODUCT_CATEGORIES = CONSUMABLES_CATEGORIES
+const CERTIFICATIONS     = CONSUMABLES_CERTIFICATIONS
+const REGIONS            = SUPPLY_REGIONS
+const INCOTERMS          = CONSUMABLES_INCOTERMS
 
 const inputClass =
   'mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] placeholder-white/25 outline-none ring-[#C6A55A]/40 focus:ring-2 text-sm'
