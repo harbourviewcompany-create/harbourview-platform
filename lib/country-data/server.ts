@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { COUNTRIES } from '@/data/globe/geography-registry';
 import { CountryBriefing } from './types';
 
 export async function getCountryBriefing(iso2: string): Promise<CountryBriefing | null> {
+  const supabase = createClient()
   const { data: dbData } = await supabase
     .from('country_intel')
     .select('*')
@@ -37,7 +38,17 @@ export async function seedAllCountries() {
     // ... map other fields
   }));
 
+  const supabase = createClient()
   const { error } = await supabase.from('country_intel').upsert(seedData);
   if (error) console.error(error);
   return !error;
+}
+
+// Re-export DTO functions expected by /app/countries pages
+export { getPublicCountryProfiles as listPublicCountryProfiles } from './public-country-dto'
+
+export function getPublicCountryProfile(slug: string) {
+  const { getPublicCountryProfiles } = require('./public-country-dto')
+  const profiles: ReturnType<typeof getPublicCountryProfiles> = getPublicCountryProfiles()
+  return profiles.find((p: { slug: string }) => p.slug === slug) ?? null
 }

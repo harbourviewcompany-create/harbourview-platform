@@ -7,6 +7,7 @@ export type SupplierProfile = {
   id: string
   profile_slug: string
   company_name: string
+  title: string | null
   seller_type: string
   categories: string[]
   regions_served: string[]
