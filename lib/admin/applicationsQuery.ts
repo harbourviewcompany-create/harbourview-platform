@@ -42,11 +42,7 @@ export async function listPendingProfessionals(): Promise<AdminDataResult<Pendin
 
 export async function listPendingSupplierProfiles(): Promise<AdminDataResult<PendingSupplierProfile[]>> {
   // supplier_profiles.status is the listing_status enum: pending_review | approved | rejected | archived.
-  // Not "pending" — that value doesn't exist on this table. (A concurrent edit briefly broke this
-  // to query status=eq.pending and referenced columns that don't exist on this table at all —
-  // regions_served, description_public, website, hq_country, services_offered, title. Verified the
-  // live schema directly: company_name, contact_name, contact_email, seller_type, region, categories,
-  // description are correct, restored here.)
+  // Verified directly against the live schema (information_schema.columns + pg_enum) before writing this.
   return fetchAdminSupabaseJson<PendingSupplierProfile[]>(
     `/rest/v1/supplier_profiles?status=eq.pending_review&select=${SUPPLIER_SELECT}&order=created_at.desc`,
   )

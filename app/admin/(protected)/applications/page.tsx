@@ -86,7 +86,7 @@ export default async function PendingApplicationsPage() {
                     <span className="ml-2 text-xs capitalize text-[#C6A55A]/80">{s.seller_type.replace(/_/g, ' ')}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-[#F5F1E8]/45">
-                    {s.contact_name} · {s.contact_email} · {s.region.replace(/_/g, ' ')}
+                    {s.contact_name ?? 'No contact name'}{s.contact_email ? ` · ${s.contact_email}` : ''} · {s.region.replace(/_/g, ' ')}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {s.categories.map((c) => (
