@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { stripe, tierFromPriceId } from '@/lib/stripe/server'
+import { createHarbourviewServiceRoleSupabaseClient } from '@/lib/harbourview/supabase/service-role'
 import type Stripe from 'stripe'
 
-function adminSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+function unixToIso(seconds: number | null | undefined): string | null {
+  return typeof seconds === 'number' && Number.isFinite(seconds)
+    ? new Date(seconds * 1000).toISOString()
+    : null
 }
 
 async function upsertSubscription(sub: Stripe.Subscription) {
-  const priceId = sub.items.data[0]?.price.id ?? ''
+  const item = sub.items.data[0]
+  const priceId = item?.price.id ?? ''
   const tier = tierFromPriceId(priceId) ?? 'intel'
   const userId = sub.metadata?.supabase_user_id
 
@@ -20,11 +20,9 @@ async function upsertSubscription(sub: Stripe.Subscription) {
     return
   }
 
-  // billing period is on the first item in the new API
-  const itemPeriod = sub.items.data[0]?.billing_thresholds ?? null
-  const anchor = sub.billing_cycle_anchor
-
-  const supabase = adminSupabase()
+  // In the current Stripe API the billing period lives on the subscription
+  // item, not the subscription itself.
+  const supabase = createHarbourviewServiceRoleSupabaseClient()
   const { error } = await supabase.from('subscriptions').upsert({
     id:                   sub.id,
     user_id:              userId,
@@ -32,12 +30,10 @@ async function upsertSubscription(sub: Stripe.Subscription) {
     status:               sub.status,
     tier,
     price_id:             priceId,
-    current_period_start: new Date(anchor * 1000).toISOString(),
-    current_period_end:   sub.cancel_at
-      ? new Date(sub.cancel_at * 1000).toISOString()
-      : null,
+    current_period_start: unixToIso(item?.current_period_start),
+    current_period_end:   unixToIso(item?.current_period_end),
     cancel_at_period_end: sub.cancel_at_period_end,
-    canceled_at:          sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
+    canceled_at:          unixToIso(sub.canceled_at),
     updated_at:           new Date().toISOString(),
   })
 

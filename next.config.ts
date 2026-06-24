@@ -10,9 +10,11 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
+      // Supabase storage (project-locked) is the only remote image source.
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'zvxdgdkukjrrwamdpqrg.supabase.co',
+        pathname: '/storage/v1/object/**',
       },
     ],
     formats: ['image/avif', 'image/webp'],
