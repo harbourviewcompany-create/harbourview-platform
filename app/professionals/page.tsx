@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 export const metadata: Metadata = {
   title: 'Clinical Professionals Directory — Cannabis Medicine | Harbourview',
@@ -43,14 +44,6 @@ const CREDENTIAL_LABEL: Record<string, string> = {
   regulator:           'Regulatory Specialist',
   educator:            'Educator',
   other:               'Professional',
-}
-
-const COUNTRY_FLAGS: Record<string, string> = {
-  DE: '🇩🇪', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', NL: '🇳🇱',
-  PT: '🇵🇹', TH: '🇹🇭', IL: '🇮🇱', CO: '🇨🇴', ZA: '🇿🇦',
-  MT: '🇲🇹', LU: '🇱🇺', CZ: '🇨🇿', NZ: '🇳🇿', MX: '🇲🇽',
-  BR: '🇧🇷', CH: '🇨🇭', FR: '🇫🇷', ES: '🇪🇸', PL: '🇵🇱',
-  US: '🇺🇸', IT: '🇮🇹', AT: '🇦🇹', BE: '🇧🇪', DK: '🇩🇰',
 }
 
 async function getVerifiedProfessionals(): Promise<Professional[]> {
@@ -123,7 +116,7 @@ export default async function ProfessionalsDirectoryPage() {
                   <div className="pro-countries">
                     {pro.countries.slice(0, 5).map(iso2 => (
                       <span key={iso2} className="pro-flag-chip">
-                        {COUNTRY_FLAGS[iso2] ?? '🌐'} {iso2}
+                        {flagEmoji(iso2)} {iso2}
                       </span>
                     ))}
                     {pro.countries.length > 5 && (

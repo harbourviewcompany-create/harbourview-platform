@@ -53,7 +53,7 @@ export function PostListingModal({ open, onClose }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-[480px] rounded-2xl p-6"
+        className="w-full max-w-[480px] rounded-2xl p-6 mx-4"
         style={{ background: 'var(--hv-bg-900, #06101B)', border: '1px solid rgba(198,165,90,0.22)' }}
       >
         <h2 className="mb-1.5 font-serif text-[18px]" style={{ color: 'var(--hv-text-primary)' }}>

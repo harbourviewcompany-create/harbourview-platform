@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 export const metadata: Metadata = {
   title: 'Global Cannabis Markets — Weekly Intelligence Briefings | Harbourview',
@@ -44,13 +45,6 @@ const LEGAL_LABEL: Record<string, string> = {
   mixed:         'Mixed',
   transitional:  'Transitional',
   unknown:       'Unknown',
-}
-
-const COUNTRY_FLAGS: Record<string, string> = {
-  DE: '🇩🇪', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', NL: '🇳🇱',
-  PT: '🇵🇹', TH: '🇹🇭', IL: '🇮🇱', CO: '🇨🇴', ZA: '🇿🇦',
-  MT: '🇲🇹', LU: '🇱🇺', CZ: '🇨🇿', NZ: '🇳🇿', MX: '🇲🇽',
-  BR: '🇧🇷', CH: '🇨🇭', FR: '🇫🇷', ES: '🇪🇸', PL: '🇵🇱',
 }
 
 async function getAllBriefings(): Promise<Briefing[]> {
@@ -117,7 +111,7 @@ export default async function MarketsPage() {
         <div className="mkt-grid">
           {SYNTHESIS_MARKETS.map(market => {
             const briefing = briefingMap.get(market.iso2)
-            const flag = COUNTRY_FLAGS[market.iso2] ?? '🌐'
+            const flag = flagEmoji(market.iso2)
             const maturityColor = briefing ? (MATURITY_COLOR[briefing.market_maturity] ?? MATURITY_COLOR.unknown) : 'rgba(245,240,232,.15)'
 
             return (

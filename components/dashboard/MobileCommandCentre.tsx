@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -24,10 +24,16 @@ type Props = {
   pathwayData?:  PathwayData | null
   watchlistData?: WatchlistData | null
   evidenceData?:     EvidenceData
-  liveTiles?:        LiveEduTile[]
-  recentEduModules?: RecentEduModule[]
-  sourceCoverage?:   SourceCoverageRow[]
-  userEmail?:        string | null
+  liveTiles?:           LiveEduTile[]
+  recentEduModules?:    RecentEduModule[]
+  sourceCoverage?:      SourceCoverageRow[]
+  jurisdictionPlaybook?: JurisdictionPlaybook
+  educationTracks?:     EducationTrack[]
+  marketMetrics?:       MarketMetric[]
+  tradeFlows?:          TradeFlow[]
+  professionals?:       HvProfessional[]
+  cannabisOperators?:   CannabisOperator[]
+  userEmail?:           string | null
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -188,7 +194,7 @@ function MobileAccordion({ title, children, defaultOpen = false }: { title: stri
   )
 }
 
-function BriefingOverview({ country, roleLabel, countryIntel, signals }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[] }) {
+function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMetrics = [], tradeFlows = [], onOpenSettings }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; onOpenSettings?: () => void }) {
   const summary = countryIntel?.public_summary?.trim()
     || `${country.label} dashboard context is available for ${roleLabel}.`
 
@@ -274,6 +280,36 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals }: { count
           </div>
         </MobileAccordion>
       )}
+
+      {marketMetrics.length > 0 && (
+        <MobileAccordion title={`Market metrics (${marketMetrics.length})`}>
+          <div className="hvm-ledger-table" role="table" aria-label="Market metrics">
+            {marketMetrics.slice(0, 8).map((m, i) => (
+              <div role="row" key={i}>
+                <strong>{m.metric_name.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</strong>
+                <span>{m.metric_value.toLocaleString()}{m.metric_unit ? ` ${m.metric_unit}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {tradeFlows.length > 0 && (
+        <MobileAccordion title={`Trade flows (${tradeFlows.length})`}>
+          <div className="hvm-list-stack">
+            {tradeFlows.slice(0, 6).map((t, i) => (
+              <div className="hvm-signal-card" key={i}>
+                <strong>{t.origin_iso2} → {t.destination_iso2}</strong>
+                <small>
+                  {t.product_category ?? 'Cannabis'}
+                  {t.legal_status ? ` · ${t.legal_status}` : ''}
+                  {t.permit_required != null ? ` · Permit: ${t.permit_required ? 'required' : 'not required'}` : ''}
+                </small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
     </>
   )
 }
@@ -287,18 +323,18 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'settings',   label: 'Settings' },
 ]
 
-function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, onCountryChange, onRoleChange, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, marketMetrics, tradeFlows, jurisdictionPlaybook, onCountryChange, onRoleChange, onOpenSettings, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
-      {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} />}
-      {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} />}
+      {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
+      {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
       {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
     </div>
   )
 }
 
-function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; pathwayData?: PathwayData | null }) {
+function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, jurisdictionPlaybook }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; pathwayData?: PathwayData | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
   const pathwaySummary = fieldValue(countryIntel?.commercial_pathway_summary, 'Pathway evidence is under Harbourview review for this country-role context.')
   const reviewState = fieldValue(countryIntel?.review_status, 'Review gated')
   const steps = pathwayData?.steps ?? []
@@ -351,11 +387,41 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData }: 
           </>
         )}
       </div>
+
+      {jurisdictionPlaybook && (
+        <MobileAccordion title="Jurisdiction playbook">
+          <div className="hvm-ledger-table" role="table" aria-label="Jurisdiction playbook">
+            {jurisdictionPlaybook.difficulty && (
+              <div role="row"><strong>Difficulty</strong><span>{jurisdictionPlaybook.difficulty}</span></div>
+            )}
+            {jurisdictionPlaybook.typical_timeline_months && (
+              <div role="row"><strong>Timeline</strong><span>{jurisdictionPlaybook.typical_timeline_months} months</span></div>
+            )}
+            {jurisdictionPlaybook.estimated_cost_range && (
+              <div role="row"><strong>Est. cost</strong><span>{jurisdictionPlaybook.estimated_cost_range}</span></div>
+            )}
+          </div>
+          {jurisdictionPlaybook.legal_framework_summary && (
+            <p style={{ fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.55, margin: '10px 0 0' }}>
+              {jurisdictionPlaybook.legal_framework_summary}
+            </p>
+          )}
+          {jurisdictionPlaybook.common_pitfalls.length > 0 && (
+            <div className="hvm-list-stack" style={{ marginTop: 10 }}>
+              {jurisdictionPlaybook.common_pitfalls.slice(0, 3).map((p, i) => (
+                <div className="hvm-signal-card" key={i} style={{ color: 'rgba(229,115,115,.85)' }}>
+                  <strong>⚠ {p}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </MobileAccordion>
+      )}
     </div>
   )
 }
 
-function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0 }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number }) {
+function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [] }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[] }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
   const [search, setSearch] = useState('')
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
@@ -463,11 +529,27 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
           <SectionCard label="Counterparty status" title="Harbourview-mediated release" detail="Counterparty contact and proof release are controlled workflows, not public mobile fields." tone="ok" />
         </div>
       </MobileAccordion>
+
+      {cannabisOperators.length > 0 && (
+        <MobileAccordion title={`Verified operators — ${country.label} (${cannabisOperators.length})`}>
+          <div className="hvm-list-stack">
+            {cannabisOperators.slice(0, 8).map(op => (
+              <div className="hvm-signal-card" key={op.id}>
+                <strong>{op.legal_name}</strong>
+                <small>
+                  {op.operator_type ?? 'Operator'}
+                  {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
+                </small>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
     </div>
   )
 }
 
-function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, sourceCoverage }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[] }) {
+function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, sourceCoverage, professionals = [] }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[] }) {
   const reviewed = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
   const sources = evidenceData?.sources ?? []
   const orgDocs = evidenceData?.orgDocs ?? []
@@ -553,6 +635,23 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
             <div role="row"><strong>Evidence status</strong><span>{fieldValue(countryIntel?.data_completeness, PENDING_REVIEW)}</span></div>
             <div role="row"><strong>Confidence state</strong><span>{fieldValue(countryIntel?.review_status, 'Review gated')}</span></div>
             <div role="row"><strong>Public distinction</strong><span>Summary fields only; private evidence remains admin-only</span></div>
+          </div>
+        </MobileAccordion>
+      )}
+
+      {professionals.length > 0 && (
+        <MobileAccordion title={`Verified professionals (${professionals.length})`}>
+          <div className="hvm-list-stack">
+            {professionals.slice(0, 6).map(p => (
+              <div className="hvm-signal-card" key={p.id}>
+                <strong>{p.full_name}</strong>
+                <small>
+                  {p.title ?? p.credential_type ?? 'Professional'}
+                  {p.institution ? ` · ${p.institution}` : ''}
+                  {p.accepts_referrals ? ' · Accepts referrals' : ''}
+                </small>
+              </div>
+            ))}
           </div>
         </MobileAccordion>
       )}
@@ -847,7 +946,7 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
   { id: 'research', label: 'Research' },
 ]
 
-function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, evidenceData, sourceCoverage }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[] }) {
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, professionals = [] }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[] }) {
   const [sub, setSub] = useState<EduSub>('modules')
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
@@ -947,11 +1046,24 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
               </div>
             </MobileAccordion>
           )}
+
+          {educationTracks.length > 0 && (
+            <MobileAccordion title={`Learning tracks (${educationTracks.length})`}>
+              <div className="hvm-list-stack">
+                {educationTracks.slice(0, 8).map(t => (
+                  <div className="hvm-signal-card" key={t.id}>
+                    <strong>{t.icon ?? '⬛'} {t.title}</strong>
+                    <small>{t.level ?? 'Track'}{t.description ? ` · ${t.description.slice(0, 80)}` : ''}</small>
+                  </div>
+                ))}
+              </div>
+            </MobileAccordion>
+          )}
         </>
       )}
 
       {sub === 'research' && (
-        <EvidenceMobile country={country} roleLabel={roleLabel} evidenceData={evidenceData} sourceCoverage={sourceCoverage} />
+        <EvidenceMobile country={country} roleLabel={roleLabel} evidenceData={evidenceData} sourceCoverage={sourceCoverage} professionals={professionals} />
       )}
     </div>
   )
@@ -1429,6 +1541,12 @@ export default function MobileCommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  jurisdictionPlaybook,
+  educationTracks = [],
+  marketMetrics = [],
+  tradeFlows = [],
+  professionals = [],
+  cannabisOperators = [],
   userEmail,
 }: Props) {
   const router = useRouter()
@@ -1474,12 +1592,15 @@ export default function MobileCommandCentre({
             countryIntel={countryIntel} signals={signals}
             pathwayData={pathwayData} localIntel={localIntel}
             countryOptions={countryOptions} roleOptions={roleOptions}
+            marketMetrics={marketMetrics} tradeFlows={tradeFlows}
+            jurisdictionPlaybook={jurisdictionPlaybook}
             onCountryChange={handleCountryChange} onRoleChange={setRole}
+            onOpenSettings={() => setBriefingSub('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
         )
       case 'marketplace':
-        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} />
+        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} />
       case 'signals':
         return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sub={signalsSub} />
       case 'education':
@@ -1488,7 +1609,9 @@ export default function MobileCommandCentre({
             country={country} roleLabel={roleLabel}
             eduCategories={eduCategories} liveTiles={liveTiles}
             recentEduModules={recentEduModules}
+            educationTracks={educationTracks}
             evidenceData={evidenceData} sourceCoverage={sourceCoverage}
+            professionals={professionals}
           />
         )
       default:

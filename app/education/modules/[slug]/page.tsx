@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PublicSection, SectionHeader, PublicCtaGroup } from '@/components/PublicUi'
-import { getEducationModuleBySlug, getPublishedEducationModules, AUDIENCE_LABELS, TRACK_LABELS } from '@/lib/server/educationModulesQuery'
+import { getEducationModuleBySlug, getPublishedEducationModules, getTrackLabelMap, AUDIENCE_LABELS } from '@/lib/server/educationModulesQuery'
 
 export const revalidate = 3600
 
@@ -23,10 +23,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function EducationModulePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const module_ = await getEducationModuleBySlug(slug)
+  const [module_, trackLabelMap] = await Promise.all([
+    getEducationModuleBySlug(slug),
+    getTrackLabelMap(),
+  ])
   if (!module_) notFound()
 
-  const trackLabel = TRACK_LABELS[module_.track_id] ?? module_.track_id
+  const trackLabel = trackLabelMap[module_.track_id] ?? module_.track_id
   const audienceLabels = module_.audience.map((a) => AUDIENCE_LABELS[a] ?? a)
 
   return (

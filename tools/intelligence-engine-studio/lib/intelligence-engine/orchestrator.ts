@@ -24,6 +24,7 @@ interface SourceRegistryRow {
   crawl_allowed: boolean;
   next_crawl_at: string | null;
   locked_until: string | null;
+  consecutive_failures: number | null;
 }
 
 // Normalise the raw `adapter` value stored in source_registry to the canonical
@@ -69,7 +70,7 @@ export class IntelligenceOrchestrator {
   async getTargets(limit = 100): Promise<ScrapeTarget[]> {
     const { data, error } = await this.supabase
       .from('source_registry')
-      .select('id, source_url, iso, source_name, adapter, crawl_cadence, is_active, crawl_allowed, next_crawl_at, locked_until')
+      .select('id, source_url, iso, source_name, adapter, crawl_cadence, is_active, crawl_allowed, next_crawl_at, locked_until, consecutive_failures')
       .eq('is_active', true)
       .eq('crawl_allowed', true)
       .limit(limit);
@@ -83,6 +84,7 @@ export class IntelligenceOrchestrator {
       base_url: row.source_url,
       adapter_type: normaliseAdapterType(row.adapter),
       cadence_hours: parseCadenceHours(row.crawl_cadence),
+      consecutive_failures: row.consecutive_failures || 0,
     }));
   }
 

@@ -23,8 +23,8 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
   shader.uniforms.uChampagneGold = { value: new Color(options.isSelected ? '#e0b830' : '#d4a628') }
   shader.uniforms.uBronzeGold = { value: new Color(options.isSelected ? '#5b3510' : '#3b260e') }
   shader.uniforms.uRimGold = { value: new Color(options.isSelected || options.isFocused ? '#e8c84a' : '#c8a030') }
-  shader.uniforms.uKeyDirection = { value: new Vector3(0.78, 0.42, 0.46) }
-  shader.uniforms.uFillDirection = { value: new Vector3(-0.38, 0.64, -0.66) }
+  shader.uniforms.uKeyDirection = { value: new Vector3(0.82, 0.08, 0.57) }
+  shader.uniforms.uFillDirection = { value: new Vector3(-0.70, 0.08, -0.71) }
   shader.uniforms.uMetallicFocus = { value: options.isSelected ? 1.0 : options.isFocused ? 0.58 : 0.0 }
 
   shader.vertexShader = shader.vertexShader.replace(
@@ -83,6 +83,12 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
     '#include <color_fragment>',
     `#include <color_fragment>
      vec3 hvNormal = normalize(vHvMetalWorldNormal);
+     // Back faces from DoubleSide rendering (inverted triangles on mobile) arrive
+     // with an inward-pointing world normal — flip it so the lighting math sees the
+     // correct outward direction and doesn't output near-black.
+     #ifdef DOUBLE_SIDED
+       if (!gl_FrontFacing) hvNormal = -hvNormal;
+     #endif
      vec3 hvViewDir = normalize(cameraPosition - vHvMetalWorldPosition);
      vec3 hvKey = normalize(uKeyDirection);
      vec3 hvFill = normalize(uFillDirection);
@@ -103,8 +109,8 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
      hvLayeredGold += uRimGold * hvRim * (0.22 + uMetallicFocus * 0.22);
      hvLayeredGold += uChampagneGold * hvSpec * (0.22 + uMetallicFocus * 0.18);
      // Hard clamp: prevents any path from blowing the surface to cream/white.
-     // At 0.68 ACES exposure: ceiling ~0.88/0.72/0.30 maps to saturated deep gold.
-     hvLayeredGold = clamp(hvLayeredGold, vec3(0.0), vec3(0.88, 0.72, 0.30));
+     // Ceiling raised slightly to allow warmer, deeper gold at full specular.
+     hvLayeredGold = clamp(hvLayeredGold, vec3(0.0), vec3(0.92, 0.76, 0.34));
      diffuseColor.rgb = mix(diffuseColor.rgb, hvLayeredGold, 0.88);`,
   )
 }
