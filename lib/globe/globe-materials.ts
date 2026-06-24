@@ -39,16 +39,16 @@ export function resolveCountryMaterialState({
     // dark gold, not black. Lower than before so lighting contrast (not uniform
     // self-glow) creates the 3D depth.
     emissive: '#7c691f',
-    emissiveIntensity: 0.13,
+    emissiveIntensity: 0.22,
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.
-    roughness: 0.27,
-    metalness: 0.88,
+    roughness: 0.20,
+    metalness: 0.92,
     // Clearcoat adds a second sharp reflection layer — makes specular highlight
     // look like polished metal rather than painted matte.
-    clearcoat: 0.56,
-    clearcoatRoughness: 0.18,
+    clearcoat: 0.68,
+    clearcoatRoughness: 0.10,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
@@ -71,11 +71,11 @@ export function resolveCountryMaterialState({
         // Focused border: bright crisp gold edge-lift — precise, not blobby
         borderColor: hvTokens.globe.borderMutedGoldSoft,
         emissive: '#9a7c12',
-        emissiveIntensity: 0.20,
-        roughness: 0.24,
-        metalness: 0.92,
-        clearcoat: 0.62,
-        clearcoatRoughness: 0.16,
+        emissiveIntensity: 0.26,
+        roughness: 0.16,
+        metalness: 0.95,
+        clearcoat: 0.74,
+        clearcoatRoughness: 0.08,
       }
     case 'searchFocused':
     case 'modalContext':
@@ -86,11 +86,11 @@ export function resolveCountryMaterialState({
         // Selected border: maximum brightness to feel locked/activated
         borderColor: '#f4e18e',
         emissive: hvTokens.globe.selectedAccent,
-        emissiveIntensity: 0.22,
-        roughness: 0.18,
-        metalness: 0.96,
-        clearcoat: 0.78,
-        clearcoatRoughness: 0.12,
+        emissiveIntensity: 0.28,
+        roughness: 0.11,
+        metalness: 0.98,
+        clearcoat: 0.86,
+        clearcoatRoughness: 0.06,
       }
     case 'multi_market':
       return {

@@ -75,6 +75,35 @@ export async function getPublishedEducationModules(): Promise<EducationModule[]>
   }
 }
 
+// education_tracks holds proper UUID-keyed tracks (Country Intelligence, Industry
+// Intelligence, etc.) added alongside the original free-text slugs (clinical,
+// compliance, ...). track_id on education_modules can be either shape depending
+// on when the row was created — this resolves both into one label map so neither
+// the hub nor the detail page ever renders a raw UUID as a section header.
+async function getDynamicTrackLabels(): Promise<Record<string, string>> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return {}
+  try {
+    const params = new URLSearchParams({
+      select: 'id,title',
+      publication_state: 'eq.published',
+    })
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/education_tracks?${params}`, {
+      next: { revalidate: 3600 },
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
+    })
+    if (!res.ok) return {}
+    const rows: { id: string; title: string }[] = await res.json()
+    return Object.fromEntries(rows.map((r) => [r.id, r.title]))
+  } catch {
+    return {}
+  }
+}
+
+export async function getTrackLabelMap(): Promise<Record<string, string>> {
+  const dynamicLabels = await getDynamicTrackLabels()
+  return { ...TRACK_LABELS, ...dynamicLabels }
+}
+
 export async function getEducationModuleBySlug(slug: string): Promise<EducationModule | null> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
   try {
@@ -97,7 +126,10 @@ export async function getEducationModuleBySlug(slug: string): Promise<EducationM
 }
 
 export async function getEducationTracks(): Promise<EducationTrack[]> {
-  const modules = await getPublishedEducationModules()
+  const [modules, labelMap] = await Promise.all([
+    getPublishedEducationModules(),
+    getTrackLabelMap(),
+  ])
   const byTrack = new Map<string, EducationModule[]>()
   for (const m of modules) {
     const list = byTrack.get(m.track_id) ?? []
@@ -105,10 +137,16 @@ export async function getEducationTracks(): Promise<EducationTrack[]> {
     byTrack.set(m.track_id, list)
   }
   return Array.from(byTrack.entries())
-    .sort(([a], [b]) => trackOrder(a) - trackOrder(b))
+    .sort(([a], [b]) => {
+      const orderA = trackOrder(a)
+      const orderB = trackOrder(b)
+      if (orderA !== orderB) return orderA - orderB
+      // Both unranked (e.g. two dynamic tracks) — fall back to alphabetical by label
+      return (labelMap[a] ?? a).localeCompare(labelMap[b] ?? b)
+    })
     .map(([trackId, mods]) => ({
       trackId,
-      label: TRACK_LABELS[trackId] ?? trackId,
+      label: labelMap[trackId] ?? trackId,
       modules: mods,
     }))
 }
