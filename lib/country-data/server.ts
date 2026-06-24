@@ -21,15 +21,23 @@ export async function getPublicCountryProfile(slug: string) {
 // Fixed: previously imported a non-existent '@/lib/supabase' module (no
 // such path exists in this repo — confirmed via tsc). Using the existing
 // service-role helper instead, consistent with other admin/seed-style
-// reads/writes elsewhere in the codebase. Nothing currently calls either
-// function below (confirmed via repo-wide search), so this is a type-fix
-// only — no behavior to preserve or regress.
+// reads/writes elsewhere in the codebase.
+//
+// Also fixed: country_intel did not exist when this was first written
+// (confirmed via information_schema — phantom table, scaffold only). A
+// concurrent session has since created it, but with a different schema
+// than this code assumed (country_code, not iso2; country_name, not
+// name; plus commercial_pathway_summary/review_status/regulatory_tier).
+// Query/seed below now match the real table — see
+// lib/dashboard/dashboardLiveData.ts for the other live consumer this was
+// cross-checked against.
 export async function getCountryBriefing(iso2: string): Promise<CountryBriefing | null> {
   const supabase = await createSupabaseServiceClient();
   const { data: dbData } = await supabase
     .from('country_intel')
-    .select('*')
-    .eq('iso2', iso2.toUpperCase())
+    .select('country_code, country_name, commercial_pathway_summary, review_status, regulatory_tier, last_reviewed_at')
+    .eq('country_code', iso2.toUpperCase())
+    .eq('review_status', 'active')
     .maybeSingle();
 
   const geo = COUNTRIES.find(c => c.iso2 === iso2.toUpperCase());
@@ -38,10 +46,10 @@ export async function getCountryBriefing(iso2: string): Promise<CountryBriefing 
 
   return {
     iso2: iso2.toUpperCase(),
-    overview: geo?.localIntelSummary || 'Baseline data available. Enrich via intelligence agents.',
+    overview: dbData?.commercial_pathway_summary || geo?.localIntelSummary || 'Baseline data available. Enrich via intelligence agents.',
     regulatory: {
-      status: 'Research ongoing',
-      lastUpdated: new Date().toISOString(),
+      status: dbData?.regulatory_tier || 'Research ongoing',
+      lastUpdated: dbData?.last_reviewed_at || new Date().toISOString(),
       keyLaws: []
     },
     marketIntel: {
@@ -54,14 +62,13 @@ export async function getCountryBriefing(iso2: string): Promise<CountryBriefing 
 
 export async function seedAllCountries() {
   const supabase = await createSupabaseServiceClient();
-  // Example bulk upsert - adapt to full data
   const seedData = COUNTRIES.map(c => ({
-    iso2: c.iso2,
-    name: c.name,
-    // ... map other fields
+    country_code: c.iso2,
+    country_name: c.name,
+    review_status: 'active',
   }));
 
-  const { error } = await supabase.from('country_intel').upsert(seedData);
+  const { error } = await supabase.from('country_intel').upsert(seedData, { onConflict: 'country_code' });
   if (error) console.error(error);
   return !error;
 }

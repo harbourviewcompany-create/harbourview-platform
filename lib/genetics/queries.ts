@@ -10,6 +10,7 @@ import type {
   CultivarAliasRow,
   CultivarCountryOpportunityRow,
   CultivarPassportRow,
+  GeneticsAccessGrantRow,
   GeneticsAccessRequestRow,
   GeneticsAuditEventRow,
   GeneticsClaimReviewRow,
@@ -187,10 +188,60 @@ export async function getInternalCultivarPassports() {
 }
 
 /**
- * Admin claim-review queue — used by /admin/genetics/review, which already
- * gates this call behind `await requireAdminAuth()`. Uses the service-role
- * client so the queue is complete regardless of per-row RLS visibility.
+ * The current user's own active access grants as a *grantee* (not owner) —
+ * i.e. cultivars/evidence someone else approved them to view. Distinct
+ * from getInternalCultivarPassports(), which is the owner's view of their
+ * own cultivars. Relies on RLS (genetics_profiles_owner_all,
+ * genetics_access_grants_grantee_read, genetics_evidence_items_grant_read)
+ * to scope everything to the current session — same pattern as
+ * getInternalCultivarPassports().
  */
+export async function getGranteeAccessGrants() {
+  const supabase = await createClient()
+
+  const { data: profileData, error: profileError } = await supabase.from('genetics_profiles').select('id')
+  if (profileError) {
+    console.error('[genetics_queries] getGranteeAccessGrants profile lookup failed', profileError.message)
+    return []
+  }
+  const profileIds = (profileData ?? []).map((p: { id: string }) => p.id)
+  if (profileIds.length === 0) return []
+
+  const { data: grantData, error: grantError } = await supabase
+    .from('genetics_access_grants')
+    .select('*')
+    .in('grantee_profile_id', profileIds)
+    .eq('status', 'active')
+  if (grantError) {
+    console.error('[genetics_queries] getGranteeAccessGrants grant fetch failed', grantError.message)
+    return []
+  }
+  const grants = (grantData ?? []) as GeneticsAccessGrantRow[]
+  if (grants.length === 0) return []
+
+  const cultivarIds = Array.from(new Set(grants.map((g) => g.cultivar_id)))
+  const [{ data: cultivarData }, { data: evidenceData }] = await Promise.all([
+    supabase.from('cultivar_passports').select('id, display_name, slug').in('id', cultivarIds),
+    supabase.from('genetics_evidence_items').select('id, cultivar_id, evidence_type, title, visibility').in('cultivar_id', cultivarIds),
+  ])
+
+  const cultivarsById = new Map((cultivarData ?? []).map((c: { id: string }) => [c.id, c]))
+  const evidenceByCultivar = new Map<string, GeneticsEvidenceItemRow[]>()
+  for (const item of (evidenceData ?? []) as GeneticsEvidenceItemRow[]) {
+    if (!item.cultivar_id) continue
+    const list = evidenceByCultivar.get(item.cultivar_id) ?? []
+    list.push(item)
+    evidenceByCultivar.set(item.cultivar_id, list)
+  }
+
+  return grants.map((grant) => ({
+    grant,
+    cultivar: cultivarsById.get(grant.cultivar_id) as { id: string; display_name: string; slug: string } | undefined,
+    evidenceItems: (evidenceByCultivar.get(grant.cultivar_id) ?? []).filter(
+      (item) => grant.allowed_evidence_item_ids.includes(item.id) || grant.allowed_evidence_types.includes(item.evidence_type),
+    ),
+  }))
+}
 // Column lists scoped to what toAdminGeneticsReviewDTO actually consumes.
 // Avoids transferring large unneeded columns (e.g. raw evidence blobs, JSONB payloads)
 // and adds per-table row limits so the admin queue page stays fast as data grows.

@@ -18,6 +18,7 @@ export default async function DashboardGeneticsPage() {
           <Link href="/dashboard/genetics/cultivars/new" className="rounded-full bg-[#C6A55A] px-4 py-2 text-[#081423]">Create controlled passport</Link>
           <Link href="/dashboard/genetics/evidence" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A]">Evidence vault metadata</Link>
           <Link href="/dashboard/genetics/access-requests" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A]">Access requests</Link>
+          <Link href="/dashboard/genetics/granted-access" className="rounded-full border border-[#C6A55A]/40 px-4 py-2 text-[#C6A55A]">Access granted to you</Link>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {passports.map((passport) => (
