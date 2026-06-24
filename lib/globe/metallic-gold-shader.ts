@@ -23,8 +23,8 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
   shader.uniforms.uChampagneGold = { value: new Color(options.isSelected ? '#e0b830' : '#d4a628') }
   shader.uniforms.uBronzeGold = { value: new Color(options.isSelected ? '#5b3510' : '#3b260e') }
   shader.uniforms.uRimGold = { value: new Color(options.isSelected || options.isFocused ? '#e8c84a' : '#c8a030') }
-  shader.uniforms.uKeyDirection = { value: new Vector3(0.78, 0.42, 0.46) }
-  shader.uniforms.uFillDirection = { value: new Vector3(-0.38, 0.64, -0.66) }
+  shader.uniforms.uKeyDirection = { value: new Vector3(0.82, 0.08, 0.57) }
+  shader.uniforms.uFillDirection = { value: new Vector3(-0.70, 0.08, -0.71) }
   shader.uniforms.uMetallicFocus = { value: options.isSelected ? 1.0 : options.isFocused ? 0.58 : 0.0 }
 
   shader.vertexShader = shader.vertexShader.replace(

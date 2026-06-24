@@ -39,7 +39,7 @@ export function resolveCountryMaterialState({
     // dark gold, not black. Lower than before so lighting contrast (not uniform
     // self-glow) creates the 3D depth.
     emissive: '#7c691f',
-    emissiveIntensity: 0.19,
+    emissiveIntensity: 0.22,
     // Higher metalness + lower roughness = tighter specular lobe = visible hot
     // spot on lit face, soft falloff on tangents, emissive-filled shadows.
     // This gradient reads as polished 3D metal rather than a flat gold disc.

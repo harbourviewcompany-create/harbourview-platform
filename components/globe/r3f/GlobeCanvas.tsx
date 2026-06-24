@@ -146,14 +146,12 @@ export function GlobeCanvas({
         <color attach="background" args={['#010810']} />
         <MetallicEnvironment />
 
-        {/* Metallic plate lighting: low ambient to avoid flat gold, a champagne key
-            pulled to 1.55 (was 2.35) so ACES compression kills white-blob specular,
-            soft bronze/cool rim fills for reflective falloff. */}
-        <ambientLight intensity={0.15} color="#f4dfad" />
-        <directionalLight position={[3.2, 5.5, 5.8]} intensity={0.74} color="#fff3c4" />
-        <directionalLight position={[-3.8, 1.6, -4.6]} intensity={0.38} color="#c99f4a" />
-        <directionalLight position={[-5.2, -1.0, 2.4]} intensity={0.24} color="#8fa7c8" />
-        <hemisphereLight args={['#243b5e', '#080409', 0.44]} />
+        {/* Metallic plate lighting: equatorial key + opposite fill at Y≈0 so neither
+            hemisphere gets extra illumination. Two lights only — eliminates hotspot scatter. */}
+        <ambientLight intensity={0.22} color="#f4dfad" />
+        <directionalLight position={[4.5, 0.6, 4.2]} intensity={0.62} color="#fff3c4" />
+        <directionalLight position={[-4.8, -0.4, -3.5]} intensity={0.26} color="#c99f4a" />
+        <hemisphereLight args={['#243b5e', '#080409', 0.26]} />
 
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
