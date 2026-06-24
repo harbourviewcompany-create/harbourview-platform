@@ -1,3 +1,51 @@
+## Session: Jun 24 2026 — Backward Audit
+
+### Agent: Claude (Sonnet 4.6)
+
+### Context
+
+User asked "is this thorough enough yet" after a session spent closing gaps in education/counterparty/watchlist/professionals/suppliers. Honest answer was no — every fix had been chained off the previous one, but nothing had been checked against *other* concurrent sessions' work. User corrected the framing directly: the other sessions are other Claude instances, same model, same knowledge — meaning same blind spots, not lower or higher trust than my own output. That correction changed what got checked next.
+
+### Found and fixed (merged + deployed/applied this session)
+
+| Issue | Fix | PR |
+|---|---|---|
+| Education hub rendering raw UUIDs as track headers (19 of 31 modules) — a parallel session added `education_tracks` with UUID keys, didn't know `educationModulesQuery.ts` existed | `getTrackLabelMap()` merges static legacy-slug labels with a live `education_tracks` lookup | #807 |
+| `lib/admin/applicationsQuery.ts` gutted — a concurrent edit committed literal placeholder comments (`// Keep other functions as they were`) as real code, deleting 3 working functions; the one survivor queried a nonexistent status value and invented columns | Restored all 3 functions; fixed status (`pending_review` not `pending`) and columns, verified against live schema directly | #808 |
+| Supplier-directory page/query/detail-route rewritten around a fictional schema (`profile_slug`, `regions_served`, `website`, `hq_country`, `verification_status` — none exist) | Restored real schema throughout; kept the detail-page design (it was good), renamed `[slug]`→`[id]` since there's no slug column; also fixed an invented `PublicCard href` prop that doesn't exist on the component | #818 |
+| 10 `supabase/migrations/*.sql` files (table creation + 8 seed batches + batch_id column) for supplier_profiles — **zero of them ever ran**. `CREATE TABLE IF NOT EXISTS` no-op'd against the table that already existed (built in #774, different schema); every seed INSERT after it would fail outright on nonexistent columns | Deleted all 10 — they were a live landmine for the next `supabase db push` (no-op, then fail on first INSERT, blocking everything after it in the run). Did **not** recreate the seed data under the real schema — see below | #823 |
+| `hv_public_feed` had two identical UNIQUE constraints on `artifact_id` (Supabase perf advisor finding) | Dropped the redundant one via `apply_migration`, mirrored the file in-repo | #824 |
+
+### Judgment call: why the supplier seed data wasn't recreated
+
+Checked the actual content of the 10 orphaned migration files before deciding what to do with them. The seed data was fabricated companies with `.example.com` websites and invented contact names (Elena Voss, Marcus Hale, Dr. Lena Park), set to insert as `status='active', verification_status='verified'` — meaning if it had run, the public directory would show a "VERIFIED SUPPLIER" badge on entirely fictional businesses, with no demo/placeholder labelling anywhere a visitor would see.
+
+Compared this against genetics seed data from the same window (`cultivar_passports`) — explicitly labelled "Demo Cultivar Alpha/Beta" with disclaimers throughout ("Demo-only," "not seed, clone, pollen, or plant-material offers"). That one was fine to leave as-is; not reformatted or touched.
+
+**`supplier_profiles` stays empty.** The apply flow (#774) + admin approval (#780) is the correct path to populate it with real submissions. If Tyler wants the directory to look populated for now, that's a deliberate decision to make explicitly — not something to backfill quietly under a fixed schema.
+
+### Verified correct — not everything from other sessions was wrong
+
+- The big "7 data gap migrations" PR (#793) — same wave that broke supplier-directory and `applicationsQuery.ts` — **did** land correctly for its primary claims. `source_snapshots` has 4,157 real rows, `hv_import_staging` 471, `jurisdiction_crossref` 203, `market_metrics`/`trade_flows`/`cannabis_operators` in the teens. Found `pr793_migration_drift_guard` and `register_gap_migration_versions` migrations specifically aimed at preventing the kind of drift this audit found elsewhere — that session was already aware of the risk and guarded against it.
+- Globe shader saga (6 "fix" commits for the Russia black-void bug) looked alarming from the commit log alone but traces to a normal debugging trajectory: visual band-aids (lighthouse emblem, gold disc) → root cause found (back-face normal not flipping under FMA-inverted triangle winding) → real fix → band-aids cleanly reverted, no orphaned dead code → final polish (equatorial lighting). Not drift.
+
+### Found and flagged — not fixed, needs a decision or access I don't have
+
+| Finding | Severity | Why not fixed now |
+|---|---|---|
+| Genetics: 1 seed commit claims "12 cultivar passports, country opportunities, service providers" — only 2 of each actually landed | Low | Data is explicitly demo-labelled either way; reporting accuracy gap, not a live data integrity problem |
+| Security advisor: leaked-password-protection still disabled | Low, zero-risk one-click fix | No tool access to Supabase Auth dashboard settings — needs Tyler |
+| Security advisor: public bucket `public-assets` has a broad SELECT policy allowing object listing | Low-Medium | Needs a decision on whether listing should be restricted, not a blind fix |
+| Security advisor: 13 tables with RLS enabled but no policy (`_push_staging`, `adi_cache`, `country_coverage_matrix`, etc.) | Low (fails closed, not exposed) | Likely new tables created after the Jun 22 security pass (#790) claimed "all findings addressed" — that claim doesn't fully hold today, but nothing here is actively exposing data |
+| Performance advisor: 102 unindexed foreign keys, despite #791 being titled "add missing FK indexes flagged by Supabase advisor" | Medium | Likely mostly on tables created after #791 ran, given how much schema growth happened Jun 22–24. Adding indexes is low-risk but 102 is enough volume that it deserves a dedicated pass, not a blind batch |
+| Performance advisor: 202 instances of multiple permissive RLS policies on the same table/role/action (e.g. `countries` has both `countries_anon_select` and `countries_public_read` doing the same job) | Medium | Same root cause as everything else in this audit — multiple sessions each adding their own policy without checking what existed. Needs per-table review before consolidating; collapsing the wrong policy could silently change access |
+
+### Lesson for future sessions
+
+Every drift case this session traces to the same root cause: a session claiming work was done without verifying it against the live database, or building something without checking what already existed. Not a competence gap — the same model, working from a different context window, makes the same kind of mistake at a different layer each time (migrations instead of application code, RLS policies instead of React components). Treat "another Claude already worked on this" as a reason to check with the same rigor as your own output, not less.
+
+---
+
 ## Session: Jun 23 2026 (evening, continued)
 
 ### Agent: Claude (claude.ai)
