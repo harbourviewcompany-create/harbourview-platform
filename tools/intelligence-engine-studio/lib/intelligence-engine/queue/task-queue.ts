@@ -26,9 +26,8 @@ export class DistributedTaskQueue {
 
   private async fallbackAcquire(limit: number, workerId: string): Promise<ScrapeTarget[]> {
     const now = new Date().toISOString();
-    
+
     // 1. Find target IDs
-    // We assume presence of a virtual 'next_crawl_at' and 'locked_until' column for the queue
     const { data: targets } = await this.supabase
       .from('source_registry')
       .select('id')
@@ -57,8 +56,9 @@ export class DistributedTaskQueue {
       country_code: t.country_code || 'GLOBAL',
       source_name: t.source_name,
       base_url: t.base_url,
-      adapter_type: t.adapter_type || 'html_diff',
+      adapter_type: t.adapter_type || 'html_snapshot',
       cadence_hours: t.cadence_hours || 24,
+      consecutive_failures: t.consecutive_failures || 0,
     }));
   }
 
@@ -69,9 +69,9 @@ export class DistributedTaskQueue {
     const nextCrawl = new Date(Date.now() + cadenceHours * 3600000).toISOString();
     await this.supabase
       .from('source_registry')
-      .update({ 
-        next_crawl_at: nextCrawl, 
-        locked_by: null, 
+      .update({
+        next_crawl_at: nextCrawl,
+        locked_by: null,
         locked_until: null,
         consecutive_failures: 0,
         network_status: 'online'
@@ -83,13 +83,12 @@ export class DistributedTaskQueue {
    * Handles failure through exponential backoff logic to prevent hammering dead links.
    */
   async markFailure(targetId: string, error: string, consecutiveFailures: number) {
-    // Exponential backoff strategy (1h, 2h, 4h, 8h...)
     const newFailures = consecutiveFailures + 1;
     const backoffHours = Math.pow(2, Math.min(newFailures, 8)); // Max 256h backoff
-    
-    let nextCrawl = new Date(Date.now() + backoffHours * 3600000).toISOString();
-    let networkStatus = newFailures > 5 ? 'offline' : 'degraded';
-    
+
+    const nextCrawl = new Date(Date.now() + backoffHours * 3600000).toISOString();
+    const networkStatus = newFailures > 5 ? 'offline' : 'degraded';
+
     await this.supabase
       .from('source_registry')
       .update({
@@ -100,6 +99,18 @@ export class DistributedTaskQueue {
         last_error_log: error,
         network_status: networkStatus
       })
+      .eq('id', targetId);
+  }
+
+  /**
+   * Release the lease without touching consecutive_failures/next_crawl_at.
+   * For circuit-broken skips, where the target itself didn't fail -- a
+   * different source on the same domain did. See worker-node.ts.
+   */
+  async releaseLock(targetId: string) {
+    await this.supabase
+      .from('source_registry')
+      .update({ locked_by: null, locked_until: null })
       .eq('id', targetId);
   }
 }

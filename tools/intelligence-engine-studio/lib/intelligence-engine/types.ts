@@ -26,6 +26,7 @@ export const ScrapeTargetSchema = z.object({
   base_url: z.string(),
   cadence_hours: z.number().default(24),
   adapter_type: z.enum(['html_snapshot', 'html_diff', 'rss', 'api', 'json_api', 'playwright_full']),
+  consecutive_failures: z.number().default(0),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
