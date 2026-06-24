@@ -772,6 +772,205 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
   }
 }
 
+// ── New: jurisdiction playbooks ────────────────────────────────────────────────
+export type JurisdictionPlaybook = {
+  country_iso2:           string
+  country_name:           string
+  difficulty:             string | null
+  typical_timeline_months: number | null
+  estimated_cost_range:   string | null
+  legal_framework_summary: string | null
+  steps:                  { step: number; title: string; description: string }[]
+  key_regulators:         { name: string; role: string }[]
+  common_pitfalls:        string[]
+}
+
+export async function getJurisdictionPlaybook(iso2: string | null): Promise<JurisdictionPlaybook | null> {
+  if (!iso2) return null
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('jurisdiction_playbooks')
+      .select('country_iso2,country_name,difficulty,typical_timeline_months,estimated_cost_range,legal_framework_summary,steps,key_regulators,common_pitfalls')
+      .eq('country_iso2', iso2.toUpperCase())
+      .eq('status', 'published')
+      .single()
+    if (!data) return null
+    return {
+      country_iso2:            data.country_iso2,
+      country_name:            data.country_name,
+      difficulty:              data.difficulty,
+      typical_timeline_months: data.typical_timeline_months,
+      estimated_cost_range:    data.estimated_cost_range,
+      legal_framework_summary: data.legal_framework_summary,
+      steps:                   Array.isArray(data.steps)         ? data.steps         : [],
+      key_regulators:          Array.isArray(data.key_regulators) ? data.key_regulators : [],
+      common_pitfalls:         Array.isArray(data.common_pitfalls) ? data.common_pitfalls : [],
+    }
+  } catch { return null }
+}
+
+// ── New: education tracks ─────────────────────────────────────────────────────
+export type EducationTrack = {
+  id:          string
+  title:       string
+  description: string | null
+  icon:        string | null
+  level:       string | null
+  tags:        string[]
+}
+
+export async function getEducationTracks(): Promise<EducationTrack[]> {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('education_tracks')
+      .select('id,title,description,icon,level,tags')
+      .eq('status', 'published')
+      .order('sort_order', { ascending: true })
+      .limit(12)
+    return (data ?? []).map(r => ({
+      id:          r.id,
+      title:       r.title,
+      description: r.description,
+      icon:        r.icon,
+      level:       r.level,
+      tags:        Array.isArray(r.tags) ? r.tags : [],
+    }))
+  } catch { return [] }
+}
+
+// ── New: market metrics ───────────────────────────────────────────────────────
+export type MarketMetric = {
+  metric_name:  string
+  metric_value: number
+  metric_unit:  string | null
+  period_label: string | null
+  data_type:    string | null
+  source_name:  string | null
+}
+
+export async function getMarketMetrics(iso2: string | null): Promise<MarketMetric[]> {
+  if (!iso2) return []
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('market_metrics')
+      .select('metric_name,metric_value,metric_unit,period_start,period_end,data_type,source_name')
+      .eq('country_iso2', iso2.toUpperCase())
+      .order('period_end', { ascending: false })
+      .limit(20)
+    return (data ?? []).map(r => ({
+      metric_name:  r.metric_name,
+      metric_value: r.metric_value,
+      metric_unit:  r.metric_unit,
+      period_label: r.period_end ? r.period_end.slice(0, 7) : null,
+      data_type:    r.data_type,
+      source_name:  r.source_name,
+    }))
+  } catch { return [] }
+}
+
+// ── New: trade flows ──────────────────────────────────────────────────────────
+export type TradeFlow = {
+  origin_iso2:       string
+  destination_iso2:  string
+  flow_direction:    string | null
+  product_category:  string | null
+  legal_status:      string | null
+  permit_required:   boolean | null
+  permit_authority:  string | null
+}
+
+export async function getTradeFlows(iso2: string | null): Promise<TradeFlow[]> {
+  if (!iso2) return []
+  try {
+    const supabase = await createClient()
+    const upper = iso2.toUpperCase()
+    const { data } = await supabase
+      .from('trade_flows')
+      .select('origin_iso2,destination_iso2,flow_direction,product_category,legal_status,permit_required,permit_authority')
+      .or(`origin_iso2.eq.${upper},destination_iso2.eq.${upper}`)
+      .limit(30)
+    return (data ?? []).map(r => ({
+      origin_iso2:      r.origin_iso2,
+      destination_iso2: r.destination_iso2,
+      flow_direction:   r.flow_direction,
+      product_category: r.product_category,
+      legal_status:     r.legal_status,
+      permit_required:  r.permit_required,
+      permit_authority: r.permit_authority,
+    }))
+  } catch { return [] }
+}
+
+// ── New: verified professionals ───────────────────────────────────────────────
+export type HvProfessional = {
+  id:                      string
+  full_name:               string
+  title:                   string | null
+  credential_type:         string | null
+  specialties:             string[]
+  countries:               string[]
+  institution:             string | null
+  accepts_referrals:       boolean | null
+  consultation_available:  boolean | null
+}
+
+export async function getProfessionals(iso2: string | null): Promise<HvProfessional[]> {
+  if (!iso2) return []
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('hv_professionals')
+      .select('id,full_name,title,credential_type,specialties,countries,institution,accepts_referrals,consultation_available')
+      .eq('verification_status', 'verified')
+      .eq('status', 'active')
+      .contains('countries', [iso2.toUpperCase()])
+      .limit(10)
+    return (data ?? []).map(r => ({
+      id:                     r.id,
+      full_name:              r.full_name,
+      title:                  r.title,
+      credential_type:        r.credential_type,
+      specialties:            Array.isArray(r.specialties) ? r.specialties : [],
+      countries:              Array.isArray(r.countries)   ? r.countries   : [],
+      institution:            r.institution,
+      accepts_referrals:      r.accepts_referrals,
+      consultation_available: r.consultation_available,
+    }))
+  } catch { return [] }
+}
+
+// ── New: cannabis operators ───────────────────────────────────────────────────
+export type CannabisOperator = {
+  id:                  string
+  country_iso2:        string
+  legal_name:          string
+  operator_type:       string | null
+  verification_status: string | null
+}
+
+export async function getCannabisOperators(iso2: string | null): Promise<CannabisOperator[]> {
+  if (!iso2) return []
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('cannabis_operators')
+      .select('id,country_iso2,legal_name,operator_type,verification_status')
+      .eq('country_iso2', iso2.toUpperCase())
+      .eq('public_status', 'active')
+      .limit(20)
+    return (data ?? []).map(r => ({
+      id:                  r.id,
+      country_iso2:        r.country_iso2,
+      legal_name:          r.legal_name,
+      operator_type:       r.operator_type,
+      verification_status: r.verification_status,
+    }))
+  } catch { return [] }
+}
+
 // Restored — deleted by feat(dashboard)/getSourceCoverage commit; still imported
 // by app/dashboard/country/[country]/CountryIntelDashboard.tsx
 export type ComparisonCountryScore = {

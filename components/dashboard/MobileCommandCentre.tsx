@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -24,10 +24,16 @@ type Props = {
   pathwayData?:  PathwayData | null
   watchlistData?: WatchlistData | null
   evidenceData?:     EvidenceData
-  liveTiles?:        LiveEduTile[]
-  recentEduModules?: RecentEduModule[]
-  sourceCoverage?:   SourceCoverageRow[]
-  userEmail?:        string | null
+  liveTiles?:           LiveEduTile[]
+  recentEduModules?:    RecentEduModule[]
+  sourceCoverage?:      SourceCoverageRow[]
+  jurisdictionPlaybook?: JurisdictionPlaybook
+  educationTracks?:     EducationTrack[]
+  marketMetrics?:       MarketMetric[]
+  tradeFlows?:          TradeFlow[]
+  professionals?:       HvProfessional[]
+  cannabisOperators?:   CannabisOperator[]
+  userEmail?:           string | null
 }
 
 type CountryOption = { iso2: string; label: string }
