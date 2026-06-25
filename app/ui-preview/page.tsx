@@ -5,7 +5,7 @@ import {
   Button, Card, CardHeader, CardTitle, CardContent, 
   Input, Badge, Skeleton, Tabs, TabsList, TabsTrigger, TabsContent,
   Label, Separator, Textarea, Checkbox, Switch, Alert, AlertTitle, AlertDescription,
-  Select 
+  Select, Popover, Tooltip, Avatar, Sheet, SheetHeader, SheetTitle 
 } from "@/components/ui"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
@@ -165,12 +165,58 @@ export default function UIPreviewPage() {
         </section>
 
         {/* Loading States */}
-        <section>
+        <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Loading States</h2>
           <div className="space-y-3 max-w-md">
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-3/4" />
             <Skeleton className="h-8 w-1/2" />
+          </div>
+        </section>
+
+        {/* Advanced Components */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Advanced Components</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Popover */}
+            <div>
+              <h3 className="font-medium mb-2">Popover</h3>
+              <Popover content={<div className="p-2">This is popover content!</div>}>
+                <Button variant="outline">Open Popover</Button>
+              </Popover>
+            </div>
+
+            {/* Tooltip */}
+            <div>
+              <h3 className="font-medium mb-2">Tooltip</h3>
+              <Tooltip content="This is a helpful tooltip">
+                <Button variant="secondary">Hover me</Button>
+              </Tooltip>
+            </div>
+
+            {/* Avatar */}
+            <div>
+              <h3 className="font-medium mb-2">Avatar</h3>
+              <div className="flex gap-3">
+                <Avatar fallback="TC" />
+                <Avatar src="https://i.pravatar.cc/40" alt="User" />
+              </div>
+            </div>
+
+            {/* Sheet */}
+            <div>
+              <h3 className="font-medium mb-2">Sheet (Side Drawer)</h3>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  // This would need state in a real app
+                  alert("Sheet would open here in a real implementation")
+                }}
+              >
+                Open Sheet
+              </Button>
+            </div>
           </div>
         </section>
       </div>
