@@ -58,6 +58,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 
+  // Idempotency: record the event id before processing. A duplicate key means
+  // Stripe replayed an event we already handled, so acknowledge and skip.
+  const supabase = createHarbourviewServiceRoleSupabaseClient()
+  const { error: dedupeError } = await supabase
+    .from('stripe_webhook_events')
+    .insert({ id: event.id, type: event.type })
+
+  if (dedupeError) {
+    if (dedupeError.code === '23505') {
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+    console.error('[stripe/webhook] dedupe insert error:', dedupeError)
+    // Fall through and still process: a logging failure should not drop events.
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
