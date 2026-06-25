@@ -741,7 +741,13 @@ const MarketplacePage = React.memo(function MarketplacePage({
   cannabisOperators?: CannabisOperator[]
   onPageChange?:     (page: CommandPage) => void
 }) {
-  const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
+  const [activeTab, setActiveTab] = useState<MarketView>(() => {
+    for (const t of MKT_TABS) {
+      if (t.id === 'wanted') { if ((wantedListings?.length ?? 0) > 0) return 'wanted' }
+      else if ((marketplaceRows?.[t.id] ?? []).length > 0) return t.id
+    }
+    return 'cannabis'
+  })
   const [search,    setSearch]    = useState('')
 
   const rows = useMemo<MarketRow[]>(() => {
@@ -824,15 +830,18 @@ const MarketplacePage = React.memo(function MarketplacePage({
         </div>
 
         <div className="cc-mkt-tabs">
-          {MKT_TABS.map(t => (
-            <button key={t.id}
-              className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-              onClick={() => setActiveTab(t.id)}
-            >
-              {t.label}
-              {t.id==='wanted' && wantedCount ? <span className="cc-tab-badge">{wantedCount}</span> : null}
-            </button>
-          ))}
+          {MKT_TABS.map(t => {
+            const cnt = t.id === 'wanted' ? (wantedListings?.length ?? wantedCount ?? 0) : (marketplaceRows?.[t.id] ?? []).length
+            return (
+              <button key={t.id}
+                className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+                {cnt > 0 ? <span className="cc-tab-badge">{cnt}</span> : null}
+              </button>
+            )
+          })}
         </div>
 
         <div className="cc-mkt-filters">

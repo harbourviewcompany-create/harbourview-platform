@@ -541,8 +541,16 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, ju
   )
 }
 
+function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: WantedListing[] = []): MarketView {
+  for (const tab of MARKET_TABS) {
+    if (tab.id === 'wanted') { if (wanted.length > 0) return 'wanted' }
+    else if ((rows?.[tab.id] ?? []).length > 0) return tab.id
+  }
+  return 'cannabis'
+}
+
 function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [] }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[] }) {
-  const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
+  const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
 
@@ -598,11 +606,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       </section>
 
       <div className="hvm-scroll-tabs" role="tablist" aria-label="Marketplace views">
-        {MARKET_TABS.map(tab => (
-          <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
-            {tab.label}{tab.id === 'wanted' && wantedCount > 0 ? ` ${wantedCount}` : ''}
-          </button>
-        ))}
+        {MARKET_TABS.map(tab => {
+          const count = tab.id === 'wanted' ? wantedListings.length : (marketplaceRows?.[tab.id] ?? []).length
+          return (
+            <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
+              {tab.label}{count > 0 ? <span className="hvm-tab-count">{count}</span> : null}
+            </button>
+          )
+        })}
       </div>
 
       <label className="hvm-search-label">
@@ -633,8 +644,13 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
           </article>
         )) : (
           <div className="hvm-empty-card">
-            <strong>No public {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} rows for {country.label}.</strong>
-            <p>Supply routes for this market are managed through Harbourview-mediated review, not public listing.</p>
+            <strong>No {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} listings for {country.label} yet.</strong>
+            {(() => {
+              const populated = MARKET_TABS.filter(t => t.id !== activeTab && (t.id === 'wanted' ? wantedListings.length > 0 : (marketplaceRows?.[t.id] ?? []).length > 0))
+              return populated.length > 0
+                ? <p>Try {populated.map(t => t.label).join(', ')} — those tabs have available listings. Use wanted demand or submit the country-role pathway for review. This is not a data leak or private source fallback.</p>
+                : <p>Supply routes for this market are managed through Harbourview-mediated review, not public listing.</p>
+            })()}
             <div className="hvm-empty-actions">
               <Link href="/supplier-directory/apply" className="hvm-empty-link hvm-empty-link--primary">Apply as a supplier →</Link>
               <Link href="/supplier-directory" className="hvm-empty-link">Browse supplier directory →</Link>
@@ -2710,6 +2726,24 @@ const MOBILE_CSS = `
   color: #d4a84b;
   border-color: rgba(212,168,75,.55);
   background: rgba(212,168,75,.08);
+}
+.hvm-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 9px;
+  background: rgba(212,168,75,.22);
+  color: #d4a84b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.hvm-scroll-tabs button.active .hvm-tab-count {
+  background: rgba(212,168,75,.4);
 }
 .hvm-search-label { display: flex; flex-direction: column; gap: 7px; color: rgba(245,240,232,.48); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .hvm-search-label input, .hvm-sheet-panel select {
