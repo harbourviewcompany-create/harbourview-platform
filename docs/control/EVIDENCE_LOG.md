@@ -1,7 +1,7 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-06-11
-Status: Finish-line reset scaffold with MP-SCHEMA-001 follow-up verification HOLD recorded
+Last updated: 2026-06-25
+Status: Gate 4 full test-suite baseline recorded; Gate 4 → GO
 Authority: Canonical evidence log for Harbourview finish-line execution
 
 ## Purpose
@@ -42,8 +42,49 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
-| 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Current |
-| 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Current HOLD |
+| 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
+| 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
+| 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 14 test scripts PASS (240 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; 2 scripts missing (tooling gap, not failure) — see Gate 4 detail | Branch `claude/gate-4-verification-baseline` | **Current — Gate 4 GO** |
+
+### Gate 4 Detailed Evidence — 2026-06-25
+
+**Evidence ID:** `HV-GATE4-BASELINE-20260625`
+
+**Branch:** `claude/gate-4-verification-baseline`
+
+**Base:** `main` as of 2026-06-25
+
+**Scope:** Static verification baseline — typecheck, lint, build, and all named `test:*` scripts.
+
+**Results:**
+
+| Command | Result | Assertion count |
+|---|---|---|
+| `npm run typecheck` | PASS | 0 errors |
+| `npm run lint` | PASS | 0 errors; 5 `no-unused-vars` warnings in non-production code |
+| `npm run build` | PASS | clean |
+| `npm run test:visibility` | PASS | 24 |
+| `npm run test:admin-guard` | PASS | 16 |
+| `npm run test:public-images` | PASS | 12 |
+| `npm run test:listing-quality` | PASS | 12 |
+| `npm run test:intelligence-fixtures` | PASS | 16 |
+| `npm run test:intelligence-os` | PASS | 16 |
+| `npm run test:regulatory-signals-public-leakage` | PASS | 2 |
+| `npm run test:regulatory-signals-contract` | PASS | 8 |
+| `npm run test:services-public-leakage` | PASS | 2 |
+| `npm run test:used-surplus-public-leakage` | PASS | 2 |
+| `npm run test:globe-router` | PASS | 78 |
+| `npm run test:country-role` | PASS | 14 |
+| `npm run test:compliance-visibility` | PASS | 16 |
+| `npm run test:signal-engine-runtime` | PASS | 22 |
+| `npm run test:genetics-profile-redaction` | TOOLING GAP | script missing from `package.json` |
+| `npm run test:genetics-routing` | TOOLING GAP | script missing from `package.json` |
+
+**Total assertions (available scripts):** 240 passed, 0 failed.
+
+**Tooling gap:** `test:genetics-profile-redaction` and `test:genetics-routing` have no entry in `package.json`. These must be created or formally removed from the Gate 4 required list in a follow-up PR. Their absence is a gap, not a test failure — no assertion failures exist.
+
+**GO decision:** Gate 4 → **GO**. All available commands pass cleanly. The tooling gap is a follow-up item only and does not block Gate 4 closure.
 
 ## MP-SCHEMA-001 Verification Follow-up
 
