@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { getInternalCultivarPassports } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardCultivarPassportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const passports = await getInternalCultivarPassports()

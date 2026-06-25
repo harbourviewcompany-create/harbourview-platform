@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicCultivarPassportBySlug } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Cultivar Passport | Harbourview' }
 
 export default async function CultivarPassportPage({ params }: { params: Promise<{ slug: string }> }) {

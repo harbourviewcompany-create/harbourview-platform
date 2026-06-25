@@ -5,6 +5,9 @@ import { getDashboardStatusBadge }  from '@/lib/dashboard/statusBadges'
 import type { DashboardSectionSlug } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT, SECTION_LABELS, SECTION_ICONS } from './_components'
 import { countIaSignalsByMarket } from '@/lib/intelligence-automation/db'
+import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+
+export const dynamic = 'force-dynamic'
 
 // Section-level one-liners shown on panel cards
 const SECTION_SUBLABEL: Record<DashboardSectionSlug, string> = {
@@ -28,8 +31,13 @@ export default async function CountryConsolePage({ params }: Props) {
   const sections       = Object.keys(country.panels) as DashboardSectionSlug[]
   const availableCount = sections.filter((s) => country.routeAvailability[s]).length
 
-  // Live signal count for intelligence + signals panel badges
-  const signalCount = await countIaSignalsByMarket(country.displayName)
+  // Live signal count + jurisdiction briefing (parallel fetch)
+  const [signalCount, liveProfile] = await Promise.all([
+    countIaSignalsByMarket(country.displayName),
+    getCountryIntelProfile(country.iso2),
+  ])
+
+  const publicSummary = liveProfile?.public_summary ?? country.publicSummary
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -52,7 +60,7 @@ export default async function CountryConsolePage({ params }: Props) {
               {country.displayName}
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed" style={{ color: 'rgba(243,240,234,0.5)' }}>
-              {country.publicSummary}
+              {publicSummary}
             </p>
           </div>
 
