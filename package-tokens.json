@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "tokens:generate": "node scripts/generate-tokens.js",
+    "tokens:watch": "chokidar 'tokens/**/*.json' -c 'npm run tokens:generate'"
+  },
+  "devDependencies": {
+    "style-dictionary": "^4.0.0",
+    "chokidar-cli": "^3.0.0"
+  }
+}

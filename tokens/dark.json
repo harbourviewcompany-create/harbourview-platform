@@ -1,0 +1,20 @@
+{
+  "color": {
+    "background": {
+      "value": "#0A2540",
+      "type": "color"
+    },
+    "foreground": {
+      "value": "#F4F4F5",
+      "type": "color"
+    },
+    "card": {
+      "value": "#111827",
+      "type": "color"
+    },
+    "border": {
+      "value": "#374151",
+      "type": "color"
+    }
+  }
+}
