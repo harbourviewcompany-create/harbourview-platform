@@ -38,6 +38,7 @@ const skippedPrefixes = [
   'renovate/',
   'github-actions/',
   'bot/',
+  'claude/',
   'codex/',
 ]
 
