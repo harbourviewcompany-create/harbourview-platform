@@ -38,7 +38,7 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.105.0",
+    "@anthropic-ai/sdk": "^0.106.0",
     "@google/genai": "^2.9.0",
     "@opennextjs/cloudflare": "^1.19.8",
     "@react-three/drei": "^10.0.0",
