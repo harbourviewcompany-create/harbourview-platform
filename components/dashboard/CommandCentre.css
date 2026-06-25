@@ -1555,9 +1555,13 @@
     grid-column:1;grid-row:3;
     border-top:1px solid var(--cc-line);
     background:rgba(3,7,17,.97);
+    overflow-x:auto;overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
   }
+  .cc-mob-nav::-webkit-scrollbar { display:none; }
   .cc-mob-nav-btn {
-    flex:1;display:flex;flex-direction:column;align-items:center;
+    flex:0 0 auto;min-width:58px;display:flex;flex-direction:column;align-items:center;
     justify-content:center;gap:3px;border:none;background:none;
     color:var(--cc-dim);font:inherit;font-size:8px;cursor:pointer;
     transition:color .12s;padding:6px 4px;

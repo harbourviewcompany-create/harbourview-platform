@@ -3919,7 +3919,7 @@ export default function CommandCentre({
 
       {/* ── Mobile nav ────────────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
-        {NAV_SECTIONS[0].items.map(item => (
+        {NAV_ITEMS_FLAT.map(item => (
           <button
             key={item.id}
             className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}
