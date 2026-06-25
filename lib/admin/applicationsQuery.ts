@@ -52,15 +52,17 @@ export type PendingSupplierProfile = {
   profile_slug: string
   company_name: string | null
   contact_name: string | null
+  email: string | null
   seller_type: string
   categories: string[]
   regions_served: string[] | null
   description_public: string | null
+  hq_country: string | null
   created_at: string
 }
 
 const SUPPLIER_SELECT =
-  'id,profile_slug,company_name,contact_name,seller_type,categories,regions_served,description_public,website,hq_country,services_offered,created_at'
+  'id,profile_slug,company_name,contact_name,email,seller_type,categories,regions_served,description_public,website,hq_country,services_offered,created_at'
 
 export async function listPendingSupplierProfiles(): Promise<AdminDataResult<PendingSupplierProfile[]>> {
   // supplier_profiles.status is the listing_status enum: pending_review | approved | rejected | archived.

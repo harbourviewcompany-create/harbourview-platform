@@ -399,7 +399,7 @@ export type WatchlistItem = {
 }
 
 export type WatchRule = {
-  id: string; rule_type: string; keywords: string[]
+  id: string; rule_type: string; keywords: string[]; is_active: boolean
 }
 
 export type NotificationSummary = {
@@ -443,7 +443,7 @@ export async function getWatchlistData(
         .limit(50),
       supabase
         .from('cc_watch_rules')
-        .select('id, rule_type, keywords')
+        .select('id, rule_type, keywords, is_active')
         .eq('org_id', orgId),
       supabase
         .from('cc_watchlist_notifications')

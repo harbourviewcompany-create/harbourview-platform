@@ -141,7 +141,9 @@ export async function submitSupplierApplication(
     website: websiteUrl || null,
     hq_country: hqCountry || null,
     services_offered: servicesOffered,
-    status: 'pending',
+    // status='pending_review' hides this from the public directory and
+    // surfaces it in the admin applications queue (which filters on pending_review)
+    status: 'pending_review',
   })
 
   if (error) {

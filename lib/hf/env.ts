@@ -42,8 +42,18 @@ export type HfEnv = z.infer<typeof schema>;
 // Parsers
 // ---------------------------------------------------------------------------
 
+const FREE_API_DEFAULTS: Partial<Record<string, string>> = {
+  HF_ENDPOINT_EMBED_BGE_M3: 'https://api-inference.huggingface.co/models/BAAI/bge-m3',
+};
+
 export function parseHfEnv(raw: NodeJS.ProcessEnv = process.env) {
-  return schema.safeParse(raw);
+  const merged = {
+    ...FREE_API_DEFAULTS,
+    ...raw,
+    // Accept HF_TOKEN as fallback when HF_TOKEN_SERVER is absent
+    HF_TOKEN_SERVER: raw.HF_TOKEN_SERVER || raw.HF_TOKEN,
+  };
+  return schema.safeParse(merged);
 }
 
 /**

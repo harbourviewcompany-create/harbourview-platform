@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SB_KEY = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!;
 
 const STATUSES = ["raw","needs_work","can_be_built","complete","archived"] as const;
 const CATEGORIES = ["website","app","program","html","tool","game","other"] as const;

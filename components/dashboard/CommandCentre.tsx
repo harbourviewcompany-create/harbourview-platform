@@ -780,7 +780,13 @@ const MarketplacePage = React.memo(function MarketplacePage({
   cannabisOperators?: CannabisOperator[]
   onPageChange?:     (page: CommandPage) => void
 }) {
-  const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
+  const [activeTab, setActiveTab] = useState<MarketView>(() => {
+    for (const t of MKT_TABS) {
+      if (t.id === 'wanted') { if ((wantedListings?.length ?? 0) > 0) return 'wanted' }
+      else if ((marketplaceRows?.[t.id] ?? []).length > 0) return t.id
+    }
+    return 'cannabis'
+  })
   const [search,    setSearch]    = useState('')
 
   const rows = useMemo<MarketRow[]>(() => {
@@ -863,15 +869,18 @@ const MarketplacePage = React.memo(function MarketplacePage({
         </div>
 
         <div className="cc-mkt-tabs">
-          {MKT_TABS.map(t => (
-            <button key={t.id}
-              className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-              onClick={() => setActiveTab(t.id)}
-            >
-              {t.label}
-              {t.id==='wanted' && wantedCount ? <span className="cc-tab-badge">{wantedCount}</span> : null}
-            </button>
-          ))}
+          {MKT_TABS.map(t => {
+            const cnt = t.id === 'wanted' ? (wantedListings?.length ?? wantedCount ?? 0) : (marketplaceRows?.[t.id] ?? []).length
+            return (
+              <button key={t.id}
+                className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+                {cnt > 0 ? <span className="cc-tab-badge">{cnt}</span> : null}
+              </button>
+            )
+          })}
         </div>
 
         <div className="cc-mkt-filters">
@@ -1883,7 +1892,7 @@ const SettingsPage = React.memo(function SettingsPage({
           <button className="cc-signout-btn" onClick={async () => {
             try {
               const { createClient } = await import('@supabase/supabase-js')
-              const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+              const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!)
               await sb.auth.signOut()
             } catch {}
             window.location.href = '/'
