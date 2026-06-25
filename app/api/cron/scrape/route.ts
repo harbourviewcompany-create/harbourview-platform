@@ -13,12 +13,16 @@ export async function GET(request: Request) {
   // Verify the request is from Vercel Cron
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
+  const url = new URL(request.url)
+  const querySecret = url.searchParams.get('secret') // TEMP: manual-trigger fallback, remove after verification
 
   if (!cronSecret) {
     return NextResponse.json({ error: 'Cron secret is not configured' }, { status: 503 })
   }
 
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const authorized = authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret
+
+  if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -46,6 +50,13 @@ export async function GET(request: Request) {
       totalSkipped: summary.totalSkipped,
       totalFailed: summary.totalFailed,
       sourceCount: summary.sourceResults.length,
+      sourceResults: summary.sourceResults.map(r => ({
+        source: r.source.id ?? r.source.name ?? 'unknown',
+        status: r.status,
+        candidatesFound: r.candidatesFound,
+        candidatesInserted: r.candidatesInserted,
+        error: r.error,
+      })),
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

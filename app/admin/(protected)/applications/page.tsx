@@ -45,7 +45,7 @@ export default async function PendingApplicationsPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {professionals.map((p) => (
+            {professionals.map((p: import('@/lib/admin/applicationsQuery').PendingProfessional) => (
               <div key={p.id} className="flex items-start justify-between gap-4 rounded-xl border border-[#C6A55A]/20 bg-[#0B1A2F] p-4">
                 <div>
                   <p className="font-medium text-[#F5F1E8]">
@@ -78,7 +78,7 @@ export default async function PendingApplicationsPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {suppliers.map((s) => (
+            {suppliers.map((s: import('@/lib/admin/applicationsQuery').PendingSupplierProfile) => (
               <div key={s.id} className="flex items-start justify-between gap-4 rounded-xl border border-[#C6A55A]/20 bg-[#0B1A2F] p-4">
                 <div>
                   <p className="font-medium text-[#F5F1E8]">
@@ -89,7 +89,7 @@ export default async function PendingApplicationsPage() {
                     {s.contact_name ?? 'No contact name'}{s.email ? ` · ${s.email}` : ''} · {s.regions_served?.join(', ') ?? '—'}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {s.categories.map((c) => (
+                    {s.categories.map((c: string) => (
                       <span key={c} className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] text-[#F5F1E8]/55">{c.replace(/_/g, ' ')}</span>
                     ))}
                   </div>

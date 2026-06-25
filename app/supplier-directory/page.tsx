@@ -73,7 +73,7 @@ export default async function SupplierDirectoryPage() {
           />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {profiles.map((p) => (
-              <Link key={p.id} href={`/supplier-directory/${p.id}`} className="block transition hover:opacity-90">
+              <Link key={p.id} href={`/supplier-directory/${p.profile_slug}`} className="block transition hover:opacity-90">
                 <PublicCard className="p-6">
                   <div className="mb-4 flex items-center justify-between gap-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-gold/75">
@@ -84,10 +84,12 @@ export default async function SupplierDirectoryPage() {
                   {p.company_name && (
                     <h3 className="mb-2 text-base font-semibold text-[#f4f1eb]">{p.company_name}</h3>
                   )}
-                  <p className="mb-4 text-sm leading-7 text-white/62">{p.description_public ?? ''}</p>
+                  {p.description_public && (
+                    <p className="mb-4 text-sm leading-7 text-white/62 line-clamp-3">{p.description_public}</p>
+                  )}
                   <div className="flex flex-wrap gap-1.5">
-                    {p.categories.map((c) => (
-                      <span key={c} className="rounded-full border border-gold/20 bg-gold/5 px-2 py-0.5 text-[10px] text-gold/80">
+                    {p.categories?.map((c, i) => (
+                      <span key={i} className="rounded-full border border-gold/20 bg-gold/5 px-2 py-0.5 text-[10px] text-gold/80">
                         {CATEGORY_LABELS[c] ?? c}
                       </span>
                     ))}

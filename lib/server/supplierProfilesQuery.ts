@@ -44,7 +44,7 @@ export async function getApprovedSupplierProfileById(id: string): Promise<Suppli
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
   try {
     const params = new URLSearchParams({
-      select: 'id,profile_slug,company_name,title,seller_type,categories,regions_served,description_public,created_at',
+      select: 'id,profile_slug,company_name,title,seller_type,regions_served,categories,description_public,created_at',
       id: `eq.${id}`,
       status: 'eq.approved',
       limit: '1',
@@ -65,7 +65,7 @@ export async function getApprovedSupplierProfiles(): Promise<SupplierProfile[]> 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
   try {
     const params = new URLSearchParams({
-      select: 'id,profile_slug,company_name,title,seller_type,categories,regions_served,description_public,created_at',
+      select: 'id,profile_slug,company_name,title,seller_type,regions_served,categories,description_public,created_at',
       status: 'eq.approved',
       order: 'created_at.desc',
     })

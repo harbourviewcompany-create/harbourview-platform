@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,14 +34,6 @@ const CREDENTIAL_LABEL: Record<string, string> = {
   regulator:           'Regulatory Specialist',
   educator:            'Educator',
   other:               'Professional',
-}
-
-const COUNTRY_FLAGS: Record<string, string> = {
-  DE: '🇩🇪', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', NL: '🇳🇱',
-  PT: '🇵🇹', TH: '🇹🇭', IL: '🇮🇱', CO: '🇨🇴', ZA: '🇿🇦',
-  MT: '🇲🇹', LU: '🇱🇺', CZ: '🇨🇿', NZ: '🇳🇿', MX: '🇲🇽',
-  BR: '🇧🇷', CH: '🇨🇭', FR: '🇫🇷', ES: '🇪🇸', PL: '🇵🇱',
-  US: '🇺🇸', IT: '🇮🇹', AT: '🇦🇹', BE: '🇧🇪', DK: '🇩🇰',
 }
 
 async function getProfessional(slug: string): Promise<Professional | null> {
@@ -129,7 +122,7 @@ export default async function ProfessionalProfilePage({
               <div className="pp-chips">
                 {pro.countries.map(iso2 => (
                   <span key={iso2} className="pp-chip">
-                    {COUNTRY_FLAGS[iso2] ?? '🌐'} {iso2}
+                    {flagEmoji(iso2)} {iso2}
                   </span>
                 ))}
               </div>

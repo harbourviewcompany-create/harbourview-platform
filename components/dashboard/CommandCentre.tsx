@@ -5,9 +5,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,10 +43,16 @@ type Props = {
   pathwayData?:     PathwayData
   watchlistData?:    WatchlistData
   evidenceData?:     EvidenceData
-  liveTiles?:        LiveEduTile[]
-  recentEduModules?: RecentEduModule[]
-  sourceCoverage?:   SourceCoverageRow[]
-  userEmail?:        string | null
+  liveTiles?:           LiveEduTile[]
+  recentEduModules?:    RecentEduModule[]
+  sourceCoverage?:      SourceCoverageRow[]
+  jurisdictionPlaybook?: JurisdictionPlaybook
+  educationTracks?:     EducationTrack[]
+  marketMetrics?:       MarketMetric[]
+  tradeFlows?:          TradeFlow[]
+  professionals?:       HvProfessional[]
+  cannabisOperators?:   CannabisOperator[]
+  userEmail?:           string | null
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -100,12 +107,6 @@ const NAV_ITEMS_FLAT: NavItem[] = NAV_SECTIONS.flatMap(s => s.items)
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
 // Converts any ISO 3166-1 alpha-2 code → emoji flag (all 196 countries)
-// Uses Unicode Regional Indicator Symbols — no lookup table needed
-function isoToFlag(iso2: string): string {
-  if (!iso2 || iso2.length !== 2) return '🌐'
-  const cp = (c: string) => 0x1F1E6 + c.toUpperCase().charCodeAt(0) - 65
-  return String.fromCodePoint(cp(iso2[0]), cp(iso2[1]))
-}
 
 function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: string; pct: number }[] {
   const dc  = (intel?.data_completeness ?? '').toLowerCase()
@@ -135,12 +136,16 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region,
   countryIntel,
   signals,
+  marketMetrics = [],
+  tradeFlows = [],
   onCountrySelect,
 }: {
   country:          { iso2: string; label: string }
   region:           string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
+  marketMetrics?:   MarketMetric[]
+  tradeFlows?:      TradeFlow[]
   onCountrySelect?: (iso2: string) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
@@ -162,7 +167,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
         <div className="cc-jx-brief">
-          <div className="cc-jx-flag">{isoToFlag(country.iso2) ?? '🌐'}</div>
+          <div className="cc-jx-flag">{flagEmoji(country.iso2)}</div>
           <div>
             <div className="cc-jx-country">{country.label}</div>
             {region && <div className="cc-jx-region">{region}</div>}
@@ -324,6 +329,39 @@ const BriefingRoom = React.memo(function BriefingRoom({
               ))}
             </div>
             <Link href="/signals" className="cc-right-link">View all change activity →</Link>
+          </div>
+        )}
+
+        {marketMetrics.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">MARKET METRICS</div>
+            <div className="cc-metrics-list">
+              {marketMetrics.slice(0, 6).map((m, i) => (
+                <div key={i} className="cc-metric-row">
+                  <span className="cc-metric-name">{fmtStatus(m.metric_name)}</span>
+                  <span className="cc-metric-value">
+                    {m.metric_value.toLocaleString()}{m.metric_unit ? ` ${m.metric_unit}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tradeFlows.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">TRADE FLOWS</div>
+            <div className="cc-trade-list">
+              {tradeFlows.slice(0, 5).map((t, i) => (
+                <div key={i} className="cc-trade-row">
+                  <span className="cc-trade-dir">{t.origin_iso2} → {t.destination_iso2}</span>
+                  <span className="cc-trade-cat">{t.product_category ?? 'Cannabis'}</span>
+                  <span className={`cc-trade-status ${t.legal_status === 'legal' ? 'cc-trade--legal' : 'cc-trade--restricted'}`}>
+                    {t.legal_status ?? 'Review'}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </aside>
@@ -691,15 +729,17 @@ const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], onPageChange,
 }: {
-  country:         { iso2: string; label: string }
-  region:          string
-  role:            string
-  marketplaceRows?: Partial<DashboardMarketplaceRows>
-  wantedListings?:  WantedListing[]
-  wantedCount?:     number
-  pathwayData?:     PathwayData
+  country:           { iso2: string; label: string }
+  region:            string
+  role:              string
+  marketplaceRows?:  Partial<DashboardMarketplaceRows>
+  wantedListings?:   WantedListing[]
+  wantedCount?:      number
+  pathwayData?:      PathwayData
+  cannabisOperators?: CannabisOperator[]
+  onPageChange?:     (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
   const [search,    setSearch]    = useState('')
@@ -917,6 +957,24 @@ const MarketplacePage = React.memo(function MarketplacePage({
           ))}
           <Link href="/marketplace" className="cc-right-link">View counterparty profile →</Link>
         </div>
+
+        {cannabisOperators.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">VERIFIED OPERATORS — {country.label.toUpperCase()}</div>
+            {cannabisOperators.slice(0, 5).map(op => (
+              <div key={op.id} className="cc-req-row">
+                <span className={`cc-req-icon ${op.verification_status === 'verified' ? 'ok' : 'pending'}`}>
+                  {op.verification_status === 'verified' ? '✓' : '○'}
+                </span>
+                <div>
+                  <strong>{op.legal_name}</strong>
+                  <small>{op.operator_type ?? 'Operator'}</small>
+                </div>
+              </div>
+            ))}
+            <Link href="/marketplace" className="cc-right-link">View all operators →</Link>
+          </div>
+        )}
       </aside>
     </div>
   )
@@ -955,7 +1013,7 @@ const PATHWAY_STEPS = [
 // ── EducationPage ──────────────────────────────────────────────────────────────
 
 const EducationPage = React.memo(function EducationPage({
-  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData,
+  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData, educationTracks = [], onPageChange,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -965,6 +1023,8 @@ const EducationPage = React.memo(function EducationPage({
   recentEduModules?: RecentEduModule[]
   signals?:          DashboardSignal[]
   pathwayData?:      PathwayData
+  educationTracks?:  EducationTrack[]
+  onPageChange?:     (page: CommandPage) => void
 }) {
   const modules    = useMemo(() => buildLearningPath(eduCategories), [eduCategories])
   const roleDisp   = role ? role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Professional'
@@ -1113,6 +1173,22 @@ const EducationPage = React.memo(function EducationPage({
             </div>
             <button className="cc-nba-btn full">Continue module →</button>
             <Link href="/education" className="cc-right-link">View module details →</Link>
+          </div>
+        )}
+
+        {educationTracks.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">LEARNING TRACKS</div>
+            {educationTracks.slice(0, 6).map(t => (
+              <div key={t.id} className="cc-edu-ev-row">
+                <span className="cc-edu-ev-icon">{t.icon ?? '⬛'}</span>
+                <div>
+                  <strong>{t.title}</strong>
+                  <small>{t.level ?? 'Track'}{t.description ? ` · ${t.description.slice(0, 60)}` : ''}</small>
+                </div>
+              </div>
+            ))}
+            <Link href="/education" className="cc-right-link">Browse all tracks →</Link>
           </div>
         )}
 
@@ -1317,7 +1393,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
         <div className="cc-rw-summary">
           <div className="cc-rw-card">
             <div className="cc-rw-card-lbl">◎ POSTURE BRIEF</div>
-            <strong className="cc-rw-posture-title">Stable with targeted reform activity.</strong>
+            <strong className="cc-rw-posture-title">{countryIntel?.briefing_regulatory_outlook ?? 'Stable with targeted reform activity.'}</strong>
             <p>Operational environment remains stable with measured progress on facility rules and testing standards. Monitor taxation and packaging proposals.</p>
           </div>
 
@@ -2164,14 +2240,15 @@ const REQ_STATUS_COLOR: Record<string, string> = {
 // ── AccessPathwayPage ─────────────────────────────────────────────────────────
 
 const AccessPathwayPage = React.memo(function AccessPathwayPage({
-  country, region, role, signals, pathwayData, countryIntel,
+  country, region, role, signals, pathwayData, countryIntel, jurisdictionPlaybook,
 }: {
-  country:      { iso2: string; label: string }
-  region:       string
-  role:         string
-  signals:      DashboardSignal[]
-  pathwayData?: PathwayData
-  countryIntel?: CountryIntelProfile | null
+  country:              { iso2: string; label: string }
+  region:               string
+  role:                 string
+  signals:              DashboardSignal[]
+  pathwayData?:         PathwayData
+  countryIntel?:        CountryIntelProfile | null
+  jurisdictionPlaybook?: JurisdictionPlaybook
 }) {
   const {
     template, steps = [], requirements = [],
@@ -2402,6 +2479,43 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
           </div>
           <Link href="/source-methodology" className="cc-right-link">Confidence methodology →</Link>
         </div>
+
+        {jurisdictionPlaybook && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">JURISDICTION PLAYBOOK</div>
+            <div className="cc-playbook-card">
+              {jurisdictionPlaybook.difficulty && (
+                <div className="cc-playbook-row">
+                  <span className="cc-playbook-lbl">Difficulty</span>
+                  <span className="cc-playbook-val">{jurisdictionPlaybook.difficulty}</span>
+                </div>
+              )}
+              {jurisdictionPlaybook.typical_timeline_months && (
+                <div className="cc-playbook-row">
+                  <span className="cc-playbook-lbl">Timeline</span>
+                  <span className="cc-playbook-val">{jurisdictionPlaybook.typical_timeline_months} mo</span>
+                </div>
+              )}
+              {jurisdictionPlaybook.estimated_cost_range && (
+                <div className="cc-playbook-row">
+                  <span className="cc-playbook-lbl">Est. Cost</span>
+                  <span className="cc-playbook-val">{jurisdictionPlaybook.estimated_cost_range}</span>
+                </div>
+              )}
+              {jurisdictionPlaybook.legal_framework_summary && (
+                <p className="cc-playbook-summary">{jurisdictionPlaybook.legal_framework_summary}</p>
+              )}
+              {jurisdictionPlaybook.common_pitfalls.length > 0 && (
+                <div className="cc-playbook-pitfalls">
+                  <span className="cc-playbook-pitfalls-lbl">Common pitfalls</span>
+                  {jurisdictionPlaybook.common_pitfalls.slice(0, 3).map((p, i) => (
+                    <div key={i} className="cc-playbook-pitfall">⚠ {p}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </aside>
     </div>
   )
@@ -2701,13 +2815,14 @@ function freshnessLabel(dateStr: string | null): string {
 // ── EvidenceSourcesPage ───────────────────────────────────────────────────────
 
 const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
-  country, region, role, evidenceData, pathwayData,
+  country, region, role, evidenceData, pathwayData, professionals = [],
 }: {
-  country:       { iso2: string; label: string }
-  region:        string
-  role:          string
-  evidenceData?: EvidenceData
-  pathwayData?:  PathwayData
+  country:        { iso2: string; label: string }
+  region:         string
+  role:           string
+  evidenceData?:  EvidenceData
+  pathwayData?:   PathwayData
+  professionals?: HvProfessional[]
 }) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
   const { sources = [], orgDocs = [] } = evidenceData ?? {}
@@ -3014,6 +3129,23 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
           </p>
           <button className="cc-nba-btn full" style={{marginTop:'8px'}}>Go to Review Queue →</button>
         </div>
+
+        {professionals.length > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">VERIFIED PROFESSIONALS</div>
+            {professionals.slice(0, 4).map(p => (
+              <div key={p.id} className="cc-ev-gap-row">
+                <span className="cc-ev-gap-dot" style={{color:'var(--cc-green)'}}>✓</span>
+                <div>
+                  <strong>{p.full_name}</strong>
+                  <small>{p.title ?? p.credential_type ?? 'Professional'}{p.institution ? ` · ${p.institution}` : ''}</small>
+                  {p.accepts_referrals && <small style={{color:'var(--cc-gold)'}}>Accepts referrals</small>}
+                </div>
+              </div>
+            ))}
+            <Link href="/intake" className="cc-right-link">Request introduction →</Link>
+          </div>
+        )}
       </aside>
     </div>
   )
@@ -3184,6 +3316,12 @@ export default function CommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  jurisdictionPlaybook,
+  educationTracks = [],
+  marketMetrics = [],
+  tradeFlows = [],
+  professionals = [],
+  cannabisOperators = [],
   userEmail,
 }: Props) {
   const router = useRouter()
@@ -3265,15 +3403,15 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} onPageChange={setActivePage} />
       case 'evidence':
-        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} />
+        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
       case 'education':
-        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} />
+        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={setActivePage} />
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />
       case 'local-intel':
