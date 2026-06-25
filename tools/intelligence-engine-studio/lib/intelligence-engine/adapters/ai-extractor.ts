@@ -27,8 +27,8 @@ export class HuggingFaceExtractor {
   private token: string;
 
   constructor() {
-    this.endpoint = process.env.HF_INFERENCE_ENDPOINT || '';
-    this.token = process.env.HF_TOKEN || '';
+    this.endpoint = process.env.HF_INFERENCE_ENDPOINT || 'https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct';
+    this.token = process.env.HF_TOKEN || process.env.HF_TOKEN_SERVER || '';
   }
 
   async extractSignal(result: ScraperResult, countryCode: string): Promise<SignalDTO | null> {
