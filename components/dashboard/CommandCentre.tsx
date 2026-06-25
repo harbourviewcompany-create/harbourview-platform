@@ -10,6 +10,8 @@ import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
+import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
+import { complianceRegions } from '@/lib/compliance/regions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,32 @@ type CommandPage =
   | 'signals'
   | 'watchlist'
   | 'settings'
+  | 'genetics'
+  | 'compliance'
+  | 'countries'
+
+type PublicServiceProvider = {
+  id: string
+  displayName: string
+  service_category: string
+  service_summary: string
+  country_code: string | null
+  jurisdiction_label: string | null
+  verification_level: string
+}
+
+type PublicCollaborationProject = {
+  id: string
+  slug: string
+  title: string
+  projectType: string
+  status: string
+  countryCode: string | null
+  jurisdictionLabel: string | null
+  publicSummary: string
+  evidenceNeeded: string | null
+  cta: string
+}
 
 type Props = {
   signals:          DashboardSignal[]
@@ -53,6 +81,9 @@ type Props = {
   professionals?:       HvProfessional[]
   cannabisOperators?:   CannabisOperator[]
   userEmail?:           string | null
+  cultivarPassports?:   PublicCultivarPassportDTO[]
+  serviceProviders?:    PublicServiceProvider[]
+  collaborationProjects?: PublicCollaborationProject[]
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -91,6 +122,14 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Research',
     items: [
       { id: 'evidence', label: 'Research', icon: '⊟' },
+    ],
+  },
+  {
+    label: 'Platform',
+    items: [
+      { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
+      { id: 'compliance',  label: 'Compliance',  icon: '◫' },
+      { id: 'countries',   label: 'Countries',   icon: '⊗' },
     ],
   },
   {
@@ -3297,6 +3336,309 @@ function CustomSelect({ value, options, placeholder, onChange, className }: {
   )
 }
 
+// ── Genetics page ─────────────────────────────────────────────────────────────
+
+type GeneticsTab = 'passports' | 'services' | 'projects'
+
+const GeneticsPage = React.memo(function GeneticsPage({
+  country,
+  cultivarPassports = [],
+  serviceProviders = [],
+  collaborationProjects = [],
+}: {
+  country: { iso2: string; label: string }
+  cultivarPassports?: PublicCultivarPassportDTO[]
+  serviceProviders?: PublicServiceProvider[]
+  collaborationProjects?: PublicCollaborationProject[]
+}) {
+  const [tab, setTab] = useState<GeneticsTab>('passports')
+
+  const tabs: { id: GeneticsTab; label: string; count: number }[] = [
+    { id: 'passports', label: 'Cultivar Passports', count: cultivarPassports.length },
+    { id: 'services',  label: 'Service Providers',  count: serviceProviders.length },
+    { id: 'projects',  label: 'Collaboration',      count: collaborationProjects.length },
+  ]
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>Genetics Intelligence</h2>
+          <p>Public cultivar passports, verified service providers, and open collaboration projects. Country-specific opportunities and evidence summaries are available per passport.</p>
+        </div>
+
+        <div className="cc-mkt-tabs">
+          {tabs.map(t => (
+            <button key={t.id} className={`cc-mkt-tab${tab === t.id ? ' active' : ''}`} onClick={() => setTab(t.id)}>
+              {t.label}
+              {t.count > 0 && <span className="cc-tab-badge">{t.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'passports' && (
+          cultivarPassports.length === 0 ? (
+            <div className="cc-empty-state">
+              <span>⊕</span>
+              <p>No public cultivar passports available for {country.label}.</p>
+              <p>Passports are published when source-backed review is complete.</p>
+            </div>
+          ) : (
+            <div className="cc-signal-list">
+              {cultivarPassports.map(p => (
+                <div key={p.id} className="cc-signal-row">
+                  <div className="cc-sig-meta">
+                    <span className="cc-sig-tag">{p.cultivarCategory.replace(/_/g, ' ')}</span>
+                    {p.cannabisCategory && <span className="cc-sig-tag">{p.cannabisCategory.replace(/_/g, ' ')}</span>}
+                    <span className="cc-sig-tag">{p.claimStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="cc-sig-title">{p.displayName}</div>
+                  <div className="cc-sig-body">{p.publicSummary}</div>
+                  {p.countryOpportunitiesPublic.length > 0 && (
+                    <div className="cc-sig-meta" style={{ marginTop: 6 }}>
+                      <span className="cc-sig-conf">{p.countryOpportunitiesPublic.length} country {p.countryOpportunitiesPublic.length === 1 ? 'opportunity' : 'opportunities'}</span>
+                    </div>
+                  )}
+                  <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-link">View passport →</Link>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {tab === 'services' && (
+          serviceProviders.length === 0 ? (
+            <div className="cc-empty-state">
+              <span>◫</span>
+              <p>No verified service providers listed yet.</p>
+            </div>
+          ) : (
+            <div className="cc-signal-list">
+              {serviceProviders.map(sp => (
+                <div key={sp.id} className="cc-signal-row">
+                  <div className="cc-sig-meta">
+                    <span className="cc-sig-tag">{sp.service_category.replace(/_/g, ' ')}</span>
+                    <span className="cc-sig-tag">{sp.verification_level.replace(/_/g, ' ')}</span>
+                    {sp.country_code && <span className="cc-sig-tag">{sp.country_code}</span>}
+                  </div>
+                  <div className="cc-sig-title">{sp.displayName}</div>
+                  <div className="cc-sig-body">{sp.service_summary}</div>
+                  <Link href="/contact" className="cc-sig-link">Request verification →</Link>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {tab === 'projects' && (
+          collaborationProjects.length === 0 ? (
+            <div className="cc-empty-state">
+              <span>⊗</span>
+              <p>No open collaboration projects at this time.</p>
+            </div>
+          ) : (
+            <div className="cc-signal-list">
+              {collaborationProjects.map(cp => (
+                <div key={cp.id} className="cc-signal-row">
+                  <div className="cc-sig-meta">
+                    <span className="cc-sig-tag">{cp.projectType.replace(/_/g, ' ')}</span>
+                    <span className="cc-sig-tag">{cp.status.replace(/_/g, ' ')}</span>
+                    {cp.countryCode && <span className="cc-sig-tag">{cp.countryCode}</span>}
+                  </div>
+                  <div className="cc-sig-title">{cp.title}</div>
+                  <div className="cc-sig-body">{cp.publicSummary}</div>
+                  <Link href="/contact" className="cc-sig-link">{cp.cta} →</Link>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+
+      <aside className="cc-two-side">
+        <div className="cc-right-section">
+          <div className="cc-right-head">GENETICS OVERVIEW</div>
+          <div className="cc-jx-fields">
+            {[
+              { icon: '⊕', label: 'Cultivar Passports', value: String(cultivarPassports.length) },
+              { icon: '◫', label: 'Service Providers',  value: String(serviceProviders.length) },
+              { icon: '⊗', label: 'Collaboration Projects', value: String(collaborationProjects.length) },
+            ].map(f => (
+              <div key={f.label} className="cc-jx-field">
+                <span className="cc-jx-field-icon">{f.icon}</span>
+                <div><small>{f.label}</small><strong>{f.value}</strong></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">ACCESS &amp; LICENSING</div>
+          <p className="cc-right-note">Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require access request.</p>
+          <Link href="/genetics" className="cc-right-link">Genetics hub →</Link>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+// ── Compliance page ───────────────────────────────────────────────────────────
+
+const CompliancePage = React.memo(function CompliancePage({
+  country,
+}: {
+  country: { iso2: string; label: string }
+}) {
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>Global Compliance Intelligence</h2>
+          <p>Regional compliance frameworks, documentation controls, and commercial pathway summaries for regulated cannabis markets. Specialist review required before commercial reliance.</p>
+        </div>
+
+        <div className="cc-signal-list">
+          {complianceRegions.map(region => (
+            <div key={region.slug} className="cc-signal-row">
+              <div className="cc-sig-meta">
+                <span className="cc-sig-tag">{region.name}</span>
+              </div>
+              <div className="cc-sig-title">{region.name} Compliance Framework</div>
+              <div className="cc-sig-body">{region.summary}</div>
+              <div className="cc-sig-body" style={{ marginTop: 4, opacity: 0.7 }}>{region.commercialFocus}</div>
+              <Link href="/contact" className="cc-sig-link">Request compliance review →</Link>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <aside className="cc-two-side">
+        <div className="cc-right-section">
+          <div className="cc-right-head">COMPLIANCE REGIONS</div>
+          <div className="cc-jx-fields">
+            {complianceRegions.map(r => (
+              <div key={r.slug} className="cc-jx-field">
+                <span className="cc-jx-field-icon">◫</span>
+                <div><small>{r.name}</small><strong>Coverage active</strong></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">CURRENT JURISDICTION</div>
+          <p className="cc-right-note">{country.label} — compliance data for this jurisdiction is subject to source review. Contact Harbourview for specialist-reviewed access pathway.</p>
+          <Link href="/contact" className="cc-sig-link">Get compliance support →</Link>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+// ── Countries directory page ──────────────────────────────────────────────────
+
+const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
+  signals,
+  onCountrySelect,
+}: {
+  signals: DashboardSignal[]
+  onCountrySelect?: (iso2: string) => void
+}) {
+  const [search, setSearch] = useState('')
+
+  const signalCountByMarket = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const s of signals) {
+      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
+    }
+    return counts
+  }, [signals])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return ALL_COUNTRIES
+    const q = search.toLowerCase()
+    return ALL_COUNTRIES.filter(c => c.displayName.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
+  }, [search])
+
+  const byRegion = useMemo(() => {
+    const map = new Map<string, typeof ALL_COUNTRIES>()
+    for (const c of filtered) {
+      const key = c.region ?? 'Other'
+      map.set(key, [...(map.get(key) ?? []), c])
+    }
+    return map
+  }, [filtered])
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>Country &amp; Territory Directory</h2>
+          <p>All {ALL_COUNTRIES.length} Harbourview countries and territories. Click any entry to load its jurisdiction data into the Command Centre.</p>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <input
+            className="cc-search-input"
+            type="text"
+            placeholder="Search countries…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        {[...byRegion.entries()].map(([region, countries]) => (
+          <div key={region} style={{ marginBottom: 20 }}>
+            <div className="cc-right-head" style={{ marginBottom: 8 }}>{region} <span style={{ opacity: 0.45 }}>({countries.length})</span></div>
+            <div className="cc-signal-list">
+              {countries.map(c => {
+                const sigCount = signalCountByMarket[c.displayName] ?? 0
+                return (
+                  <div key={c.iso2} className="cc-signal-row" style={{ cursor: onCountrySelect ? 'pointer' : 'default' }}
+                    onClick={() => onCountrySelect?.(c.iso2)}>
+                    <div className="cc-sig-meta">
+                      <span className="cc-sig-tag">{flagEmoji(c.iso2)} {c.iso2}</span>
+                      {sigCount > 0 && <span className="cc-sig-conf">{sigCount} signal{sigCount > 1 ? 's' : ''}</span>}
+                    </div>
+                    <div className="cc-sig-title">{c.displayName}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {filtered.length === 0 && (
+          <div className="cc-empty-state">
+            <span>⊗</span>
+            <p>No countries match &ldquo;{search}&rdquo;.</p>
+          </div>
+        )}
+      </div>
+
+      <aside className="cc-two-side">
+        <div className="cc-right-section">
+          <div className="cc-right-head">DIRECTORY STATS</div>
+          <div className="cc-jx-fields">
+            {[
+              { icon: '⊗', label: 'Total Countries', value: String(ALL_COUNTRIES.length) },
+              { icon: '≋', label: 'With Active Signals', value: String(Object.keys(signalCountByMarket).length) },
+            ].map(f => (
+              <div key={f.label} className="cc-jx-field">
+                <span className="cc-jx-field-icon">{f.icon}</span>
+                <div><small>{f.label}</small><strong>{f.value}</strong></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">CLICK TO EXPLORE</div>
+          <p className="cc-right-note">Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
+          <Link href="/countries" className="cc-right-link">Full country profiles →</Link>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CommandCentre({
@@ -3323,6 +3665,9 @@ export default function CommandCentre({
   professionals = [],
   cannabisOperators = [],
   userEmail,
+  cultivarPassports = [],
+  serviceProviders = [],
+  collaborationProjects = [],
 }: Props) {
   const router = useRouter()
 
@@ -3422,6 +3767,12 @@ export default function CommandCentre({
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
+      case 'genetics':
+        return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+      case 'compliance':
+        return <CompliancePage country={country} />
+      case 'countries':
+        return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       default:
         return null
     }
