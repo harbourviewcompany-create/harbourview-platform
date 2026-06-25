@@ -44,10 +44,10 @@ function requireEnv(name: string) {
 }
 
 function resolveSupabaseApiKey() {
-  return assertBrowserSafeSupabaseKey(
-    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY'
-  );
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  return assertBrowserSafeSupabaseKey(key, 'NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
 function sanitizeSupabaseErrorText(text: string) {

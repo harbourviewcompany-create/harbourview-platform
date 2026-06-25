@@ -20,7 +20,6 @@ type MarketplaceInquiry = {
   contact_name: string;
   contact_email: string;
   contact_phone: string | null;
-  status: string;
   message: string;
   listing_id: string | null;
   buyer_request_id: string | null;
@@ -85,7 +84,7 @@ function sortInquiries(inquiries: MarketplaceInquiry[]) {
 
 async function getInquiries(): Promise<{ inquiries: MarketplaceInquiry[]; error: AdminDataError | null }> {
   const result = await fetchAdminSupabaseJson<MarketplaceInquiry[]>(
-    '/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,listing_id,buyer_request_id,review_status,priority,last_contacted_at,next_follow_up_at&limit=100',
+    '/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,message,listing_id,buyer_request_id,review_status,priority,last_contacted_at,next_follow_up_at&limit=100',
   );
 
   if (!result.ok) return { inquiries: [], error: (result as any).error };
