@@ -1077,18 +1077,39 @@ const SIGNALS_TABS: { id: SignalSub; label: string }[] = [
   { id: 'watchlist',  label: 'Watchlist' },
 ]
 
+const SIG_CATS = [
+  { id: 'all',        label: 'All',        color: '#d4a84b' },
+  { id: 'regulatory', label: 'Regulatory', color: '#5b9bd5' },
+  { id: 'economic',   label: 'Economic',   color: '#d4a84b' },
+  { id: 'trade',      label: 'Trade',      color: '#4caf82' },
+] as const
+type SigCat = typeof SIG_CATS[number]['id']
+
+function classifySignal(type: string): Exclude<SigCat, 'all'> {
+  const t = type.toLowerCase()
+  if (t.includes('reg') || t.includes('policy') || t.includes('law') || t.includes('compliance')) return 'regulatory'
+  if (t.includes('econ') || t.includes('market') || t.includes('price') || t.includes('demand')) return 'economic'
+  return 'trade'
+}
+
 function SignalsFeed({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
+  const [filterCat, setFilterCat] = useState<SigCat>('all')
   const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
 
+  const catCounts = useMemo(() => ({
+    regulatory: signals.filter(s => classifySignal(s.type) === 'regulatory').length,
+    economic:   signals.filter(s => classifySignal(s.type) === 'economic').length,
+    trade:      signals.filter(s => classifySignal(s.type) === 'trade').length,
+  }), [signals])
+
   const filtered = useMemo(() => {
+    let base = filterCat === 'all' ? signals : signals.filter(s => classifySignal(s.type) === filterCat)
     const q = search.trim().toLowerCase()
-    if (!q) return signals
-    return signals.filter(s =>
-      [s.title, s.market, s.commercialImpact].join(' ').toLowerCase().includes(q)
-    )
-  }, [signals, search])
+    if (q) base = base.filter(s => [s.title, s.market, s.commercialImpact].join(' ').toLowerCase().includes(q))
+    return base
+  }, [signals, search, filterCat])
 
   async function handleSubscribe() {
     if (subState === 'subscribed' || subState === 'loading') return
@@ -1105,9 +1126,7 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
       if (res.ok) { setSubState('subscribed'); return }
       if (res.status === 403) { setSubState('upgrade'); return }
       setSubState('error')
-    } catch {
-      setSubState('error')
-    }
+    } catch { setSubState('error') }
   }
 
   async function handleUnsubscribe() {
@@ -1115,26 +1134,44 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     try {
       const res = await fetch('/api/signals/subscribe', { method: 'DELETE' })
       setSubState(res.ok ? 'idle' : 'error')
-    } catch {
-      setSubState('error')
-    }
+    } catch { setSubState('error') }
   }
 
   if (selectedSignal) {
+    const cat = classifySignal(selectedSignal.type)
+    const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
+    const confColor = selectedSignal.confidence >= 80 ? '#4caf82' : selectedSignal.confidence >= 60 ? '#d4a84b' : '#e05555'
     return (
       <div className="hvm-page-stack">
-        <button className="hvm-back-btn" type="button" onClick={() => setSelectedSignal(null)}>← Back to signals</button>
-        <section className="hvm-hero-card compact">
-          <div className="hvm-kicker">{selectedSignal.market} · {selectedSignal.timeAgo}</div>
-          <h2>{selectedSignal.flag} {selectedSignal.title}</h2>
+        <button className="hvm-back-btn" type="button" onClick={() => setSelectedSignal(null)}>← Intelligence feed</button>
+        <section className="hvm-hero-card compact" style={{ borderLeft: `3px solid ${catColor}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span className="hvm-sig-cat-chip" style={{ '--chip-color': catColor } as React.CSSProperties}>{cat.toUpperCase()}</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace' }}>{selectedSignal.market}</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.3)', marginLeft: 'auto' }}>{selectedSignal.timeAgo}</span>
+          </div>
+          <h2 style={{ fontSize: 20 }}>{selectedSignal.flag} {selectedSignal.title}</h2>
         </section>
-        <div className="hvm-meta-grid">
-          <SectionCard label="Confidence" title={`${selectedSignal.confidence}%`} detail="Signal confidence score based on source quality and corroboration." tone={selectedSignal.confidence >= 70 ? 'ok' : 'warn'} />
-          <SectionCard label="Source" title={selectedSignal.sourceLabel ?? 'Harbourview Intelligence'} detail="Source category as reviewed for public display." />
+
+        <div className="hvm-sig-detail-grid">
+          <div className="hvm-sig-detail-cell">
+            <div className="hvm-kicker">Confidence</div>
+            <div className="hvm-sig-conf-big" style={{ color: confColor }}>{selectedSignal.confidence}%</div>
+            <div className="hvm-conf-bar-wrap"><div className="hvm-conf-bar-fill" style={{ width: `${selectedSignal.confidence}%`, background: confColor }} /></div>
+          </div>
+          <div className="hvm-sig-detail-cell">
+            <div className="hvm-kicker">Source</div>
+            <div style={{ fontSize: 13, color: 'rgba(245,240,232,.82)', lineHeight: 1.4, marginTop: 4 }}>{selectedSignal.sourceLabel ?? 'Harbourview Intelligence'}</div>
+          </div>
         </div>
+
         <div className="hvm-card">
           <div className="hvm-kicker">Commercial impact</div>
-          <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.6 }}>{selectedSignal.commercialImpact}</p>
+          <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selectedSignal.commercialImpact}</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <span className="hvm-tag-chip" style={{ background: selectedSignal.tag.bg, borderColor: selectedSignal.tag.border, color: selectedSignal.tag.color }}>{selectedSignal.tag.label}</span>
         </div>
       </div>
     )
@@ -1143,13 +1180,19 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div className={`hvm-live-dot${signals.length > 0 ? ' active' : ''}`} />
+          <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em' }}>
+            {signals.length > 0 ? 'STREAM ACTIVE' : 'SCANNING'}
+          </span>
+        </div>
         <h2>Intelligence</h2>
-        <p>{country.label} · {signals.length} signal{signals.length !== 1 ? 's' : ''}</p>
+        <p>{country.label} · {signals.length} signal{signals.length !== 1 ? 's' : ''} this period</p>
         <div className="hvm-sub-row">
           {subState === 'upgrade' ? (
             <span className="hvm-sub-upgrade">Intel plan required to subscribe</span>
           ) : subState === 'subscribed' ? (
-            <button className="hvm-sub-btn active" onClick={handleUnsubscribe}>✓ Subscribed — tap to cancel</button>
+            <button className="hvm-sub-btn active" onClick={handleUnsubscribe}>✓ Subscribed to daily signals</button>
           ) : (
             <button className="hvm-sub-btn" onClick={handleSubscribe} disabled={subState === 'loading'}>
               {subState === 'loading' ? 'Subscribing…' : '+ Subscribe to daily signals'}
@@ -1158,35 +1201,84 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
         </div>
       </section>
 
+      {/* Category stats grid */}
+      <div className="hvm-cat-grid">
+        {SIG_CATS.map(cat => {
+          const count = cat.id === 'all' ? signals.length : catCounts[cat.id]
+          const active = filterCat === cat.id
+          return (
+            <button
+              key={cat.id}
+              className={`hvm-cat-cell${active ? ' active' : ''}`}
+              style={{ '--cat-color': cat.color } as React.CSSProperties}
+              onClick={() => setFilterCat(cat.id)}
+            >
+              <span className="hvm-cat-count">{count}</span>
+              <span className="hvm-cat-label">{cat.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
       <label className="hvm-search-label">
-        <span>Filter signals</span>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by market, signal, impact…" />
+        <span>Search signals</span>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Market, signal, impact…" />
       </label>
 
       <div className="hvm-list-stack">
-        {filtered.length > 0 ? filtered.slice(0, 20).map((signal, index) => (
-          <div
-            className="hvm-signal-card hvm-signal-card--tap"
-            key={`${signal.title}-${index}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => setSelectedSignal(signal)}
-            onKeyDown={e => e.key === 'Enter' && setSelectedSignal(signal)}
-          >
-            <strong>{signal.flag} {signal.title}</strong>
-            <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
-            <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+        {filtered.length > 0 ? filtered.slice(0, 25).map((signal, index) => {
+          const cat = classifySignal(signal.type)
+          const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
+          return (
+            <div
+              className="hvm-signal-card hvm-signal-card--tap hvm-signal-card--rich"
+              key={`${signal.title}-${index}`}
+              style={{ borderLeft: `3px solid ${catColor}` }}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedSignal(signal)}
+              onKeyDown={e => e.key === 'Enter' && setSelectedSignal(signal)}
+            >
+              <div className="hvm-sig-head">
+                <span className="hvm-sig-cat-chip" style={{ '--chip-color': catColor } as React.CSSProperties}>{cat.toUpperCase()}</span>
+                <span className="hvm-sig-market">{signal.market}</span>
+                <span className="hvm-sig-time">{signal.timeAgo}</span>
+              </div>
+              <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+              <div className="hvm-sig-footer">
+                <div className="hvm-sig-conf-bar">
+                  <div className="hvm-sig-conf-fill" style={{
+                    width: `${signal.confidence}%`,
+                    background: signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555',
+                  }} />
+                </div>
+                <span className="hvm-sig-conf-val" style={{
+                  color: signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555',
+                }}>{signal.confidence}%</span>
+                <span className="hvm-tag-chip" style={{ background: signal.tag.bg, borderColor: signal.tag.border, color: signal.tag.color, marginLeft: 4 }}>{signal.tag.label}</span>
+              </div>
+            </div>
+          )
+        }) : signals.length === 0 ? (
+          <div className="hvm-monitor-panel">
+            <div className="hvm-live-dot" style={{ margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.7)', textAlign: 'center', marginBottom: 16 }}>
+              Intelligence stream active — no signals loaded for {country.label}
+            </div>
+            <div className="hvm-monitor-grid">
+              {['Regulatory filings','Legislation drafts','Import/export permits','Price & demand shifts','Enforcement actions','Licence changes','Policy consultations','Trade flow alerts'].map(item => (
+                <div className="hvm-monitor-item" key={item}>
+                  <div className="hvm-live-dot small" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        )) : (
+        ) : (
           <div className="hvm-signal-card">
-            <strong>No signals match your filter</strong>
-            <small>Try clearing the search or changing your country context.</small>
-          </div>
-        )}
-        {filtered.length === 0 && signals.length === 0 && (
-          <div className="hvm-signal-card">
-            <strong>No intelligence signals loaded</strong>
-            <small>Select a country to load curated regulatory and market signals.</small>
+            <strong>No signals match filter</strong>
+            <small>Try clearing the search or switching category.</small>
           </div>
         )}
       </div>
@@ -1204,73 +1296,200 @@ function SignalsMobile({ country, signals, watchlistData, countryIntel, sub }: {
   )
 }
 
-function WatchlistMobile({ country, roleLabel, watchlistData }: { country: CountryOption; roleLabel: string; watchlistData?: WatchlistData | null }) {
+const ITEM_TYPE_ICONS: Record<string, string> = {
+  jurisdiction: '🌐', signal: '≋', pathway: '◈', marketplace_item: '⊞', source: '⊟', policy: '◎',
+}
+const ADJACENT_MARKETS = [
+  { iso2: 'DE', label: 'Germany',    status: 'Regulated',   trend: '+' },
+  { iso2: 'CA', label: 'Canada',     status: 'Mature',      trend: '→' },
+  { iso2: 'BR', label: 'Brazil',     status: 'Medical',     trend: '+' },
+  { iso2: 'AU', label: 'Australia',  status: 'Medical',     trend: '→' },
+  { iso2: 'CO', label: 'Colombia',   status: 'Exporter',    trend: '+' },
+  { iso2: 'NL', label: 'Netherlands', status: 'Pilot',      trend: '→' },
+]
+const WATCH_TYPE_CARDS = [
+  { type: 'jurisdiction', icon: '🌐', label: 'Jurisdiction', desc: "Track a market's regulatory changes & alerts" },
+  { type: 'signal',       icon: '≋',  label: 'Signal',       desc: 'Watch for specific signal types or keywords' },
+  { type: 'pathway',      icon: '◈',  label: 'Pathway',      desc: 'Monitor import/export pathway developments' },
+  { type: 'marketplace_item', icon: '⊞', label: 'Listing',  desc: 'Track marketplace listings for price & status' },
+]
+
+function WatchlistMobile({ country, watchlistData }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null }) {
   const items = watchlistData?.items ?? []
   const rules = watchlistData?.rules ?? []
   const notifs = watchlistData?.notifications
+  const hasAlerts = notifs && notifs.total_alerts > 0
 
   return (
     <div className="hvm-page-stack">
+      {/* Hero */}
       <section className="hvm-hero-card compact">
-        <h2>Watchlist</h2>
-        <p>{country.label} · {roleLabel}</p>
-        {notifs && notifs.total_alerts > 0 && (
-          <blockquote>{notifs.awaiting_review} awaiting review · {notifs.resolved} resolved · {notifs.snoozed} snoozed</blockquote>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em' }}>WATCHLIST</span>
+          {hasAlerts && <span className="hvm-alert-badge">{notifs!.awaiting_review} pending</span>}
+        </div>
+        <h2>Market Radar</h2>
+        <p>{country.label} · {items.length} item{items.length !== 1 ? 's' : ''} watched</p>
+
+        {hasAlerts && (
+          <div className="hvm-notif-row-grid">
+            <div className="hvm-notif-cell hvm-notif-cell--warn">
+              <span className="hvm-notif-val">{notifs!.awaiting_review}</span>
+              <span className="hvm-notif-lbl">Pending</span>
+            </div>
+            <div className="hvm-notif-cell hvm-notif-cell--ok">
+              <span className="hvm-notif-val">{notifs!.resolved}</span>
+              <span className="hvm-notif-lbl">Resolved</span>
+            </div>
+            <div className="hvm-notif-cell">
+              <span className="hvm-notif-val">{notifs!.snoozed}</span>
+              <span className="hvm-notif-lbl">Snoozed</span>
+            </div>
+          </div>
         )}
       </section>
 
+      {/* Quick-add current market */}
+      <div className="hvm-current-market-card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 28 }}>🌐</span>
+          <div>
+            <div style={{ fontSize: 12, color: 'rgba(245,240,232,.42)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 3 }}>CURRENT MARKET</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#f5f0e8' }}>{country.label}</div>
+          </div>
+          <button className="hvm-add-watch-btn">+ Watch</button>
+        </div>
+      </div>
+
+      {/* Watched items */}
       {items.length > 0 ? (
         <MobileAccordion title={`Watched items (${items.length})`} defaultOpen>
           <div className="hvm-list-stack">
-            {items.slice(0, 10).map(item => (
-              <div className="hvm-signal-card" key={item.id}>
-                <strong>{item.title}</strong>
-                <small>
-                  {item.item_type.replace(/_/g, ' ')}
-                  {item.jurisdiction ? ` · ${item.jurisdiction}` : ''}
-                  {item.confidence_pct != null ? ` · ${item.confidence_pct}% confidence` : ''}
-                </small>
-                {item.subtitle && <p className="hvm-signal-impact">{item.subtitle}</p>}
-              </div>
-            ))}
+            {items.slice(0, 12).map(item => {
+              const icon = ITEM_TYPE_ICONS[item.item_type] ?? '◎'
+              return (
+                <div className="hvm-signal-card hvm-signal-card--rich" key={item.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1, marginTop: 2 }}>{icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(245,240,232,.95)', lineHeight: 1.35 }}>{item.title}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(245,240,232,.42)', marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ textTransform: 'capitalize' }}>{item.item_type.replace(/_/g, ' ')}</span>
+                      {item.jurisdiction && <span>· {item.jurisdiction}</span>}
+                      {item.confidence_pct != null && <span>· {item.confidence_pct}% conf</span>}
+                    </div>
+                    {item.subtitle && <p className="hvm-signal-impact" style={{ marginTop: 6, fontSize: 12 }}>{item.subtitle}</p>}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </MobileAccordion>
       ) : (
-        <SectionCard
-          label="Watchlist"
-          title="No items watched yet"
-          detail="Add jurisdictions, signals, pathways or market listings to your watchlist from the Intelligence and Market tabs."
-        />
+        <div className="hvm-wl-empty-panel">
+          <div style={{ fontSize: 28, marginBottom: 8, opacity: .35 }}>◎</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(245,240,232,.65)', marginBottom: 6 }}>No items watched yet</div>
+          <div style={{ fontSize: 12, color: 'rgba(245,240,232,.38)', lineHeight: 1.6 }}>Add jurisdictions, signals, pathways or listings from the Intelligence and Market tabs. You will receive alerts on every change.</div>
+        </div>
       )}
 
+      {/* Adjacent market radar */}
+      <MobileAccordion title="Market radar — adjacent markets" defaultOpen={false}>
+        <div className="hvm-radar-grid">
+          {ADJACENT_MARKETS.map(m => (
+            <div className="hvm-radar-cell" key={m.iso2}>
+              <div className="hvm-radar-iso">{m.iso2}</div>
+              <div className="hvm-radar-name">{m.label}</div>
+              <div className="hvm-radar-status">{m.status}</div>
+              <div className="hvm-radar-trend" style={{ color: m.trend === '+' ? '#4caf82' : '#d4a84b' }}>{m.trend}</div>
+              <button className="hvm-radar-add">+</button>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      {/* Watch type cards */}
+      <MobileAccordion title="Add to watchlist" defaultOpen={items.length === 0}>
+        <div className="hvm-watch-types">
+          {WATCH_TYPE_CARDS.map(wt => (
+            <div className="hvm-watch-type-card" key={wt.type}>
+              <span className="hvm-watch-type-icon">{wt.icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{wt.label}</div>
+                <div style={{ fontSize: 11, color: 'rgba(245,240,232,.42)', marginTop: 2, lineHeight: 1.4 }}>{wt.desc}</div>
+              </div>
+              <button className="hvm-add-watch-btn" style={{ marginLeft: 'auto', flexShrink: 0 }}>+ Add</button>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      {/* Watch rules */}
       {rules.length > 0 && (
-        <MobileAccordion title={`Watch rules (${rules.length})`}>
+        <MobileAccordion title={`Alert rules (${rules.length})`}>
           <div className="hvm-list-stack">
-            {rules.slice(0, 6).map(rule => (
-              <div className="hvm-signal-card" key={rule.id}>
-                <strong>{rule.rule_type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch</strong>
-                <small>{rule.keywords.slice(0, 3).join(' · ') || 'All signals'}</small>
+            {rules.slice(0, 8).map(rule => (
+              <div className="hvm-signal-card" key={rule.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>
+                    {rule.rule_type.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 3 }}>
+                    {rule.keywords.slice(0, 3).join(' · ') || 'All signals'}
+                  </div>
+                </div>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf82', flexShrink: 0 }} />
               </div>
             ))}
           </div>
         </MobileAccordion>
       )}
 
-      <SectionCard
-        label="Next step"
-        title={`Add to watchlist · ${country.label}`}
-        detail="Use the Intelligence or Marketplace tabs to add items. Watchlist alerts deliver via your notification settings."
-        tone="ok"
-      />
+      {/* Next step */}
+      <div className="hvm-cta-card" style={{ background: 'rgba(212,168,75,.07)', borderColor: 'rgba(212,168,75,.25)' }}>
+        <strong style={{ fontSize: 14, color: '#f5f0e8' }}>Build your intelligence radar</strong>
+        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(245,240,232,.5)', lineHeight: 1.55 }}>
+          Watch jurisdictions, signals, pathways and listings. Receive daily or real-time alerts as conditions change across {country.label} and adjacent markets.
+        </p>
+        <span className="hvm-cta-arrow">Explore Intelligence Platform →</span>
+      </div>
     </div>
   )
 }
 
-function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
+const REG_STATUS_FIELDS = [
+  { key: 'market_access_status', label: 'Market Access',   icon: '⊞' },
+  { key: 'medical_status',       label: 'Medical Program', icon: '◎' },
+  { key: 'adult_use_status',     label: 'Adult Use',       icon: '◈' },
+  { key: 'import_status',        label: 'Import',          icon: '↓' },
+  { key: 'export_status',        label: 'Export',          icon: '↑' },
+  { key: 'regulatory_tier',      label: 'Reg. Tier',       icon: '≋' },
+] as const
+
+function statusColor(val: string | null | undefined) {
+  if (!val) return 'rgba(245,240,232,.3)'
+  const v = val.toLowerCase()
+  if (v.includes('active') || v.includes('open') || v.includes('legal') || v === 'regulated' || v.includes('permit')) return '#4caf82'
+  if (v.includes('restrict') || v.includes('prohibit') || v.includes('illegal') || v.includes('banned')) return '#e05555'
+  if (v.includes('emerging') || v.includes('pending') || v.includes('review') || v.includes('pilot')) return '#d4a84b'
+  return 'rgba(245,240,232,.55)'
+}
+
+const DEFAULT_WATCH_TRIGGERS = [
+  { label: 'Rulemaking & Regulations', on: true },
+  { label: 'Legislation & Bills',      on: true },
+  { label: 'Enforcement Actions',      on: true },
+  { label: 'Licence Changes',          on: true },
+  { label: 'GMP & Standards Updates',  on: true },
+  { label: 'Taxation Changes',         on: false },
+  { label: 'Local Ordinances',         on: false },
+  { label: 'International Treaties',   on: false },
+]
+
+function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel?: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
   const regSignals = useMemo(() => {
     const reg = signals.filter(s => {
-      const t = s.title.toLowerCase()
-      return /regulatory|licen|compliance|reform|legislation|enforcement|permit/.test(t)
+      const t = (s.title + ' ' + s.type).toLowerCase()
+      return /regulatory|licen|compliance|reform|legislation|enforcement|permit|policy/.test(t)
     })
     return (reg.length > 0 ? reg : signals).slice(0, 8)
   }, [signals])
@@ -1278,70 +1497,159 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
   const watchTriggers = useMemo(() => {
     const rules = watchlistData?.rules ?? []
     if (rules.length > 0) {
-      return rules.slice(0, 5).map(r => ({
+      return rules.slice(0, 8).map(r => ({
         label: r.rule_type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         on: true,
       }))
     }
-    return [
-      { label: 'Rulemaking (Regulatory)', on: true },
-      { label: 'Legislation & Bills', on: true },
-      { label: 'Enforcement Actions', on: true },
-      { label: 'Taxation Changes', on: false },
-      { label: 'Local Ordinances', on: false },
-    ]
+    return DEFAULT_WATCH_TRIGGERS
   }, [watchlistData])
 
-  const lastChange = regSignals[0] ?? signals[0] ?? null
-  const status = fieldValue(countryIntel?.medical_status, 'Review pending')
+  const oppScore = countryIntel?.opportunity_score
+  const oppColor = oppScore != null ? (oppScore >= 7 ? '#4caf82' : oppScore >= 4 ? '#d4a84b' : '#e05555') : '#d4a84b'
+  const regulator = countryIntel?.regulator_label
+  const region = countryIntel?.region
 
   return (
     <div className="hvm-page-stack">
+      {/* Hero with opportunity score */}
       <section className="hvm-hero-card compact">
-        <h2>Regulatory Watch</h2>
-        <p>{country.label} · {roleLabel}</p>
-        <blockquote>Program status: {status}</blockquote>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>
+              REGULATORY WATCH{region ? ` · ${region.toUpperCase()}` : ''}
+            </div>
+            <h2 style={{ marginBottom: 4 }}>Regulatory<br />Intelligence</h2>
+            <p style={{ marginTop: 6 }}>{country.label}{regulator ? ` · ${regulator}` : ''}</p>
+          </div>
+          {oppScore != null && (
+            <div className="hvm-opp-badge" style={{ '--opp-color': oppColor } as React.CSSProperties}>
+              <span className="hvm-opp-score">{oppScore}</span>
+              <span className="hvm-opp-label">/ 10</span>
+              <span className="hvm-opp-sub">Opportunity</span>
+            </div>
+          )}
+        </div>
+        {countryIntel?.public_summary && (
+          <p style={{ marginTop: 12, fontSize: 12, color: 'rgba(245,240,232,.5)', lineHeight: 1.6, borderLeft: '2px solid rgba(212,168,75,.3)', paddingLeft: 10 }}>
+            {countryIntel.public_summary.length > 160 ? countryIntel.public_summary.slice(0, 160) + '…' : countryIntel.public_summary}
+          </p>
+        )}
       </section>
 
-      {lastChange && (
-        <SectionCard
-          label="Last regulatory change"
-          title={lastChange.title.length > 80 ? lastChange.title.slice(0, 80) + '…' : lastChange.title}
-          detail={`${lastChange.market} · ${lastChange.timeAgo} · ${lastChange.confidence}% confidence`}
-          tone={lastChange.confidence >= 70 ? 'ok' : 'warn'}
-        />
-      )}
+      {/* Status matrix */}
+      <MobileAccordion title="Market status matrix" defaultOpen>
+        <div className="hvm-reg-matrix-grid">
+          {REG_STATUS_FIELDS.map(f => {
+            const val = countryIntel?.[f.key]
+            const color = statusColor(val)
+            return (
+              <div className="hvm-reg-matrix-cell" key={f.key}>
+                <div className="hvm-reg-matrix-icon">{f.icon}</div>
+                <div className="hvm-reg-matrix-label">{f.label}</div>
+                <div className="hvm-reg-matrix-val" style={{ color }}>{val ?? '–'}</div>
+              </div>
+            )
+          })}
+        </div>
+      </MobileAccordion>
 
-      <MobileAccordion title={`Recent regulatory signals (${Math.min(regSignals.length, 6)})`} defaultOpen>
+      {/* Regulatory signals */}
+      <MobileAccordion title={`Regulatory signals (${Math.min(regSignals.length, 6)})`} defaultOpen>
         <div className="hvm-list-stack">
-          {regSignals.slice(0, 6).map((signal, index) => (
-            <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
-              <strong>{signal.flag} {signal.title}</strong>
-              <small>{signal.market} · {signal.timeAgo} · {signal.confidence}% confidence</small>
-              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
-            </div>
-          ))}
-          {regSignals.length === 0 && (
+          {regSignals.length > 0 ? regSignals.slice(0, 6).map((signal, index) => {
+            const confColor = signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555'
+            return (
+              <div className="hvm-signal-card hvm-signal-card--rich" key={`${signal.title}-${index}`} style={{ borderLeft: '3px solid #5b9bd5' }}>
+                <div className="hvm-sig-head">
+                  <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#5b9bd5' } as React.CSSProperties}>REG</span>
+                  <span className="hvm-sig-market">{signal.market}</span>
+                  <span className="hvm-sig-time">{signal.timeAgo}</span>
+                </div>
+                <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                <div className="hvm-sig-footer">
+                  <div className="hvm-sig-conf-bar"><div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} /></div>
+                  <span className="hvm-sig-conf-val" style={{ color: confColor }}>{signal.confidence}%</span>
+                </div>
+              </div>
+            )
+          }) : (
             <div className="hvm-signal-card">
-              <strong>No regulatory signals loaded</strong>
-              <small>Select a country context to load curated regulatory signals.</small>
+              <strong style={{ fontSize: 14 }}>No regulatory signals loaded</strong>
+              <small>Select a country context to load curated regulatory intelligence.</small>
             </div>
           )}
         </div>
       </MobileAccordion>
 
-      <MobileAccordion title="Watch triggers">
+      {/* Compliance calendar */}
+      <MobileAccordion title="Compliance milestones">
+        <div className="hvm-timeline">
+          {[
+            { label: 'Annual GMP renewal',          date: 'Quarterly',     color: '#5b9bd5' },
+            { label: 'Import permit re-validation',  date: 'Semi-annual',   color: '#d4a84b' },
+            { label: 'Licence condition review',     date: 'Annual',        color: '#4caf82' },
+            { label: 'Regulatory authority report',  date: 'Annual',        color: '#d4a84b' },
+          ].map((m, i) => (
+            <div className="hvm-timeline-item" key={i}>
+              <div className="hvm-timeline-dot" style={{ background: m.color }} />
+              <div className="hvm-timeline-body">
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(245,240,232,.88)' }}>{m.label}</div>
+                <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 2 }}>{m.date}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      {/* Cross-border requirements */}
+      <MobileAccordion title="Cross-border requirements">
+        <div className="hvm-ledger-table">
+          {[
+            { label: 'Permit class',   val: fieldValue(countryIntel?.import_status, 'Confirm with authority') },
+            { label: 'GMP standard',   val: 'EU-GMP / WHO-GMP' },
+            { label: 'HS code',        val: '2901.29 / 1211.90' },
+            { label: 'Phyto certificate', val: 'Required' },
+            { label: 'Country of origin', val: 'Certificate required' },
+            { label: 'Packaging',      val: 'Tamper-evident, labelled' },
+          ].map(row => (
+            <div key={row.label}>
+              <strong>{row.label}</strong>
+              <span>{row.val}</span>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      {/* Watch triggers */}
+      <MobileAccordion title={`Watch triggers (${watchTriggers.filter(t => t.on).length} active)`}>
         <div className="hvm-list-stack">
           {watchTriggers.map(t => (
             <div className="hvm-signal-card hvm-trigger-row" key={t.label}>
-              <span>{t.label}</span>
-              <span style={{ color: t.on ? '#4caf82' : 'rgba(245,240,232,.3)', fontSize: 13, fontWeight: 700 }}>
-                {t.on ? '● On' : '○ Off'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="hvm-trigger-dot" style={{ background: t.on ? '#4caf82' : 'rgba(255,255,255,.15)' }} />
+                <span style={{ fontSize: 13, color: t.on ? 'rgba(245,240,232,.88)' : 'rgba(245,240,232,.38)' }}>{t.label}</span>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.on ? '#4caf82' : 'rgba(245,240,232,.3)', fontFamily: 'JetBrains Mono, monospace' }}>
+                {t.on ? 'ON' : 'OFF'}
               </span>
             </div>
           ))}
         </div>
       </MobileAccordion>
+
+      {/* Competent authority */}
+      {regulator && (
+        <div className="hvm-authority-card">
+          <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>COMPETENT AUTHORITY</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#f5f0e8' }}>{regulator}</div>
+          {countryIntel?.briefing_regulatory_body && (
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(245,240,232,.52)', lineHeight: 1.55 }}>{countryIntel.briefing_regulatory_body}</p>
+          )}
+          <a href="/compliance" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', textDecoration: 'none', fontWeight: 600 }}>Request compliance review →</a>
+        </div>
+      )}
     </div>
   )
 }
@@ -2096,4 +2404,238 @@ const MOBILE_CSS = `
   .hvm-status-grid, .hvm-meta-grid, .hvm-source-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hvm-bottom-nav button { min-height: 54px; }
 }
+
+/* ── Intelligence signals redesign ──────────────────────────────────────── */
+.hvm-live-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(212,168,75,.35);
+  box-shadow: 0 0 0 0 rgba(212,168,75,.4);
+  animation: hvmPulse 2s ease-in-out infinite;
+}
+.hvm-live-dot.active {
+  background: #4caf82;
+  box-shadow: 0 0 6px rgba(76,175,130,.6);
+  animation: hvmPulseGreen 2s ease-in-out infinite;
+}
+.hvm-live-dot.small { width: 6px; height: 6px; }
+@keyframes hvmPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,168,75,.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(212,168,75,0); }
+}
+@keyframes hvmPulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,130,.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(76,175,130,0); }
+}
+
+.hvm-cat-grid {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+}
+.hvm-cat-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 6px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.03);
+  cursor: pointer; transition: all .15s;
+  color: rgba(245,240,232,.55);
+}
+.hvm-cat-cell:hover { background: rgba(255,255,255,.07); color: rgba(245,240,232,.85); }
+.hvm-cat-cell.active {
+  border-color: color-mix(in srgb, var(--cat-color) 50%, transparent);
+  background: color-mix(in srgb, var(--cat-color) 10%, transparent);
+}
+.hvm-cat-count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 18px; font-weight: 700;
+  color: var(--cat-color, rgba(245,240,232,.8));
+  line-height: 1;
+}
+.hvm-cat-label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: inherit; }
+.hvm-cat-cell.active .hvm-cat-label { color: var(--cat-color); }
+
+.hvm-signal-card--rich { padding: 14px; border-radius: 14px; }
+.hvm-sig-head {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.hvm-sig-cat-chip {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 8px; font-weight: 700; letter-spacing: .16em;
+  padding: 2px 6px; border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--chip-color) 40%, transparent);
+  color: var(--chip-color, #d4a84b);
+  background: color-mix(in srgb, var(--chip-color) 10%, transparent);
+}
+.hvm-sig-market { font-size: 11px; color: rgba(245,240,232,.5); }
+.hvm-sig-time { font-size: 10px; color: rgba(245,240,232,.3); margin-left: auto; white-space: nowrap; }
+.hvm-sig-title { font-size: 14px; font-weight: 600; color: #f5f0e8; line-height: 1.4; margin-bottom: 6px; }
+.hvm-sig-footer {
+  display: flex; align-items: center; gap: 6px; margin-top: 10px;
+}
+.hvm-sig-conf-bar {
+  flex: 1; height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
+}
+.hvm-sig-conf-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+.hvm-sig-conf-val {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.hvm-tag-chip {
+  font-size: 9px; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid; font-weight: 600; flex-shrink: 0; white-space: nowrap;
+}
+
+.hvm-sig-detail-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.hvm-sig-detail-cell {
+  padding: 14px; border-radius: 14px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
+}
+.hvm-sig-conf-big {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 28px; font-weight: 700; line-height: 1.1; margin: 4px 0 8px;
+}
+.hvm-conf-bar-wrap {
+  height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
+}
+.hvm-conf-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+
+.hvm-monitor-panel {
+  padding: 24px 20px; border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.02);
+}
+.hvm-monitor-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.hvm-monitor-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+  font-size: 11px; color: rgba(245,240,232,.55);
+}
+
+/* ── Regulatory redesign ─────────────────────────────────────────────────── */
+.hvm-opp-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 68px; height: 68px; border-radius: 14px; flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--opp-color) 35%, transparent);
+  background: color-mix(in srgb, var(--opp-color) 10%, transparent);
+}
+.hvm-opp-score {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 26px; font-weight: 700; line-height: 1;
+  color: var(--opp-color, #d4a84b);
+}
+.hvm-opp-label { font-size: 10px; color: rgba(245,240,232,.38); margin-top: 1px; }
+.hvm-opp-sub {
+  font-size: 8px; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(245,240,232,.3); margin-top: 3px;
+}
+
+.hvm-reg-matrix-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.hvm-reg-matrix-cell {
+  padding: 12px; border-radius: 12px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.hvm-reg-matrix-icon { font-size: 14px; opacity: .5; }
+.hvm-reg-matrix-label { font-size: 10px; color: rgba(245,240,232,.42); letter-spacing: .06em; text-transform: uppercase; }
+.hvm-reg-matrix-val { font-size: 12px; font-weight: 700; line-height: 1.3; }
+
+.hvm-timeline { display: flex; flex-direction: column; gap: 0; }
+.hvm-timeline-item {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.hvm-timeline-item:last-child { border-bottom: none; }
+.hvm-timeline-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
+}
+.hvm-timeline-body { flex: 1; min-width: 0; }
+
+.hvm-trigger-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  transition: background .2s;
+}
+
+.hvm-authority-card {
+  padding: 16px; border-radius: 14px;
+  background: rgba(91,155,213,.06); border: 1px solid rgba(91,155,213,.2);
+}
+
+/* ── Watchlist redesign ──────────────────────────────────────────────────── */
+.hvm-alert-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 999px;
+  background: rgba(224,85,85,.15); border: 1px solid rgba(224,85,85,.3);
+  color: #e05555; font-size: 10px; font-weight: 700;
+}
+.hvm-notif-row-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;
+}
+.hvm-notif-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 6px; border-radius: 10px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+}
+.hvm-notif-cell--warn { border-color: rgba(224,85,85,.25); background: rgba(224,85,85,.07); }
+.hvm-notif-cell--ok   { border-color: rgba(76,175,130,.25); background: rgba(76,175,130,.07); }
+.hvm-notif-val {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 22px; font-weight: 700; color: #f5f0e8; line-height: 1;
+}
+.hvm-notif-cell--warn .hvm-notif-val { color: #e05555; }
+.hvm-notif-cell--ok   .hvm-notif-val { color: #4caf82; }
+.hvm-notif-lbl { font-size: 10px; color: rgba(245,240,232,.42); text-transform: uppercase; letter-spacing: .08em; }
+
+.hvm-current-market-card {
+  padding: 14px 16px; border-radius: 14px;
+  background: rgba(212,168,75,.06); border: 1px solid rgba(212,168,75,.2);
+}
+.hvm-add-watch-btn {
+  padding: 6px 12px; border-radius: 8px;
+  border: 1px solid rgba(212,168,75,.45); background: rgba(212,168,75,.1);
+  color: #d4a84b; font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap; transition: all .12s;
+}
+.hvm-add-watch-btn:hover { background: rgba(212,168,75,.2); }
+
+.hvm-wl-empty-panel {
+  padding: 28px 20px; border-radius: 16px; text-align: center;
+  border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.02);
+}
+
+.hvm-radar-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.hvm-radar-cell {
+  padding: 12px; border-radius: 12px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+  display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto;
+  gap: 3px 8px; align-items: center;
+}
+.hvm-radar-iso {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px; font-weight: 700; color: #5b9bd5; grid-row: 1;
+}
+.hvm-radar-name { font-size: 11px; color: rgba(245,240,232,.75); grid-row: 1; font-weight: 600; }
+.hvm-radar-status { font-size: 10px; color: rgba(245,240,232,.42); grid-column: 1 / 3; grid-row: 2; }
+.hvm-radar-trend { font-size: 14px; font-weight: 700; grid-row: 1; text-align: right; }
+.hvm-radar-add {
+  grid-column: 3; grid-row: 2;
+  width: 22px; height: 22px; border-radius: 6px;
+  border: 1px solid rgba(212,168,75,.4); background: rgba(212,168,75,.08);
+  color: #d4a84b; font-size: 14px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.hvm-watch-types { display: flex; flex-direction: column; gap: 8px; }
+.hvm-watch-type-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+  transition: background .12s;
+}
+.hvm-watch-type-card:hover { background: rgba(255,255,255,.06); }
+.hvm-watch-type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
 `
