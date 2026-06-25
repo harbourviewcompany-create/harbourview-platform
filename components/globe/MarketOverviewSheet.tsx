@@ -28,10 +28,12 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   useEffect(() => {
     setLoading(true)
     setBriefing(null)
-    getJurisdictionBriefing(countryIso2).then((data) => {
-      setBriefing(data)
-      setLoading(false)
-    })
+    getJurisdictionBriefing(countryIso2)
+      .then((data) => {
+        setBriefing(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [countryIso2])
 
   const title = loading
