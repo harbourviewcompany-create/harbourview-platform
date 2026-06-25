@@ -1,4 +1,4 @@
--- Enterprise dashboard metrics: computed counts from live tables
+
 CREATE OR REPLACE FUNCTION get_enterprise_dashboard_metrics()
 RETURNS TABLE (
   id       text,
@@ -32,7 +32,6 @@ AS $$
   SELECT 'intro_packets',            'introduction_success',     'Approved candidates',                 COUNT(*)::numeric, 'packets',          'up',           100 FROM marketplace_candidates WHERE status IN ('approved', 'promoted')
 $$;
 
--- Proprietary intelligence strategic metrics
 CREATE OR REPLACE FUNCTION get_proprietary_strategic_metrics()
 RETURNS TABLE (
   id          text,
@@ -67,7 +66,6 @@ AS $$
   SELECT 'source_snapshots_count',  'intelligence_freshness',        'Source snapshots captured',           COUNT(*)::numeric, 'snapshots',         'up',          10000,null FROM source_snapshots
 $$;
 
--- Proprietary dataset coverage: real row counts and market arrays per key intelligence table
 CREATE OR REPLACE FUNCTION get_proprietary_datasets()
 RETURNS TABLE (
   id                  text,
