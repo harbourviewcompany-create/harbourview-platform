@@ -84,9 +84,19 @@ export class DistributedTaskQueue {
     return (locked as SourceRegistryRow[]).map(this.mapRow);
   }
 
-  /** Release lock and schedule next crawl. */
-  async markSuccess(targetId: string, cadenceHours: number) {
-    const nextCrawl = new Date(Date.now() + cadenceHours * 3600000).toISOString();
+  /**
+   * Release lock and schedule next crawl.
+   *
+   * Yield-aware scheduling: if content did not change, back off by 1.5× the
+   * base cadence so infrequently-updating sources don't monopolise crawl slots.
+   * Content that changes on every crawl gets the full base cadence.
+   * Cap at 4× base cadence so no source ever goes truly dark.
+   */
+  async markSuccess(targetId: string, cadenceHours: number, contentChanged = true) {
+    const effectiveHours = contentChanged
+      ? cadenceHours
+      : Math.min(cadenceHours * 1.5, cadenceHours * 4);
+    const nextCrawl = new Date(Date.now() + effectiveHours * 3600000).toISOString();
     await this.supabase
       .from('source_registry')
       .update({

@@ -46,11 +46,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: true, message: 'No targets due', targetsProcessed: 0 })
     }
 
-    await engine.runExtraction(targets)
+    const summary = await engine.runExtraction(targets)
 
-    console.info('intelligence_ingest_cron: run complete', { targetsProcessed: targets.length })
+    console.info('intelligence_ingest_cron: run complete', summary)
 
-    return NextResponse.json({ ok: true, targetsProcessed: targets.length })
+    return NextResponse.json({ ok: true, ...summary })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('intelligence_ingest_cron: fatal error:', message)
