@@ -17,6 +17,7 @@ import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { RoleChipSelector } from './RoleChipSelector'
+import { MarketOverviewSheet } from './MarketOverviewSheet'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
@@ -173,10 +174,10 @@ export function GlobeSameScreenRouterLanding() {
         <GlobeCanvas
           selectedCountryIso2={state.selectedCountryIso2}
           selectedCountryIso2s={state.selectedCountryIso2s}
-          focusedCountryIso2={state.step === 'role' || state.step === 'fallback' ? undefined : state.focusedCountryIso2}
+          focusedCountryIso2={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback' ? undefined : state.focusedCountryIso2}
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
-          onHoverCountry={state.step === 'role' || state.step === 'fallback'
+          onHoverCountry={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback'
             ? undefined
             : (countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
           onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
@@ -194,16 +195,13 @@ export function GlobeSameScreenRouterLanding() {
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
 
-      {state.step === 'role' ? (
-        <RouterBottomSheet eyebrow={state.mode === 'multi_market' ? 'Multi-market role' : allCountryAndProvinceOptionMap[state.selectedCountryIso2 ?? '']?.name ?? 'Selected market'} title="What role best describes you?" onBack={() => dispatch({ type: 'BACK' })}>
-          <RoleChipSelector
-            countryIso2={state.selectedCountryIso2}
-            searchQuery={state.roleSearchQuery}
-            selectedRoleId={state.selectedRoleId}
-            onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
-            onSelectRole={(roleId) => dispatch({ type: 'ROLE_SELECT', roleId })}
-          />
-        </RouterBottomSheet>
+      {state.step === 'market_overview' && state.selectedCountryIso2 ? (
+        <MarketOverviewSheet
+          countryIso2={state.selectedCountryIso2}
+          countryName={allCountryAndProvinceOptionMap[state.selectedCountryIso2]?.name ?? state.selectedCountryIso2}
+          onEnter={() => dispatch({ type: 'MARKET_ENTER' })}
+          onBack={() => dispatch({ type: 'BACK' })}
+        />
       ) : null}
 
       {state.step === 'fallback' ? (
