@@ -6,6 +6,7 @@ import {
   SELLER_TYPE_LABELS,
   CATEGORY_LABELS,
 } from '@/lib/server/supplierProfilesQuery'
+import { REGION_LABELS } from '@/lib/dashboard/countryRegions'
 
 export const dynamic = 'force-dynamic'
 
