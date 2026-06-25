@@ -3378,90 +3378,107 @@ const GeneticsPage = React.memo(function GeneticsPage({
 
         {tab === 'passports' && (
           cultivarPassports.length === 0 ? (
-            <div className="cc-empty-state">
+            <div className="cc-empty-state" style={{ flex: 1 }}>
               <span>⊕</span>
-              <p>No public cultivar passports available for {country.label}.</p>
-              <p>Passports are published when source-backed review is complete.</p>
+              <p>No public cultivar passports yet.</p>
+              <small style={{ fontSize: '11px', color: 'var(--cc-dim)' }}>Passports publish when source-backed review is complete.</small>
             </div>
           ) : (
-            <div className="cc-signal-list">
-              {cultivarPassports.map(p => (
-                <div key={p.id} className="cc-signal-row">
-                  <div className="cc-sig-meta">
-                    <span className="cc-sig-tag">{p.cultivarCategory.replace(/_/g, ' ')}</span>
-                    {p.cannabisCategory && <span className="cc-sig-tag">{p.cannabisCategory.replace(/_/g, ' ')}</span>}
-                    <span className="cc-sig-tag">{p.claimStatus.replace(/_/g, ' ')}</span>
-                  </div>
-                  <div className="cc-sig-title">{p.displayName}</div>
-                  <div className="cc-sig-body">{p.publicSummary}</div>
-                  {p.countryOpportunitiesPublic.length > 0 && (
-                    <div className="cc-sig-meta" style={{ marginTop: 6 }}>
-                      <span className="cc-sig-conf">{p.countryOpportunitiesPublic.length} country {p.countryOpportunitiesPublic.length === 1 ? 'opportunity' : 'opportunities'}</span>
+            <div className="cc-sig-feed">
+              <div className="cc-sig-group">
+                {cultivarPassports.map(p => (
+                  <div key={p.id} className="cc-sig-row">
+                    <div className="cc-sig-dot medium" />
+                    <div className="cc-sig-body">
+                      <strong>{p.displayName}</strong>
+                      <small>{p.publicSummary}</small>
                     </div>
-                  )}
-                  <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-link">View passport →</Link>
-                </div>
-              ))}
+                    <div className="cc-sig-acts">
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span className="cc-opp-tag">{p.cultivarCategory.replace(/_/g, ' ')}</span>
+                        {p.cannabisCategory && <span className="cc-opp-tag">{p.cannabisCategory.replace(/_/g, ' ')}</span>}
+                        <span className="cc-opp-tag">{p.claimStatus.replace(/_/g, ' ')}</span>
+                        {p.countryOpportunitiesPublic.length > 0 && <span className="cc-opp-tag">{p.countryOpportunitiesPublic.length} opportunities</span>}
+                      </div>
+                      <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-brief">View passport →</Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )
         )}
 
         {tab === 'services' && (
           serviceProviders.length === 0 ? (
-            <div className="cc-empty-state">
+            <div className="cc-empty-state" style={{ flex: 1 }}>
               <span>◫</span>
               <p>No verified service providers listed yet.</p>
             </div>
           ) : (
-            <div className="cc-signal-list">
-              {serviceProviders.map(sp => (
-                <div key={sp.id} className="cc-signal-row">
-                  <div className="cc-sig-meta">
-                    <span className="cc-sig-tag">{sp.service_category.replace(/_/g, ' ')}</span>
-                    <span className="cc-sig-tag">{sp.verification_level.replace(/_/g, ' ')}</span>
-                    {sp.country_code && <span className="cc-sig-tag">{sp.country_code}</span>}
+            <div className="cc-sig-feed">
+              <div className="cc-sig-group">
+                {serviceProviders.map(sp => (
+                  <div key={sp.id} className="cc-sig-row">
+                    <div className="cc-sig-dot low" />
+                    <div className="cc-sig-body">
+                      <strong>{sp.displayName}</strong>
+                      <small>{sp.service_summary}</small>
+                    </div>
+                    <div className="cc-sig-acts">
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span className="cc-opp-tag">{sp.service_category.replace(/_/g, ' ')}</span>
+                        <span className="cc-opp-tag">{sp.verification_level.replace(/_/g, ' ')}</span>
+                        {sp.country_code && <span className="cc-opp-tag">{sp.country_code}</span>}
+                      </div>
+                      <Link href="/contact" className="cc-sig-brief">Request verification →</Link>
+                    </div>
                   </div>
-                  <div className="cc-sig-title">{sp.displayName}</div>
-                  <div className="cc-sig-body">{sp.service_summary}</div>
-                  <Link href="/contact" className="cc-sig-link">Request verification →</Link>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )
         )}
 
         {tab === 'projects' && (
           collaborationProjects.length === 0 ? (
-            <div className="cc-empty-state">
+            <div className="cc-empty-state" style={{ flex: 1 }}>
               <span>⊗</span>
               <p>No open collaboration projects at this time.</p>
             </div>
           ) : (
-            <div className="cc-signal-list">
-              {collaborationProjects.map(cp => (
-                <div key={cp.id} className="cc-signal-row">
-                  <div className="cc-sig-meta">
-                    <span className="cc-sig-tag">{cp.projectType.replace(/_/g, ' ')}</span>
-                    <span className="cc-sig-tag">{cp.status.replace(/_/g, ' ')}</span>
-                    {cp.countryCode && <span className="cc-sig-tag">{cp.countryCode}</span>}
+            <div className="cc-sig-feed">
+              <div className="cc-sig-group">
+                {collaborationProjects.map(cp => (
+                  <div key={cp.id} className="cc-sig-row">
+                    <div className="cc-sig-dot medium" />
+                    <div className="cc-sig-body">
+                      <strong>{cp.title}</strong>
+                      <small>{cp.publicSummary}</small>
+                    </div>
+                    <div className="cc-sig-acts">
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span className="cc-opp-tag">{cp.projectType.replace(/_/g, ' ')}</span>
+                        <span className="cc-opp-tag">{cp.status.replace(/_/g, ' ')}</span>
+                        {cp.countryCode && <span className="cc-opp-tag">{cp.countryCode}</span>}
+                      </div>
+                      <Link href="/contact" className="cc-sig-brief">{cp.cta} →</Link>
+                    </div>
                   </div>
-                  <div className="cc-sig-title">{cp.title}</div>
-                  <div className="cc-sig-body">{cp.publicSummary}</div>
-                  <Link href="/contact" className="cc-sig-link">{cp.cta} →</Link>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )
         )}
       </div>
 
-      <aside className="cc-two-side">
+      <aside className="cc-two-right">
         <div className="cc-right-section">
           <div className="cc-right-head">GENETICS OVERVIEW</div>
           <div className="cc-jx-fields">
             {[
-              { icon: '⊕', label: 'Cultivar Passports', value: String(cultivarPassports.length) },
-              { icon: '◫', label: 'Service Providers',  value: String(serviceProviders.length) },
+              { icon: '⊕', label: 'Cultivar Passports',    value: String(cultivarPassports.length) },
+              { icon: '◫', label: 'Service Providers',     value: String(serviceProviders.length) },
               { icon: '⊗', label: 'Collaboration Projects', value: String(collaborationProjects.length) },
             ].map(f => (
               <div key={f.label} className="cc-jx-field">
@@ -3473,7 +3490,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
         </div>
         <div className="cc-right-section">
           <div className="cc-right-head">ACCESS &amp; LICENSING</div>
-          <p className="cc-right-note">Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require access request.</p>
+          <p className="cc-right-prose">Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require an access request.</p>
           <Link href="/genetics" className="cc-right-link">Genetics hub →</Link>
         </div>
       </aside>
@@ -3496,22 +3513,26 @@ const CompliancePage = React.memo(function CompliancePage({
           <p>Regional compliance frameworks, documentation controls, and commercial pathway summaries for regulated cannabis markets. Specialist review required before commercial reliance.</p>
         </div>
 
-        <div className="cc-signal-list">
-          {complianceRegions.map(region => (
-            <div key={region.slug} className="cc-signal-row">
-              <div className="cc-sig-meta">
-                <span className="cc-sig-tag">{region.name}</span>
+        <div className="cc-sig-feed">
+          <div className="cc-sig-group">
+            {complianceRegions.map(region => (
+              <div key={region.slug} className="cc-sig-row">
+                <div className="cc-sig-dot low" />
+                <div className="cc-sig-body">
+                  <strong>{region.name}</strong>
+                  <small>{region.summary}</small>
+                </div>
+                <div className="cc-sig-acts">
+                  <p style={{ fontSize: '10px', color: 'var(--cc-muted)', margin: '0 0 6px', lineHeight: 1.4 }}>{region.commercialFocus}</p>
+                  <Link href="/contact" className="cc-sig-brief">Request compliance review →</Link>
+                </div>
               </div>
-              <div className="cc-sig-title">{region.name} Compliance Framework</div>
-              <div className="cc-sig-body">{region.summary}</div>
-              <div className="cc-sig-body" style={{ marginTop: 4, opacity: 0.7 }}>{region.commercialFocus}</div>
-              <Link href="/contact" className="cc-sig-link">Request compliance review →</Link>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
-      <aside className="cc-two-side">
+      <aside className="cc-two-right">
         <div className="cc-right-section">
           <div className="cc-right-head">COMPLIANCE REGIONS</div>
           <div className="cc-jx-fields">
@@ -3525,8 +3546,8 @@ const CompliancePage = React.memo(function CompliancePage({
         </div>
         <div className="cc-right-section">
           <div className="cc-right-head">CURRENT JURISDICTION</div>
-          <p className="cc-right-note">{country.label} — compliance data for this jurisdiction is subject to source review. Contact Harbourview for specialist-reviewed access pathway.</p>
-          <Link href="/contact" className="cc-sig-link">Get compliance support →</Link>
+          <p className="cc-right-prose">{country.label} — compliance data for this jurisdiction is subject to source review. Contact Harbourview for a specialist-reviewed access pathway.</p>
+          <Link href="/contact" className="cc-right-link">Get compliance support →</Link>
         </div>
       </aside>
     </div>
@@ -3575,7 +3596,7 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
           <p>All {ALL_COUNTRIES.length} Harbourview countries and territories. Click any entry to load its jurisdiction data into the Command Centre.</p>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ padding: '0 24px 12px' }}>
           <input
             className="cc-search-input"
             type="text"
@@ -3585,42 +3606,49 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
           />
         </div>
 
-        {[...byRegion.entries()].map(([region, countries]) => (
-          <div key={region} style={{ marginBottom: 20 }}>
-            <div className="cc-right-head" style={{ marginBottom: 8 }}>{region} <span style={{ opacity: 0.45 }}>({countries.length})</span></div>
-            <div className="cc-signal-list">
-              {countries.map(c => {
-                const sigCount = signalCountByMarket[c.displayName] ?? 0
-                return (
-                  <div key={c.iso2} className="cc-signal-row" style={{ cursor: onCountrySelect ? 'pointer' : 'default' }}
-                    onClick={() => onCountrySelect?.(c.iso2)}>
-                    <div className="cc-sig-meta">
-                      <span className="cc-sig-tag">{flagEmoji(c.iso2)} {c.iso2}</span>
-                      {sigCount > 0 && <span className="cc-sig-conf">{sigCount} signal{sigCount > 1 ? 's' : ''}</span>}
-                    </div>
-                    <div className="cc-sig-title">{c.displayName}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-
-        {filtered.length === 0 && (
-          <div className="cc-empty-state">
+        {filtered.length === 0 ? (
+          <div className="cc-empty-state" style={{ flex: 1 }}>
             <span>⊗</span>
             <p>No countries match &ldquo;{search}&rdquo;.</p>
+          </div>
+        ) : (
+          <div className="cc-sig-feed">
+            {[...byRegion.entries()].map(([region, countries]) => (
+              <div key={region} className="cc-sig-group">
+                <div className="cc-sig-group-hd">
+                  <span>{region}</span>
+                  <span>{countries.length}</span>
+                </div>
+                {countries.map(c => {
+                  const sigCount = signalCountByMarket[c.displayName] ?? 0
+                  return (
+                    <div
+                      key={c.iso2}
+                      className="cc-sig-row"
+                      style={{ cursor: onCountrySelect ? 'pointer' : 'default' }}
+                      onClick={() => onCountrySelect?.(c.iso2)}
+                    >
+                      <div className="cc-sig-dot" style={{ background: sigCount > 0 ? 'var(--cc-gold)' : undefined }} />
+                      <div className="cc-sig-body">
+                        <strong>{flagEmoji(c.iso2)} {c.displayName}</strong>
+                        <small>{c.iso2}{sigCount > 0 ? ` · ${sigCount} signal${sigCount > 1 ? 's' : ''}` : ''}</small>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      <aside className="cc-two-side">
+      <aside className="cc-two-right">
         <div className="cc-right-section">
           <div className="cc-right-head">DIRECTORY STATS</div>
           <div className="cc-jx-fields">
             {[
-              { icon: '⊗', label: 'Total Countries', value: String(ALL_COUNTRIES.length) },
-              { icon: '≋', label: 'With Active Signals', value: String(Object.keys(signalCountByMarket).length) },
+              { icon: '⊗', label: 'Total Countries',      value: String(ALL_COUNTRIES.length) },
+              { icon: '≋', label: 'With Active Signals',  value: String(Object.keys(signalCountByMarket).length) },
             ].map(f => (
               <div key={f.label} className="cc-jx-field">
                 <span className="cc-jx-field-icon">{f.icon}</span>
@@ -3631,7 +3659,7 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
         </div>
         <div className="cc-right-section">
           <div className="cc-right-head">CLICK TO EXPLORE</div>
-          <p className="cc-right-note">Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
+          <p className="cc-right-prose">Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
           <Link href="/countries" className="cc-right-link">Full country profiles →</Link>
         </div>
       </aside>
