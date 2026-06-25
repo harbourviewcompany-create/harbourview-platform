@@ -128,11 +128,11 @@ export async function submitSupplierApplication(
     ? `${descriptionPublic}\n\n[Application contact: ${email}]`
     : `[Application contact: ${email}]`
 
-  const { error } = await svc.from('supplier_profiles').insert({
+  const { error } = await svc.from('supplier_applications').insert({
     profile_slug: profileSlug,
     company_name: companyName,
     contact_name: contactName || null,
-    email: email, // kept for admin; consider moving to separate secure field later if needed
+    email,
     title: title || null,
     seller_type: sellerType,
     categories,
@@ -141,7 +141,6 @@ export async function submitSupplierApplication(
     website: websiteUrl || null,
     hq_country: hqCountry || null,
     services_offered: servicesOffered,
-    // status='pending' keeps this hidden from the public directory
     status: 'pending',
   })
 
