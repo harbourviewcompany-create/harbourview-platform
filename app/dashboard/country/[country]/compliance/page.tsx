@@ -5,8 +5,11 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
+import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 
 import type { Metadata } from 'next'
+
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
   const { country } = await params
@@ -162,13 +165,27 @@ export default async function CompliancePage({ params }: Props) {
   const badge       = getDashboardStatusBadge(panel.state)
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveCompliance(panel.state)
-  const derived: ComplianceDerived = intel?.compliance ? {
-    headline:     intel.compliance.headline,
-    subline:      intel.compliance.subline,
-    importNote:   intel.compliance.importNote,
-    certNote:     intel.compliance.certNote,
-    requirements: intel.compliance.requirements,
-  } : baseDerived
+
+  // Tier 1: static registry (9 countries); Tier 2: live DB briefing; Tier 3: derived from panel state
+  let derived: ComplianceDerived
+  if (intel?.compliance) {
+    derived = {
+      headline:     intel.compliance.headline,
+      subline:      intel.compliance.subline,
+      importNote:   intel.compliance.importNote,
+      certNote:     intel.compliance.certNote,
+      requirements: intel.compliance.requirements,
+    }
+  } else {
+    const liveProfile = await getCountryIntelProfile(country.iso2)
+    derived = liveProfile?.briefing_program_status ? {
+      headline:     liveProfile.briefing_program_status,
+      subline:      liveProfile.briefing_regulatory_outlook?.slice(0, 220) ?? baseDerived.subline,
+      importNote:   baseDerived.importNote,
+      certNote:     baseDerived.certNote,
+      requirements: baseDerived.requirements,
+    } : baseDerived
+  }
   const metCount   = derived.requirements.filter((r) => r.status === 'met').length
   const totalCount = derived.requirements.length
 
