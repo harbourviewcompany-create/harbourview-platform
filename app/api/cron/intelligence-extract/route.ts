@@ -176,12 +176,12 @@ export async function GET(request: Request) {
   if (authHeader !== `Bearer ${cronSecret}`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // ── Gate on Gemini key ──────────────────────────────────────────────────────
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('intelligence_extract_cron: GEMINI_API_KEY not set — skipping run')
+  // ── Gate on Gemini key (GEMINI_API_KEY takes priority; GOOGLE_API_KEY is the fallback) ─
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+    console.warn('intelligence_extract_cron: neither GEMINI_API_KEY nor GOOGLE_API_KEY set — skipping run')
     return NextResponse.json({
       ok:        false,
-      reason:    'GEMINI_API_KEY not configured',
+      reason:    'GEMINI_API_KEY (or GOOGLE_API_KEY) not configured',
       staged:    0,
       extracted: 0,
       failed:    0,

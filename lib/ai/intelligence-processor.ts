@@ -2,7 +2,7 @@ import { GoogleGenAI, Type, Schema } from '@google/genai';
 import { IntelligenceRecord, SourceType, ImpactLevel } from '../scraper/types';
 import crypto from 'node:crypto';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY });
 
 const ExtractedIntelligenceSchema: Schema = {
   type: Type.OBJECT,
