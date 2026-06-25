@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -406,8 +407,8 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         <h2>{country.label} Marketplace &amp; Access</h2>
         <p>Mediated market access. Requests and contact release remain Harbourview-reviewed.</p>
         <div className="hvm-hero-actions">
-          <a href="/supplier-directory" className="hvm-hero-link">Browse supplier profiles →</a>
-          <a href="/supplier-directory/apply" className="hvm-hero-link hvm-hero-link--gold">Apply as a supplier →</a>
+          <Link href="/supplier-directory" className="hvm-hero-link">Browse supplier profiles →</Link>
+          <Link href="/supplier-directory/apply" className="hvm-hero-link hvm-hero-link--gold">Apply as a supplier →</Link>
         </div>
       </section>
 
@@ -450,8 +451,8 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
             <strong>No public {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} rows for {country.label}.</strong>
             <p>Supply routes for this market are managed through Harbourview-mediated review, not public listing.</p>
             <div className="hvm-empty-actions">
-              <a href="/supplier-directory/apply" className="hvm-empty-link hvm-empty-link--primary">Apply as a supplier →</a>
-              <a href="/supplier-directory" className="hvm-empty-link">Browse supplier directory →</a>
+              <Link href="/supplier-directory/apply" className="hvm-empty-link hvm-empty-link--primary">Apply as a supplier →</Link>
+              <Link href="/supplier-directory" className="hvm-empty-link">Browse supplier directory →</Link>
             </div>
           </div>
         )}
@@ -477,8 +478,8 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         <div className="hvm-supplier-cta-title">List your company in the Harbourview Supplier Directory</div>
         <p className="hvm-supplier-cta-body">Reviewed profiles for producers, distributors, equipment vendors and service providers operating in regulated cannabis markets. Every submission is individually reviewed before publication.</p>
         <div className="hvm-supplier-cta-actions">
-          <a href="/supplier-directory/apply" className="hvm-supplier-cta-btn">Apply as a supplier</a>
-          <a href="/supplier-directory" className="hvm-supplier-cta-link">Browse directory →</a>
+          <Link href="/supplier-directory/apply" className="hvm-supplier-cta-btn">Apply as a supplier</Link>
+          <Link href="/supplier-directory" className="hvm-supplier-cta-link">Browse directory →</Link>
         </div>
       </div>
     </div>
