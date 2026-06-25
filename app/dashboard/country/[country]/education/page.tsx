@@ -4,8 +4,11 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
+import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 
 import type { Metadata } from 'next'
+
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
   const { country } = await params
@@ -116,9 +119,21 @@ export default async function EducationPage({ params }: Props) {
   const country = resolveCountryRouteParam(slug)
   if (!country) notFound()
 
-  const panel  = country.panels.education
-  const badge  = getDashboardStatusBadge(panel.state)
-  const tracks = deriveEducationTracks(panel.state)
+  const panel     = country.panels.education
+  const badge     = getDashboardStatusBadge(panel.state)
+  const baseTracks = deriveEducationTracks(panel.state)
+
+  // Tier 2: enrich prescriber + patient tracks from cc_jurisdiction_briefings
+  const liveProfile = await getCountryIntelProfile(country.iso2)
+  const tracks: TrackData = {
+    prescriber: liveProfile?.briefing_physician_access
+      ? { ...baseTracks.prescriber, detail: liveProfile.briefing_physician_access }
+      : baseTracks.prescriber,
+    patient: liveProfile?.briefing_patient_access
+      ? { ...baseTracks.patient, detail: liveProfile.briefing_patient_access }
+      : baseTracks.patient,
+    operator: baseTracks.operator,
+  }
 
   const trackList = [
     { key: 'prescriber', icon: 'ð©º', label: 'Prescriber track', data: tracks.prescriber },
