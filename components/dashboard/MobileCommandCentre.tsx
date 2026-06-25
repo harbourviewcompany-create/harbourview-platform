@@ -197,6 +197,26 @@ function confFromRel(reliability?: string | null): number {
   return 50
 }
 
+function buildConfBars(items: { confidence: number }[], bins = 5): number[] {
+  const counts = Array.from({ length: bins }, () => 0)
+  for (const item of items) {
+    const idx = Math.min(Math.floor(item.confidence / (100 / bins)), bins - 1)
+    counts[idx]++
+  }
+  return counts
+}
+
+function confOverallPct(items: { confidence: number }[]): number {
+  if (!items.length) return 0
+  return Math.round(items.reduce((s, i) => s + i.confidence, 0) / items.length)
+}
+
+function deriveImp(confidence: number): 'high' | 'medium' | 'low' {
+  if (confidence >= 80) return 'high'
+  if (confidence >= 55) return 'medium'
+  return 'low'
+}
+
 function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string; title: string; detail?: string; tone?: 'neutral' | 'ok' | 'warn' }) {
   return (
     <div className={`hvm-card hvm-card-${tone}`}>
@@ -332,6 +352,50 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
           </div>
         </MobileAccordion>
       )}
+
+      {signals.length >= 2 && (() => {
+        const regionMap: Record<string, number> = {}
+        for (const s of signals) { if (s.market) regionMap[s.market] = (regionMap[s.market] ?? 0) + 1 }
+        const regions = Object.entries(regionMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
+        if (regions.length < 2) return null
+        return (
+          <MobileAccordion title={`Watch regions (${regions.length})`}>
+            <div className="hvm-ledger-table" role="table" aria-label="Watch regions">
+              {regions.map(([market, count]) => (
+                <div role="row" key={market}>
+                  <strong>{market}</strong>
+                  <span>{count} signal{count !== 1 ? 's' : ''}</span>
+                </div>
+              ))}
+            </div>
+          </MobileAccordion>
+        )
+      })()}
+
+      {signals.length >= 3 && (() => {
+        const avg = confOverallPct(signals)
+        const bars = buildConfBars(signals)
+        const maxBar = Math.max(...bars, 1)
+        return (
+          <MobileAccordion title={`Evidence confidence · ${avg}% avg`}>
+            <div className="hvm-conf-bar-wrap">
+              {bars.map((count, i) => (
+                <div key={i} className="hvm-conf-bar-col">
+                  <div className="hvm-conf-bar-track">
+                    <div className="hvm-conf-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
+                  </div>
+                  <span>{(i + 1) * 20}%</span>
+                </div>
+              ))}
+            </div>
+            <div className="hvm-ledger-table" style={{ marginTop: 10 }} role="table" aria-label="Confidence stats">
+              <div role="row"><strong>Signals</strong><span>{signals.length}</span></div>
+              <div role="row"><strong>Avg confidence</strong><span>{avg}%</span></div>
+              <div role="row"><strong>High (≥80%)</strong><span>{signals.filter(s => s.confidence >= 80).length}</span></div>
+            </div>
+          </MobileAccordion>
+        )
+      })()}
     </>
   )
 }
@@ -1266,6 +1330,8 @@ function classifySignal(type: string): Exclude<SigCat, 'all'> {
 function SignalsFeed({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState<SigCat>('all')
+  const [filterType, setFilterType] = useState('')
+  const [filterImp, setFilterImp] = useState('')
   const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
 
@@ -1275,12 +1341,39 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     trade:      signals.filter(s => classifySignal(s.type) === 'trade').length,
   }), [signals])
 
+  const signalTypes = useMemo(() => {
+    const types = new Set<string>()
+    for (const s of signals) {
+      const t = s.title.toLowerCase()
+      if (/regulatory|licen|compliance|reform|legislation|enforcement|permit/.test(t)) types.add('Regulatory')
+      else if (/market|trade|import|export|supply/.test(t)) types.add('Market')
+      else if (/clinical|medical|patient|prescription/.test(t)) types.add('Clinical')
+      else types.add('General')
+    }
+    return Array.from(types)
+  }, [signals])
+
   const filtered = useMemo(() => {
     let base = filterCat === 'all' ? signals : signals.filter(s => classifySignal(s.type) === filterCat)
     const q = search.trim().toLowerCase()
     if (q) base = base.filter(s => [s.title, s.market, s.commercialImpact].join(' ').toLowerCase().includes(q))
+    if (filterType) {
+      base = base.filter(s => {
+        const t = s.title.toLowerCase()
+        if (filterType === 'Regulatory') return /regulatory|licen|compliance|reform|legislation|enforcement|permit/.test(t)
+        if (filterType === 'Market') return /market|trade|import|export|supply/.test(t)
+        if (filterType === 'Clinical') return /clinical|medical|patient|prescription/.test(t)
+        if (filterType === 'General') return !/regulatory|licen|compliance|reform|legislation|enforcement|permit|market|trade|import|export|supply|clinical|medical|patient|prescription/.test(t)
+        return true
+      })
+    }
+    if (filterImp) {
+      base = base.filter(s => deriveImp(s.confidence) === filterImp)
+    }
     return base
-  }, [signals, search, filterCat])
+  }, [signals, search, filterCat, filterType, filterImp])
+
+  const hasFilters = !!(search || filterType || filterImp)
 
   async function handleSubscribe() {
     if (subState === 'subscribed' || subState === 'loading') return
@@ -1395,6 +1488,26 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
         <span>Search signals</span>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Market, signal, impact…" />
       </label>
+
+      {signalTypes.length > 1 && (
+        <div className="hvm-filter-row">
+          <select className="hvm-filter-sel" value={filterType} onChange={e => setFilterType(e.target.value)} aria-label="Filter by type">
+            <option value="">All types</option>
+            {signalTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="hvm-filter-sel" value={filterImp} onChange={e => setFilterImp(e.target.value)} aria-label="Filter by confidence">
+            <option value="">All confidence</option>
+            <option value="high">High ≥80%</option>
+            <option value="medium">Medium 55–79%</option>
+            <option value="low">Low &lt;55%</option>
+          </select>
+          {hasFilters && (
+            <button type="button" className="hvm-clear-filters" onClick={() => { setSearch(''); setFilterType(''); setFilterImp('') }}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="hvm-list-stack">
         {filtered.length > 0 ? filtered.slice(0, 25).map((signal, index) => {
