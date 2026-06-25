@@ -4,7 +4,6 @@ import Link from 'next/link'
 import {
   getApprovedSupplierProfileById,
   SELLER_TYPE_LABELS,
-  REGION_LABELS,
   CATEGORY_LABELS,
 } from '@/lib/server/supplierProfilesQuery'
 
@@ -50,7 +49,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
               <h1 className="text-4xl font-serif tracking-tight">{supplier.company_name ?? 'Supplier'}</h1>
             </div>
             <div className="text-right text-sm text-white/50">
-              <div>{regionLabel}</div>
+              <div>{supplier.regions_served?.join(', ') ?? '—'}</div>
             </div>
           </div>
 
@@ -58,7 +57,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
             <div className="md:col-span-2 space-y-8">
               <div>
                 <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">ABOUT</h3>
-                <p className="text-[15px] leading-relaxed whitespace-pre-line text-white/90">{supplier.description_public}</p>
+                <p className="text-[15px] leading-relaxed whitespace-pre-line text-white/90">{supplier.description_public ?? ''}</p>
               </div>
 
               {supplier.categories.length > 0 && (
@@ -82,8 +81,8 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">PRIMARY REGION</h3>
-                <div className="text-lg">{regionLabel}</div>
+                <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">REGIONS SERVED</h3>
+                <div className="text-lg">{supplier.regions_served?.join(', ') ?? '—'}</div>
               </div>
             </div>
           </div>

@@ -16,21 +16,15 @@ export type SupplierProfile = {
 }
 
 export const SELLER_TYPE_LABELS: Record<string, string> = {
-  licensed_producer: 'Licensed Producer',
-  distributor: 'Distributor',
-  wholesaler: 'Wholesaler',
-  retailer: 'Retailer',
-  investor: 'Investor',
+  cultivator: 'Cultivator / Grower',
+  processor: 'Processor / Manufacturer',
+  distributor: 'Distributor / Wholesaler',
+  equipment: 'Equipment & Technology',
+  genetics: 'Genetics / Breeder',
+  lab_testing: 'Testing Lab / Analytics',
+  packaging: 'Packaging & Compliance',
+  services: 'Services & Consulting',
   other: 'Other',
-}
-
-export const REGION_LABELS: Record<string, string> = {
-  north_america: 'North America',
-  europe: 'Europe',
-  asia_pacific: 'Asia-Pacific',
-  latin_america: 'Latin America',
-  middle_east_africa: 'Middle East & Africa',
-  global: 'Global',
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {
