@@ -55,8 +55,8 @@ export class IntelligenceProcessor {
     countryCode: string,
     rawText: string
   ): Promise<IntelligenceRecord | null> {
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn('GEMINI_API_KEY is not set. Skipping AI processing.');
+    if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+      console.warn('GEMINI_API_KEY (or GOOGLE_API_KEY) is not set. Skipping AI processing.');
       return null;
     }
 
