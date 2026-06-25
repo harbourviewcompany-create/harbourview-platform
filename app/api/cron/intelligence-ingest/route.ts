@@ -17,9 +17,10 @@ import { IntelligenceOrchestrator } from '@/lib/intelligence-engine/orchestrator
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 minutes — Vercel Pro
 
-// Conservative batch size per invocation — keeps run within maxDuration.
+// Batch size per invocation. Each fetch averages 2-4s; 75 targets fits
+// comfortably within the 300s maxDuration budget with headroom.
 // source_registry.next_crawl_at / cadence_hours handles distribution across runs.
-const TARGETS_PER_RUN = 25
+const TARGETS_PER_RUN = 75
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
