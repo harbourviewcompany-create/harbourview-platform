@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/supabase/env'
+import { getSupabaseUrl, getSupabasePublicClientKey } from '@/lib/supabase/env'
 
 export interface JurisdictionBriefing {
   jurisdiction_slug: string
@@ -15,7 +15,7 @@ export interface JurisdictionBriefing {
 }
 
 export async function getJurisdictionBriefing(countryIso2: string): Promise<JurisdictionBriefing | null> {
-  const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  const supabase = createClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
   })
   const { data, error } = await supabase
