@@ -1,96 +1,106 @@
 /**
  * Entity Resolution Engine
- * 
- * Instead of blind keyword searches, this engine uses AI to map the taxonomy
- * (e.g., "National Medicines Agency") to the actual real-world entity 
- * (e.g., "BfArM" in Germany or "ANVISA" in Brazil) before we start crawling.
+ *
+ * Maps generic taxonomy roles (e.g. "National Medicines Agency") to the actual
+ * real-world entity for a given country (e.g. "BfArM" in Germany, "ANVISA"
+ * in Brazil) before crawling begins, so the crawler targets authoritative
+ * primary sources rather than generic search results.
+ *
+ * Uses Claude (claude-haiku-4-5-20251001) for fast, high-quality structured
+ * extraction. Previously used a HuggingFace Inference Endpoint which produced
+ * poor JSON reliability and had no instruction-following for structured output.
  */
 
 import { z } from 'zod';
+import Anthropic from '@anthropic-ai/sdk';
 import { SOURCE_TAXONOMY, ResolvedEntity } from './matrix';
 
 const ResolvedAgencySchema = z.object({
-  official_name_local: z.string(),
+  official_name_local:   z.string(),
   official_name_english: z.string(),
-  primary_url: z.string().url().nullable(),
-  exact_search_terms: z.array(z.string()),
-  notes: z.string().optional()
+  primary_url:           z.string().url().nullable(),
+  exact_search_terms:    z.array(z.string()),
+  notes:                 z.string().optional(),
 });
 
+type ResolvedAgency = z.infer<typeof ResolvedAgencySchema>;
+
 export class EntityResolver {
-  private hfEndpoint: string;
-  private hfToken: string;
+  private client: Anthropic;
 
   constructor() {
-    this.hfEndpoint = process.env.HF_INFERENCE_ENDPOINT || 'https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct';
-    this.hfToken = process.env.HF_TOKEN || process.env.HF_TOKEN_SERVER || '';
+    this.client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
   }
 
   /**
-   * Resolves generic taxonomy roles into specific government/commercial entities for a given country.
+   * Resolves every taxonomy role for a given country into the specific
+   * real-world agency/body responsible for that role.
    */
-  async resolveTaxonomyForCountry(countryName: string, isoCode: string): Promise<ResolvedEntity[]> {
-    console.log(`[Entity Resolver] Resolving regulatory landscape for ${countryName} (${isoCode})...`);
-    
+  async resolveTaxonomyForCountry(
+    countryName: string,
+    isoCode: string,
+  ): Promise<ResolvedEntity[]> {
+    console.log(`[EntityResolver] Resolving regulatory landscape for ${countryName} (${isoCode})...`);
+
     const results: ResolvedEntity[] = [];
 
-    // We iterate through the top level categories
     for (const [category, roles] of Object.entries(SOURCE_TAXONOMY)) {
       for (const role of roles) {
-        // In a real run, batch these or use a larger context window model.
-        // For HarbourView's Inference Endpoint:
-        const prompt = `Identify the exact official organization in ${countryName} responsible for: "${role}".
-        Respond in strict JSON matching this schema:
-        {
-          "official_name_local": "Name in local language",
-          "official_name_english": "Name in English",
-          "primary_url": "Official website URL (or null)",
-          "exact_search_terms": ["highly", "specific", "keywords", "for", "crawlers"]
-        }`;
-
-        try {
-          const response = await this.askAI(prompt);
-          if (response) {
-            results.push({
-              country_code: isoCode,
-              category,
-              role,
-              official_name_local: response.official_name_local,
-              official_name_english: response.official_name_english,
-              primary_url: response.primary_url,
-              confidence: 0.9 // Placeholder based on model output
-            });
-          }
-        } catch (err) {
-          console.error(`Failed to resolve ${role} in ${countryName}`);
-        }
+        const resolved = await this.resolveRole(countryName, isoCode, category, role);
+        if (resolved) results.push(resolved);
       }
     }
 
     return results;
   }
 
-  private async askAI(prompt: string): Promise<z.infer<typeof ResolvedAgencySchema> | null> {
-    if (!this.hfEndpoint || !this.hfToken) return null;
+  private async resolveRole(
+    countryName: string,
+    isoCode: string,
+    category: string,
+    role: string,
+  ): Promise<ResolvedEntity | null> {
+    const prompt = `You are a regulatory intelligence researcher. Identify the exact official organization in ${countryName} responsible for: "${role}".
+
+If no such organization exists (e.g. the country has no cannabis framework yet), return null for primary_url and note this.
+
+Respond with ONLY a JSON object matching this exact schema — no markdown, no explanation:
+{
+  "official_name_local": "Name in local language or script",
+  "official_name_english": "Name in English",
+  "primary_url": "Official website URL (string) or null",
+  "exact_search_terms": ["specific", "search", "keywords", "for", "crawler"],
+  "notes": "Any important caveat about this organization (optional)"
+}`;
 
     try {
-      const res = await fetch(this.hfEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.hfToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: { max_new_tokens: 512, return_full_text: false }
-        })
+      const message = await this.client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
       });
-      
-      const responseBody = await res.json();
-      const generatedText = responseBody[0]?.generated_text || '{}';
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      return ResolvedAgencySchema.parse(JSON.parse(jsonMatch ? jsonMatch[0] : '{}'));
-    } catch {
+
+      const text = message.content[0]?.type === 'text' ? message.content[0].text : '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      const parsed = ResolvedAgencySchema.safeParse(JSON.parse(jsonMatch[0]));
+      if (!parsed.success) return null;
+
+      const agency: ResolvedAgency = parsed.data;
+      return {
+        country_code:          isoCode,
+        category,
+        role,
+        official_name_local:   agency.official_name_local,
+        official_name_english: agency.official_name_english,
+        primary_url:           agency.primary_url,
+        confidence:            0.9,
+      };
+    } catch (err) {
+      console.error(`[EntityResolver] Failed to resolve "${role}" in ${countryName}:`, err);
       return null;
     }
   }
