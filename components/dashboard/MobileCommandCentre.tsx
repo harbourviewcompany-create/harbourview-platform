@@ -405,6 +405,10 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       <section className="hvm-hero-card compact">
         <h2>{country.label} Marketplace &amp; Access</h2>
         <p>Mediated market access. Requests and contact release remain Harbourview-reviewed.</p>
+        <div className="hvm-hero-actions">
+          <a href="/supplier-directory" className="hvm-hero-link">Browse supplier profiles →</a>
+          <a href="/supplier-directory/apply" className="hvm-hero-link hvm-hero-link--gold">Apply as a supplier →</a>
+        </div>
       </section>
 
       <div className="hvm-scroll-tabs" role="tablist" aria-label="Marketplace views">
@@ -444,7 +448,11 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         )) : (
           <div className="hvm-empty-card">
             <strong>No public {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} rows for {country.label}.</strong>
-            <p>Use wanted demand or submit the country-role pathway for review. This is not a data leak or private-source fallback.</p>
+            <p>Supply routes for this market are managed through Harbourview-mediated review, not public listing.</p>
+            <div className="hvm-empty-actions">
+              <a href="/supplier-directory/apply" className="hvm-empty-link hvm-empty-link--primary">Apply as a supplier →</a>
+              <a href="/supplier-directory" className="hvm-empty-link">Browse supplier directory →</a>
+            </div>
           </div>
         )}
       </div>
@@ -463,6 +471,16 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
           <SectionCard label="Counterparty status" title="Harbourview-mediated release" detail="Counterparty contact and proof release are controlled workflows, not public mobile fields." tone="ok" />
         </div>
       </MobileAccordion>
+
+      <div className="hvm-supplier-cta">
+        <div className="hvm-supplier-cta-kicker">Supplier Directory</div>
+        <div className="hvm-supplier-cta-title">List your company in the Harbourview Supplier Directory</div>
+        <p className="hvm-supplier-cta-body">Reviewed profiles for producers, distributors, equipment vendors and service providers operating in regulated cannabis markets. Every submission is individually reviewed before publication.</p>
+        <div className="hvm-supplier-cta-actions">
+          <a href="/supplier-directory/apply" className="hvm-supplier-cta-btn">Apply as a supplier</a>
+          <a href="/supplier-directory" className="hvm-supplier-cta-link">Browse directory →</a>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1816,6 +1834,33 @@ const MOBILE_CSS = `
 .hvm-market-meta { margin: 12px 0 0; align-items: flex-start; }
 .hvm-empty-card { padding: 16px; }
 .hvm-empty-card p { margin: 8px 0 0; color: rgba(245,240,232,.58); line-height: 1.45; }
+.hvm-empty-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.hvm-empty-link { font-size: 12px; font-weight: 600; color: rgba(245,240,232,.55); text-decoration: none; letter-spacing: .03em; }
+.hvm-empty-link--primary { color: #d4a84b; }
+.hvm-empty-link:hover { opacity: .75; }
+.hvm-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.hvm-hero-link { font-size: 12px; font-weight: 600; color: rgba(245,240,232,.55); text-decoration: none; letter-spacing: .03em; }
+.hvm-hero-link--gold { color: #d4a84b; }
+.hvm-hero-link:hover { opacity: .75; }
+.hvm-supplier-cta {
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(212,168,75,.22);
+  background: rgba(212,168,75,.05);
+}
+.hvm-supplier-cta-kicker { font-size: 10px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: rgba(212,168,75,.7); margin-bottom: 8px; }
+.hvm-supplier-cta-title { font-size: 15px; font-weight: 600; color: #f5f0e8; line-height: 1.35; margin-bottom: 8px; }
+.hvm-supplier-cta-body { font-size: 12px; color: rgba(245,240,232,.55); line-height: 1.55; margin: 0 0 14px; }
+.hvm-supplier-cta-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hvm-supplier-cta-btn {
+  display: inline-block; padding: 9px 16px;
+  background: #d4a84b; color: #050c18;
+  border-radius: 8px; font-size: 13px; font-weight: 700;
+  text-decoration: none; letter-spacing: .01em;
+}
+.hvm-supplier-cta-btn:hover { background: #e8c17a; }
+.hvm-supplier-cta-link { font-size: 12px; font-weight: 600; color: rgba(245,240,232,.55); text-decoration: none; }
+.hvm-supplier-cta-link:hover { opacity: .75; }
 .hvm-ledger-table { display: grid; gap: 0; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; overflow: hidden; }
 .hvm-ledger-table div { display: grid; grid-template-columns: 42% minmax(0, 1fr); gap: 10px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .hvm-ledger-table div:last-child { border-bottom: 0; }

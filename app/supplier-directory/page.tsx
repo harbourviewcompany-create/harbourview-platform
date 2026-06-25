@@ -4,7 +4,6 @@ import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from 
 import {
   getApprovedSupplierProfiles,
   SELLER_TYPE_LABELS,
-  REGION_LABELS,
   CATEGORY_LABELS,
 } from '@/lib/server/supplierProfilesQuery'
 
@@ -80,12 +79,12 @@ export default async function SupplierDirectoryPage() {
                     <span className="text-[11px] uppercase tracking-[0.18em] text-gold/75">
                       {SELLER_TYPE_LABELS[p.seller_type] ?? p.seller_type}
                     </span>
-                    <span className="text-[11px] text-white/40">{REGION_LABELS[p.region] ?? p.region}</span>
+                    <span className="text-[11px] text-white/40">{p.regions_served?.join(', ') ?? '—'}</span>
                   </div>
                   {p.company_name && (
                     <h3 className="mb-2 text-base font-semibold text-[#f4f1eb]">{p.company_name}</h3>
                   )}
-                  <p className="mb-4 text-sm leading-7 text-white/62">{p.description}</p>
+                  <p className="mb-4 text-sm leading-7 text-white/62">{p.description_public ?? ''}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {p.categories.map((c) => (
                       <span key={c} className="rounded-full border border-gold/20 bg-gold/5 px-2 py-0.5 text-[10px] text-gold/80">
