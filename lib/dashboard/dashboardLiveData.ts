@@ -212,11 +212,13 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       .maybeSingle()
 
     // Tertiary: cc_jurisdiction_briefings — rich market intelligence content
-    // Use order+limit instead of maybeSingle() to safely handle multiple rows per country
+    // Filter to jurisdiction_type='country' so subnational rows (e.g. Bavaria) never shadow
+    // the country-level briefing for multi-state countries like Germany or the US.
     const { data: jbRows } = await supabase
       .from('cc_jurisdiction_briefings')
       .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
       .eq('country_iso2', iso2.toUpperCase())
+      .eq('jurisdiction_type', 'country')
       .order('last_reviewed_date', { ascending: false })
       .limit(1)
     const jb = jbRows?.[0] ?? null
