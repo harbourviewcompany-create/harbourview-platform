@@ -70,11 +70,14 @@ export class IntelligenceOrchestrator {
 
   /** Pull targets due for crawling from source_registry. */
   async getTargets(limit = 100): Promise<ScrapeTarget[]> {
+    const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from('source_registry')
       .select('id, source_url, iso, source_name, adapter, crawl_cadence, is_active, crawl_allowed, next_crawl_at, locked_until, consecutive_failures')
       .eq('is_active', true)
       .eq('crawl_allowed', true)
+      .or(`next_crawl_at.is.null,next_crawl_at.lte.${now}`)
+      .order('next_crawl_at', { ascending: true, nullsFirst: true })
       .limit(limit);
 
     if (error) throw new Error(`Failed to fetch targets: ${error.message}`);
