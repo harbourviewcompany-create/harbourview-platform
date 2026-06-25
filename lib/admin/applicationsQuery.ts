@@ -21,18 +21,19 @@ export type PendingSupplierProfile = {
   id: string
   company_name: string | null
   contact_name: string | null
-  contact_email: string | null
+  email: string | null
   seller_type: string
-  region: string
+  regions_served: string[] | null
   categories: string[]
-  description: string
+  description_public: string | null
+  hq_country: string | null
   created_at: string
 }
 
 const PROFESSIONAL_SELECT =
   'id,full_name,title,credential_type,institution,institution_country,countries,specialties,bio_public,created_at'
 const SUPPLIER_SELECT =
-  'id,company_name,contact_name,contact_email,seller_type,region,categories,description,created_at'
+  'id,company_name,contact_name,email,seller_type,regions_served,categories,description_public,hq_country,created_at'
 
 export async function listPendingProfessionals(): Promise<AdminDataResult<PendingProfessional[]>> {
   return fetchAdminSupabaseJson<PendingProfessional[]>(
