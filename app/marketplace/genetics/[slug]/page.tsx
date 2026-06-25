@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getPublicGeneticsProfile } from '@/lib/marketplace/geneticsShowcase'
+import { getPublicGeneticsProfile, getPublicGeneticsProfiles } from '@/lib/marketplace/geneticsShowcase'
+import { FixtureBanner } from '@/components/admin/FixtureBanner'
 
 type GeneticsProfilePageProps = {
   params: Promise<{
@@ -11,7 +12,7 @@ type GeneticsProfilePageProps = {
 
 export async function generateMetadata({ params }: GeneticsProfilePageProps): Promise<Metadata> {
   const { slug } = await params
-  const profile = getPublicGeneticsProfile(slug)
+  const profile = await getPublicGeneticsProfile(slug)
 
   if (!profile) {
     return {
@@ -30,12 +31,16 @@ export const dynamic = 'force-dynamic'
 
 export default async function GeneticsProfilePage({ params }: GeneticsProfilePageProps) {
   const { slug } = await params
-  const profile = getPublicGeneticsProfile(slug)
+  const [profile, showcase] = await Promise.all([
+    getPublicGeneticsProfile(slug),
+    getPublicGeneticsProfiles(),
+  ])
 
   if (!profile) return notFound()
 
   return (
     <>
+      <FixtureBanner isFixture={showcase.source === 'fixture'} label="Fixture data — cultivar_passports table empty or service role not configured" />
       <section className="border-b border-gold/10 bg-[#061120] py-16 text-white sm:py-20 lg:py-24">
         <div className="page-container">
           <div className="max-w-5xl">
