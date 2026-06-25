@@ -1305,11 +1305,11 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
   )
 }
 
-function SignalsMobile({ country, signals, watchlistData, countryIntel, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sub: SignalSub }) {
+function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCoverage, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sourceCoverage?: SourceCoverageRow[]; sub: SignalSub }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'feed'       && <SignalsFeed country={country} signals={signals} />}
-      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />}
+      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
       {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} />}
     </div>
   )
@@ -1504,7 +1504,7 @@ const DEFAULT_WATCH_TRIGGERS = [
   { label: 'International Treaties',   on: false },
 ]
 
-function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel?: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
+function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryIntel, sourceCoverage }: { country: CountryOption; roleLabel?: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sourceCoverage?: SourceCoverageRow[] }) {
   const regSignals = useMemo(() => {
     const reg = signals.filter(s => {
       const t = (s.title + ' ' + s.type).toLowerCase()
@@ -1528,6 +1528,37 @@ function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { c
   const oppColor = oppScore != null ? (oppScore >= 7 ? '#4caf82' : oppScore >= 4 ? '#d4a84b' : '#e05555') : '#d4a84b'
   const regulator = countryIntel?.regulator_label
   const region = countryIntel?.region
+
+  const comparableMarkets = useMemo(() => {
+    const markets = new Map<string, { count: number; avg: number; sum: number }>()
+    for (const s of signals) {
+      if (!s.market || s.market === country.label) continue
+      const entry = markets.get(s.market) ?? { count: 0, avg: 0, sum: 0 }
+      entry.count++
+      entry.sum += s.confidence
+      entry.avg = Math.round(entry.sum / entry.count)
+      markets.set(s.market, entry)
+    }
+    return Array.from(markets.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5)
+  }, [signals, country])
+
+  const policyQuestions = useMemo(() => {
+    const questions: string[] = []
+    if (countryIntel?.medical_status) questions.push(`What are the current conditions for medical cannabis programme participation in ${country.label}?`)
+    if (countryIntel?.import_status) questions.push(`How will changes to import permit requirements affect supply chain operations in ${country.label}?`)
+    if (regSignals.length > 0) questions.push(`How will the recent ${regSignals[0].title.slice(0, 60).trimEnd()}… development affect licensed operators?`)
+    questions.push(`What enforcement priorities should operators anticipate in ${country.label} over the next 12 months?`)
+    return questions.slice(0, 4)
+  }, [countryIntel, regSignals, country])
+
+  const sourceGaps = useMemo(() => {
+    if (!sourceCoverage || sourceCoverage.length === 0) return []
+    const regTypes = ['regulator', 'government', 'government_notices', 'legal']
+    const present = new Set(sourceCoverage.map(r => r.source_type))
+    return regTypes.filter(t => !present.has(t)).map(t => SOURCE_TYPE_LABELS[t] ?? t)
+  }, [sourceCoverage])
 
   return (
     <div className="hvm-page-stack">
@@ -1657,6 +1688,45 @@ function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { c
           ))}
         </div>
       </MobileAccordion>
+
+      {comparableMarkets.length > 0 && (
+        <MobileAccordion title={`Comparable markets (${comparableMarkets.length})`}>
+          <div className="hvm-ledger-table" role="table" aria-label="Comparable markets">
+            {comparableMarkets.map(([market, stats]) => (
+              <div role="row" key={market}>
+                <strong>{market}</strong>
+                <span>{stats.count} signal{stats.count !== 1 ? 's' : ''} · {stats.avg}% avg confidence</span>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {policyQuestions.length > 0 && (
+        <MobileAccordion title="Open policy questions">
+          <div className="hvm-list-stack">
+            {policyQuestions.map((q, i) => (
+              <div className="hvm-signal-card" key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ color: '#d4a84b', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>?</span>
+                <p style={{ margin: 0, color: 'rgba(245,240,232,.75)', fontSize: 15, lineHeight: 1.5 }}>{q}</p>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {sourceGaps.length > 0 && (
+        <MobileAccordion title={`Source gaps (${sourceGaps.length})`}>
+          <div className="hvm-list-stack">
+            {sourceGaps.map((gap, i) => (
+              <div className="hvm-signal-card" key={i} style={{ color: 'rgba(230,165,51,.85)' }}>
+                <strong>⚠ {gap} — not yet indexed</strong>
+                <p className="hvm-signal-impact">Submit a source verification request to prioritise coverage for this category.</p>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
 
       {/* Competent authority */}
       {regulator && (
@@ -1929,7 +1999,7 @@ export default function MobileCommandCentre({
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} />
       case 'signals':
-        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sub={signalsSub} />
+        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
       case 'education':
         return (
           <EducationMobile
