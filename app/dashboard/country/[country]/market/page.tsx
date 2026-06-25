@@ -5,8 +5,11 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
+import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 
 import type { Metadata } from 'next'
+
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
   const { country } = await params
@@ -85,12 +88,31 @@ export default async function MarketPage({ params }: Props) {
   const badge       = getDashboardStatusBadge(panel.state)
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveMarketData(panel.state)
-  const derived: MarketDerived = intel?.market ? {
-    model:     { label: intel.market.frameworkLabel,  detail: intel.market.frameworkDetail },
-    imports:   { label: intel.market.importLabel,     detail: intel.market.importDetail },
-    operators: { label: intel.market.operatorLabel,   detail: intel.market.operatorDetail },
-    regulator: { label: intel.market.regulatorLabel,  detail: intel.market.regulatorDetail },
-  } : baseDerived
+
+  // Tier 1: static registry (9 countries); Tier 2: live DB briefing; Tier 3: derived from panel state
+  let derived: MarketDerived
+  if (intel?.market) {
+    derived = {
+      model:     { label: intel.market.frameworkLabel,  detail: intel.market.frameworkDetail },
+      imports:   { label: intel.market.importLabel,     detail: intel.market.importDetail },
+      operators: { label: intel.market.operatorLabel,   detail: intel.market.operatorDetail },
+      regulator: { label: intel.market.regulatorLabel,  detail: intel.market.regulatorDetail },
+    }
+  } else {
+    const liveProfile = await getCountryIntelProfile(country.iso2)
+    derived = liveProfile?.briefing_program_status ? {
+      model:     {
+        label:  liveProfile.briefing_program_status,
+        detail: liveProfile.briefing_market_dynamics ?? baseDerived.model.detail,
+      },
+      imports:   baseDerived.imports,
+      operators: baseDerived.operators,
+      regulator: {
+        label:  liveProfile.briefing_regulatory_body?.split(';')[0]?.split('—')[0]?.trim() ?? baseDerived.regulator.label,
+        detail: liveProfile.briefing_regulatory_body ?? baseDerived.regulator.detail,
+      },
+    } : baseDerived
+  }
   const isLocked = panel.state === 'unavailable' || panel.state === 'request-only'
 
   return (

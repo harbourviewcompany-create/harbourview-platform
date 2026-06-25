@@ -47,8 +47,8 @@ export function resolveCountryMaterialState({
     metalness: 0.92,
     // Clearcoat adds a second sharp reflection layer — makes specular highlight
     // look like polished metal rather than painted matte.
-    clearcoat: 0.68,
-    clearcoatRoughness: 0.10,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.22,
     sidewallColor: hvTokens.globe.sidewallDark,
   }
 
@@ -74,8 +74,8 @@ export function resolveCountryMaterialState({
         emissiveIntensity: 0.26,
         roughness: 0.16,
         metalness: 0.95,
-        clearcoat: 0.74,
-        clearcoatRoughness: 0.08,
+        clearcoat: 0.42,
+        clearcoatRoughness: 0.20,
       }
     case 'searchFocused':
     case 'modalContext':
@@ -89,8 +89,8 @@ export function resolveCountryMaterialState({
         emissiveIntensity: 0.28,
         roughness: 0.11,
         metalness: 0.98,
-        clearcoat: 0.86,
-        clearcoatRoughness: 0.06,
+        clearcoat: 0.55,
+        clearcoatRoughness: 0.16,
       }
     case 'multi_market':
       return {

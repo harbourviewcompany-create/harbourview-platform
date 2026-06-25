@@ -7,6 +7,8 @@ import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { listIaSignalsByMarket } from '@/lib/intelligence-automation/db'
 import { queryByMarket } from '@/lib/intelligence/graphQueries'
 
+export const dynamic = 'force-dynamic'
+
 type Props = { params: Promise<{ country: string }> }
 
 type BriefMeta = {

@@ -1,4 +1,4 @@
-import { Color, Vector3 } from 'three'
+import { Color } from 'three'
 
 export type MetallicGoldShader = {
   uniforms: Record<string, { value: unknown }>
@@ -17,39 +17,29 @@ export function getMetallicGoldProgramCacheKey(options: MetallicGoldShaderOption
 
 export function applyMetallicGoldShader(shader: MetallicGoldShader, options: MetallicGoldShaderOptions) {
   shader.uniforms.uAntiqueGold = { value: new Color(options.isSelected ? '#b58623' : '#8a6419') }
-  // Champagne gold ceiling lowered — was near-white (#fff0b8/#f7dc8a) which caused
-  // highlights to clip to pale cream under the key light. Now a richer warm gold
-  // that stays metallic even at full specular contribution.
   shader.uniforms.uChampagneGold = { value: new Color(options.isSelected ? '#e0b830' : '#d4a628') }
   shader.uniforms.uBronzeGold = { value: new Color(options.isSelected ? '#5b3510' : '#3b260e') }
-  shader.uniforms.uRimGold = { value: new Color(options.isSelected || options.isFocused ? '#e8c84a' : '#c8a030') }
-  shader.uniforms.uKeyDirection = { value: new Vector3(0.82, 0.08, 0.57) }
-  shader.uniforms.uFillDirection = { value: new Vector3(-0.70, 0.08, -0.71) }
+  // uMetallicFocus drives albedo tone shift toward champagne on hover/select — no
+  // lighting math so it can't create blobs. Actual specular comes from Three.js PBR.
   shader.uniforms.uMetallicFocus = { value: options.isSelected ? 1.0 : options.isFocused ? 0.58 : 0.0 }
 
   shader.vertexShader = shader.vertexShader.replace(
     '#include <common>',
     `#include <common>
-     varying vec3 vHvMetalWorldNormal;
      varying vec3 vHvMetalWorldPosition;`,
   )
   shader.vertexShader = shader.vertexShader.replace(
     '#include <begin_vertex>',
     `#include <begin_vertex>
-     vHvMetalWorldNormal = normalize(mat3(modelMatrix) * normal);
      vHvMetalWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;`,
   )
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <common>',
     `#include <common>
-     varying vec3 vHvMetalWorldNormal;
      varying vec3 vHvMetalWorldPosition;
      uniform vec3 uAntiqueGold;
      uniform vec3 uChampagneGold;
      uniform vec3 uBronzeGold;
-     uniform vec3 uRimGold;
-     uniform vec3 uKeyDirection;
-     uniform vec3 uFillDirection;
      uniform float uMetallicFocus;
 
      float hvHash(vec3 p) {
@@ -79,37 +69,20 @@ export function applyMetallicGoldShader(shader: MetallicGoldShader, options: Met
        return mix(nxy0, nxy1, f.z);
      }`,
   )
+  // Only modifies diffuseColor — no spec/rim/key computed here.
+  // For metallic materials diffuseColor becomes the specular reflectance tint (F0),
+  // so any view-dependent lighting baked in here creates amplified blobs. Instead
+  // we use a world-position brushed texture for anisotropic albedo variation and
+  // let Three.js PBR own all specular, reflections, and rim effects.
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <color_fragment>',
     `#include <color_fragment>
-     vec3 hvNormal = normalize(vHvMetalWorldNormal);
-     // Back faces from DoubleSide rendering (inverted triangles on mobile) arrive
-     // with an inward-pointing world normal — flip it so the lighting math sees the
-     // correct outward direction and doesn't output near-black.
-     #ifdef DOUBLE_SIDED
-       if (!gl_FrontFacing) hvNormal = -hvNormal;
-     #endif
-     vec3 hvViewDir = normalize(cameraPosition - vHvMetalWorldPosition);
-     vec3 hvKey = normalize(uKeyDirection);
-     vec3 hvFill = normalize(uFillDirection);
-     float hvKeyLight = smoothstep(-0.18, 0.82, dot(hvNormal, hvKey));
-     float hvFillLight = smoothstep(-0.35, 0.65, dot(hvNormal, hvFill));
-     float hvFalloff = smoothstep(0.74, -0.16, dot(hvNormal, hvKey));
-     float hvSpec = pow(max(dot(reflect(-hvKey, hvNormal), hvViewDir), 0.0), mix(38.0, 72.0, uMetallicFocus));
-     float hvRim = pow(1.0 - clamp(dot(hvNormal, hvViewDir), 0.0, 1.0), 2.35);
      float hvBrush = sin((vHvMetalWorldPosition.x * 28.0) + (vHvMetalWorldPosition.y * 15.0) - (vHvMetalWorldPosition.z * 9.0)) * 0.5 + 0.5;
      float hvFineBrush = sin((vHvMetalWorldPosition.x + vHvMetalWorldPosition.z) * 116.0) * 0.5 + 0.5;
      float hvNoise = hvValueNoise(vHvMetalWorldPosition * 22.0);
      float hvTexture = (hvBrush * 0.075) + (hvFineBrush * 0.028) + ((hvNoise - 0.5) * 0.085);
-     vec3 hvLayeredGold = mix(uBronzeGold, uAntiqueGold, 0.58 + hvFillLight * 0.16 + hvTexture);
-     // Champagne contribution capped: was 0.34/0.42 — now 0.22/0.24 so highlights
-     // stay deep gold rather than washing to pale cream under the key light.
-     hvLayeredGold = mix(hvLayeredGold, uChampagneGold, hvKeyLight * 0.22 + hvSpec * 0.24 + uMetallicFocus * 0.10);
-     hvLayeredGold = mix(hvLayeredGold, uBronzeGold, hvFalloff * 0.34);
-     hvLayeredGold += uRimGold * hvRim * (0.22 + uMetallicFocus * 0.22);
-     hvLayeredGold += uChampagneGold * hvSpec * (0.22 + uMetallicFocus * 0.18);
-     // Hard clamp: prevents any path from blowing the surface to cream/white.
-     // Ceiling raised slightly to allow warmer, deeper gold at full specular.
+     vec3 hvLayeredGold = mix(uBronzeGold, uAntiqueGold, 0.62 + hvTexture);
+     hvLayeredGold = mix(hvLayeredGold, uChampagneGold, uMetallicFocus * 0.12);
      hvLayeredGold = clamp(hvLayeredGold, vec3(0.0), vec3(0.92, 0.76, 0.34));
      diffuseColor.rgb = mix(diffuseColor.rgb, hvLayeredGold, 0.88);`,
   )
