@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
@@ -1571,10 +1571,26 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
 }
 
 function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCoverage, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sourceCoverage?: SourceCoverageRow[]; sub: SignalSub }) {
+  const [liveSignals, setLiveSignals] = useState<DashboardSignal[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams({ limit: '100' })
+    if (country.label) params.set('country', country.label)
+    fetch(`/api/dashboard/signals?${params.toString()}`)
+      .then(r => r.json())
+      .then((json: { signals?: DashboardSignal[] }) => {
+        if (!cancelled && Array.isArray(json.signals) && json.signals.length > 0) {
+          setLiveSignals(json.signals)
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [country.label])
+  const effectiveSignals = liveSignals ?? signals
   return (
     <div className="hvm-page-stack">
-      {sub === 'feed'       && <SignalsFeed country={country} signals={signals} />}
-      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
+      {sub === 'feed'       && <SignalsFeed country={country} signals={effectiveSignals} />}
+      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={effectiveSignals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
       {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} />}
     </div>
   )
