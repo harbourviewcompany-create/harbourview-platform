@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader, FooterCta } from '@/components/PublicUi'
 import { getPublicRegulatorySignals } from '@/lib/regulatory-signals/public'
 import { CountryIntelligenceMap } from '@/components/intelligence/CountryIntelligenceMap'

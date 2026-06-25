@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPublicCollaborationProjects } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Genetics Collaboration | Harbourview' }
 
 export default async function GeneticsCollaborationPage() {

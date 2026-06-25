@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Cultivar Passport Network | Harbourview',
   description: 'Controlled genetics passport, evidence, access, service-provider, and collaboration routing for regulated cannabis operators.',
