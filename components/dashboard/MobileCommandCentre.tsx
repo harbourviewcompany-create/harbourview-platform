@@ -1202,7 +1202,7 @@ const WATCH_TYPE_CARDS = [
   { type: 'marketplace_item', icon: '⊞', label: 'Listing',  desc: 'Track marketplace listings for price & status' },
 ]
 
-function WatchlistMobile({ country, roleLabel, watchlistData }: { country: CountryOption; roleLabel: string; watchlistData?: WatchlistData | null }) {
+function WatchlistMobile({ country, watchlistData }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null }) {
   const items = watchlistData?.items ?? []
   const rules = watchlistData?.rules ?? []
   const notifs = watchlistData?.notifications
@@ -1373,7 +1373,7 @@ const DEFAULT_WATCH_TRIGGERS = [
   { label: 'International Treaties',   on: false },
 ]
 
-function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
+function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel?: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
   const regSignals = useMemo(() => {
     const reg = signals.filter(s => {
       const t = (s.title + ' ' + s.type).toLowerCase()
