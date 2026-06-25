@@ -143,23 +143,31 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient()
 
+    // When a country is requested, fetch country-specific signals first.
+    // If they don't fill the requested limit, supplement with Global signals
+    // so every country always has intelligence to display.
+    const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
+
     let query = supabase
       .from('signals')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
       .order('score',        { ascending: false })
       .order('date',         { ascending: false })
-      .range(offset, offset + limit - 1)
 
-    // Country filter — partial match so "Mexico" matches "Mexico City" etc.
-    if (countryParam && countryParam !== 'all') {
-      query = query.ilike('country', `%${countryParam}%`)
+    if (isCountryFiltered) {
+      // Include country-specific AND global signals; sort country-specific first in app code
+      query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
     }
 
     // Lane filter — maps dashboard lane → DB top_lane values
     if (lane !== 'all' && LANE_TOP_LANES[lane]) {
       query = query.in('top_lane', LANE_TOP_LANES[lane])
     }
+
+    // Fetch enough rows to fill limit after country-priority sorting
+    const fetchLimit = isCountryFiltered ? Math.min(limit * 4, 400) : limit
+    query = query.range(offset, offset + fetchLimit - 1)
 
     const { data, error, count } = await query
 
@@ -171,7 +179,17 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const signals = ((data ?? []) as SignalRow[]).map(r => rowToSignal(r))
+    let rows = (data ?? []) as SignalRow[]
+
+    // Country-priority sort: exact/partial country match first, Global second
+    if (isCountryFiltered) {
+      const needle = countryParam.toLowerCase()
+      const countrySpecific = rows.filter(r => r.country?.toLowerCase().includes(needle))
+      const global          = rows.filter(r => !r.country?.toLowerCase().includes(needle))
+      rows = [...countrySpecific, ...global].slice(0, limit)
+    }
+
+    const signals = rows.map(r => rowToSignal(r))
 
     return NextResponse.json(
       { signals, total: count ?? signals.length, source: 'live' },
