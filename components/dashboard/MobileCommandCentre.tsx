@@ -432,13 +432,14 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
   )
 }
 
-type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'settings'
+type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'compliance' | 'settings'
 
 const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
-  { id: 'overview',   label: 'Overview' },
-  { id: 'pathway',    label: 'Pathway' },
-  { id: 'local-intel',label: 'Local Intel' },
-  { id: 'settings',   label: 'Settings' },
+  { id: 'overview',    label: 'Overview' },
+  { id: 'pathway',     label: 'Pathway' },
+  { id: 'local-intel', label: 'Local Intel' },
+  { id: 'compliance',  label: 'Compliance' },
+  { id: 'settings',    label: 'Settings' },
 ]
 
 function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, marketMetrics, tradeFlows, jurisdictionPlaybook, onCountryChange, onRoleChange, onOpenSettings, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
@@ -447,6 +448,7 @@ function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pat
       {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
       {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} />}
       {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
     </div>
   )
@@ -2512,36 +2514,77 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
   )
 }
 
-// ── Compliance mobile page ─────────────────────────────────────────────────────
+// ── Compliance mobile page (per-country) ──────────────────────────────────────
 
-function ComplianceMobile({ country }: { country: CountryOption }) {
+function countryToComplianceSlug(region?: string, subregion?: string): string {
+  const r = (region ?? '').toLowerCase()
+  const s = (subregion ?? '').toLowerCase()
+  if (r === 'europe') return 'europe'
+  if (r === 'africa') return 'africa'
+  if (r === 'oceania') return 'asia-pacific'
+  if (r === 'asia') return s.includes('western') ? 'middle-east' : 'asia-pacific'
+  if (r === 'americas') {
+    if (s.includes('north')) return 'north-america'
+    if (s.includes('caribbean')) return 'caribbean'
+    return 'latin-america'
+  }
+  return 'europe'
+}
+
+function ComplianceMobile({ country, countryIntel }: { country: CountryOption; countryIntel?: CountryIntelProfile | null }) {
+  const fullCountry = useMemo(() => ALL_COUNTRIES.find(c => c.iso2 === country.iso2), [country.iso2])
+
+  const regionContext = useMemo(() => {
+    const slug = countryToComplianceSlug(fullCountry?.region, fullCountry?.subregion)
+    return complianceRegions.find(r => r.slug === slug) ?? null
+  }, [fullCountry])
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
-        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>COMPLIANCE INTELLIGENCE</div>
-        <h2>Global Compliance</h2>
-        <p>{country.label} · Regional compliance frameworks, documentation controls, and commercial pathway summaries for regulated cannabis markets.</p>
+        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>COMPLIANCE</div>
+        <h2>{country.label}</h2>
+        <p>Regulatory status, market access controls, and compliance framework for this jurisdiction.</p>
       </section>
 
       <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <SectionCard label="Regions covered" title={String(complianceRegions.length)} tone="ok" />
-        <SectionCard label="Specialist review" title="Required" tone="warn" />
+        <SectionCard label="Import" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
+        <SectionCard label="Export" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
+        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
+        <SectionCard label="Medical" title={fieldValue(countryIntel?.medical_status, 'Not available')} />
+        <SectionCard label="Adult use" title={fieldValue(countryIntel?.adult_use_status, 'Not applicable')} />
       </div>
 
-      <div className="hvm-list-stack">
-        {complianceRegions.map(region => (
-          <div className="hvm-signal-card hvm-signal-card--rich" key={region.slug}>
-            <div className="hvm-sig-title">{region.name}</div>
-            <p className="hvm-signal-impact">{region.summary}</p>
-            <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(245,240,232,.45)', lineHeight: 1.55 }}>{region.commercialFocus}</p>
-            <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Request compliance review →</Link>
-          </div>
-        ))}
-      </div>
+      {regionContext && (
+        <MobileAccordion title={`${regionContext.name} compliance context`} defaultOpen>
+          <p className="hvm-briefing-body">{regionContext.summary}</p>
+          <p style={{ margin: '10px 0 0', fontSize: 13, color: 'rgba(245,240,232,.55)', lineHeight: 1.55 }}>{regionContext.commercialFocus}</p>
+        </MobileAccordion>
+      )}
 
-      <div className="hvm-card" style={{ background: 'rgba(212,168,75,.06)', borderColor: 'rgba(212,168,75,.2)', marginTop: 8 }}>
+      {countryIntel?.briefing_regulatory_body && (
+        <div className="hvm-regulator-row">
+          <span className="hvm-kicker">Competent authority</span>
+          <span>{countryIntel.briefing_regulatory_body}</span>
+        </div>
+      )}
+
+      {countryIntel?.briefing_regulatory_outlook && (
+        <MobileAccordion title="Regulatory outlook">
+          <p className="hvm-briefing-body">{countryIntel.briefing_regulatory_outlook}</p>
+        </MobileAccordion>
+      )}
+
+      {countryIntel?.commercial_pathway_summary && (
+        <MobileAccordion title="Commercial pathway summary">
+          <p className="hvm-briefing-body">{countryIntel.commercial_pathway_summary}</p>
+        </MobileAccordion>
+      )}
+
+      <div className="hvm-card" style={{ background: 'rgba(212,168,75,.06)', borderColor: 'rgba(212,168,75,.2)' }}>
         <div className="hvm-kicker">Specialist review required</div>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Compliance guidance is provided for general awareness only. Specialist legal and regulatory review is required before commercial reliance on any jurisdiction-specific compliance framework.</p>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Compliance data is provided for general awareness only. Specialist legal and regulatory review is required before commercial reliance on any jurisdiction-specific compliance framework.</p>
+        <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Request compliance review →</Link>
       </div>
     </div>
   )
