@@ -9,6 +9,7 @@ export default defineConfig({
       enforce: 'pre',
       async transform(code, id) {
         if (!id.endsWith('.tsx') && !id.endsWith('.jsx')) return
+        if (id.includes('/node_modules/')) return
         return transformWithEsbuild(code, id, {
           loader: 'tsx',
           jsx: 'automatic',
