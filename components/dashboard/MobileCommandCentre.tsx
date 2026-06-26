@@ -2315,9 +2315,17 @@ const GENETICS_TABS: { id: GeneticsTabM; label: string }[] = [
 function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: { country: CountryOption; cultivarPassports?: PublicCultivarPassportDTO[]; serviceProviders?: PublicServiceProvider[]; collaborationProjects?: PublicCollaborationProject[] }) {
   const [tab, setTab] = useState<GeneticsTabM>('passports')
 
+  const isGlobal = country.iso2 === 'GLOBAL'
+  const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
+  const displayPassports = filteredPassports.length > 0 ? filteredPassports : cultivarPassports
+  const filteredProviders = isGlobal ? serviceProviders : serviceProviders.filter(sp => sp.country_code === country.iso2)
+  const displayProviders = filteredProviders.length > 0 ? filteredProviders : serviceProviders
+  const filteredProjects = isGlobal ? collaborationProjects : collaborationProjects.filter(cp => cp.countryCode === country.iso2)
+  const displayProjects = filteredProjects.length > 0 ? filteredProjects : collaborationProjects
+
   const tabs = GENETICS_TABS.map(t => ({
     ...t,
-    count: t.id === 'passports' ? cultivarPassports.length : t.id === 'services' ? serviceProviders.length : collaborationProjects.length,
+    count: t.id === 'passports' ? displayPassports.length : t.id === 'services' ? displayProviders.length : displayProjects.length,
   }))
 
   return (
@@ -2325,13 +2333,13 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       <section className="hvm-hero-card compact">
         <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>GENETICS INTELLIGENCE</div>
         <h2>Cultivars &amp; Genetics</h2>
-        <p>{country.label} · Public cultivar passports, verified service providers, and open collaboration projects.</p>
+        <p>{country.label} · Public cultivar passports, verified service providers, and open collaboration projects{isGlobal ? '' : ` relevant to ${country.label}`}.</p>
       </section>
 
       <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-        <SectionCard label="Passports" title={String(cultivarPassports.length)} tone={cultivarPassports.length > 0 ? 'ok' : 'neutral'} />
-        <SectionCard label="Providers" title={String(serviceProviders.length)} />
-        <SectionCard label="Projects" title={String(collaborationProjects.length)} />
+        <SectionCard label="Passports" title={String(displayPassports.length)} tone={displayPassports.length > 0 ? 'ok' : 'neutral'} />
+        <SectionCard label="Providers" title={String(displayProviders.length)} />
+        <SectionCard label="Projects" title={String(displayProjects.length)} />
       </div>
 
       <div className="hvm-scroll-tabs" role="tablist" aria-label="Genetics tabs">
@@ -2343,7 +2351,7 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       </div>
 
       {tab === 'passports' && (
-        cultivarPassports.length === 0 ? (
+        displayPassports.length === 0 ? (
           <div className="hvm-empty-card">
             <strong>No public cultivar passports yet.</strong>
             <p>Passports publish when source-backed review is complete.</p>
@@ -2353,7 +2361,7 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {cultivarPassports.map(p => (
+            {displayPassports.map(p => (
               <div className="hvm-signal-card hvm-signal-card--rich" key={p.id}>
                 <div className="hvm-sig-head">
                   <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>CULTIVAR</span>
@@ -2376,14 +2384,14 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       )}
 
       {tab === 'services' && (
-        serviceProviders.length === 0 ? (
+        displayProviders.length === 0 ? (
           <div className="hvm-empty-card">
             <strong>No verified service providers listed yet.</strong>
             <p>Providers are listed after Harbourview verification review.</p>
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {serviceProviders.map(sp => (
+            {displayProviders.map(sp => (
               <div className="hvm-signal-card hvm-signal-card--rich" key={sp.id}>
                 <div className="hvm-sig-title">◫ {sp.displayName}</div>
                 <p className="hvm-signal-impact">{sp.service_summary}</p>
@@ -2400,14 +2408,14 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       )}
 
       {tab === 'projects' && (
-        collaborationProjects.length === 0 ? (
+        displayProjects.length === 0 ? (
           <div className="hvm-empty-card">
             <strong>No open collaboration projects at this time.</strong>
             <p>Check back as projects are added following source review.</p>
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {collaborationProjects.map(cp => (
+            {displayProjects.map(cp => (
               <div className="hvm-signal-card hvm-signal-card--rich" key={cp.id}>
                 <div className="hvm-sig-title">⊗ {cp.title}</div>
                 <p className="hvm-signal-impact">{cp.publicSummary}</p>
@@ -2437,10 +2445,13 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
 function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: DashboardSignal[]; onCountrySelect: (iso2: string) => void }) {
   const [search, setSearch] = useState('')
 
-  const signalCountByMarket = useMemo(() => {
+  const signalCountByIso2 = useMemo(() => {
+    const nameToIso2 = new Map(ALL_COUNTRIES.map(c => [c.displayName.toLowerCase(), c.iso2]))
     const counts: Record<string, number> = {}
     for (const s of signals) {
-      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
+      if (!s.market) continue
+      const iso2 = nameToIso2.get(s.market.toLowerCase())
+      if (iso2) counts[iso2] = (counts[iso2] ?? 0) + 1
     }
     return counts
   }, [signals])
@@ -2460,7 +2471,7 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
     return map
   }, [filtered])
 
-  const withSignals = Object.keys(signalCountByMarket).length
+  const withSignals = Object.keys(signalCountByIso2).length
 
   return (
     <div className="hvm-page-stack">
@@ -2489,7 +2500,7 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
           <MobileAccordion key={region} title={`${region} (${countries.length})`} defaultOpen={countries.length <= 12}>
             <div className="hvm-list-stack">
               {countries.map(c => {
-                const sigCount = signalCountByMarket[c.displayName] ?? 0
+                const sigCount = signalCountByIso2[c.iso2] ?? 0
                 return (
                   <div
                     className="hvm-signal-card hvm-signal-card--tap"
@@ -2551,6 +2562,7 @@ function ComplianceMobile({ country, countryIntel }: { country: CountryOption; c
     return complianceRegions.find(r => r.slug === slug) ?? null
   }, [fullCountry])
 
+function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -2559,13 +2571,37 @@ function ComplianceMobile({ country, countryIntel }: { country: CountryOption; c
         <p>Regulatory status, market access controls, and compliance framework for this jurisdiction.</p>
       </section>
 
-      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <SectionCard label="Import" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
-        <SectionCard label="Export" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
-        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
-        <SectionCard label="Medical" title={fieldValue(countryIntel?.medical_status, 'Not available')} />
-        <SectionCard label="Adult use" title={fieldValue(countryIntel?.adult_use_status, 'Not applicable')} />
-      </div>
+      {countryIntel ? (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Opp. score" title={countryIntel.opportunity_score != null ? `${countryIntel.opportunity_score}/10` : '—'} tone={countryIntel.opportunity_score != null && countryIntel.opportunity_score >= 6 ? 'ok' : 'neutral'} />
+          <SectionCard label="Import" title={countryIntel.import_status ?? '—'} />
+          <SectionCard label="Export" title={countryIntel.export_status ?? '—'} />
+          <SectionCard label="Medical" title={countryIntel.medical_status ?? '—'} />
+        </div>
+      ) : (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Regions covered" title={String(complianceRegions.length)} tone="ok" />
+          <SectionCard label="Specialist review" title="Required" tone="warn" />
+        </div>
+      )}
+
+      {countryIntel && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">{country.label.toUpperCase()} — JURISDICTION STATUS</div>
+          <div className="hvm-sig-title">{countryIntel.briefing_regulatory_body ?? countryIntel.regulator_label ?? 'Regulatory Authority'}</div>
+          {(countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary) && (
+            <p className="hvm-signal-impact" style={{ marginTop: 6 }}>{countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary}</p>
+          )}
+          {jurisdictionPlaybook && (
+            <div className="hvm-ledger-table" role="table" style={{ marginTop: 10 }}>
+              {jurisdictionPlaybook.difficulty && <div role="row"><strong>Entry difficulty</strong><span>{jurisdictionPlaybook.difficulty}</span></div>}
+              {jurisdictionPlaybook.typical_timeline_months && <div role="row"><strong>Timeline</strong><span>{jurisdictionPlaybook.typical_timeline_months} months</span></div>}
+              {jurisdictionPlaybook.estimated_cost_range && <div role="row"><strong>Est. cost</strong><span>{jurisdictionPlaybook.estimated_cost_range}</span></div>}
+            </div>
+          )}
+          <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Get compliance support →</Link>
+        </div>
+      )}
 
       {regionContext && (
         <MobileAccordion title={`${regionContext.name} compliance context`} defaultOpen>
@@ -3048,7 +3084,7 @@ export default function MobileCommandCentre({
       case 'genetics':
         return <GeneticsMobile cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'compliance':
-        return <ComplianceMobile country={country} />
+        return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'countries':
         return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
