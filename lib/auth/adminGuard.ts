@@ -117,7 +117,7 @@ async function resolveAccessToken() {
 
   const chunksByPrefix = new Map<string, { index: number; value: string }[]>();
   for (const cookie of cookieEntries) {
-    const match = cookie.name.match(/^(.*)\.(\ d+)$/);
+    const match = cookie.name.match(/^(.*)\.( \d+)$/);
     if (!match) continue;
     const [, prefix, index] = match;
     if (!chunksByPrefix.has(prefix)) chunksByPrefix.set(prefix, []);
