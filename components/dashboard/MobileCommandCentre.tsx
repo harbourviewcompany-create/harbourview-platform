@@ -2459,6 +2459,13 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
 
 // ── Countries directory mobile page ───────────────────────────────────────────
 
+function flagEmoji(iso2: string): string {
+  if (!iso2 || iso2.length !== 2) return '🌐'
+  const base = 0x1F1E6 - 65
+  const chars = iso2.toUpperCase().split('').map(c => String.fromCodePoint(base + c.charCodeAt(0)))
+  return chars.join('')
+}
+
 function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: DashboardSignal[]; onCountrySelect: (iso2: string) => void }) {
   const [search, setSearch] = useState('')
 
@@ -2576,15 +2583,12 @@ function countryToComplianceSlug(region?: string, subregion?: string): string {
   return 'europe'
 }
 
-function ComplianceMobile({ country, countryIntel }: { country: CountryOption; countryIntel?: CountryIntelProfile | null }) {
+function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
   const fullCountry = useMemo(() => ALL_COUNTRIES.find(c => c.iso2 === country.iso2), [country.iso2])
-
   const regionContext = useMemo(() => {
     const slug = countryToComplianceSlug(fullCountry?.region, fullCountry?.subregion)
     return complianceRegions.find(r => r.slug === slug) ?? null
   }, [fullCountry])
-
-function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -2812,145 +2816,6 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
   )
 }
 
-// ── Genetics Mobile ───────────────────────────────────────────────────────────
-
-type GeneticsTab = 'passports' | 'services' | 'projects'
-
-function GeneticsMobile({ cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: {
-  cultivarPassports?: PublicCultivarPassportDTO[]
-  serviceProviders?: PublicServiceProvider[]
-  collaborationProjects?: PublicCollaborationProject[]
-}) {
-  const [tab, setTab] = useState<GeneticsTab>('passports')
-  const tabs = [
-    { id: 'passports' as GeneticsTab, label: 'Passports', count: cultivarPassports.length },
-    { id: 'services'  as GeneticsTab, label: 'Services',  count: serviceProviders.length },
-    { id: 'projects'  as GeneticsTab, label: 'Collab',    count: collaborationProjects.length },
-  ]
-  return (
-    <div className="hvm-page-stack">
-      <div className="hvm-hero-card compact">
-        <p className="hvm-kicker">Genetics Intelligence</p>
-        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>Cultivar Passports &amp; Services</strong>
-        <p>Public cultivar data, verified genetics service providers, and open collaboration projects. IP and licensing controls apply — full evidence requires an access request.</p>
-      </div>
-      <div className="hvm-scroll-tabs" style={{ borderBottom:'1px solid rgba(255,255,255,.08)', marginBottom:4 }}>
-        {tabs.map(t => (
-          <button key={t.id} type="button" className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
-            {t.label}{t.count > 0 ? <span className="hvm-tab-count">{t.count}</span> : null}
-          </button>
-        ))}
-      </div>
-      {tab === 'passports' && (
-        cultivarPassports.length === 0 ? (
-          <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
-            <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No public cultivar passports yet. Passports publish once source-backed review is complete.</p>
-          </div>
-        ) : (
-          <div className="hvm-list-stack">
-            {cultivarPassports.map(p => (
-              <div key={p.id} className="hvm-signal-card">
-                <p className="hvm-kicker">{p.cultivarCategory.replace(/_/g,' ')} · {p.claimStatus.replace(/_/g,' ')}</p>
-                <strong>{p.displayName}</strong>
-                <small>{p.publicSummary}</small>
-                {p.countryOpportunitiesPublic.length > 0 && (
-                  <small style={{ color:'#d4a84b' }}>{p.countryOpportunitiesPublic.length} country {p.countryOpportunitiesPublic.length === 1 ? 'opportunity' : 'opportunities'}</small>
-                )}
-                <div style={{ marginTop:10 }}>
-                  <Link href={`/genetics/cultivars/${p.slug}`} className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>View passport →</Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      )}
-      {tab === 'services' && (
-        serviceProviders.length === 0 ? (
-          <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
-            <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No verified service providers listed yet.</p>
-          </div>
-        ) : (
-          <div className="hvm-list-stack">
-            {serviceProviders.map(sp => (
-              <div key={sp.id} className="hvm-signal-card">
-                <p className="hvm-kicker">{sp.service_category.replace(/_/g,' ')} · {sp.verification_level.replace(/_/g,' ')}{sp.country_code ? ` · ${sp.country_code}` : ''}</p>
-                <strong>{sp.displayName}</strong>
-                <small>{sp.service_summary}</small>
-                <div style={{ marginTop:10 }}>
-                  <Link href="/contact" className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>Request verification →</Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      )}
-      {tab === 'projects' && (
-        collaborationProjects.length === 0 ? (
-          <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
-            <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No open collaboration projects at this time.</p>
-          </div>
-        ) : (
-          <div className="hvm-list-stack">
-            {collaborationProjects.map(cp => (
-              <div key={cp.id} className="hvm-signal-card">
-                <p className="hvm-kicker">{cp.projectType.replace(/_/g,' ')} · {cp.status.replace(/_/g,' ')}{cp.countryCode ? ` · ${cp.countryCode}` : ''}</p>
-                <strong>{cp.title}</strong>
-                <small>{cp.publicSummary}</small>
-                <div style={{ marginTop:10 }}>
-                  <Link href="/contact" className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>{cp.cta} →</Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      )}
-      <div className="hvm-card">
-        <p className="hvm-kicker">Access &amp; Licensing</p>
-        <strong>IP &amp; PVP Controls Apply</strong>
-        <p>Cultivar passports are public-safe summaries only. Full evidence, commercial terms, and variety registration data require a formal access request via Harbourview.</p>
-        <div style={{ marginTop:12 }}>
-          <Link href="/genetics" className="hvm-sub-btn">Genetics hub →</Link>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Compliance Mobile ─────────────────────────────────────────────────────────
-
-function ComplianceMobile({ country }: { country: { iso2: string; label: string } }) {
-  return (
-    <div className="hvm-page-stack">
-      <div className="hvm-hero-card compact">
-        <p className="hvm-kicker">Global Compliance Intelligence</p>
-        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>Compliance Frameworks</strong>
-        <p>Regional frameworks, documentation controls, and commercial pathway summaries for regulated cannabis markets. Specialist review required before commercial reliance.</p>
-      </div>
-      <div className="hvm-list-stack">
-        {complianceRegions.map(region => (
-          <div key={region.slug} className="hvm-signal-card">
-            <p className="hvm-kicker">Compliance Region</p>
-            <strong>{region.name}</strong>
-            <small>{region.summary}</small>
-            <p style={{ fontSize:13, color:'rgba(245,240,232,.5)', margin:'6px 0 0', lineHeight:1.5 }}>{region.commercialFocus}</p>
-            <div style={{ marginTop:10 }}>
-              <Link href="/contact" className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>Request compliance review →</Link>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="hvm-card">
-        <p className="hvm-kicker">Current Jurisdiction</p>
-        <strong>{country.label}</strong>
-        <p>Compliance data for this jurisdiction is subject to source review. Contact Harbourview for a specialist-reviewed access pathway.</p>
-        <div style={{ marginTop:12 }}>
-          <Link href="/contact" className="hvm-sub-btn">Get compliance support →</Link>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Countries Directory Mobile ────────────────────────────────────────────────
 
 function CountriesMobile({ signals, onCountrySelect }: {
@@ -2981,13 +2846,6 @@ function CountriesMobile({ signals, onCountrySelect }: {
     }
     return map
   }, [filtered])
-
-  function flagEmoji(iso2: string): string {
-    if (!iso2 || iso2.length !== 2) return '🌐'
-    const base = 0x1F1E6 - 65
-    const chars = iso2.toUpperCase().split('').map(c => String.fromCodePoint(base + c.charCodeAt(0)))
-    return chars.join('')
-  }
 
   return (
     <div className="hvm-page-stack">
@@ -3148,7 +3006,7 @@ export default function MobileCommandCentre({
           />
         )
       case 'genetics':
-        return <GeneticsMobile cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+        return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'compliance':
         return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'countries':
