@@ -1,0 +1,42 @@
+{
+  "color": {
+    "primary": {
+      "value": "#0A2540",
+      "type": "color"
+    },
+    "secondary": {
+      "value": "#F4F4F5",
+      "type": "color"
+    },
+    "success": {
+      "value": "#16A34A",
+      "type": "color"
+    },
+    "warning": {
+      "value": "#CA8A04",
+      "type": "color"
+    },
+    "destructive": {
+      "value": "#DC2626",
+      "type": "color"
+    },
+    "muted": {
+      "value": "#F4F4F5",
+      "type": "color"
+    }
+  },
+  "radius": {
+    "sm": {
+      "value": "0.375rem",
+      "type": "dimension"
+    },
+    "md": {
+      "value": "0.5rem",
+      "type": "dimension"
+    },
+    "lg": {
+      "value": "0.75rem",
+      "type": "dimension"
+    }
+  }
+}
