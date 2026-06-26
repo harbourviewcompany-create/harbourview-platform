@@ -2361,24 +2361,41 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {displayPassports.map(p => (
-              <div className="hvm-signal-card hvm-signal-card--rich" key={p.id}>
-                <div className="hvm-sig-head">
-                  <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>CULTIVAR</span>
-                  {p.countryOpportunitiesPublic?.length > 0 && (
-                    <span className="hvm-sig-market">{p.countryOpportunitiesPublic.length} opportunities</span>
+            {displayPassports.map(p => {
+              const countryOpps = isGlobal ? [] : p.countryOpportunitiesPublic.filter(o => o.countryCode === country.iso2)
+              return (
+                <div className="hvm-signal-card hvm-signal-card--rich" key={p.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>CULTIVAR</span>
+                    {isGlobal && p.countryOpportunitiesPublic?.length > 0 && (
+                      <span className="hvm-sig-market">{p.countryOpportunitiesPublic.length} opportunities</span>
+                    )}
+                    {!isGlobal && countryOpps.length > 0 && (
+                      <span className="hvm-sig-market" style={{ color: '#4caf82' }}>{countryOpps.length} {country.label} opp{countryOpps.length > 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  <div className="hvm-sig-title">⊕ {p.displayName}</div>
+                  <p className="hvm-signal-impact">{p.publicSummary}</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{p.cultivarCategory.replace(/_/g, ' ')}</span>
+                    {p.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{p.cannabisCategory.replace(/_/g, ' ')}</span>}
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{p.claimStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                  {countryOpps.map((opp, i) => (
+                    <div key={i} style={{ marginTop: 8, padding: '6px 8px', background: 'rgba(76,175,130,.08)', borderRadius: 4, borderLeft: '2px solid rgba(76,175,130,.4)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf82' }}>{opp.opportunityType.replace(/_/g, ' ')}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(245,240,232,.6)', marginTop: 2 }}>{opp.status}</div>
+                      {opp.publicNote && <div style={{ fontSize: 11, color: 'rgba(245,240,232,.5)', marginTop: 3, lineHeight: 1.4 }}>{opp.publicNote}</div>}
+                    </div>
+                  ))}
+                  {countryOpps.length > 0 ? (
+                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>{countryOpps[0].cta} →</Link>
+                  ) : (
+                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
                   )}
                 </div>
-                <div className="hvm-sig-title">⊕ {p.displayName}</div>
-                <p className="hvm-signal-impact">{p.publicSummary}</p>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                  <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{p.cultivarCategory.replace(/_/g, ' ')}</span>
-                  {p.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{p.cannabisCategory.replace(/_/g, ' ')}</span>}
-                  <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{p.claimStatus.replace(/_/g, ' ')}</span>
-                </div>
-                <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )
       )}
@@ -2519,6 +2536,11 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
                         {sigCount > 0 && <span style={{ color: '#d4a84b', marginLeft: 6 }}>· {sigCount} signal{sigCount > 1 ? 's' : ''}</span>}
                       </div>
                     </div>
+                    <Link
+                      href={`/countries/${c.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
+                      style={{ fontSize: 11, color: '#d4a84b', fontWeight: 600, textDecoration: 'none', flexShrink: 0, padding: '4px 8px', background: 'rgba(212,168,75,.1)', borderRadius: 4 }}
+                      onClick={e => e.stopPropagation()}
+                    >Profile</Link>
                     {sigCount > 0 && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#d4a84b', flexShrink: 0 }} />}
                   </div>
                 )
@@ -2599,7 +2621,51 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
               {jurisdictionPlaybook.estimated_cost_range && <div role="row"><strong>Est. cost</strong><span>{jurisdictionPlaybook.estimated_cost_range}</span></div>}
             </div>
           )}
+          {([
+            { label: 'Program status', value: countryIntel.briefing_program_status },
+            { label: 'Market dynamics', value: countryIntel.briefing_market_dynamics },
+            { label: 'Patient access', value: countryIntel.briefing_patient_access },
+            { label: 'Physician access', value: countryIntel.briefing_physician_access },
+          ] as { label: string; value: string | null | undefined }[]).filter(f => f.value).map(f => (
+            <div key={f.label} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(245,240,232,.38)', letterSpacing: '.08em', marginBottom: 3 }}>{f.label.toUpperCase()}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.72)', lineHeight: 1.5 }}>{f.value}</div>
+            </div>
+          ))}
           <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Get compliance support →</Link>
+        </div>
+      )}
+      {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">MARKET ENTRY STEPS</div>
+          {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
+            <div key={s.step} style={{ marginTop: s.step === 1 ? 4 : 10, paddingTop: s.step === 1 ? 0 : 10, borderTop: s.step === 1 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {s.step}: {s.title}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{s.description}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">KEY REGULATORS</div>
+          {jurisdictionPlaybook.key_regulators.map((r, i) => (
+            <div key={r.name} style={{ marginTop: i === 0 ? 4 : 8, paddingTop: i === 0 ? 0 : 8, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{r.name}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', marginTop: 2 }}>{r.role}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {jurisdictionPlaybook?.common_pitfalls && jurisdictionPlaybook.common_pitfalls.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(229,115,115,.2)' }}>
+          <div className="hvm-kicker" style={{ color: 'rgba(229,115,115,.7)' }}>COMMON PITFALLS</div>
+          {jurisdictionPlaybook.common_pitfalls.map((pitfall, i) => (
+            <div key={i} style={{ marginTop: i === 0 ? 6 : 8, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <span style={{ color: 'rgba(229,115,115,.7)', flexShrink: 0, fontSize: 12, marginTop: 1 }}>⚠</span>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.65)', lineHeight: 1.5 }}>{pitfall}</div>
+            </div>
+          ))}
         </div>
       )}
 
