@@ -7,6 +7,7 @@ export type NetworkAdminReviewStatus =
   | 'needs_clarification'
   | 'approved_public_summary'
   | 'rejected'
+  | 'archived'
 
 export type NetworkAdminReviewItem = {
   id: string
