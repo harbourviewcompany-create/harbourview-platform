@@ -35,7 +35,7 @@ type PublicCollaborationProject = {
   cta: string
 }
 
-type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'countries'
+type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
 
 type Props = {
   signals: DashboardSignal[]
@@ -88,6 +88,7 @@ const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'signals',     label: 'Intelligence',   icon: '≋' },
   { id: 'education',   label: 'Education',      icon: '⬡' },
   { id: 'genetics',    label: 'Genetics',       icon: '⊕' },
+  { id: 'compliance',  label: 'Compliance',     icon: '◫' },
   { id: 'countries',   label: 'Countries',      icon: '⊗' },
 ]
 
@@ -2755,6 +2756,8 @@ export default function MobileCommandCentre({
             collaborationProjects={collaborationProjects}
           />
         )
+      case 'compliance':
+        return <ComplianceMobile country={country} />
       case 'countries':
         return (
           <CountriesDirectoryMobile
@@ -3146,8 +3149,12 @@ const MOBILE_CSS = `
   right: 0;
   bottom: 0;
   z-index: 25;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   gap: 0;
   width: 100%;
   max-width: 100%;
@@ -3156,7 +3163,10 @@ const MOBILE_CSS = `
   border-top: 1px solid rgba(255,255,255,.1);
   backdrop-filter: blur(16px);
 }
+.hvm-bottom-nav::-webkit-scrollbar { display: none; }
 .hvm-bottom-nav button {
+  flex: 0 0 auto;
+  min-width: 64px;
   min-height: 62px;
   border: 0;
   border-radius: 14px;
