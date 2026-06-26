@@ -187,41 +187,52 @@ export type CountryIntelProfile = {
   briefing_last_reviewed?: string | null
 }
 
+const _INTEL_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+const _INTEL_SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
   if (!iso2) return null
+  const safeIso2 = iso2.trim().toUpperCase().replace(/[^A-Z]/g, '')
+  if (safeIso2.length < 2) return null
+  if (!_INTEL_SUPABASE_URL || !_INTEL_SUPABASE_KEY) return null
+
+  const hdr = {
+    apikey: _INTEL_SUPABASE_KEY,
+    Authorization: `Bearer ${_INTEL_SUPABASE_KEY}`,
+    Accept: 'application/json',
+  }
+
   try {
-    const supabase = await createClient()
+    // All three queries run in parallel — direct REST so this works for both
+    // authenticated and unauthenticated callers (bypasses the cookie-session client).
+    const [cdRes, ciRes, jbRes] = await Promise.all([
+      fetch(
+        `${_INTEL_SUPABASE_URL}/rest/v1/countries?select=country_name,iso_alpha2,region,subregion,market_access_status,medical_status,adult_use_status,import_status,export_status,signals_status,opportunity_score,data_completeness,public_summary,trade_roles,opportunity_categories,regulator_label,last_updated_label&iso_alpha2=eq.${safeIso2}&limit=1`,
+        { headers: hdr },
+      ),
+      fetch(
+        `${_INTEL_SUPABASE_URL}/rest/v1/country_intel?select=commercial_pathway_summary,review_status,regulatory_tier&country_code=eq.${safeIso2}&review_status=eq.active&limit=1`,
+        { headers: hdr },
+      ),
+      fetch(
+        `${_INTEL_SUPABASE_URL}/rest/v1/cc_jurisdiction_briefings?select=program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,last_reviewed_date&country_iso2=eq.${safeIso2}&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1`,
+        { headers: hdr },
+      ),
+    ])
 
-    // Primary source: countries table (status fields, scores, completeness)
-    const { data: cd } = await supabase
-      .from('countries')
-      .select(
-        'country_name, iso_alpha2, region, subregion, market_access_status, medical_status, adult_use_status, import_status, export_status, signals_status, opportunity_score, data_completeness, public_summary, trade_roles, opportunity_categories, regulator_label, last_updated_label',
-      )
-      .eq('iso_alpha2', iso2.toUpperCase())
-      .single()
-
+    if (!cdRes.ok) return null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cdRows: any[] = await cdRes.json()
+    const cd = cdRows[0]
     if (!cd) return null
 
-    // Secondary: country_intel for richer narrative content (optional)
-    const { data: ci } = await supabase
-      .from('country_intel')
-      .select('commercial_pathway_summary, review_status, regulatory_tier')
-      .eq('country_code', iso2.toUpperCase())
-      .eq('review_status', 'active')
-      .maybeSingle()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ciRows: any[] = ciRes.ok ? await ciRes.json() : []
+    const ci = ciRows[0] ?? null
 
-    // Tertiary: cc_jurisdiction_briefings — rich market intelligence content
-    // Filter to jurisdiction_type='country' so subnational rows (e.g. Bavaria) never shadow
-    // the country-level briefing for multi-state countries like Germany or the US.
-    const { data: jbRows } = await supabase
-      .from('cc_jurisdiction_briefings')
-      .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
-      .eq('country_iso2', iso2.toUpperCase())
-      .eq('jurisdiction_type', 'country')
-      .order('last_reviewed_date', { ascending: false })
-      .limit(1)
-    const jb = jbRows?.[0] ?? null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const jbRows: any[] = jbRes.ok ? await jbRes.json() : []
+    const jb = jbRows[0] ?? null
 
     return {
       country_code:               cd.iso_alpha2,
