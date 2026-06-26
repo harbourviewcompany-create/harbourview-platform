@@ -28,7 +28,7 @@ import crypto from 'node:crypto'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 min — Vercel Pro
 
-const BATCH_SIZE = 10
+const BATCH_SIZE = 50
 
 // Canonical Harbourview workspace — matches the default param in
 // public.hv_search_artifacts() and every existing hv_artifacts row.
@@ -363,6 +363,24 @@ export async function GET(request: Request) {
         continue
       }
 
+      // Dedup: skip if an artifact with this content hash already exists
+      const contentHash = crypto.createHash('sha256').update(rawText).digest('hex')
+      const { data: existingArtifact } = await supabase
+        .from('hv_artifacts')
+        .select('id')
+        .eq('content_hash', contentHash)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingArtifact) {
+        await supabase
+          .from('source_snapshots')
+          .update({ processing_status: 'extraction_complete' })
+          .eq('id', snap.id)
+        snapSkipped++
+        continue
+      }
+
       try {
         const record = await processor.processContent(snap.source_id, countryIso, rawText)
 
@@ -408,6 +426,27 @@ export async function GET(request: Request) {
     }
   }
 
+  // ── Dead letter: requeue failed snapshots older than 1 h ────────────────────
+  // Snapshots stuck in extraction_failed for >1 h are eligible for a retry.
+  // We only requeue (not re-extract) here — the next cron invocation picks them up.
+  const stale1h = new Date(Date.now() - 3_600_000).toISOString()
+  const { data: dlRows } = await supabase
+    .from('source_snapshots')
+    .select('id')
+    .eq('processing_status', 'extraction_failed')
+    .lt('captured_at', stale1h)
+    .not('captured_text', 'is', null)
+    .limit(10)
+
+  let requeued = 0
+  if (dlRows?.length) {
+    const { error: requeueErr } = await supabase
+      .from('source_snapshots')
+      .update({ processing_status: 'pending_extraction' })
+      .in('id', dlRows.map((r: { id: string }) => r.id))
+    if (!requeueErr) requeued = dlRows.length
+  }
+
   const summary = {
     ok: true,
     // hv_import_staging pipeline
@@ -417,6 +456,8 @@ export async function GET(request: Request) {
     snapshots_extracted: snapExtracted,
     snapshots_failed:    snapFailed,
     snapshots_skipped:   snapSkipped,
+    // dead letter
+    dead_letter_requeued: requeued,
   }
   console.info('intelligence_extract_cron: run complete', summary)
   return NextResponse.json(summary)
