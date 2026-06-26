@@ -2,6 +2,9 @@ import { defineConfig, defaultExclude } from 'vitest/config'
 import path from 'path'
 
 export default defineConfig({
+  esbuild: {
+    jsx: 'automatic',
+  },
   test: {
     environment: 'node',
     globals: false,
