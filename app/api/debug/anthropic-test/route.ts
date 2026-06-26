@@ -1,5 +1,5 @@
 // app/api/debug/anthropic-test/route.ts
-// TEMPORARY diagnostic route — single trivial call to Anthropic to verify
+// TEMPORARY diagnostic route (redeploy trigger v2) — single trivial call to Anthropic to verify
 // ANTHROPIC_API_KEY validity without running the full scrape engine.
 // Gated by CRON_SECRET. DELETE after verification.
 
