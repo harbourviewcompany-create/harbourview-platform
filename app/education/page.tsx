@@ -6,6 +6,8 @@ import { hubPages } from '@/lib/institutional/content'
 import { EDUCATION_ROLE_LABELS } from '@/lib/education/country-role'
 import { getEducationTracks } from '@/lib/server/educationModulesQuery'
 
+export const dynamic = 'force-dynamic'
+
 export const revalidate = 3600
 
 export const metadata: Metadata = {

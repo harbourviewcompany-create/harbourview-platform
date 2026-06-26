@@ -206,15 +206,30 @@ export async function fetchDashboardSignals(
   // 2. Curated public.signals — 165+ reviewed rows across 30+ countries,
   //    the output of the global regulatory ingestion + analyst review pass.
   //    This is what powers the "Mexico Importer Signals" etc. country pages.
+  //    Tries service-role client first (bypasses RLS); falls back to anon client.
   try {
-    const { createClient } = await import('@/lib/supabase/server')
-    const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('signals')
-      .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
-      .eq('reviewed', true)
-      .order('score', { ascending: false })
-      .limit(200)
+    const signalQuery = async () => {
+      try {
+        const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
+        const svc = await createSupabaseServiceClient()
+        return svc
+          .from('signals')
+          .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+          .eq('reviewed', true)
+          .order('score', { ascending: false })
+          .limit(200)
+      } catch {
+        const { createClient } = await import('@/lib/supabase/server')
+        const anon = await createClient()
+        return anon
+          .from('signals')
+          .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+          .eq('reviewed', true)
+          .order('score', { ascending: false })
+          .limit(200)
+      }
+    }
+    const { data, error } = await signalQuery()
 
     if (!error && data && data.length > 0) {
       const all = data as CuratedSignalRow[]

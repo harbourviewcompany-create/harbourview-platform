@@ -24,6 +24,8 @@
     "test:signal-engine-runtime": "vitest run tests/llm/providers.test.ts tests/llm/rateLimit.test.ts tests/llm/validation.test.ts",
     "test:used-surplus-public-leakage": "vitest run tests/marketplace/publicProjection.test.ts",
     "test:admin-guard": "vitest run tests/harbourview/public-route-smoke.test.ts",
+    "test:genetics-routing": "vitest run tests/genetics/geneticsRouting.test.ts tests/genetics/accessGrants.test.ts",
+    "test:genetics-profile-redaction": "vitest run tests/genetics/cultivarPassportNetwork.test.tsx",
     "smoke:marketplace": "vitest run tests/harbourview/marketplace-capture-route.test.ts",
     "smoke:marketplace:browser": "vitest run tests/harbourview/marketplace-capture-route.test.ts",
     "smoke:marketplace:rls": "vitest run tests/marketplace/seedImportSchema.test.ts tests/marketplace/publicProjection.test.ts",
@@ -59,7 +61,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.184.1",
-    "autoprefixer": "^10.5.1",
+    "autoprefixer": "^10.5.2",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.3.1",
     "postcss": "^8.5.15",
@@ -67,6 +69,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "vitest": "^2.0.0",
-    "wrangler": "^4.104.0"
+    "wrangler": "^4.105.0"
   }
 }

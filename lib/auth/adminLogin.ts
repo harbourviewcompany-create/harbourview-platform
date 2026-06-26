@@ -51,7 +51,7 @@ function resolveSupabaseApiKey() {
 }
 
 function sanitizeSupabaseErrorText(text: string) {
-  return text.replace(/("(?:access_token|refresh_token|password|apikey|api_key|token)"\s*:\s*")[^"]+/gi, '$1[redacted]');
+  return text.replace(/("(?:access_token|refresh_token|password|apikey|api_key|token)"\s*:\s*")[^"]*/gi, '$1[redacted]');
 }
 
 function logAdminLoginFailure(event: string, details: Record<string, unknown>) {

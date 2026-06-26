@@ -8,6 +8,8 @@ import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 import { fetchDashboardSignals } from '@/lib/dashboard/dashboardServerData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
+export const dynamic = 'force-dynamic'
+
 type Props = { params: Promise<{ country: string }> }
 
 type SignalCategory = { icon: string; label: string; description: string; available: boolean; cadence: string }

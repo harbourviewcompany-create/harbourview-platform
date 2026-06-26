@@ -1,5 +1,7 @@
 import { getInternalCultivarPassports } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
+
 export default async function GeneticsEvidenceDashboardPage() {
   const passports = await getInternalCultivarPassports()
   const evidence = passports.flatMap((passport) => passport.privateEvidenceMetadata.map((item) => ({ ...item, cultivar: passport.displayName })))

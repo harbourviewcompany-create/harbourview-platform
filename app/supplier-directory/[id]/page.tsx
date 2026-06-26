@@ -32,8 +32,6 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
     notFound()
   }
 
-  const regionLabel = supplier.regions_served?.map(r => REGION_LABELS[r] ?? r).join(', ') ?? '—'
-
   return (
     <main style={{ minHeight: '100vh', background: '#050c18', color: '#f5f0e8' }}>
       <div className="max-w-4xl mx-auto px-6 py-16">

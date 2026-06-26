@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPublicCultivarPassports } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Public Cultivar Passports | Harbourview' }
 
 export default async function CultivarListPage() {
