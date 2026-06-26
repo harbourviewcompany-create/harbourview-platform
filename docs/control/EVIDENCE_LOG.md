@@ -1,7 +1,7 @@
 # Harbourview Evidence Log
 
 Last updated: 2026-06-25
-Status: Gate 4 full test-suite baseline recorded; Gate 4 → GO
+Status: Gate 4 full test-suite baseline recorded (tooling gap closed); Gate 4 → GO
 Authority: Canonical evidence log for Harbourview finish-line execution
 
 ## Purpose
@@ -44,7 +44,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 |---|---|---|---|---|---|
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
-| 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 14 test scripts PASS (240 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; 2 scripts missing (tooling gap, not failure) — see Gate 4 detail | Branch `claude/gate-4-verification-baseline` | **Current — Gate 4 GO** |
+| 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
 
 ### Gate 4 Detailed Evidence — 2026-06-25
 
@@ -77,14 +77,14 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | `npm run test:country-role` | PASS | 14 |
 | `npm run test:compliance-visibility` | PASS | 16 |
 | `npm run test:signal-engine-runtime` | PASS | 22 |
-| `npm run test:genetics-profile-redaction` | TOOLING GAP | script missing from `package.json` |
-| `npm run test:genetics-routing` | TOOLING GAP | script missing from `package.json` |
+| `npm run test:genetics-profile-redaction` | PASS | 9 |
+| `npm run test:genetics-routing` | PASS | 18 |
 
-**Total assertions (available scripts):** 240 passed, 0 failed.
+**Total assertions (all scripts):** 267 passed, 0 failed.
 
-**Tooling gap:** `test:genetics-profile-redaction` and `test:genetics-routing` have no entry in `package.json`. These must be created or formally removed from the Gate 4 required list in a follow-up PR. Their absence is a gap, not a test failure — no assertion failures exist.
+**Tooling gap:** CLOSED — `test:genetics-profile-redaction` (9 assertions) and `test:genetics-routing` (18 assertions) added to `package.json` in PR #857 (merged 2026-06-25). `vitest.config.ts` updated to exclude `.claude/**` worktree copies. All 19 Gate 4 commands now pass.
 
-**GO decision:** Gate 4 → **GO**. All available commands pass cleanly. The tooling gap is a follow-up item only and does not block Gate 4 closure.
+**GO decision:** Gate 4 → **GO**. All 19 commands pass cleanly. Tooling gap fully closed.
 
 ## MP-SCHEMA-001 Verification Follow-up
 
