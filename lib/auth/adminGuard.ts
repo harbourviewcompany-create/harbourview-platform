@@ -154,7 +154,6 @@ async function fetchSupabaseJson<T>({
       apikey: apiKey,
       Authorization: `Bearer ${bearer}`,
       'Content-Type': 'application/json',
-      'Accept-Profile': 'public',
     },
     cache: 'no-store',
   });

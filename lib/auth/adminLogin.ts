@@ -103,7 +103,6 @@ async function readRolesFromUserRoles(userId: string, accessToken: string): Prom
   const rows = await fetchSupabaseJson<RoleRow[]>({
     path: `/rest/v1/user_roles?user_id=eq.${encodeURIComponent(userId)}&select=role`,
     accessToken,
-    init: { headers: { 'Accept-Profile': 'public' } },
   });
 
   return Array.isArray(rows)
