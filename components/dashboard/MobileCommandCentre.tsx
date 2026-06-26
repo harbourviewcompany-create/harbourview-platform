@@ -10,32 +10,19 @@ import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
-import { flagEmoji } from '@/lib/utils/flagEmoji'
-
-type PublicServiceProvider = {
-  id: string
-  displayName: string
-  service_category: string
-  service_summary: string
-  country_code: string | null
-  jurisdiction_label: string | null
-  verification_level: string
-}
-
-type PublicCollaborationProject = {
-  id: string
-  slug: string
-  title: string
-  projectType: string
-  status: string
-  countryCode: string | null
-  jurisdictionLabel: string | null
-  publicSummary: string
-  evidenceNeeded: string | null
-  cta: string
-}
 
 type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
+
+type PublicServiceProvider = {
+  id: string; displayName: string; service_category: string
+  service_summary: string; country_code: string | null
+  jurisdiction_label: string | null; verification_level: string
+}
+type PublicCollaborationProject = {
+  id: string; slug: string; title: string; projectType: string
+  status: string; countryCode: string | null; jurisdictionLabel: string | null
+  publicSummary: string; evidenceNeeded: string | null; cta: string
+}
 
 type Props = {
   signals: DashboardSignal[]
@@ -83,13 +70,13 @@ type MobileMarketCard = {
 const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
-  { id: 'briefing',    label: 'Briefing',      icon: '◎' },
-  { id: 'marketplace', label: 'Market',         icon: '⊞' },
-  { id: 'signals',     label: 'Intelligence',   icon: '≋' },
-  { id: 'education',   label: 'Education',      icon: '⬡' },
-  { id: 'genetics',    label: 'Genetics',       icon: '⊕' },
-  { id: 'compliance',  label: 'Compliance',     icon: '◫' },
-  { id: 'countries',   label: 'Countries',      icon: '⊗' },
+  { id: 'briefing',    label: 'Briefing',    icon: '◎' },
+  { id: 'marketplace', label: 'Market',      icon: '⊞' },
+  { id: 'signals',     label: 'Intel',       icon: '≋' },
+  { id: 'education',   label: 'Education',   icon: '⬡' },
+  { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
+  { id: 'compliance',  label: 'Compliance',  icon: '◫' },
+  { id: 'countries',   label: 'Countries',   icon: '⊗' },
 ]
 
 
@@ -2328,9 +2315,17 @@ const GENETICS_TABS: { id: GeneticsTabM; label: string }[] = [
 function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: { country: CountryOption; cultivarPassports?: PublicCultivarPassportDTO[]; serviceProviders?: PublicServiceProvider[]; collaborationProjects?: PublicCollaborationProject[] }) {
   const [tab, setTab] = useState<GeneticsTabM>('passports')
 
+  const isGlobal = country.iso2 === 'GLOBAL'
+  const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
+  const displayPassports = filteredPassports.length > 0 ? filteredPassports : cultivarPassports
+  const filteredProviders = isGlobal ? serviceProviders : serviceProviders.filter(sp => sp.country_code === country.iso2)
+  const displayProviders = filteredProviders.length > 0 ? filteredProviders : serviceProviders
+  const filteredProjects = isGlobal ? collaborationProjects : collaborationProjects.filter(cp => cp.countryCode === country.iso2)
+  const displayProjects = filteredProjects.length > 0 ? filteredProjects : collaborationProjects
+
   const tabs = GENETICS_TABS.map(t => ({
     ...t,
-    count: t.id === 'passports' ? cultivarPassports.length : t.id === 'services' ? serviceProviders.length : collaborationProjects.length,
+    count: t.id === 'passports' ? displayPassports.length : t.id === 'services' ? displayProviders.length : displayProjects.length,
   }))
 
   return (
@@ -2338,13 +2333,13 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       <section className="hvm-hero-card compact">
         <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>GENETICS INTELLIGENCE</div>
         <h2>Cultivars &amp; Genetics</h2>
-        <p>{country.label} · Public cultivar passports, verified service providers, and open collaboration projects.</p>
+        <p>{country.label} · Public cultivar passports, verified service providers, and open collaboration projects{isGlobal ? '' : ` relevant to ${country.label}`}.</p>
       </section>
 
       <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-        <SectionCard label="Passports" title={String(cultivarPassports.length)} tone={cultivarPassports.length > 0 ? 'ok' : 'neutral'} />
-        <SectionCard label="Providers" title={String(serviceProviders.length)} />
-        <SectionCard label="Projects" title={String(collaborationProjects.length)} />
+        <SectionCard label="Passports" title={String(displayPassports.length)} tone={displayPassports.length > 0 ? 'ok' : 'neutral'} />
+        <SectionCard label="Providers" title={String(displayProviders.length)} />
+        <SectionCard label="Projects" title={String(displayProjects.length)} />
       </div>
 
       <div className="hvm-scroll-tabs" role="tablist" aria-label="Genetics tabs">
@@ -2356,7 +2351,7 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       </div>
 
       {tab === 'passports' && (
-        cultivarPassports.length === 0 ? (
+        displayPassports.length === 0 ? (
           <div className="hvm-empty-card">
             <strong>No public cultivar passports yet.</strong>
             <p>Passports publish when source-backed review is complete.</p>
@@ -2366,37 +2361,54 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {cultivarPassports.map(p => (
-              <div className="hvm-signal-card hvm-signal-card--rich" key={p.id}>
-                <div className="hvm-sig-head">
-                  <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>CULTIVAR</span>
-                  {p.countryOpportunitiesPublic?.length > 0 && (
-                    <span className="hvm-sig-market">{p.countryOpportunitiesPublic.length} opportunities</span>
+            {displayPassports.map(p => {
+              const countryOpps = isGlobal ? [] : p.countryOpportunitiesPublic.filter(o => o.countryCode === country.iso2)
+              return (
+                <div className="hvm-signal-card hvm-signal-card--rich" key={p.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>CULTIVAR</span>
+                    {isGlobal && p.countryOpportunitiesPublic?.length > 0 && (
+                      <span className="hvm-sig-market">{p.countryOpportunitiesPublic.length} opportunities</span>
+                    )}
+                    {!isGlobal && countryOpps.length > 0 && (
+                      <span className="hvm-sig-market" style={{ color: '#4caf82' }}>{countryOpps.length} {country.label} opp{countryOpps.length > 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  <div className="hvm-sig-title">⊕ {p.displayName}</div>
+                  <p className="hvm-signal-impact">{p.publicSummary}</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{p.cultivarCategory.replace(/_/g, ' ')}</span>
+                    {p.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{p.cannabisCategory.replace(/_/g, ' ')}</span>}
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{p.claimStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                  {countryOpps.map((opp, i) => (
+                    <div key={i} style={{ marginTop: 8, padding: '6px 8px', background: 'rgba(76,175,130,.08)', borderRadius: 4, borderLeft: '2px solid rgba(76,175,130,.4)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf82' }}>{opp.opportunityType.replace(/_/g, ' ')}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(245,240,232,.6)', marginTop: 2 }}>{opp.status}</div>
+                      {opp.publicNote && <div style={{ fontSize: 11, color: 'rgba(245,240,232,.5)', marginTop: 3, lineHeight: 1.4 }}>{opp.publicNote}</div>}
+                    </div>
+                  ))}
+                  {countryOpps.length > 0 ? (
+                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>{countryOpps[0].cta} →</Link>
+                  ) : (
+                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
                   )}
                 </div>
-                <div className="hvm-sig-title">⊕ {p.displayName}</div>
-                <p className="hvm-signal-impact">{p.publicSummary}</p>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                  <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{p.cultivarCategory.replace(/_/g, ' ')}</span>
-                  {p.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{p.cannabisCategory.replace(/_/g, ' ')}</span>}
-                  <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{p.claimStatus.replace(/_/g, ' ')}</span>
-                </div>
-                <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )
       )}
 
       {tab === 'services' && (
-        serviceProviders.length === 0 ? (
+        displayProviders.length === 0 ? (
           <div className="hvm-empty-card">
             <strong>No verified service providers listed yet.</strong>
             <p>Providers are listed after Harbourview verification review.</p>
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {serviceProviders.map(sp => (
+            {displayProviders.map(sp => (
               <div className="hvm-signal-card hvm-signal-card--rich" key={sp.id}>
                 <div className="hvm-sig-title">◫ {sp.displayName}</div>
                 <p className="hvm-signal-impact">{sp.service_summary}</p>
@@ -2413,14 +2425,14 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
       )}
 
       {tab === 'projects' && (
-        collaborationProjects.length === 0 ? (
+        displayProjects.length === 0 ? (
           <div className="hvm-empty-card">
             <strong>No open collaboration projects at this time.</strong>
             <p>Check back as projects are added following source review.</p>
           </div>
         ) : (
           <div className="hvm-list-stack">
-            {collaborationProjects.map(cp => (
+            {displayProjects.map(cp => (
               <div className="hvm-signal-card hvm-signal-card--rich" key={cp.id}>
                 <div className="hvm-sig-title">⊗ {cp.title}</div>
                 <p className="hvm-signal-impact">{cp.publicSummary}</p>
@@ -2450,10 +2462,13 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
 function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: DashboardSignal[]; onCountrySelect: (iso2: string) => void }) {
   const [search, setSearch] = useState('')
 
-  const signalCountByMarket = useMemo(() => {
+  const signalCountByIso2 = useMemo(() => {
+    const nameToIso2 = new Map(ALL_COUNTRIES.map(c => [c.displayName.toLowerCase(), c.iso2]))
     const counts: Record<string, number> = {}
     for (const s of signals) {
-      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
+      if (!s.market) continue
+      const iso2 = nameToIso2.get(s.market.toLowerCase())
+      if (iso2) counts[iso2] = (counts[iso2] ?? 0) + 1
     }
     return counts
   }, [signals])
@@ -2473,7 +2488,7 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
     return map
   }, [filtered])
 
-  const withSignals = Object.keys(signalCountByMarket).length
+  const withSignals = Object.keys(signalCountByIso2).length
 
   return (
     <div className="hvm-page-stack">
@@ -2502,7 +2517,7 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
           <MobileAccordion key={region} title={`${region} (${countries.length})`} defaultOpen={countries.length <= 12}>
             <div className="hvm-list-stack">
               {countries.map(c => {
-                const sigCount = signalCountByMarket[c.displayName] ?? 0
+                const sigCount = signalCountByIso2[c.iso2] ?? 0
                 return (
                   <div
                     className="hvm-signal-card hvm-signal-card--tap"
@@ -2521,6 +2536,11 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
                         {sigCount > 0 && <span style={{ color: '#d4a84b', marginLeft: 6 }}>· {sigCount} signal{sigCount > 1 ? 's' : ''}</span>}
                       </div>
                     </div>
+                    <Link
+                      href={`/countries/${c.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
+                      style={{ fontSize: 11, color: '#d4a84b', fontWeight: 600, textDecoration: 'none', flexShrink: 0, padding: '4px 8px', background: 'rgba(212,168,75,.1)', borderRadius: 4 }}
+                      onClick={e => e.stopPropagation()}
+                    >Profile</Link>
                     {sigCount > 0 && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#d4a84b', flexShrink: 0 }} />}
                   </div>
                 )
@@ -2564,6 +2584,7 @@ function ComplianceMobile({ country, countryIntel }: { country: CountryOption; c
     return complianceRegions.find(r => r.slug === slug) ?? null
   }, [fullCountry])
 
+function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -2572,13 +2593,81 @@ function ComplianceMobile({ country, countryIntel }: { country: CountryOption; c
         <p>Regulatory status, market access controls, and compliance framework for this jurisdiction.</p>
       </section>
 
-      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <SectionCard label="Import" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
-        <SectionCard label="Export" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
-        <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
-        <SectionCard label="Medical" title={fieldValue(countryIntel?.medical_status, 'Not available')} />
-        <SectionCard label="Adult use" title={fieldValue(countryIntel?.adult_use_status, 'Not applicable')} />
-      </div>
+      {countryIntel ? (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Opp. score" title={countryIntel.opportunity_score != null ? `${countryIntel.opportunity_score}/10` : '—'} tone={countryIntel.opportunity_score != null && countryIntel.opportunity_score >= 6 ? 'ok' : 'neutral'} />
+          <SectionCard label="Import" title={countryIntel.import_status ?? '—'} />
+          <SectionCard label="Export" title={countryIntel.export_status ?? '—'} />
+          <SectionCard label="Medical" title={countryIntel.medical_status ?? '—'} />
+        </div>
+      ) : (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Regions covered" title={String(complianceRegions.length)} tone="ok" />
+          <SectionCard label="Specialist review" title="Required" tone="warn" />
+        </div>
+      )}
+
+      {countryIntel && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">{country.label.toUpperCase()} — JURISDICTION STATUS</div>
+          <div className="hvm-sig-title">{countryIntel.briefing_regulatory_body ?? countryIntel.regulator_label ?? 'Regulatory Authority'}</div>
+          {(countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary) && (
+            <p className="hvm-signal-impact" style={{ marginTop: 6 }}>{countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary}</p>
+          )}
+          {jurisdictionPlaybook && (
+            <div className="hvm-ledger-table" role="table" style={{ marginTop: 10 }}>
+              {jurisdictionPlaybook.difficulty && <div role="row"><strong>Entry difficulty</strong><span>{jurisdictionPlaybook.difficulty}</span></div>}
+              {jurisdictionPlaybook.typical_timeline_months && <div role="row"><strong>Timeline</strong><span>{jurisdictionPlaybook.typical_timeline_months} months</span></div>}
+              {jurisdictionPlaybook.estimated_cost_range && <div role="row"><strong>Est. cost</strong><span>{jurisdictionPlaybook.estimated_cost_range}</span></div>}
+            </div>
+          )}
+          {([
+            { label: 'Program status', value: countryIntel.briefing_program_status },
+            { label: 'Market dynamics', value: countryIntel.briefing_market_dynamics },
+            { label: 'Patient access', value: countryIntel.briefing_patient_access },
+            { label: 'Physician access', value: countryIntel.briefing_physician_access },
+          ] as { label: string; value: string | null | undefined }[]).filter(f => f.value).map(f => (
+            <div key={f.label} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(245,240,232,.38)', letterSpacing: '.08em', marginBottom: 3 }}>{f.label.toUpperCase()}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.72)', lineHeight: 1.5 }}>{f.value}</div>
+            </div>
+          ))}
+          <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Get compliance support →</Link>
+        </div>
+      )}
+      {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">MARKET ENTRY STEPS</div>
+          {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
+            <div key={s.step} style={{ marginTop: s.step === 1 ? 4 : 10, paddingTop: s.step === 1 ? 0 : 10, borderTop: s.step === 1 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {s.step}: {s.title}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{s.description}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">KEY REGULATORS</div>
+          {jurisdictionPlaybook.key_regulators.map((r, i) => (
+            <div key={r.name} style={{ marginTop: i === 0 ? 4 : 8, paddingTop: i === 0 ? 0 : 8, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{r.name}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', marginTop: 2 }}>{r.role}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {jurisdictionPlaybook?.common_pitfalls && jurisdictionPlaybook.common_pitfalls.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(229,115,115,.2)' }}>
+          <div className="hvm-kicker" style={{ color: 'rgba(229,115,115,.7)' }}>COMMON PITFALLS</div>
+          {jurisdictionPlaybook.common_pitfalls.map((pitfall, i) => (
+            <div key={i} style={{ marginTop: i === 0 ? 6 : 8, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <span style={{ color: 'rgba(229,115,115,.7)', flexShrink: 0, fontSize: 12, marginTop: 1 }}>⚠</span>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.65)', lineHeight: 1.5 }}>{pitfall}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {regionContext && (
         <MobileAccordion title={`${regionContext.name} compliance context`} defaultOpen>
@@ -2723,6 +2812,249 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
   )
 }
 
+// ── Genetics Mobile ───────────────────────────────────────────────────────────
+
+type GeneticsTab = 'passports' | 'services' | 'projects'
+
+function GeneticsMobile({ cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: {
+  cultivarPassports?: PublicCultivarPassportDTO[]
+  serviceProviders?: PublicServiceProvider[]
+  collaborationProjects?: PublicCollaborationProject[]
+}) {
+  const [tab, setTab] = useState<GeneticsTab>('passports')
+  const tabs = [
+    { id: 'passports' as GeneticsTab, label: 'Passports', count: cultivarPassports.length },
+    { id: 'services'  as GeneticsTab, label: 'Services',  count: serviceProviders.length },
+    { id: 'projects'  as GeneticsTab, label: 'Collab',    count: collaborationProjects.length },
+  ]
+  return (
+    <div className="hvm-page-stack">
+      <div className="hvm-hero-card compact">
+        <p className="hvm-kicker">Genetics Intelligence</p>
+        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>Cultivar Passports &amp; Services</strong>
+        <p>Public cultivar data, verified genetics service providers, and open collaboration projects. IP and licensing controls apply — full evidence requires an access request.</p>
+      </div>
+      <div className="hvm-scroll-tabs" style={{ borderBottom:'1px solid rgba(255,255,255,.08)', marginBottom:4 }}>
+        {tabs.map(t => (
+          <button key={t.id} type="button" className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+            {t.label}{t.count > 0 ? <span className="hvm-tab-count">{t.count}</span> : null}
+          </button>
+        ))}
+      </div>
+      {tab === 'passports' && (
+        cultivarPassports.length === 0 ? (
+          <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
+            <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No public cultivar passports yet. Passports publish once source-backed review is complete.</p>
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {cultivarPassports.map(p => (
+              <div key={p.id} className="hvm-signal-card">
+                <p className="hvm-kicker">{p.cultivarCategory.replace(/_/g,' ')} · {p.claimStatus.replace(/_/g,' ')}</p>
+                <strong>{p.displayName}</strong>
+                <small>{p.publicSummary}</small>
+                {p.countryOpportunitiesPublic.length > 0 && (
+                  <small style={{ color:'#d4a84b' }}>{p.countryOpportunitiesPublic.length} country {p.countryOpportunitiesPublic.length === 1 ? 'opportunity' : 'opportunities'}</small>
+                )}
+                <div style={{ marginTop:10 }}>
+                  <Link href={`/genetics/cultivars/${p.slug}`} className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>View passport →</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+      {tab === 'services' && (
+        serviceProviders.length === 0 ? (
+          <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
+            <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No verified service providers listed yet.</p>
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {serviceProviders.map(sp => (
+              <div key={sp.id} className="hvm-signal-card">
+                <p className="hvm-kicker">{sp.service_category.replace(/_/g,' ')} · {sp.verification_level.replace(/_/g,' ')}{sp.country_code ? ` · ${sp.country_code}` : ''}</p>
+                <strong>{sp.displayName}</strong>
+                <small>{sp.service_summary}</small>
+                <div style={{ marginTop:10 }}>
+                  <Link href="/contact" className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>Request verification →</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+      {tab === 'projects' && (
+        collaborationProjects.length === 0 ? (
+          <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
+            <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No open collaboration projects at this time.</p>
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {collaborationProjects.map(cp => (
+              <div key={cp.id} className="hvm-signal-card">
+                <p className="hvm-kicker">{cp.projectType.replace(/_/g,' ')} · {cp.status.replace(/_/g,' ')}{cp.countryCode ? ` · ${cp.countryCode}` : ''}</p>
+                <strong>{cp.title}</strong>
+                <small>{cp.publicSummary}</small>
+                <div style={{ marginTop:10 }}>
+                  <Link href="/contact" className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>{cp.cta} →</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+      <div className="hvm-card">
+        <p className="hvm-kicker">Access &amp; Licensing</p>
+        <strong>IP &amp; PVP Controls Apply</strong>
+        <p>Cultivar passports are public-safe summaries only. Full evidence, commercial terms, and variety registration data require a formal access request via Harbourview.</p>
+        <div style={{ marginTop:12 }}>
+          <Link href="/genetics" className="hvm-sub-btn">Genetics hub →</Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Compliance Mobile ─────────────────────────────────────────────────────────
+
+function ComplianceMobile({ country }: { country: { iso2: string; label: string } }) {
+  return (
+    <div className="hvm-page-stack">
+      <div className="hvm-hero-card compact">
+        <p className="hvm-kicker">Global Compliance Intelligence</p>
+        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>Compliance Frameworks</strong>
+        <p>Regional frameworks, documentation controls, and commercial pathway summaries for regulated cannabis markets. Specialist review required before commercial reliance.</p>
+      </div>
+      <div className="hvm-list-stack">
+        {complianceRegions.map(region => (
+          <div key={region.slug} className="hvm-signal-card">
+            <p className="hvm-kicker">Compliance Region</p>
+            <strong>{region.name}</strong>
+            <small>{region.summary}</small>
+            <p style={{ fontSize:13, color:'rgba(245,240,232,.5)', margin:'6px 0 0', lineHeight:1.5 }}>{region.commercialFocus}</p>
+            <div style={{ marginTop:10 }}>
+              <Link href="/contact" className="hvm-sub-btn" style={{ display:'inline-block', width:'auto', padding:'7px 16px' }}>Request compliance review →</Link>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hvm-card">
+        <p className="hvm-kicker">Current Jurisdiction</p>
+        <strong>{country.label}</strong>
+        <p>Compliance data for this jurisdiction is subject to source review. Contact Harbourview for a specialist-reviewed access pathway.</p>
+        <div style={{ marginTop:12 }}>
+          <Link href="/contact" className="hvm-sub-btn">Get compliance support →</Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Countries Directory Mobile ────────────────────────────────────────────────
+
+function CountriesMobile({ signals, onCountrySelect }: {
+  signals: DashboardSignal[]
+  onCountrySelect?: (iso2: string) => void
+}) {
+  const [search, setSearch] = useState('')
+
+  const signalCountByMarket = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const s of signals) {
+      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
+    }
+    return counts
+  }, [signals])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return ALL_COUNTRIES
+    const q = search.toLowerCase()
+    return ALL_COUNTRIES.filter(c => c.displayName.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
+  }, [search])
+
+  const byRegion = useMemo(() => {
+    const map = new Map<string, typeof ALL_COUNTRIES>()
+    for (const c of filtered) {
+      const key = c.region ?? 'Other'
+      map.set(key, [...(map.get(key) ?? []), c])
+    }
+    return map
+  }, [filtered])
+
+  function flagEmoji(iso2: string): string {
+    if (!iso2 || iso2.length !== 2) return '🌐'
+    const base = 0x1F1E6 - 65
+    const chars = iso2.toUpperCase().split('').map(c => String.fromCodePoint(base + c.charCodeAt(0)))
+    return chars.join('')
+  }
+
+  return (
+    <div className="hvm-page-stack">
+      <div className="hvm-hero-card compact">
+        <p className="hvm-kicker">Country &amp; Territory Directory</p>
+        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>{ALL_COUNTRIES.length} Countries</strong>
+        <p>All Harbourview jurisdictions. Tap any country to load its intelligence into the dashboard.</p>
+      </div>
+      <input
+        type="text"
+        placeholder="Search countries…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{
+          width:'100%', padding:'12px 14px', borderRadius:12,
+          border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)',
+          color:'rgba(245,240,232,.9)', fontSize:15, fontFamily:'inherit',
+          outline:'none',
+        }}
+      />
+      {filtered.length === 0 ? (
+        <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
+          <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No countries match &ldquo;{search}&rdquo;</p>
+        </div>
+      ) : (
+        [...byRegion.entries()].map(([region, countries]) => (
+          <details key={region} className="hvm-accordion" open={byRegion.size <= 3}>
+            <summary>
+              <span>{region}</span>
+              <span style={{ fontSize:12, fontWeight:400, color:'rgba(245,240,232,.45)' }}>{countries.length}</span>
+            </summary>
+            <div className="hvm-accordion-body">
+              <div className="hvm-list-stack" style={{ gap:8 }}>
+                {countries.map(c => {
+                  const sigCount = signalCountByMarket[c.displayName] ?? 0
+                  return (
+                    <button
+                      key={c.iso2}
+                      type="button"
+                      onClick={() => onCountrySelect?.(c.iso2)}
+                      style={{
+                        display:'flex', alignItems:'center', gap:10,
+                        padding:'10px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,.08)',
+                        background:'rgba(255,255,255,.03)', cursor:'pointer', textAlign:'left', width:'100%',
+                        color:'rgba(245,240,232,.88)', fontFamily:'inherit',
+                      }}
+                    >
+                      <span style={{ fontSize:20, flexShrink:0 }}>{flagEmoji(c.iso2)}</span>
+                      <span style={{ flex:1, minWidth:0 }}>
+                        <span style={{ display:'block', fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.displayName}</span>
+                        <span style={{ display:'block', fontSize:11, color:'rgba(245,240,232,.42)', fontFamily:'monospace' }}>
+                          {c.iso2}{sigCount > 0 ? ` · ${sigCount} signal${sigCount > 1 ? 's' : ''}` : ''}
+                        </span>
+                      </span>
+                      {sigCount > 0 && <span style={{ width:7, height:7, borderRadius:'50%', background:'#d4a84b', flexShrink:0 }} />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </details>
+        ))
+      )}
+    </div>
+  )
+}
+
 export default function MobileCommandCentre({
   signals,
   eduCategories,
@@ -2816,23 +3148,11 @@ export default function MobileCommandCentre({
           />
         )
       case 'genetics':
-        return (
-          <GeneticsMobile
-            country={country}
-            cultivarPassports={cultivarPassports}
-            serviceProviders={serviceProviders}
-            collaborationProjects={collaborationProjects}
-          />
-        )
+        return <GeneticsMobile cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'compliance':
-        return <ComplianceMobile country={country} countryIntel={countryIntel} />
+        return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'countries':
-        return (
-          <CountriesDirectoryMobile
-            signals={signals}
-            onCountrySelect={iso2 => { handleCountryChange(iso2); setActivePage('briefing') }}
-          />
-        )
+        return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
         return null
     }

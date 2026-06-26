@@ -3362,10 +3362,18 @@ const GeneticsPage = React.memo(function GeneticsPage({
 }) {
   const [tab, setTab] = useState<GeneticsTab>('passports')
 
+  const isGlobal = country.iso2 === 'GLOBAL'
+  const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
+  const displayPassports = filteredPassports.length > 0 ? filteredPassports : cultivarPassports
+  const filteredProviders = isGlobal ? serviceProviders : serviceProviders.filter(sp => sp.country_code === country.iso2)
+  const displayProviders = filteredProviders.length > 0 ? filteredProviders : serviceProviders
+  const filteredProjects = isGlobal ? collaborationProjects : collaborationProjects.filter(cp => cp.countryCode === country.iso2)
+  const displayProjects = filteredProjects.length > 0 ? filteredProjects : collaborationProjects
+
   const tabs: { id: GeneticsTab; label: string; count: number }[] = [
-    { id: 'passports', label: 'Cultivar Passports', count: cultivarPassports.length },
-    { id: 'services',  label: 'Service Providers',  count: serviceProviders.length },
-    { id: 'projects',  label: 'Collaboration',      count: collaborationProjects.length },
+    { id: 'passports', label: 'Cultivar Passports', count: displayPassports.length },
+    { id: 'services',  label: 'Service Providers',  count: displayProviders.length },
+    { id: 'projects',  label: 'Collaboration',      count: displayProjects.length },
   ]
 
   return (
@@ -3373,7 +3381,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
       <div className="cc-two-main">
         <div className="cc-inner-header">
           <h2>Genetics Intelligence</h2>
-          <p>Public cultivar passports, verified service providers, and open collaboration projects. Country-specific opportunities and evidence summaries are available per passport.</p>
+          <p>Public cultivar passports, verified service providers, and open collaboration projects{isGlobal ? '' : ` relevant to ${country.label}`}. Country-specific opportunities and evidence summaries are available per passport.</p>
         </div>
 
         <div className="cc-mkt-tabs">
@@ -3386,7 +3394,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
         </div>
 
         {tab === 'passports' && (
-          cultivarPassports.length === 0 ? (
+          displayPassports.length === 0 ? (
             <div className="cc-empty-state" style={{ flex: 1 }}>
               <span>⊕</span>
               <p>No public cultivar passports yet.</p>
@@ -3395,31 +3403,45 @@ const GeneticsPage = React.memo(function GeneticsPage({
           ) : (
             <div className="cc-sig-feed">
               <div className="cc-sig-group">
-                {cultivarPassports.map(p => (
-                  <div key={p.id} className="cc-sig-row">
-                    <div className="cc-sig-dot medium" />
-                    <div className="cc-sig-body">
-                      <strong>{p.displayName}</strong>
-                      <small>{p.publicSummary}</small>
-                    </div>
-                    <div className="cc-sig-acts">
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
-                        <span className="cc-opp-tag">{p.cultivarCategory.replace(/_/g, ' ')}</span>
-                        {p.cannabisCategory && <span className="cc-opp-tag">{p.cannabisCategory.replace(/_/g, ' ')}</span>}
-                        <span className="cc-opp-tag">{p.claimStatus.replace(/_/g, ' ')}</span>
-                        {p.countryOpportunitiesPublic.length > 0 && <span className="cc-opp-tag">{p.countryOpportunitiesPublic.length} opportunities</span>}
+                {displayPassports.map(p => {
+                  const countryOpps = isGlobal ? [] : p.countryOpportunitiesPublic.filter(o => o.countryCode === country.iso2)
+                  return (
+                    <div key={p.id} className="cc-sig-row">
+                      <div className="cc-sig-dot medium" />
+                      <div className="cc-sig-body">
+                        <strong>{p.displayName}</strong>
+                        <small>{p.publicSummary}</small>
                       </div>
-                      <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-brief">View passport →</Link>
+                      <div className="cc-sig-acts">
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                          <span className="cc-opp-tag">{p.cultivarCategory.replace(/_/g, ' ')}</span>
+                          {p.cannabisCategory && <span className="cc-opp-tag">{p.cannabisCategory.replace(/_/g, ' ')}</span>}
+                          <span className="cc-opp-tag">{p.claimStatus.replace(/_/g, ' ')}</span>
+                          {isGlobal && p.countryOpportunitiesPublic.length > 0 && <span className="cc-opp-tag">{p.countryOpportunitiesPublic.length} opportunities</span>}
+                        </div>
+                        {countryOpps.map((opp, i) => (
+                          <div key={i} style={{ fontSize: '10px', color: 'var(--cc-muted)', margin: '2px 0', lineHeight: 1.4 }}>
+                            <span style={{ color: 'var(--cc-text)', fontWeight: 600 }}>{opp.opportunityType.replace(/_/g, ' ')}</span>
+                            {' · '}{opp.status}
+                            {opp.publicNote && <span> — {opp.publicNote}</span>}
+                          </div>
+                        ))}
+                        {countryOpps.length > 0 ? (
+                          <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-brief">{countryOpps[0].cta} →</Link>
+                        ) : (
+                          <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-brief">View passport →</Link>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )
         )}
 
         {tab === 'services' && (
-          serviceProviders.length === 0 ? (
+          displayProviders.length === 0 ? (
             <div className="cc-empty-state" style={{ flex: 1 }}>
               <span>◫</span>
               <p>No verified service providers listed yet.</p>
@@ -3427,7 +3449,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
           ) : (
             <div className="cc-sig-feed">
               <div className="cc-sig-group">
-                {serviceProviders.map(sp => (
+                {displayProviders.map(sp => (
                   <div key={sp.id} className="cc-sig-row">
                     <div className="cc-sig-dot low" />
                     <div className="cc-sig-body">
@@ -3450,7 +3472,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
         )}
 
         {tab === 'projects' && (
-          collaborationProjects.length === 0 ? (
+          displayProjects.length === 0 ? (
             <div className="cc-empty-state" style={{ flex: 1 }}>
               <span>⊗</span>
               <p>No open collaboration projects at this time.</p>
@@ -3458,7 +3480,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
           ) : (
             <div className="cc-sig-feed">
               <div className="cc-sig-group">
-                {collaborationProjects.map(cp => (
+                {displayProjects.map(cp => (
                   <div key={cp.id} className="cc-sig-row">
                     <div className="cc-sig-dot medium" />
                     <div className="cc-sig-body">
@@ -3486,9 +3508,9 @@ const GeneticsPage = React.memo(function GeneticsPage({
           <div className="cc-right-head">GENETICS OVERVIEW</div>
           <div className="cc-jx-fields">
             {[
-              { icon: '⊕', label: 'Cultivar Passports',    value: String(cultivarPassports.length) },
-              { icon: '◫', label: 'Service Providers',     value: String(serviceProviders.length) },
-              { icon: '⊗', label: 'Collaboration Projects', value: String(collaborationProjects.length) },
+              { icon: '⊕', label: 'Cultivar Passports',    value: String(displayPassports.length) },
+              { icon: '◫', label: 'Service Providers',     value: String(displayProviders.length) },
+              { icon: '⊗', label: 'Collaboration Projects', value: String(displayProjects.length) },
             ].map(f => (
               <div key={f.label} className="cc-jx-field">
                 <span className="cc-jx-field-icon">{f.icon}</span>
@@ -3511,8 +3533,12 @@ const GeneticsPage = React.memo(function GeneticsPage({
 
 const CompliancePage = React.memo(function CompliancePage({
   country,
+  countryIntel,
+  jurisdictionPlaybook,
 }: {
   country: { iso2: string; label: string }
+  countryIntel?: CountryIntelProfile | null
+  jurisdictionPlaybook?: JurisdictionPlaybook | null
 }) {
   return (
     <div className="cc-page cc-two-col-page">
@@ -3521,6 +3547,91 @@ const CompliancePage = React.memo(function CompliancePage({
           <h2>Global Compliance Intelligence</h2>
           <p>Regional compliance frameworks, documentation controls, and commercial pathway summaries for regulated cannabis markets. Specialist review required before commercial reliance.</p>
         </div>
+
+        {countryIntel && (
+          <div className="cc-sig-feed" style={{ marginBottom: 0 }}>
+            <div className="cc-sig-group">
+              <div className="cc-sig-group-hd"><span>{country.label} — Current Jurisdiction Status</span></div>
+              <div className="cc-sig-row">
+                <div className="cc-sig-dot medium" />
+                <div className="cc-sig-body">
+                  <strong>{countryIntel.briefing_regulatory_body ?? countryIntel.regulator_label ?? 'Regulatory Authority'}</strong>
+                  <small>{countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary ?? 'Regulatory outlook under Harbourview review.'}</small>
+                </div>
+                <div className="cc-sig-acts">
+                  {([
+                    { label: 'Medical', value: countryIntel.medical_status },
+                    { label: 'Adult-use', value: countryIntel.adult_use_status },
+                    { label: 'Import', value: countryIntel.import_status },
+                    { label: 'Export', value: countryIntel.export_status },
+                  ] as { label: string; value: string | null | undefined }[]).filter(f => f.value).map(f => (
+                    <div key={f.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--cc-muted)', margin: '1px 0' }}>
+                      <span>{f.label}</span><span style={{ color: 'var(--cc-text)' }}>{f.value}</span>
+                    </div>
+                  ))}
+                  {jurisdictionPlaybook?.typical_timeline_months && (
+                    <div style={{ fontSize: '10px', color: 'var(--cc-muted)', marginTop: 4 }}>Est. timeline: {jurisdictionPlaybook.typical_timeline_months} months</div>
+                  )}
+                </div>
+              </div>
+              {([
+                { label: 'Program status', value: countryIntel.briefing_program_status },
+                { label: 'Market dynamics', value: countryIntel.briefing_market_dynamics },
+                { label: 'Patient access', value: countryIntel.briefing_patient_access },
+                { label: 'Physician access', value: countryIntel.briefing_physician_access },
+              ] as { label: string; value: string | null | undefined }[]).filter(f => f.value).map(f => (
+                <div key={f.label} className="cc-sig-row">
+                  <div className="cc-sig-dot low" />
+                  <div className="cc-sig-body">
+                    <strong>{f.label}</strong>
+                    <small>{f.value}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
+              <div className="cc-sig-group">
+                <div className="cc-sig-group-hd"><span>Market Entry Steps</span><span>{jurisdictionPlaybook.steps.length}</span></div>
+                {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
+                  <div key={s.step} className="cc-sig-row">
+                    <div className="cc-sig-dot low" />
+                    <div className="cc-sig-body">
+                      <strong>{s.step}. {s.title}</strong>
+                      <small>{s.description}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
+              <div className="cc-sig-group">
+                <div className="cc-sig-group-hd"><span>Key Regulators</span></div>
+                {jurisdictionPlaybook.key_regulators.map(r => (
+                  <div key={r.name} className="cc-sig-row">
+                    <div className="cc-sig-dot low" />
+                    <div className="cc-sig-body">
+                      <strong>{r.name}</strong>
+                      <small>{r.role}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {jurisdictionPlaybook?.common_pitfalls && jurisdictionPlaybook.common_pitfalls.length > 0 && (
+              <div className="cc-sig-group">
+                <div className="cc-sig-group-hd"><span>Common Pitfalls</span></div>
+                {jurisdictionPlaybook.common_pitfalls.map((pitfall, i) => (
+                  <div key={i} className="cc-sig-row">
+                    <div className="cc-sig-dot medium" />
+                    <div className="cc-sig-body">
+                      <small>{pitfall}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="cc-sig-feed">
           <div className="cc-sig-group">
@@ -3542,6 +3653,35 @@ const CompliancePage = React.memo(function CompliancePage({
       </div>
 
       <aside className="cc-two-right">
+        {countryIntel?.opportunity_score != null && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">{country.label.toUpperCase()} OVERVIEW</div>
+            <div className="cc-jx-fields">
+              <div className="cc-jx-field">
+                <span className="cc-jx-field-icon">◎</span>
+                <div><small>Opportunity score</small><strong>{countryIntel.opportunity_score}/10</strong></div>
+              </div>
+              {countryIntel.regulatory_tier && (
+                <div className="cc-jx-field">
+                  <span className="cc-jx-field-icon">◫</span>
+                  <div><small>Regulatory tier</small><strong>{countryIntel.regulatory_tier}</strong></div>
+                </div>
+              )}
+              {jurisdictionPlaybook?.difficulty && (
+                <div className="cc-jx-field">
+                  <span className="cc-jx-field-icon">⊗</span>
+                  <div><small>Entry difficulty</small><strong>{jurisdictionPlaybook.difficulty}</strong></div>
+                </div>
+              )}
+              {jurisdictionPlaybook?.estimated_cost_range && (
+                <div className="cc-jx-field">
+                  <span className="cc-jx-field-icon">≋</span>
+                  <div><small>Est. cost range</small><strong>{jurisdictionPlaybook.estimated_cost_range}</strong></div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="cc-right-section">
           <div className="cc-right-head">COMPLIANCE REGIONS</div>
           <div className="cc-jx-fields">
@@ -3574,10 +3714,13 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
 }) {
   const [search, setSearch] = useState('')
 
-  const signalCountByMarket = useMemo(() => {
+  const signalCountByIso2 = useMemo(() => {
+    const nameToIso2 = new Map(ALL_COUNTRIES.map(c => [c.displayName.toLowerCase(), c.iso2]))
     const counts: Record<string, number> = {}
     for (const s of signals) {
-      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
+      if (!s.market) continue
+      const iso2 = nameToIso2.get(s.market.toLowerCase())
+      if (iso2) counts[iso2] = (counts[iso2] ?? 0) + 1
     }
     return counts
   }, [signals])
@@ -3629,7 +3772,7 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
                   <span>{countries.length}</span>
                 </div>
                 {countries.map(c => {
-                  const sigCount = signalCountByMarket[c.displayName] ?? 0
+                  const sigCount = signalCountByIso2[c.iso2] ?? 0
                   return (
                     <div
                       key={c.iso2}
@@ -3641,6 +3784,13 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
                       <div className="cc-sig-body">
                         <strong>{flagEmoji(c.iso2)} {c.displayName}</strong>
                         <small>{c.iso2}{sigCount > 0 ? ` · ${sigCount} signal${sigCount > 1 ? 's' : ''}` : ''}</small>
+                      </div>
+                      <div className="cc-sig-acts">
+                        <Link
+                          href={`/countries/${c.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
+                          className="cc-sig-brief"
+                          onClick={e => e.stopPropagation()}
+                        >Profile →</Link>
                       </div>
                     </div>
                   )
@@ -3657,7 +3807,7 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
           <div className="cc-jx-fields">
             {[
               { icon: '⊗', label: 'Total Countries',      value: String(ALL_COUNTRIES.length) },
-              { icon: '≋', label: 'With Active Signals',  value: String(Object.keys(signalCountByMarket).length) },
+              { icon: '≋', label: 'With Active Signals',  value: String(Object.keys(signalCountByIso2).length) },
             ].map(f => (
               <div key={f.label} className="cc-jx-field">
                 <span className="cc-jx-field-icon">{f.icon}</span>
@@ -3807,7 +3957,7 @@ export default function CommandCentre({
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'compliance':
-        return <CompliancePage country={country} />
+        return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       default:
