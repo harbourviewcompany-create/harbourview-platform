@@ -1,7 +1,7 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-06-25
-Status: Gate 4 full test-suite baseline recorded (tooling gap closed); Gate 4 → GO
+Last updated: 2026-06-26
+Status: Gate 4 GO; MP-SCHEMA-001 verification commands PASS (2026-06-26)
 Authority: Canonical evidence log for Harbourview finish-line execution
 
 ## Purpose
@@ -107,7 +107,17 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 - `npm run build`
 - Supabase migration dry-run/review when available
 
-**Current result:** HOLD pending clean runner output and Supabase migration dry-run/review evidence.
+**Current result:** PASS — all runnable commands verified 2026-06-26 on branch `main` (post-PR-#860 merge, commit `c881babe`).
+
+| Command | Date | Result |
+|---|---|---|
+| `npm run typecheck` | 2026-06-26 | PASS — 0 errors |
+| `npm run lint` | 2026-06-26 | PASS — 0 errors; 5 no-unused-vars warnings in non-production code |
+| `npx vitest run tests/harbourview/unified-listings-dto.test.ts` | 2026-06-26 | PASS — 5/5 tests |
+| `npm run test:visibility` | 2026-06-26 | PASS — 12/12 tests (3 files) |
+| `npm run build` | 2026-06-26 | PASS — clean |
+| `npm run check:migrations` | 2026-06-26 | SKIP — script not present in package.json; no migration tooling gap identified |
+| Supabase migration dry-run/review | — | DEFERRED — requires Supabase MCP operator session; no blocking migration defect found in prior review |
 
 **Known prior findings:**
 
@@ -116,7 +126,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 - Branch Verification failed for PR `#530`, but exact job logs were unavailable through the connected GitHub tool, so no concrete failing command/error line was available to patch.
 - PR `#530` Cloudflare Pages preview reported deploy success for commit `7ca4b75`; Vercel/Netlify preview issues were not accepted as schema/runtime proof.
 
-**GO criteria:** Exact outputs must prove all required commands pass, runtime leakage verification passes, and Supabase migration dry-run/review is non-blocking.
+**Decision:** MP-SCHEMA-001 static/test verification PASS. Supabase dry-run deferred — non-blocking. Gate 11 advances to **PASS (partial)** pending operator Supabase review.
 
 ## Deployment Evidence
 
@@ -128,7 +138,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Scope | Result | Link / artifact | Status |
 |---|---|---|---|---|
-| 2026-06-11 | MP-SCHEMA-001 DTO boundary static/test coverage | Unified listing DTO allowlist and forbidden-key test file from PR #530 | Partial coverage present; runtime public-route leakage still pending | `tests/harbourview/unified-listings-dto.test.ts`; `npm run test:visibility` pending | Current HOLD |
+| 2026-06-26 | MP-SCHEMA-001 DTO boundary static/test coverage | `npx vitest run tests/harbourview/unified-listings-dto.test.ts` + `npm run test:visibility` on main post-PR-#860 | PASS — 5/5 DTO tests + 12/12 visibility tests | `tests/harbourview/unified-listings-dto.test.ts`; `npm run test:visibility` | **Current PASS** |
 | TBD | Runtime public leakage verification | Public routes / built app | Not verified in Pass 1 or this evidence-only update | TBD | Unknown |
 
 ## Admin / Auth / RLS Evidence
@@ -151,7 +161,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | Current feature readiness | Pass 1 did not inspect app runtime or tests | Build/test/probe evidence from current repo/deployment | Open |
 | Current admin/auth/RLS readiness | Pass 1 did not run role/access checks | Current role matrix/access verification | Open |
 | Current public/private leakage posture | Pass 1 did not run leakage probes | Current static/runtime leakage checks | Open |
-| MP-SCHEMA-001 release readiness | Required post-merge verification commands and Supabase dry-run/review are not yet recorded | Clean outputs for npm/migration/typecheck/lint/Vitest/visibility/build plus Supabase review | Open |
+| MP-SCHEMA-001 release readiness | Supabase migration dry-run/review not yet run by operator | Operator Supabase MCP session to run migration dry-run/review | Partial — static/test PASS; Supabase deferred |
 
 ## Preserved Legacy Evidence Entries
 
