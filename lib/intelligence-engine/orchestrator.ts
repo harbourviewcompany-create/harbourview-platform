@@ -165,15 +165,23 @@ export class IntelligenceOrchestrator {
     let result: ScraperResult;
     try {
       if (target.adapter_type === 'playwright_full') {
-        result = {
-          target_id: target.id,
-          timestamp: new Date().toISOString(),
-          raw_content: '',
-          content_hash: '',
-          status: 'blocked',
-          error_message:
-            'playwright_full not available in Vercel serverless — use WorkerNode daemon instead.',
-        };
+        // Graceful degradation: many JS-rendered regulatory sites still serve
+        // indexable server-side content. Attempt HTML adapter first; only fall
+        // back to blocked if it yields insufficient content (<500 chars).
+        const fallback = await this.fetchWithRetry(this.htmlAdapter, target);
+        if (fallback.status === 'success' && (fallback.raw_content?.length ?? 0) > 500) {
+          result = fallback;
+        } else {
+          result = {
+            target_id: target.id,
+            timestamp: new Date().toISOString(),
+            raw_content: '',
+            content_hash: '',
+            status: 'blocked',
+            error_message:
+              'playwright_full: HTML fallback insufficient — requires WorkerNode daemon for full JS rendering.',
+          };
+        }
       } else {
         const adapter = this.selectAdapter(target);
         if (!adapter) {

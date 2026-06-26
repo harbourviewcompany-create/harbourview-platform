@@ -323,7 +323,101 @@ export async function GET(request: Request) {
     }
   }
 
-  const summary = { ok: true, staged: staged.length, extracted, artifactsCreated, failed, skipped }
+  // ── ALSO process source_snapshots with pending_extraction ────────────────────
+  // IntelligenceOrchestrator writes directly to source_snapshots (not
+  // hv_import_staging) — bridge those into the extraction pipeline here.
+  const { data: snapRows } = await supabase
+    .from('source_snapshots')
+    .select('id, source_id, captured_url, captured_text, captured_at')
+    .eq('processing_status', 'pending_extraction')
+    .not('captured_text', 'is', null)
+    .order('captured_at', { ascending: true })
+    .limit(BATCH_SIZE)
+
+  let snapExtracted = 0, snapFailed = 0, snapSkipped = 0
+
+  if (snapRows && snapRows.length > 0) {
+    const snapSourceIds = [...new Set(snapRows.map((r: { source_id: string }) => r.source_id).filter(Boolean))]
+    const { data: snapSources } = await supabase
+      .from('source_registry')
+      .select('id, source_name, iso')
+      .in('id', snapSourceIds)
+
+    const snapSourceMap = new Map<string, { source_name: string; iso: string }>(
+      ((snapSources ?? []) as Array<{ id: string; source_name: string; iso: string }>)
+        .map(s => [s.id, { source_name: s.source_name, iso: s.iso }])
+    )
+
+    for (const snap of snapRows as Array<{ id: string; source_id: string; captured_url: string | null; captured_text: string | null; captured_at: string }>) {
+      const rawText    = snap.captured_text ?? ''
+      const src        = snapSourceMap.get(snap.source_id)
+      const countryIso = src?.iso ?? 'GLOBAL'
+      const sourceName = src?.source_name ?? snap.captured_url ?? 'Unknown Source'
+
+      if (!rawText || rawText.trim().length < 100) {
+        await supabase
+          .from('source_snapshots')
+          .update({ processing_status: 'extraction_skipped' })
+          .eq('id', snap.id)
+        snapSkipped++
+        continue
+      }
+
+      try {
+        const record = await processor.processContent(snap.source_id, countryIso, rawText)
+
+        if (!record) {
+          await supabase
+            .from('source_snapshots')
+            .update({ processing_status: 'extraction_failed' })
+            .eq('id', snap.id)
+          snapFailed++
+          continue
+        }
+
+        const signalRow   = toSignalRow(record, sourceName, countryIso)
+        const artifactRow = toArtifactRow(record, snap.captured_url ?? '', countryIso)
+
+        const { error: sigErr } = await supabase.from('ia_signals').insert(signalRow)
+        if (sigErr) {
+          console.error(`intelligence_extract_cron: ia_signals insert failed (snapshot=${snap.id}):`, sigErr.message)
+          await supabase.from('source_snapshots').update({ processing_status: 'extraction_failed' }).eq('id', snap.id)
+          snapFailed++
+          continue
+        }
+
+        const { error: artErr } = await supabase.from('hv_artifacts').insert(artifactRow)
+        if (artErr) {
+          console.error(`intelligence_extract_cron: hv_artifacts insert failed (snapshot=${snap.id}):`, artErr.message)
+        } else {
+          artifactsCreated++
+        }
+
+        await supabase
+          .from('source_snapshots')
+          .update({ processing_status: 'extraction_complete' })
+          .eq('id', snap.id)
+
+        snapExtracted++
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`intelligence_extract_cron: unhandled error (snapshot=${snap.id}):`, msg)
+        await supabase.from('source_snapshots').update({ processing_status: 'extraction_failed' }).eq('id', snap.id)
+        snapFailed++
+      }
+    }
+  }
+
+  const summary = {
+    ok: true,
+    // hv_import_staging pipeline
+    staged: staged.length, extracted, artifactsCreated, failed, skipped,
+    // source_snapshots pipeline
+    snapshots_queued:    snapRows?.length ?? 0,
+    snapshots_extracted: snapExtracted,
+    snapshots_failed:    snapFailed,
+    snapshots_skipped:   snapSkipped,
+  }
   console.info('intelligence_extract_cron: run complete', summary)
   return NextResponse.json(summary)
 }
