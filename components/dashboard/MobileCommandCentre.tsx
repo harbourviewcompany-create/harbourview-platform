@@ -1641,7 +1641,7 @@ function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCo
     <div className="hvm-page-stack">
       {sub === 'feed'       && <SignalsFeed country={country} signals={effectiveSignals} />}
       {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={effectiveSignals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
-      {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} />}
+      {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} signals={effectiveSignals} />}
     </div>
   )
 }
@@ -1649,13 +1649,13 @@ function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCo
 const ITEM_TYPE_ICONS: Record<string, string> = {
   jurisdiction: '🌐', signal: '≋', pathway: '◈', marketplace_item: '⊞', source: '⊟', policy: '◎',
 }
-const ADJACENT_MARKETS = [
-  { iso2: 'DE', label: 'Germany',    status: 'Regulated',   trend: '+' },
-  { iso2: 'CA', label: 'Canada',     status: 'Mature',      trend: '→' },
-  { iso2: 'BR', label: 'Brazil',     status: 'Medical',     trend: '+' },
-  { iso2: 'AU', label: 'Australia',  status: 'Medical',     trend: '→' },
-  { iso2: 'CO', label: 'Colombia',   status: 'Exporter',    trend: '+' },
-  { iso2: 'NL', label: 'Netherlands', status: 'Pilot',      trend: '→' },
+const FALLBACK_ADJACENT_MARKETS = [
+  { iso2: 'DE', label: 'Germany',     status: 'Regulated', trend: '+' },
+  { iso2: 'CA', label: 'Canada',      status: 'Mature',    trend: '→' },
+  { iso2: 'BR', label: 'Brazil',      status: 'Medical',   trend: '+' },
+  { iso2: 'AU', label: 'Australia',   status: 'Medical',   trend: '→' },
+  { iso2: 'CO', label: 'Colombia',    status: 'Exporter',  trend: '+' },
+  { iso2: 'NL', label: 'Netherlands', status: 'Pilot',     trend: '→' },
 ]
 const WATCH_TYPE_CARDS = [
   { type: 'jurisdiction', icon: '🌐', label: 'Jurisdiction', desc: "Track a market's regulatory changes & alerts" },
@@ -1672,12 +1672,37 @@ const WATCH_TYPE_TABS: { id: WatchType; label: string }[] = [
   { id: 'pathway', label: 'Pathways' },
 ]
 
-function WatchlistMobile({ country, roleLabel, watchlistData }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null }) {
+function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null; signals?: DashboardSignal[] }) {
   const [activeType, setActiveType] = useState<WatchType>('all')
   const items = watchlistData?.items ?? []
   const rules = watchlistData?.rules ?? []
   const notifs = watchlistData?.notifications
   const hasAlerts = notifs && notifs.total_alerts > 0
+
+  const adjacentMarkets = useMemo(() => {
+    const markets = new Map<string, { count: number; conf: number }>()
+    for (const s of signals) {
+      if (!s.market || s.market === country.label) continue
+      const entry = markets.get(s.market) ?? { count: 0, conf: 0 }
+      entry.count++
+      entry.conf += s.confidence
+      markets.set(s.market, entry)
+    }
+    const fromSignals = Array.from(markets.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 6)
+      .map(([label, stats]) => {
+        const found = ALL_COUNTRIES.find(c => c.displayName === label)
+        const avgConf = Math.round(stats.conf / stats.count)
+        return {
+          iso2: found?.iso2 ?? label.slice(0, 2).toUpperCase(),
+          label,
+          status: avgConf >= 75 ? 'Active signals' : avgConf >= 55 ? 'Monitoring' : 'Low activity',
+          trend: avgConf >= 70 ? '+' : '→',
+        }
+      })
+    return fromSignals.length >= 3 ? fromSignals : FALLBACK_ADJACENT_MARKETS
+  }, [signals, country.label])
 
   const filteredItems = useMemo(() => {
     if (activeType === 'all') return items
@@ -1794,7 +1819,7 @@ function WatchlistMobile({ country, roleLabel, watchlistData }: { country: Count
       {/* Adjacent market radar */}
       <MobileAccordion title="Market radar — adjacent markets" defaultOpen={false}>
         <div className="hvm-radar-grid">
-          {ADJACENT_MARKETS.map(m => (
+          {adjacentMarkets.map(m => (
             <div className="hvm-radar-cell" key={m.iso2}>
               <div className="hvm-radar-iso">{m.iso2}</div>
               <div className="hvm-radar-name">{m.label}</div>
@@ -2800,7 +2825,7 @@ export default function MobileCommandCentre({
           />
         )
       case 'compliance':
-        return <ComplianceMobile country={country} />
+        return <ComplianceMobile country={country} countryIntel={countryIntel} />
       case 'countries':
         return (
           <CountriesDirectoryMobile
