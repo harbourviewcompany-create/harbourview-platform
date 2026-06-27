@@ -19,6 +19,14 @@ function walk(dir: string, files: string[] = []) {
     if (stat.isDirectory()) {
       walk(full, files);
     } else if (/\.(ts|tsx|js|jsx|mjs|cjs|json|html|css)$/.test(entry)) {
+      // Next.js Route Handlers (app/**/route.ts) are a platform guarantee
+      // of server-only execution -- they're never bundled for the
+      // browser, unlike pages/layouts/components, which can be. Excluding
+      // them avoids false positives on doc comments like
+      // "// Required env vars: HF_TOKEN_SERVER" at the top of a cron
+      // route file, while keeping the strict check everywhere a client
+      // bundle is actually possible.
+      if (/^route\.(ts|tsx|js|jsx)$/.test(entry)) continue;
       files.push(full);
     }
   }

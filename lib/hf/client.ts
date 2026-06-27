@@ -43,14 +43,19 @@ export interface HfResponse<T = unknown> {
  * Does NOT log the token. Does NOT expose the token in error messages.
  */
 export class HfClient {
-  private readonly token: string;
+  // True private field (not TS `private`, which is compile-time-only and
+  // does not stop JSON.stringify/Object.keys/for-in from including it —
+  // confirmed leaking via the existing 'exposes orgSlug but not token'
+  // test). #token is a real ECMAScript private field: not enumerable, not
+  // accessible outside this class by any means, including reflection.
+  #token: string;
   private readonly org: string;
   private readonly hubBase = 'https://huggingface.co/api';
 
   constructor(config?: HfClientConfig) {
     assertServerOnly();
     const resolved = config ?? getHfEnv();
-    this.token = resolved.HF_TOKEN_SERVER;
+    this.#token = resolved.HF_TOKEN_SERVER;
     this.org = resolved.HF_ORG;
   }
 
@@ -65,7 +70,7 @@ export class HfClient {
       resp = await fetch(url, {
         method: opts.method ?? 'GET',
         headers: {
-          Authorization: `Bearer ${this.token}`,
+          Authorization: `Bearer ${this.#token}`,
           ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
         },
         ...(opts.body ? { body: JSON.stringify(opts.body) } : {}),
