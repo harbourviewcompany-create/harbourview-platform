@@ -8,14 +8,7 @@ import type {
   CCChangeNote,
 } from '@/lib/command-centre/jurisdictionRouteContext'
 
-// ── Flag map ──────────────────────────────────────────────────────────────────
-
-const FLAG: Record<string, string> = {
-  US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AU: '🇦🇺',
-  NL: '🇳🇱', MX: '🇲🇽', ES: '🇪🇸', BR: '🇧🇷', IL: '🇮🇱', PT: '🇵🇹',
-  PL: '🇵🇱', IT: '🇮🇹', DK: '🇩🇰', CH: '🇨🇭', CZ: '🇨🇿', NZ: '🇳🇿',
-  CO: '🇨🇴', TH: '🇹🇭', MT: '🇲🇹', LU: '🇱🇺', ZA: '🇿🇦', UY: '🇺🇾',
-}
+import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -108,7 +101,7 @@ export function JurisdictionBriefingPage({
   contract: JurisdictionRouteContract
 }) {
   const { route, briefing, evidence, confidence, watchRegions, changeNotes, ctas } = contract
-  const flag = FLAG[route.countryIso2] ?? '🌐'
+  const flag = flagEmoji(route.countryIso2)
   const regionLabel = route.stateName ?? route.countryName
   const subLabel = route.stateName ? route.countryName : null
 

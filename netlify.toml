@@ -1,2 +1,6 @@
 [build]
   ignore = "node scripts/netlify-ignore-branch-policy.mjs"
+  # Fallback: if the ignore command is bypassed, run a no-op instead of a full Next.js build.
+  # This app deploys via Vercel (production) and Cloudflare Workers/Pages — not Netlify.
+  command = "echo 'Netlify build skipped — app deploys via Vercel/Cloudflare.'"
+  publish = "."

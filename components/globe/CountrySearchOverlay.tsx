@@ -155,7 +155,7 @@ export function CountrySearchOverlay({
           color: 'rgba(255,255,255,0.56)',
           letterSpacing: '0.01em',
         }}>
-          Search a market, state, or province — then choose your role.
+          Search a market, state, or province — then enter the market.
         </p>
       </div>
 

@@ -4,6 +4,8 @@ import type { AutomationSignal } from '@/lib/intelligence-automation/types'
 import type { DashboardSignal } from './dashboardShared'
 import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import type { PublicRegulatorySignal } from '@/lib/regulatory-signals/types'
+import { SIGNAL_TAG_MAP, REG_TYPE_TO_TAG, INTEL_TAG_FALLBACK } from '@/lib/regulatory-signals/signalTags'
+import { flagEmoji, flagForMarket } from '@/lib/utils/flagEmoji'
 
 
 // ── HTML stripping for scraper-sourced titles ────────────────────────────────
@@ -18,58 +20,12 @@ function stripHtml(raw: string): string {
     .replace(/\s{2,}/g, ' ').trim().slice(0, 180)
 }
 
-// ── Country name → flag emoji ──────────────────────────────────────────────────
-const COUNTRY_FLAGS: Record<string, string> = {
-  'Mexico': '🇲🇽', 'Germany': '🇩🇪', 'United Kingdom': '🇬🇧', 'Netherlands': '🇳🇱',
-  'Brazil': '🇧🇷', 'Colombia': '🇨🇴', 'Thailand': '🇹🇭', 'Australia': '🇦🇺',
-  'South Africa': '🇿🇦', 'Romania': '🇷🇴', 'Bulgaria': '🇧🇬', 'Israel': '🇮🇱',
-  'Morocco': '🇲🇦', 'United States': '🇺🇸', 'USA': '🇺🇸', 'Canada': '🇨🇦',
-  'European Union': '🇪🇺', 'Portugal': '🇵🇹', 'Switzerland': '🇨🇭', 'New Zealand': '🇳🇿',
-  'Lesotho': '🇱🇸', 'Trinidad and Tobago': '🇹🇹', 'Ghana': '🇬🇭', 'Malta': '🇲🇹',
-  'North Macedonia': '🇲🇰', 'Poland': '🇵🇱', 'Jamaica': '🇯🇲', 'Kenya': '🇰🇪',
-  'France': '🇫🇷', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Denmark': '🇩🇰',
-  'Czechia': '🇨🇿', 'Czech Republic': '🇨🇿', 'Uruguay': '🇺🇾', 'Greece': '🇬🇷',
-  'Slovenia': '🇸🇮', 'Argentina': '🇦🇷', 'Peru': '🇵🇪', 'Chile': '🇨🇱',
-  'Belgium': '🇧🇪', 'Luxembourg': '🇱🇺', 'Zimbabwe': '🇿🇼',
-  'Caribbean': '🌴', 'Global': '🌐',
-}
+// SIGNAL_TAG_MAP, REG_TYPE_TO_TAG, and INTEL_TAG_FALLBACK are now imported from
+// @/lib/regulatory-signals/signalTags (single source of truth).
+// flagEmoji and flagForMarket are imported from @/lib/utils/flagEmoji.
 
-function flagFor(market: string | null | undefined): string {
-  if (!market) return '🌐'
-  return COUNTRY_FLAGS[market] ?? '🌐'
-}
-
-// ── Signal tag display mapping ────────────────────────────────────────────────
-export const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  regulatory_change:        { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
-  importer_activity:        { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
-  buyer_demand:             { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
-  pricing_availability:     { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
-  market_entry_opportunity: { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
-  documentation_readiness:  { label: 'COMPLIANCE',   color: '#5DAFC8', bg: 'rgba(59,130,160,0.15)',  border: 'rgba(59,130,160,0.30)'  },
-  new_product_category:     { label: 'TRADE',        color: '#B07ED4', bg: 'rgba(139,95,168,0.15)',  border: 'rgba(139,95,168,0.30)'  },
-  relationship_opportunity: { label: 'TRADE',        color: '#B07ED4', bg: 'rgba(139,95,168,0.15)',  border: 'rgba(139,95,168,0.30)'  },
-  equipment_surplus:        { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
-  distressed_asset:         { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
-  facility_expansion:       { label: 'INVESTMENT',   color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
-  distributor_activity:     { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
-}
-
-// ── Regulatory signal type → tag key ─────────────────────────────────────────
-const REG_TYPE_TO_TAG: Record<string, string> = {
-  regulatory_change:              'regulatory_change',
-  policy_announcement:            'regulatory_change',
-  controlled_substance_scheduling:'regulatory_change',
-  consultation_pending_rule_change:'regulatory_change',
-  court_agency_decision:          'regulatory_change',
-  import_export_pathway:          'new_product_category',   // TRADE
-  customs_trade_requirement:      'new_product_category',   // TRADE
-  licensing_market_access:        'importer_activity',      // MARKET
-  prescription_patient_access:    'importer_activity',      // MARKET
-  hemp_cbd_controlled_cannabinoids:'importer_activity',     // MARKET
-  enforcement_compliance_action:  'documentation_readiness',// COMPLIANCE
-  quality_standard_requirement:   'documentation_readiness',// COMPLIANCE
-}
+// Re-export SIGNAL_TAG_MAP so existing callers that import it from this file continue to work.
+export { SIGNAL_TAG_MAP } from '@/lib/regulatory-signals/signalTags'
 
 function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
   switch (c) {
@@ -106,7 +62,7 @@ function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
     confidence:       confidenceToScore(s.confidence),
     commercialImpact: s.public_implication,
     sourceLabel:      s.regulator_name || 'Harbourview Intelligence',
-    flag:             flagFor(market),
+    flag:             flagEmoji(s.country_code),
   }
 }
 
@@ -155,12 +111,12 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
       title: stripHtml(s.title),
       type: s.type,
       market: s.market,
-      tag: SIGNAL_TAG_MAP[s.type] ?? { label: 'INTEL', color: '#D9A441', bg: 'rgba(217,164,65,0.12)', border: 'rgba(217,164,65,0.28)' },
+      tag: SIGNAL_TAG_MAP[s.type] ?? INTEL_TAG_FALLBACK,
       timeAgo: timeAgo(s.detectedAt),
       confidence: s.confidence,
       commercialImpact: s.commercialImpact,
       sourceLabel: 'Harbourview Intelligence',
-      flag: flagFor(s.market),
+      flag: flagForMarket(s.market),
     }))
 }
 
@@ -196,7 +152,7 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
   const laneKey = (s.top_lane ?? s.cat ?? '').toLowerCase()
   const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
   const tag     = laneKey in LANE_TO_TAG ? (SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change)
-    : { label: 'INTEL', color: '#D9A441', bg: 'rgba(217,164,65,0.12)', border: 'rgba(217,164,65,0.28)' }
+    : INTEL_TAG_FALLBACK
   const market = s.country ?? ''
   return {
     id:               s.id,
@@ -209,7 +165,7 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
     confidence:       typeof s.score === 'number' ? s.score : 50,
     commercialImpact: priToCommercial(s.pri, laneKey, market),
     sourceLabel:      'Harbourview Regulatory Watch',
-    flag:             flagFor(market),
+    flag:             flagForMarket(market),
   }
 }
 
@@ -250,15 +206,30 @@ export async function fetchDashboardSignals(
   // 2. Curated public.signals — 165+ reviewed rows across 30+ countries,
   //    the output of the global regulatory ingestion + analyst review pass.
   //    This is what powers the "Mexico Importer Signals" etc. country pages.
+  //    Tries service-role client first (bypasses RLS); falls back to anon client.
   try {
-    const { createClient } = await import('@/lib/supabase/server')
-    const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('signals')
-      .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
-      .eq('reviewed', true)
-      .order('score', { ascending: false })
-      .limit(200)
+    const signalQuery = async () => {
+      try {
+        const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
+        const svc = await createSupabaseServiceClient()
+        return svc
+          .from('signals')
+          .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+          .eq('reviewed', true)
+          .order('score', { ascending: false })
+          .limit(200)
+      } catch {
+        const { createClient } = await import('@/lib/supabase/server')
+        const anon = await createClient()
+        return anon
+          .from('signals')
+          .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+          .eq('reviewed', true)
+          .order('score', { ascending: false })
+          .limit(200)
+      }
+    }
+    const { data, error } = await signalQuery()
 
     if (!error && data && data.length > 0) {
       const all = data as CuratedSignalRow[]

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { listPublicCountryProfiles } from '@/lib/country-data/server'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Country Coverage | Harbourview',
   description: 'Identity-only Harbourview country and territory coverage. Regulated-market details remain review-gated.',

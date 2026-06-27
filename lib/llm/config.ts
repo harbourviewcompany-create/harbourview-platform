@@ -26,7 +26,8 @@ function providerConfig(provider: LlmProvider, apiKeyName: string, defaultModel:
 export function getLlmRuntimeConfig(): LlmRuntimeConfig {
   const providers: LlmRuntimeConfig['providers'] = {};
 
-  const gemini = providerConfig('gemini', 'GEMINI_API_KEY', 'gemini-flash-latest');
+  const gemini = providerConfig('gemini', 'GEMINI_API_KEY', 'gemini-flash-latest')
+    || providerConfig('gemini', 'GOOGLE_API_KEY', 'gemini-flash-latest');
   const moonshot = providerConfig('moonshot', 'MOONSHOT_API_KEY', 'kimi-k2-5');
   const deepseek = providerConfig('deepseek', 'DEEPSEEK_API_KEY', 'deepseek-chat');
 

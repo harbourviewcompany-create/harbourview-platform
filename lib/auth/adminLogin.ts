@@ -44,14 +44,14 @@ function requireEnv(name: string) {
 }
 
 function resolveSupabaseApiKey() {
-  return assertBrowserSafeSupabaseKey(
-    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY'
-  );
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  return assertBrowserSafeSupabaseKey(key, 'NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
 function sanitizeSupabaseErrorText(text: string) {
-  return text.replace(/("(?:access_token|refresh_token|password|apikey|api_key|token)"\s*:\s*")[^"]+/gi, '$1[redacted]');
+  return text.replace(/("(?:access_token|refresh_token|password|apikey|api_key|token)"\s*:\s*")[^"]*/gi, '$1[redacted]');
 }
 
 function logAdminLoginFailure(event: string, details: Record<string, unknown>) {

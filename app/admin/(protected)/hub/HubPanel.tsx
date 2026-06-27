@@ -217,12 +217,12 @@ function Overview({ api, stats, setStats }) {
     (async () => {
       try {
         const [snaps, sigs, srcs, ctries, staging, users, inqs, cands] = await Promise.all([
-          api.get("source_snapshots", "select=processing_status&limit=2000"),
-          api.get("signals", "select=reviewed,pri&limit=2000"),
-          api.get("source_registry", "select=is_active&limit=1000"),
-          api.get("countries", "select=data_completeness&limit=300"),
-          api.get("hv_import_staging", "select=status&limit=1000"),
-          api.get("user_profiles", "select=id&limit=100"),
+          api.get("source_snapshots", "select=processing_status&limit=2000").catch(()=>[]),
+          api.get("signals", "select=reviewed,pri&limit=2000").catch(()=>[]),
+          api.get("source_registry", "select=is_active&limit=1000").catch(()=>[]),
+          api.get("countries", "select=data_completeness&limit=300").catch(()=>[]),
+          api.get("hv_import_staging", "select=status&limit=1000").catch(()=>[]),
+          api.get("user_profiles", "select=id&limit=100").catch(()=>[]),
           api.get("marketplace_inquiries", "select=review_status&limit=500").catch(()=>[]),
           api.get("marketplace_candidates", "select=status&limit=500").catch(()=>[]),
         ]);
@@ -245,7 +245,10 @@ function Overview({ api, stats, setStats }) {
           inquiry_pending: inqs.filter(i=>i.review_status==="new"||i.review_status==="open").length,
           intake_pending: cands.filter(c=>c.status==="needs_review").length,
         });
-      } catch(e) { console.error(e); }
+      } catch(e) {
+        console.error('[overview]', e);
+        setStats({signals_total:0,unreviewed_signals:0,urgent_signals:0,sources_active:0,sources_total:0,pending_snapshots:0,extracted_snapshots:0,staging_pending:0,countries_total:0,countries_populated:0,user_count:0,inquiry_pending:0,intake_pending:0});
+      }
     })();
   }, []);
 

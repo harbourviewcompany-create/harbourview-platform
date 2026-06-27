@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators } from '@/lib/dashboard/dashboardLiveData'
+import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -195,7 +196,7 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage] = await Promise.all([
+  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, , watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage, jurisdictionPlaybook, educationTracks, marketMetrics, tradeFlows, professionals, cannabisOperators, cultivarPassports, serviceProviders, collaborationProjects] = await Promise.all([
     fetchDashboardSignals(30),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
@@ -204,11 +205,21 @@ export default async function DashboardPage({
     getCountryIntelProfile(countryIso2),
     getLiveEduTiles(roleId, 6),
     getOrgPathwayProgress(userId, countryIso2, roleId),
+    getPublicPathwayTemplate(countryIso2, roleId),
     getWatchlistData(userId),
     getEvidenceData(userId, countryIso2),
     getRecentEduModules(3),
     getLocalIntel(countryIso2),
     getSourceCoverage(countryIso2),
+    getJurisdictionPlaybook(countryIso2),
+    getEducationTracks(),
+    getMarketMetrics(countryIso2),
+    getTradeFlows(countryIso2),
+    getProfessionals(countryIso2),
+    getCannabisOperators(countryIso2),
+    getPublicCultivarPassports(),
+    getPublicServiceProviders(),
+    getPublicCollaborationProjects(),
   ])
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
@@ -233,7 +244,16 @@ export default async function DashboardPage({
       evidenceData={evidenceData}
       recentEduModules={recentEduModules}
       sourceCoverage={sourceCoverage}
+      jurisdictionPlaybook={jurisdictionPlaybook ?? undefined}
+      educationTracks={educationTracks}
+      marketMetrics={marketMetrics}
+      tradeFlows={tradeFlows}
+      professionals={professionals}
+      cannabisOperators={cannabisOperators}
       userEmail={userEmail}
+      cultivarPassports={cultivarPassports}
+      serviceProviders={serviceProviders}
+      collaborationProjects={collaborationProjects}
     />
   )
 }

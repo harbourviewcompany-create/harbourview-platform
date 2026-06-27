@@ -28,7 +28,7 @@ import crypto from 'node:crypto'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 min — Vercel Pro
 
-const BATCH_SIZE = 10
+const BATCH_SIZE = 50
 
 // Canonical Harbourview workspace — matches the default param in
 // public.hv_search_artifacts() and every existing hv_artifacts row.
@@ -176,12 +176,12 @@ export async function GET(request: Request) {
   if (authHeader !== `Bearer ${cronSecret}`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // ── Gate on Gemini key ──────────────────────────────────────────────────────
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('intelligence_extract_cron: GEMINI_API_KEY not set — skipping run')
+  // ── Gate on Gemini key (GEMINI_API_KEY takes priority; GOOGLE_API_KEY is the fallback) ─
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+    console.warn('intelligence_extract_cron: neither GEMINI_API_KEY nor GOOGLE_API_KEY set — skipping run')
     return NextResponse.json({
       ok:        false,
-      reason:    'GEMINI_API_KEY not configured',
+      reason:    'GEMINI_API_KEY (or GOOGLE_API_KEY) not configured',
       staged:    0,
       extracted: 0,
       failed:    0,
@@ -323,7 +323,142 @@ export async function GET(request: Request) {
     }
   }
 
-  const summary = { ok: true, staged: staged.length, extracted, artifactsCreated, failed, skipped }
+  // ── ALSO process source_snapshots with pending_extraction ────────────────────
+  // IntelligenceOrchestrator writes directly to source_snapshots (not
+  // hv_import_staging) — bridge those into the extraction pipeline here.
+  const { data: snapRows } = await supabase
+    .from('source_snapshots')
+    .select('id, source_id, captured_url, captured_text, captured_at')
+    .eq('processing_status', 'pending_extraction')
+    .not('captured_text', 'is', null)
+    .order('captured_at', { ascending: true })
+    .limit(BATCH_SIZE)
+
+  let snapExtracted = 0, snapFailed = 0, snapSkipped = 0
+
+  if (snapRows && snapRows.length > 0) {
+    const snapSourceIds = [...new Set(snapRows.map((r: { source_id: string }) => r.source_id).filter(Boolean))]
+    const { data: snapSources } = await supabase
+      .from('source_registry')
+      .select('id, source_name, iso')
+      .in('id', snapSourceIds)
+
+    const snapSourceMap = new Map<string, { source_name: string; iso: string }>(
+      ((snapSources ?? []) as Array<{ id: string; source_name: string; iso: string }>)
+        .map(s => [s.id, { source_name: s.source_name, iso: s.iso }])
+    )
+
+    for (const snap of snapRows as Array<{ id: string; source_id: string; captured_url: string | null; captured_text: string | null; captured_at: string }>) {
+      const rawText    = snap.captured_text ?? ''
+      const src        = snapSourceMap.get(snap.source_id)
+      const countryIso = src?.iso ?? 'GLOBAL'
+      const sourceName = src?.source_name ?? snap.captured_url ?? 'Unknown Source'
+
+      if (!rawText || rawText.trim().length < 100) {
+        await supabase
+          .from('source_snapshots')
+          .update({ processing_status: 'extraction_skipped' })
+          .eq('id', snap.id)
+        snapSkipped++
+        continue
+      }
+
+      // Dedup: skip if an artifact with this content hash already exists
+      const contentHash = crypto.createHash('sha256').update(rawText).digest('hex')
+      const { data: existingArtifact } = await supabase
+        .from('hv_artifacts')
+        .select('id')
+        .eq('content_hash', contentHash)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingArtifact) {
+        await supabase
+          .from('source_snapshots')
+          .update({ processing_status: 'extraction_complete' })
+          .eq('id', snap.id)
+        snapSkipped++
+        continue
+      }
+
+      try {
+        const record = await processor.processContent(snap.source_id, countryIso, rawText)
+
+        if (!record) {
+          await supabase
+            .from('source_snapshots')
+            .update({ processing_status: 'extraction_failed' })
+            .eq('id', snap.id)
+          snapFailed++
+          continue
+        }
+
+        const signalRow   = toSignalRow(record, sourceName, countryIso)
+        const artifactRow = toArtifactRow(record, snap.captured_url ?? '', countryIso)
+
+        const { error: sigErr } = await supabase.from('ia_signals').insert(signalRow)
+        if (sigErr) {
+          console.error(`intelligence_extract_cron: ia_signals insert failed (snapshot=${snap.id}):`, sigErr.message)
+          await supabase.from('source_snapshots').update({ processing_status: 'extraction_failed' }).eq('id', snap.id)
+          snapFailed++
+          continue
+        }
+
+        const { error: artErr } = await supabase.from('hv_artifacts').insert(artifactRow)
+        if (artErr) {
+          console.error(`intelligence_extract_cron: hv_artifacts insert failed (snapshot=${snap.id}):`, artErr.message)
+        } else {
+          artifactsCreated++
+        }
+
+        await supabase
+          .from('source_snapshots')
+          .update({ processing_status: 'extraction_complete' })
+          .eq('id', snap.id)
+
+        snapExtracted++
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`intelligence_extract_cron: unhandled error (snapshot=${snap.id}):`, msg)
+        await supabase.from('source_snapshots').update({ processing_status: 'extraction_failed' }).eq('id', snap.id)
+        snapFailed++
+      }
+    }
+  }
+
+  // ── Dead letter: requeue failed snapshots older than 1 h ────────────────────
+  // Snapshots stuck in extraction_failed for >1 h are eligible for a retry.
+  // We only requeue (not re-extract) here — the next cron invocation picks them up.
+  const stale1h = new Date(Date.now() - 3_600_000).toISOString()
+  const { data: dlRows } = await supabase
+    .from('source_snapshots')
+    .select('id')
+    .eq('processing_status', 'extraction_failed')
+    .lt('captured_at', stale1h)
+    .not('captured_text', 'is', null)
+    .limit(10)
+
+  let requeued = 0
+  if (dlRows?.length) {
+    const { error: requeueErr } = await supabase
+      .from('source_snapshots')
+      .update({ processing_status: 'pending_extraction' })
+      .in('id', dlRows.map((r: { id: string }) => r.id))
+    if (!requeueErr) requeued = dlRows.length
+  }
+
+  const summary = {
+    ok: true,
+    // hv_import_staging pipeline
+    staged: staged.length, extracted, artifactsCreated, failed, skipped,
+    // source_snapshots pipeline
+    snapshots_queued:    snapRows?.length ?? 0,
+    snapshots_extracted: snapExtracted,
+    snapshots_failed:    snapFailed,
+    snapshots_skipped:   snapSkipped,
+    // dead letter
+    dead_letter_requeued: requeued,
+  }
   console.info('intelligence_extract_cron: run complete', summary)
   return NextResponse.json(summary)
 }

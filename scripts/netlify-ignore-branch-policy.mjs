@@ -8,6 +8,18 @@
 //   - Build only main, preview/* and deploy/*.
 //   - Ignore ordinary feature/*, fix/*, cloudflare/*, vercel/* and bot/generated branches.
 //   - Ignore all other unrecognized branches by default.
+//
+// Site overrides (checked before context/branch logic):
+//   - harbourview-platform: never build — this app deploys via Vercel and Cloudflare Workers.
+
+const siteName = process.env.SITE_NAME || process.env.NETLIFY_SITE_NAME || ''
+
+// This repo's canonical deployments are Vercel (production) and Cloudflare Workers/Pages.
+// The harbourview-platform Netlify project is a stale integration — cancel all its builds.
+if (siteName === 'harbourview-platform') {
+  console.log(`Netlify ignore: site '${siteName}' deploys via Vercel/Cloudflare; cancel build.`)
+  process.exit(0)
+}
 
 const branch =
   process.env.BRANCH ||
@@ -38,6 +50,7 @@ const skippedPrefixes = [
   'renovate/',
   'github-actions/',
   'bot/',
+  'claude/',
   'codex/',
 ]
 
