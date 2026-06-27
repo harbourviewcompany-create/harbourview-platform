@@ -768,7 +768,7 @@ const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], onPageChange,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -778,6 +778,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   wantedCount?:      number
   pathwayData?:      PathwayData
   cannabisOperators?: CannabisOperator[]
+  pipeline?:         PipelineCounts
   onPageChange?:     (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => {
@@ -964,6 +965,27 @@ const MarketplacePage = React.memo(function MarketplacePage({
 
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
+        {pipeline && (pipeline.wanted + pipeline.matched + pipeline.proof_review + pipeline.inquiry + pipeline.deal_room) > 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">PIPELINE STATUS</div>
+            {[
+              { label: 'Wanted demand',   value: pipeline.wanted },
+              { label: 'Matched',         value: pipeline.matched },
+              { label: 'Proof review',    value: pipeline.proof_review },
+              { label: 'Inquiry',         value: pipeline.inquiry },
+              { label: 'Deal room',       value: pipeline.deal_room },
+            ].filter(r => r.value > 0).map(r => (
+              <div key={r.label} className="cc-req-row">
+                <span className="cc-req-icon ok">◎</span>
+                <div>
+                  <strong>{r.label}</strong>
+                  <small>{r.value} active</small>
+                </div>
+              </div>
+            ))}
+            <Link href="/marketplace" className="cc-right-link">View pipeline →</Link>
+          </div>
+        )}
         <div className="cc-right-section">
           <div className="cc-right-head">MARKETPLACE ACCESS REQUIREMENTS</div>
           {ACCESS_REQS.map(r => (
@@ -3551,7 +3573,10 @@ const CompliancePage = React.memo(function CompliancePage({
         {countryIntel && (
           <div className="cc-sig-feed" style={{ marginBottom: 0 }}>
             <div className="cc-sig-group">
-              <div className="cc-sig-group-hd"><span>{country.label} — Current Jurisdiction Status</span></div>
+              <div className="cc-sig-group-hd">
+                <span>{country.label} — Current Jurisdiction Status</span>
+                {countryIntel.briefing_last_reviewed && (() => { const [y, m] = countryIntel.briefing_last_reviewed.split('-'); const d = new Date(+y, +m - 1); return isNaN(d.getTime()) ? null : <span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.6 }}>Reviewed {d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span> })()}
+              </div>
               <div className="cc-sig-row">
                 <div className="cc-sig-dot medium" />
                 <div className="cc-sig-body">
@@ -3574,6 +3599,15 @@ const CompliancePage = React.memo(function CompliancePage({
                   )}
                 </div>
               </div>
+              {countryIntel.trade_roles && countryIntel.trade_roles.length > 0 && (
+                <div className="cc-jx-field" style={{ marginTop: 8 }}>
+                  <span className="cc-jx-field-icon">◈</span>
+                  <div>
+                    <small>Trade roles</small>
+                    <strong>{countryIntel.trade_roles.map(r => r.replace(/_/g, ' ')).join(' · ')}</strong>
+                  </div>
+                </div>
+              )}
               {([
                 { label: 'Program status', value: countryIntel.briefing_program_status },
                 { label: 'Market dynamics', value: countryIntel.briefing_market_dynamics },
@@ -3939,7 +3973,7 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} onPageChange={setActivePage} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={setActivePage} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
       case 'education':
