@@ -1,9 +1,8 @@
 "use client"
 
-import { ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactNode, useState } from 'react'
 
-// Placeholder — @tanstack/react-query not yet installed.
-// When adding it: npm install @tanstack/react-query, restore QueryClientProvider wrapper.
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
