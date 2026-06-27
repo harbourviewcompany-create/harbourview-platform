@@ -1,6 +1,10 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  eslint: {
+    // ESLint runs as a separate CI step; don't block the build on it
+    ignoreDuringBuilds: true,
+  },
   reactStrictMode: true,
   experimental: {
     authInterrupts: true,
