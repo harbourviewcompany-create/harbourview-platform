@@ -1915,7 +1915,7 @@ function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { 
       </MobileAccordion>
 
       {/* Watch rules */}
-      <MobileAccordion title={`Alert rules${rules.length > 0 ? ` (${rules.length})` : ''}`} defaultOpen={rules.length === 0}>
+      <MobileAccordion title={rules.length > 0 ? `Alert rules (${rules.length})` : 'Alert rules'} defaultOpen={rules.length === 0}>
         <div className="hvm-list-stack">
           {rules.length === 0 && !showRuleForm && (
             <div style={{ fontSize: 12, color: 'rgba(245,240,232,.38)', textAlign: 'center', padding: '12px 0' }}>
