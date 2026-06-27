@@ -13,10 +13,10 @@ export const dynamic = 'force-dynamic'
 export default async function CounterpartiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ doc_status?: string; role?: string }>
+  searchParams: Promise<{ doc_status?: string; role?: string; created?: string; deleted?: string }>
 }) {
   await requireAdminAuth()
-  const { doc_status, role } = await searchParams
+  const { doc_status, role, created, deleted } = await searchParams
 
   const result = await listCounterparties({ doc_status, role, limit: 100 })
   const counterparties = result.ok ? result.data : []
@@ -33,9 +33,26 @@ export default async function CounterpartiesPage({
             Edit profiles and normalise market coverage from the detail view.
           </p>
         </div>
+        <Link
+          href="/admin/counterparties/new"
+          className="shrink-0 rounded-lg border border-[#C6A55A]/35 bg-[#C6A55A]/10 px-4 py-2 text-sm font-medium text-[#C6A55A] hover:bg-[#C6A55A]/20 transition-colors"
+        >
+          + New counterparty
+        </Link>
       </div>
 
       {isFixture && <FixtureBanner isFixture label="SUPABASE_SERVICE_ROLE_KEY not set — cannot read ia_counterparties." />}
+
+      {created === '1' && (
+        <div className="rounded-xl border border-emerald-400/20 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-400">
+          Counterparty created successfully.
+        </div>
+      )}
+      {deleted === '1' && (
+        <div className="rounded-xl border border-amber-400/20 bg-amber-950/30 px-4 py-3 text-sm text-amber-400">
+          Counterparty deleted.
+        </div>
+      )}
 
       {/* Filters */}
       <form method="get" className="flex flex-wrap gap-2 text-sm">
