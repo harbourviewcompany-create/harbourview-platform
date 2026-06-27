@@ -2046,18 +2046,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Prohibition Partners RSS. European-focused cannabis intelligence — EU regulatory developments, APAC market analysis, LatAm regulatory updates. Strong international market signal.',
   },
   {
-    id: 'leaflink-marketplace',
-    name: 'LeafLink — Cannabis B2B Wholesale Platform (Brand Directory)',
-    url: 'https://www.leaflink.com',
-    searchUrl: 'https://www.leaflink.com/brands/',
-    category: 'cannabis_inventory',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 24,
-    region: 'north_america',
-    notes: 'Dominant B2B cannabis wholesale platform — 12,000+ brands, 6,200+ retailers across 40+ markets. Public brand directory covers active market participants. Requires authentication for order/pricing data.',
-  },
-  {
     id: 'apex-trading-northwest',
     name: 'Apex Trading — Oregon/Washington B2B Wholesale',
     url: 'https://www.apextrading.com',
@@ -3122,6 +3110,638 @@ export const scraperSources: ScraperSource[] = [
     region: 'north_america',
     notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
   },
+
+  // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
+  {
+    id: 'spannabis-barcelona',
+    name: 'Spannabis Barcelona — Europe\'s Largest Cannabis Trade Show',
+    url: 'https://www.spannabis.com',
+    searchUrl: 'https://www.spannabis.com/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Spannabis (Barcelona, annual, March) — Europe\'s largest cannabis trade show. 600+ exhibitors across cultivation, extraction, genetics, accessories, and emerging medical markets. Exhibitor directory is the single richest snapshot of European and global suppliers seeking EU market access — essential for competitive mapping of the EU-GMP supply chain.',
+  },
+  {
+    id: 'cannatrade-switzerland',
+    name: 'CannaTrade Switzerland — European B2B Cannabis Exhibition',
+    url: 'https://cannatrade.ch',
+    searchUrl: 'https://cannatrade.ch/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
+  },
+
+
+  // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
+  {
+    id: 'little-green-pharma-ir',
+    name: 'Little Green Pharma (LGP) — ASX Cannabis LP Investor Relations',
+    url: 'https://www.littlegreenpharma.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Little Green Pharma (ASX: LGP) — Australia\'s largest cannabis company by revenue, with TGA-licensed production and EU-GMP certified facility. ASX filings and quarterly reports track Australian domestic sales, EU export volumes, and UK supply agreements — key signal for Asia-Pacific supply chain intelligence.',
+  },
+  {
+    id: 'cann-group-ir',
+    name: 'Cann Group (CAN) — First Australian Licensed Cannabis Producer IR',
+    url: 'https://www.canngroup.com.au/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Cann Group (ASX: CAN) — Australia\'s first licensed cannabis cultivator and manufacturer. ASX filings surface production scale-up, TGA and ODC licence expansions, and export partnership developments. Longest operational track record in Australian medical cannabis — benchmark for regulatory cadence.',
+  },
+
+  // ── GERMANY POST-CanG — DOMESTIC LPs ─────────────────────────────────────
+  {
+    id: 'demecan-germany-lp',
+    name: 'Demecan — German Domestic Cannabis Cultivator',
+    url: 'https://www.demecan.de',
+    searchUrl: 'https://www.demecan.de/en/news/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Demecan (Dresden) — the only licensed domestic cannabis cultivator in Germany, operating under BfArM tender. With Germany\'s CanG adult-use reform (April 2024), Demecan\'s press releases and capacity announcements are bellwether signals for domestic German supply chain development and import substitution pace.',
+  },
+  {
+    id: 'sanity-group-germany',
+    name: 'Sanity Group — German Cannabis Distribution & Brands',
+    url: 'https://www.sanitygroup.com',
+    searchUrl: 'https://www.sanitygroup.com/en/news',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Sanity Group (Berlin) — Germany\'s leading cannabis holding company (Vayamed pharmacy brand, Wappa cultivation brand). Pharmacy distribution network and post-CanG adult-use brand launches make Sanity Group the primary intelligence source for German consumer market segmentation and retail channel strategy.',
+  },
+
+  // ── ADDITIONAL ISRAELI LPs ─────────────────────────────────────────────────
+  {
+    id: 'cannbit-israel-lp',
+    name: 'Cannbit / Seach Medical Group — Israeli LP',
+    url: 'https://www.cannbit.co.il',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'middle_east_africa',
+    notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
+  },
+
+
+
+  // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
+  {
+    id: 'rubicon-organics-ir',
+    name: 'Rubicon Organics (ROMJ) — Certified Organic Canadian LP IR',
+    url: 'https://www.rubiconorganics.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Rubicon Organics (TSX-V: ROMJ) — Canadian LP focused on certified organic and sun-grown premium cannabis. SEDAR+ quarterly reports track the organic-premium segment\'s margin performance, EU export volumes, and consumer demand signals for sustainability-certified cannabis.',
+  },
+  {
+    id: 'auxly-cannabis-ir',
+    name: 'Auxly Cannabis (XY) — Vaporizer & Accessories-Focused LP IR',
+    url: 'https://auxly.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
+  },
+
+
+
+  // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
+  {
+    id: 'surna-inc-ir',
+    name: 'Surna Inc. (SRNA) — Cannabis HVAC & Climate Control IR',
+    url: 'https://ir.surna.com',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Surna Inc. (OTC: SRNA) — publicly traded HVAC and environmental control systems manufacturer exclusively serving cannabis cultivators. SEC filings and order backlog data are a leading indicator of indoor facility construction pipeline and capex cycles across North American and international cannabis markets.',
+  },
+  {
+    id: 'fluence-bioengineering-lighting',
+    name: 'Fluence Bioengineering (Signify) — Cannabis LED Grow Lighting',
+    url: 'https://fluence.science',
+    searchUrl: 'https://fluence.science/resources/',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'global',
+    notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
+  },
+
+  {
+    id: 'women-grow-network',
+    name: 'Women Grow — Cannabis Industry Diversity Network',
+    url: 'https://www.womengrow.com',
+    searchUrl: 'https://www.womengrow.com/events/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
+  },
+
+
+
+  // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
+  {
+    id: 'spannabis-barcelona',
+    name: 'Spannabis Barcelona — Europe\'s Largest Cannabis Trade Show',
+    url: 'https://www.spannabis.com',
+    searchUrl: 'https://www.spannabis.com/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Spannabis (Barcelona, annual, March) — Europe\'s largest cannabis trade show. 600+ exhibitors across cultivation, extraction, genetics, accessories, and emerging medical markets. Exhibitor directory is the single richest snapshot of European and global suppliers seeking EU market access — essential for competitive mapping of the EU-GMP supply chain.',
+  },
+  {
+    id: 'cannatrade-switzerland',
+    name: 'CannaTrade Switzerland — European B2B Cannabis Exhibition',
+    url: 'https://cannatrade.ch',
+    searchUrl: 'https://cannatrade.ch/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
+  },
+
+
+  // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
+  {
+    id: 'little-green-pharma-ir',
+    name: 'Little Green Pharma (LGP) — ASX Cannabis LP Investor Relations',
+    url: 'https://www.littlegreenpharma.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Little Green Pharma (ASX: LGP) — Australia\'s largest cannabis company by revenue, with TGA-licensed production and EU-GMP certified facility. ASX filings and quarterly reports track Australian domestic sales, EU export volumes, and UK supply agreements — key signal for Asia-Pacific supply chain intelligence.',
+  },
+  {
+    id: 'cann-group-ir',
+    name: 'Cann Group (CAN) — First Australian Licensed Cannabis Producer IR',
+    url: 'https://www.canngroup.com.au/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Cann Group (ASX: CAN) — Australia\'s first licensed cannabis cultivator and manufacturer. ASX filings surface production scale-up, TGA and ODC licence expansions, and export partnership developments. Longest operational track record in Australian medical cannabis — benchmark for regulatory cadence.',
+  },
+
+  // ── GERMANY POST-CanG — DOMESTIC LPs ─────────────────────────────────────
+  {
+    id: 'demecan-germany-lp',
+    name: 'Demecan — German Domestic Cannabis Cultivator',
+    url: 'https://www.demecan.de',
+    searchUrl: 'https://www.demecan.de/en/news/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Demecan (Dresden) — the only licensed domestic cannabis cultivator in Germany, operating under BfArM tender. With Germany\'s CanG adult-use reform (April 2024), Demecan\'s press releases and capacity announcements are bellwether signals for domestic German supply chain development and import substitution pace.',
+  },
+  {
+    id: 'sanity-group-germany',
+    name: 'Sanity Group — German Cannabis Distribution & Brands',
+    url: 'https://www.sanitygroup.com',
+    searchUrl: 'https://www.sanitygroup.com/en/news',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Sanity Group (Berlin) — Germany\'s leading cannabis holding company (Vayamed pharmacy brand, Wappa cultivation brand). Pharmacy distribution network and post-CanG adult-use brand launches make Sanity Group the primary intelligence source for German consumer market segmentation and retail channel strategy.',
+  },
+
+  // ── ADDITIONAL ISRAELI LPs ─────────────────────────────────────────────────
+  {
+    id: 'cannbit-israel-lp',
+    name: 'Cannbit / Seach Medical Group — Israeli LP',
+    url: 'https://www.cannbit.co.il',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'middle_east_africa',
+    notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
+  },
+
+
+
+  // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
+  {
+    id: 'rubicon-organics-ir',
+    name: 'Rubicon Organics (ROMJ) — Certified Organic Canadian LP IR',
+    url: 'https://www.rubiconorganics.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Rubicon Organics (TSX-V: ROMJ) — Canadian LP focused on certified organic and sun-grown premium cannabis. SEDAR+ quarterly reports track the organic-premium segment\'s margin performance, EU export volumes, and consumer demand signals for sustainability-certified cannabis.',
+  },
+  {
+    id: 'auxly-cannabis-ir',
+    name: 'Auxly Cannabis (XY) — Vaporizer & Accessories-Focused LP IR',
+    url: 'https://auxly.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
+  },
+
+
+
+  // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
+  {
+    id: 'surna-inc-ir',
+    name: 'Surna Inc. (SRNA) — Cannabis HVAC & Climate Control IR',
+    url: 'https://ir.surna.com',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Surna Inc. (OTC: SRNA) — publicly traded HVAC and environmental control systems manufacturer exclusively serving cannabis cultivators. SEC filings and order backlog data are a leading indicator of indoor facility construction pipeline and capex cycles across North American and international cannabis markets.',
+  },
+  {
+    id: 'fluence-bioengineering-lighting',
+    name: 'Fluence Bioengineering (Signify) — Cannabis LED Grow Lighting',
+    url: 'https://fluence.science',
+    searchUrl: 'https://fluence.science/resources/',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'global',
+    notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
+  },
+
+  {
+    id: 'women-grow-network',
+    name: 'Women Grow — Cannabis Industry Diversity Network',
+    url: 'https://www.womengrow.com',
+    searchUrl: 'https://www.womengrow.com/events/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
+  },
+
+
+
+  // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
+  {
+    id: 'spannabis-barcelona',
+    name: 'Spannabis Barcelona — Europe\'s Largest Cannabis Trade Show',
+    url: 'https://www.spannabis.com',
+    searchUrl: 'https://www.spannabis.com/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Spannabis (Barcelona, annual, March) — Europe\'s largest cannabis trade show. 600+ exhibitors across cultivation, extraction, genetics, accessories, and emerging medical markets. Exhibitor directory is the single richest snapshot of European and global suppliers seeking EU market access — essential for competitive mapping of the EU-GMP supply chain.',
+  },
+  {
+    id: 'cannatrade-switzerland',
+    name: 'CannaTrade Switzerland — European B2B Cannabis Exhibition',
+    url: 'https://cannatrade.ch',
+    searchUrl: 'https://cannatrade.ch/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
+  },
+
+
+  // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
+  {
+    id: 'little-green-pharma-ir',
+    name: 'Little Green Pharma (LGP) — ASX Cannabis LP Investor Relations',
+    url: 'https://www.littlegreenpharma.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Little Green Pharma (ASX: LGP) — Australia\'s largest cannabis company by revenue, with TGA-licensed production and EU-GMP certified facility. ASX filings and quarterly reports track Australian domestic sales, EU export volumes, and UK supply agreements — key signal for Asia-Pacific supply chain intelligence.',
+  },
+  {
+    id: 'cann-group-ir',
+    name: 'Cann Group (CAN) — First Australian Licensed Cannabis Producer IR',
+    url: 'https://www.canngroup.com.au/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Cann Group (ASX: CAN) — Australia\'s first licensed cannabis cultivator and manufacturer. ASX filings surface production scale-up, TGA and ODC licence expansions, and export partnership developments. Longest operational track record in Australian medical cannabis — benchmark for regulatory cadence.',
+  },
+
+  // ── GERMANY POST-CanG — DOMESTIC LPs ─────────────────────────────────────
+  {
+    id: 'demecan-germany-lp',
+    name: 'Demecan — German Domestic Cannabis Cultivator',
+    url: 'https://www.demecan.de',
+    searchUrl: 'https://www.demecan.de/en/news/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Demecan (Dresden) — the only licensed domestic cannabis cultivator in Germany, operating under BfArM tender. With Germany\'s CanG adult-use reform (April 2024), Demecan\'s press releases and capacity announcements are bellwether signals for domestic German supply chain development and import substitution pace.',
+  },
+  {
+    id: 'sanity-group-germany',
+    name: 'Sanity Group — German Cannabis Distribution & Brands',
+    url: 'https://www.sanitygroup.com',
+    searchUrl: 'https://www.sanitygroup.com/en/news',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Sanity Group (Berlin) — Germany\'s leading cannabis holding company (Vayamed pharmacy brand, Wappa cultivation brand). Pharmacy distribution network and post-CanG adult-use brand launches make Sanity Group the primary intelligence source for German consumer market segmentation and retail channel strategy.',
+  },
+
+  // ── ADDITIONAL ISRAELI LPs ─────────────────────────────────────────────────
+  {
+    id: 'cannbit-israel-lp',
+    name: 'Cannbit / Seach Medical Group — Israeli LP',
+    url: 'https://www.cannbit.co.il',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'middle_east_africa',
+    notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
+  },
+
+
+
+  // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
+  {
+    id: 'rubicon-organics-ir',
+    name: 'Rubicon Organics (ROMJ) — Certified Organic Canadian LP IR',
+    url: 'https://www.rubiconorganics.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Rubicon Organics (TSX-V: ROMJ) — Canadian LP focused on certified organic and sun-grown premium cannabis. SEDAR+ quarterly reports track the organic-premium segment\'s margin performance, EU export volumes, and consumer demand signals for sustainability-certified cannabis.',
+  },
+  {
+    id: 'auxly-cannabis-ir',
+    name: 'Auxly Cannabis (XY) — Vaporizer & Accessories-Focused LP IR',
+    url: 'https://auxly.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
+  },
+
+
+
+  // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
+  {
+    id: 'surna-inc-ir',
+    name: 'Surna Inc. (SRNA) — Cannabis HVAC & Climate Control IR',
+    url: 'https://ir.surna.com',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Surna Inc. (OTC: SRNA) — publicly traded HVAC and environmental control systems manufacturer exclusively serving cannabis cultivators. SEC filings and order backlog data are a leading indicator of indoor facility construction pipeline and capex cycles across North American and international cannabis markets.',
+  },
+  {
+    id: 'fluence-bioengineering-lighting',
+    name: 'Fluence Bioengineering (Signify) — Cannabis LED Grow Lighting',
+    url: 'https://fluence.science',
+    searchUrl: 'https://fluence.science/resources/',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'global',
+    notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
+  },
+
+  {
+    id: 'women-grow-network',
+    name: 'Women Grow — Cannabis Industry Diversity Network',
+    url: 'https://www.womengrow.com',
+    searchUrl: 'https://www.womengrow.com/events/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
+  },
+
+
+
+  // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
+  {
+    id: 'spannabis-barcelona',
+    name: 'Spannabis Barcelona — Europe\'s Largest Cannabis Trade Show',
+    url: 'https://www.spannabis.com',
+    searchUrl: 'https://www.spannabis.com/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Spannabis (Barcelona, annual, March) — Europe\'s largest cannabis trade show. 600+ exhibitors across cultivation, extraction, genetics, accessories, and emerging medical markets. Exhibitor directory is the single richest snapshot of European and global suppliers seeking EU market access — essential for competitive mapping of the EU-GMP supply chain.',
+  },
+  {
+    id: 'cannatrade-switzerland',
+    name: 'CannaTrade Switzerland — European B2B Cannabis Exhibition',
+    url: 'https://cannatrade.ch',
+    searchUrl: 'https://cannatrade.ch/en/exhibitors/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
+  },
+
+
+  // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
+  {
+    id: 'little-green-pharma-ir',
+    name: 'Little Green Pharma (LGP) — ASX Cannabis LP Investor Relations',
+    url: 'https://www.littlegreenpharma.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Little Green Pharma (ASX: LGP) — Australia\'s largest cannabis company by revenue, with TGA-licensed production and EU-GMP certified facility. ASX filings and quarterly reports track Australian domestic sales, EU export volumes, and UK supply agreements — key signal for Asia-Pacific supply chain intelligence.',
+  },
+  {
+    id: 'cann-group-ir',
+    name: 'Cann Group (CAN) — First Australian Licensed Cannabis Producer IR',
+    url: 'https://www.canngroup.com.au/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'asia_pacific',
+    notes: 'Cann Group (ASX: CAN) — Australia\'s first licensed cannabis cultivator and manufacturer. ASX filings surface production scale-up, TGA and ODC licence expansions, and export partnership developments. Longest operational track record in Australian medical cannabis — benchmark for regulatory cadence.',
+  },
+
+  // ── GERMANY POST-CanG — DOMESTIC LPs ─────────────────────────────────────
+  {
+    id: 'demecan-germany-lp',
+    name: 'Demecan — German Domestic Cannabis Cultivator',
+    url: 'https://www.demecan.de',
+    searchUrl: 'https://www.demecan.de/en/news/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Demecan (Dresden) — the only licensed domestic cannabis cultivator in Germany, operating under BfArM tender. With Germany\'s CanG adult-use reform (April 2024), Demecan\'s press releases and capacity announcements are bellwether signals for domestic German supply chain development and import substitution pace.',
+  },
+  {
+    id: 'sanity-group-germany',
+    name: 'Sanity Group — German Cannabis Distribution & Brands',
+    url: 'https://www.sanitygroup.com',
+    searchUrl: 'https://www.sanitygroup.com/en/news',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'europe',
+    notes: 'Sanity Group (Berlin) — Germany\'s leading cannabis holding company (Vayamed pharmacy brand, Wappa cultivation brand). Pharmacy distribution network and post-CanG adult-use brand launches make Sanity Group the primary intelligence source for German consumer market segmentation and retail channel strategy.',
+  },
+
+  // ── ADDITIONAL ISRAELI LPs ─────────────────────────────────────────────────
+  {
+    id: 'cannbit-israel-lp',
+    name: 'Cannbit / Seach Medical Group — Israeli LP',
+    url: 'https://www.cannbit.co.il',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'middle_east_africa',
+    notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
+  },
+
+
+
+  // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
+  {
+    id: 'rubicon-organics-ir',
+    name: 'Rubicon Organics (ROMJ) — Certified Organic Canadian LP IR',
+    url: 'https://www.rubiconorganics.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Rubicon Organics (TSX-V: ROMJ) — Canadian LP focused on certified organic and sun-grown premium cannabis. SEDAR+ quarterly reports track the organic-premium segment\'s margin performance, EU export volumes, and consumer demand signals for sustainability-certified cannabis.',
+  },
+  {
+    id: 'auxly-cannabis-ir',
+    name: 'Auxly Cannabis (XY) — Vaporizer & Accessories-Focused LP IR',
+    url: 'https://auxly.com/investors/',
+    category: 'business_opportunities',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
+  },
+
+
+
+  // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
+  {
+    id: 'surna-inc-ir',
+    name: 'Surna Inc. (SRNA) — Cannabis HVAC & Climate Control IR',
+    url: 'https://ir.surna.com',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Surna Inc. (OTC: SRNA) — publicly traded HVAC and environmental control systems manufacturer exclusively serving cannabis cultivators. SEC filings and order backlog data are a leading indicator of indoor facility construction pipeline and capex cycles across North American and international cannabis markets.',
+  },
+  {
+    id: 'fluence-bioengineering-lighting',
+    name: 'Fluence Bioengineering (Signify) — Cannabis LED Grow Lighting',
+    url: 'https://fluence.science',
+    searchUrl: 'https://fluence.science/resources/',
+    category: 'cultivation_equipment',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'global',
+    notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
+  },
+
+  {
+    id: 'women-grow-network',
+    name: 'Women Grow — Cannabis Industry Diversity Network',
+    url: 'https://www.womengrow.com',
+    searchUrl: 'https://www.womengrow.com/events/',
+    category: 'professional_services',
+    parserType: 'html-card',
+    status: 'enabled',
+    cadenceHours: 168,
+    region: 'north_america',
+    notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
+  },
+
+
 
 ]
 
