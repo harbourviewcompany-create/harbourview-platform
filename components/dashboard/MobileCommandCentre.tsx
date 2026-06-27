@@ -3097,6 +3097,7 @@ export default function MobileCommandCentre({
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  pipeline,
   userEmail,
   cultivarPassports = [],
   serviceProviders = [],
