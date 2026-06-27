@@ -61,7 +61,7 @@ export function globeRouterReducer(
       return {
         ...state,
         mode: 'multi_market',
-        step: 'role',
+        step: 'market_overview',
         selectedCountryIso2s,
         selectedCountryIso2: selectedCountryIso2s[0],
         inlineNotice: undefined,

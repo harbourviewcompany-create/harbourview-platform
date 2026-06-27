@@ -76,6 +76,9 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
           {briefing.patient_access ? (
             <BriefingSection label="Patient Access" text={briefing.patient_access} />
           ) : null}
+          {briefing.physician_access ? (
+            <BriefingSection label="Physician Access" text={briefing.physician_access} />
+          ) : null}
           {briefing.market_dynamics ? (
             <BriefingSection label="Market Dynamics" text={briefing.market_dynamics} />
           ) : null}
