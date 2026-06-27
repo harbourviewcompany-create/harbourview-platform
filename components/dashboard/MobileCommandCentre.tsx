@@ -3117,18 +3117,31 @@ export default function MobileCommandCentre({
   const roleLabel = roleDisplay(role)
   const pageTitle = MOBILE_NAV.find(item => item.id === activePage)?.label ?? 'Briefing'
 
-  const handleCountryChange = (iso2: string) => {
-    const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
-    if (nextCountry) setCountry(nextCountry)
-  }
-
-  const handleApplyContext = () => {
-    setContextOpen(false)
+  // Applies country/role context immediately on selection — mirrors the
+  // desktop CommandCentre pattern. Previously this only ran on an explicit
+  // "Apply context" tap, while the Country/Role <select>s (here AND in
+  // SettingsMobile, which shares these same handlers) updated the visible
+  // label/"Active" badge instantly — so the header could show a country
+  // whose data was never actually fetched.
+  const applyContext = (iso2: string, roleVal: string) => {
     const params = new URLSearchParams()
-    if (country.iso2 && country.iso2 !== 'GLOBAL') params.set('country', country.iso2)
-    if (role) params.set('role', role)
+    if (iso2 && iso2 !== 'GLOBAL') params.set('country', iso2)
+    if (roleVal) params.set('role', roleVal)
     const qs = params.toString()
     router.replace(qs ? `?${qs}` : '/dashboard')
+  }
+
+  const handleCountryChange = (iso2: string) => {
+    const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
+    if (nextCountry) {
+      setCountry(nextCountry)
+      applyContext(iso2, role)
+    }
+  }
+
+  const handleRoleChange = (roleVal: string) => {
+    setRole(roleVal)
+    applyContext(country.iso2, roleVal)
   }
 
   const titlebartabs = (() => {
@@ -3148,7 +3161,7 @@ export default function MobileCommandCentre({
             countryOptions={countryOptions} roleOptions={roleOptions}
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
             jurisdictionPlaybook={jurisdictionPlaybook}
-            onCountryChange={handleCountryChange} onRoleChange={setRole}
+            onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => setBriefingSub('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
@@ -3231,12 +3244,12 @@ export default function MobileCommandCentre({
             </label>
             <label>
               <span>Role</span>
-              <select value={role} onChange={event => setRole(event.target.value)}>
+              <select value={role} onChange={event => handleRoleChange(event.target.value)}>
                 <option value="">All roles</option>
                 {roleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <button className="hvm-sheet-apply" type="button" onClick={handleApplyContext}>Apply context</button>
+            <button className="hvm-sheet-apply" type="button" onClick={() => setContextOpen(false)}>Done</button>
             <div className="hvm-sheet-divider" />
             {userEmail ? (
               <div className="hvm-sheet-account">
