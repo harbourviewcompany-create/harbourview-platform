@@ -100,7 +100,7 @@ export const MarketplacePage = React.memo(function MarketplacePage({
 }: MarketplacePageProps) {
   const [activeView, setActiveView] = useState<MarketView>('cannabis')
 
-  const rows = marketplaceRows?.[activeView] ?? []
+  const rows = marketplaceRows?.[activeView as MarketView] ?? []
   const totalListings = Object.values(marketplaceRows ?? {}).reduce((n, r) => n + (r?.length ?? 0), 0)
 
   return (

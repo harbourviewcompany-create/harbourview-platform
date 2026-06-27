@@ -168,7 +168,7 @@ function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'gold' | 'ne
   )
 }
 
-function SectionEyebrow({ children }: { children: ReactNode }) {
+function SectionEyebrow({ children }: { children?: ReactNode }) {
   return <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">{children}</p>
 }
 

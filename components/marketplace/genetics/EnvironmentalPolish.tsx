@@ -1,5 +1,5 @@
 type PolishProps = {
-  children: React.ReactNode
+  children?: React.ReactNode
   className?: string
 }
 

@@ -12,7 +12,7 @@ const NO_SHELL_PREFIXES = ['/dashboard', '/country']
 // Routes where neither nav nor footer renders — page provides its own chrome.
 const NO_CHROME_ROUTES = ['/']
 
-export function ShellWrapper({ children }: { children: React.ReactNode }) {
+export function ShellWrapper({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname()
   const isNoShell = NO_SHELL_PREFIXES.some(r => pathname === r || pathname.startsWith(r + '/'))
   const isNoChrome = NO_CHROME_ROUTES.includes(pathname)

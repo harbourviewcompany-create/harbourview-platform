@@ -791,7 +791,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   const [search,    setSearch]    = useState('')
 
   const rows = useMemo<MarketRow[]>(() => {
-    let r: MarketRow[] = marketplaceRows?.[activeTab] ?? []
+    let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
     if (activeTab === 'wanted' && wantedListings?.length) {
       r = wantedListings.map(w => [
         w.title,

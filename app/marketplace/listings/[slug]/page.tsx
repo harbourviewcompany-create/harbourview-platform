@@ -91,7 +91,7 @@ export default async function MarketplaceListingDetailPage({
   const { slug } = await params
   const listing = await getPublicListingBySlug(slug)
 
-  if (!listing) notFound()
+  if (!listing) return notFound()
 
   const ctaLabel = getStringSpec(listing, 'cta_label') ?? 'Request Harbourview review'
   const buyerFit = getStringSpec(listing, 'buyer_fit')

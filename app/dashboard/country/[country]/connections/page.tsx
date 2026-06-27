@@ -148,7 +148,7 @@ function deriveConnections(state: DashboardPanelState, countryName: string): Con
 export default async function ConnectionsPage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
-  if (!country) notFound()
+  if (!country) return notFound()
 
   const panel   = country.panels.connections
   const badge   = getDashboardStatusBadge(panel.state)
