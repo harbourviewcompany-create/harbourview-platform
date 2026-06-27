@@ -1,3 +1,32 @@
+## Session: Jun 23 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — gap audit + five highest-leverage fixes (PRs #820, #821)
+
+**Gap audit results:**
+- 🔴 Static wrappers: `/intelligence/logistics-trade-routes`, `/intelligence/counterparty-intelligence`, `/intelligence/regulatory-pathways`, `/education/glossary`, `/education/glossary/[term]`
+- 🔴 Zero-row: `genetics_collaboration_projects`
+- 🔴 Missing exports blocking admin review loop: `listPendingProfessionals`, `decideProfessionalApplication`, `decideSupplierApplication` deleted from `applicationsQuery.ts`
+
+| PR | What | |
+|---|---|---|
+| **#820** | 3 static intelligence wrappers → live pages + real 26-term glossary + 10 collab projects seeded | ✅ merged |
+| **#821** | Missing applicationsQuery exports restored + duplicate country-data re-exports removed | ✅ merged |
+
+### Remaining TS errors (2, both pre-existing on main)
+- `app/providers.tsx`: `@tanstack/react-query` missing from deps
+- `lib/stripe/server.ts`: Stripe API version mismatch
+
+### Next priorities
+1. Fix `@tanstack/react-query` missing dependency
+2. Fix Stripe API version (bump package)
+3. Fix Supabase migration drift (P0 blocker)
+4. Admin notification when pending applications land
+5. Diagnose Cloudflare Workers Build failure
+
+---
+
 ## Session: Jun 24 2026 — Backward Audit
 
 ### Agent: Claude (Sonnet 4.6)
