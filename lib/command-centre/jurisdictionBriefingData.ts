@@ -33,6 +33,37 @@ interface CcBriefingRow {
   review_state: CCReviewState
 }
 
+// ── Trajectory fallback ────────────────────────────────────────────────────────
+
+/**
+ * Returns a formatted regulatory outlook string from hv_regulatory_trajectory
+ * when cc_jurisdiction_briefings has no manual regulatory_outlook for this ISO.
+ */
+async function fetchTrajectoryFallback(iso2: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('hv_regulatory_trajectory')
+    .select('trajectory, sentiment_score, key_themes, summary_text, period_end')
+    .eq('iso', iso2)
+    .order('period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data || !data.summary_text) return null
+
+  const TRAJECTORY_LABEL: Record<string, string> = {
+    liberalising: 'Liberalising', tightening: 'Tightening',
+    stable: 'Stable', uncertain: 'Uncertain', no_data: '',
+  }
+  const label = TRAJECTORY_LABEL[data.trajectory as string] ?? ''
+  const themes = Array.isArray(data.key_themes) && data.key_themes.length > 0
+    ? ` Key themes: ${(data.key_themes as string[]).slice(0, 3).join(', ')}.`
+    : ''
+
+  return label
+    ? `${label}: ${data.summary_text}${themes}`
+    : `${data.summary_text}${themes}`
+}
+
 // ── Lookup ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -73,11 +104,18 @@ async function fetchBriefingRow(
 export async function buildLiveJurisdictionContract(
   route: CCResolvedRoute,
 ): Promise<JurisdictionRouteContract> {
-  const row = await fetchBriefingRow(route)
+  const [row, trajectoryText] = await Promise.all([
+    fetchBriefingRow(route),
+    fetchTrajectoryFallback(route.countryIso2),
+  ])
 
-  // No DB row — return full pending contract
+  // No DB row — return base contract enriched with live trajectory if available
   if (!row) {
-    return buildJurisdictionContract(route)
+    const base = buildJurisdictionContract(route)
+    if (trajectoryText) {
+      base.briefing.regulatoryOutlook = trajectoryText
+    }
+    return base
   }
 
   const reviewState: CCReviewState = row.review_state ?? 'pending'
@@ -115,7 +153,7 @@ export async function buildLiveJurisdictionContract(
       patientAccess: row.patient_access ?? null,
       physicianAccess: row.physician_access ?? null,
       marketDynamics: row.market_dynamics ?? null,
-      regulatoryOutlook: row.regulatory_outlook ?? null,
+      regulatoryOutlook: row.regulatory_outlook ?? trajectoryText ?? null,
     },
     evidence: {
       dataSourceSummary,
