@@ -1,6 +1,10 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  eslint: {
+    // ESLint runs as a separate CI step; don't block the build on it
+    ignoreDuringBuilds: true,
+  },
   reactStrictMode: true,
   experimental: {
     authInterrupts: true,
@@ -10,9 +14,11 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
+      // Supabase storage (project-locked) is the only remote image source.
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'zvxdgdkukjrrwamdpqrg.supabase.co',
+        pathname: '/storage/v1/object/**',
       },
     ],
     formats: ['image/avif', 'image/webp'],

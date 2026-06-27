@@ -29,8 +29,8 @@ function runId() {
   return `run_${Date.now().toString(36)}`
 }
 
-function isPassthrough(redactionNote?: string): boolean {
-  return redactionNote?.startsWith('Raw passthrough') ?? false
+function isPassthrough(normalised: { isPassthrough?: boolean; redactionNote?: string }): boolean {
+  return normalised.isPassthrough === true
 }
 
 export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
@@ -53,12 +53,15 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
     const prevFailures = state?.consecutive_failures ?? 0
 
     // Cadence check: skip if the source isn't due yet.
-    if (state?.last_success_at) {
+    // Anchor: use last_success_at when available; fall back to last_run_at so
+    // sources with consecutive failures still back off instead of running every tick.
+    const cadenceAnchor = state?.last_success_at ?? state?.last_run_at ?? null
+    if (cadenceAnchor) {
       const backoffMultiplier = prevFailures > 0
         ? Math.min(Math.pow(2, prevFailures), MAX_BACKOFF_MULTIPLIER)
         : 1
       const effectiveCadenceMs = source.cadenceHours * backoffMultiplier * 3_600_000
-      const nextDue = new Date(state.last_success_at).getTime() + effectiveCadenceMs
+      const nextDue = new Date(cadenceAnchor).getTime() + effectiveCadenceMs
       if (Date.now() < nextDue) {
         sourceResults.push({
           source,
@@ -125,7 +128,7 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
       .slice(0, normalisedItems.length)
       .map((raw, i) => ({ raw, normalised: normalisedItems[i] }))
       .filter(({ normalised }) =>
-        isPassthrough(normalised.redactionNote)
+        isPassthrough(normalised)
           ? true
           : normalised.confidence >= 0.4,
       )

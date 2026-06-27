@@ -1,14 +1,28 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
+import { complianceRegions } from '@/lib/compliance/regions'
 
-type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education'
+type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
+
+type PublicServiceProvider = {
+  id: string; displayName: string; service_category: string
+  service_summary: string; country_code: string | null
+  jurisdiction_label: string | null; verification_level: string
+}
+type PublicCollaborationProject = {
+  id: string; slug: string; title: string; projectType: string
+  status: string; countryCode: string | null; jurisdictionLabel: string | null
+  publicSummary: string; evidenceNeeded: string | null; cta: string
+}
 
 type Props = {
   signals: DashboardSignal[]
@@ -34,6 +48,9 @@ type Props = {
   professionals?:       HvProfessional[]
   cannabisOperators?:   CannabisOperator[]
   userEmail?:           string | null
+  cultivarPassports?:   PublicCultivarPassportDTO[]
+  serviceProviders?:    PublicServiceProvider[]
+  collaborationProjects?: PublicCollaborationProject[]
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -53,10 +70,13 @@ type MobileMarketCard = {
 const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
-  { id: 'briefing',    label: 'Briefing',      icon: '◎' },
-  { id: 'marketplace', label: 'Market',         icon: '⊞' },
-  { id: 'signals',     label: 'Intelligence',   icon: '≋' },
-  { id: 'education',   label: 'Education',      icon: '⬡' },
+  { id: 'briefing',    label: 'Briefing',    icon: '◎' },
+  { id: 'marketplace', label: 'Market',      icon: '⊞' },
+  { id: 'signals',     label: 'Intel',       icon: '≋' },
+  { id: 'education',   label: 'Education',   icon: '⬡' },
+  { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
+  { id: 'compliance',  label: 'Compliance',  icon: '◫' },
+  { id: 'countries',   label: 'Countries',   icon: '⊗' },
 ]
 
 
@@ -173,6 +193,47 @@ function normalizeMarketRow(row: MarketRow, index: number, country: CountryOptio
     status: fieldValue(row[4], 'Pending review'),
     action: fieldValue(row[5], 'Request mediated access'),
   }
+}
+
+function freshnessLabel(lastChecked?: string | Date | null): string {
+  if (!lastChecked) return 'Not checked'
+  const d = typeof lastChecked === 'string' ? new Date(lastChecked) : lastChecked
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000)
+  if (days < 1) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days}d ago`
+  if (days < 30) return `${Math.floor(days / 7)}w ago`
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`
+  return `${Math.floor(days / 365)}y ago`
+}
+
+function confFromRel(reliability?: string | null): number {
+  if (!reliability) return 50
+  const r = reliability.toLowerCase()
+  if (r === 'high' || r === 'verified') return 90
+  if (r === 'medium' || r === 'moderate') return 65
+  if (r === 'low') return 35
+  return 50
+}
+
+function buildConfBars(items: { confidence: number }[], bins = 5): number[] {
+  const counts = Array.from({ length: bins }, () => 0)
+  for (const item of items) {
+    const idx = Math.min(Math.floor(item.confidence / (100 / bins)), bins - 1)
+    counts[idx]++
+  }
+  return counts
+}
+
+function confOverallPct(items: { confidence: number }[]): number {
+  if (!items.length) return 0
+  return Math.round(items.reduce((s, i) => s + i.confidence, 0) / items.length)
+}
+
+function deriveImp(confidence: number): 'high' | 'medium' | 'low' {
+  if (confidence >= 80) return 'high'
+  if (confidence >= 55) return 'medium'
+  return 'low'
 }
 
 function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string; title: string; detail?: string; tone?: 'neutral' | 'ok' | 'warn' }) {
@@ -310,17 +371,62 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
           </div>
         </MobileAccordion>
       )}
+
+      {signals.length >= 2 && (() => {
+        const regionMap: Record<string, number> = {}
+        for (const s of signals) { if (s.market) regionMap[s.market] = (regionMap[s.market] ?? 0) + 1 }
+        const regions = Object.entries(regionMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
+        if (regions.length < 2) return null
+        return (
+          <MobileAccordion title={`Watch regions (${regions.length})`}>
+            <div className="hvm-ledger-table" role="table" aria-label="Watch regions">
+              {regions.map(([market, count]) => (
+                <div role="row" key={market}>
+                  <strong>{market}</strong>
+                  <span>{count} signal{count !== 1 ? 's' : ''}</span>
+                </div>
+              ))}
+            </div>
+          </MobileAccordion>
+        )
+      })()}
+
+      {signals.length >= 3 && (() => {
+        const avg = confOverallPct(signals)
+        const bars = buildConfBars(signals)
+        const maxBar = Math.max(...bars, 1)
+        return (
+          <MobileAccordion title={`Evidence confidence · ${avg}% avg`}>
+            <div className="hvm-conf-bar-wrap">
+              {bars.map((count, i) => (
+                <div key={i} className="hvm-conf-bar-col">
+                  <div className="hvm-conf-bar-track">
+                    <div className="hvm-conf-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
+                  </div>
+                  <span>{(i + 1) * 20}%</span>
+                </div>
+              ))}
+            </div>
+            <div className="hvm-ledger-table" style={{ marginTop: 10 }} role="table" aria-label="Confidence stats">
+              <div role="row"><strong>Signals</strong><span>{signals.length}</span></div>
+              <div role="row"><strong>Avg confidence</strong><span>{avg}%</span></div>
+              <div role="row"><strong>High (≥80%)</strong><span>{signals.filter(s => s.confidence >= 80).length}</span></div>
+            </div>
+          </MobileAccordion>
+        )
+      })()}
     </>
   )
 }
 
-type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'settings'
+type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'compliance' | 'settings'
 
 const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
-  { id: 'overview',   label: 'Overview' },
-  { id: 'pathway',    label: 'Pathway' },
-  { id: 'local-intel',label: 'Local Intel' },
-  { id: 'settings',   label: 'Settings' },
+  { id: 'overview',    label: 'Overview' },
+  { id: 'pathway',     label: 'Pathway' },
+  { id: 'local-intel', label: 'Local Intel' },
+  { id: 'compliance',  label: 'Compliance' },
+  { id: 'settings',    label: 'Settings' },
 ]
 
 function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, marketMetrics, tradeFlows, jurisdictionPlaybook, onCountryChange, onRoleChange, onOpenSettings, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
@@ -329,6 +435,7 @@ function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pat
       {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
       {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} />}
       {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
     </div>
   )
@@ -358,6 +465,14 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, ju
         )}
       </section>
 
+      {progress && pathwayData?.template && (
+        <div className="hvm-ledger-table" role="table" aria-label="Pathway progress">
+          <div role="row"><strong>Current step</strong><span>{progress.current_step} of {pathwayData.template.total_steps}</span></div>
+          <div role="row"><strong>Overall progress</strong><span>{Math.round((progress.current_step / pathwayData.template.total_steps) * 100)}%</span></div>
+          {progress.status && <div role="row"><strong>Status</strong><span>{fieldValue(progress.status)}</span></div>}
+        </div>
+      )}
+
       <div className="hvm-pathway-steps">
         {hasSteps ? steps.map(step => {
           const reqs = requirements.filter(r => r.step_id === step.id)
@@ -366,13 +481,39 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, ju
             return s?.status === 'verified' || s?.status === 'waived'
           }).length
           const tone = reqs.length > 0 && doneCount === reqs.length ? 'ok' : 'neutral'
-          const subtitle = reqs.length > 0 ? `${doneCount}/${reqs.length} requirements met` : step.title
+          const pct = reqs.length > 0 ? Math.round((doneCount / reqs.length) * 100) : 0
+          if (reqs.length > 0) {
+            return (
+              <MobileAccordion key={step.id} title={`${step.step_number}. ${step.title} — ${doneCount}/${reqs.length} met`} defaultOpen={step.step_number === 1}>
+                <div style={{ marginBottom: 10 }}>
+                  <div className="hvm-conf-bar-track" style={{ height: 6, borderRadius: 3 }}>
+                    <div className="hvm-conf-bar-fill" style={{ height: '100%', width: `${pct}%`, borderRadius: 3 }} />
+                  </div>
+                </div>
+                {step.description && (
+                  <p style={{ fontSize: 13, color: 'rgba(245,240,232,.65)', margin: '0 0 10px', lineHeight: 1.5 }}>{step.description}</p>
+                )}
+                <div className="hvm-list-stack">
+                  {reqs.map(req => {
+                    const st = statuses.find(rs => rs.requirement_id === req.id)
+                    const done = st?.status === 'verified' || st?.status === 'waived'
+                    return (
+                      <div className="hvm-signal-card" key={req.id} style={{ opacity: done ? 0.7 : 1 }}>
+                        <strong style={{ fontSize: 14 }}>{done ? '✓ ' : '○ '}{req.title}</strong>
+                        {req.description && <p className="hvm-signal-impact">{req.description}</p>}
+                        <small>{fieldValue(st?.status, 'Not started')} · {req.evidence_type.replace(/_/g, ' ')}</small>
+                      </div>
+                    )
+                  })}
+                </div>
+              </MobileAccordion>
+            )
+          }
           return (
             <SectionCard
               key={step.id}
               label={`${step.step_number} · ${step.title}`}
-              title={subtitle}
-              detail={step.description ?? 'Complete this step to advance your access pathway.'}
+              title={step.description ?? 'Complete this step to advance your access pathway.'}
               tone={tone}
             />
           )
@@ -421,8 +562,16 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, ju
   )
 }
 
+function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: WantedListing[] = []): MarketView {
+  for (const tab of MARKET_TABS) {
+    if (tab.id === 'wanted') { if (wanted.length > 0) return 'wanted' }
+    else if ((rows?.[tab.id] ?? []).length > 0) return tab.id
+  }
+  return 'cannabis'
+}
+
 function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [] }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[] }) {
-  const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
+  const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
 
@@ -471,14 +620,21 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       <section className="hvm-hero-card compact">
         <h2>{country.label} Marketplace &amp; Access</h2>
         <p>Mediated market access. Requests and contact release remain Harbourview-reviewed.</p>
+        <div className="hvm-hero-actions">
+          <Link href="/supplier-directory" className="hvm-hero-link">Browse supplier profiles →</Link>
+          <Link href="/supplier-directory/apply" className="hvm-hero-link hvm-hero-link--gold">Apply as a supplier →</Link>
+        </div>
       </section>
 
       <div className="hvm-scroll-tabs" role="tablist" aria-label="Marketplace views">
-        {MARKET_TABS.map(tab => (
-          <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
-            {tab.label}{tab.id === 'wanted' && wantedCount > 0 ? ` ${wantedCount}` : ''}
-          </button>
-        ))}
+        {MARKET_TABS.map(tab => {
+          const count = tab.id === 'wanted' ? wantedListings.length : (marketplaceRows?.[tab.id] ?? []).length
+          return (
+            <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
+              {tab.label}{count > 0 ? <span className="hvm-tab-count">{count}</span> : null}
+            </button>
+          )
+        })}
       </div>
 
       <label className="hvm-search-label">
@@ -509,8 +665,17 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
           </article>
         )) : (
           <div className="hvm-empty-card">
-            <strong>No public {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} rows for {country.label}.</strong>
-            <p>Use wanted demand or submit the country-role pathway for review. This is not a data leak or private-source fallback.</p>
+            <strong>No {MARKET_TABS.find(tab => tab.id === activeTab)?.label.toLowerCase()} listings for {country.label} yet.</strong>
+            {(() => {
+              const populated = MARKET_TABS.filter(t => t.id !== activeTab && (t.id === 'wanted' ? wantedListings.length > 0 : (marketplaceRows?.[t.id] ?? []).length > 0))
+              return populated.length > 0
+                ? <p>Try {populated.map(t => t.label).join(', ')} — those tabs have available listings. Use wanted demand or submit the country-role pathway for review. This is not a data leak or private source fallback.</p>
+                : <p>Supply routes for this market are managed through Harbourview-mediated review, not public listing.</p>
+            })()}
+            <div className="hvm-empty-actions">
+              <Link href="/supplier-directory/apply" className="hvm-empty-link hvm-empty-link--primary">Apply as a supplier →</Link>
+              <Link href="/supplier-directory" className="hvm-empty-link">Browse supplier directory →</Link>
+            </div>
           </div>
         )}
       </div>
@@ -545,8 +710,35 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
           </div>
         </MobileAccordion>
       )}
+
+      <div className="hvm-supplier-cta">
+        <div className="hvm-supplier-cta-kicker">Supplier Directory</div>
+        <div className="hvm-supplier-cta-title">List your company in the Harbourview Supplier Directory</div>
+        <p className="hvm-supplier-cta-body">Reviewed profiles for producers, distributors, equipment vendors and service providers operating in regulated cannabis markets. Every submission is individually reviewed before publication.</p>
+        <div className="hvm-supplier-cta-actions">
+          <Link href="/supplier-directory/apply" className="hvm-supplier-cta-btn">Apply as a supplier</Link>
+          <Link href="/supplier-directory" className="hvm-supplier-cta-link">Browse directory →</Link>
+        </div>
+      </div>
     </div>
   )
+}
+
+type EvidenceTypeTab = 'all' | 'regulatory' | 'market' | 'clinical' | 'education'
+const EVIDENCE_TYPE_TABS: { id: EvidenceTypeTab; label: string }[] = [
+  { id: 'all',        label: 'All' },
+  { id: 'regulatory', label: 'Regulatory' },
+  { id: 'market',     label: 'Market' },
+  { id: 'clinical',   label: 'Clinical' },
+  { id: 'education',  label: 'Education' },
+]
+
+const EVIDENCE_TYPE_MAP: Record<string, EvidenceTypeTab> = {
+  regulator: 'regulatory', government: 'regulatory', government_notices: 'regulatory', legal: 'regulatory',
+  trade: 'market', marketplace: 'market', industry: 'market', importer_distributor_list: 'market',
+  cannabis_licence_database: 'market',
+  academic: 'clinical', clinical: 'clinical', laboratory: 'clinical',
+  education: 'education',
 }
 
 function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, sourceCoverage, professionals = [] }: { country: CountryOption; roleLabel: string; countryIntel?: CountryIntelProfile | null; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[] }) {
@@ -554,6 +746,32 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
   const sources = evidenceData?.sources ?? []
   const orgDocs = evidenceData?.orgDocs ?? []
   const coverage = sourceCoverage ?? []
+  const [activeEvidenceType, setActiveEvidenceType] = useState<EvidenceTypeTab>('all')
+
+  const filteredSources = useMemo(() => {
+    if (activeEvidenceType === 'all') return sources
+    return sources.filter(s => (EVIDENCE_TYPE_MAP[s.category] ?? 'market') === activeEvidenceType)
+  }, [sources, activeEvidenceType])
+
+  const avgConf = useMemo(() => {
+    const withRel = sources.filter(s => s.reliability)
+    if (!withRel.length) return 0
+    return Math.round(withRel.reduce((sum, s) => sum + confFromRel(s.reliability), 0) / withRel.length)
+  }, [sources])
+
+  const staleCount = useMemo(() => {
+    return sources.filter(s => {
+      if (!s.last_checked) return true
+      const days = Math.floor((Date.now() - new Date(s.last_checked).getTime()) / 86400000)
+      return days > 90
+    }).length
+  }, [sources])
+
+  const evidenceGaps = useMemo(() => {
+    const covered = new Set(sources.map(s => s.category))
+    const critical = ['regulator', 'government', 'legal', 'trade', 'academic']
+    return critical.filter(c => !covered.has(c)).map(c => SOURCE_TYPE_LABELS[c] ?? c)
+  }, [sources])
 
   return (
     <div className="hvm-page-stack">
@@ -562,16 +780,35 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
         <p>{country.label} · {roleLabel}</p>
       </section>
 
+      {sources.length > 0 && (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Sources" title={String(sources.length)} tone="ok" />
+          <SectionCard label="Avg confidence" title={avgConf > 0 ? `${avgConf}%` : 'N/A'} />
+          <SectionCard label="Stale (>90d)" title={String(staleCount)} tone={staleCount > 0 ? 'warn' : 'ok'} />
+          <SectionCard label="Evidence gaps" title={evidenceGaps.length > 0 ? String(evidenceGaps.length) : 'None'} tone={evidenceGaps.length > 0 ? 'warn' : 'ok'} />
+        </div>
+      )}
+
+      {sources.length > 0 && (
+        <div className="hvm-scroll-tabs" role="tablist" aria-label="Evidence type filter">
+          {EVIDENCE_TYPE_TABS.map(tab => (
+            <button key={tab.id} type="button" className={activeEvidenceType === tab.id ? 'active' : ''} onClick={() => setActiveEvidenceType(tab.id)}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {sources.length > 0 ? (
-        <MobileAccordion title={`Platform sources (${sources.length})`} defaultOpen>
+        <MobileAccordion title={`Platform sources (${filteredSources.length})`} defaultOpen>
           <div className="hvm-list-stack">
-            {sources.slice(0, 8).map(src => (
+            {filteredSources.slice(0, 8).map(src => (
               <div className="hvm-signal-card" key={src.id}>
                 <strong>{src.name}</strong>
                 <small>
                   {SOURCE_TYPE_LABELS[src.category] ?? fieldValue(src.category)}
                   {' · '}{fieldValue(src.reliability)} reliability
-                  {formatLastChecked(src.last_checked)}
+                  {src.last_checked ? ` · ${freshnessLabel(src.last_checked)}` : ''}
                 </small>
                 {src.markets && src.markets.length > 0 && (
                   <p className="hvm-signal-impact">
@@ -635,6 +872,32 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
             <div role="row"><strong>Evidence status</strong><span>{fieldValue(countryIntel?.data_completeness, PENDING_REVIEW)}</span></div>
             <div role="row"><strong>Confidence state</strong><span>{fieldValue(countryIntel?.review_status, 'Review gated')}</span></div>
             <div role="row"><strong>Public distinction</strong><span>Summary fields only; private evidence remains admin-only</span></div>
+          </div>
+        </MobileAccordion>
+      )}
+
+      {sources.length > 0 && (
+        <MobileAccordion title="Source freshness status">
+          <div className="hvm-ledger-table" role="table" aria-label="Source freshness">
+            {sources.slice(0, 6).map(src => (
+              <div role="row" key={src.id}>
+                <strong>{src.name.length > 30 ? src.name.slice(0, 30) + '…' : src.name}</strong>
+                <span>{src.last_checked ? freshnessLabel(src.last_checked) : 'Not checked'}</span>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {evidenceGaps.length > 0 && (
+        <MobileAccordion title={`Evidence gaps (${evidenceGaps.length})`}>
+          <div className="hvm-list-stack">
+            {evidenceGaps.map((gap, i) => (
+              <div className="hvm-signal-card" key={i} style={{ color: 'rgba(230,165,51,.85)' }}>
+                <strong>⚠ {gap} — not yet indexed for {country.label}</strong>
+                <p className="hvm-signal-impact">Submit a source verification request to prioritise coverage for this category.</p>
+              </div>
+            ))}
           </div>
         </MobileAccordion>
       )}
@@ -1006,6 +1269,15 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             <p>{roleLabel}</p>
           </section>
 
+          {tiles.length > 0 && (
+            <a href="/intake" className="hvm-cta-card">
+              <span className="hvm-kicker">Next best action</span>
+              <strong>{tiles[0].title} · {country.label}</strong>
+              <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.62)', fontSize: 14, lineHeight: 1.45 }}>{tiles[0].desc}</p>
+              <span className="hvm-cta-arrow">Start module →</span>
+            </a>
+          )}
+
           <div className="hvm-education-list">
             {tiles.map((module, index) => (
               <article
@@ -1095,6 +1367,8 @@ function classifySignal(type: string): Exclude<SigCat, 'all'> {
 function SignalsFeed({ country, signals }: { country: CountryOption; signals: DashboardSignal[] }) {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState<SigCat>('all')
+  const [filterType, setFilterType] = useState('')
+  const [filterImp, setFilterImp] = useState('')
   const [subState, setSubState] = useState<'idle'|'loading'|'subscribed'|'upgrade'|'error'>('idle')
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
 
@@ -1104,12 +1378,39 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     trade:      signals.filter(s => classifySignal(s.type) === 'trade').length,
   }), [signals])
 
+  const signalTypes = useMemo(() => {
+    const types = new Set<string>()
+    for (const s of signals) {
+      const t = s.title.toLowerCase()
+      if (/regulatory|licen|compliance|reform|legislation|enforcement|permit/.test(t)) types.add('Regulatory')
+      else if (/market|trade|import|export|supply/.test(t)) types.add('Market')
+      else if (/clinical|medical|patient|prescription/.test(t)) types.add('Clinical')
+      else types.add('General')
+    }
+    return Array.from(types)
+  }, [signals])
+
   const filtered = useMemo(() => {
     let base = filterCat === 'all' ? signals : signals.filter(s => classifySignal(s.type) === filterCat)
     const q = search.trim().toLowerCase()
     if (q) base = base.filter(s => [s.title, s.market, s.commercialImpact].join(' ').toLowerCase().includes(q))
+    if (filterType) {
+      base = base.filter(s => {
+        const t = s.title.toLowerCase()
+        if (filterType === 'Regulatory') return /regulatory|licen|compliance|reform|legislation|enforcement|permit/.test(t)
+        if (filterType === 'Market') return /market|trade|import|export|supply/.test(t)
+        if (filterType === 'Clinical') return /clinical|medical|patient|prescription/.test(t)
+        if (filterType === 'General') return !/regulatory|licen|compliance|reform|legislation|enforcement|permit|market|trade|import|export|supply|clinical|medical|patient|prescription/.test(t)
+        return true
+      })
+    }
+    if (filterImp) {
+      base = base.filter(s => deriveImp(s.confidence) === filterImp)
+    }
     return base
-  }, [signals, search, filterCat])
+  }, [signals, search, filterCat, filterType, filterImp])
+
+  const hasFilters = !!(search || filterType || filterImp)
 
   async function handleSubscribe() {
     if (subState === 'subscribed' || subState === 'loading') return
@@ -1225,6 +1526,26 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Market, signal, impact…" />
       </label>
 
+      {signalTypes.length > 1 && (
+        <div className="hvm-filter-row">
+          <select className="hvm-filter-sel" value={filterType} onChange={e => setFilterType(e.target.value)} aria-label="Filter by type">
+            <option value="">All types</option>
+            {signalTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="hvm-filter-sel" value={filterImp} onChange={e => setFilterImp(e.target.value)} aria-label="Filter by confidence">
+            <option value="">All confidence</option>
+            <option value="high">High ≥80%</option>
+            <option value="medium">Medium 55–79%</option>
+            <option value="low">Low &lt;55%</option>
+          </select>
+          {hasFilters && (
+            <button type="button" className="hvm-clear-filters" onClick={() => { setSearch(''); setFilterType(''); setFilterImp('') }}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="hvm-list-stack">
         {filtered.length > 0 ? filtered.slice(0, 25).map((signal, index) => {
           const cat = classifySignal(signal.type)
@@ -1286,12 +1607,28 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
   )
 }
 
-function SignalsMobile({ country, signals, watchlistData, countryIntel, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sub: SignalSub }) {
+function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCoverage, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sourceCoverage?: SourceCoverageRow[]; sub: SignalSub }) {
+  const [liveSignals, setLiveSignals] = useState<DashboardSignal[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams({ limit: '100' })
+    if (country.label) params.set('country', country.label)
+    fetch(`/api/dashboard/signals?${params.toString()}`)
+      .then(r => r.json())
+      .then((json: { signals?: DashboardSignal[] }) => {
+        if (!cancelled && Array.isArray(json.signals) && json.signals.length > 0) {
+          setLiveSignals(json.signals)
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [country.label])
+  const effectiveSignals = liveSignals ?? signals
   return (
     <div className="hvm-page-stack">
-      {sub === 'feed'       && <SignalsFeed country={country} signals={signals} />}
-      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} />}
-      {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} />}
+      {sub === 'feed'       && <SignalsFeed country={country} signals={effectiveSignals} />}
+      {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={effectiveSignals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
+      {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} signals={effectiveSignals} />}
     </div>
   )
 }
@@ -1299,13 +1636,13 @@ function SignalsMobile({ country, signals, watchlistData, countryIntel, sub }: {
 const ITEM_TYPE_ICONS: Record<string, string> = {
   jurisdiction: '🌐', signal: '≋', pathway: '◈', marketplace_item: '⊞', source: '⊟', policy: '◎',
 }
-const ADJACENT_MARKETS = [
-  { iso2: 'DE', label: 'Germany',    status: 'Regulated',   trend: '+' },
-  { iso2: 'CA', label: 'Canada',     status: 'Mature',      trend: '→' },
-  { iso2: 'BR', label: 'Brazil',     status: 'Medical',     trend: '+' },
-  { iso2: 'AU', label: 'Australia',  status: 'Medical',     trend: '→' },
-  { iso2: 'CO', label: 'Colombia',   status: 'Exporter',    trend: '+' },
-  { iso2: 'NL', label: 'Netherlands', status: 'Pilot',      trend: '→' },
+const FALLBACK_ADJACENT_MARKETS = [
+  { iso2: 'DE', label: 'Germany',     status: 'Regulated', trend: '+' },
+  { iso2: 'CA', label: 'Canada',      status: 'Mature',    trend: '→' },
+  { iso2: 'BR', label: 'Brazil',      status: 'Medical',   trend: '+' },
+  { iso2: 'AU', label: 'Australia',   status: 'Medical',   trend: '→' },
+  { iso2: 'CO', label: 'Colombia',    status: 'Exporter',  trend: '+' },
+  { iso2: 'NL', label: 'Netherlands', status: 'Pilot',     trend: '→' },
 ]
 const WATCH_TYPE_CARDS = [
   { type: 'jurisdiction', icon: '🌐', label: 'Jurisdiction', desc: "Track a market's regulatory changes & alerts" },
@@ -1313,12 +1650,135 @@ const WATCH_TYPE_CARDS = [
   { type: 'pathway',      icon: '◈',  label: 'Pathway',      desc: 'Monitor import/export pathway developments' },
   { type: 'marketplace_item', icon: '⊞', label: 'Listing',  desc: 'Track marketplace listings for price & status' },
 ]
+type WatchType = 'all' | 'signal' | 'country' | 'listing' | 'pathway'
+const WATCH_TYPE_TABS: { id: WatchType; label: string }[] = [
+  { id: 'all',     label: 'All' },
+  { id: 'signal',  label: 'Signals' },
+  { id: 'country', label: 'Countries' },
+  { id: 'listing', label: 'Listings' },
+  { id: 'pathway', label: 'Pathways' },
+]
 
-function WatchlistMobile({ country, watchlistData }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null }) {
+function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null; signals?: DashboardSignal[] }) {
+  const router = useRouter()
+  const [activeType, setActiveType] = useState<WatchType>('all')
+  const [saving, setSaving] = useState(false)
+  const [addingType, setAddingType] = useState<string | null>(null)
+  const [itemTitle, setItemTitle] = useState('')
+  const [showRuleForm, setShowRuleForm] = useState(false)
+  const [ruleType, setRuleType] = useState('keyword_match')
+  const [ruleKeywords, setRuleKeywords] = useState('')
   const items = watchlistData?.items ?? []
   const rules = watchlistData?.rules ?? []
   const notifs = watchlistData?.notifications
   const hasAlerts = notifs && notifs.total_alerts > 0
+
+  async function watchCurrentMarket() {
+    setSaving(true)
+    await fetch('/api/watchlist/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_type: 'jurisdiction', title: country.label, jurisdiction: country.iso2 }),
+    })
+    setSaving(false)
+    router.refresh()
+  }
+
+  async function addItemByType(type: string) {
+    const title = itemTitle.trim() || country.label
+    setSaving(true)
+    await fetch('/api/watchlist/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        item_type: type,
+        title,
+        jurisdiction: type === 'jurisdiction' ? country.iso2 : undefined,
+      }),
+    })
+    setItemTitle('')
+    setAddingType(null)
+    setSaving(false)
+    router.refresh()
+  }
+
+  async function createRule() {
+    const keywords = ruleKeywords.split(',').map(k => k.trim()).filter(Boolean)
+    if (!keywords.length) return
+    setSaving(true)
+    await fetch('/api/watchlist/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rule_type: ruleType, keywords }),
+    })
+    setRuleKeywords('')
+    setShowRuleForm(false)
+    setSaving(false)
+    router.refresh()
+  }
+
+  async function deleteRule(id: string) {
+    setSaving(true)
+    await fetch(`/api/watchlist/rules?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    setSaving(false)
+    router.refresh()
+  }
+
+  const adjacentMarkets = useMemo(() => {
+    const markets = new Map<string, { count: number; conf: number }>()
+    for (const s of signals) {
+      if (!s.market || s.market === country.label) continue
+      const entry = markets.get(s.market) ?? { count: 0, conf: 0 }
+      entry.count++
+      entry.conf += s.confidence
+      markets.set(s.market, entry)
+    }
+    const fromSignals = Array.from(markets.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 6)
+      .map(([label, stats]) => {
+        const found = ALL_COUNTRIES.find(c => c.displayName === label)
+        const avgConf = Math.round(stats.conf / stats.count)
+        return {
+          iso2: found?.iso2 ?? label.slice(0, 2).toUpperCase(),
+          label,
+          status: avgConf >= 75 ? 'Active signals' : avgConf >= 55 ? 'Monitoring' : 'Low activity',
+          trend: avgConf >= 70 ? '+' : '→',
+        }
+      })
+    return fromSignals.length >= 3 ? fromSignals : FALLBACK_ADJACENT_MARKETS
+  }, [signals, country.label])
+
+  const filteredItems = useMemo(() => {
+    if (activeType === 'all') return items
+    return items.filter(item => {
+      const t = item.item_type.toLowerCase()
+      if (activeType === 'signal') return t.includes('signal')
+      if (activeType === 'country') return t.includes('country') || t.includes('jurisdiction')
+      if (activeType === 'listing') return t.includes('listing') || t.includes('market')
+      if (activeType === 'pathway') return t.includes('pathway') || t.includes('step')
+      return true
+    })
+  }, [items, activeType])
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<WatchType, number> = { all: items.length, signal: 0, country: 0, listing: 0, pathway: 0 }
+    for (const item of items) {
+      const t = item.item_type.toLowerCase()
+      if (t.includes('signal')) counts.signal++
+      else if (t.includes('country') || t.includes('jurisdiction')) counts.country++
+      else if (t.includes('listing') || t.includes('market')) counts.listing++
+      else if (t.includes('pathway') || t.includes('step')) counts.pathway++
+    }
+    return counts
+  }, [items])
+
+  const suggestedAdditions = [
+    `${country.label} import regime changes`,
+    `${country.label} licence renewal signals`,
+    `Regulatory authority enforcement updates`,
+    `Market access status changes`,
+  ]
 
   return (
     <div className="hvm-page-stack">
@@ -1357,15 +1817,24 @@ function WatchlistMobile({ country, watchlistData }: { country: CountryOption; r
             <div style={{ fontSize: 12, color: 'rgba(245,240,232,.42)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 3 }}>CURRENT MARKET</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#f5f0e8' }}>{country.label}</div>
           </div>
-          <button className="hvm-add-watch-btn">+ Watch</button>
+          <button className="hvm-add-watch-btn" onClick={watchCurrentMarket} disabled={saving}>{saving ? '…' : '+ Watch'}</button>
         </div>
       </div>
 
-      {/* Watched items */}
-      {items.length > 0 ? (
-        <MobileAccordion title={`Watched items (${items.length})`} defaultOpen>
+      {items.length > 0 && (
+        <div className="hvm-scroll-tabs" role="tablist" aria-label="Watchlist type filter">
+          {WATCH_TYPE_TABS.map(tab => (
+            <button key={tab.id} type="button" className={activeType === tab.id ? 'active' : ''} onClick={() => setActiveType(tab.id)}>
+              {tab.label}{typeCounts[tab.id] > 0 ? ` ${typeCounts[tab.id]}` : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filteredItems.length > 0 ? (
+        <MobileAccordion title={`Watched items (${filteredItems.length})`} defaultOpen>
           <div className="hvm-list-stack">
-            {items.slice(0, 12).map(item => {
+            {filteredItems.slice(0, 12).map(item => {
               const icon = ITEM_TYPE_ICONS[item.item_type] ?? '◎'
               return (
                 <div className="hvm-signal-card hvm-signal-card--rich" key={item.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -1387,15 +1856,15 @@ function WatchlistMobile({ country, watchlistData }: { country: CountryOption; r
       ) : (
         <div className="hvm-wl-empty-panel">
           <div style={{ fontSize: 28, marginBottom: 8, opacity: .35 }}>◎</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(245,240,232,.65)', marginBottom: 6 }}>No items watched yet</div>
-          <div style={{ fontSize: 12, color: 'rgba(245,240,232,.38)', lineHeight: 1.6 }}>Add jurisdictions, signals, pathways or listings from the Intelligence and Market tabs. You will receive alerts on every change.</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(245,240,232,.65)', marginBottom: 6 }}>{items.length > 0 ? `No ${activeType} items` : 'No items watched yet'}</div>
+          <div style={{ fontSize: 12, color: 'rgba(245,240,232,.38)', lineHeight: 1.6 }}>{items.length > 0 ? 'Switch filter tab to see other watched items.' : 'Add jurisdictions, signals, pathways or listings from the Intelligence and Market tabs. You will receive alerts on every change.'}</div>
         </div>
       )}
 
       {/* Adjacent market radar */}
       <MobileAccordion title="Market radar — adjacent markets" defaultOpen={false}>
         <div className="hvm-radar-grid">
-          {ADJACENT_MARKETS.map(m => (
+          {adjacentMarkets.map(m => (
             <div className="hvm-radar-cell" key={m.iso2}>
               <div className="hvm-radar-iso">{m.iso2}</div>
               <div className="hvm-radar-name">{m.label}</div>
@@ -1413,36 +1882,113 @@ function WatchlistMobile({ country, watchlistData }: { country: CountryOption; r
           {WATCH_TYPE_CARDS.map(wt => (
             <div className="hvm-watch-type-card" key={wt.type}>
               <span className="hvm-watch-type-icon">{wt.icon}</span>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{wt.label}</div>
                 <div style={{ fontSize: 11, color: 'rgba(245,240,232,.42)', marginTop: 2, lineHeight: 1.4 }}>{wt.desc}</div>
               </div>
-              <button className="hvm-add-watch-btn" style={{ marginLeft: 'auto', flexShrink: 0 }}>+ Add</button>
+              {addingType === wt.type ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  <input
+                    autoFocus
+                    style={{ width: 110, fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(245,240,232,.2)', background: 'rgba(0,0,0,.3)', color: '#f5f0e8', outline: 'none' }}
+                    placeholder={wt.type === 'jurisdiction' ? country.label : 'Title…'}
+                    value={itemTitle}
+                    onChange={e => setItemTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addItemByType(wt.type) }}
+                    disabled={saving}
+                  />
+                  <button className="hvm-add-watch-btn" onClick={() => addItemByType(wt.type)} disabled={saving}>✓</button>
+                  <button className="hvm-add-watch-btn" style={{ opacity: .6 }} onClick={() => setAddingType(null)}>✕</button>
+                </div>
+              ) : (
+                <button
+                  className="hvm-add-watch-btn"
+                  style={{ marginLeft: 'auto', flexShrink: 0 }}
+                  onClick={() => { setItemTitle(wt.type === 'jurisdiction' ? country.label : ''); setAddingType(wt.type) }}
+                >
+                  + Add
+                </button>
+              )}
             </div>
           ))}
         </div>
       </MobileAccordion>
 
       {/* Watch rules */}
-      {rules.length > 0 && (
-        <MobileAccordion title={`Alert rules (${rules.length})`}>
-          <div className="hvm-list-stack">
-            {rules.slice(0, 8).map(rule => (
-              <div className="hvm-signal-card" key={rule.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>
-                    {rule.rule_type.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch
-                  </div>
-                  <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 3 }}>
-                    {rule.keywords.slice(0, 3).join(' · ') || 'All signals'}
-                  </div>
+      <MobileAccordion title={rules.length > 0 ? `Alert rules (${rules.length})` : 'Alert rules'} defaultOpen={rules.length === 0}>
+        <div className="hvm-list-stack">
+          {rules.length === 0 && !showRuleForm && (
+            <div style={{ fontSize: 12, color: 'rgba(245,240,232,.38)', textAlign: 'center', padding: '12px 0' }}>
+              No alert rules yet. Add keywords to get notified.
+            </div>
+          )}
+          {rules.slice(0, 8).map(rule => (
+            <div className="hvm-signal-card" key={rule.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>
+                  {rule.rule_type.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch
                 </div>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf82', flexShrink: 0 }} />
+                <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 3 }}>
+                  {rule.keywords.slice(0, 3).join(' · ') || 'All signals'}
+                </div>
               </div>
-            ))}
-          </div>
-        </MobileAccordion>
-      )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf82', flexShrink: 0 }} />
+                <button
+                  onClick={() => deleteRule(rule.id)}
+                  disabled={saving}
+                  style={{ fontSize: 10, color: 'rgba(245,240,232,.3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}
+                  aria-label="Remove rule"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          {showRuleForm ? (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <select
+                style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(245,240,232,.2)', background: 'rgba(0,0,0,.4)', color: '#f5f0e8', outline: 'none' }}
+                value={ruleType}
+                onChange={e => setRuleType(e.target.value)}
+                disabled={saving}
+              >
+                <option value="keyword_match">Keyword match</option>
+                <option value="regulatory_change">Regulatory change</option>
+                <option value="licence_update">Licence update</option>
+                <option value="enforcement_action">Enforcement action</option>
+                <option value="market_access">Market access</option>
+                <option value="legislation">Legislation</option>
+              </select>
+              <input
+                autoFocus
+                style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(245,240,232,.2)', background: 'rgba(0,0,0,.3)', color: '#f5f0e8', outline: 'none' }}
+                placeholder="Keywords, comma-separated…"
+                value={ruleKeywords}
+                onChange={e => setRuleKeywords(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') createRule() }}
+                disabled={saving}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="hvm-add-watch-btn" style={{ flex: 1 }} onClick={createRule} disabled={saving || !ruleKeywords.trim()}>
+                  {saving ? '…' : '+ Save rule'}
+                </button>
+                <button className="hvm-add-watch-btn" style={{ opacity: .6 }} onClick={() => { setShowRuleForm(false); setRuleKeywords('') }} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="hvm-add-watch-btn"
+              style={{ marginTop: 10, width: '100%' }}
+              onClick={() => setShowRuleForm(true)}
+            >
+              + Add rule
+            </button>
+          )}
+        </div>
+      </MobileAccordion>
 
       {/* Next step */}
       <div className="hvm-cta-card" style={{ background: 'rgba(212,168,75,.07)', borderColor: 'rgba(212,168,75,.25)' }}>
@@ -1452,6 +1998,24 @@ function WatchlistMobile({ country, watchlistData }: { country: CountryOption; r
         </p>
         <span className="hvm-cta-arrow">Explore Intelligence Platform →</span>
       </div>
+
+      <MobileAccordion title="Suggested additions">
+        <div className="hvm-list-stack">
+          {suggestedAdditions.map((s, i) => (
+            <div className="hvm-signal-card" key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ fontSize: 14, color: 'rgba(245,240,232,.75)' }}>{s}</span>
+              <span style={{ fontSize: 11, color: '#d4a84b', fontWeight: 700, flexShrink: 0 }}>+ Add</span>
+            </div>
+          ))}
+        </div>
+      </MobileAccordion>
+
+      <SectionCard
+        label="Next step"
+        title={`Add to watchlist · ${country.label}`}
+        detail="Use the Intelligence or Marketplace tabs to add items. Watchlist alerts deliver via your notification settings."
+        tone="ok"
+      />
     </div>
   )
 }
@@ -1485,7 +2049,7 @@ const DEFAULT_WATCH_TRIGGERS = [
   { label: 'International Treaties',   on: false },
 ]
 
-function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { country: CountryOption; roleLabel?: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null }) {
+function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryIntel, sourceCoverage }: { country: CountryOption; roleLabel?: string; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sourceCoverage?: SourceCoverageRow[] }) {
   const regSignals = useMemo(() => {
     const reg = signals.filter(s => {
       const t = (s.title + ' ' + s.type).toLowerCase()
@@ -1509,6 +2073,37 @@ function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { c
   const oppColor = oppScore != null ? (oppScore >= 7 ? '#4caf82' : oppScore >= 4 ? '#d4a84b' : '#e05555') : '#d4a84b'
   const regulator = countryIntel?.regulator_label
   const region = countryIntel?.region
+
+  const comparableMarkets = useMemo(() => {
+    const markets = new Map<string, { count: number; avg: number; sum: number }>()
+    for (const s of signals) {
+      if (!s.market || s.market === country.label) continue
+      const entry = markets.get(s.market) ?? { count: 0, avg: 0, sum: 0 }
+      entry.count++
+      entry.sum += s.confidence
+      entry.avg = Math.round(entry.sum / entry.count)
+      markets.set(s.market, entry)
+    }
+    return Array.from(markets.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5)
+  }, [signals, country])
+
+  const policyQuestions = useMemo(() => {
+    const questions: string[] = []
+    if (countryIntel?.medical_status) questions.push(`What are the current conditions for medical cannabis programme participation in ${country.label}?`)
+    if (countryIntel?.import_status) questions.push(`How will changes to import permit requirements affect supply chain operations in ${country.label}?`)
+    if (regSignals.length > 0) questions.push(`How will the recent ${regSignals[0].title.slice(0, 60).trimEnd()}… development affect licensed operators?`)
+    questions.push(`What enforcement priorities should operators anticipate in ${country.label} over the next 12 months?`)
+    return questions.slice(0, 4)
+  }, [countryIntel, regSignals, country])
+
+  const sourceGaps = useMemo(() => {
+    if (!sourceCoverage || sourceCoverage.length === 0) return []
+    const regTypes = ['regulator', 'government', 'government_notices', 'legal']
+    const present = new Set(sourceCoverage.map(r => r.source_type))
+    return regTypes.filter(t => !present.has(t)).map(t => SOURCE_TYPE_LABELS[t] ?? t)
+  }, [sourceCoverage])
 
   return (
     <div className="hvm-page-stack">
@@ -1639,6 +2234,45 @@ function RegulatoryMobile({ country, signals, watchlistData, countryIntel }: { c
         </div>
       </MobileAccordion>
 
+      {comparableMarkets.length > 0 && (
+        <MobileAccordion title={`Comparable markets (${comparableMarkets.length})`}>
+          <div className="hvm-ledger-table" role="table" aria-label="Comparable markets">
+            {comparableMarkets.map(([market, stats]) => (
+              <div role="row" key={market}>
+                <strong>{market}</strong>
+                <span>{stats.count} signal{stats.count !== 1 ? 's' : ''} · {stats.avg}% avg confidence</span>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {policyQuestions.length > 0 && (
+        <MobileAccordion title="Open policy questions">
+          <div className="hvm-list-stack">
+            {policyQuestions.map((q, i) => (
+              <div className="hvm-signal-card" key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ color: '#d4a84b', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>?</span>
+                <p style={{ margin: 0, color: 'rgba(245,240,232,.75)', fontSize: 15, lineHeight: 1.5 }}>{q}</p>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {sourceGaps.length > 0 && (
+        <MobileAccordion title={`Source gaps (${sourceGaps.length})`}>
+          <div className="hvm-list-stack">
+            {sourceGaps.map((gap, i) => (
+              <div className="hvm-signal-card" key={i} style={{ color: 'rgba(230,165,51,.85)' }}>
+                <strong>⚠ {gap} — not yet indexed</strong>
+                <p className="hvm-signal-impact">Submit a source verification request to prioritise coverage for this category.</p>
+              </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
       {/* Competent authority */}
       {regulator && (
         <div className="hvm-authority-card">
@@ -1748,12 +2382,464 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
         </MobileAccordion>
       )}
 
+      {countryIntel && (
+        <MobileAccordion title="Commercial routes">
+          <div className="hvm-ledger-table" role="table" aria-label="Commercial routes">
+            {countryIntel.import_status && (
+              <div role="row"><strong>Import route</strong><span>{fieldValue(countryIntel.import_status)}</span></div>
+            )}
+            {countryIntel.export_status && (
+              <div role="row"><strong>Export route</strong><span>{fieldValue(countryIntel.export_status)}</span></div>
+            )}
+            {countryIntel.market_access_status && (
+              <div role="row"><strong>Market access</strong><span>{fieldValue(countryIntel.market_access_status)}</span></div>
+            )}
+            {countryIntel.adult_use_status && (
+              <div role="row"><strong>Adult-use</strong><span>{fieldValue(countryIntel.adult_use_status)}</span></div>
+            )}
+            {countryIntel.regulator_label && (
+              <div role="row"><strong>Regulator</strong><span>{countryIntel.regulator_label}</span></div>
+            )}
+          </div>
+        </MobileAccordion>
+      )}
+
+      <MobileAccordion title="Operating notes">
+        <div className="hvm-list-stack">
+          {localIntel?.constraints && localIntel.constraints.length > 0 ? (
+            localIntel.constraints.slice(0, 4).map((c, i) => (
+              <div className="hvm-signal-card" key={i}>
+                <strong>{c.icon ? `${c.icon} ` : ''}{c.label}</strong>
+                <p className="hvm-signal-impact">{c.text}</p>
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="hvm-signal-card">
+                <strong>All routes remain Harbourview-mediated</strong>
+                <p className="hvm-signal-impact">Contact release, counterparty details and operator proof are controlled workflows, not public mobile fields.</p>
+              </div>
+              <div className="hvm-signal-card">
+                <strong>Verify compliance obligations locally</strong>
+                <p className="hvm-signal-impact">Confirm licence conditions, permit validity and documentation requirements with the {country.label} competent authority before commercial engagement.</p>
+              </div>
+            </>
+          )}
+        </div>
+      </MobileAccordion>
+
       <SectionCard
         label="Intelligence gap"
         title={`Submit local intel request · ${country.label}`}
         detail="Use the Harbourview intake flow to request priority local intelligence review for this jurisdiction."
         tone="ok"
       />
+    </div>
+  )
+}
+
+// ── Genetics mobile page ──────────────────────────────────────────────────────
+
+type GeneticsTabM = 'passports' | 'services' | 'projects'
+const GENETICS_TABS: { id: GeneticsTabM; label: string }[] = [
+  { id: 'passports', label: 'Cultivars' },
+  { id: 'services',  label: 'Providers' },
+  { id: 'projects',  label: 'Projects' },
+]
+
+function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: { country: CountryOption; cultivarPassports?: PublicCultivarPassportDTO[]; serviceProviders?: PublicServiceProvider[]; collaborationProjects?: PublicCollaborationProject[] }) {
+  const [tab, setTab] = useState<GeneticsTabM>('passports')
+
+  const isGlobal = country.iso2 === 'GLOBAL'
+  const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
+  const displayPassports = filteredPassports.length > 0 ? filteredPassports : cultivarPassports
+  const filteredProviders = isGlobal ? serviceProviders : serviceProviders.filter(sp => sp.country_code === country.iso2)
+  const displayProviders = filteredProviders.length > 0 ? filteredProviders : serviceProviders
+  const filteredProjects = isGlobal ? collaborationProjects : collaborationProjects.filter(cp => cp.countryCode === country.iso2)
+  const displayProjects = filteredProjects.length > 0 ? filteredProjects : collaborationProjects
+
+  const tabs = GENETICS_TABS.map(t => ({
+    ...t,
+    count: t.id === 'passports' ? displayPassports.length : t.id === 'services' ? displayProviders.length : displayProjects.length,
+  }))
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>GENETICS INTELLIGENCE</div>
+        <h2>Cultivars &amp; Genetics</h2>
+        <p>{country.label} · Public cultivar passports, verified service providers, and open collaboration projects{isGlobal ? '' : ` relevant to ${country.label}`}.</p>
+      </section>
+
+      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <SectionCard label="Passports" title={String(displayPassports.length)} tone={displayPassports.length > 0 ? 'ok' : 'neutral'} />
+        <SectionCard label="Providers" title={String(displayProviders.length)} />
+        <SectionCard label="Projects" title={String(displayProjects.length)} />
+      </div>
+
+      <div className="hvm-scroll-tabs" role="tablist" aria-label="Genetics tabs">
+        {tabs.map(t => (
+          <button key={t.id} type="button" className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+            {t.label}{t.count > 0 ? <span className="hvm-tab-count">{t.count}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'passports' && (
+        displayPassports.length === 0 ? (
+          <div className="hvm-empty-card">
+            <strong>No public cultivar passports yet.</strong>
+            <p>Passports publish when source-backed review is complete.</p>
+            <div className="hvm-empty-actions">
+              <Link href="/genetics" className="hvm-empty-link">Genetics hub →</Link>
+            </div>
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {displayPassports.map(p => {
+              const countryOpps = isGlobal ? [] : p.countryOpportunitiesPublic.filter(o => o.countryCode === country.iso2)
+              return (
+                <div className="hvm-signal-card hvm-signal-card--rich" key={p.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>CULTIVAR</span>
+                    {isGlobal && p.countryOpportunitiesPublic?.length > 0 && (
+                      <span className="hvm-sig-market">{p.countryOpportunitiesPublic.length} opportunities</span>
+                    )}
+                    {!isGlobal && countryOpps.length > 0 && (
+                      <span className="hvm-sig-market" style={{ color: '#4caf82' }}>{countryOpps.length} {country.label} opp{countryOpps.length > 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  <div className="hvm-sig-title">⊕ {p.displayName}</div>
+                  <p className="hvm-signal-impact">{p.publicSummary}</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{p.cultivarCategory.replace(/_/g, ' ')}</span>
+                    {p.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{p.cannabisCategory.replace(/_/g, ' ')}</span>}
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{p.claimStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                  {countryOpps.map((opp, i) => (
+                    <div key={i} style={{ marginTop: 8, padding: '6px 8px', background: 'rgba(76,175,130,.08)', borderRadius: 4, borderLeft: '2px solid rgba(76,175,130,.4)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf82' }}>{opp.opportunityType.replace(/_/g, ' ')}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(245,240,232,.6)', marginTop: 2 }}>{opp.status}</div>
+                      {opp.publicNote && <div style={{ fontSize: 11, color: 'rgba(245,240,232,.5)', marginTop: 3, lineHeight: 1.4 }}>{opp.publicNote}</div>}
+                    </div>
+                  ))}
+                  {countryOpps.length > 0 ? (
+                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>{countryOpps[0].cta} →</Link>
+                  ) : (
+                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {tab === 'services' && (
+        displayProviders.length === 0 ? (
+          <div className="hvm-empty-card">
+            <strong>No verified service providers listed yet.</strong>
+            <p>Providers are listed after Harbourview verification review.</p>
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {displayProviders.map(sp => (
+              <div className="hvm-signal-card hvm-signal-card--rich" key={sp.id}>
+                <div className="hvm-sig-title">◫ {sp.displayName}</div>
+                <p className="hvm-signal-impact">{sp.service_summary}</p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  <span className="hvm-tag-chip" style={{ background: 'rgba(91,155,213,.12)', borderColor: 'rgba(91,155,213,.3)', color: '#5b9bd5' }}>{sp.service_category.replace(/_/g, ' ')}</span>
+                  <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{sp.verification_level.replace(/_/g, ' ')}</span>
+                  {sp.country_code && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{sp.country_code}</span>}
+                </div>
+                <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Request verification →</Link>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {tab === 'projects' && (
+        displayProjects.length === 0 ? (
+          <div className="hvm-empty-card">
+            <strong>No open collaboration projects at this time.</strong>
+            <p>Check back as projects are added following source review.</p>
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {displayProjects.map(cp => (
+              <div className="hvm-signal-card hvm-signal-card--rich" key={cp.id}>
+                <div className="hvm-sig-title">⊗ {cp.title}</div>
+                <p className="hvm-signal-impact">{cp.publicSummary}</p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{cp.projectType.replace(/_/g, ' ')}</span>
+                  <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{cp.status.replace(/_/g, ' ')}</span>
+                  {cp.countryCode && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{cp.countryCode}</span>}
+                </div>
+                <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>{cp.cta} →</Link>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      <div className="hvm-card" style={{ marginTop: 8, background: 'rgba(76,175,130,.06)', borderColor: 'rgba(76,175,130,.2)' }}>
+        <div className="hvm-kicker">Access &amp; Licensing</div>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require an access request.</p>
+        <Link href="/genetics" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Genetics hub →</Link>
+      </div>
+    </div>
+  )
+}
+
+// ── Countries directory mobile page ───────────────────────────────────────────
+
+function flagEmoji(iso2: string): string {
+  if (!iso2 || iso2.length !== 2) return '🌐'
+  const base = 0x1F1E6 - 65
+  const chars = iso2.toUpperCase().split('').map(c => String.fromCodePoint(base + c.charCodeAt(0)))
+  return chars.join('')
+}
+
+
+function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: DashboardSignal[]; onCountrySelect: (iso2: string) => void }) {
+  const [search, setSearch] = useState('')
+
+  const signalCountByIso2 = useMemo(() => {
+    const nameToIso2 = new Map(ALL_COUNTRIES.map(c => [c.displayName.toLowerCase(), c.iso2]))
+    const counts: Record<string, number> = {}
+    for (const s of signals) {
+      if (!s.market) continue
+      const iso2 = nameToIso2.get(s.market.toLowerCase())
+      if (iso2) counts[iso2] = (counts[iso2] ?? 0) + 1
+    }
+    return counts
+  }, [signals])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return ALL_COUNTRIES
+    const q = search.toLowerCase()
+    return ALL_COUNTRIES.filter(c => c.displayName.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
+  }, [search])
+
+  const byRegion = useMemo(() => {
+    const map = new Map<string, typeof ALL_COUNTRIES>()
+    for (const c of filtered) {
+      const key = c.region ?? 'Other'
+      map.set(key, [...(map.get(key) ?? []), c])
+    }
+    return map
+  }, [filtered])
+
+  const withSignals = Object.keys(signalCountByIso2).length
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>COUNTRY DIRECTORY</div>
+        <h2>Countries &amp; Territories</h2>
+        <p>All {ALL_COUNTRIES.length} jurisdictions. Tap any country to load its data into the Command Centre.</p>
+      </section>
+
+      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+        <SectionCard label="Total countries" title={String(ALL_COUNTRIES.length)} tone="ok" />
+        <SectionCard label="With signals" title={String(withSignals)} />
+      </div>
+
+      <label className="hvm-search-label">
+        <span>Search countries</span>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Country name or ISO code…" />
+      </label>
+
+      {filtered.length === 0 ? (
+        <div className="hvm-empty-card">
+          <strong>No countries match &ldquo;{search}&rdquo;.</strong>
+        </div>
+      ) : (
+        [...byRegion.entries()].map(([region, countries]) => (
+          <MobileAccordion key={region} title={`${region} (${countries.length})`} defaultOpen={countries.length <= 12}>
+            <div className="hvm-list-stack">
+              {countries.map(c => {
+                const sigCount = signalCountByIso2[c.iso2] ?? 0
+                return (
+                  <div
+                    className="hvm-signal-card hvm-signal-card--tap"
+                    key={c.iso2}
+                    role="button"
+                    tabIndex={0}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                    onClick={() => onCountrySelect(c.iso2)}
+                    onKeyDown={e => e.key === 'Enter' && onCountrySelect(c.iso2)}
+                  >
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>{flagEmoji(c.iso2)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(245,240,232,.95)' }}>{c.displayName}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 2 }}>
+                        {c.iso2}
+                        {sigCount > 0 && <span style={{ color: '#d4a84b', marginLeft: 6 }}>· {sigCount} signal{sigCount > 1 ? 's' : ''}</span>}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/countries/${c.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
+                      style={{ fontSize: 11, color: '#d4a84b', fontWeight: 600, textDecoration: 'none', flexShrink: 0, padding: '4px 8px', background: 'rgba(212,168,75,.1)', borderRadius: 4 }}
+                      onClick={e => e.stopPropagation()}
+                    >Profile</Link>
+                    {sigCount > 0 && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#d4a84b', flexShrink: 0 }} />}
+                  </div>
+                )
+              })}
+            </div>
+          </MobileAccordion>
+        ))
+      )}
+
+      <div className="hvm-card" style={{ marginTop: 8 }}>
+        <div className="hvm-kicker">Click to explore</div>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
+        <Link href="/countries" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Full country profiles →</Link>
+      </div>
+    </div>
+  )
+}
+
+// ── Compliance mobile page (per-country) ──────────────────────────────────────
+
+function countryToComplianceSlug(region?: string, subregion?: string): string {
+  const r = (region ?? '').toLowerCase()
+  const s = (subregion ?? '').toLowerCase()
+  if (r === 'europe') return 'europe'
+  if (r === 'africa') return 'africa'
+  if (r === 'oceania') return 'asia-pacific'
+  if (r === 'asia') return s.includes('western') ? 'middle-east' : 'asia-pacific'
+  if (r === 'americas') {
+    if (s.includes('north')) return 'north-america'
+    if (s.includes('caribbean')) return 'caribbean'
+    return 'latin-america'
+  }
+  return 'europe'
+}
+
+function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
+  const fullCountry = useMemo(() => ALL_COUNTRIES.find(c => c.iso2 === country.iso2), [country.iso2])
+  const regionContext = useMemo(() => {
+    const slug = countryToComplianceSlug(fullCountry?.region, fullCountry?.subregion)
+    return complianceRegions.find(r => r.slug === slug) ?? null
+  }, [fullCountry])
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>COMPLIANCE</div>
+        <h2>{country.label}</h2>
+        <p>Regulatory status, market access controls, and compliance framework for this jurisdiction.</p>
+      </section>
+
+      {countryIntel ? (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Opp. score" title={countryIntel.opportunity_score != null ? `${countryIntel.opportunity_score}/10` : '—'} tone={countryIntel.opportunity_score != null && countryIntel.opportunity_score >= 6 ? 'ok' : 'neutral'} />
+          <SectionCard label="Import" title={countryIntel.import_status ?? '—'} />
+          <SectionCard label="Export" title={countryIntel.export_status ?? '—'} />
+          <SectionCard label="Medical" title={countryIntel.medical_status ?? '—'} />
+        </div>
+      ) : (
+        <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <SectionCard label="Regions covered" title={String(complianceRegions.length)} tone="ok" />
+          <SectionCard label="Specialist review" title="Required" tone="warn" />
+        </div>
+      )}
+
+      {countryIntel && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">{country.label.toUpperCase()} — JURISDICTION STATUS</div>
+          <div className="hvm-sig-title">{countryIntel.briefing_regulatory_body ?? countryIntel.regulator_label ?? 'Regulatory Authority'}</div>
+          {(countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary) && (
+            <p className="hvm-signal-impact" style={{ marginTop: 6 }}>{countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary}</p>
+          )}
+          {jurisdictionPlaybook && (
+            <div className="hvm-ledger-table" role="table" style={{ marginTop: 10 }}>
+              {jurisdictionPlaybook.difficulty && <div role="row"><strong>Entry difficulty</strong><span>{jurisdictionPlaybook.difficulty}</span></div>}
+              {jurisdictionPlaybook.typical_timeline_months && <div role="row"><strong>Timeline</strong><span>{jurisdictionPlaybook.typical_timeline_months} months</span></div>}
+              {jurisdictionPlaybook.estimated_cost_range && <div role="row"><strong>Est. cost</strong><span>{jurisdictionPlaybook.estimated_cost_range}</span></div>}
+            </div>
+          )}
+          {([
+            { label: 'Program status', value: countryIntel.briefing_program_status },
+            { label: 'Market dynamics', value: countryIntel.briefing_market_dynamics },
+            { label: 'Patient access', value: countryIntel.briefing_patient_access },
+            { label: 'Physician access', value: countryIntel.briefing_physician_access },
+          ] as { label: string; value: string | null | undefined }[]).filter(f => f.value).map(f => (
+            <div key={f.label} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(245,240,232,.38)', letterSpacing: '.08em', marginBottom: 3 }}>{f.label.toUpperCase()}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.72)', lineHeight: 1.5 }}>{f.value}</div>
+            </div>
+          ))}
+          <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Get compliance support →</Link>
+        </div>
+      )}
+      {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">MARKET ENTRY STEPS</div>
+          {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
+            <div key={s.step} style={{ marginTop: s.step === 1 ? 4 : 10, paddingTop: s.step === 1 ? 0 : 10, borderTop: s.step === 1 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {s.step}: {s.title}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{s.description}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">KEY REGULATORS</div>
+          {jurisdictionPlaybook.key_regulators.map((r, i) => (
+            <div key={r.name} style={{ marginTop: i === 0 ? 4 : 8, paddingTop: i === 0 ? 0 : 8, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{r.name}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', marginTop: 2 }}>{r.role}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {jurisdictionPlaybook?.common_pitfalls && jurisdictionPlaybook.common_pitfalls.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(229,115,115,.2)' }}>
+          <div className="hvm-kicker" style={{ color: 'rgba(229,115,115,.7)' }}>COMMON PITFALLS</div>
+          {jurisdictionPlaybook.common_pitfalls.map((pitfall, i) => (
+            <div key={i} style={{ marginTop: i === 0 ? 6 : 8, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <span style={{ color: 'rgba(229,115,115,.7)', flexShrink: 0, fontSize: 12, marginTop: 1 }}>⚠</span>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.65)', lineHeight: 1.5 }}>{pitfall}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {regionContext && (
+        <MobileAccordion title={`${regionContext.name} compliance context`} defaultOpen>
+          <p className="hvm-briefing-body">{regionContext.summary}</p>
+          <p style={{ margin: '10px 0 0', fontSize: 13, color: 'rgba(245,240,232,.55)', lineHeight: 1.55 }}>{regionContext.commercialFocus}</p>
+        </MobileAccordion>
+      )}
+
+      {countryIntel?.briefing_regulatory_body && (
+        <div className="hvm-regulator-row">
+          <span className="hvm-kicker">Competent authority</span>
+          <span>{countryIntel.briefing_regulatory_body}</span>
+        </div>
+      )}
+
+      {countryIntel?.briefing_regulatory_outlook && (
+        <MobileAccordion title="Regulatory outlook">
+          <p className="hvm-briefing-body">{countryIntel.briefing_regulatory_outlook}</p>
+        </MobileAccordion>
+      )}
+
+      {countryIntel?.commercial_pathway_summary && (
+        <MobileAccordion title="Commercial pathway summary">
+          <p className="hvm-briefing-body">{countryIntel.commercial_pathway_summary}</p>
+        </MobileAccordion>
+      )}
+
+      <div className="hvm-card" style={{ background: 'rgba(212,168,75,.06)', borderColor: 'rgba(212,168,75,.2)' }}>
+        <div className="hvm-kicker">Specialist review required</div>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Compliance data is provided for general awareness only. Specialist legal and regulatory review is required before commercial reliance on any jurisdiction-specific compliance framework.</p>
+        <Link href="/contact" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Request compliance review →</Link>
+      </div>
     </div>
   )
 }
@@ -1812,6 +2898,39 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
         </div>
       </MobileAccordion>
 
+      <MobileAccordion title="Saved view presets">
+        <div className="hvm-list-stack">
+          <div className="hvm-signal-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div>
+              <strong style={{ fontSize: 14 }}>{country.label} · {roleLabel}</strong>
+              <small>Current context</small>
+            </div>
+            <span style={{ fontSize: 11, color: '#4caf82', fontWeight: 700, flexShrink: 0 }}>Active</span>
+          </div>
+          <div className="hvm-signal-card" style={{ color: 'rgba(245,240,232,.38)' }}>
+            <strong style={{ fontSize: 14, color: 'rgba(245,240,232,.38)' }}>Save current context as preset</strong>
+            <small>Presets restore your jurisdiction + role selection in one tap.</small>
+          </div>
+        </div>
+      </MobileAccordion>
+
+      <MobileAccordion title="Display &amp; accessibility">
+        <div className="hvm-list-stack">
+          <div className="hvm-signal-card hvm-trigger-row">
+            <span style={{ fontSize: 14 }}>Compact signal cards</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontWeight: 700 }}>Off</span>
+          </div>
+          <div className="hvm-signal-card hvm-trigger-row">
+            <span style={{ fontSize: 14 }}>High contrast mode</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontWeight: 700 }}>Off</span>
+          </div>
+          <div className="hvm-signal-card hvm-trigger-row">
+            <span style={{ fontSize: 14 }}>Reduce motion</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontWeight: 700 }}>Off</span>
+          </div>
+        </div>
+      </MobileAccordion>
+
       <div className="hvm-meta-grid">
         <SectionCard label="Session" title="Active" detail={`Started ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} tone="ok" />
         <SectionCard label="Data as of" title={today} detail="Live source cadence depends on configured watchers and review state." />
@@ -1828,6 +2947,102 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
         </>
       ) : (
         <a href="/login" className="hvm-signin-btn">Sign in to your account</a>
+      )}
+    </div>
+  )
+}
+
+
+function CountriesMobile({ signals, onCountrySelect }: {
+  signals: DashboardSignal[]
+  onCountrySelect?: (iso2: string) => void
+}) {
+  const [search, setSearch] = useState('')
+
+  const signalCountByMarket = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const s of signals) {
+      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
+    }
+    return counts
+  }, [signals])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return ALL_COUNTRIES
+    const q = search.toLowerCase()
+    return ALL_COUNTRIES.filter(c => c.displayName.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
+  }, [search])
+
+  const byRegion = useMemo(() => {
+    const map = new Map<string, typeof ALL_COUNTRIES>()
+    for (const c of filtered) {
+      const key = c.region ?? 'Other'
+      map.set(key, [...(map.get(key) ?? []), c])
+    }
+    return map
+  }, [filtered])
+
+  return (
+    <div className="hvm-page-stack">
+      <div className="hvm-hero-card compact">
+        <p className="hvm-kicker">Country &amp; Territory Directory</p>
+        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>{ALL_COUNTRIES.length} Countries</strong>
+        <p>All Harbourview jurisdictions. Tap any country to load its intelligence into the dashboard.</p>
+      </div>
+      <input
+        type="text"
+        placeholder="Search countries…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{
+          width:'100%', padding:'12px 14px', borderRadius:12,
+          border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)',
+          color:'rgba(245,240,232,.9)', fontSize:15, fontFamily:'inherit',
+          outline:'none',
+        }}
+      />
+      {filtered.length === 0 ? (
+        <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
+          <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No countries match &ldquo;{search}&rdquo;</p>
+        </div>
+      ) : (
+        [...byRegion.entries()].map(([region, countries]) => (
+          <details key={region} className="hvm-accordion" open={byRegion.size <= 3}>
+            <summary>
+              <span>{region}</span>
+              <span style={{ fontSize:12, fontWeight:400, color:'rgba(245,240,232,.45)' }}>{countries.length}</span>
+            </summary>
+            <div className="hvm-accordion-body">
+              <div className="hvm-list-stack" style={{ gap:8 }}>
+                {countries.map(c => {
+                  const sigCount = signalCountByMarket[c.displayName] ?? 0
+                  return (
+                    <button
+                      key={c.iso2}
+                      type="button"
+                      onClick={() => onCountrySelect?.(c.iso2)}
+                      style={{
+                        display:'flex', alignItems:'center', gap:10,
+                        padding:'10px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,.08)',
+                        background:'rgba(255,255,255,.03)', cursor:'pointer', textAlign:'left', width:'100%',
+                        color:'rgba(245,240,232,.88)', fontFamily:'inherit',
+                      }}
+                    >
+                      <span style={{ fontSize:20, flexShrink:0 }}>{flagEmoji(c.iso2)}</span>
+                      <span style={{ flex:1, minWidth:0 }}>
+                        <span style={{ display:'block', fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.displayName}</span>
+                        <span style={{ display:'block', fontSize:11, color:'rgba(245,240,232,.42)', fontFamily:'monospace' }}>
+                          {c.iso2}{sigCount > 0 ? ` · ${sigCount} signal${sigCount > 1 ? 's' : ''}` : ''}
+                        </span>
+                      </span>
+                      {sigCount > 0 && <span style={{ width:7, height:7, borderRadius:'50%', background:'#d4a84b', flexShrink:0 }} />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </details>
+        ))
       )}
     </div>
   )
@@ -1856,6 +3071,9 @@ export default function MobileCommandCentre({
   professionals = [],
   cannabisOperators = [],
   userEmail,
+  cultivarPassports = [],
+  serviceProviders = [],
+  collaborationProjects = [],
 }: Props) {
   const router = useRouter()
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
@@ -1910,7 +3128,7 @@ export default function MobileCommandCentre({
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} />
       case 'signals':
-        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sub={signalsSub} />
+        return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
       case 'education':
         return (
           <EducationMobile
@@ -1922,6 +3140,12 @@ export default function MobileCommandCentre({
             professionals={professionals}
           />
         )
+      case 'genetics':
+        return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+      case 'compliance':
+        return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
+      case 'countries':
+        return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
         return null
     }
@@ -2211,6 +3435,24 @@ const MOBILE_CSS = `
   border-color: rgba(212,168,75,.55);
   background: rgba(212,168,75,.08);
 }
+.hvm-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 9px;
+  background: rgba(212,168,75,.22);
+  color: #d4a84b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.hvm-scroll-tabs button.active .hvm-tab-count {
+  background: rgba(212,168,75,.4);
+}
 .hvm-search-label { display: flex; flex-direction: column; gap: 7px; color: rgba(245,240,232,.48); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .hvm-search-label input, .hvm-sheet-panel select {
   width: 100%;
@@ -2247,6 +3489,33 @@ const MOBILE_CSS = `
 .hvm-market-meta { margin: 12px 0 0; align-items: flex-start; }
 .hvm-empty-card { padding: 16px; }
 .hvm-empty-card p { margin: 8px 0 0; color: rgba(245,240,232,.58); line-height: 1.45; }
+.hvm-empty-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.hvm-empty-link { font-size: 12px; font-weight: 600; color: rgba(245,240,232,.55); text-decoration: none; letter-spacing: .03em; }
+.hvm-empty-link--primary { color: #d4a84b; }
+.hvm-empty-link:hover { opacity: .75; }
+.hvm-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.hvm-hero-link { font-size: 12px; font-weight: 600; color: rgba(245,240,232,.55); text-decoration: none; letter-spacing: .03em; }
+.hvm-hero-link--gold { color: #d4a84b; }
+.hvm-hero-link:hover { opacity: .75; }
+.hvm-supplier-cta {
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(212,168,75,.22);
+  background: rgba(212,168,75,.05);
+}
+.hvm-supplier-cta-kicker { font-size: 10px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: rgba(212,168,75,.7); margin-bottom: 8px; }
+.hvm-supplier-cta-title { font-size: 15px; font-weight: 600; color: #f5f0e8; line-height: 1.35; margin-bottom: 8px; }
+.hvm-supplier-cta-body { font-size: 12px; color: rgba(245,240,232,.55); line-height: 1.55; margin: 0 0 14px; }
+.hvm-supplier-cta-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hvm-supplier-cta-btn {
+  display: inline-block; padding: 9px 16px;
+  background: #d4a84b; color: #050c18;
+  border-radius: 8px; font-size: 13px; font-weight: 700;
+  text-decoration: none; letter-spacing: .01em;
+}
+.hvm-supplier-cta-btn:hover { background: #e8c17a; }
+.hvm-supplier-cta-link { font-size: 12px; font-weight: 600; color: rgba(245,240,232,.55); text-decoration: none; }
+.hvm-supplier-cta-link:hover { opacity: .75; }
 .hvm-ledger-table { display: grid; gap: 0; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; overflow: hidden; }
 .hvm-ledger-table div { display: grid; grid-template-columns: 42% minmax(0, 1fr); gap: 10px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .hvm-ledger-table div:last-child { border-bottom: 0; }
@@ -2261,8 +3530,12 @@ const MOBILE_CSS = `
   right: 0;
   bottom: 0;
   z-index: 25;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   gap: 0;
   width: 100%;
   max-width: 100%;
@@ -2271,7 +3544,10 @@ const MOBILE_CSS = `
   border-top: 1px solid rgba(255,255,255,.1);
   backdrop-filter: blur(16px);
 }
+.hvm-bottom-nav::-webkit-scrollbar { display: none; }
 .hvm-bottom-nav button {
+  flex: 0 0 auto;
+  min-width: 64px;
   min-height: 62px;
   border: 0;
   border-radius: 14px;
@@ -2638,4 +3914,46 @@ const MOBILE_CSS = `
 }
 .hvm-watch-type-card:hover { background: rgba(255,255,255,.06); }
 .hvm-watch-type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
+
+.hvm-conf-bar-wrap {
+  display: flex; align-items: flex-end; gap: 8px; height: 64px;
+}
+.hvm-conf-bar-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%;
+}
+.hvm-conf-bar-track {
+  flex: 1; width: 100%; border-radius: 4px;
+  background: rgba(255,255,255,.08); position: relative; overflow: hidden;
+}
+.hvm-conf-bar-fill {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(180deg, #d4a84b, rgba(212,168,75,.45));
+  border-radius: 4px 4px 0 0; transition: height .3s;
+}
+.hvm-conf-bar-col > span {
+  font-size: 9px; color: rgba(245,240,232,.38);
+  font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: .04em;
+}
+.hvm-filter-row {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.hvm-filter-sel {
+  flex: 1 1 120px; min-height: 40px; border: 1px solid rgba(255,255,255,.13);
+  border-radius: 10px; background: rgba(255,255,255,.055);
+  color: rgba(245,240,232,.88); padding: 0 10px; font-size: 14px; outline: none;
+}
+.hvm-filter-sel option { color: #07111d; }
+.hvm-clear-filters {
+  flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.055);
+  color: rgba(245,240,232,.65); font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.hvm-clear-filters:hover { background: rgba(255,255,255,.1); }
+.hvm-imp-badge {
+  flex-shrink: 0; padding: 2px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+}
+.hvm-imp-badge--high   { background: rgba(76,175,130,.18); color: #4caf82; }
+.hvm-imp-badge--medium { background: rgba(212,168,75,.15); color: #d4a84b; }
+.hvm-imp-badge--low    { background: rgba(255,255,255,.07); color: rgba(245,240,232,.46); }
 `

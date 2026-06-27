@@ -1,231 +1,279 @@
 // lib/intelligence-engine/orchestrator.ts
+//
+// Bridges the Vercel Cron environment into the full distributed crawling
+// infrastructure (DistributedTaskQueue + CircuitBreaker + parallel batches).
+//
 // Column mapping (engine name → actual source_registry column):
 //   base_url      ← source_url
-//   country_code  ← iso
-//   adapter_type  ← adapter  (DB values: html_snapshot | rss | api; normalised below)
-//   cadence_hours ← crawl_cadence  (stored as text: "daily" | "hourly" | "weekly" | "monthly")
-// source_snapshots: raw_html → captured_text, content_hash → raw_html_hash, error_log → error_message
-// hv_import_staging: source_id → source_record_id, country_code → proposed_country_iso,
-//                    raw_text → raw_payload (jsonb), processing_status → status
+//   country_code  ← iso (Alpha-2 → Alpha-3 via toIso3() in task-queue.ts)
+//   adapter_type  ← adapter
+//   cadence_hours ← crawl_cadence
+//   tier          ← tier (1=primary regulator, 2=official publication,
+//                          3=trade press, 4=community)
+//
+// Snapshot pipeline (correct path):
+//   source_registry → source_snapshots (processing_status='pending_extraction')
+//   → trg_promote_snapshot trigger → signals
+//
+// hv_import_staging is NOT used here — it is a workspace-scoped manual-import
+// table that requires workspace_id + import_batch_id (no defaults). Passing
+// only source_system + raw_payload causes silent insert failures.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { ScrapeTarget, ScraperResult, IDataAdapter } from './types';
+import { DistributedTaskQueue } from './queue/task-queue';
+import { CircuitBreaker } from './queue/circuit-breaker';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
 import { RSSDataAdapter } from './adapters/rss-fetcher';
 import { APIDataAdapter } from './adapters/api-fetcher';
+import { IDataAdapter, ScrapeTarget, ScraperResult } from './types';
+import crypto from 'crypto';
 
-interface SourceRegistryRow {
-  id: string;
-  source_url: string;
-  iso: string | null;
-  source_name: string;
-  adapter: string | null;
-  crawl_cadence: string | null;
-  is_active: boolean;
-  crawl_allowed: boolean;
-  next_crawl_at: string | null;
-  locked_until: string | null;
-  consecutive_failures: number | null;
+const RETRYABLE_STATUS_PATTERN = /\b(429|500|502|503|504|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN)\b/i;
+const CONCURRENCY = 10;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-// Normalise the raw `adapter` value stored in source_registry to the canonical
-// adapter_type enum understood by the engine. The DB only ever stores
-// html_snapshot | rss | api today (0 rows use playwright_full currently).
-function normaliseAdapterType(raw: string | null): ScrapeTarget['adapter_type'] {
-  switch ((raw ?? '').toLowerCase()) {
-    case 'playwright_full': return 'playwright_full';
-    case 'rss':             return 'rss';
-    case 'api':              return 'api';
-    case 'html_snapshot':
-    default:                return 'html_snapshot';
-  }
-}
-
-// Parse crawl_cadence text → integer hours.
-function parseCadenceHours(raw: string | null): number {
-  switch ((raw ?? '').toLowerCase()) {
-    case 'hourly':  return 1;
-    case 'daily':   return 24;
-    case 'weekly':  return 168;
-    case 'monthly': return 720;
-    default:        return 24; // safe default for unrecognised values
-  }
+export interface ExtractionSummary {
+  processed: number;
+  changed: number;
+  failed: number;
+  circuitOpen: number;
 }
 
 export class IntelligenceOrchestrator {
   private supabase: SupabaseClient;
+  private queue: DistributedTaskQueue;
+  private circuitBreaker: CircuitBreaker;
   private htmlAdapter: HTMLDataAdapter;
   private rssAdapter: RSSDataAdapter;
   private apiAdapter: APIDataAdapter;
+  private runId: string;
 
   constructor() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
     this.supabase = createClient(url, key, { auth: { persistSession: false } });
+    this.queue = new DistributedTaskQueue(this.supabase);
+    this.circuitBreaker = new CircuitBreaker(this.supabase);
     this.htmlAdapter = new HTMLDataAdapter();
     this.rssAdapter = new RSSDataAdapter();
     this.apiAdapter = new APIDataAdapter();
+    this.runId = `cron-${crypto.randomUUID().slice(0, 8)}`;
   }
 
-  /** Pull targets due for crawling from source_registry. */
+  /**
+   * Acquire targets via the distributed task queue.
+   * Uses acquire_crawl_targets RPC (FOR UPDATE SKIP LOCKED) — safe for
+   * concurrent cron invocations without double-processing.
+   */
   async getTargets(limit = 100): Promise<ScrapeTarget[]> {
-    const now = new Date().toISOString()
-    const { data, error } = await this.supabase
-      .from('source_registry')
-      .select('id, source_url, iso, source_name, adapter, crawl_cadence, is_active, crawl_allowed, next_crawl_at, locked_until, consecutive_failures')
-      .eq('is_active', true)
-      .eq('crawl_allowed', true)
-      .or(`next_crawl_at.is.null,next_crawl_at.lte.${now}`)
-      .order('next_crawl_at', { ascending: true, nullsFirst: true })
-      .limit(limit);
-
-    if (error) throw new Error(`Failed to fetch targets: ${error.message}`);
-
-    return (data as SourceRegistryRow[] || []).map((row) => ({
-      id: row.id,
-      country_code: row.iso || 'GLOBAL',
-      source_name: row.source_name,
-      base_url: row.source_url,
-      adapter_type: normaliseAdapterType(row.adapter),
-      cadence_hours: parseCadenceHours(row.crawl_cadence),
-      consecutive_failures: row.consecutive_failures ?? 0,
-    }));
+    return this.queue.acquireTargets(limit, this.runId);
   }
 
-  /** Execute scraping run on targets. */
-  async runExtraction(targets: ScrapeTarget[]) {
-    console.log(`Starting ingestion run for ${targets.length} targets...`);
+  /**
+   * Crawl a batch of targets in CONCURRENCY-wide parallel lanes.
+   * Refreshes the circuit-breaker domain-lock snapshot once before the run
+   * so all parallel workers share the same starting state.
+   */
+  async runExtraction(targets: ScrapeTarget[]): Promise<ExtractionSummary> {
+    console.info(`[${this.runId}] Starting run — ${targets.length} targets, CONCURRENCY=${CONCURRENCY}`);
+    await this.circuitBreaker.refresh();
 
-    for (const target of targets) {
-      console.log(`[${target.country_code}] Scraping ${target.source_name} via ${target.adapter_type}...`);
-      let result: ScraperResult;
+    let changed = 0, failed = 0, circuitOpen = 0;
 
+    for (let i = 0; i < targets.length; i += CONCURRENCY) {
+      const batch = targets.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(t => this.processTarget(t)));
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          if (r.value.changed)      changed++;
+          if (r.value.circuitOpen)  circuitOpen++;
+          if (r.value.failed)       failed++;
+        } else {
+          failed++;
+        }
+      }
+    }
+
+    return { processed: targets.length, changed, failed, circuitOpen };
+  }
+
+  private selectAdapter(target: ScrapeTarget): IDataAdapter | null {
+    switch (target.adapter_type) {
+      case 'rss':           return this.rssAdapter;
+      case 'api':           return this.apiAdapter;
+      case 'html_snapshot': return this.htmlAdapter;
+      default:              return null; // playwright_full — not available in Vercel serverless
+    }
+  }
+
+  private async fetchWithRetry(
+    adapter: IDataAdapter,
+    target: ScrapeTarget,
+    maxAttempts = 2,
+  ): Promise<ScraperResult> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        // Route to the correct adapter based on adapter_type.
-        // playwright_full has 0 live rows today and no headless-browser
-        // capability exists in this environment — report an honest `blocked`
-        // result rather than silently falling back to a fetch method that
-        // can't render JS.
-        if (target.adapter_type === 'playwright_full') {
+        const result = await adapter.fetch(target);
+        if (result.status === 'success' || result.status === 'unchanged') return result;
+        if (
+          attempt < maxAttempts &&
+          RETRYABLE_STATUS_PATTERN.test(result.error_message ?? '')
+        ) {
+          const waitMs =
+            result.retry_after_seconds !== undefined
+              ? Math.min(result.retry_after_seconds, 15) * 1000
+              : 500 * attempt;
+          await sleep(waitMs);
+          continue;
+        }
+        return result;
+      } catch (err: unknown) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt < maxAttempts && RETRYABLE_STATUS_PATTERN.test(msg)) {
+          await sleep(500 * attempt);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
+
+  private async processTarget(
+    target: ScrapeTarget,
+  ): Promise<{ changed: boolean; failed: boolean; circuitOpen: boolean }> {
+    let domain: string;
+    try {
+      domain = new URL(target.base_url).hostname;
+    } catch {
+      await this.queue.markFailure(target.id, 'Invalid URL format', target.consecutive_failures);
+      return { changed: false, failed: true, circuitOpen: false };
+    }
+
+    if (this.circuitBreaker.isLocked(domain)) {
+      console.log(`[${this.runId}] Circuit open for ${domain} — releasing lock`);
+      await this.queue.releaseLock(target.id);
+      return { changed: false, failed: false, circuitOpen: true };
+    }
+
+    let result: ScraperResult;
+    try {
+      if (target.adapter_type === 'playwright_full') {
+        // Graceful degradation: many JS-rendered regulatory sites still serve
+        // indexable server-side content. Attempt HTML adapter first; only fall
+        // back to blocked if it yields insufficient content (<500 chars).
+        const fallback = await this.fetchWithRetry(this.htmlAdapter, target);
+        if (fallback.status === 'success' && (fallback.raw_content?.length ?? 0) > 500) {
+          result = fallback;
+        } else {
           result = {
             target_id: target.id,
             timestamp: new Date().toISOString(),
             raw_content: '',
             content_hash: '',
             status: 'blocked',
-            error_message: 'No adapter implemented for adapter_type "playwright_full" — headless-browser rendering is not available in this environment yet.',
+            error_message:
+              'playwright_full: HTML fallback insufficient — requires WorkerNode daemon for full JS rendering.',
+          };
+        }
+      } else {
+        const adapter = this.selectAdapter(target);
+        if (!adapter) {
+          result = {
+            target_id: target.id,
+            timestamp: new Date().toISOString(),
+            raw_content: '',
+            content_hash: '',
+            status: 'blocked',
+            error_message: `No adapter for adapter_type "${target.adapter_type}".`,
           };
         } else {
-          const adapter: IDataAdapter =
-            target.adapter_type === 'rss' ? this.rssAdapter :
-            target.adapter_type === 'api' ? this.apiAdapter :
-            this.htmlAdapter;
-
-          result = await adapter.fetch(target);
+          result = await this.fetchWithRetry(adapter, target);
         }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        result = {
-          target_id: target.id,
-          timestamp: new Date().toISOString(),
-          raw_content: '',
-          content_hash: '',
-          status: 'failed',
-          error_message: message,
-        };
       }
-
-      await this.saveSnapshot(result, target);
-
-      if (result.status === 'success') {
-        await this.queueForAIProcessing(result, target);
-      }
-
-      // Schedule the next attempt. On success, reset to the normal cadence
-      // and clear the failure streak. On failure (or `blocked`), back off
-      // exponentially (1h -> 256h, capped at 8 doublings) instead of
-      // retrying on the same cadence regardless of how many times in a row
-      // it's failed — consecutive_failures/network_status/last_error_log
-      // already existed on source_registry but nothing was writing to them.
-      if (result.status === 'success') {
-        await this.supabase
-          .from('source_registry')
-          .update({
-            next_crawl_at: new Date(Date.now() + target.cadence_hours * 3600000).toISOString(),
-            locked_by: null,
-            locked_until: null,
-            consecutive_failures: 0,
-            network_status: 'online',
-            last_error_log: null,
-          })
-          .eq('id', target.id);
-      } else {
-        const newFailures = target.consecutive_failures + 1;
-        const backoffHours = Math.pow(2, Math.min(newFailures, 8));
-        await this.supabase
-          .from('source_registry')
-          .update({
-            next_crawl_at: new Date(Date.now() + backoffHours * 3600000).toISOString(),
-            locked_by: null,
-            locked_until: null,
-            consecutive_failures: newFailures,
-            network_status: newFailures > 5 ? 'offline' : 'degraded',
-            last_error_log: result.error_message || `status: ${result.status}`,
-          })
-          .eq('id', target.id);
-      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      result = {
+        target_id: target.id,
+        timestamp: new Date().toISOString(),
+        raw_content: '',
+        content_hash: '',
+        status: 'failed',
+        error_message: message,
+      };
     }
-  }
 
-  /** Save raw snapshot to source_snapshots. */
-  private async saveSnapshot(result: ScraperResult, target: ScrapeTarget) {
-    const { error } = await this.supabase.from('source_snapshots').insert({
-      source_id:          result.target_id,
-      captured_url:       target.base_url,
-      captured_at:        result.timestamp,
-      captured_text:      result.raw_content || null,   // raw_html → captured_text
-      raw_html_hash:      result.content_hash || null,  // content_hash → raw_html_hash
-      processing_status:  result.status === 'success' ? 'pending_extraction' : 'failed',
-      error_message:      result.error_message || null, // error_log → error_message
-      fetch_status:       result.status === 'success' ? 'ok' : 'error',
-    });
+    const contentChanged = await this.saveSnapshot(result, target);
 
-    if (error) {
-      console.error(`=> Failed to save snapshot for ${result.target_id}:`, error.message);
+    if (result.status === 'success') {
+      await this.circuitBreaker.recordSuccess(domain);
+      await this.queue.markSuccess(target.id, target.cadence_hours, contentChanged);
+      console.log(
+        `[${this.runId}] ✓ ${target.source_name} [${target.adapter_type}]${contentChanged ? ' (changed)' : ' (unchanged)'}`,
+      );
+      return { changed: contentChanged, failed: false, circuitOpen: false };
     } else {
-      console.log(`=> Snapshot saved. Status: ${result.status}`);
+      if (result.status !== 'blocked') {
+        await this.circuitBreaker.recordFailure(domain);
+      }
+      await this.queue.markFailure(
+        target.id,
+        result.error_message || `status: ${result.status}`,
+        target.consecutive_failures,
+      );
+      console.log(`[${this.runId}] ✗ ${target.source_name} → ${result.status}`);
+      return { changed: false, failed: true, circuitOpen: false };
     }
   }
 
-  /** Stage changed content to hv_import_staging for AI extraction. */
-  private async queueForAIProcessing(result: ScraperResult, target: ScrapeTarget) {
-    // Dedup by content hash
-    const { data: existingHash } = await this.supabase
-      .from('hv_import_staging')
-      .select('id')
-      .eq('content_hash', result.content_hash)
+  /**
+   * Persist a snapshot with diff metadata.
+   *
+   * Populates previous_hash + changed so the trg_promote_snapshot trigger and
+   * downstream consumers can skip re-running AI extraction on identical pages.
+   *
+   * The snapshot with processing_status='pending_extraction' IS the queue for
+   * the /api/cron/intelligence-extract pipeline — trg_promote_snapshot handles
+   * promotion to signals automatically.
+   */
+  private async saveSnapshot(result: ScraperResult, target: ScrapeTarget): Promise<boolean> {
+    const { data: last } = await this.supabase
+      .from('source_snapshots')
+      .select('raw_html_hash')
+      .eq('source_id', target.id)
+      .order('captured_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (existingHash) {
-      console.log(`=> Content unchanged (hash: ${result.content_hash.substring(0, 8)}). Skipping.`);
-      return;
-    }
+    const previousHash = last?.raw_html_hash ?? null;
+    const contentChanged =
+      result.status === 'success' &&
+      !!result.content_hash &&
+      result.content_hash !== previousHash;
 
-    const { error } = await this.supabase.from('hv_import_staging').insert({
-      source_record_id:   target.id,                          // source_id → source_record_id
-      source_url:         target.base_url,
-      source_system:      'intelligence_engine',
-      proposed_country_iso: target.country_code,             // country_code → proposed_country_iso
-      content_hash:       result.content_hash,
-      raw_payload:        { text: result.raw_content.slice(0, 50000) }, // raw_text → raw_payload (jsonb)
-      status:             'staged',                           // processing_status → status
+    const { error } = await this.supabase.from('source_snapshots').insert({
+      source_id:         result.target_id,
+      captured_url:      target.base_url,
+      captured_at:       result.timestamp,
+      captured_text:     result.raw_content || null,
+      raw_html_hash:     result.content_hash || null,
+      processing_status: result.status === 'success' ? 'pending_extraction' : 'failed',
+      error_message:     result.error_message || null,
+      fetch_status:      result.status === 'success' ? 'ok' : 'error',
+      previous_hash:     previousHash,
+      changed:           contentChanged,
     });
 
     if (error) {
-      console.error(`=> Failed to stage extraction for ${target.id}:`, error.message);
-    } else {
-      console.log(`=> Staged for AI extraction pipeline.`);
+      console.error(`[${this.runId}] Snapshot save failed for ${result.target_id}:`, error.message);
     }
+
+    return contentChanged;
   }
 }

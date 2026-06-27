@@ -131,7 +131,7 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
-          envMapIntensity={isSelected ? 1.45 : isFocused ? 1.22 : 1.05}
+          envMapIntensity={isSelected ? 0.95 : isFocused ? 0.76 : 0.60}
           specularIntensity={isSelected ? 1.15 : isFocused ? 1.05 : 0.94}
           sheen={isSelected ? 0.32 : 0.18}
           sheenColor={isSelected ? '#fff0b8' : '#d5a642'}

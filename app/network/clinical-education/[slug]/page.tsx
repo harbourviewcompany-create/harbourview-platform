@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { clinicalEducationModules as fixtureModules } from '@/lib/fixtures/clinical-education'
 import { getClinicalEducationModuleBySlug } from '@/lib/server/clinicalEducationQuery'
+
+export const dynamic = 'force-dynamic'
 import { ClinicalEducationHero, ClinicalEducationModuleDetail } from '@/components/clinical-education/ClinicalEducationComponents'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

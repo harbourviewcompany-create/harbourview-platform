@@ -85,6 +85,7 @@ function rawPassthrough(items: RawScrapedItem[], reason: string): AINormalisedLi
     confidence: 0.25,
     publicSafe: false,
     redactionNote: `Raw passthrough (${reason}) — manual review required before publishing.`,
+    isPassthrough: true,
   }))
 }
 

@@ -22,8 +22,8 @@ export class EntityResolver {
   private hfToken: string;
 
   constructor() {
-    this.hfEndpoint = process.env.HF_INFERENCE_ENDPOINT || '';
-    this.hfToken = process.env.HF_TOKEN || '';
+    this.hfEndpoint = process.env.HF_INFERENCE_ENDPOINT || 'https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct';
+    this.hfToken = process.env.HF_TOKEN || process.env.HF_TOKEN_SERVER || '';
   }
 
   /**

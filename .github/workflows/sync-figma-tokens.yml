@@ -1,0 +1,87 @@
+name: Sync Design Tokens from Figma
+
+on:
+  # Manual trigger (recommended to start)
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: 'Commit message for token update'
+        required: false
+        default: 'chore: Sync design tokens from Figma'
+
+  # Scheduled sync (uncomment when ready)
+  # schedule:
+  #   - cron: '0 8 * * 1-5'  # Every weekday at 8am UTC
+
+jobs:
+  sync-tokens:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install style-dictionary --save-dev
+
+      # ============================================
+      # OPTION 1: Manual JSON upload (Current)
+      # Designer exports from Tokens Studio → commits JSON
+      # ============================================
+
+      - name: Generate design tokens
+        run: npm run tokens:generate || npx style-dictionary build --config ./style-dictionary.config.js
+
+      # ============================================
+      # OPTION 2: Figma API (Advanced - requires setup)
+      # Uncomment and configure if you have Figma API access
+      # ============================================
+      # - name: Fetch tokens from Figma (Advanced)
+      #   env:
+      #     FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}
+      #     FIGMA_FILE_KEY: ${{ secrets.FIGMA_FILE_KEY }}
+      #   run: node scripts/fetch-figma-tokens.js
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          if git diff --quiet; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.git-check.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: ${{ github.event.inputs.commit_message || 'chore: Sync design tokens from Figma' }}
+          title: 'chore: Update design tokens from Figma'
+          body: |
+            Automated sync of design tokens from Figma.
+
+            **Changes:**
+            - Updated CSS variables in `styles/design-tokens.css`
+            - Regenerated token files
+
+            Please review the changes before merging.
+          branch: chore/sync-figma-tokens
+          branch-suffix: timestamp
+          delete-branch: true
+          labels: |
+            design-tokens
+            automated

@@ -4,7 +4,6 @@ import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from 
 import {
   getApprovedSupplierProfiles,
   SELLER_TYPE_LABELS,
-  REGION_LABELS,
   CATEGORY_LABELS,
 } from '@/lib/server/supplierProfilesQuery'
 
@@ -80,9 +79,7 @@ export default async function SupplierDirectoryPage() {
                     <span className="text-[11px] uppercase tracking-[0.18em] text-gold/75">
                       {SELLER_TYPE_LABELS[p.seller_type] ?? p.seller_type}
                     </span>
-                    <span className="text-[11px] text-white/40">
-                      {p.regions_served?.[0] ? REGION_LABELS[p.regions_served[0]] ?? p.regions_served[0] : ''}
-                    </span>
+                    <span className="text-[11px] text-white/40">{p.regions_served?.join(', ') ?? '—'}</span>
                   </div>
                   {p.company_name && (
                     <h3 className="mb-2 text-base font-semibold text-[#f4f1eb]">{p.company_name}</h3>

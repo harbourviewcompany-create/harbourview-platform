@@ -7,7 +7,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryStatusFromDB, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel } from '@/lib/dashboard/dashboardLiveData'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -207,8 +207,8 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
 
   // Split into two tiers:
   // Tier 1 — critical path (needed for initial paint)
-  const [countryStatus, pathwayData] = await Promise.all([
-    getCountryStatusFromDB(countryIso2),
+  const [countryIntelProfile, pathwayData] = await Promise.all([
+    getCountryIntelProfile(countryIso2),
     getPublicPathwayTemplate(countryIso2, roleId),
   ])
 
@@ -246,27 +246,21 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
       liveTiles={liveTiles}
       pathwayData={pathwayData}
       recentEduModules={recentEduModules}
-      countryIntel={{
-        country_code:          countryIso2,
-        country_name:          countryStatus?.country_name ?? dashboard.country.countryName,
-        region:                countryStatus?.region ?? null,
-        market_access_status:  countryStatus?.market_access_status ?? null,
-        medical_status:        countryStatus?.medical_status ?? null,
-        adult_use_status:      countryStatus?.adult_use_status ?? null,
-        import_status:         countryStatus?.import_status ?? null,
-        export_status:         countryStatus?.export_status ?? null,
-        opportunity_score:     countryStatus?.opportunity_score ?? null,
-        trade_roles:           countryStatus?.trade_roles ?? null,
-        opportunity_categories: countryStatus?.opportunity_categories ?? null,
-        regulator_label:       countryStatus?.regulator_label ?? null,
-        data_completeness:     countryStatus?.data_completeness ?? null,
-        public_summary:        countryStatus?.public_summary
+      countryIntel={countryIntelProfile ? {
+        ...countryIntelProfile,
+        public_summary: countryIntelProfile.public_summary
           ?? (dashboard.country.evidenceVerified
             ? `${dashboard.country.countryName} ${dashboard.role.label} dashboard context is available.`
             : dashboard.evidence.message
             ?? 'This country-role pathway requires Harbourview evidence review.'),
-        commercial_pathway_summary: dashboard.role.priority,
-        review_status:         dashboard.admin.reviewState,
+        commercial_pathway_summary: dashboard.role.priority ?? countryIntelProfile.commercial_pathway_summary,
+        review_status: dashboard.admin.reviewState ?? countryIntelProfile.review_status,
+      } : {
+        country_code:               countryIso2,
+        country_name:               dashboard.country.countryName,
+        public_summary:             dashboard.evidence.message ?? 'This country-role pathway requires Harbourview evidence review.',
+        commercial_pathway_summary: dashboard.role.priority ?? null,
+        review_status:              dashboard.admin.reviewState ?? 'active',
       }}
     />
   )

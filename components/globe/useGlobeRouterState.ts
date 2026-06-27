@@ -23,7 +23,7 @@ export function globeRouterReducer(
     case 'COUNTRY_SEARCH_SELECT':
       return {
         ...state,
-        step: 'role',
+        step: 'market_overview',
         mode: 'single_market',
         selectedCountryIso2: action.countryIso2,
         selectedCountryIso2s: [action.countryIso2],
@@ -33,12 +33,19 @@ export function globeRouterReducer(
         routeStatus: 'idle',
         inlineNotice: undefined,
       }
+    case 'MARKET_ENTER':
+      return {
+        ...state,
+        step: 'routing',
+        routeStatus: 'resolving',
+        selectedRoleId: 'importer',
+      }
     case 'COUNTRY_CLEAR':
       return { ...initialGlobeRouterState }
     case 'MULTI_MARKET_ENABLE':
       return {
         ...state,
-        step: 'role',
+        step: 'market_overview',
         mode: 'multi_market',
         selectedCountryIso2s: state.selectedCountryIso2 ? [state.selectedCountryIso2] : state.selectedCountryIso2s,
         inlineNotice: undefined,
@@ -54,7 +61,7 @@ export function globeRouterReducer(
       return {
         ...state,
         mode: 'multi_market',
-        step: 'role',
+        step: 'market_overview',
         selectedCountryIso2s,
         selectedCountryIso2: selectedCountryIso2s[0],
         inlineNotice: undefined,
@@ -74,7 +81,7 @@ export function globeRouterReducer(
       }
     }
     case 'MULTI_MARKET_CONFIRM':
-      return { ...state, step: 'role', mode: 'multi_market', inlineNotice: undefined }
+      return { ...state, step: 'market_overview', mode: 'multi_market', inlineNotice: undefined }
     case 'NOT_SURE_COUNTRY':
       // No country known — route immediately to intake via the fallback path
       return {
@@ -125,11 +132,13 @@ export function globeRouterReducer(
         requestedPath: action.requestedPath,
       }
     case 'BACK':
-      if (state.step === 'role') return { ...state, step: 'country', selectedRoleId: undefined }
-      if (state.step === 'fallback' || state.step === 'routing') return { ...state, step: 'role', routeStatus: 'idle' }
+      if (state.step === 'market_overview') return { ...state, step: 'country', selectedRoleId: undefined, selectedCountryIso2: undefined, selectedCountryIso2s: [] }
+      if (state.step === 'role') return { ...state, step: 'market_overview', selectedRoleId: undefined }
+      if (state.step === 'fallback' || state.step === 'routing') return { ...state, step: 'market_overview', routeStatus: 'idle' }
       return { ...initialGlobeRouterState }
     case 'ESCAPE':
       if (state.roleSearchQuery) return { ...state, roleSearchQuery: '' }
+      if (state.step === 'market_overview') return { ...state, step: 'country', selectedCountryIso2: undefined, selectedCountryIso2s: [] }
       if (state.step !== 'country') return { ...state, step: 'country' }
       return { ...initialGlobeRouterState }
     case 'RESET':

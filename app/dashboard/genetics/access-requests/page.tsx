@@ -1,5 +1,7 @@
 import { getInternalCultivarPassports } from '@/lib/genetics/queries'
 
+export const dynamic = 'force-dynamic'
+
 export default async function GeneticsAccessRequestsPage() {
   const passports = await getInternalCultivarPassports()
   const requests = passports.flatMap((passport) => passport.accessRequests.map((request) => ({ ...request, cultivar: passport.displayName })))

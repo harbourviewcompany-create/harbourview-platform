@@ -82,6 +82,7 @@ export interface AINormalisedListing {
   confidence: number          // 0-1
   publicSafe: boolean         // AI judgement: is this safe to show without editing?
   redactionNote?: string      // if publicSafe=false, why
+  isPassthrough?: boolean     // true when AI was unavailable and item was inserted as-is
 }
 
 export interface ScrapedCandidate {

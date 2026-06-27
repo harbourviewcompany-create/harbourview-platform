@@ -2,12 +2,45 @@ import { NetworkReviewCard } from '@/components/admin/network/NetworkReviewCard'
 import {
   networkAdminReviewItems,
   summarizeNetworkAdminReview,
+  type NetworkAdminReviewItem,
 } from '@/lib/network/adminReview'
+import { listNetworkReviewItems } from '@/lib/network/serverQueries'
+import type { NetworkReviewItemRow } from '@/lib/network/serverTypes'
 
 export const dynamic = 'force-dynamic'
 
-export default function NetworkAdminReviewPage() {
-  const summary = summarizeNetworkAdminReview()
+function rowToReviewItem(row: NetworkReviewItemRow): NetworkAdminReviewItem {
+  return {
+    id: row.id,
+    objectType: row.object_type,
+    title: row.title_internal,
+    countryLabel: row.country_label ?? 'Unknown',
+    categoryLabel: row.category_label ?? 'General',
+    reviewStatus: row.review_status,
+    claimRisk: row.claim_risk,
+    publicPreview: {
+      id: row.id,
+      slug: row.source_ref ?? row.id,
+      name: row.title_public_draft ?? row.title_internal,
+      publicSummary: row.public_summary_draft ?? '',
+    },
+    suppressedFieldLabels: row.suppressed_fields,
+    nextActionLabel: row.requires_legal_review
+      ? 'Legal review required'
+      : row.requires_compliance_review
+        ? 'Compliance review required'
+        : 'Awaiting review',
+  }
+}
+
+export default async function NetworkAdminReviewPage() {
+  const result = await listNetworkReviewItems()
+  const isLive = result.ok && result.data.length > 0
+  const items: NetworkAdminReviewItem[] = isLive
+    ? result.data.map(rowToReviewItem)
+    : networkAdminReviewItems
+
+  const summary = summarizeNetworkAdminReview(items)
 
   return (
     <section className="space-y-8">
@@ -19,12 +52,15 @@ export default function NetworkAdminReviewPage() {
         <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-[#F5F1E8]">
-              Network review shell
+              Network review
             </h1>
 
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[#F5F1E8]/68">
-              Protected non-persistent admin review surface for validating public-safe DTO projections,
-              suppressed fields and placeholder workflow states before live persistence exists.
+              Admin review surface for validating public-safe DTO projections,
+              suppressed fields, and workflow states before publication.{' '}
+              <span className={`text-[10px] uppercase tracking-[0.14em] ${isLive ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {isLive ? 'Live — Supabase' : 'No items — showing placeholder data'}
+              </span>
             </p>
           </div>
 
@@ -48,7 +84,7 @@ export default function NetworkAdminReviewPage() {
       </header>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        {networkAdminReviewItems.map((item) => (
+        {items.map((item) => (
           <NetworkReviewCard key={item.id} item={item} />
         ))}
       </div>

@@ -45,6 +45,7 @@ export interface InsertResult {
 // ── Per-source scraper state ──────────────────────────────────────────────────
 
 export interface SourceState {
+  last_run_at: string | null
   last_success_at: string | null
   consecutive_failures: number
 }
@@ -52,7 +53,7 @@ export interface SourceState {
 export async function fetchSourceStates(): Promise<Map<string, SourceState>> {
   const { url, key } = getSupabaseConfig()
   const res = await fetch(
-    `${url}/rest/v1/scraper_source_state?select=source_id,last_success_at,consecutive_failures`,
+    `${url}/rest/v1/scraper_source_state?select=source_id,last_run_at,last_success_at,consecutive_failures`,
     { headers: serviceHeaders(key), cache: 'no-store' },
   )
   if (!res.ok) {
@@ -61,10 +62,12 @@ export async function fetchSourceStates(): Promise<Map<string, SourceState>> {
   }
   const rows = (await res.json()) as Array<{
     source_id: string
+    last_run_at: string | null
     last_success_at: string | null
     consecutive_failures: number
   }>
   return new Map(rows.map((r) => [r.source_id, {
+    last_run_at: r.last_run_at,
     last_success_at: r.last_success_at,
     consecutive_failures: r.consecutive_failures,
   }]))
