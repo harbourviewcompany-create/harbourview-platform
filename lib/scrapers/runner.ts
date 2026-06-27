@@ -1,17 +1,25 @@
 // lib/scrapers/runner.ts
 // Orchestrates a full scrape run: fetch → parse → deduplicate → normalise → ingest.
 // Called by the Vercel Cron route. Returns a ScrapeRunSummary for digest emails.
+//
+// Cadence-aware: each source is skipped if last_success_at + cadenceHours > now().
+// State-persistent: last_run_at, consecutive_failures, last_error are written to
+// scraper_source_state after every source so cadence is respected across cron ticks.
 
 import { getEnabledSources } from './sources'
 import { fetchSourceHtml } from './fetcher'
 import { parseSource } from './parser'
 import { normaliseWithAI } from './normaliser'
 import { deduplicateItems } from './deduplication'
-import { fetchExistingFingerprints, insertCandidates } from './ingestor'
+import { fetchExistingFingerprints, insertCandidates, fetchSourceStates, persistSourceState } from './ingestor'
 import type { ScrapeRunResult, ScrapeRunSummary } from './types'
 
 const MAX_ITEMS_PER_SOURCE = 10 // throttle AI calls per run
 const INTER_SOURCE_DELAY_MS = 800 // polite delay between site fetches
+
+// Exponential backoff cap: after 5 consecutive failures a source is retried
+// only after 32× its normal cadence (e.g. a 24h source backs off to ~32 days).
+const MAX_BACKOFF_MULTIPLIER = 32
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -21,12 +29,19 @@ function runId() {
   return `run_${Date.now().toString(36)}`
 }
 
+function isPassthrough(redactionNote?: string): boolean {
+  return redactionNote?.startsWith('Raw passthrough') ?? false
+}
+
 export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
   const startedAt = new Date().toISOString()
   const id = runId()
 
   const sources = getEnabledSources()
-  const existingFingerprints = await fetchExistingFingerprints()
+  const [existingFingerprints, sourceStates] = await Promise.all([
+    fetchExistingFingerprints(),
+    fetchSourceStates(),
+  ])
 
   const sourceResults: ScrapeRunResult[] = []
   let totalInserted = 0
@@ -34,6 +49,29 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
   let totalFailed = 0
 
   for (const source of sources) {
+    const state = sourceStates.get(source.id)
+    const prevFailures = state?.consecutive_failures ?? 0
+
+    // Cadence check: skip if the source isn't due yet.
+    if (state?.last_success_at) {
+      const backoffMultiplier = prevFailures > 0
+        ? Math.min(Math.pow(2, prevFailures), MAX_BACKOFF_MULTIPLIER)
+        : 1
+      const effectiveCadenceMs = source.cadenceHours * backoffMultiplier * 3_600_000
+      const nextDue = new Date(state.last_success_at).getTime() + effectiveCadenceMs
+      if (Date.now() < nextDue) {
+        sourceResults.push({
+          source,
+          status: 'due_later',
+          candidatesFound: 0,
+          candidatesInserted: 0,
+          candidatesSkipped: 0,
+          durationMs: 0,
+        })
+        continue
+      }
+    }
+
     const t0 = Date.now()
 
     // Fetch
@@ -41,6 +79,7 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
     const fetchResult = await fetchSourceHtml(url)
 
     if (!fetchResult.ok) {
+      const error = fetchResult.error
       sourceResults.push({
         source,
         status: fetchResult.status === 429 ? 'rate_limited' : 'failed',
@@ -48,9 +87,10 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
         candidatesInserted: 0,
         candidatesSkipped: 0,
         durationMs: Date.now() - t0,
-        error: fetchResult.error,
+        error,
       })
       totalFailed++
+      await persistSourceState(source.id, source.cadenceHours, false, prevFailures, error)
       await sleep(INTER_SOURCE_DELAY_MS)
       continue
     }
@@ -70,6 +110,7 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
         candidatesSkipped: duplicateCount,
         durationMs: Date.now() - t0,
       })
+      await persistSourceState(source.id, source.cadenceHours, true, prevFailures)
       await sleep(INTER_SOURCE_DELAY_MS)
       continue
     }
@@ -77,18 +118,25 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
     // Normalise via AI (with automatic passthrough fallback if key is missing/invalid)
     const normalisedItems = await normaliseWithAI(fresh)
 
-    // Pair raw + normalised, filter low-confidence
+    // Pair raw + normalised, then apply confidence filtering:
+    // - Passthrough items (AI unavailable): always keep — they land as needs_review
+    // - Genuine AI results: require confidence >= 0.4 to filter out weak extractions
     const pairs = fresh
       .slice(0, normalisedItems.length)
       .map((raw, i) => ({ raw, normalised: normalisedItems[i] }))
-      .filter(({ normalised }) => normalised.confidence >= 0.25) // 0.25 catches passthrough items too
+      .filter(({ normalised }) =>
+        isPassthrough(normalised.redactionNote)
+          ? true
+          : normalised.confidence >= 0.4,
+      )
 
     // Ingest
     const { inserted, errors } = await insertCandidates(pairs)
+    const runSuccess = !(errors > 0 && inserted === 0)
 
     sourceResults.push({
       source,
-      status: errors > 0 && inserted === 0 ? 'failed' : 'ok',
+      status: runSuccess ? 'ok' : 'failed',
       candidatesFound: rawItems.length,
       candidatesInserted: inserted,
       candidatesSkipped: duplicateCount + (fresh.length - pairs.length),
@@ -98,7 +146,15 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
 
     totalInserted += inserted
     totalSkipped += duplicateCount
-    if (errors > 0) totalFailed++
+    if (!runSuccess) totalFailed++
+
+    await persistSourceState(
+      source.id,
+      source.cadenceHours,
+      runSuccess,
+      prevFailures,
+      runSuccess ? undefined : `${errors} insert error(s)`,
+    )
 
     await sleep(INTER_SOURCE_DELAY_MS)
   }

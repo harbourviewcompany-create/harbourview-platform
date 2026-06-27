@@ -96,7 +96,7 @@ export interface ScrapedCandidate {
 
 export interface ScrapeRunResult {
   source: ScraperSource
-  status: 'ok' | 'skipped' | 'failed' | 'rate_limited'
+  status: 'ok' | 'skipped' | 'due_later' | 'failed' | 'rate_limited'
   candidatesFound: number
   candidatesInserted: number
   candidatesSkipped: number   // deduplication hits
