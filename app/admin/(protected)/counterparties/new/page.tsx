@@ -1,23 +1,19 @@
 import { requireAdminAuth } from '@/lib/auth/adminGuard'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
-  getCounterpartyById,
-  updateCounterparty,
-  deleteCounterparty,
+  createCounterparty,
   ROLE_LABELS,
-  DOC_STATUS_LABELS,
-  DOC_STATUS_COLORS,
   COUNTERPARTY_ROLES,
 } from '@/lib/admin/counterpartiesQuery'
 
 export const dynamic = 'force-dynamic'
 
-async function saveCounterparty(id: string, formData: FormData) {
+async function submitNewCounterparty(formData: FormData) {
   'use server'
   const markets    = String(formData.get('markets') ?? '').split(',').map(s => s.trim()).filter(Boolean)
   const categories = String(formData.get('categories') ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  await updateCounterparty(id, {
+  await createCounterparty({
     name:                 String(formData.get('name') ?? ''),
     role:                 String(formData.get('role') ?? ''),
     markets,
@@ -26,74 +22,41 @@ async function saveCounterparty(id: string, formData: FormData) {
     supply_profile:       String(formData.get('supply_profile') ?? '') || null,
     documentation_status: (formData.get('documentation_status') as 'complete' | 'partial' | 'missing') ?? 'missing',
   })
-  redirect(`/admin/counterparties/${encodeURIComponent(id)}?saved=1`)
+  redirect('/admin/counterparties?created=1')
 }
 
-export default async function CounterpartyDetailPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>
-  searchParams: Promise<{ saved?: string }>
-}) {
+export default async function NewCounterpartyPage() {
   await requireAdminAuth()
-  const { id } = await params
-  const { saved } = await searchParams
-
-  const result = await getCounterpartyById(decodeURIComponent(id))
-  if (!result.ok || !result.data) notFound()
-  const cp = result.data
-
-  async function deleteAction() {
-    'use server'
-    await deleteCounterparty(cp.id)
-    redirect('/admin/counterparties?deleted=1')
-  }
-
-  const action = saveCounterparty.bind(null, cp.id)
 
   return (
     <section className="space-y-6 max-w-2xl">
       <div>
         <Link href="/admin/counterparties" className="text-[#C6A55A] text-sm hover:underline">← Counterparties</Link>
-        <p className="mt-3 text-xs uppercase tracking-[0.22em] text-[#C6A55A]">Counterparty</p>
-        <h2 className="mt-1 text-2xl font-semibold">{cp.name}</h2>
+        <p className="mt-3 text-xs uppercase tracking-[0.22em] text-[#C6A55A]">New counterparty</p>
+        <h2 className="mt-1 text-2xl font-semibold">Add counterparty</h2>
         <p className="mt-1 text-sm text-[#F5F1E8]/50">
-          {ROLE_LABELS[cp.role] ?? cp.role}
-          {' · '}
-          <span className={DOC_STATUS_COLORS[cp.documentation_status]}>
-            {DOC_STATUS_LABELS[cp.documentation_status]}
-          </span>
-          {' · '}
-          {cp.interaction_count} interaction{cp.interaction_count !== 1 ? 's' : ''}
-          {' · '}
-          {cp.introduction_count} intro{cp.introduction_count !== 1 ? 's' : ''}
+          Manually add a counterparty to the intelligence network.
         </p>
       </div>
 
-      {saved === '1' && (
-        <div className="rounded-xl border border-emerald-400/20 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-400">
-          Saved successfully.
-        </div>
-      )}
-
-      <form action={action} className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+      <form action={submitNewCounterparty} className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="space-y-1">
-            <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Name</label>
+            <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Name *</label>
             <input
               name="name"
-              defaultValue={cp.name}
               required
+              autoFocus
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40"
+              placeholder="Company or individual name"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Role</label>
+            <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Role *</label>
             <select
               name="role"
-              defaultValue={cp.role}
+              defaultValue="other"
               className="w-full rounded-lg border border-white/10 bg-[#081423] px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40"
             >
               {COUNTERPARTY_ROLES.map(r => (
@@ -105,11 +68,10 @@ export default async function CounterpartyDetailPage({
 
         <div className="space-y-1">
           <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">
-            Markets <span className="normal-case text-[#F5F1E8]/30">(comma-separated, e.g. Germany, UK, Canada)</span>
+            Markets <span className="normal-case text-[#F5F1E8]/30">(comma-separated, e.g. Germany, UK, Canada or ISO2 codes)</span>
           </label>
           <input
             name="markets"
-            defaultValue={cp.markets.join(', ')}
             className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40"
             placeholder="Germany, UK, Canada"
           />
@@ -121,7 +83,6 @@ export default async function CounterpartyDetailPage({
           </label>
           <input
             name="categories"
-            defaultValue={cp.categories.join(', ')}
             className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40"
             placeholder="cannabis inventory, packaging"
           />
@@ -132,7 +93,6 @@ export default async function CounterpartyDetailPage({
             <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Needs profile</label>
             <textarea
               name="needs_profile"
-              defaultValue={cp.needs_profile ?? ''}
               rows={3}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40 resize-none"
               placeholder="What this counterparty is seeking…"
@@ -142,7 +102,6 @@ export default async function CounterpartyDetailPage({
             <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Supply profile</label>
             <textarea
               name="supply_profile"
-              defaultValue={cp.supply_profile ?? ''}
               rows={3}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40 resize-none"
               placeholder="What this counterparty can supply…"
@@ -154,7 +113,7 @@ export default async function CounterpartyDetailPage({
           <label className="text-xs uppercase tracking-[0.12em] text-[#F5F1E8]/45">Documentation status</label>
           <select
             name="documentation_status"
-            defaultValue={cp.documentation_status}
+            defaultValue="missing"
             className="rounded-lg border border-white/10 bg-[#081423] px-3 py-2 text-sm text-[#F5F1E8] outline-none focus:border-[#C6A55A]/40"
           >
             <option value="complete">Complete</option>
@@ -168,7 +127,7 @@ export default async function CounterpartyDetailPage({
             type="submit"
             className="rounded-lg border border-[#C6A55A]/35 bg-[#C6A55A]/10 px-5 py-2 text-sm font-semibold text-[#C6A55A] hover:bg-[#C6A55A]/20 transition-colors"
           >
-            Save changes
+            Create counterparty
           </button>
           <Link
             href="/admin/counterparties"
@@ -178,31 +137,6 @@ export default async function CounterpartyDetailPage({
           </Link>
         </div>
       </form>
-
-      {/* Read-only metadata */}
-      <div className="rounded-2xl border border-white/5 bg-white/[0.015] p-5 text-xs text-[#F5F1E8]/35 space-y-1">
-        <div>ID: <span className="font-mono">{cp.id}</span></div>
-        <div>Last interaction: {cp.last_interaction ?? 'None recorded'}</div>
-        <div>Created: {new Date(cp.created_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
-        <div>Updated: {new Date(cp.updated_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
-      </div>
-
-      {/* Danger zone */}
-      <div className="rounded-2xl border border-red-900/30 bg-red-950/10 p-5 space-y-3">
-        <p className="text-xs uppercase tracking-[0.14em] text-red-400/70">Danger zone</p>
-        <p className="text-sm text-[#F5F1E8]/45">
-          Permanently removes this counterparty record. Interaction history and introduction logs referencing this record may be affected.
-        </p>
-        <form action={deleteAction}>
-          <button
-            type="submit"
-            className="rounded-lg border border-red-700/40 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-900/40 transition-colors"
-            onClick={undefined}
-          >
-            Delete counterparty
-          </button>
-        </form>
-      </div>
     </section>
   )
 }

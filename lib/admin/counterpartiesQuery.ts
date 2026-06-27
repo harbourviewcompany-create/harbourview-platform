@@ -65,6 +65,22 @@ export async function updateCounterparty(
   )
 }
 
+export async function createCounterparty(input: CounterpartyInput): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation<null>(
+    `/rest/v1/ia_counterparties`,
+    'POST',
+    input as Record<string, unknown>,
+  )
+}
+
+export async function deleteCounterparty(id: string): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation<null>(
+    `/rest/v1/ia_counterparties?id=eq.${id}`,
+    'DELETE',
+    {},
+  )
+}
+
 export async function normalizeCounterpartyMarkets(id: string, markets: string[]): Promise<AdminDataResult<null>> {
   return fetchAdminSupabaseJsonMutation<null>(
     `/rest/v1/ia_counterparties?id=eq.${id}`,
