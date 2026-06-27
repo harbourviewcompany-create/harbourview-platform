@@ -8,7 +8,9 @@ import {
   Select, Popover, Tooltip, Avatar, Sheet, SheetHeader, SheetTitle 
 } from "@/components/ui"
 import { Toaster } from "@/components/ui/sonner"
-import { toast } from "sonner"
+function toast(msg: string) { console.log(msg) }
+toast.success = (msg: string) => console.log(msg)
+toast.error = (msg: string) => console.error(msg)
 
 export default function UIPreviewPage() {
   const [switchChecked, setSwitchChecked] = useState(false)

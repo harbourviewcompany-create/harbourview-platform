@@ -2601,6 +2601,7 @@ function flagEmoji(iso2: string): string {
   return chars.join('')
 }
 
+
 function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: DashboardSignal[]; onCountrySelect: (iso2: string) => void }) {
   const [search, setSearch] = useState('')
 
@@ -2951,7 +2952,6 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
   )
 }
 
-// ── Countries Directory Mobile ────────────────────────────────────────────────
 
 function CountriesMobile({ signals, onCountrySelect }: {
   signals: DashboardSignal[]
