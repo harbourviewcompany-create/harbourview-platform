@@ -193,14 +193,15 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
     const supabase = await createClient()
 
     // Primary source: countries table (status fields, scores, completeness)
-    const { data: cd } = await supabase
+    const { data: cd, error: cdError } = await supabase
       .from('countries')
       .select(
         'country_name, iso_alpha2, region, subregion, market_access_status, medical_status, adult_use_status, import_status, export_status, signals_status, opportunity_score, data_completeness, public_summary, trade_roles, opportunity_categories, regulator_label, last_updated_label',
       )
       .eq('iso_alpha2', iso2.toUpperCase())
-      .single()
+      .maybeSingle()
 
+    if (cdError) console.error('[getCountryIntelProfile] countries query error:', cdError)
     if (!cd) return null
 
     // Secondary: country_intel for richer narrative content (optional)
@@ -249,7 +250,10 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_regulatory_body:   jb?.regulatory_body ?? null,
       briefing_last_reviewed:     jb?.last_reviewed_date ?? null,
     }
-  } catch { return null }
+  } catch (err) {
+    console.error('[getCountryIntelProfile] unexpected error:', err)
+    return null
+  }
 }
 
 // ── getCountryStatusFromDB ────────────────────────────────────────────────────

@@ -102,7 +102,7 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   }, [countryIso2])
 
   const title = loading
-    ? 'Loading market overview…'
+    ? 'Loading regulatory overview…'
     : (briefing?.program_status ?? 'Market overview')
 
   return (
