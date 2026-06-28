@@ -1,115 +1,139 @@
+/**
+ * Stripe webhook handler.
+ * Handles: customer.subscription.created, updated, deleted
+ * Syncs subscription state → supabase stripe_subscriptions_user_profiles
+ * Updates user app_metadata.subscription_tier via Supabase Admin API
+ * so the JWT carries the tier on next token refresh.
+ */
+import 'server-only'
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe, tierFromPriceId } from '@/lib/stripe/server'
-import { createHarbourviewServiceRoleSupabaseClient } from '@/lib/harbourview/supabase/service-role'
+import { stripe, tierFromPriceId } from '@/lib/billing/stripe'
+import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
 
-function unixToIso(seconds: number | null | undefined): string | null {
-  return typeof seconds === 'number' && Number.isFinite(seconds)
-    ? new Date(seconds * 1000).toISOString()
-    : null
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error('[harbourview:webhook] NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing.')
+  }
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-async function upsertSubscription(sub: Stripe.Subscription) {
-  const item = sub.items.data[0]
-  const priceId = item?.price.id ?? ''
-  const tier = tierFromPriceId(priceId) ?? 'intel'
-  const userId = sub.metadata?.supabase_user_id
+async function syncSubscription(
+  supabase: ReturnType<typeof createClient>,
+  subscription: Stripe.Subscription
+) {
+  const customerId  = subscription.customer as string
+  const priceId     = subscription.items.data[0]?.price?.id ?? null
+  const tier        = tierFromPriceId(priceId)
+  const status      = subscription.status
+  const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
 
-  if (!userId) {
-    console.warn('[stripe/webhook] subscription missing supabase_user_id metadata', sub.id)
+  // 1. Find user by stripe_customer_id
+  const { data: profile, error: profileError } = await supabase
+    .from('stripe_subscriptions_user_profiles')
+    .select('user_id')
+    .eq('stripe_customer_id', customerId)
+    .maybeSingle()
+
+  if (profileError) {
+    console.error('[harbourview:webhook] profile lookup failed', profileError)
     return
   }
 
-  // In the current Stripe API the billing period lives on the subscription
-  // item, not the subscription itself.
-  const supabase = createHarbourviewServiceRoleSupabaseClient()
-  const { error } = await supabase.from('subscriptions').upsert({
-    id:                   sub.id,
-    user_id:              userId,
-    stripe_customer_id:   typeof sub.customer === 'string' ? sub.customer : sub.customer.id,
-    status:               sub.status,
-    tier,
-    price_id:             priceId,
-    current_period_start: unixToIso(item?.current_period_start),
-    current_period_end:   unixToIso(item?.current_period_end),
-    cancel_at_period_end: sub.cancel_at_period_end,
-    canceled_at:          unixToIso(sub.canceled_at),
-    updated_at:           new Date().toISOString(),
-  })
+  // 2. Upsert subscription record
+  const { error: upsertError } = await supabase
+    .from('stripe_subscriptions_user_profiles')
+    .upsert({
+      stripe_customer_id:    customerId,
+      stripe_subscription_id: subscription.id,
+      stripe_price_id:       priceId,
+      subscription_tier:     tier,
+      subscription_status:   status,
+      current_period_end:    currentPeriodEnd,
+      updated_at:            new Date().toISOString(),
+    }, { onConflict: 'stripe_customer_id' })
 
-  if (error) console.error('[stripe/webhook] upsert subscription error', error)
+  if (upsertError) {
+    console.error('[harbourview:webhook] upsert failed', upsertError)
+    return
+  }
+
+  // 3. Sync tier into auth.users app_metadata so JWT carries it
+  const userId = profile?.user_id
+  if (userId) {
+    const effectiveTier = status === 'active' || status === 'trialing' ? tier : 'free'
+    const { error: metaError } = await supabase.auth.admin.updateUserById(userId, {
+      app_metadata: { subscription_tier: effectiveTier },
+    })
+    if (metaError) {
+      console.error('[harbourview:webhook] app_metadata update failed', metaError)
+    }
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.text()
-  const sig  = req.headers.get('stripe-signature') ?? ''
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const body      = await req.text()
+  const signature = req.headers.get('stripe-signature')
+  const secret    = process.env.STRIPE_WEBHOOK_SECRET
 
-  if (!webhookSecret) {
-    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+  if (!signature || !secret) {
+    return NextResponse.json({ error: 'Missing stripe-signature or webhook secret.' }, { status: 400 })
   }
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
+    event = stripe.webhooks.constructEvent(body, signature, secret)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Invalid signature'
-    console.error('[stripe/webhook] signature error:', msg)
-    return NextResponse.json({ error: msg }, { status: 400 })
+    console.error('[harbourview:webhook] signature verification failed', err)
+    return NextResponse.json({ error: 'Webhook signature invalid.' }, { status: 400 })
   }
 
-  // Idempotency: record the event id before processing. A duplicate key means
-  // Stripe replayed an event we already handled, so acknowledge and skip.
-  const supabase = createHarbourviewServiceRoleSupabaseClient()
-  const { error: dedupeError } = await supabase
-    .from('stripe_webhook_events')
-    .insert({ id: event.id, type: event.type })
-
-  if (dedupeError) {
-    if (dedupeError.code === '23505') {
-      return NextResponse.json({ received: true, duplicate: true })
-    }
-    console.error('[stripe/webhook] dedupe insert error:', dedupeError)
-    // Fall through and still process: a logging failure should not drop events.
-  }
+  const supabase = getSupabaseAdmin()
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        if (session.mode === 'subscription' && session.subscription) {
-          const sub = await stripe.subscriptions.retrieve(session.subscription as string)
-          if (!sub.metadata?.supabase_user_id && session.metadata?.supabase_user_id) {
-            await stripe.subscriptions.update(sub.id, {
-              metadata: { supabase_user_id: session.metadata.supabase_user_id },
-            })
-            sub.metadata.supabase_user_id = session.metadata.supabase_user_id
-          }
-          await upsertSubscription(sub)
-        }
-        break
-      }
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        await upsertSubscription(event.data.object as Stripe.Subscription)
+        await syncSubscription(supabase, event.data.object as Stripe.Subscription)
         break
 
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice
-        const subId = invoice.parent?.type === 'subscription_details'
-          ? (invoice.parent.subscription_details?.subscription as string | undefined)
-          : undefined
-        if (subId) {
-          const sub = await stripe.subscriptions.retrieve(subId)
-          await upsertSubscription(sub)
+      case 'customer.subscription.deleted': {
+        const sub        = event.data.object as Stripe.Subscription
+        const customerId = sub.customer as string
+
+        await supabase
+          .from('stripe_subscriptions_user_profiles')
+          .update({
+            subscription_status: 'canceled',
+            subscription_tier:   'free',
+            updated_at:          new Date().toISOString(),
+          })
+          .eq('stripe_customer_id', customerId)
+
+        // Downgrade user JWT tier
+        const { data: profile } = await supabase
+          .from('stripe_subscriptions_user_profiles')
+          .select('user_id')
+          .eq('stripe_customer_id', customerId)
+          .maybeSingle()
+
+        if (profile?.user_id) {
+          await supabase.auth.admin.updateUserById(profile.user_id, {
+            app_metadata: { subscription_tier: 'free' },
+          })
         }
         break
       }
+
+      default:
+        // Acknowledge but ignore unhandled event types
+        break
     }
   } catch (err) {
-    console.error('[stripe/webhook] handler error:', err)
-    return NextResponse.json({ error: 'Handler failed' }, { status: 500 })
+    console.error('[harbourview:webhook] handler error', err)
+    return NextResponse.json({ error: 'Webhook handler failed.' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })
