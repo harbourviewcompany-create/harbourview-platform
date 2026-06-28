@@ -8,9 +8,10 @@ import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
 import { usStateProfiles } from '@/data/globe/us-state-profiles'
 
 // Subnational iso2 (e.g. 'CA-ON') → jurisdiction_slug used in cc_jurisdiction_briefings
+// Keys are uppercased to match the .toUpperCase() lookup used in the effect.
 const subnationalSlugMap: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(canadaProvinceByIso2).map(([iso2, p]) => [iso2, p.slug])),
-  ...Object.fromEntries(usStateProfiles.map((s) => [s.iso2, s.slug])),
+  ...Object.fromEntries(Object.entries(canadaProvinceByIso2).map(([iso2, p]) => [iso2.toUpperCase(), p.slug])),
+  ...Object.fromEntries(usStateProfiles.map((s) => [s.iso2.toUpperCase(), s.slug])),
 }
 
 const BRIEFING_SELECT = 'jurisdiction_slug, program_status, public_summary, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body'
