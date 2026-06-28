@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { RouterBottomSheet } from './RouterBottomSheet'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseUrl, getSupabasePublicClientKey } from '@/lib/supabase/env'
 import type { JurisdictionBriefing } from '@/app/actions/getJurisdictionBriefing'
 import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
 import { usStateProfiles } from '@/data/globe/us-state-profiles'
@@ -14,7 +14,7 @@ const subnationalSlugMap: Record<string, string> = {
   ...Object.fromEntries(usStateProfiles.map((s) => [s.iso2.toUpperCase(), s.slug])),
 }
 
-const BRIEFING_SELECT = 'jurisdiction_slug, program_status, public_summary, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body'
+const BRIEFING_SELECT = 'jurisdiction_slug,program_status,public_summary,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body'
 
 interface Props {
   countryIso2: string
@@ -43,44 +43,67 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
 
     const code = countryIso2.toUpperCase()
     const slug = subnationalSlugMap[code]
-    const client = createClient()
+
+    let url: string
+    let key: string
+    try {
+      url = getSupabaseUrl()
+      key = getSupabasePublicClientKey()
+    } catch {
+      if (isCurrent) setLoading(false)
+      return
+    }
+
+    const base = `${url}/rest/v1/cc_jurisdiction_briefings`
+    const headers = { apikey: key, Authorization: `Bearer ${key}` }
 
     async function fetchBriefing(): Promise<JurisdictionBriefing | null> {
       if (slug) {
         // Subnational (e.g. CA-ON → ontario): try province/state briefing first
         const parentIso2 = code.split('-')[0]
-        const { data, error } = await client
-          .from('cc_jurisdiction_briefings')
-          .select(BRIEFING_SELECT)
-          .eq('country_iso2', parentIso2)
-          .eq('jurisdiction_slug', slug)
-          .maybeSingle()
-        if (error) {
-          console.error('[MarketOverviewSheet] subnational fetch failed:', error)
+        const params = new URLSearchParams({
+          select: BRIEFING_SELECT,
+          country_iso2: `eq.${parentIso2}`,
+          jurisdiction_slug: `eq.${slug}`,
+          limit: '1',
+        })
+        const r = await fetch(`${base}?${params}`, { headers })
+        if (!r.ok) {
+          console.error('[MarketOverviewSheet] subnational fetch failed:', r.status)
           return null
         }
-        if (data) return data
-        // Fall back to country-level briefing only when subnational query succeeded with no row
-        const { data: countryData, error: countryError } = await client
-          .from('cc_jurisdiction_briefings')
-          .select(BRIEFING_SELECT)
-          .eq('country_iso2', parentIso2)
-          .eq('jurisdiction_type', 'country')
-          .maybeSingle()
-        if (countryError) {
-          console.error('[MarketOverviewSheet] country fallback fetch failed:', countryError)
+        const rows: JurisdictionBriefing[] = await r.json()
+        if (rows[0]) return rows[0]
+
+        // Fall back to country-level briefing
+        const params2 = new URLSearchParams({
+          select: BRIEFING_SELECT,
+          country_iso2: `eq.${parentIso2}`,
+          jurisdiction_type: 'eq.country',
+          limit: '1',
+        })
+        const r2 = await fetch(`${base}?${params2}`, { headers })
+        if (!r2.ok) {
+          console.error('[MarketOverviewSheet] country fallback fetch failed:', r2.status)
           return null
         }
-        return countryData ?? null
+        const rows2: JurisdictionBriefing[] = await r2.json()
+        return rows2[0] ?? null
       }
-      const { data, error } = await client
-        .from('cc_jurisdiction_briefings')
-        .select(BRIEFING_SELECT)
-        .eq('country_iso2', code)
-        .eq('jurisdiction_type', 'country')
-        .maybeSingle()
-      if (error) console.error('[MarketOverviewSheet] briefing fetch failed:', error)
-      return data ?? null
+
+      const params = new URLSearchParams({
+        select: BRIEFING_SELECT,
+        country_iso2: `eq.${code}`,
+        jurisdiction_type: 'eq.country',
+        limit: '1',
+      })
+      const r = await fetch(`${base}?${params}`, { headers })
+      if (!r.ok) {
+        console.error('[MarketOverviewSheet] briefing fetch failed:', r.status)
+        return null
+      }
+      const rows: JurisdictionBriefing[] = await r.json()
+      return rows[0] ?? null
     }
 
     fetchBriefing()
