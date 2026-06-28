@@ -39,6 +39,7 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   useEffect(() => {
     setLoading(true)
     setBriefing(null)
+    let isCurrent = true
 
     const code = countryIso2.toUpperCase()
     const slug = subnationalSlugMap[code]
@@ -54,16 +55,22 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
           .eq('country_iso2', parentIso2)
           .eq('jurisdiction_slug', slug)
           .maybeSingle()
-        if (error) console.error('[MarketOverviewSheet] subnational fetch failed:', error)
+        if (error) {
+          console.error('[MarketOverviewSheet] subnational fetch failed:', error)
+          return null
+        }
         if (data) return data
-        // Fall back to country-level briefing for this province/state's parent
+        // Fall back to country-level briefing only when subnational query succeeded with no row
         const { data: countryData, error: countryError } = await client
           .from('cc_jurisdiction_briefings')
           .select(BRIEFING_SELECT)
           .eq('country_iso2', parentIso2)
           .eq('jurisdiction_type', 'country')
           .maybeSingle()
-        if (countryError) console.error('[MarketOverviewSheet] country fallback fetch failed:', countryError)
+        if (countryError) {
+          console.error('[MarketOverviewSheet] country fallback fetch failed:', countryError)
+          return null
+        }
         return countryData ?? null
       }
       const { data, error } = await client
@@ -77,8 +84,21 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
     }
 
     fetchBriefing()
-      .then((data) => { setBriefing(data); setLoading(false) })
-      .catch((err: unknown) => { console.error('[MarketOverviewSheet] briefing fetch error:', err); setLoading(false) })
+      .then((data) => {
+        if (!isCurrent) return
+        setBriefing(data)
+      })
+      .catch((err: unknown) => {
+        if (!isCurrent) return
+        console.error('[MarketOverviewSheet] briefing fetch error:', err)
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false)
+      })
+
+    return () => {
+      isCurrent = false
+    }
   }, [countryIso2])
 
   const title = loading
