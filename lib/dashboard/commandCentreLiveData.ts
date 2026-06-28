@@ -115,7 +115,7 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
 
     // Top high-priority signals
     supabase
-      .from('signals')
+      .from('signals_quality')
       .select('id, date, cat, pri, score, headline, country, verification, tier, reviewed, top_lane')
       .in('pri', ['URGENT', 'HIGH', 'high'])
       .order('date', { ascending: false })
@@ -140,7 +140,7 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
 
   // ── Signal counts (inline — avoids needing an RPC if it doesn't exist yet)
   const { data: signalCounts } = await supabase
-    .from('signals')
+    .from('signals_quality')
     .select('pri', { count: 'exact', head: false })
 
   const priCounts = (signalCounts ?? []).reduce<Record<string, number>>((acc, row) => {
@@ -150,11 +150,11 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
   }, {})
 
   const { count: totalSignals } = await supabase
-    .from('signals')
+    .from('signals_quality')
     .select('*', { count: 'exact', head: true })
 
   const { count: signalCountries } = await supabase
-    .from('signals')
+    .from('signals_quality')
     .select('country', { count: 'exact', head: true })
     .not('country', 'is', null)
 
@@ -244,7 +244,7 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
 export async function fetchTopSignals(limit = 8): Promise<CommandCentreSignal[]> {
   const supabase = await createClient()
   const { data } = await supabase
-    .from('signals')
+    .from('signals_quality')
     .select('id, date, cat, pri, score, headline, country, verification, tier, reviewed, top_lane')
     .in('pri', ['URGENT', 'HIGH', 'high'])
     .order('date', { ascending: false })

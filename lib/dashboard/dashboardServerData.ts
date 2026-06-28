@@ -213,7 +213,7 @@ export async function fetchDashboardSignals(
         const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
         const svc = await createSupabaseServiceClient()
         return svc
-          .from('signals')
+          .from('signals_quality')
           .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
           .eq('reviewed', true)
           .order('score', { ascending: false })
@@ -222,7 +222,7 @@ export async function fetchDashboardSignals(
         const { createClient } = await import('@/lib/supabase/server')
         const anon = await createClient()
         return anon
-          .from('signals')
+          .from('signals_quality')
           .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
           .eq('reviewed', true)
           .order('score', { ascending: false })

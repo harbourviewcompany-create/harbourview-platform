@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/auth/adminGuard'
 import { getAdminDataClient } from '@/lib/supabase/adminDataClient'
+import { matchListingToBuyerRequests } from '@/lib/marketplace/matchEngine'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -127,5 +128,15 @@ export async function POST(request: Request, { params }: Props) {
     }
   )
 
-  return NextResponse.json({ ok: true, listing_id: newListing[0]?.id })
+  // Kick off matching — best-effort, don't fail the publish if it errors
+  let matchesCreated = 0
+  if (newListing[0]?.id) {
+    try {
+      matchesCreated = await matchListingToBuyerRequests(String(newListing[0].id))
+    } catch (err) {
+      console.error('publish route: matchEngine failed (non-fatal)', err)
+    }
+  }
+
+  return NextResponse.json({ ok: true, listing_id: newListing[0]?.id, matches_created: matchesCreated })
 }

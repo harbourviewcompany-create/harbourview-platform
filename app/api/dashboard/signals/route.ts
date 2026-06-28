@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
     const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
 
     let query = supabase
-      .from('signals')
+      .from('signals_quality')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
       .order('score',        { ascending: false })
