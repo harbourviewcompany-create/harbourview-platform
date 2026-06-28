@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { RouterBottomSheet } from './RouterBottomSheet'
-import { getJurisdictionBriefing } from '@/app/actions/getJurisdictionBriefing'
+import { createClient } from '@/lib/supabase/client'
 import type { JurisdictionBriefing } from '@/app/actions/getJurisdictionBriefing'
 
 interface Props {
@@ -28,17 +28,25 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   useEffect(() => {
     setLoading(true)
     setBriefing(null)
-    getJurisdictionBriefing(countryIso2)
-      .then((data) => {
-        setBriefing(data)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    void createClient()
+      .from('cc_jurisdiction_briefings')
+      .select('jurisdiction_slug, program_status, public_summary, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body')
+      .eq('country_iso2', countryIso2.toUpperCase())
+      .eq('jurisdiction_type', 'country')
+      .maybeSingle()
+      .then(
+        ({ data, error }) => {
+          if (error) console.error('[MarketOverviewSheet] briefing fetch failed:', error)
+          setBriefing(data ?? null)
+          setLoading(false)
+        },
+        (err: unknown) => { console.error('[MarketOverviewSheet] briefing fetch error:', err); setLoading(false) }
+      )
   }, [countryIso2])
 
   const title = loading
-    ? 'Loading regulatory overview…'
-    : (briefing?.program_status ?? 'Regulatory overview unavailable')
+    ? 'Loading market overview…'
+    : (briefing?.program_status ?? 'Market overview')
 
   return (
     <RouterBottomSheet
