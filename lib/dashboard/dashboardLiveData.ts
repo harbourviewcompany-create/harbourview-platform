@@ -157,6 +157,29 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
 }
 
 // ── 4. Country intelligence profile ──────────────────────────────────────────
+export type FieldChange = {
+  id: string
+  table_name: string
+  field_name: string
+  old_value: string | null
+  new_value: string | null
+  changed_at: string
+  source_label: string | null
+}
+
+export type RegulatoryCalendarEvent = {
+  id: string
+  iso2: string
+  event_type: string
+  title: string
+  summary: string | null
+  expected_date: string | null
+  confidence: string
+  source_url: string | null
+  source_label: string | null
+  status: string
+}
+
 export type CountryIntelProfile = {
   // Core fields — always present
   country_code: string
@@ -185,6 +208,10 @@ export type CountryIntelProfile = {
   briefing_regulatory_outlook?: string | null
   briefing_regulatory_body?: string | null
   briefing_last_reviewed?: string | null
+  // Change tracking — field-level history
+  recentChanges?: FieldChange[]
+  // Forward-looking regulatory calendar
+  calendarEvents?: RegulatoryCalendarEvent[]
 }
 
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
@@ -214,14 +241,39 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
     // Tertiary: cc_jurisdiction_briefings — rich market intelligence content
     // Filter to jurisdiction_type='country' so subnational rows (e.g. Bavaria) never shadow
     // the country-level briefing for multi-state countries like Germany or the US.
-    const { data: jbRows } = await supabase
-      .from('cc_jurisdiction_briefings')
-      .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
-      .eq('country_iso2', iso2.toUpperCase())
-      .eq('jurisdiction_type', 'country')
-      .order('last_reviewed_date', { ascending: false })
-      .limit(1)
-    const jb = jbRows?.[0] ?? null
+    const [jbResult, changesResult, calendarResult] = await Promise.all([
+      supabase
+        .from('cc_jurisdiction_briefings')
+        .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
+        .eq('country_iso2', iso2.toUpperCase())
+        .eq('jurisdiction_type', 'country')
+        .order('last_reviewed_date', { ascending: false })
+        .limit(1),
+      supabase.rpc('get_field_changes_for_country', { p_iso2: iso2.toUpperCase(), p_limit: 10 }),
+      supabase.rpc('get_regulatory_calendar', { p_iso2: iso2.toUpperCase(), p_limit: 10 }),
+    ])
+    const jb = jbResult.data?.[0] ?? null
+    const recentChanges: FieldChange[] = (changesResult.data ?? []).map((r: Record<string, unknown>) => ({
+      id:           r.id as string,
+      table_name:   r.table_name as string,
+      field_name:   r.field_name as string,
+      old_value:    r.old_value as string | null,
+      new_value:    r.new_value as string | null,
+      changed_at:   r.changed_at as string,
+      source_label: r.source_label as string | null,
+    }))
+    const calendarEvents: RegulatoryCalendarEvent[] = (calendarResult.data ?? []).map((r: Record<string, unknown>) => ({
+      id:            r.id as string,
+      iso2:          r.iso2 as string,
+      event_type:    r.event_type as string,
+      title:         r.title as string,
+      summary:       r.summary as string | null,
+      expected_date: r.expected_date as string | null,
+      confidence:    r.confidence as string,
+      source_url:    r.source_url as string | null,
+      source_label:  r.source_label as string | null,
+      status:        r.status as string,
+    }))
 
     return {
       country_code:               cd.iso_alpha2,
@@ -246,10 +298,54 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_physician_access:  jb?.physician_access ?? null,
       briefing_market_dynamics:   jb?.market_dynamics ?? null,
       briefing_regulatory_outlook: jb?.regulatory_outlook ?? null,
-      briefing_regulatory_body:   jb?.regulatory_body ?? null,
-      briefing_last_reviewed:     jb?.last_reviewed_date ?? null,
+      briefing_regulatory_body:    jb?.regulatory_body ?? null,
+      briefing_last_reviewed:      jb?.last_reviewed_date ?? null,
+      recentChanges,
+      calendarEvents,
     }
   } catch { return null }
+}
+
+// ── getFieldChangesForCountry ─────────────────────────────────────────────────
+
+export async function getFieldChangesForCountry(iso2: string, limit = 20): Promise<FieldChange[]> {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase.rpc('get_field_changes_for_country', { p_iso2: iso2.toUpperCase(), p_limit: limit })
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id:           r.id as string,
+      table_name:   r.table_name as string,
+      field_name:   r.field_name as string,
+      old_value:    r.old_value as string | null,
+      new_value:    r.new_value as string | null,
+      changed_at:   r.changed_at as string,
+      source_label: r.source_label as string | null,
+    }))
+  } catch { return [] }
+}
+
+// ── getRegulatoryCalendar ─────────────────────────────────────────────────────
+
+export async function getRegulatoryCalendar(iso2?: string | null, limit = 30): Promise<RegulatoryCalendarEvent[]> {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase.rpc('get_regulatory_calendar', {
+      p_iso2: iso2 ? iso2.toUpperCase() : null,
+      p_limit: limit,
+    })
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id:            r.id as string,
+      iso2:          r.iso2 as string,
+      event_type:    r.event_type as string,
+      title:         r.title as string,
+      summary:       r.summary as string | null,
+      expected_date: r.expected_date as string | null,
+      confidence:    r.confidence as string,
+      source_url:    r.source_url as string | null,
+      source_label:  r.source_label as string | null,
+      status:        r.status as string,
+    }))
+  } catch { return [] }
 }
 
 // ── getCountryStatusFromDB ────────────────────────────────────────────────────
