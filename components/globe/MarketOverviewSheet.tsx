@@ -33,12 +33,12 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
         setBriefing(data)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => { console.error('[MarketOverviewSheet] briefing fetch failed:', err); setLoading(false) })
   }, [countryIso2])
 
   const title = loading
     ? 'Loading regulatory overview…'
-    : (briefing?.program_status ?? 'Regulatory overview unavailable')
+    : (briefing?.program_status ?? 'Market overview')
 
   return (
     <RouterBottomSheet
