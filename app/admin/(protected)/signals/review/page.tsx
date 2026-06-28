@@ -8,14 +8,14 @@ export const revalidate = 0
 
 async function saveReview(formData: FormData) {
   'use server'
-  const auth = await requireAdminAuth()
+  const auth = (await requireAdminAuth())!
   await updateRegulatorySignalReview(formData, auth.user.id)
   redirect('/admin/signals/review')
 }
 
 async function publishSignal(formData: FormData) {
   'use server'
-  const auth = await requireAdminAuth()
+  const auth = (await requireAdminAuth())!
   const id = String(formData.get('signal_id') || '')
   const note = String(formData.get('reviewer_note') || '')
   await transitionRegulatorySignalStatus(id, 'published', auth.user.id, note)

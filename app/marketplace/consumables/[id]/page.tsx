@@ -38,7 +38,7 @@ export default async function ConsumableDetailPage({ params }: Props) {
   const { id } = await params
   const listing = await getPublicListingBySlug(id)
 
-  if (!listing) notFound()
+  if (!listing) return notFound()
 
   const ctaLabel = getStringSpec(listing, 'cta_label') ?? 'Request qualification'
   const region = listing.location_country || REGION_LABELS[listing.region] || listing.region || 'Region confirmed by inquiry'

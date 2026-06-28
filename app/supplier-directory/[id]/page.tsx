@@ -29,7 +29,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
   const supplier = await getApprovedSupplierProfileById(id)
 
   if (!supplier) {
-    notFound()
+    return notFound()
   }
 
   return (

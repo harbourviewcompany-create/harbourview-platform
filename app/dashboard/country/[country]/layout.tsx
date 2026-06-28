@@ -23,7 +23,7 @@ export default async function CountryLayout({ params, children }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
 
-  if (!country) notFound()
+  if (!country) return notFound()
 
   return (
     <CountryConsoleShell country={country}>

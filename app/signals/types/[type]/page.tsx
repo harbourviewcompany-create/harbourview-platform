@@ -27,7 +27,7 @@ export default async function TypePage({ params }: { params: Promise<{ type: str
 
   // Validate type is a known signal type
   const knownTypes = Object.keys(REGULATORY_SIGNAL_TYPE_LABELS)
-  if (!knownTypes.includes(type)) notFound()
+  if (!knownTypes.includes(type)) return notFound()
 
   const signals = await getPublicRegulatorySignalsByType(type)
   const label = REGULATORY_SIGNAL_TYPE_LABELS[type as RegulatorySignalType]

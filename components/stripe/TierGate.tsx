@@ -19,7 +19,7 @@ export default async function TierGate({
   label,
 }: {
   required: UserTier
-  children: React.ReactNode
+  children?: React.ReactNode
   label?: string
 }) {
   const userTier = await getUserTier()

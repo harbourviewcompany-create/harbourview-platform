@@ -246,7 +246,7 @@ function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string
   )
 }
 
-function MobileAccordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function MobileAccordion({ title, children, defaultOpen = false }: { title: string; children?: React.ReactNode; defaultOpen?: boolean }) {
   return (
     <details className="hvm-accordion" open={defaultOpen}>
       <summary>{title}<span>⌄</span></summary>
@@ -588,7 +588,7 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       }))
     }
 
-    return (marketplaceRows?.[activeTab] ?? []).map((row, index) => normalizeMarketRow(row, index, country))
+    return (marketplaceRows?.[activeTab as MarketView] ?? []).map((row, index) => normalizeMarketRow(row, index, country))
   }, [activeTab, marketplaceRows, wantedListings, country])
 
   const filteredCards = useMemo(() => {

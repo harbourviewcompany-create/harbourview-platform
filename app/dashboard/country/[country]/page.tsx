@@ -25,7 +25,7 @@ type Props = { params: Promise<{ country: string }> }
 export default async function CountryConsolePage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
-  if (!country) notFound()
+  if (!country) return notFound()
 
   const overallBadge   = getDashboardStatusBadge(country.dashboardStatus)
   const sections       = Object.keys(country.panels) as DashboardSectionSlug[]

@@ -72,7 +72,7 @@ export default async function ProfessionalProfilePage({
 }) {
   const { slug } = await params
   const pro = await getProfessional(slug)
-  if (!pro) notFound()
+  if (!pro) return notFound()
 
   const displayName = pro.title ? `${pro.title} ${pro.full_name}` : pro.full_name
   const credentialLabel = CREDENTIAL_LABEL[pro.credential_type] ?? pro.credential_type

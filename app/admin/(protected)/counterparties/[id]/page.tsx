@@ -41,7 +41,7 @@ export default async function CounterpartyDetailPage({
   const { saved } = await searchParams
 
   const result = await getCounterpartyById(decodeURIComponent(id))
-  if (!result.ok || !result.data) notFound()
+  if (!result.ok || !result.data) return notFound()
   const cp = result.data
 
   async function deleteAction() {

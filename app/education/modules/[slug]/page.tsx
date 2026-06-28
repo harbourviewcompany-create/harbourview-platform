@@ -27,7 +27,7 @@ export default async function EducationModulePage({ params }: { params: Promise<
     getEducationModuleBySlug(slug),
     getTrackLabelMap(),
   ])
-  if (!module_) notFound()
+  if (!module_) return notFound()
 
   const trackLabel = trackLabelMap[module_.track_id] ?? module_.track_id
   const audienceLabels = module_.audience.map((a) => AUDIENCE_LABELS[a] ?? a)

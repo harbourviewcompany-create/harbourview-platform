@@ -25,7 +25,7 @@ export const dynamic = 'force-dynamic'
 export default async function RegulatorySignalDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const signal = await getPublicRegulatorySignalBySlug(slug)
-  if (!signal) notFound()
+  if (!signal) return notFound()
 
   const countryHref = signal.country_name
     ? `/signals/countries/${signal.country_name.toLowerCase().replace(/\s+/g, '-')}`

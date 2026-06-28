@@ -32,7 +32,7 @@ export default async function CountryPage({ params }: { params: Promise<{ countr
   const { country: slug } = await params
   const c = getComplianceCountry(slug)
 
-  if (!c) notFound()
+  if (!c) return notFound()
 
   return (
     <main className="bg-[#020814] text-white">

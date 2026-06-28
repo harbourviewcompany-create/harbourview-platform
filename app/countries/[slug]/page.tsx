@@ -37,7 +37,7 @@ export default async function CountryIdentityPage({ params }: Props) {
   const { slug } = await params
   const country = await getPublicCountryProfile(slug)
 
-  if (!country) notFound()
+  if (!country) return notFound()
 
   return (
     <main className="min-h-screen bg-[#05070c] px-5 py-12 text-white md:px-10">

@@ -75,12 +75,13 @@ export async function POST(request: Request) {
     return json(result, 200);
   } catch (error) {
     if (error instanceof ZodError) {
+      const zodErr = error as ZodError
       return json(
         {
           ok: false,
           code: 'LLM_GATEWAY_VALIDATION_FAILED',
           message: 'Invalid LLM gateway request.',
-          issues: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+          issues: zodErr.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
         },
         400,
       );

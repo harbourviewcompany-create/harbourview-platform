@@ -78,7 +78,7 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
     );
   }
 
-  if (!inquiry) notFound();
+  if (!inquiry) return notFound();
 
   const recommendedTemplateKey = getRecommendedTemplateKey(inquiry.inquiry_type);
 

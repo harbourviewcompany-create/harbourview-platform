@@ -55,6 +55,7 @@ export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 
 interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   value: string
+  className?: string
 }
 
 export function TabsTrigger({ value, className, ...props }: TabsTriggerProps) {
@@ -80,6 +81,7 @@ export function TabsTrigger({ value, className, ...props }: TabsTriggerProps) {
 
 interface TabsContentProps extends React.HTMLAttributes<HTMLDivElement> {
   value: string
+  className?: string
 }
 
 export function TabsContent({ value, className, ...props }: TabsContentProps) {

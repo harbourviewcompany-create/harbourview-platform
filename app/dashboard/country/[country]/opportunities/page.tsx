@@ -134,7 +134,7 @@ function deriveOpportunities(state: DashboardPanelState): OpportunitiesDerived {
 export default async function OpportunitiesPage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
-  if (!country) notFound()
+  if (!country) return notFound()
 
   const panel   = country.panels.opportunities
   const badge   = getDashboardStatusBadge(panel.state)

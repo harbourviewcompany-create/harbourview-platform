@@ -97,7 +97,7 @@ export function DealIntelligencePanel({ records, events }: DealIntelligencePanel
   )
 }
 
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+function Panel({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#C6A55A]">{title}</h3>

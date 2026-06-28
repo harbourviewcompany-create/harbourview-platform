@@ -143,7 +143,7 @@ const TONE_DOT: Record<string, string> = {
 export default async function SignalsPage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
-  if (!country) notFound()
+  if (!country) return notFound()
 
   const panel       = country.panels.signals
   const badge       = getDashboardStatusBadge(panel.state)

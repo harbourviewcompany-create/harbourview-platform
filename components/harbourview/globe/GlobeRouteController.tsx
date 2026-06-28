@@ -41,7 +41,7 @@ export default function GlobeRouteController() {
       <div className="rounded-2xl border border-gold/20 bg-[linear-gradient(135deg,rgba(11,26,47,0.94)_0%,rgba(3,11,22,0.94)_100%)] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-[11px] uppercase tracking-[0.22em] text-gold/80">Selected market context</p>
-          {state.sheet ? <span className="rounded-full border border-gold/30 px-2 py-0.5 text-[11px] text-gold-pale">{sheetLabel[state.sheet]}</span> : null}
+          {state.sheet ? <span className="rounded-full border border-gold/30 px-2 py-0.5 text-[11px] text-gold-pale">{sheetLabel[state.sheet as keyof typeof sheetLabel]}</span> : null}
         </div>
 
         <p className="mt-2 text-sm leading-6 text-white/80">

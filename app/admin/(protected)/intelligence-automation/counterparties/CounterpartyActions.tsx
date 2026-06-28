@@ -200,7 +200,7 @@ export function DocStatusSelect({ id, status }: { id: string; status: DocStatus 
       value={value}
       disabled={submitting}
       onChange={(e) => updateStatus(e.target.value as DocStatus)}
-      className={`rounded-lg border bg-black/30 px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50 ${docSelectColors[value]}`}
+      className={`rounded-lg border bg-black/30 px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50 ${docSelectColors[value as keyof typeof docSelectColors] ?? ''}`}
     >
       {DOC_STATUSES.map((s) => <option key={s} value={s} className="bg-[#0B1A2F] text-[#F5F1E8]">{s}</option>)}
     </select>
