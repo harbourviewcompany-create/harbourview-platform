@@ -19,7 +19,7 @@ const Ctx = createContext<DashboardCtx | null>(null)
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams()
-  const searchParamSnapshot = searchParams.toString()
+  const searchParamSnapshot = searchParams?.toString() ?? ''
   const initialContext = useMemo(
     () => parseDashboardGlobeRouteContext(new URLSearchParams(searchParamSnapshot)),
     [searchParamSnapshot],

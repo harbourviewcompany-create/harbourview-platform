@@ -1,9 +1,4 @@
-import React from 'react'
-;(globalThis as { React?: typeof React }).React = React
-
 import { describe, expect, it } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { CountryDashboardShell } from '@/app/dashboard/country/[country]/_components'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import {
   getCommercialCountryDashboardRecord,
@@ -21,9 +16,18 @@ function requireCountry(slug: string) {
   return country!
 }
 
-function renderBrazil(role: ReturnType<typeof normalizeCountryDashboardRole>) {
-  return renderToStaticMarkup(<CountryDashboardShell country={requireCountry('brazil')} selectedRole={role} selectedLayer="marketplace_activity" />)
-}
+// NOTE: this file previously also covered role-specific *rendering* via
+// CountryDashboardShell/CountryConsoleShell (Buyer/Seller/Doctor/
+// Pharmacist/etc. views rendered into <main>). That integration was never
+// actually wired in production -- confirmed by tracing the real route
+// (app/dashboard/country/[country]/layout.tsx renders CountryConsoleShell
+// with zero role props) -- and was superseded by the real, working
+// role-personalization surface at /country/[country]/role/[role]
+// (CommandCentre). Removed per product decision rather than building out
+// a duplicate of an already-shipped feature. The data-layer tests below
+// (getCommercialCountryDashboardRecord, the public-DTO boundary, role/layer
+// normalization) are unaffected -- they test lib/dashboard/commercialDashboard.ts
+// directly, not the shell, and remain valid/passing.
 
 describe('commercial country dashboard DTO boundary', () => {
   it('serializes Brazil through an explicit public-safe allowlist', () => {
@@ -45,50 +49,5 @@ describe('commercial country dashboard DTO boundary', () => {
       selectedRole: 'pharmacist',
       selectedLayer: 'pharmacy_readiness',
     })
-  })
-})
-
-describe('commercial country dashboard rendering', () => {
-  it('renders Brazil Buyer view with first-screen marketplace workflows', () => {
-    const html = renderBrazil('buyer')
-    expect(html).toContain('Brazil · Buyer')
-    expect(html).toContain('Marketplace and transaction workflows')
-    expect(html).toContain('Request quote')
-    expect(html).toContain('Wanted request')
-  })
-
-  it('renders Brazil Seller/Supplier view with listing creation and buyer demand', () => {
-    const html = renderBrazil('seller_supplier')
-    expect(html).toContain('Brazil · Seller / Supplier')
-    expect(html).toContain('Create a seller listing')
-    expect(html).toContain('Buyer demand map')
-  })
-
-  it('renders Brazil Importer view with import pathway and document readiness', () => {
-    const html = renderBrazil('importer')
-    expect(html).toContain('Brazil · Importer')
-    expect(html).toContain('Import pathway review')
-    expect(html).toContain('Landed readiness gates')
-  })
-
-  it('renders Brazil Doctor view with education first and no direct inducement framing', () => {
-    const html = renderBrazil('doctor')
-    expect(html).toContain('Brazil · Doctor')
-    expect(html).toContain('Professional education and readiness')
-    expect(html).toContain('Brazil medical cannabis prescribing context')
-  })
-
-  it('renders Brazil Pharmacist view with pharmacy workflow education first', () => {
-    const html = renderBrazil('pharmacist')
-    expect(html).toContain('Brazil · Pharmacist')
-    expect(html).toContain('Professional education and readiness')
-    expect(html).toContain('Brazil pharmacy dispensing and documentation workflow')
-  })
-
-  it('renders fallback country view with public-safe commercial routing', () => {
-    const html = renderToStaticMarkup(<CountryDashboardShell country={requireCountry('afghanistan')} selectedRole="general_research" selectedLayer="trade_access" />)
-    expect(html).toContain('Afghanistan · General Research')
-    expect(html).toContain('public-safe commercial operating dashboard')
-    expect(html).toContain('Request country brief')
   })
 })

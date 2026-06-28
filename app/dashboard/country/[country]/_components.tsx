@@ -1,8 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import React, { type ReactNode, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { IdentityRail }    from '@/components/dashboard/IdentityRail'
 import { SignalStrip }     from '@/components/dashboard/SignalStrip'
@@ -185,7 +184,7 @@ export function CountryConsoleShell({
   const sections = Object.keys(country.panels) as DashboardSectionSlug[]
 
   // Derive current section label for mobile breadcrumb
-  const lastSegment = pathname.split('/').pop() as DashboardSectionSlug | undefined
+  const lastSegment = pathname?.split('/').pop() as DashboardSectionSlug | undefined
   const currentLabel =
     lastSegment && lastSegment in SECTION_LABELS
       ? SECTION_LABELS[lastSegment]
@@ -255,7 +254,7 @@ export function CountryConsoleShell({
 
             {sections.map((section) => {
               const href     = `${country.dashboardPath}/${section}`
-              const isActive = pathname === href || pathname.startsWith(`${href}/`)
+              const isActive = pathname === href || Boolean(pathname?.startsWith(`${href}/`))
               const available = country.routeAvailability[section]
               const badge    = getDashboardStatusBadge(country.panels[section].state)
               return (
@@ -473,11 +472,13 @@ export function SectionPageView({
 }
 
 // ── Legacy alias (tests use CountryDashboardShell) ─────────────────────────
-// CountryConsoleShell supersedes this — extra props accepted for compatibility
+// CountryConsoleShell supersedes this. Role-based personalization
+// (selectedRole/selectedLayer) was an earlier design that was never wired
+// to actually render role-specific content here -- superseded by
+// /country/[country]/role/[role] (CommandCentre), which is the real,
+// working role-personalization surface. Props removed accordingly.
 export function CountryDashboardShell({ country, children }: {
   country: CountryDashboardSummary
-  selectedRole?: string
-  selectedLayer?: string
   children?: React.ReactNode
 }) {
   return <CountryConsoleShell country={country}>{children}</CountryConsoleShell>
