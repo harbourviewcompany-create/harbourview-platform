@@ -28,18 +28,20 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   useEffect(() => {
     setLoading(true)
     setBriefing(null)
-    createClient()
+    void createClient()
       .from('cc_jurisdiction_briefings')
       .select('jurisdiction_slug, program_status, public_summary, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body')
       .eq('country_iso2', countryIso2.toUpperCase())
       .eq('jurisdiction_type', 'country')
       .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) console.error('[MarketOverviewSheet] briefing fetch failed:', error)
-        setBriefing(data ?? null)
-        setLoading(false)
-      })
-      .catch((err) => { console.error('[MarketOverviewSheet] briefing fetch error:', err); setLoading(false) })
+      .then(
+        ({ data, error }) => {
+          if (error) console.error('[MarketOverviewSheet] briefing fetch failed:', error)
+          setBriefing(data ?? null)
+          setLoading(false)
+        },
+        (err: unknown) => { console.error('[MarketOverviewSheet] briefing fetch error:', err); setLoading(false) }
+      )
   }, [countryIso2])
 
   const title = loading
