@@ -1691,53 +1691,69 @@ function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { 
 
   async function watchCurrentMarket() {
     setSaving(true)
-    await fetch('/api/watchlist/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item_type: 'jurisdiction', title: country.label, jurisdiction: country.iso2 }),
-    })
-    setSaving(false)
-    router.refresh()
+    try {
+      const res = await fetch('/api/watchlist/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_type: 'jurisdiction', title: country.label, jurisdiction: country.iso2 }),
+      })
+      if (res.ok) router.refresh()
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function addItemByType(type: string) {
     const title = itemTitle.trim() || country.label
     setSaving(true)
-    await fetch('/api/watchlist/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        item_type: type,
-        title,
-        jurisdiction: type === 'jurisdiction' ? country.iso2 : undefined,
-      }),
-    })
-    setItemTitle('')
-    setAddingType(null)
-    setSaving(false)
-    router.refresh()
+    try {
+      const res = await fetch('/api/watchlist/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_type: type,
+          title,
+          jurisdiction: type === 'jurisdiction' ? country.iso2 : undefined,
+        }),
+      })
+      if (res.ok) {
+        setItemTitle('')
+        setAddingType(null)
+        router.refresh()
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function createRule() {
     const keywords = ruleKeywords.split(',').map(k => k.trim()).filter(Boolean)
     if (!keywords.length) return
     setSaving(true)
-    await fetch('/api/watchlist/rules', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rule_type: ruleType, keywords }),
-    })
-    setRuleKeywords('')
-    setShowRuleForm(false)
-    setSaving(false)
-    router.refresh()
+    try {
+      const res = await fetch('/api/watchlist/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule_type: ruleType, keywords }),
+      })
+      if (res.ok) {
+        setRuleKeywords('')
+        setShowRuleForm(false)
+        router.refresh()
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function deleteRule(id: string) {
     setSaving(true)
-    await fetch(`/api/watchlist/rules?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
-    setSaving(false)
-    router.refresh()
+    try {
+      const res = await fetch(`/api/watchlist/rules?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      if (res.ok) router.refresh()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const adjacentMarkets = useMemo(() => {
