@@ -17,11 +17,13 @@ function getSupabaseAdmin() {
   if (!url || !key) {
     throw new Error('[harbourview:webhook] NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing.')
   }
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  // stripe_subscriptions_user_profiles has no generated DB types — use any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createClient<any>(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
 async function syncSubscription(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof getSupabaseAdmin>,
   subscription: Stripe.Subscription
 ) {
   const customerId  = subscription.customer as string
