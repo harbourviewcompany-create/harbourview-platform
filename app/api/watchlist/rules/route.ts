@@ -8,7 +8,7 @@ async function resolveOrg(userId: string) {
     .select('workspace_id')
     .eq('user_id', userId)
     .limit(1)
-    .single()
+    .maybeSingle()
   return { svc, orgId: data?.workspace_id ?? null }
 }
 
