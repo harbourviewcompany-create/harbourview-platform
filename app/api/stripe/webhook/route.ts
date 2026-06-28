@@ -28,7 +28,8 @@ async function syncSubscription(
   const priceId     = subscription.items.data[0]?.price?.id ?? null
   const tier        = tierFromPriceId(priceId)
   const status      = subscription.status
-  const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+  // current_period_end moved to SubscriptionItem in Stripe API v2024-06-20+
+  const currentPeriodEnd = new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000).toISOString()
 
   // 1. Find user by stripe_customer_id
   const { data: profile, error: profileError } = await supabase
