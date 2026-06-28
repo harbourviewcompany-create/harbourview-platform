@@ -119,7 +119,6 @@ export default function UIPreviewPage() {
         {/* Tabs */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Tabs</h2>
-          {/* @ts-expect-error env: @types/react not resolved; defaultValue is declared in TabsProps */}
           <Tabs defaultValue="overview" className="w-full">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -185,7 +184,6 @@ export default function UIPreviewPage() {
             {/* Popover */}
             <div>
               <h3 className="font-medium mb-2">Popover</h3>
-              {/* @ts-expect-error env: @types/react not resolved; content is declared in PopoverProps */}
               <Popover content={<div className="p-2">This is popover content!</div>}>
                 <Button variant="outline">Open Popover</Button>
               </Popover>
@@ -194,7 +192,6 @@ export default function UIPreviewPage() {
             {/* Tooltip */}
             <div>
               <h3 className="font-medium mb-2">Tooltip</h3>
-              {/* @ts-expect-error env: @types/react not resolved; content is declared in TooltipProps */}
               <Tooltip content="This is a helpful tooltip">
                 <Button variant="secondary">Hover me</Button>
               </Tooltip>
