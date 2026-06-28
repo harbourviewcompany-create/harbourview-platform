@@ -4,6 +4,7 @@ import Link from 'next/link'
 import {
   getCounterpartyById,
   updateCounterparty,
+  deleteCounterparty,
   ROLE_LABELS,
   DOC_STATUS_LABELS,
   DOC_STATUS_COLORS,
@@ -40,8 +41,14 @@ export default async function CounterpartyDetailPage({
   const { saved } = await searchParams
 
   const result = await getCounterpartyById(decodeURIComponent(id))
-  if (!result.ok || !result.data) notFound()
+  if (!result.ok || !result.data) return notFound()
   const cp = result.data
+
+  async function deleteAction() {
+    'use server'
+    await deleteCounterparty(cp.id)
+    redirect('/admin/counterparties?deleted=1')
+  }
 
   const action = saveCounterparty.bind(null, cp.id)
 
@@ -178,6 +185,23 @@ export default async function CounterpartyDetailPage({
         <div>Last interaction: {cp.last_interaction ?? 'None recorded'}</div>
         <div>Created: {new Date(cp.created_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
         <div>Updated: {new Date(cp.updated_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+      </div>
+
+      {/* Danger zone */}
+      <div className="rounded-2xl border border-red-900/30 bg-red-950/10 p-5 space-y-3">
+        <p className="text-xs uppercase tracking-[0.14em] text-red-400/70">Danger zone</p>
+        <p className="text-sm text-[#F5F1E8]/45">
+          Permanently removes this counterparty record. Interaction history and introduction logs referencing this record may be affected.
+        </p>
+        <form action={deleteAction}>
+          <button
+            type="submit"
+            className="rounded-lg border border-red-700/40 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-900/40 transition-colors"
+            onClick={undefined}
+          >
+            Delete counterparty
+          </button>
+        </form>
       </div>
     </section>
   )

@@ -11,7 +11,7 @@ function readField(formData: FormData, key: string) {
 }
 
 export async function updateMarketplaceCandidateStatus(formData: FormData): Promise<void> {
-  const auth = await requireAdminAuth();
+  const auth = (await requireAdminAuth())!;
   const id = readField(formData, 'id');
   const toStatus = readField(formData, 'to_status');
   const note = readField(formData, 'note');

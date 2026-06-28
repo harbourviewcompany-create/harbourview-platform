@@ -62,7 +62,7 @@ export default async function PlaybookDetailPage({
     getPlaybook(iso2),
     getLatestBriefing(iso2),
   ])
-  if (!playbook) notFound()
+  if (!playbook) return notFound()
 
   const flag = COUNTRY_FLAGS[iso2] ?? '🌐'
   const difficultyColor = DIFFICULTY_COLOR[playbook.difficulty] ?? '#d4a84b'

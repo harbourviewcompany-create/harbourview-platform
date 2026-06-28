@@ -7,7 +7,7 @@ export default async function DashboardCultivarPassportPage({ params }: { params
   const { id } = await params
   const passports = await getInternalCultivarPassports()
   const passport = passports.find((item) => item.id === id)
-  if (!passport) notFound()
+  if (!passport) return notFound()
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-10 text-[#F5F1E8] md:px-10">
       <section className="mx-auto max-w-5xl space-y-4">

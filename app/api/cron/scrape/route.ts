@@ -13,14 +13,12 @@ export async function GET(request: Request) {
   // Verify the request is from Vercel Cron
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  const url = new URL(request.url)
-  const querySecret = url.searchParams.get('secret') // TEMP: manual-trigger fallback, remove after verification
 
   if (!cronSecret) {
     return NextResponse.json({ error: 'Cron secret is not configured' }, { status: 503 })
   }
 
-  const authorized = authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret
+  const authorized = authHeader === `Bearer ${cronSecret}`
 
   if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

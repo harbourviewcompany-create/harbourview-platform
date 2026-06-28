@@ -42,6 +42,64 @@ export interface InsertResult {
   errors: number
 }
 
+// ── Per-source scraper state ──────────────────────────────────────────────────
+
+export interface SourceState {
+  last_run_at: string | null
+  last_success_at: string | null
+  consecutive_failures: number
+}
+
+export async function fetchSourceStates(): Promise<Map<string, SourceState>> {
+  const { url, key } = getSupabaseConfig()
+  const res = await fetch(
+    `${url}/rest/v1/scraper_source_state?select=source_id,last_run_at,last_success_at,consecutive_failures`,
+    { headers: serviceHeaders(key), cache: 'no-store' },
+  )
+  if (!res.ok) {
+    console.warn('scraper_ingestor: failed to fetch source states:', res.status)
+    return new Map()
+  }
+  const rows = (await res.json()) as Array<{
+    source_id: string
+    last_run_at: string | null
+    last_success_at: string | null
+    consecutive_failures: number
+  }>
+  return new Map(rows.map((r) => [r.source_id, {
+    last_run_at: r.last_run_at,
+    last_success_at: r.last_success_at,
+    consecutive_failures: r.consecutive_failures,
+  }]))
+}
+
+/** Upsert per-source run state. prevFailures is the count already in the DB (from fetchSourceStates). */
+export async function persistSourceState(
+  sourceId: string,
+  cadenceHours: number,
+  success: boolean,
+  prevFailures: number,
+  error?: string,
+): Promise<void> {
+  const { url, key } = getSupabaseConfig()
+  const now = new Date().toISOString()
+  const record: Record<string, unknown> = {
+    source_id: sourceId,
+    cadence_hours: cadenceHours,
+    last_run_at: now,
+    consecutive_failures: success ? 0 : prevFailures + 1,
+    last_error: success ? null : (error ?? null),
+    updated_at: now,
+  }
+  if (success) record.last_success_at = now
+
+  await fetch(`${url}/rest/v1/scraper_source_state?on_conflict=source_id`, {
+    method: 'POST',
+    headers: serviceHeaders(key, { Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(record),
+  }).catch(() => {/* non-blocking — state persistence must not abort the run */})
+}
+
 export async function insertCandidates(
   pairs: Array<{ raw: RawScrapedItem; normalised: AINormalisedListing }>,
 ): Promise<InsertResult> {

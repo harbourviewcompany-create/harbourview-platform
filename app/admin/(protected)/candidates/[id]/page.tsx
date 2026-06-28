@@ -17,7 +17,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function Value({ label, children }: { label: string; children: React.ReactNode }) {
+function Value({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
       <dt className="text-xs uppercase tracking-[0.18em] text-[#C6A55A]">{label}</dt>

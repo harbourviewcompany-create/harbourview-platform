@@ -167,7 +167,7 @@ export function DynamicMarketplaceIntakeForm({
   // ── Image handlers ──────────────────────────────────────────────────────────
 
   function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
-    const incoming = Array.from(e.target.files ?? []).filter(
+    const incoming = Array.from<File>(e.target.files ?? []).filter(
       (f) => f.size <= MAX_IMAGE_BYTES,
     )
     const combined = [...imageFiles, ...incoming].slice(0, MAX_IMAGES)

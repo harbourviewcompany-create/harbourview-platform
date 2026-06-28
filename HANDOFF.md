@@ -1,3 +1,44 @@
+## Session: Jun 24 2026 (continued)
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — "Fix all" gaps pass (PR #890)
+
+Completed the full gaps audit fix list. All actionable static wrappers are now live-data pages.
+
+| PR | What | |
+|---|---|---|
+| **#890** | Replace 6 remaining static `PublicSurfacePage` wrappers with live pages | ✅ merged |
+
+### Detail — #890
+
+| Route | Before | After |
+|---|---|---|
+| `/education/gacp` | `PublicSurfacePage` | GACP 4-panel explainer + live education modules (quality/compliance tracks) |
+| `/education/gdp` | `PublicSurfacePage` | GDP 4-panel explainer (cold chain, narcotics custody) + live modules |
+| `/education/gmp` | `PublicSurfacePage` | GMP 4-panel explainer (EU-GMP, QP requirement) + live modules |
+| `/education/briefings` | `PublicSurfacePage` (no data) | Live `jurisdiction_briefings` grid — 60 briefings, one per country |
+| `/education/export-import-readiness` | `PublicSurfacePage` | Live modules (export/import/logistics tracks) + 3-column doc checklist |
+| `/policy-standards/regulatory-change-tracker` | `PublicSurfacePage` | Live `signals` filtered to regulatory/policy/legislative — 40 signals, 180-day window |
+
+**Bug caught during implementation:** `mod.audience` is `string[]` not `string` — `AUDIENCE_LABELS[mod.audience]` would index with an array. Fixed to `.map((a) => AUDIENCE_LABELS[a] ?? a).join(', ')` before pushing.
+
+### Static surfaces intentionally left as-is
+
+- `/intelligence/source-engine` — explains methodology, appropriately static
+- `/intelligence/watchlists` — gated intake-only, static CTA by design
+- `/network`, `/opportunities`, `/reviewed-connections`, `/institutional-partnerships`, `/policy-standards` — `InstitutionalPage` gating pages, design intent not a gap
+
+### typecheck: 0 errors on main
+
+All TS errors from the previous audit have been resolved (PRs #820, #821). Two pre-existing errors remain on main (`@tanstack/react-query` module resolution, Stripe API version) — both require package upgrades, not code fixes.
+
+### Open PRs
+
+4 held major Dependabot bumps (#724, #726, #732, #733) — unchanged.
+
+---
+
 ## Session: Jun 23 2026
 
 ### Agent: Claude (Sonnet 4.6)

@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { getGenericPathwayTemplate } from './genericPathways'
 
-// ── 1. Pipeline counts from marketplace_inquiries ─────────────────────────────
+// ── 1. Pipeline counts from marketplace_inquiries ────────────────────────────────────────────
 export type PipelineCounts = {
   wanted: number
   matched: number
@@ -49,7 +49,7 @@ export async function getPipelineCounts(): Promise<PipelineCounts> {
   } catch { return fallback }
 }
 
-// ── 2. Wanted listings (full rows) ────────────────────────────────────────────
+// ── 2. Wanted listings (full rows) ─────────────────────────────────────────────────────
 export type WantedListing = {
   id: string
   title: string
@@ -88,7 +88,7 @@ export async function getWantedListings(countryIso2?: string | null): Promise<Wa
   } catch { return [] }
 }
 
-// ── 3. Education tiles from DB ────────────────────────────────────────────────
+// ── 3. Education tiles from DB ───────────────────────────────────────────────────────
 export type LiveEduTile = {
   icon: string
   title: string
@@ -156,7 +156,7 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
   } catch { return [] }
 }
 
-// ── 4. Country intelligence profile ──────────────────────────────────────────
+// ── 4. Country intelligence profile ────────────────────────────────────────────
 export type CountryIntelProfile = {
   // Core fields — always present
   country_code: string
@@ -187,41 +187,52 @@ export type CountryIntelProfile = {
   briefing_last_reviewed?: string | null
 }
 
+const _INTEL_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+const _INTEL_SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
   if (!iso2) return null
+  const safeIso2 = iso2.trim().toUpperCase().replace(/[^A-Z]/g, '')
+  if (safeIso2.length < 2) return null
+  if (!_INTEL_SUPABASE_URL || !_INTEL_SUPABASE_KEY) return null
+
+  const hdr = {
+    apikey: _INTEL_SUPABASE_KEY,
+    Authorization: `Bearer ${_INTEL_SUPABASE_KEY}`,
+    Accept: 'application/json',
+  }
+
   try {
-    const supabase = await createClient()
+    // All three queries run in parallel — direct REST so this works for both
+    // authenticated and unauthenticated callers (bypasses the cookie-session client).
+    const [cdRes, ciRes, jbRes] = await Promise.all([
+      fetch(
+        `${_INTEL_SUPABASE_URL}/rest/v1/countries?select=country_name,iso_alpha2,region,subregion,market_access_status,medical_status,adult_use_status,import_status,export_status,signals_status,opportunity_score,data_completeness,public_summary,trade_roles,opportunity_categories,regulator_label,last_updated_label&iso_alpha2=eq.${safeIso2}&limit=1`,
+        { headers: hdr },
+      ),
+      fetch(
+        `${_INTEL_SUPABASE_URL}/rest/v1/country_intel?select=commercial_pathway_summary,review_status,regulatory_tier&country_code=eq.${safeIso2}&review_status=eq.active&limit=1`,
+        { headers: hdr },
+      ),
+      fetch(
+        `${_INTEL_SUPABASE_URL}/rest/v1/cc_jurisdiction_briefings?select=program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,last_reviewed_date&country_iso2=eq.${safeIso2}&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1`,
+        { headers: hdr },
+      ),
+    ])
 
-    // Primary source: countries table (status fields, scores, completeness)
-    const { data: cd } = await supabase
-      .from('countries')
-      .select(
-        'country_name, iso_alpha2, region, subregion, market_access_status, medical_status, adult_use_status, import_status, export_status, signals_status, opportunity_score, data_completeness, public_summary, trade_roles, opportunity_categories, regulator_label, last_updated_label',
-      )
-      .eq('iso_alpha2', iso2.toUpperCase())
-      .single()
-
+    if (!cdRes.ok) return null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cdRows: any[] = await cdRes.json()
+    const cd = cdRows[0]
     if (!cd) return null
 
-    // Secondary: country_intel for richer narrative content (optional)
-    const { data: ci } = await supabase
-      .from('country_intel')
-      .select('commercial_pathway_summary, review_status, regulatory_tier')
-      .eq('country_code', iso2.toUpperCase())
-      .eq('review_status', 'active')
-      .maybeSingle()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ciRows: any[] = ciRes.ok ? await ciRes.json() : []
+    const ci = ciRows[0] ?? null
 
-    // Tertiary: cc_jurisdiction_briefings — rich market intelligence content
-    // Filter to jurisdiction_type='country' so subnational rows (e.g. Bavaria) never shadow
-    // the country-level briefing for multi-state countries like Germany or the US.
-    const { data: jbRows } = await supabase
-      .from('cc_jurisdiction_briefings')
-      .select('program_status, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body, last_reviewed_date')
-      .eq('country_iso2', iso2.toUpperCase())
-      .eq('jurisdiction_type', 'country')
-      .order('last_reviewed_date', { ascending: false })
-      .limit(1)
-    const jb = jbRows?.[0] ?? null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const jbRows: any[] = jbRes.ok ? await jbRes.json() : []
+    const jb = jbRows[0] ?? null
 
     return {
       country_code:               cd.iso_alpha2,
@@ -249,10 +260,13 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_regulatory_body:   jb?.regulatory_body ?? null,
       briefing_last_reviewed:     jb?.last_reviewed_date ?? null,
     }
-  } catch { return null }
+  } catch (err) {
+    console.error('[getCountryIntelProfile] unexpected error:', err)
+    return null
+  }
 }
 
-// ── getCountryStatusFromDB ────────────────────────────────────────────────────
+// ── getCountryStatusFromDB ──────────────────────────────────────────────────────────────
 // Fetches real country status from the countries table (191 countries seeded
 // June 2026) for the countryIntel prop in CommandCentre.
 
@@ -297,8 +311,7 @@ export async function getCountryStatusFromDB(
   }
 }
 
-// ── 5. Access Pathway data ────────────────────────────────────────────────────
-
+// ── 5. Access Pathway data ────────────────────────────────────────────────────────────
 export type PathwayData = {
   template:            { id: string; name: string; total_steps: number } | null
   steps:               { id: string; step_number: number; title: string; description: string | null; unlock_condition: string }[]
@@ -387,8 +400,7 @@ export async function getOrgPathwayProgress(
   }
 }
 
-// ── 6. Watchlist data ─────────────────────────────────────────────────────────
-
+// ── 6. Watchlist data ────────────────────────────────────────────────────────────────
 export type WatchlistItem = {
   id: string; item_type: string; ref_id: string | null
   title: string; subtitle: string | null; tags: string[]
@@ -467,8 +479,7 @@ export async function getWatchlistData(
   }
 }
 
-// ── 7. Evidence & Sources data ────────────────────────────────────────────────
-
+// ── 7. Evidence & Sources data ──────────────────────────────────────────────────────────
 export type EvidenceSource = {
   id:           string
   name:         string
@@ -543,7 +554,7 @@ export async function getEvidenceData(
 }
 
 
-// ── Public pathway template (no org context) ──────────────────────────────────
+// ── Public pathway template (no org context) ─────────────────────────────────────────────────
 // Returns the step/requirement structure for a country+role without requiring
 // an authenticated user. progress is always null; requirementStatuses is always [].
 
@@ -592,7 +603,7 @@ export async function getPublicPathwayTemplate(
   } catch { return getGenericFallbackPathway(undefined, countryIso2, roleId) }
 }
 
-// ── Generic pathway fallback ──────────────────────────────────────────────────
+// ── Generic pathway fallback ────────────────────────────────────────────────────────────────
 // Used by getPublicPathwayTemplate whenever no hand-curated row exists in
 // cc_pathway_templates for the given country/role. Looks up the country's
 // display name and regulator label (when available) so the generic pathway
@@ -620,8 +631,7 @@ async function getGenericFallbackPathway(
   return getGenericPathwayTemplate(countryName, roleId, regulatorLabel)
 }
 
-// ── Recently updated education modules ────────────────────────────────────────
-
+// ── Recently updated education modules ───────────────────────────────────────────────────────
 export type RecentEduModule = {
   title:      string
   detail:     string
@@ -646,7 +656,7 @@ export async function getRecentEduModules(limit = 3): Promise<RecentEduModule[]>
   } catch { return [] }
 }
 
-// ── getLocalIntel ──────────────────────────────────────────────────────────
+// ── getLocalIntel ──────────────────────────────────────────────────────────────────────────────
 // Fetches subnational/local regulatory intel (authorities org chart, municipal
 // status, operating constraints/supply routes, evidence coverage, open
 // questions) from the local_intel_v1 tables. Returns coverageStatus so the UI
@@ -733,7 +743,7 @@ export async function getLocalIntel(iso2: string | null | undefined): Promise<Lo
   }
 }
 
-// ── Source registry coverage ──────────────────────────────────────────────────
+// ── Source registry coverage ────────────────────────────────────────────────────────────────
 // Queries public.source_registry to return active source counts by type + tier
 // for the given country ISO2 code. Used by RegulatoryWatchPage SOURCE_GAPS.
 export type SourceCoverageRow = {
@@ -774,7 +784,7 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
   }
 }
 
-// ── New: jurisdiction playbooks ────────────────────────────────────────────────
+// ── New: jurisdiction playbooks ───────────────────────────────────────────────────────────────
 export type JurisdictionPlaybook = {
   country_iso2:           string
   country_name:           string
@@ -812,7 +822,7 @@ export async function getJurisdictionPlaybook(iso2: string | null): Promise<Juri
   } catch { return null }
 }
 
-// ── New: education tracks ─────────────────────────────────────────────────────
+// ── New: education tracks ────────────────────────────────────────────────────────────────────
 export type EducationTrack = {
   id:          string
   title:       string
@@ -842,7 +852,7 @@ export async function getEducationTracks(): Promise<EducationTrack[]> {
   } catch { return [] }
 }
 
-// ── New: market metrics ───────────────────────────────────────────────────────
+// ── New: market metrics ──────────────────────────────────────────────────────────────────────────
 export type MarketMetric = {
   metric_name:  string
   metric_value: number
@@ -873,7 +883,7 @@ export async function getMarketMetrics(iso2: string | null): Promise<MarketMetri
   } catch { return [] }
 }
 
-// ── New: trade flows ──────────────────────────────────────────────────────────
+// ── New: trade flows ───────────────────────────────────────────────────────────────────────────
 export type TradeFlow = {
   origin_iso2:       string
   destination_iso2:  string
@@ -906,7 +916,7 @@ export async function getTradeFlows(iso2: string | null): Promise<TradeFlow[]> {
   } catch { return [] }
 }
 
-// ── New: verified professionals ───────────────────────────────────────────────
+// ── New: verified professionals ───────────────────────────────────────────────────────────────
 export type HvProfessional = {
   id:                      string
   full_name:               string
@@ -944,7 +954,7 @@ export async function getProfessionals(iso2: string | null): Promise<HvProfessio
   } catch { return [] }
 }
 
-// ── New: cannabis operators ───────────────────────────────────────────────────
+// ── New: cannabis operators ──────────────────────────────────────────────────────────────────
 export type CannabisOperator = {
   id:                  string
   country_iso2:        string
@@ -1008,4 +1018,3 @@ export async function getComparisonCountryScores(
     }))
   } catch { return [] }
 }
-

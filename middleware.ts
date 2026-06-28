@@ -15,14 +15,47 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
+// ── Subscription tier type ─────────────────────────────────────────────────────
+type SubscriptionTier = 'free' | 'starter' | 'professional' | 'enterprise'
+
+// Routes that require a minimum subscription tier beyond free.
+// Key: route prefix, Value: minimum tier required.
+const TIER_GATED_PREFIXES: Record<string, SubscriptionTier> = {
+  '/signals':      'starter',
+  '/intelligence': 'starter',
+  '/genetics':     'professional',
+  '/network':      'starter',
+  '/vault':        'starter',
+  '/opportunities':'starter',
+}
+
+const TIER_ORDER: SubscriptionTier[] = ['free', 'starter', 'professional', 'enterprise']
+
+function tierMeetsMinimum(actual: SubscriptionTier | undefined, required: SubscriptionTier): boolean {
+  if (!actual) return false
+  return TIER_ORDER.indexOf(actual) >= TIER_ORDER.indexOf(required)
+}
+
 // Routes that require authentication — middleware actively checks session.
 const PROTECTED_PREFIXES = [
   '/account',
   '/vault',
   '/admin',
   '/dashboard',
+  '/intake',
   '/marketplace/sell',
   '/marketplace/my-listings',
+  '/signals',
+  '/intelligence',
+  '/genetics',
+  '/network',
+  '/opportunities',
+  '/reviewed-connections',
+  '/professionals',
+  '/assessments',
+  '/compliance',
+  '/education',
+  '/marketplace/intake',
 ]
 
 export async function middleware(request: NextRequest) {
@@ -36,7 +69,7 @@ export async function middleware(request: NextRequest) {
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
     '/marketplace/wanted-requests': '/marketplace/wanted',
-    '/commercial-intelligence': '/intelligence',
+    '/commercial-intelligence':     '/intelligence',
   }
   const redirectTo = legacyRedirects[normalizedPathname]
   if (redirectTo) {
@@ -47,8 +80,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Auth guard for protected routes
-  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
-    normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
+  const isProtected = PROTECTED_PREFIXES.some(
+    (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
   )
 
   if (isProtected) {
@@ -62,7 +95,6 @@ export async function middleware(request: NextRequest) {
       console.error('[harbourview:auth] Supabase public auth configuration rejected', {
         message: error instanceof Error ? error.message : 'Unknown Supabase configuration error',
       })
-
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
@@ -73,9 +105,7 @@ export async function middleware(request: NextRequest) {
 
     const supabase = createServerClient(supabaseUrl, supabasePublicKey, {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
@@ -95,33 +125,55 @@ export async function middleware(request: NextRequest) {
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
+    // ── Subscription tier gate ─────────────────────────────────────────────────
+    // Read tier from JWT app_metadata — zero extra DB round-trip.
+    const tier = (user.app_metadata?.subscription_tier ?? 'free') as SubscriptionTier
+
+    const matchedTierPrefix = Object.keys(TIER_GATED_PREFIXES).find(
+      (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
+    )
+
+    if (matchedTierPrefix) {
+      const required = TIER_GATED_PREFIXES[matchedTierPrefix]
+      if (!tierMeetsMinimum(tier, required)) {
+        const upgradeUrl = request.nextUrl.clone()
+        upgradeUrl.pathname = '/account/upgrade'
+        upgradeUrl.search = `?feature=${encodeURIComponent(matchedTierPrefix.slice(1))}&required=${required}&current=${tier}`
+        return applyNoStoreHeaders(NextResponse.redirect(upgradeUrl))
+      }
+    }
+
     // Protected and authenticated — prevent caching of personalised responses
     return applyNoStoreHeaders(response)
   }
 
   // Public route — do NOT stamp no-store. Let Next.js ISR / Vercel CDN cache
-  // these responses normally. The individual page/fetch handlers control their
-  // own revalidation via next: { revalidate: N }.
+  // these responses normally.
   return NextResponse.next()
 }
 
 export const config = {
-  // Only run middleware on routes that need auth checking or legacy redirects.
-  // Public content routes (/country, /intelligence, /signals, /marketplace read-only,
-  // /education, /genetics, /network, /compliance) are intentionally excluded so
-  // Vercel can serve them from the CDN without invoking a serverless function.
   matcher: [
     '/admin/:path*',
     '/dashboard/:path*',
     '/account/:path*',
     '/vault/:path*',
+    '/intake/:path*',
+    '/signals/:path*',
+    '/intelligence/:path*',
+    '/genetics/:path*',
+    '/network/:path*',
+    '/opportunities/:path*',
+    '/reviewed-connections/:path*',
+    '/professionals/:path*',
+    '/assessments/:path*',
+    '/compliance/:path*',
+    '/education/:path*',
     '/marketplace/sell/:path*',
     '/marketplace/my-listings/:path*',
     // Legacy redirect paths
     '/marketplace/submit-listing',
     '/marketplace/wanted-requests',
     '/commercial-intelligence',
-    // Intake — gated by session context downstream
-    '/intake/:path*',
   ],
 }

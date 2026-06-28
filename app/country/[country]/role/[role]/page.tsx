@@ -183,8 +183,8 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
   const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest')
   if (!dashboard) {
     const safeHref = getSafeCountryRoleRedirect(countrySlug, roleSlug)
-    if (safeHref !== `/country/${countrySlug}/role/${roleSlug}`) redirect(safeHref)
-    notFound()
+    if (safeHref !== `/country/${countrySlug}/role/${roleSlug}`) return redirect(safeHref)
+    return notFound()
   }
 
   const countryIso2 = dashboard.country.countryIso2

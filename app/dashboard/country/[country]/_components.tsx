@@ -175,7 +175,7 @@ export function CountryConsoleShell({
   children,
 }: {
   country: CountryDashboardSummary
-  children: React.ReactNode
+  children?: React.ReactNode
 }) {
   const [selectorOpen,    setSelectorOpen]    = useState(false)
   const [postListingOpen, setPostListingOpen] = useState(false)

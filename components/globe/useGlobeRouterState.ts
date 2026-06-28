@@ -63,7 +63,7 @@ export function globeRouterReducer(
         mode: 'multi_market',
         step: 'market_overview',
         selectedCountryIso2s,
-        selectedCountryIso2: selectedCountryIso2s[0],
+        selectedCountryIso2: action.countryIso2,
         inlineNotice: undefined,
       }
     }
@@ -132,7 +132,10 @@ export function globeRouterReducer(
         requestedPath: action.requestedPath,
       }
     case 'BACK':
-      if (state.step === 'market_overview') return { ...state, step: 'country', selectedRoleId: undefined, selectedCountryIso2: undefined, selectedCountryIso2s: [] }
+      if (state.step === 'market_overview') {
+        if (state.mode === 'multi_market') return { ...state, step: 'country', selectedRoleId: undefined, selectedCountryIso2: undefined }
+        return { ...state, step: 'country', selectedRoleId: undefined, selectedCountryIso2: undefined, selectedCountryIso2s: [] }
+      }
       if (state.step === 'role') return { ...state, step: 'market_overview', selectedRoleId: undefined }
       if (state.step === 'fallback' || state.step === 'routing') return { ...state, step: 'market_overview', routeStatus: 'idle' }
       return { ...initialGlobeRouterState }

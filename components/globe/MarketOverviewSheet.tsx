@@ -2,8 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import { RouterBottomSheet } from './RouterBottomSheet'
-import { getJurisdictionBriefing } from '@/app/actions/getJurisdictionBriefing'
+import { getSupabaseUrl, getSupabasePublicClientKey } from '@/lib/supabase/env'
 import type { JurisdictionBriefing } from '@/app/actions/getJurisdictionBriefing'
+import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
+import { usStateProfiles } from '@/data/globe/us-state-profiles'
+
+// Subnational iso2 (e.g. 'CA-ON') → jurisdiction_slug used in cc_jurisdiction_briefings
+// Keys are uppercased to match the .toUpperCase() lookup used in the effect.
+const subnationalSlugMap: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(canadaProvinceByIso2).map(([iso2, p]) => [iso2.toUpperCase(), p.slug])),
+  ...Object.fromEntries(usStateProfiles.map((s) => [s.iso2.toUpperCase(), s.slug])),
+}
+
+const BRIEFING_SELECT = 'jurisdiction_slug,program_status,public_summary,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body'
 
 interface Props {
   countryIso2: string
@@ -28,17 +39,94 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   useEffect(() => {
     setLoading(true)
     setBriefing(null)
-    getJurisdictionBriefing(countryIso2)
-      .then((data) => {
-        setBriefing(data)
-        setLoading(false)
+    let isCurrent = true
+
+    const code = countryIso2.toUpperCase()
+    const slug = subnationalSlugMap[code]
+
+    let url: string
+    let key: string
+    try {
+      url = getSupabaseUrl()
+      key = getSupabasePublicClientKey()
+    } catch {
+      if (isCurrent) setLoading(false)
+      return
+    }
+
+    const base = `${url}/rest/v1/cc_jurisdiction_briefings`
+    const headers = { apikey: key, Authorization: `Bearer ${key}` }
+
+    async function fetchBriefing(): Promise<JurisdictionBriefing | null> {
+      if (slug) {
+        // Subnational (e.g. CA-ON → ontario): try province/state briefing first
+        const parentIso2 = code.split('-')[0]
+        const params = new URLSearchParams({
+          select: BRIEFING_SELECT,
+          country_iso2: `eq.${parentIso2}`,
+          jurisdiction_slug: `eq.${slug}`,
+          limit: '1',
+        })
+        const r = await fetch(`${base}?${params}`, { headers })
+        if (!r.ok) {
+          console.error('[MarketOverviewSheet] subnational fetch failed:', r.status)
+          return null
+        }
+        const rows: JurisdictionBriefing[] = await r.json()
+        if (rows[0]) return rows[0]
+
+        // Fall back to country-level briefing
+        const params2 = new URLSearchParams({
+          select: BRIEFING_SELECT,
+          country_iso2: `eq.${parentIso2}`,
+          jurisdiction_type: 'eq.country',
+          limit: '1',
+        })
+        const r2 = await fetch(`${base}?${params2}`, { headers })
+        if (!r2.ok) {
+          console.error('[MarketOverviewSheet] country fallback fetch failed:', r2.status)
+          return null
+        }
+        const rows2: JurisdictionBriefing[] = await r2.json()
+        return rows2[0] ?? null
+      }
+
+      const params = new URLSearchParams({
+        select: BRIEFING_SELECT,
+        country_iso2: `eq.${code}`,
+        jurisdiction_type: 'eq.country',
+        limit: '1',
       })
-      .catch(() => setLoading(false))
+      const r = await fetch(`${base}?${params}`, { headers })
+      if (!r.ok) {
+        console.error('[MarketOverviewSheet] briefing fetch failed:', r.status)
+        return null
+      }
+      const rows: JurisdictionBriefing[] = await r.json()
+      return rows[0] ?? null
+    }
+
+    fetchBriefing()
+      .then((data) => {
+        if (!isCurrent) return
+        setBriefing(data)
+      })
+      .catch((err: unknown) => {
+        if (!isCurrent) return
+        console.error('[MarketOverviewSheet] briefing fetch error:', err)
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false)
+      })
+
+    return () => {
+      isCurrent = false
+    }
   }, [countryIso2])
 
   const title = loading
     ? 'Loading regulatory overview…'
-    : (briefing?.program_status ?? 'Regulatory overview unavailable')
+    : (briefing?.program_status ?? 'Market overview')
 
   return (
     <RouterBottomSheet

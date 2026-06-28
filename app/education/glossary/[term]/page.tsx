@@ -193,7 +193,7 @@ export default async function GlossaryTermPage({
   const { term } = await params
   const def = TERMS[term]
 
-  if (!def) notFound()
+  if (!def) return notFound()
 
   return (
     <main className="bg-[#020814] text-white min-h-screen">

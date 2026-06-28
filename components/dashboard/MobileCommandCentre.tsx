@@ -246,7 +246,7 @@ function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string
   )
 }
 
-function MobileAccordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function MobileAccordion({ title, children, defaultOpen = false }: { title: string; children?: React.ReactNode; defaultOpen?: boolean }) {
   return (
     <details className="hvm-accordion" open={defaultOpen}>
       <summary>{title}<span>⌄</span></summary>
@@ -435,7 +435,7 @@ function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pat
       {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
       {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
-      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} />}
+      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
     </div>
   )
@@ -570,7 +570,7 @@ function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: W
   return 'cannabis'
 }
 
-function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [] }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[] }) {
+function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
@@ -588,7 +588,7 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       }))
     }
 
-    return (marketplaceRows?.[activeTab] ?? []).map((row, index) => normalizeMarketRow(row, index, country))
+    return (marketplaceRows?.[activeTab as MarketView] ?? []).map((row, index) => normalizeMarketRow(row, index, country))
   }, [activeTab, marketplaceRows, wantedListings, country])
 
   const filteredCards = useMemo(() => {
@@ -706,6 +706,22 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
                   {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
                 </small>
               </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {pipeline && (pipeline.wanted + pipeline.matched + pipeline.proof_review + pipeline.inquiry + pipeline.deal_room) > 0 && (
+        <MobileAccordion title="Pipeline status">
+          <div className="hvm-meta-grid">
+            {[
+              { label: 'Wanted demand', value: pipeline.wanted },
+              { label: 'Matched',       value: pipeline.matched },
+              { label: 'Proof review',  value: pipeline.proof_review },
+              { label: 'Inquiry',       value: pipeline.inquiry },
+              { label: 'Deal room',     value: pipeline.deal_room },
+            ].filter(r => r.value > 0).map(r => (
+              <SectionCard key={r.label} label={r.label} title={`${r.value} active`} />
             ))}
           </div>
         </MobileAccordion>
@@ -2750,9 +2766,20 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
       {countryIntel && (
         <div className="hvm-signal-card hvm-signal-card--rich">
           <div className="hvm-kicker">{country.label.toUpperCase()} — JURISDICTION STATUS</div>
+          {countryIntel.briefing_last_reviewed && (() => { const [y, m, day] = countryIntel.briefing_last_reviewed.split('-'); const d = new Date(+y, +m - 1, +day); return isNaN(d.getTime()) ? null : <div style={{ fontSize: 11, color: 'rgba(245,240,232,.35)', marginBottom: 4 }}>Briefing reviewed {d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div> })()}
           <div className="hvm-sig-title">{countryIntel.briefing_regulatory_body ?? countryIntel.regulator_label ?? 'Regulatory Authority'}</div>
           {(countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary) && (
             <p className="hvm-signal-impact" style={{ marginTop: 6 }}>{countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary}</p>
+          )}
+          {countryIntel.trade_roles && countryIntel.trade_roles.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 0 8px' }}>
+              <span style={{ fontSize: 10, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.1em', width: '100%', marginBottom: 2 }}>TRADE ROLES</span>
+              {countryIntel.trade_roles.map(r => (
+                <span key={r} style={{ fontSize: 11, fontWeight: 600, color: '#d4a84b', background: 'rgba(212,168,75,.1)', border: '1px solid rgba(212,168,75,.2)', borderRadius: 4, padding: '3px 7px' }}>
+                  {r.replace(/_/g, ' ')}
+                </span>
+              ))}
+            </div>
           )}
           {jurisdictionPlaybook && (
             <div className="hvm-ledger-table" role="table" style={{ marginTop: 10 }}>
@@ -3070,6 +3097,7 @@ export default function MobileCommandCentre({
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  pipeline,
   userEmail,
   cultivarPassports = [],
   serviceProviders = [],
@@ -3089,18 +3117,31 @@ export default function MobileCommandCentre({
   const roleLabel = roleDisplay(role)
   const pageTitle = MOBILE_NAV.find(item => item.id === activePage)?.label ?? 'Briefing'
 
-  const handleCountryChange = (iso2: string) => {
-    const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
-    if (nextCountry) setCountry(nextCountry)
-  }
-
-  const handleApplyContext = () => {
-    setContextOpen(false)
+  // Applies country/role context immediately on selection — mirrors the
+  // desktop CommandCentre pattern. Previously this only ran on an explicit
+  // "Apply context" tap, while the Country/Role <select>s (here AND in
+  // SettingsMobile, which shares these same handlers) updated the visible
+  // label/"Active" badge instantly — so the header could show a country
+  // whose data was never actually fetched.
+  const applyContext = (iso2: string, roleVal: string) => {
     const params = new URLSearchParams()
-    if (country.iso2 && country.iso2 !== 'GLOBAL') params.set('country', country.iso2)
-    if (role) params.set('role', role)
+    if (iso2 && iso2 !== 'GLOBAL') params.set('country', iso2)
+    if (roleVal) params.set('role', roleVal)
     const qs = params.toString()
     router.replace(qs ? `?${qs}` : '/dashboard')
+  }
+
+  const handleCountryChange = (iso2: string) => {
+    const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
+    if (nextCountry) {
+      setCountry(nextCountry)
+      applyContext(iso2, role)
+    }
+  }
+
+  const handleRoleChange = (roleVal: string) => {
+    setRole(roleVal)
+    applyContext(country.iso2, roleVal)
   }
 
   const titlebartabs = (() => {
@@ -3120,13 +3161,13 @@ export default function MobileCommandCentre({
             countryOptions={countryOptions} roleOptions={roleOptions}
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
             jurisdictionPlaybook={jurisdictionPlaybook}
-            onCountryChange={handleCountryChange} onRoleChange={setRole}
+            onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => setBriefingSub('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
         )
       case 'marketplace':
-        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} />
+        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} />
       case 'signals':
         return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
       case 'education':
@@ -3203,12 +3244,12 @@ export default function MobileCommandCentre({
             </label>
             <label>
               <span>Role</span>
-              <select value={role} onChange={event => setRole(event.target.value)}>
+              <select value={role} onChange={event => handleRoleChange(event.target.value)}>
                 <option value="">All roles</option>
                 {roleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <button className="hvm-sheet-apply" type="button" onClick={handleApplyContext}>Apply context</button>
+            <button className="hvm-sheet-apply" type="button" onClick={() => setContextOpen(false)}>Done</button>
             <div className="hvm-sheet-divider" />
             {userEmail ? (
               <div className="hvm-sheet-account">
