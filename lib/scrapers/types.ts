@@ -82,6 +82,7 @@ export interface AINormalisedListing {
   confidence: number          // 0-1
   publicSafe: boolean         // AI judgement: is this safe to show without editing?
   redactionNote?: string      // if publicSafe=false, why
+  isPassthrough?: boolean     // true when AI was unavailable and item was inserted as-is
 }
 
 export interface ScrapedCandidate {
@@ -96,7 +97,7 @@ export interface ScrapedCandidate {
 
 export interface ScrapeRunResult {
   source: ScraperSource
-  status: 'ok' | 'skipped' | 'failed' | 'rate_limited'
+  status: 'ok' | 'skipped' | 'due_later' | 'failed' | 'rate_limited'
   candidatesFound: number
   candidatesInserted: number
   candidatesSkipped: number   // deduplication hits

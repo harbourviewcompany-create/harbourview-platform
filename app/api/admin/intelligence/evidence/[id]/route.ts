@@ -10,7 +10,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const auth = await requireAdminAuth()
+    const auth = (await requireAdminAuth())!
     const { id } = await params
 
     if (!id) {

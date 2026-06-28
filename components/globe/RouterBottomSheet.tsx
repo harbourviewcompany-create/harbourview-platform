@@ -12,7 +12,7 @@ export function RouterBottomSheet({
 }: {
   title: string
   eyebrow?: string
-  children: ReactNode
+  children?: ReactNode
   footer?: ReactNode
   size?: 'confirm' | 'role' | 'intent' | 'search'
   onBack?: () => void

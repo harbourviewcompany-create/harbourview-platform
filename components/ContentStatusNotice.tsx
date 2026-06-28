@@ -9,7 +9,7 @@ export function ContentStatusNotice({
   title: string
   status: CapabilityStatus
   origin: ContentOrigin
-  children: React.ReactNode
+  children?: React.ReactNode
 }) {
   return (
     <div className="rounded-2xl border border-gold/30 bg-gold-pale p-5 text-sm leading-7 text-navy">

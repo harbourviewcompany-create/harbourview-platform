@@ -6,7 +6,7 @@ const VALID_IMPACTS = ['positive', 'negative', 'neutral'] as const
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdminAuth()
+    const auth = (await requireAdminAuth())!
 
     const body = await request.json()
     const {

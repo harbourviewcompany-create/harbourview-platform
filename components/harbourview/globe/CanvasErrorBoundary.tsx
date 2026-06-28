@@ -6,7 +6,7 @@ import React from 'react'
 import { HarbourviewGlobeClientLoader } from './HarbourviewGlobeClientLoader'
 
 type Props = {
-  children: ReactNode
+  children?: ReactNode
   onError?: (error: unknown) => void
 }
 
@@ -15,6 +15,7 @@ type State = {
 }
 
 export default class CanvasErrorBoundary extends Component<Props, State> {
+  declare readonly props: Readonly<Props>
   state: State = { hasError: false }
 
   private fallbackRef = createRef<HTMLDivElement>()

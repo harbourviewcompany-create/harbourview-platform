@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 async function createSourceAction(formData: FormData) {
   'use server'
-  const auth = await requireAdminAuth()
+  const auth = (await requireAdminAuth())!
   const result = await createRegulatorySource(formData, auth.user.id)
   if (!result.ok) throw new Error((result as any).error.message)
   redirect('/admin/regulatory-signals/sources')

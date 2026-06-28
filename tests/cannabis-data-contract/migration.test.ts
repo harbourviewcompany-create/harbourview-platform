@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const migration = readFileSync('supabase/migrations/20260607120000_cannabis_data_contract_v1_p0_p1.sql', 'utf8')
+const migration = readFileSync('supabase/migrations/20260607140000_cannabis_data_contract_v1_p0_p1.sql', 'utf8')
 const seed = readFileSync('supabase/seeds/cannabis_data_contract_v1_taxonomy.sql', 'utf8')
 
 const requiredTables = [

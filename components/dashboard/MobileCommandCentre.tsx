@@ -246,7 +246,7 @@ function SectionCard({ label, title, detail, tone = 'neutral' }: { label: string
   )
 }
 
-function MobileAccordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function MobileAccordion({ title, children, defaultOpen = false }: { title: string; children?: React.ReactNode; defaultOpen?: boolean }) {
   return (
     <details className="hvm-accordion" open={defaultOpen}>
       <summary>{title}<span>⌄</span></summary>
@@ -435,7 +435,7 @@ function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pat
       {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
       {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
-      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} />}
+      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
       {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
     </div>
   )
@@ -570,7 +570,7 @@ function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: W
   return 'cannabis'
 }
 
-function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [] }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[] }) {
+function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
@@ -588,7 +588,7 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       }))
     }
 
-    return (marketplaceRows?.[activeTab] ?? []).map((row, index) => normalizeMarketRow(row, index, country))
+    return (marketplaceRows?.[activeTab as MarketView] ?? []).map((row, index) => normalizeMarketRow(row, index, country))
   }, [activeTab, marketplaceRows, wantedListings, country])
 
   const filteredCards = useMemo(() => {
@@ -706,6 +706,22 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
                   {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
                 </small>
               </div>
+            ))}
+          </div>
+        </MobileAccordion>
+      )}
+
+      {pipeline && (pipeline.wanted + pipeline.matched + pipeline.proof_review + pipeline.inquiry + pipeline.deal_room) > 0 && (
+        <MobileAccordion title="Pipeline status">
+          <div className="hvm-meta-grid">
+            {[
+              { label: 'Wanted demand', value: pipeline.wanted },
+              { label: 'Matched',       value: pipeline.matched },
+              { label: 'Proof review',  value: pipeline.proof_review },
+              { label: 'Inquiry',       value: pipeline.inquiry },
+              { label: 'Deal room',     value: pipeline.deal_room },
+            ].filter(r => r.value > 0).map(r => (
+              <SectionCard key={r.label} label={r.label} title={`${r.value} active`} />
             ))}
           </div>
         </MobileAccordion>
@@ -1660,11 +1676,85 @@ const WATCH_TYPE_TABS: { id: WatchType; label: string }[] = [
 ]
 
 function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { country: CountryOption; roleLabel?: string; watchlistData?: WatchlistData | null; signals?: DashboardSignal[] }) {
+  const router = useRouter()
   const [activeType, setActiveType] = useState<WatchType>('all')
+  const [saving, setSaving] = useState(false)
+  const [addingType, setAddingType] = useState<string | null>(null)
+  const [itemTitle, setItemTitle] = useState('')
+  const [showRuleForm, setShowRuleForm] = useState(false)
+  const [ruleType, setRuleType] = useState('keyword_match')
+  const [ruleKeywords, setRuleKeywords] = useState('')
   const items = watchlistData?.items ?? []
   const rules = watchlistData?.rules ?? []
   const notifs = watchlistData?.notifications
   const hasAlerts = notifs && notifs.total_alerts > 0
+
+  async function watchCurrentMarket() {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/watchlist/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_type: 'jurisdiction', title: country.label, jurisdiction: country.iso2 }),
+      })
+      if (res.ok) router.refresh()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function addItemByType(type: string) {
+    const title = itemTitle.trim() || country.label
+    setSaving(true)
+    try {
+      const res = await fetch('/api/watchlist/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_type: type,
+          title,
+          jurisdiction: type === 'jurisdiction' ? country.iso2 : undefined,
+        }),
+      })
+      if (res.ok) {
+        setItemTitle('')
+        setAddingType(null)
+        router.refresh()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function createRule() {
+    const keywords = ruleKeywords.split(',').map(k => k.trim()).filter(Boolean)
+    if (!keywords.length) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/watchlist/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule_type: ruleType, keywords }),
+      })
+      if (res.ok) {
+        setRuleKeywords('')
+        setShowRuleForm(false)
+        router.refresh()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteRule(id: string) {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/watchlist/rules?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      if (res.ok) router.refresh()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const adjacentMarkets = useMemo(() => {
     const markets = new Map<string, { count: number; conf: number }>()
@@ -1759,7 +1849,7 @@ function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { 
             <div style={{ fontSize: 12, color: 'rgba(245,240,232,.42)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 3 }}>CURRENT MARKET</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#f5f0e8' }}>{country.label}</div>
           </div>
-          <button className="hvm-add-watch-btn">+ Watch</button>
+          <button className="hvm-add-watch-btn" onClick={watchCurrentMarket} disabled={saving}>{saving ? '…' : '+ Watch'}</button>
         </div>
       </div>
 
@@ -1824,36 +1914,113 @@ function WatchlistMobile({ country, roleLabel, watchlistData, signals = [] }: { 
           {WATCH_TYPE_CARDS.map(wt => (
             <div className="hvm-watch-type-card" key={wt.type}>
               <span className="hvm-watch-type-icon">{wt.icon}</span>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{wt.label}</div>
                 <div style={{ fontSize: 11, color: 'rgba(245,240,232,.42)', marginTop: 2, lineHeight: 1.4 }}>{wt.desc}</div>
               </div>
-              <button className="hvm-add-watch-btn" style={{ marginLeft: 'auto', flexShrink: 0 }}>+ Add</button>
+              {addingType === wt.type ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  <input
+                    autoFocus
+                    style={{ width: 110, fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(245,240,232,.2)', background: 'rgba(0,0,0,.3)', color: '#f5f0e8', outline: 'none' }}
+                    placeholder={wt.type === 'jurisdiction' ? country.label : 'Title…'}
+                    value={itemTitle}
+                    onChange={e => setItemTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addItemByType(wt.type) }}
+                    disabled={saving}
+                  />
+                  <button className="hvm-add-watch-btn" onClick={() => addItemByType(wt.type)} disabled={saving}>✓</button>
+                  <button className="hvm-add-watch-btn" style={{ opacity: .6 }} onClick={() => setAddingType(null)}>✕</button>
+                </div>
+              ) : (
+                <button
+                  className="hvm-add-watch-btn"
+                  style={{ marginLeft: 'auto', flexShrink: 0 }}
+                  onClick={() => { setItemTitle(wt.type === 'jurisdiction' ? country.label : ''); setAddingType(wt.type) }}
+                >
+                  + Add
+                </button>
+              )}
             </div>
           ))}
         </div>
       </MobileAccordion>
 
       {/* Watch rules */}
-      {rules.length > 0 && (
-        <MobileAccordion title={`Alert rules (${rules.length})`}>
-          <div className="hvm-list-stack">
-            {rules.slice(0, 8).map(rule => (
-              <div className="hvm-signal-card" key={rule.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>
-                    {rule.rule_type.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch
-                  </div>
-                  <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 3 }}>
-                    {rule.keywords.slice(0, 3).join(' · ') || 'All signals'}
-                  </div>
+      <MobileAccordion title={rules.length > 0 ? `Alert rules (${rules.length})` : 'Alert rules'} defaultOpen={rules.length === 0}>
+        <div className="hvm-list-stack">
+          {rules.length === 0 && !showRuleForm && (
+            <div style={{ fontSize: 12, color: 'rgba(245,240,232,.38)', textAlign: 'center', padding: '12px 0' }}>
+              No alert rules yet. Add keywords to get notified.
+            </div>
+          )}
+          {rules.slice(0, 8).map(rule => (
+            <div className="hvm-signal-card" key={rule.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>
+                  {rule.rule_type.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Watch
                 </div>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf82', flexShrink: 0 }} />
+                <div style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', marginTop: 3 }}>
+                  {rule.keywords.slice(0, 3).join(' · ') || 'All signals'}
+                </div>
               </div>
-            ))}
-          </div>
-        </MobileAccordion>
-      )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf82', flexShrink: 0 }} />
+                <button
+                  onClick={() => deleteRule(rule.id)}
+                  disabled={saving}
+                  style={{ fontSize: 10, color: 'rgba(245,240,232,.3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}
+                  aria-label="Remove rule"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          {showRuleForm ? (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <select
+                style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(245,240,232,.2)', background: 'rgba(0,0,0,.4)', color: '#f5f0e8', outline: 'none' }}
+                value={ruleType}
+                onChange={e => setRuleType(e.target.value)}
+                disabled={saving}
+              >
+                <option value="keyword_match">Keyword match</option>
+                <option value="regulatory_change">Regulatory change</option>
+                <option value="licence_update">Licence update</option>
+                <option value="enforcement_action">Enforcement action</option>
+                <option value="market_access">Market access</option>
+                <option value="legislation">Legislation</option>
+              </select>
+              <input
+                autoFocus
+                style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(245,240,232,.2)', background: 'rgba(0,0,0,.3)', color: '#f5f0e8', outline: 'none' }}
+                placeholder="Keywords, comma-separated…"
+                value={ruleKeywords}
+                onChange={e => setRuleKeywords(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') createRule() }}
+                disabled={saving}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="hvm-add-watch-btn" style={{ flex: 1 }} onClick={createRule} disabled={saving || !ruleKeywords.trim()}>
+                  {saving ? '…' : '+ Save rule'}
+                </button>
+                <button className="hvm-add-watch-btn" style={{ opacity: .6 }} onClick={() => { setShowRuleForm(false); setRuleKeywords('') }} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="hvm-add-watch-btn"
+              style={{ marginTop: 10, width: '100%' }}
+              onClick={() => setShowRuleForm(true)}
+            >
+              + Add rule
+            </button>
+          )}
+        </div>
+      </MobileAccordion>
 
       {/* Next step */}
       <div className="hvm-cta-card" style={{ background: 'rgba(212,168,75,.07)', borderColor: 'rgba(212,168,75,.25)' }}>
@@ -2466,6 +2633,7 @@ function flagEmoji(iso2: string): string {
   return chars.join('')
 }
 
+
 function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: DashboardSignal[]; onCountrySelect: (iso2: string) => void }) {
   const [search, setSearch] = useState('')
 
@@ -2614,9 +2782,20 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
       {countryIntel && (
         <div className="hvm-signal-card hvm-signal-card--rich">
           <div className="hvm-kicker">{country.label.toUpperCase()} — JURISDICTION STATUS</div>
+          {countryIntel.briefing_last_reviewed && (() => { const [y, m, day] = countryIntel.briefing_last_reviewed.split('-'); const d = new Date(+y, +m - 1, +day); return isNaN(d.getTime()) ? null : <div style={{ fontSize: 11, color: 'rgba(245,240,232,.35)', marginBottom: 4 }}>Briefing reviewed {d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div> })()}
           <div className="hvm-sig-title">{countryIntel.briefing_regulatory_body ?? countryIntel.regulator_label ?? 'Regulatory Authority'}</div>
           {(countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary) && (
             <p className="hvm-signal-impact" style={{ marginTop: 6 }}>{countryIntel.briefing_regulatory_outlook ?? countryIntel.public_summary}</p>
+          )}
+          {countryIntel.trade_roles && countryIntel.trade_roles.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 0 8px' }}>
+              <span style={{ fontSize: 10, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.1em', width: '100%', marginBottom: 2 }}>TRADE ROLES</span>
+              {countryIntel.trade_roles.map(r => (
+                <span key={r} style={{ fontSize: 11, fontWeight: 600, color: '#d4a84b', background: 'rgba(212,168,75,.1)', border: '1px solid rgba(212,168,75,.2)', borderRadius: 4, padding: '3px 7px' }}>
+                  {r.replace(/_/g, ' ')}
+                </span>
+              ))}
+            </div>
           )}
           {jurisdictionPlaybook && (
             <div className="hvm-ledger-table" role="table" style={{ marginTop: 10 }}>
@@ -2935,6 +3114,7 @@ export default function MobileCommandCentre({
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  pipeline,
   userEmail,
   cultivarPassports = [],
   serviceProviders = [],
@@ -2954,18 +3134,31 @@ export default function MobileCommandCentre({
   const roleLabel = roleDisplay(role)
   const pageTitle = MOBILE_NAV.find(item => item.id === activePage)?.label ?? 'Briefing'
 
-  const handleCountryChange = (iso2: string) => {
-    const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
-    if (nextCountry) setCountry(nextCountry)
-  }
-
-  const handleApplyContext = () => {
-    setContextOpen(false)
+  // Applies country/role context immediately on selection — mirrors the
+  // desktop CommandCentre pattern. Previously this only ran on an explicit
+  // "Apply context" tap, while the Country/Role <select>s (here AND in
+  // SettingsMobile, which shares these same handlers) updated the visible
+  // label/"Active" badge instantly — so the header could show a country
+  // whose data was never actually fetched.
+  const applyContext = (iso2: string, roleVal: string) => {
     const params = new URLSearchParams()
-    if (country.iso2 && country.iso2 !== 'GLOBAL') params.set('country', country.iso2)
-    if (role) params.set('role', role)
+    if (iso2 && iso2 !== 'GLOBAL') params.set('country', iso2)
+    if (roleVal) params.set('role', roleVal)
     const qs = params.toString()
     router.replace(qs ? `?${qs}` : '/dashboard')
+  }
+
+  const handleCountryChange = (iso2: string) => {
+    const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
+    if (nextCountry) {
+      setCountry(nextCountry)
+      applyContext(iso2, role)
+    }
+  }
+
+  const handleRoleChange = (roleVal: string) => {
+    setRole(roleVal)
+    applyContext(country.iso2, roleVal)
   }
 
   const titlebartabs = (() => {
@@ -2985,13 +3178,13 @@ export default function MobileCommandCentre({
             countryOptions={countryOptions} roleOptions={roleOptions}
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
             jurisdictionPlaybook={jurisdictionPlaybook}
-            onCountryChange={handleCountryChange} onRoleChange={setRole}
+            onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => setBriefingSub('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
         )
       case 'marketplace':
-        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} />
+        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} />
       case 'signals':
         return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
       case 'education':
@@ -3068,12 +3261,12 @@ export default function MobileCommandCentre({
             </label>
             <label>
               <span>Role</span>
-              <select value={role} onChange={event => setRole(event.target.value)}>
+              <select value={role} onChange={event => handleRoleChange(event.target.value)}>
                 <option value="">All roles</option>
                 {roleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <button className="hvm-sheet-apply" type="button" onClick={handleApplyContext}>Apply context</button>
+            <button className="hvm-sheet-apply" type="button" onClick={() => setContextOpen(false)}>Done</button>
             <div className="hvm-sheet-divider" />
             {userEmail ? (
               <div className="hvm-sheet-account">

@@ -16,7 +16,6 @@ import { resolveGlobeRoute } from './useRouteResolver'
 import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
-import { RoleChipSelector } from './RoleChipSelector'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 

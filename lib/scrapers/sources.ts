@@ -2046,18 +2046,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Prohibition Partners RSS. European-focused cannabis intelligence — EU regulatory developments, APAC market analysis, LatAm regulatory updates. Strong international market signal.',
   },
   {
-    id: 'leaflink-marketplace',
-    name: 'LeafLink — Cannabis B2B Wholesale Platform (Brand Directory)',
-    url: 'https://www.leaflink.com',
-    searchUrl: 'https://www.leaflink.com/brands/',
-    category: 'cannabis_inventory',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 24,
-    region: 'north_america',
-    notes: 'Dominant B2B cannabis wholesale platform — 12,000+ brands, 6,200+ retailers across 40+ markets. Public brand directory covers active market participants. Requires authentication for order/pricing data.',
-  },
-  {
     id: 'apex-trading-northwest',
     name: 'Apex Trading — Oregon/Washington B2B Wholesale',
     url: 'https://www.apextrading.com',
@@ -3149,31 +3137,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
   },
 
-  // ── EUROPEAN NATIONAL REGULATORS — ADDITIONAL ─────────────────────────────
-  {
-    id: 'fimea-finland-cannabis',
-    name: 'Fimea — Finnish Medicines Agency (Medical Cannabis)',
-    url: 'https://www.fimea.fi',
-    searchUrl: 'https://www.fimea.fi/web/en/medicines/special_licences',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Finnish Medicines Agency (Fimea). Finland has permitted medical cannabis via special licence since 2008 — one of Europe\'s longest-running programmes. Fimea special licence statistics and approved product lists track import demand and product type preferences in the Nordic market.',
-  },
-  {
-    id: 'dkma-denmark-cannabis',
-    name: 'DKMA — Danish Medicines Agency (Cannabis Pilot Programme)',
-    url: 'https://laegemiddelstyrelsen.dk',
-    searchUrl: 'https://laegemiddelstyrelsen.dk/en/special-medicine/cannabis/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Danish Medicines Agency (DKMA). Denmark ran a 4-year medical cannabis pilot (2018–2022), extended and expanded to a permanent scheme. DKMA approved product list and importation statistics track which product types and supplier countries are gaining Danish market share.',
-  },
 
   // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
   {
@@ -3238,54 +3201,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
   },
 
-  // ── AFRICA — EMERGING SIGNALS ─────────────────────────────────────────────
-  {
-    id: 'ghana-nacoc-cannabis',
-    name: 'Ghana NACOC — Narcotics Control Commission',
-    url: 'https://www.nacoc.gov.gh',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'middle_east_africa',
-    notes: 'Ghana Narcotics Control Commission (NACOC). Ghana passed a cannabis decriminalisation amendment in 2023 — a landmark first for West Africa and a signal for ECOWAS regional reform momentum. NACOC policy updates and annual reports track implementation of Ghana\'s reformed cannabis framework and industrial hemp licensing.',
-  },
-  {
-    id: 'senegal-ofnac-cannabis',
-    name: 'Senegal OFNAC — Anti-Corruption & Drug Policy Intelligence',
-    url: 'https://www.ofnac.sn',
-    category: 'policy',
-    parserType: 'manual-html',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'middle_east_africa',
-    notes: "Senegal Office National de Lutte contre la Fraude et la Corruption (OFNAC). Senegal has traditional cannabis (yamba) cultivation in Casamance; reform discussions accelerated under Faye government (2024). Monitor OFNAC and Ministry of Justice for decrim/hemp framework following Ghana's lead and ECOWAS pressure.",
-  },
 
-  // ── SOUTH ASIA ────────────────────────────────────────────────────────────
-  {
-    id: 'sri-lanka-nddcb-cannabis',
-    name: 'Sri Lanka NDDCB — National Dangerous Drugs Control Board',
-    url: 'https://www.nddcb.gov.lk',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "Sri Lanka National Dangerous Drugs Control Board. Sri Lanka's Parliament debated cannabis decriminalisation in 2022; traditional cannabis (ganja) use is widespread. Monitor NDDCB for regulatory reform given Sri Lanka's strategic position between India and the Southeast Asian export corridor.",
-  },
-  {
-    id: 'india-ndps-monitoring',
-    name: 'India — NDPS Act & Industrial Hemp Reform Monitoring',
-    url: 'https://narcoticsindia.nic.in',
-    searchUrl: 'https://narcoticsindia.nic.in/en/policy',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "India Narcotics Control Bureau. Bhang (cannabis infusion) is legally tolerated; industrial hemp is advancing via state-level exceptions (Uttarakhand, Himachal Pradesh). With 1.4 billion population and deep hemp cultivation history, India's NDPS Act reform trajectory is among the highest-impact regulatory developments globally.",
-  },
 
   // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
   {
@@ -3311,45 +3227,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
   },
 
-  // ── UK MEDICAL CANNABIS INTELLIGENCE ─────────────────────────────────────
-  {
-    id: 'drug-science-project-twenty21',
-    name: 'Drug Science — Project Twenty21 Real-World Evidence',
-    url: 'https://drugscience.org.uk',
-    searchUrl: 'https://drugscience.org.uk/project-twenty21/',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: "Drug Science (UK) — Project Twenty21 is the UK's largest real-world evidence study on medical cannabis (5,000+ patient registry). Published outcomes data on pain, anxiety, PTSD, and sleep conditions constitute the primary clinical evidence base informing UK prescriber confidence and NHS commissioning decisions.",
-  },
-  {
-    id: 'centre-medical-cannabis-uk',
-    name: 'Centre for Medical Cannabis (CMC) — UK Policy & Industry Body',
-    url: 'https://www.thecentreformedicalcannabis.com',
-    searchUrl: 'https://www.thecentreformedicalcannabis.com/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Centre for Medical Cannabis (CMC, London) — UK\'s primary cannabis policy and industry advocacy body. Market size reports, prescriber surveys, and MHRA regulatory submissions make CMC the authoritative source for UK medical cannabis market intelligence. Tracks NHS prescribing pathways, clinic growth, and product approvals.',
-  },
 
-  // ── CLINICAL RESEARCH INTELLIGENCE ───────────────────────────────────────
-  {
-    id: 'clinicaltrials-gov-cannabis',
-    name: 'ClinicalTrials.gov — Cannabis Clinical Trial Pipeline',
-    url: 'https://clinicaltrials.gov',
-    searchUrl: 'https://clinicaltrials.gov/search?cond=cannabis+OR+cannabidiol+OR+THC&status=RECRUITING,NOT_YET_RECRUITING',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 48,
-    region: 'global',
-    notes: 'ClinicalTrials.gov NIH registry. Real-time pipeline of active and recruiting cannabis/CBD/THC clinical trials globally. New trial registrations are the leading indicator for therapeutic evidence-base expansion — directly predicts which conditions, formulations, and delivery routes will reach regulatory approval in 3–7 years.',
-  },
 
   // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
   {
@@ -3376,19 +3254,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
   },
 
-  // ── US POLICY & ADVOCACY (ADDITIONAL) ────────────────────────────────────
-  {
-    id: 'national-cannabis-roundtable',
-    name: 'National Cannabis Roundtable (NCR) — Washington DC Advocacy',
-    url: 'https://thecannabisindustry.org',
-    searchUrl: 'https://thecannabisindustry.org/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'National Cannabis Roundtable (NCR) — senior Washington DC cannabis policy advocacy organisation with bipartisan congressional access, founded by Former Speaker John Boehner. Legislative alerts, Hill meetings, and federal reform endorsements provide the earliest signal on SAFE Banking, CAOA, and Schedule III rescheduling timelines.',
-  },
   {
     id: 'women-grow-network',
     name: 'Women Grow — Cannabis Industry Diversity Network',
@@ -3402,45 +3267,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
   },
 
-  // ── CANNABIS INSURANCE ────────────────────────────────────────────────────
-  {
-    id: 'next-insurance-cannabis',
-    name: 'Next Insurance — Cannabis Business Insurance Intelligence',
-    url: 'https://www.nextinsurance.com',
-    searchUrl: 'https://www.nextinsurance.com/business-insurance/cannabis-business-insurance/',
-    category: 'compliance',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: "Next Insurance — largest US provider of small-business cannabis insurance (general liability, product liability, workers' comp). Policy issuance trends, coverage availability by state, and insurance product expansion track market maturation, risk perception shifts, and which new states are becoming commercially viable for small/mid-size operators.",
-  },
 
-  // ── US STATE REGULATORY — ADDITIONAL ADULT-USE MARKETS ───────────────────
-  {
-    id: 'virginia-cannabis-control-authority',
-    name: 'Virginia Cannabis Control Authority (CCA)',
-    url: 'https://www.virginia.gov/agencies/cannabis-control-authority/',
-    searchUrl: 'https://www.cannabis.virginia.gov/licensees/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Virginia Cannabis Control Authority — adult-use retail launched January 2024 in a state of 8.7 million with proximity to the DC market. Retailer, cultivator, and manufacturer licence registry tracks one of the largest new adult-use market openings on the US East Coast.',
-  },
-  {
-    id: 'minnesota-ocm-cannabis',
-    name: 'Minnesota Office of Cannabis Management (OCM)',
-    url: 'https://mn.gov/ocm/',
-    searchUrl: 'https://mn.gov/ocm/businesses/licenses/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Minnesota Office of Cannabis Management. Adult-use legalised 2023 — retail sales launched 2025, making Minnesota the northernmost major US adult-use market and the first to border Canada with full adult-use status. Licence registry and social equity programme data track one of the most-watched new market launches.',
-  },
 
   // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
   {
@@ -3468,31 +3295,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
   },
 
-  // ── EUROPEAN NATIONAL REGULATORS — ADDITIONAL ─────────────────────────────
-  {
-    id: 'fimea-finland-cannabis',
-    name: 'Fimea — Finnish Medicines Agency (Medical Cannabis)',
-    url: 'https://www.fimea.fi',
-    searchUrl: 'https://www.fimea.fi/web/en/medicines/special_licences',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Finnish Medicines Agency (Fimea). Finland has permitted medical cannabis via special licence since 2008 — one of Europe\'s longest-running programmes. Fimea special licence statistics and approved product lists track import demand and product type preferences in the Nordic market.',
-  },
-  {
-    id: 'dkma-denmark-cannabis',
-    name: 'DKMA — Danish Medicines Agency (Cannabis Pilot Programme)',
-    url: 'https://laegemiddelstyrelsen.dk',
-    searchUrl: 'https://laegemiddelstyrelsen.dk/en/special-medicine/cannabis/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Danish Medicines Agency (DKMA). Denmark ran a 4-year medical cannabis pilot (2018–2022), extended and expanded to a permanent scheme. DKMA approved product list and importation statistics track which product types and supplier countries are gaining Danish market share.',
-  },
 
   // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
   {
@@ -3557,54 +3359,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
   },
 
-  // ── AFRICA — EMERGING SIGNALS ─────────────────────────────────────────────
-  {
-    id: 'ghana-nacoc-cannabis',
-    name: 'Ghana NACOC — Narcotics Control Commission',
-    url: 'https://www.nacoc.gov.gh',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'middle_east_africa',
-    notes: 'Ghana Narcotics Control Commission (NACOC). Ghana passed a cannabis decriminalisation amendment in 2023 — a landmark first for West Africa and a signal for ECOWAS regional reform momentum. NACOC policy updates and annual reports track implementation of Ghana\'s reformed cannabis framework and industrial hemp licensing.',
-  },
-  {
-    id: 'senegal-ofnac-cannabis',
-    name: 'Senegal OFNAC — Anti-Corruption & Drug Policy Intelligence',
-    url: 'https://www.ofnac.sn',
-    category: 'policy',
-    parserType: 'manual-html',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'middle_east_africa',
-    notes: "Senegal Office National de Lutte contre la Fraude et la Corruption (OFNAC). Senegal has traditional cannabis (yamba) cultivation in Casamance; reform discussions accelerated under Faye government (2024). Monitor OFNAC and Ministry of Justice for decrim/hemp framework following Ghana's lead and ECOWAS pressure.",
-  },
 
-  // ── SOUTH ASIA ────────────────────────────────────────────────────────────
-  {
-    id: 'sri-lanka-nddcb-cannabis',
-    name: 'Sri Lanka NDDCB — National Dangerous Drugs Control Board',
-    url: 'https://www.nddcb.gov.lk',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "Sri Lanka National Dangerous Drugs Control Board. Sri Lanka's Parliament debated cannabis decriminalisation in 2022; traditional cannabis (ganja) use is widespread. Monitor NDDCB for regulatory reform given Sri Lanka's strategic position between India and the Southeast Asian export corridor.",
-  },
-  {
-    id: 'india-ndps-monitoring',
-    name: 'India — NDPS Act & Industrial Hemp Reform Monitoring',
-    url: 'https://narcoticsindia.nic.in',
-    searchUrl: 'https://narcoticsindia.nic.in/en/policy',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "India Narcotics Control Bureau. Bhang (cannabis infusion) is legally tolerated; industrial hemp is advancing via state-level exceptions (Uttarakhand, Himachal Pradesh). With 1.4 billion population and deep hemp cultivation history, India's NDPS Act reform trajectory is among the highest-impact regulatory developments globally.",
-  },
 
   // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
   {
@@ -3630,45 +3385,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
   },
 
-  // ── UK MEDICAL CANNABIS INTELLIGENCE ─────────────────────────────────────
-  {
-    id: 'drug-science-project-twenty21',
-    name: 'Drug Science — Project Twenty21 Real-World Evidence',
-    url: 'https://drugscience.org.uk',
-    searchUrl: 'https://drugscience.org.uk/project-twenty21/',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: "Drug Science (UK) — Project Twenty21 is the UK's largest real-world evidence study on medical cannabis (5,000+ patient registry). Published outcomes data on pain, anxiety, PTSD, and sleep conditions constitute the primary clinical evidence base informing UK prescriber confidence and NHS commissioning decisions.",
-  },
-  {
-    id: 'centre-medical-cannabis-uk',
-    name: 'Centre for Medical Cannabis (CMC) — UK Policy & Industry Body',
-    url: 'https://www.thecentreformedicalcannabis.com',
-    searchUrl: 'https://www.thecentreformedicalcannabis.com/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Centre for Medical Cannabis (CMC, London) — UK\'s primary cannabis policy and industry advocacy body. Market size reports, prescriber surveys, and MHRA regulatory submissions make CMC the authoritative source for UK medical cannabis market intelligence. Tracks NHS prescribing pathways, clinic growth, and product approvals.',
-  },
 
-  // ── CLINICAL RESEARCH INTELLIGENCE ───────────────────────────────────────
-  {
-    id: 'clinicaltrials-gov-cannabis',
-    name: 'ClinicalTrials.gov — Cannabis Clinical Trial Pipeline',
-    url: 'https://clinicaltrials.gov',
-    searchUrl: 'https://clinicaltrials.gov/search?cond=cannabis+OR+cannabidiol+OR+THC&status=RECRUITING,NOT_YET_RECRUITING',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 48,
-    region: 'global',
-    notes: 'ClinicalTrials.gov NIH registry. Real-time pipeline of active and recruiting cannabis/CBD/THC clinical trials globally. New trial registrations are the leading indicator for therapeutic evidence-base expansion — directly predicts which conditions, formulations, and delivery routes will reach regulatory approval in 3–7 years.',
-  },
 
   // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
   {
@@ -3695,19 +3412,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
   },
 
-  // ── US POLICY & ADVOCACY (ADDITIONAL) ────────────────────────────────────
-  {
-    id: 'national-cannabis-roundtable',
-    name: 'National Cannabis Roundtable (NCR) — Washington DC Advocacy',
-    url: 'https://thecannabisindustry.org',
-    searchUrl: 'https://thecannabisindustry.org/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'National Cannabis Roundtable (NCR) — senior Washington DC cannabis policy advocacy organisation with bipartisan congressional access, founded by Former Speaker John Boehner. Legislative alerts, Hill meetings, and federal reform endorsements provide the earliest signal on SAFE Banking, CAOA, and Schedule III rescheduling timelines.',
-  },
   {
     id: 'women-grow-network',
     name: 'Women Grow — Cannabis Industry Diversity Network',
@@ -3721,45 +3425,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
   },
 
-  // ── CANNABIS INSURANCE ────────────────────────────────────────────────────
-  {
-    id: 'next-insurance-cannabis',
-    name: 'Next Insurance — Cannabis Business Insurance Intelligence',
-    url: 'https://www.nextinsurance.com',
-    searchUrl: 'https://www.nextinsurance.com/business-insurance/cannabis-business-insurance/',
-    category: 'compliance',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: "Next Insurance — largest US provider of small-business cannabis insurance (general liability, product liability, workers' comp). Policy issuance trends, coverage availability by state, and insurance product expansion track market maturation, risk perception shifts, and which new states are becoming commercially viable for small/mid-size operators.",
-  },
 
-  // ── US STATE REGULATORY — ADDITIONAL ADULT-USE MARKETS ───────────────────
-  {
-    id: 'virginia-cannabis-control-authority',
-    name: 'Virginia Cannabis Control Authority (CCA)',
-    url: 'https://www.virginia.gov/agencies/cannabis-control-authority/',
-    searchUrl: 'https://www.cannabis.virginia.gov/licensees/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Virginia Cannabis Control Authority — adult-use retail launched January 2024 in a state of 8.7 million with proximity to the DC market. Retailer, cultivator, and manufacturer licence registry tracks one of the largest new adult-use market openings on the US East Coast.',
-  },
-  {
-    id: 'minnesota-ocm-cannabis',
-    name: 'Minnesota Office of Cannabis Management (OCM)',
-    url: 'https://mn.gov/ocm/',
-    searchUrl: 'https://mn.gov/ocm/businesses/licenses/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Minnesota Office of Cannabis Management. Adult-use legalised 2023 — retail sales launched 2025, making Minnesota the northernmost major US adult-use market and the first to border Canada with full adult-use status. Licence registry and social equity programme data track one of the most-watched new market launches.',
-  },
 
   // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
   {
@@ -3787,31 +3453,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
   },
 
-  // ── EUROPEAN NATIONAL REGULATORS — ADDITIONAL ─────────────────────────────
-  {
-    id: 'fimea-finland-cannabis',
-    name: 'Fimea — Finnish Medicines Agency (Medical Cannabis)',
-    url: 'https://www.fimea.fi',
-    searchUrl: 'https://www.fimea.fi/web/en/medicines/special_licences',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Finnish Medicines Agency (Fimea). Finland has permitted medical cannabis via special licence since 2008 — one of Europe\'s longest-running programmes. Fimea special licence statistics and approved product lists track import demand and product type preferences in the Nordic market.',
-  },
-  {
-    id: 'dkma-denmark-cannabis',
-    name: 'DKMA — Danish Medicines Agency (Cannabis Pilot Programme)',
-    url: 'https://laegemiddelstyrelsen.dk',
-    searchUrl: 'https://laegemiddelstyrelsen.dk/en/special-medicine/cannabis/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Danish Medicines Agency (DKMA). Denmark ran a 4-year medical cannabis pilot (2018–2022), extended and expanded to a permanent scheme. DKMA approved product list and importation statistics track which product types and supplier countries are gaining Danish market share.',
-  },
 
   // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
   {
@@ -3876,54 +3517,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
   },
 
-  // ── AFRICA — EMERGING SIGNALS ─────────────────────────────────────────────
-  {
-    id: 'ghana-nacoc-cannabis',
-    name: 'Ghana NACOC — Narcotics Control Commission',
-    url: 'https://www.nacoc.gov.gh',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'middle_east_africa',
-    notes: 'Ghana Narcotics Control Commission (NACOC). Ghana passed a cannabis decriminalisation amendment in 2023 — a landmark first for West Africa and a signal for ECOWAS regional reform momentum. NACOC policy updates and annual reports track implementation of Ghana\'s reformed cannabis framework and industrial hemp licensing.',
-  },
-  {
-    id: 'senegal-ofnac-cannabis',
-    name: 'Senegal OFNAC — Anti-Corruption & Drug Policy Intelligence',
-    url: 'https://www.ofnac.sn',
-    category: 'policy',
-    parserType: 'manual-html',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'middle_east_africa',
-    notes: "Senegal Office National de Lutte contre la Fraude et la Corruption (OFNAC). Senegal has traditional cannabis (yamba) cultivation in Casamance; reform discussions accelerated under Faye government (2024). Monitor OFNAC and Ministry of Justice for decrim/hemp framework following Ghana's lead and ECOWAS pressure.",
-  },
 
-  // ── SOUTH ASIA ────────────────────────────────────────────────────────────
-  {
-    id: 'sri-lanka-nddcb-cannabis',
-    name: 'Sri Lanka NDDCB — National Dangerous Drugs Control Board',
-    url: 'https://www.nddcb.gov.lk',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "Sri Lanka National Dangerous Drugs Control Board. Sri Lanka's Parliament debated cannabis decriminalisation in 2022; traditional cannabis (ganja) use is widespread. Monitor NDDCB for regulatory reform given Sri Lanka's strategic position between India and the Southeast Asian export corridor.",
-  },
-  {
-    id: 'india-ndps-monitoring',
-    name: 'India — NDPS Act & Industrial Hemp Reform Monitoring',
-    url: 'https://narcoticsindia.nic.in',
-    searchUrl: 'https://narcoticsindia.nic.in/en/policy',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "India Narcotics Control Bureau. Bhang (cannabis infusion) is legally tolerated; industrial hemp is advancing via state-level exceptions (Uttarakhand, Himachal Pradesh). With 1.4 billion population and deep hemp cultivation history, India's NDPS Act reform trajectory is among the highest-impact regulatory developments globally.",
-  },
 
   // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
   {
@@ -3949,45 +3543,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
   },
 
-  // ── UK MEDICAL CANNABIS INTELLIGENCE ─────────────────────────────────────
-  {
-    id: 'drug-science-project-twenty21',
-    name: 'Drug Science — Project Twenty21 Real-World Evidence',
-    url: 'https://drugscience.org.uk',
-    searchUrl: 'https://drugscience.org.uk/project-twenty21/',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: "Drug Science (UK) — Project Twenty21 is the UK's largest real-world evidence study on medical cannabis (5,000+ patient registry). Published outcomes data on pain, anxiety, PTSD, and sleep conditions constitute the primary clinical evidence base informing UK prescriber confidence and NHS commissioning decisions.",
-  },
-  {
-    id: 'centre-medical-cannabis-uk',
-    name: 'Centre for Medical Cannabis (CMC) — UK Policy & Industry Body',
-    url: 'https://www.thecentreformedicalcannabis.com',
-    searchUrl: 'https://www.thecentreformedicalcannabis.com/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Centre for Medical Cannabis (CMC, London) — UK\'s primary cannabis policy and industry advocacy body. Market size reports, prescriber surveys, and MHRA regulatory submissions make CMC the authoritative source for UK medical cannabis market intelligence. Tracks NHS prescribing pathways, clinic growth, and product approvals.',
-  },
 
-  // ── CLINICAL RESEARCH INTELLIGENCE ───────────────────────────────────────
-  {
-    id: 'clinicaltrials-gov-cannabis',
-    name: 'ClinicalTrials.gov — Cannabis Clinical Trial Pipeline',
-    url: 'https://clinicaltrials.gov',
-    searchUrl: 'https://clinicaltrials.gov/search?cond=cannabis+OR+cannabidiol+OR+THC&status=RECRUITING,NOT_YET_RECRUITING',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 48,
-    region: 'global',
-    notes: 'ClinicalTrials.gov NIH registry. Real-time pipeline of active and recruiting cannabis/CBD/THC clinical trials globally. New trial registrations are the leading indicator for therapeutic evidence-base expansion — directly predicts which conditions, formulations, and delivery routes will reach regulatory approval in 3–7 years.',
-  },
 
   // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
   {
@@ -4014,19 +3570,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
   },
 
-  // ── US POLICY & ADVOCACY (ADDITIONAL) ────────────────────────────────────
-  {
-    id: 'national-cannabis-roundtable',
-    name: 'National Cannabis Roundtable (NCR) — Washington DC Advocacy',
-    url: 'https://thecannabisindustry.org',
-    searchUrl: 'https://thecannabisindustry.org/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'National Cannabis Roundtable (NCR) — senior Washington DC cannabis policy advocacy organisation with bipartisan congressional access, founded by Former Speaker John Boehner. Legislative alerts, Hill meetings, and federal reform endorsements provide the earliest signal on SAFE Banking, CAOA, and Schedule III rescheduling timelines.',
-  },
   {
     id: 'women-grow-network',
     name: 'Women Grow — Cannabis Industry Diversity Network',
@@ -4040,45 +3583,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
   },
 
-  // ── CANNABIS INSURANCE ────────────────────────────────────────────────────
-  {
-    id: 'next-insurance-cannabis',
-    name: 'Next Insurance — Cannabis Business Insurance Intelligence',
-    url: 'https://www.nextinsurance.com',
-    searchUrl: 'https://www.nextinsurance.com/business-insurance/cannabis-business-insurance/',
-    category: 'compliance',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: "Next Insurance — largest US provider of small-business cannabis insurance (general liability, product liability, workers' comp). Policy issuance trends, coverage availability by state, and insurance product expansion track market maturation, risk perception shifts, and which new states are becoming commercially viable for small/mid-size operators.",
-  },
 
-  // ── US STATE REGULATORY — ADDITIONAL ADULT-USE MARKETS ───────────────────
-  {
-    id: 'virginia-cannabis-control-authority',
-    name: 'Virginia Cannabis Control Authority (CCA)',
-    url: 'https://www.virginia.gov/agencies/cannabis-control-authority/',
-    searchUrl: 'https://www.cannabis.virginia.gov/licensees/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Virginia Cannabis Control Authority — adult-use retail launched January 2024 in a state of 8.7 million with proximity to the DC market. Retailer, cultivator, and manufacturer licence registry tracks one of the largest new adult-use market openings on the US East Coast.',
-  },
-  {
-    id: 'minnesota-ocm-cannabis',
-    name: 'Minnesota Office of Cannabis Management (OCM)',
-    url: 'https://mn.gov/ocm/',
-    searchUrl: 'https://mn.gov/ocm/businesses/licenses/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Minnesota Office of Cannabis Management. Adult-use legalised 2023 — retail sales launched 2025, making Minnesota the northernmost major US adult-use market and the first to border Canada with full adult-use status. Licence registry and social equity programme data track one of the most-watched new market launches.',
-  },
 
   // ── EUROPEAN CANNABIS TRADE SHOWS ─────────────────────────────────────────
   {
@@ -4106,31 +3611,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'CannaTrade (Bern, biennial) — Switzerland\'s premier cannabis B2B trade show. Switzerland\'s non-EU position and pilot adult-use programme make it a unique regulatory test bed; exhibitors include EU-GMP certified suppliers, Swiss domestic producers, and international brands probing Swiss market entry.',
   },
 
-  // ── EUROPEAN NATIONAL REGULATORS — ADDITIONAL ─────────────────────────────
-  {
-    id: 'fimea-finland-cannabis',
-    name: 'Fimea — Finnish Medicines Agency (Medical Cannabis)',
-    url: 'https://www.fimea.fi',
-    searchUrl: 'https://www.fimea.fi/web/en/medicines/special_licences',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Finnish Medicines Agency (Fimea). Finland has permitted medical cannabis via special licence since 2008 — one of Europe\'s longest-running programmes. Fimea special licence statistics and approved product lists track import demand and product type preferences in the Nordic market.',
-  },
-  {
-    id: 'dkma-denmark-cannabis',
-    name: 'DKMA — Danish Medicines Agency (Cannabis Pilot Programme)',
-    url: 'https://laegemiddelstyrelsen.dk',
-    searchUrl: 'https://laegemiddelstyrelsen.dk/en/special-medicine/cannabis/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Danish Medicines Agency (DKMA). Denmark ran a 4-year medical cannabis pilot (2018–2022), extended and expanded to a permanent scheme. DKMA approved product list and importation statistics track which product types and supplier countries are gaining Danish market share.',
-  },
 
   // ── ADDITIONAL AUSTRALIAN LPs (ASX-LISTED) ────────────────────────────────
   {
@@ -4195,54 +3675,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Cannbit / Seach Medical Group — one of Israel\'s largest IMC-licensed cannabis producers. Israeli LP production data and export announcements (EU, Australia) supplement BOL Pharma and Pharmocann coverage to give complete picture of Israel\'s role as a leading global cannabis exporter.',
   },
 
-  // ── AFRICA — EMERGING SIGNALS ─────────────────────────────────────────────
-  {
-    id: 'ghana-nacoc-cannabis',
-    name: 'Ghana NACOC — Narcotics Control Commission',
-    url: 'https://www.nacoc.gov.gh',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'middle_east_africa',
-    notes: 'Ghana Narcotics Control Commission (NACOC). Ghana passed a cannabis decriminalisation amendment in 2023 — a landmark first for West Africa and a signal for ECOWAS regional reform momentum. NACOC policy updates and annual reports track implementation of Ghana\'s reformed cannabis framework and industrial hemp licensing.',
-  },
-  {
-    id: 'senegal-ofnac-cannabis',
-    name: 'Senegal OFNAC — Anti-Corruption & Drug Policy Intelligence',
-    url: 'https://www.ofnac.sn',
-    category: 'policy',
-    parserType: 'manual-html',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'middle_east_africa',
-    notes: "Senegal Office National de Lutte contre la Fraude et la Corruption (OFNAC). Senegal has traditional cannabis (yamba) cultivation in Casamance; reform discussions accelerated under Faye government (2024). Monitor OFNAC and Ministry of Justice for decrim/hemp framework following Ghana's lead and ECOWAS pressure.",
-  },
 
-  // ── SOUTH ASIA ────────────────────────────────────────────────────────────
-  {
-    id: 'sri-lanka-nddcb-cannabis',
-    name: 'Sri Lanka NDDCB — National Dangerous Drugs Control Board',
-    url: 'https://www.nddcb.gov.lk',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "Sri Lanka National Dangerous Drugs Control Board. Sri Lanka's Parliament debated cannabis decriminalisation in 2022; traditional cannabis (ganja) use is widespread. Monitor NDDCB for regulatory reform given Sri Lanka's strategic position between India and the Southeast Asian export corridor.",
-  },
-  {
-    id: 'india-ndps-monitoring',
-    name: 'India — NDPS Act & Industrial Hemp Reform Monitoring',
-    url: 'https://narcoticsindia.nic.in',
-    searchUrl: 'https://narcoticsindia.nic.in/en/policy',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'needs-review',
-    cadenceHours: 720,
-    region: 'asia_pacific',
-    notes: "India Narcotics Control Bureau. Bhang (cannabis infusion) is legally tolerated; industrial hemp is advancing via state-level exceptions (Uttarakhand, Himachal Pradesh). With 1.4 billion population and deep hemp cultivation history, India's NDPS Act reform trajectory is among the highest-impact regulatory developments globally.",
-  },
 
   // ── ADDITIONAL CANADIAN LPs ───────────────────────────────────────────────
   {
@@ -4268,45 +3701,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Auxly Cannabis Group (TSX: XY) — Canadian LP with strategic focus on vaporizer hardware and derivative formats (edibles, extracts). Partnership with Imperial Brands and vape-category market share data in SEDAR+ reports provide device-category and next-gen format trend intelligence.',
   },
 
-  // ── UK MEDICAL CANNABIS INTELLIGENCE ─────────────────────────────────────
-  {
-    id: 'drug-science-project-twenty21',
-    name: 'Drug Science — Project Twenty21 Real-World Evidence',
-    url: 'https://drugscience.org.uk',
-    searchUrl: 'https://drugscience.org.uk/project-twenty21/',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: "Drug Science (UK) — Project Twenty21 is the UK's largest real-world evidence study on medical cannabis (5,000+ patient registry). Published outcomes data on pain, anxiety, PTSD, and sleep conditions constitute the primary clinical evidence base informing UK prescriber confidence and NHS commissioning decisions.",
-  },
-  {
-    id: 'centre-medical-cannabis-uk',
-    name: 'Centre for Medical Cannabis (CMC) — UK Policy & Industry Body',
-    url: 'https://www.thecentreformedicalcannabis.com',
-    searchUrl: 'https://www.thecentreformedicalcannabis.com/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'europe',
-    notes: 'Centre for Medical Cannabis (CMC, London) — UK\'s primary cannabis policy and industry advocacy body. Market size reports, prescriber surveys, and MHRA regulatory submissions make CMC the authoritative source for UK medical cannabis market intelligence. Tracks NHS prescribing pathways, clinic growth, and product approvals.',
-  },
 
-  // ── CLINICAL RESEARCH INTELLIGENCE ───────────────────────────────────────
-  {
-    id: 'clinicaltrials-gov-cannabis',
-    name: 'ClinicalTrials.gov — Cannabis Clinical Trial Pipeline',
-    url: 'https://clinicaltrials.gov',
-    searchUrl: 'https://clinicaltrials.gov/search?cond=cannabis+OR+cannabidiol+OR+THC&status=RECRUITING,NOT_YET_RECRUITING',
-    category: 'science',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 48,
-    region: 'global',
-    notes: 'ClinicalTrials.gov NIH registry. Real-time pipeline of active and recruiting cannabis/CBD/THC clinical trials globally. New trial registrations are the leading indicator for therapeutic evidence-base expansion — directly predicts which conditions, formulations, and delivery routes will reach regulatory approval in 3–7 years.',
-  },
 
   // ── CULTIVATION EQUIPMENT — PUBLIC COMPANIES ──────────────────────────────
   {
@@ -4333,19 +3728,6 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Fluence Bioengineering (a Signify/Philips subsidiary) — dominant supplier of LED horticultural lighting to commercial cannabis cultivators globally. New facility case studies, product launches, and white papers track the lighting technology frontier — a direct proxy for facility capex and efficiency improvements in indoor cultivation.',
   },
 
-  // ── US POLICY & ADVOCACY (ADDITIONAL) ────────────────────────────────────
-  {
-    id: 'national-cannabis-roundtable',
-    name: 'National Cannabis Roundtable (NCR) — Washington DC Advocacy',
-    url: 'https://thecannabisindustry.org',
-    searchUrl: 'https://thecannabisindustry.org/news/',
-    category: 'policy',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'National Cannabis Roundtable (NCR) — senior Washington DC cannabis policy advocacy organisation with bipartisan congressional access, founded by Former Speaker John Boehner. Legislative alerts, Hill meetings, and federal reform endorsements provide the earliest signal on SAFE Banking, CAOA, and Schedule III rescheduling timelines.',
-  },
   {
     id: 'women-grow-network',
     name: 'Women Grow — Cannabis Industry Diversity Network',
@@ -4359,45 +3741,7 @@ export const scraperSources: ScraperSource[] = [
     notes: 'Women Grow — largest professional network for women and diversity advocates in cannabis with 50+ US chapter cities and growing international presence. Member events, leadership spotlights, and company announcements track market entrants and emerging operators who often represent the next generation of mid-market consolidation targets.',
   },
 
-  // ── CANNABIS INSURANCE ────────────────────────────────────────────────────
-  {
-    id: 'next-insurance-cannabis',
-    name: 'Next Insurance — Cannabis Business Insurance Intelligence',
-    url: 'https://www.nextinsurance.com',
-    searchUrl: 'https://www.nextinsurance.com/business-insurance/cannabis-business-insurance/',
-    category: 'compliance',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: "Next Insurance — largest US provider of small-business cannabis insurance (general liability, product liability, workers' comp). Policy issuance trends, coverage availability by state, and insurance product expansion track market maturation, risk perception shifts, and which new states are becoming commercially viable for small/mid-size operators.",
-  },
 
-  // ── US STATE REGULATORY — ADDITIONAL ADULT-USE MARKETS ───────────────────
-  {
-    id: 'virginia-cannabis-control-authority',
-    name: 'Virginia Cannabis Control Authority (CCA)',
-    url: 'https://www.virginia.gov/agencies/cannabis-control-authority/',
-    searchUrl: 'https://www.cannabis.virginia.gov/licensees/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Virginia Cannabis Control Authority — adult-use retail launched January 2024 in a state of 8.7 million with proximity to the DC market. Retailer, cultivator, and manufacturer licence registry tracks one of the largest new adult-use market openings on the US East Coast.',
-  },
-  {
-    id: 'minnesota-ocm-cannabis',
-    name: 'Minnesota Office of Cannabis Management (OCM)',
-    url: 'https://mn.gov/ocm/',
-    searchUrl: 'https://mn.gov/ocm/businesses/licenses/',
-    category: 'regulatory',
-    parserType: 'html-card',
-    status: 'enabled',
-    cadenceHours: 168,
-    region: 'north_america',
-    notes: 'Minnesota Office of Cannabis Management. Adult-use legalised 2023 — retail sales launched 2025, making Minnesota the northernmost major US adult-use market and the first to border Canada with full adult-use status. Licence registry and social equity programme data track one of the most-watched new market launches.',
-  },
 
 ]
 

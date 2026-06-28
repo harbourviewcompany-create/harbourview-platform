@@ -46,7 +46,7 @@ export function PublicHero({
 }: {
   eyebrow: string
   title: ReactNode
-  children: ReactNode
+  children?: ReactNode
   actions?: PublicAction[]
   aside?: ReactNode
   compact?: boolean
@@ -76,7 +76,7 @@ export function PublicSection({
   className,
 }: {
   id?: string
-  children: ReactNode
+  children?: ReactNode
   tone?: 'dark' | 'navy' | 'panel'
   className?: string
 }) {
@@ -112,11 +112,11 @@ export function SectionHeader({
   )
 }
 
-export function PublicCard({ children, className, muted = false }: { children: ReactNode; className?: string; muted?: boolean }) {
+export function PublicCard({ children, className, muted = false }: { children?: ReactNode; className?: string; muted?: boolean }) {
   return <div className={cx('rounded-sm border border-gold/10 shadow-[0_18px_44px_rgba(0,0,0,0.24)]', muted ? 'bg-[#071425]' : 'bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)]', className)}>{children}</div>
 }
 
-export function PublicLinkCard({ href, eyebrow, title, children }: { href: string; eyebrow?: string; title: ReactNode; children: ReactNode }) {
+export function PublicLinkCard({ href, eyebrow, title, children }: { href: string; eyebrow?: string; title: ReactNode; children?: ReactNode }) {
   return (
     <Link href={href} className="group rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30 hover:bg-[#0b1626] sm:p-7">
       {eyebrow ? <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-gold/70">{eyebrow}</p> : null}
@@ -137,7 +137,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
   )
 }
 
-export function FormShell({ children, className }: { children: ReactNode; className?: string }) {
+export function FormShell({ children, className }: { children?: ReactNode; className?: string }) {
   return <div className={cx('rounded-sm border border-gold/10 bg-[#071425] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.26)] sm:p-7', className)}>{children}</div>
 }
 

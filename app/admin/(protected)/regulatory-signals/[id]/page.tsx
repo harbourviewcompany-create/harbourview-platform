@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 async function transitionAction(formData: FormData) {
   'use server'
-  const auth = await requireAdminAuth()
+  const auth = (await requireAdminAuth())!
   const id = String(formData.get('id') || '')
   const status = String(formData.get('status') || '')
   const note = String(formData.get('note') || '')
@@ -33,7 +33,7 @@ export default async function RegulatorySignalDetailAdminPage({ params }: { para
   const evidence = await listRegulatoryEvidenceOptions()
 
   if (!result.ok) throw new Error((result as any).error.message)
-  if (!result.data) notFound()
+  if (!result.data) return notFound()
   const signal = result.data as import('@/lib/regulatory-signals/types').RegulatorySignalRecord
 
   return (

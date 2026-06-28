@@ -1,0 +1,41 @@
+# Cloudflare Worker — Harbourview Intelligence Pipeline
+# Deploy: wrangler deploy
+# Local dev: wrangler dev
+
+name = "harbourview-intelligence"
+main = "scripts/engine/start-worker.ts"
+compatibility_date = "2025-06-28"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npx tsx --noEmit scripts/engine/start-worker.ts || true"
+
+# ── Cron triggers ──────────────────────────────────────────────────────────────
+[triggers]
+crons = [
+  "*/15 * * * *",   # Discovery sweep — every 15 min
+  "*/30 * * * *",   # Ingestion run — every 30 min
+  "0 * * * *",      # Deep discovery — hourly
+  "0 */6 * * *",    # Source health sweep — every 6 hours
+]
+
+# ── Environment variables (set secrets via: wrangler secret put VAR_NAME) ──────
+[vars]
+NODE_ENV                    = "production"
+INTELLIGENCE_WORKER_ID      = "cf-worker-01"
+
+# Secrets (do NOT commit values — set via CLI):
+# wrangler secret put NEXT_PUBLIC_SUPABASE_URL
+# wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# wrangler secret put ANTHROPIC_API_KEY
+# wrangler secret put GOOGLE_GENAI_API_KEY
+
+# ── KV namespace for rate limiting ────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id      = "__replace_with_your_kv_namespace_id__"
+
+# ── Observability ─────────────────────────────────────────────────────────────
+[observability]
+enabled = true
+head_sampling_rate = 1

@@ -1,4 +1,13 @@
 import type { MarketplaceListing } from './listings';
+import {
+  sanitizeMarketplaceField,
+  sanitizeMarketplaceBuyerFit,
+  SAFE_TITLE_FALLBACK,
+  SAFE_SECTION_FALLBACK,
+  SAFE_CATEGORY_FALLBACK,
+  SAFE_LOCATION_FALLBACK,
+  SAFE_PRICE_FALLBACK,
+} from './safety';
 
 export type PublicMarketplaceListing = {
   slug: string;
@@ -18,15 +27,15 @@ export type PublicMarketplaceListing = {
 export function toPublicMarketplaceListing(listing: MarketplaceListing): PublicMarketplaceListing {
   return {
     slug: listing.slug,
-    title: listing.title,
-    section: listing.section,
-    category: listing.category,
+    title: sanitizeMarketplaceField(listing.title, SAFE_TITLE_FALLBACK),
+    section: sanitizeMarketplaceField(listing.section, SAFE_SECTION_FALLBACK),
+    category: sanitizeMarketplaceField(listing.category, SAFE_CATEGORY_FALLBACK),
     listingType: listing.listingType,
     condition: listing.condition,
-    price: listing.price,
-    location: listing.location,
+    price: listing.price ? sanitizeMarketplaceField(listing.price, SAFE_PRICE_FALLBACK) : listing.price,
+    location: listing.location ? sanitizeMarketplaceField(listing.location, SAFE_LOCATION_FALLBACK) : listing.location,
     publicSummary: listing.summary,
-    buyerFit: listing.buyerFit,
+    buyerFit: sanitizeMarketplaceBuyerFit(listing.buyerFit),
     complianceNote: listing.complianceNote,
     ctaLabel: listing.ctaLabel,
   };

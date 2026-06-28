@@ -39,6 +39,7 @@ export const HV_FORBIDDEN_PUBLIC_DTO_FIELDS = [
   'fetch_method',
   'fetch_credentials_ref',
   // AI scoring fields — never expose raw scores
+  'confidence',
   'confidence_score',
   'deal_readiness_score',
   'recall_exposure_flag',

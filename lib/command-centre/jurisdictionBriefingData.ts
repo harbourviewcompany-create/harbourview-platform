@@ -5,6 +5,7 @@ import type {
   CCReviewState,
   CCWatchRegion,
   CCChangeNote,
+  CCConfidenceContract,
 } from './jurisdictionRouteContext'
 import { buildJurisdictionContract } from './jurisdictionRouteContext'
 
@@ -13,9 +14,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
+// ── Confidence category labels (canonical order) ───────────────────────────────
+// Must match the labels used in CCConfidenceContract and the DB JSONB schema.
+const CONFIDENCE_CATEGORIES = [
+  'Regulatory', 'Market Data', 'Access Pathway', 'Local Intel', 'Education Content',
+]
+
 // ── DB row shape ───────────────────────────────────────────────────────────────
 
+interface ConfidenceCategoryRow {
+  label: string
+  pct: number | null
+  reviewState: CCReviewState
+}
+
 interface CcBriefingRow {
+  // Core briefing
   program_status: string | null
   public_summary: string | null
   patient_access: string | null
@@ -23,14 +37,53 @@ interface CcBriefingRow {
   market_dynamics: string | null
   regulatory_outlook: string | null
   regulatory_body: string | null
+  // Evidence
   data_source_summary: string | null
   verification_summary: string | null
   update_cadence: string | null
   coverage_summary: string | null
   last_reviewed_date: string | null
+  // Operational metadata
   watch_regions: CCWatchRegion[] | null
   change_notes: CCChangeNote[] | null
   review_state: CCReviewState
+  // Confidence (added by migration 20260628000001)
+  confidence_score: number | null
+  confidence_categories: ConfidenceCategoryRow[] | null
+  // CTA deep-links (added by migration 20260628000001)
+  full_profile_href: string | null
+  change_activity_href: string | null
+}
+
+// ── Trajectory fallback ────────────────────────────────────────────────────────
+
+/**
+ * Returns a formatted regulatory outlook string from hv_regulatory_trajectory
+ * when cc_jurisdiction_briefings has no manual regulatory_outlook for this ISO.
+ */
+async function fetchTrajectoryFallback(iso2: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('hv_regulatory_trajectory')
+    .select('trajectory, sentiment_score, key_themes, summary_text, period_end')
+    .eq('iso', iso2)
+    .order('period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data || !data.summary_text) return null
+
+  const TRAJECTORY_LABEL: Record<string, string> = {
+    liberalising: 'Liberalising', tightening: 'Tightening',
+    stable: 'Stable', uncertain: 'Uncertain', no_data: '',
+  }
+  const label = TRAJECTORY_LABEL[data.trajectory as string] ?? ''
+  const themes = Array.isArray(data.key_themes) && data.key_themes.length > 0
+    ? ` Key themes: ${(data.key_themes as string[]).slice(0, 3).join(', ')}.`
+    : ''
+
+  return label
+    ? `${label}: ${data.summary_text}${themes}`
+    : `${data.summary_text}${themes}`
 }
 
 // ── Lookup ─────────────────────────────────────────────────────────────────────
@@ -50,7 +103,8 @@ async function fetchBriefingRow(
     .select(
       'program_status,public_summary,patient_access,physician_access,market_dynamics,' +
       'regulatory_outlook,regulatory_body,data_source_summary,verification_summary,' +
-      'update_cadence,coverage_summary,last_reviewed_date,watch_regions,change_notes,review_state',
+      'update_cadence,coverage_summary,last_reviewed_date,watch_regions,change_notes,' +
+      'review_state,confidence_score,confidence_categories,full_profile_href,change_activity_href',
     )
     .eq('jurisdiction_slug', slug)
     .eq('country_iso2', route.countryIso2)
@@ -63,6 +117,54 @@ async function fetchBriefingRow(
   return data as CcBriefingRow | null
 }
 
+// ── Confidence builder ─────────────────────────────────────────────────────────
+
+/**
+ * Build a CCConfidenceContract from DB columns.
+ *
+ * - confidence_score NULL  → overall pending, all categories pending stubs
+ * - confidence_score set   → overall reviewed, use confidence_categories if
+ *   present, else build reviewed stubs with pct: null per category
+ * - confidence_categories NULL with score set → categories show as pending
+ *   with the score surfaced at the overall level only
+ */
+function buildConfidenceContract(
+  score: number | null,
+  categoriesRaw: ConfidenceCategoryRow[] | null,
+  reviewState: CCReviewState,
+): CCConfidenceContract {
+  if (score === null) {
+    // No scoring data at all — full pending state
+    return {
+      overall: null,
+      reviewState: 'pending',
+      categories: CONFIDENCE_CATEGORIES.map(label => ({
+        label, pct: null, reviewState: 'pending' as CCReviewState,
+      })),
+    }
+  }
+
+  // Overall score is present. Build per-category list.
+  const categoryMap = new Map<string, ConfidenceCategoryRow>(
+    (categoriesRaw ?? []).map(c => [c.label, c]),
+  )
+
+  const categories = CONFIDENCE_CATEGORIES.map(label => {
+    const row = categoryMap.get(label)
+    return {
+      label,
+      pct: row?.pct ?? null,
+      reviewState: (row?.reviewState ?? (row ? reviewState : 'pending')) as CCReviewState,
+    }
+  })
+
+  return {
+    overall: score,
+    reviewState,
+    categories,
+  }
+}
+
 // ── Contract builder ───────────────────────────────────────────────────────────
 
 /**
@@ -73,11 +175,18 @@ async function fetchBriefingRow(
 export async function buildLiveJurisdictionContract(
   route: CCResolvedRoute,
 ): Promise<JurisdictionRouteContract> {
-  const row = await fetchBriefingRow(route)
+  const [row, trajectoryText] = await Promise.all([
+    fetchBriefingRow(route),
+    fetchTrajectoryFallback(route.countryIso2),
+  ])
 
-  // No DB row — return full pending contract
+  // No DB row — return base contract enriched with live trajectory if available
   if (!row) {
-    return buildJurisdictionContract(route)
+    const base = buildJurisdictionContract(route)
+    if (trajectoryText) {
+      base.briefing.regulatoryOutlook = trajectoryText
+    }
+    return base
   }
 
   const reviewState: CCReviewState = row.review_state ?? 'pending'
@@ -106,6 +215,17 @@ export async function buildLiveJurisdictionContract(
   const dataSourceSummary = row.data_source_summary
     ?? (row.regulatory_body ? `Source: ${row.regulatory_body}` : null)
 
+  // Confidence: populated from DB columns; falls back to pending stubs
+  const confidence = buildConfidenceContract(
+    row.confidence_score,
+    row.confidence_categories,
+    reviewState,
+  )
+
+  // CTA deep-links: active when column is set, unavailable when null
+  const fullProfileHref = row.full_profile_href ?? null
+  const changeActivityHref = row.change_activity_href ?? null
+
   return {
     route,
     briefing: {
@@ -115,7 +235,7 @@ export async function buildLiveJurisdictionContract(
       patientAccess: row.patient_access ?? null,
       physicianAccess: row.physician_access ?? null,
       marketDynamics: row.market_dynamics ?? null,
-      regulatoryOutlook: row.regulatory_outlook ?? null,
+      regulatoryOutlook: row.regulatory_outlook ?? trajectoryText ?? null,
     },
     evidence: {
       dataSourceSummary,
@@ -125,23 +245,17 @@ export async function buildLiveJurisdictionContract(
       lastReviewedDate: row.last_reviewed_date ?? null,
       reviewState: row.data_source_summary ? reviewState : 'pending',
     },
-    confidence: {
-      overall: null,
-      reviewState: 'pending',
-      categories: [
-        'Regulatory', 'Market Data', 'Access Pathway', 'Local Intel', 'Education Content',
-      ].map(label => ({ label, pct: null, reviewState: 'pending' as CCReviewState })),
-    },
+    confidence,
     watchRegions,
     changeNotes,
     ctas: {
-      fullProfileHref: null,
-      fullProfileAvailable: false,
+      fullProfileHref,
+      fullProfileAvailable: fullProfileHref !== null,
       confidenceMethodologyHref: '/source-methodology',
       confidenceMethodologyAvailable: true,
       allJurisdictionsHref: '/dashboard',
-      changeActivityHref: null,
-      changeActivityAvailable: false,
+      changeActivityHref,
+      changeActivityAvailable: changeActivityHref !== null,
     },
   }
 }

@@ -5,17 +5,65 @@
   },
   "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh",
   "crons": [
-    { "path": "/api/cron/intelligence-ingest",        "schedule": "0 2 * * *" },
-    { "path": "/api/cron/intelligence-ingest",        "schedule": "0 10 * * *" },
-    { "path": "/api/cron/intelligence-ingest",        "schedule": "0 16 * * *" },
-    { "path": "/api/cron/intelligence-ingest",        "schedule": "0 22 * * *" },
-    { "path": "/api/cron/intelligence-extract",       "schedule": "0 4 * * *" },
-    { "path": "/api/cron/embed-artifacts",            "schedule": "0 5 * * *" },
-    { "path": "/api/cron/intelligence-embed",         "schedule": "0 6 * * *" },
-    { "path": "/api/cron/intelligence-notify",        "schedule": "0 7 * * *" },
-    { "path": "/api/cron/scrape",                     "schedule": "0 8 * * *" },
-    { "path": "/api/cron/embed-signals",              "schedule": "0 9 * * *" },
-    { "path": "/api/cron/regulatory-watch",           "schedule": "0 12 * * *" },
-    { "path": "/api/cron/synthesize-jurisdictions",   "schedule": "0 3 * * 1" }
+    {
+      "path": "/api/cron/intelligence-ingest",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/intelligence-ingest",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/intelligence-ingest",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/intelligence-ingest",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/intelligence-extract",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/embed-artifacts",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/intelligence-embed",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/intelligence-notify",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/embed-signals",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/regulatory-watch",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/synthesize-jurisdictions",
+      "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/intelligence-trajectory",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/deep-discovery",
+      "schedule": "0 1 * * 0"
+    },
+    {
+      "path": "/api/cron/marketplace-match",
+      "schedule": "0 */6 * * *"
+    }
   ]
 }

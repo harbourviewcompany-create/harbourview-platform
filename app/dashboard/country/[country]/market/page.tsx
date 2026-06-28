@@ -82,7 +82,7 @@ function deriveMarketData(state: DashboardPanelState): MarketDerived {
 export default async function MarketPage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
-  if (!country) notFound()
+  if (!country) return notFound()
 
   const panel       = country.panels.market
   const badge       = getDashboardStatusBadge(panel.state)

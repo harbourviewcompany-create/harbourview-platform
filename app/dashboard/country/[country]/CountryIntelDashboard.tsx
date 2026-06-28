@@ -131,7 +131,7 @@ function MiniGlobe({ lat, lng, layerColor }: { lat: number; lng: number; layerCo
 }
 
 function SectionCard({ title, action, actionHref, children }: {
-  title: string; action?: string; actionHref?: string; children: React.ReactNode
+  title: string; action?: string; actionHref?: string; children?: React.ReactNode
 }) {
   return (
     <div style={{ background:C.bg3, border:`1px solid ${C.bDim}`, borderRadius:12, overflow:'hidden', display:'flex', flexDirection:'column' }}>
@@ -177,7 +177,7 @@ export function CountryIntelDashboard({
 
   const record     = getCommercialCountryDashboardRecord(country, selectedLayer)
   const badge      = getDashboardStatusBadge(country.dashboardStatus)
-  const roleView   = record.roleViews[activeRole]
+  const roleView   = record.roleViews[activeRole as CountryDashboardRole]
   const [lat, lng] = LATLNG[country.slug] ?? [20, 0]
   const layerColor = scoreColor(record.selectedLayerMetric.score)
 

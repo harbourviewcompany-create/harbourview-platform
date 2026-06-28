@@ -1,3 +1,73 @@
+## Session: Jun 24 2026 (continued)
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — "Fix all" gaps pass (PR #890)
+
+Completed the full gaps audit fix list. All actionable static wrappers are now live-data pages.
+
+| PR | What | |
+|---|---|---|
+| **#890** | Replace 6 remaining static `PublicSurfacePage` wrappers with live pages | ✅ merged |
+
+### Detail — #890
+
+| Route | Before | After |
+|---|---|---|
+| `/education/gacp` | `PublicSurfacePage` | GACP 4-panel explainer + live education modules (quality/compliance tracks) |
+| `/education/gdp` | `PublicSurfacePage` | GDP 4-panel explainer (cold chain, narcotics custody) + live modules |
+| `/education/gmp` | `PublicSurfacePage` | GMP 4-panel explainer (EU-GMP, QP requirement) + live modules |
+| `/education/briefings` | `PublicSurfacePage` (no data) | Live `jurisdiction_briefings` grid — 60 briefings, one per country |
+| `/education/export-import-readiness` | `PublicSurfacePage` | Live modules (export/import/logistics tracks) + 3-column doc checklist |
+| `/policy-standards/regulatory-change-tracker` | `PublicSurfacePage` | Live `signals` filtered to regulatory/policy/legislative — 40 signals, 180-day window |
+
+**Bug caught during implementation:** `mod.audience` is `string[]` not `string` — `AUDIENCE_LABELS[mod.audience]` would index with an array. Fixed to `.map((a) => AUDIENCE_LABELS[a] ?? a).join(', ')` before pushing.
+
+### Static surfaces intentionally left as-is
+
+- `/intelligence/source-engine` — explains methodology, appropriately static
+- `/intelligence/watchlists` — gated intake-only, static CTA by design
+- `/network`, `/opportunities`, `/reviewed-connections`, `/institutional-partnerships`, `/policy-standards` — `InstitutionalPage` gating pages, design intent not a gap
+
+### typecheck: 0 errors on main
+
+All TS errors from the previous audit have been resolved (PRs #820, #821). Two pre-existing errors remain on main (`@tanstack/react-query` module resolution, Stripe API version) — both require package upgrades, not code fixes.
+
+### Open PRs
+
+4 held major Dependabot bumps (#724, #726, #732, #733) — unchanged.
+
+---
+
+## Session: Jun 23 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### Built this session — gap audit + five highest-leverage fixes (PRs #820, #821)
+
+**Gap audit results:**
+- 🔴 Static wrappers: `/intelligence/logistics-trade-routes`, `/intelligence/counterparty-intelligence`, `/intelligence/regulatory-pathways`, `/education/glossary`, `/education/glossary/[term]`
+- 🔴 Zero-row: `genetics_collaboration_projects`
+- 🔴 Missing exports blocking admin review loop: `listPendingProfessionals`, `decideProfessionalApplication`, `decideSupplierApplication` deleted from `applicationsQuery.ts`
+
+| PR | What | |
+|---|---|---|
+| **#820** | 3 static intelligence wrappers → live pages + real 26-term glossary + 10 collab projects seeded | ✅ merged |
+| **#821** | Missing applicationsQuery exports restored + duplicate country-data re-exports removed | ✅ merged |
+
+### Remaining TS errors (2, both pre-existing on main)
+- `app/providers.tsx`: `@tanstack/react-query` missing from deps
+- `lib/stripe/server.ts`: Stripe API version mismatch
+
+### Next priorities
+1. Fix `@tanstack/react-query` missing dependency
+2. Fix Stripe API version (bump package)
+3. Fix Supabase migration drift (P0 blocker)
+4. Admin notification when pending applications land
+5. Diagnose Cloudflare Workers Build failure
+
+---
+
 ## Session: Jun 24 2026 — Backward Audit
 
 ### Agent: Claude (Sonnet 4.6)

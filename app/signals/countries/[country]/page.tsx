@@ -30,7 +30,7 @@ export default async function CountrySignalsPage({ params }: { params: Promise<{
   const match = countries.find(
     (c) => c.countryName.toLowerCase().replace(/\s+/g, '-') === country
   )
-  if (!match) notFound()
+  if (!match) return notFound()
 
   // Get all signals for this country
   const allSignals = await getPublicRegulatorySignals()

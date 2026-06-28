@@ -299,7 +299,7 @@ export default async function CountryIntelligenceDrilldownPage({
 
   // Fall back to dashboard fixture data (covers 191 NE countries)
   const dashboardCountry = resolveCountryRouteParam(countryParam)
-  if (!dashboardCountry) notFound()
+  if (!dashboardCountry) return notFound()
 
   const badge = getDashboardStatusBadge(dashboardCountry.dashboardStatus)
 

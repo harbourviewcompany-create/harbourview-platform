@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Cultivar Passport | Harbourview' }
 export default async function CultivarPassportPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const passport = await getPublicCultivarPassportBySlug(slug)
-  if (!passport) notFound()
+  if (!passport) return notFound()
 
   return (
     <main className="min-h-screen bg-[#081423] px-6 py-12 text-[#F5F1E8] md:px-10">

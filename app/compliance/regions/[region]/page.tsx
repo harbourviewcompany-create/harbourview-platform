@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic'
 export default async function RegionPage({ params }: { params: Promise<{ region: string }> }) {
   const { region: regionSlug } = await params
   const region = getComplianceRegion(regionSlug)
-  if (!region) notFound()
+  if (!region) return notFound()
   // notFound() throws, so region is defined from here — TypeScript needs the assertion
 
   const countries = getCountriesByRegion(regionSlug as ComplianceRegionSlug)

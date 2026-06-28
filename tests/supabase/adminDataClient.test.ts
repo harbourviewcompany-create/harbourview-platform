@@ -28,7 +28,7 @@ describe('fetchAdminSupabaseJson', () => {
     const { fetchAdminSupabaseJson } = await import('@/lib/supabase/adminDataClient')
     const result = await fetchAdminSupabaseJson<{ hello: string }>('/rest/v1/example')
 
-    expect(result).toEqual({ ok: true, data: { hello: 'world' } })
+    expect(result).toEqual({ ok: true, data: { hello: 'world' }, source: 'db' })
   })
 
   it('returns null payload for successful empty-body responses', async () => {
@@ -42,7 +42,7 @@ describe('fetchAdminSupabaseJson', () => {
     const { fetchAdminSupabaseJson } = await import('@/lib/supabase/adminDataClient')
     const result = await fetchAdminSupabaseJson<null>('/rest/v1/example')
 
-    expect(result).toEqual({ ok: true, data: null })
+    expect(result).toEqual({ ok: true, data: null, source: 'db' })
   })
 
   it('returns request_failed when a successful response body is invalid JSON', async () => {
@@ -64,19 +64,13 @@ describe('fetchAdminSupabaseJson', () => {
       ok: false,
       error: {
         code: 'request_failed',
-        message: 'Admin inquiry review received invalid JSON from Supabase upstream.',
+        message: 'Supabase returned invalid JSON',
       },
     })
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'harbourview_admin_data_request_failed',
-      expect.objectContaining({
-        status: 200,
-        statusText: 'OK',
-        path: '/rest/v1/example',
-        body: invalidBody.slice(0, 240),
-        parseError: 'invalid_json',
-      })
+      '[harbourview:admin] invalid JSON from supabase',
+      { path: '/rest/v1/example', body: invalidBody.slice(0, 240) }
     )
   })
 })

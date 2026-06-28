@@ -81,7 +81,39 @@ export type MarketplaceListing = {
   priority: 'High' | 'Medium' | 'Low';
 };
 
-export const marketplaceListings: MarketplaceListing[] = [];
+export const marketplaceListings: MarketplaceListing[] = [
+  {
+    slug: 'equipnet-online-auctions-lab-production-equipment',
+    title: 'Lab & production equipment — multiple lots',
+    section: 'Lab & Testing Equipment',
+    category: 'Lab Equipment',
+    listingType: 'Equipment lot',
+    condition: 'Used',
+    price: 'Auction-dependent',
+    location: 'United States',
+    sourceName: 'EquipNet Online Auctions',
+    sourceUrl: 'https://www.equipnet.com',
+    sourceType: 'auction_source',
+    summary: 'Multiple lots of laboratory and production equipment available through a third-party auction process.',
+    buyerFit: ['Licensed processors', 'Lab operators'],
+    verificationStatus: 'availability_unverified',
+    availabilityStatus: 'auction_dependent',
+    sellerAuthorizationStatus: 'not_applicable',
+    monetizationPath: 'auction_screening',
+    confidenceScore: 0.4,
+    lastReviewedAt: '2026-06-01T00:00:00.000Z',
+    nextReviewDueAt: '2026-07-01T00:00:00.000Z',
+    reviewCadence: 'monthly',
+    reviewedBy: 'Harbourview sourcing desk',
+    provenanceSummary: 'Identified via routine auction-source monitoring.',
+    sourceEvidence: [],
+    verificationNote: 'Availability and pricing are auction-dependent and not independently verified.',
+    complianceNote: 'Buyers are responsible for their own import/export and licensing compliance.',
+    internalReviewNotes: 'Auction source — review before any buyer introduction.',
+    ctaLabel: 'Request introduction',
+    priority: 'Medium',
+  },
+];
 
 export const featuredMarketplaceListings = marketplaceListings.filter(
   listing => listing.priority === 'High'

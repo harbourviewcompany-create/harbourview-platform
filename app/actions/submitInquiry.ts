@@ -1,6 +1,5 @@
 'use server';
 
-import { marketplaceListings } from '@/lib/marketplace/listings';
 import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
 import { FIELD_CLASSIFICATION_MATRIX, getMaxMessageLength, hasOversizedFields, hasSpamTrapValue, readField, validateFieldAgainstPolicy } from '@/lib/marketplace/intakeSafety';
 import { postMarketplaceInquiry } from '@/lib/marketplace/inquirySubmission';
@@ -19,8 +18,6 @@ const ALLOWED_INQUIRY_TYPES = new Set([
 ]);
 
 type InquiryDiagnosticCode =
-  | 'INQUIRY_LISTING_NOT_FOUND'
-  | 'INQUIRY_LISTING_UNAVAILABLE'
   | 'INQUIRY_VALIDATION_REQUIRED_FIELDS'
   | 'INQUIRY_VALIDATION_EMAIL'
   | 'INQUIRY_VALIDATION_FIELD_LENGTH'
@@ -40,17 +37,14 @@ function withCode(message: string, code: InquiryDiagnosticCode) {
 function buildMessageWithListingContext(
   message: string,
   country: string,
-  listing: { title: string; slug: string; sourceName: string; sourceUrl: string },
+  listingSlug: string,
 ) {
   return [
     message,
     '',
     '--- Marketplace listing context ---',
     `Market: ${country}`,
-    `Listing: ${listing.title}`,
-    `Slug: ${listing.slug}`,
-    `Source: ${listing.sourceName}`,
-    `Source URL: ${listing.sourceUrl}`,
+    `Listing slug: ${listingSlug || 'not specified'}`,
   ].join('\n');
 }
 
@@ -67,26 +61,6 @@ export async function submitMarketplaceInquiry(
   formData: FormData,
 ): Promise<InquiryActionState> {
   const listingSlug = readField(formData, 'listing_slug');
-  const listing = marketplaceListings.find((item) => item.slug === listingSlug);
-
-  if (!listing) {
-    logInquiryDiagnostic('INQUIRY_LISTING_NOT_FOUND', { hasListingSlug: Boolean(listingSlug) });
-    return {
-      status: 'error',
-      message: withCode('This listing is not available for public inquiry.', 'INQUIRY_LISTING_NOT_FOUND'),
-    };
-  }
-
-  if (
-    listing.availabilityStatus === 'sold_or_expired' ||
-    listing.verificationStatus === 'sold_or_expired_source'
-  ) {
-    logInquiryDiagnostic('INQUIRY_LISTING_UNAVAILABLE', { listingSlug: listing.slug });
-    return {
-      status: 'error',
-      message: withCode('This listing is no longer available for public inquiry.', 'INQUIRY_LISTING_UNAVAILABLE'),
-    };
-  }
 
   const name = readField(formData, 'name');
   const email = readField(formData, 'email').toLowerCase();
@@ -157,7 +131,7 @@ export async function submitMarketplaceInquiry(
     };
   }
 
-  const messageWithListingContext = buildMessageWithListingContext(message, country, listing);
+  const messageWithListingContext = buildMessageWithListingContext(message, country, listingSlug);
 
   if (messageWithListingContext.length > getMaxMessageLength()) {
     logInquiryDiagnostic('INQUIRY_VALIDATION_MESSAGE_LENGTH', {
@@ -220,7 +194,7 @@ export async function submitMarketplaceInquiry(
   });
 
   logInquiryDiagnostic('INQUIRY_OK', {
-    listingSlug: listing.slug,
+    listingSlug,
     inquiryType,
   });
 
