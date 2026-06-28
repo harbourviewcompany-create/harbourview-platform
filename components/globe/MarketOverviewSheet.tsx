@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { createClient } from '@/lib/supabase/client'
 import type { JurisdictionBriefing } from '@/app/actions/getJurisdictionBriefing'
+import { canadaProvinceByIso2 } from '@/data/globe/canada-province-profiles'
+import { usStateProfiles } from '@/data/globe/us-state-profiles'
+
+// Subnational iso2 (e.g. 'CA-ON') → jurisdiction_slug used in cc_jurisdiction_briefings
+const subnationalSlugMap: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(canadaProvinceByIso2).map(([iso2, p]) => [iso2, p.slug])),
+  ...Object.fromEntries(usStateProfiles.map((s) => [s.iso2, s.slug])),
+}
+
+const BRIEFING_SELECT = 'jurisdiction_slug, program_status, public_summary, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body'
 
 interface Props {
   countryIso2: string
@@ -28,20 +38,46 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   useEffect(() => {
     setLoading(true)
     setBriefing(null)
-    void createClient()
-      .from('cc_jurisdiction_briefings')
-      .select('jurisdiction_slug, program_status, public_summary, patient_access, physician_access, market_dynamics, regulatory_outlook, regulatory_body')
-      .eq('country_iso2', countryIso2.toUpperCase())
-      .eq('jurisdiction_type', 'country')
-      .maybeSingle()
-      .then(
-        ({ data, error }) => {
-          if (error) console.error('[MarketOverviewSheet] briefing fetch failed:', error)
-          setBriefing(data ?? null)
-          setLoading(false)
-        },
-        (err: unknown) => { console.error('[MarketOverviewSheet] briefing fetch error:', err); setLoading(false) }
-      )
+
+    const code = countryIso2.toUpperCase()
+    const slug = subnationalSlugMap[code]
+    const client = createClient()
+
+    async function fetchBriefing(): Promise<JurisdictionBriefing | null> {
+      if (slug) {
+        // Subnational (e.g. CA-ON → ontario): try province/state briefing first
+        const parentIso2 = code.split('-')[0]
+        const { data, error } = await client
+          .from('cc_jurisdiction_briefings')
+          .select(BRIEFING_SELECT)
+          .eq('country_iso2', parentIso2)
+          .eq('jurisdiction_slug', slug)
+          .maybeSingle()
+        if (error) console.error('[MarketOverviewSheet] subnational fetch failed:', error)
+        if (data) return data
+        // Fall back to country-level briefing for this province/state's parent
+        const { data: countryData, error: countryError } = await client
+          .from('cc_jurisdiction_briefings')
+          .select(BRIEFING_SELECT)
+          .eq('country_iso2', parentIso2)
+          .eq('jurisdiction_type', 'country')
+          .maybeSingle()
+        if (countryError) console.error('[MarketOverviewSheet] country fallback fetch failed:', countryError)
+        return countryData ?? null
+      }
+      const { data, error } = await client
+        .from('cc_jurisdiction_briefings')
+        .select(BRIEFING_SELECT)
+        .eq('country_iso2', code)
+        .eq('jurisdiction_type', 'country')
+        .maybeSingle()
+      if (error) console.error('[MarketOverviewSheet] briefing fetch failed:', error)
+      return data ?? null
+    }
+
+    fetchBriefing()
+      .then((data) => { setBriefing(data); setLoading(false) })
+      .catch((err: unknown) => { console.error('[MarketOverviewSheet] briefing fetch error:', err); setLoading(false) })
   }, [countryIso2])
 
   const title = loading
