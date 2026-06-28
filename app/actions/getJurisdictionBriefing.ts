@@ -2,26 +2,13 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseUrl, getSupabasePublicClientKey } from '@/lib/supabase/env'
+import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 
-export interface JurisdictionBriefing {
-  jurisdiction_slug: string
-  program_status: string | null
-  public_summary: string | null
-  patient_access: string | null
-  physician_access: string | null
-  market_dynamics: string | null
-  regulatory_outlook: string | null
-  regulatory_body: string | null
-  last_reviewed_date: string | null
-}
-
-const BRIEFING_SELECT =
-  'jurisdiction_slug,program_status,public_summary,patient_access,' +
-  'physician_access,market_dynamics,regulatory_outlook,regulatory_body,last_reviewed_date'
+export type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
 
 export async function getJurisdictionBriefing(
   countryIso2: string,
-): Promise<JurisdictionBriefing | null> {
+): Promise<import('@/lib/globe/jurisdictionBriefingTypes').JurisdictionBriefing | null> {
   const supabase = createClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
   })
