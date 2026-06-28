@@ -29,9 +29,9 @@ export default async function ExportImportReadinessPage() {
           <p className="er-ey">Education / Market Access</p>
           <h1 className="er-ti">Export-Import Readiness</h1>
           <p className="er-su">
-            Orientation-level context for cannabis operators preparing for international
-            export or import. Covers documentation frameworks, licensing sequences, and
-            corridor-specific requirements across regulated markets.
+            Orientation-level context covering export and import readiness for cannabis operators
+            entering international markets. Covers documentation frameworks, licensing sequences,
+            and corridor-specific requirements across regulated markets.
           </p>
         </header>
 
