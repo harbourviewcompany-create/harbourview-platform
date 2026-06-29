@@ -3259,13 +3259,6 @@ export default function MobileCommandCentre({
                 {countryOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <label>
-              <span>Role</span>
-              <select value={role} onChange={event => handleRoleChange(event.target.value)}>
-                <option value="">All roles</option>
-                {roleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
             <button className="hvm-sheet-apply" type="button" onClick={() => setContextOpen(false)}>Done</button>
             <div className="hvm-sheet-divider" />
             {userEmail ? (
