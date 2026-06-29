@@ -60,24 +60,43 @@ jobs:
       - name: Public image asset verification
         run: npm run test:public-images
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel production environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Vercel prebuilt output (production)
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel production
+      - name: Trigger Vercel production deployment (git source)
         id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: ${{ secrets.VERCEL_ORG_ID }}
+          PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
-          echo "Production deployment: $DEPLOYMENT_URL"
+          set -euo pipefail
+          REF="${{ inputs.ref_name || 'main' }}"
+          echo "Triggering production deployment of '$REF' (repoId 1214598473)…"
+          resp=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://api.vercel.com/v13/deployments?teamId=${TEAM_ID}&forceNew=1" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"harbourview\",
+              \"project\": \"${PROJECT_ID}\",
+              \"target\": \"production\",
+              \"gitSource\": { \"type\": \"github\", \"repoId\": 1214598473, \"ref\": \"${REF}\" }
+            }")
+          status=$(echo "$resp" | sed -n 's/^HTTP_STATUS://p')
+          body=$(echo "$resp" | sed '/^HTTP_STATUS:/d')
+          echo "HTTP $status"
+          echo "$body" | head -c 1200; echo
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::Vercel deployment trigger failed (HTTP $status)"
+            exit 1
+          fi
+          url=$(echo "$body" | python3 -c "import sys,json;print(json.load(sys.stdin).get('url',''))" 2>/dev/null || true)
+          id=$(echo "$body" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+          echo "deployment_id=$id" >> "$GITHUB_OUTPUT"
+          echo "deployment_url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production deployment created: id=$id url=$url"
 
       - name: Deployment summary
         run: |
           echo "## Vercel production deploy" >> "$GITHUB_STEP_SUMMARY"
-          echo "Ref: ${{ inputs.ref_name || github.ref }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Deployment URL: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ref: ${{ inputs.ref_name || 'main' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment id: ${{ steps.deploy.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment url: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
