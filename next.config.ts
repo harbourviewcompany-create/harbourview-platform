@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   compress: true,
+  productionBrowserSourceMaps: false,
 }
 
 export default nextConfig
