@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -45,7 +45,30 @@ export const BriefingRoom = React.memo(function BriefingRoom({
   const overall = getOverall(CONFIDENCE_BARS)
   const circumference = 2 * Math.PI * 26 // r=26
 
-  const recentChanges = useMemo(() =>
+  const [briefState, setBriefState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [briefText, setBriefText] = useState<string | null>(null)
+
+  async function generateBrief() {
+    if (!countryIntel) return
+    setBriefState('loading')
+    setBriefText(null)
+    try {
+      const res = await fetch('/api/compliance-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: countryIntel }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setBriefText(data.brief)
+      setBriefState('done')
+    } catch {
+      setBriefState('error')
+    }
+  }
+
+  const fieldChanges = useMemo(() => countryIntel?.recentChanges ?? [], [countryIntel])
+  const signalChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
       title:   s.title,
@@ -54,6 +77,7 @@ export const BriefingRoom = React.memo(function BriefingRoom({
     })),
     [signals],
   )
+  const recentChanges = signalChanges
 
   const lastUpdated = useMemo(() => {
     const now = new Date()
@@ -257,11 +281,32 @@ export const BriefingRoom = React.memo(function BriefingRoom({
           <button className="br-link br-link-btn" type="button" disabled>View all jurisdictions →</button>
         </section>
 
-        {/* Recent change notes */}
-        {recentChanges.length > 0 && (
+        {/* Field change tracker */}
+        {fieldChanges.length > 0 && (
+          <section className="br-right-section">
+            <header className="br-right-head">RECENT REGULATORY CHANGES</header>
+            <div className="br-changes">
+              {fieldChanges.slice(0, 4).map(c => {
+                const days = Math.floor((Date.now() - new Date(c.changed_at).getTime()) / 86400000)
+                return (
+                  <div key={c.id} className="br-change">
+                    <span className="br-change-dir br-change-dir--up">↑</span>
+                    <div className="br-change-body">
+                      <strong>{c.field_name.replace(/_/g, ' ')}</strong>
+                      <small>{c.old_value ?? '—'} → {c.new_value ?? '—'}</small>
+                      <time>{days === 0 ? 'today' : `${days}d ago`}</time>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Fallback signal-based change notes */}
+        {fieldChanges.length === 0 && recentChanges.length > 0 && (
           <section className="br-right-section">
             <header className="br-right-head">RECENT CHANGE NOTES</header>
-
             <div className="br-changes">
               {recentChanges.map((c, i) => (
                 <div key={i} className="br-change">
@@ -276,8 +321,48 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                 </div>
               ))}
             </div>
-
             <button className="br-link br-link-btn" type="button" disabled>View all change activity →</button>
+          </section>
+        )}
+
+        {/* Compliance brief generator */}
+        {countryIntel && (
+          <section className="br-right-section">
+            <header className="br-right-head">COMPLIANCE BRIEF</header>
+            {briefState === 'idle' && (
+              <button className="br-brief-btn" type="button" onClick={generateBrief}>
+                Generate AI Compliance Brief →
+              </button>
+            )}
+            {briefState === 'loading' && (
+              <div className="br-brief-loading">Generating brief…</div>
+            )}
+            {briefState === 'error' && (
+              <div className="br-brief-error">
+                Brief generation failed.{' '}
+                <button className="br-link" type="button" onClick={generateBrief}>Retry</button>
+              </div>
+            )}
+            {briefState === 'done' && briefText && (
+              <div className="br-brief-content">
+                {briefText.split('\n').map((line, i) => {
+                  if (line.startsWith('## ') || line.startsWith('### ')) {
+                    return <p key={i} className="br-brief-heading">{line.replace(/^#+\s*/, '')}</p>
+                  }
+                  if (line.startsWith('- ') || line.startsWith('* ')) {
+                    return <p key={i} className="br-brief-bullet">• {line.slice(2)}</p>
+                  }
+                  if (line.startsWith('**') && line.endsWith('**')) {
+                    return <p key={i} className="br-brief-bold">{line.replace(/\*\*/g, '')}</p>
+                  }
+                  if (line.trim() === '') return null
+                  return <p key={i} className="br-brief-para">{line}</p>
+                })}
+                <button className="br-link br-link-btn" type="button" onClick={() => { setBriefState('idle'); setBriefText(null) }}>
+                  Regenerate →
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -493,6 +578,29 @@ const CSS = `
 .br-change-body strong { display:block;font-size:11px;font-weight:500;color:#f5f0e8; }
 .br-change-body small  { display:block;font-size:10px;color:rgba(245,240,232,.5);margin-top:1px;line-height:1.4; }
 .br-change-body time   { display:block;font-size:9px;color:rgba(245,240,232,.3);margin-top:2px; }
+
+/* Compliance brief */
+.br-brief-btn {
+  width:100%;padding:10px 14px;border-radius:6px;border:1px solid rgba(212,168,75,.35);
+  background:rgba(212,168,75,.07);color:#d4a84b;font-size:12px;font-weight:600;
+  cursor:pointer;letter-spacing:.04em;text-align:left;
+  transition:background .15s,border-color .15s;
+}
+.br-brief-btn:hover { background:rgba(212,168,75,.14);border-color:rgba(212,168,75,.55); }
+.br-brief-loading {
+  font-size:11px;color:rgba(245,240,232,.4);padding:8px 0;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+.br-brief-error { font-size:11px;color:#e57373; }
+.br-brief-content { display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto; }
+.br-brief-heading {
+  font-size:10px;font-weight:700;color:#d4a84b;
+  text-transform:uppercase;letter-spacing:.08em;margin:8px 0 2px;
+}
+.br-brief-bold { font-size:11px;font-weight:600;color:#f5f0e8;margin:4px 0 0; }
+.br-brief-bullet { font-size:11px;color:rgba(245,240,232,.7);line-height:1.5;padding-left:6px; }
+.br-brief-para { font-size:11px;color:rgba(245,240,232,.6);line-height:1.55;margin:2px 0; }
 
 /* Mobile */
 @media(max-width:1024px) {

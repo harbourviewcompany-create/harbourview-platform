@@ -157,6 +157,29 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
 }
 
 // ── 4. Country intelligence profile ────────────────────────────────────────────
+
+export type FieldChange = {
+  id: string
+  table_name: string
+  field_name: string
+  old_value: string | null
+  new_value: string | null
+  changed_at: string
+  source_label: string | null
+}
+
+export type RegulatoryCalendarEvent = {
+  id: string
+  iso2: string
+  event_type: string
+  title: string
+  summary: string | null
+  expected_date: string | null
+  confidence: string
+  source_url: string | null
+  source_label: string | null
+  status: string
+}
 export type CountryIntelProfile = {
   // Core fields — always present
   country_code: string
@@ -185,6 +208,10 @@ export type CountryIntelProfile = {
   briefing_regulatory_outlook?: string | null
   briefing_regulatory_body?: string | null
   briefing_last_reviewed?: string | null
+  // Change tracking — field-level history
+  recentChanges?: FieldChange[]
+  // Forward-looking regulatory calendar
+  calendarEvents?: RegulatoryCalendarEvent[]
 }
 
 const _INTEL_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
@@ -234,6 +261,34 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
     const jbRows: any[] = jbRes.ok ? await jbRes.json() : []
     const jb = jbRows[0] ?? null
 
+    // Change tracking + calendar via RPC REST calls (parallel, best-effort)
+    const [changesRes, calendarRes] = await Promise.all([
+      fetch(`${_INTEL_SUPABASE_URL}/rest/v1/rpc/get_field_changes_for_country`, {
+        method: 'POST',
+        headers: { ...hdr, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_iso2: safeIso2, p_limit: 10 }),
+      }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${_INTEL_SUPABASE_URL}/rest/v1/rpc/get_regulatory_calendar`, {
+        method: 'POST',
+        headers: { ...hdr, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_iso2: safeIso2, p_limit: 10 }),
+      }).then(r => r.ok ? r.json() : []).catch(() => []),
+    ])
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recentChanges: FieldChange[] = (Array.isArray(changesRes) ? changesRes : []).map((r: any) => ({
+      id: r.id, table_name: r.table_name, field_name: r.field_name,
+      old_value: r.old_value ?? null, new_value: r.new_value ?? null,
+      changed_at: r.changed_at, source_label: r.source_label ?? null,
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const calendarEvents: RegulatoryCalendarEvent[] = (Array.isArray(calendarRes) ? calendarRes : []).map((r: any) => ({
+      id: r.id, iso2: r.iso2, event_type: r.event_type, title: r.title,
+      summary: r.summary ?? null, expected_date: r.expected_date ?? null,
+      confidence: r.confidence, source_url: r.source_url ?? null,
+      source_label: r.source_label ?? null, status: r.status,
+    }))
+
     return {
       country_code:               cd.iso_alpha2,
       country_name:               cd.country_name,
@@ -257,8 +312,10 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_physician_access:  jb?.physician_access ?? null,
       briefing_market_dynamics:   jb?.market_dynamics ?? null,
       briefing_regulatory_outlook: jb?.regulatory_outlook ?? null,
-      briefing_regulatory_body:   jb?.regulatory_body ?? null,
-      briefing_last_reviewed:     jb?.last_reviewed_date ?? null,
+      briefing_regulatory_body:    jb?.regulatory_body ?? null,
+      briefing_last_reviewed:      jb?.last_reviewed_date ?? null,
+      recentChanges,
+      calendarEvents,
     }
   } catch (err) {
     console.error('[getCountryIntelProfile] unexpected error:', err)
@@ -266,7 +323,52 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
   }
 }
 
-// ── getCountryStatusFromDB ──────────────────────────────────────────────────────────────
+// ── getFieldChangesForCountry ─────────────────────────────────────────────────
+
+export async function getFieldChangesForCountry(iso2: string, limit = 20): Promise<FieldChange[]> {
+  const url = _INTEL_SUPABASE_URL
+  const key = _INTEL_SUPABASE_KEY
+  if (!url || !key) return []
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/get_field_changes_for_country`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_iso2: iso2.toUpperCase(), p_limit: limit }),
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any[] = res.ok ? await res.json() : []
+    return data.map(r => ({
+      id: r.id, table_name: r.table_name, field_name: r.field_name,
+      old_value: r.old_value ?? null, new_value: r.new_value ?? null,
+      changed_at: r.changed_at, source_label: r.source_label ?? null,
+    }))
+  } catch { return [] }
+}
+
+// ── getRegulatoryCalendar ─────────────────────────────────────────────────────
+
+export async function getRegulatoryCalendar(iso2?: string | null, limit = 30): Promise<RegulatoryCalendarEvent[]> {
+  const url = _INTEL_SUPABASE_URL
+  const key = _INTEL_SUPABASE_KEY
+  if (!url || !key) return []
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/get_regulatory_calendar`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_iso2: iso2 ? iso2.toUpperCase() : null, p_limit: limit }),
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any[] = res.ok ? await res.json() : []
+    return data.map(r => ({
+      id: r.id, iso2: r.iso2, event_type: r.event_type, title: r.title,
+      summary: r.summary ?? null, expected_date: r.expected_date ?? null,
+      confidence: r.confidence, source_url: r.source_url ?? null,
+      source_label: r.source_label ?? null, status: r.status,
+    }))
+  } catch { return [] }
+}
+
+// ── getCountryStatusFromDB ────────────────────────────────────────────────────
 // Fetches real country status from the countries table (191 countries seeded
 // June 2026) for the countryIntel prop in CommandCentre.
 

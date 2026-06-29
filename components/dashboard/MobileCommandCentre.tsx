@@ -2995,6 +2995,7 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
   )
 }
 
+// ── Countries Directory Mobile ────────────────────────────────────────────────
 
 function CountriesMobile({ signals, onCountrySelect }: {
   signals: DashboardSignal[]
