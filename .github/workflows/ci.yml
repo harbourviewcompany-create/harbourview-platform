@@ -115,6 +115,67 @@ jobs:
       - run: npm run test:signal-engine-runtime
       - run: npm run test:regulatory-signals-contract
 
+  # ── Security Gate ──────────────────────────────────────────────────────────
+  # Mandatory for every PR. Runs the 17 critical test files identified during
+  # the repo consolidation audit (June 2026). These tests cover:
+  #   - Public data leakage (fuzz + projection)
+  #   - Middleware auth and admin-route matching
+  #   - Medical / regulatory guardrails
+  #   - Dashboard data integrity and DTO boundaries
+  #   - Marketplace action-level validation
+  #   - Supabase admin isolation
+  #   - Globe rendering and motion preferences
+  #   - Education DTO boundaries
+  #   - Used-surplus API response shape + field allowlisting
+  #
+  # Never remove the `needs` dependency on this job from `build` — doing so
+  # would allow a regression in any of these guards to ship silently to production.
+  security-tests:
+    name: Security Test Gate
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Public leakage fuzz (security)
+        run: npx vitest run tests/security/public-leakage-fuzz.test.ts
+      - name: Public safety fuzz (harbourview)
+        run: npx vitest run tests/harbourview/public-safety-fuzz.test.ts
+      - name: Middleware admin matcher
+        run: npx vitest run tests/harbourview/middleware-admin-matcher.test.ts
+      - name: Middleware redirects
+        run: npx vitest run tests/harbourview/middleware-redirects.test.ts
+      - name: Middleware signals matcher
+        run: npx vitest run tests/harbourview/middleware-signals-matcher.test.ts
+      - name: Global CSS regression
+        run: npx vitest run tests/harbourview/global-css-regression.test.ts
+      - name: Medical guardrails
+        run: npx vitest run tests/education/medical-guardrails.test.ts
+      - name: Education DTO boundary
+        run: npx vitest run tests/education/dto-boundary.test.ts
+      - name: Commercial dashboard integrity
+        run: npx vitest run tests/dashboard/commercialDashboard.test.tsx
+      - name: Dashboard routing
+        run: npx vitest run tests/dashboard/routing.test.ts
+      - name: Marketplace submission actions
+        run: npx vitest run tests/actions/marketplaceSubmissionActions.test.ts
+      - name: Supabase admin data client isolation
+        run: npx vitest run tests/supabase/adminDataClient.test.ts
+      - name: Supabase env validation
+        run: npx vitest run tests/supabase/env.test.ts
+      - name: Globe motion preferences
+        run: npx vitest run tests/globe-motion-preferences.test.ts
+      - name: Used-surplus preview route
+        run: npx vitest run tests/api/used-surplus-preview-route.test.ts
+      - name: Globe interactive readiness
+        run: npx vitest run tests/harbourview/globe-interactive-readiness.test.ts
+      - name: Natural Earth countries
+        run: npx vitest run tests/globe-natural-earth-countries.test.ts
+
   smoke:
     name: Smoke Tests
     runs-on: ubuntu-latest
@@ -134,8 +195,7 @@ jobs:
   build:
     name: Next.js Build
     runs-on: ubuntu-latest
-    # Build requires both smoke tests AND the env-check to pass
-    needs: [smoke, env-check]
+    needs: [smoke, env-check, security-tests]
     env:
       NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
