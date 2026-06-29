@@ -64,8 +64,8 @@ jobs:
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          TEAM_ID: ${{ secrets.VERCEL_ORG_ID }}
-          PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
+          PROJECT_ID: prj_Zp8HBDstqAAOCN6W7LAElahsq3qS
         run: |
           set -euo pipefail
           REF="${{ inputs.ref_name || 'main' }}"
