@@ -15,7 +15,7 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
-// ── Subscription tier type ─────────────────────────────────────────────────────
+// ── Subscription tier type ───────────────────────────────────────────────────
 type SubscriptionTier = 'free' | 'starter' | 'professional' | 'enterprise'
 
 // Routes that require a minimum subscription tier beyond free.
@@ -125,7 +125,7 @@ export async function middleware(request: NextRequest) {
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
-    // ── Subscription tier gate ─────────────────────────────────────────────────
+    // ── Subscription tier gate ───────────────────────────────────────────────────
     // Read tier from JWT app_metadata — zero extra DB round-trip.
     const tier = (user.app_metadata?.subscription_tier ?? 'free') as SubscriptionTier
 
@@ -160,6 +160,7 @@ export const config = {
     '/account/:path*',
     '/vault/:path*',
     '/intake/:path*',
+    '/signals',
     '/signals/:path*',
     '/intelligence/:path*',
     '/genetics/:path*',
@@ -178,4 +179,3 @@ export const config = {
     '/commercial-intelligence',
   ],
 }
-
