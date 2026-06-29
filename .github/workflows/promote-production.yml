@@ -1,0 +1,83 @@
+name: Promote Production
+
+# Manual, gated production deploy via the Vercel CLI.
+# This project does not auto-deploy main pushes to production; production is
+# shipped via an explicit promote/redeploy. This workflow runs the same gate
+# suite as the controlled preview, then deploys the built output to production.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        description: Branch, tag, or SHA to deploy to production. Defaults to main.
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  promote-production:
+    name: Verify and deploy to Vercel production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref_name || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Public visibility and leakage checks
+        run: npm run test:visibility
+
+      - name: Regulatory signals public leakage
+        run: npm run test:regulatory-signals-public-leakage
+
+      - name: Regulatory signals contract
+        run: npm run test:regulatory-signals-contract
+
+      - name: Public image asset verification
+        run: npm run test:public-images
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Vercel prebuilt output (production)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel production
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Production deployment: $DEPLOYMENT_URL"
+
+      - name: Deployment summary
+        run: |
+          echo "## Vercel production deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ref: ${{ inputs.ref_name || github.ref }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment URL: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
