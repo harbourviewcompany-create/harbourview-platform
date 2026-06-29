@@ -321,22 +321,24 @@ describe('Harbourview globe same-screen router', () => {
     expect(globeRouteManifestMap['/education/compliance']).toBeUndefined()
   })
 
-  it('moves from country to role directly to routing without an intent step', () => {
+  it('moves from country to market_overview then role selection fires routing immediately', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'CA' })
     const afterRole = globeRouterReducer(afterCountry, { type: 'ROLE_SELECT', roleId: 'cultivator_producer' })
 
-    expect(afterCountry.step).toBe('role')
-    // Intent step removed — role selection fires the resolver immediately
+    // COUNTRY_SELECT lands on market_overview (country brief + role chips shown)
+    expect(afterCountry.step).toBe('market_overview')
+    // ROLE_SELECT fires the resolver immediately — no separate intent step
     expect(afterRole.step).toBe('routing')
     expect(afterRole.routeStatus).toBe('resolving')
     expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
-  it('returns to the country step on back from role so the camera can fly back to globe', () => {
+  it('returns to the country step on back from market_overview so the camera can fly back to globe', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const afterBack = globeRouterReducer(afterCountry, { type: 'BACK' })
 
-    expect(afterCountry.step).toBe('role')
+    // COUNTRY_SELECT lands on market_overview; BACK from market_overview returns to country
+    expect(afterCountry.step).toBe('market_overview')
     expect(afterBack.step).toBe('country')
     expect(afterBack.selectedRoleId).toBeUndefined()
   })
@@ -358,8 +360,8 @@ describe('Harbourview globe same-screen router', () => {
     expect(fallback.selectedCountryIso2).toBe('DE')
     expect(fallback.selectedRoleId).toBe('doctor_prescriber')
     expect(fallback.requestedPath).toBe('/education/medical')
-    // BACK from fallback returns to role selection (intent step removed)
-    expect(back.step).toBe('role')
+    // BACK from fallback returns to market_overview (role chips visible again)
+    expect(back.step).toBe('market_overview')
     expect(back.routeStatus).toBe('idle')
     expect(back.selectedCountryIso2).toBe('DE')
     expect(reset).toEqual(initialGlobeRouterState)

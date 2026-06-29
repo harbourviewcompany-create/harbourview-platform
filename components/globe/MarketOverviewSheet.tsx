@@ -168,6 +168,7 @@ export function MarketOverviewSheet({
           .eq('state_iso2', code)
           .order('last_reviewed_date', { ascending: false })
           .limit(1)
+          .returns<JurisdictionBriefing>()
           .maybeSingle()
 
         if (stateErr) console.error('[MarketOverviewSheet] subnational fetch:', stateErr.message)
@@ -180,6 +181,7 @@ export function MarketOverviewSheet({
           .eq('jurisdiction_type', 'country')
           .order('last_reviewed_date', { ascending: false })
           .limit(1)
+          .returns<JurisdictionBriefing>()
           .maybeSingle()
 
         if (countryErr) console.error('[MarketOverviewSheet] country fallback fetch:', countryErr.message)
@@ -193,6 +195,7 @@ export function MarketOverviewSheet({
         .eq('jurisdiction_type', 'country')
         .order('last_reviewed_date', { ascending: false })
         .limit(1)
+        .returns<JurisdictionBriefing>()
         .maybeSingle()
 
       if (error) console.error('[MarketOverviewSheet] country fetch:', error.message)
