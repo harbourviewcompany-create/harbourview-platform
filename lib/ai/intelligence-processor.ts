@@ -118,11 +118,11 @@ function quickRelevanceCheck(text: string): { pass: boolean; reason?: string } {
     /eligibilitycriteria.*inclusion criteria/i,
     /"studytype"\s*:\s*"interventional"/i,
     /"phases"\s*:\s*\["phase/i,
-    /pharmacokinetics.*\{.*timeframe/i,
+    /pharmacokinetics[\s\S]*\{[\s\S]*timeframe/i,
     // Retail product listings
-    /view all.*vape cartridges.*view all.*extracts/i,
-    /\$\d+\.\d+.*hybrid.*indica.*sativa/i,
-    /add to cart.*thc.*mg\/pc/i,
+    /view all[\s\S]*vape cartridges[\s\S]*view all[\s\S]*extracts/i,
+    /\$\d+\.\d+[\s\S]*hybrid[\s\S]*indica[\s\S]*sativa/i,
+    /add to cart[\s\S]*thc[\s\S]*mg\/pc/i,
     // Raw API JSON blobs
     /^\s*\{[\s\S]*"eligibilitymodule"/i,
     /conditionsmodule[\s\S]*designmodule[\s\S]*interventionsmodule/i,

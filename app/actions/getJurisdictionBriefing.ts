@@ -9,7 +9,8 @@ export type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes
 export async function getJurisdictionBriefing(
   countryIso2: string,
 ): Promise<import('@/lib/globe/jurisdictionBriefingTypes').JurisdictionBriefing | null> {
-  const supabase = createClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient<any>(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
   })
 
@@ -23,5 +24,5 @@ export async function getJurisdictionBriefing(
     .maybeSingle()
 
   if (error) console.error('[getJurisdictionBriefing]', error)
-  return (data as import('@/lib/globe/jurisdictionBriefingTypes').JurisdictionBriefing | null) ?? null
+  return (data as unknown as import('@/lib/globe/jurisdictionBriefingTypes').JurisdictionBriefing | null) ?? null
 }

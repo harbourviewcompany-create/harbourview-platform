@@ -9,7 +9,8 @@ import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 
 /** Lazy singleton — reuses one client instance for the lifetime of the page. */
 function getClient() {
-  return createClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createClient<any>(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
   })
 }
@@ -170,7 +171,7 @@ export function MarketOverviewSheet({
           .maybeSingle()
 
         if (stateErr) console.error('[MarketOverviewSheet] subnational fetch:', stateErr.message)
-        if (stateRow) return (stateRow as unknown as JurisdictionBriefing)
+        if (stateRow) return stateRow as unknown as JurisdictionBriefing
 
         const { data: countryRow, error: countryErr } = await db
           .from('cc_jurisdiction_briefings')
@@ -182,7 +183,7 @@ export function MarketOverviewSheet({
           .maybeSingle()
 
         if (countryErr) console.error('[MarketOverviewSheet] country fallback fetch:', countryErr.message)
-        return (countryRow as JurisdictionBriefing | null) ?? null
+        return (countryRow as unknown as JurisdictionBriefing | null) ?? null
       }
 
       const { data, error } = await db
@@ -195,7 +196,7 @@ export function MarketOverviewSheet({
         .maybeSingle()
 
       if (error) console.error('[MarketOverviewSheet] country fetch:', error.message)
-      return (data as JurisdictionBriefing | null) ?? null
+      return (data as unknown as JurisdictionBriefing | null) ?? null
     }
 
     load()
