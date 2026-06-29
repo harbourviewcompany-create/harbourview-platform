@@ -98,10 +98,9 @@ export async function GET(request: Request) {
   const lookbackISO = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000).toISOString()
 
   const { data: allSignals, error: sigErr } = await supabase
-    .from('ia_signals')
+    .from('signals_for_digest')
     .select('id, title, type, market, category, confidence, commercial_impact, summary, detected_at')
-    .gte('detected_at', lookbackISO.slice(0, 10)) // date comparison
-    .eq('stage', 'new')                            // only fresh signals
+    .gte('detected_at', lookbackISO.slice(0, 10))
     .order('detected_at', { ascending: false })
     .limit(500)
 
