@@ -154,6 +154,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/admin',
     '/admin/:path*',
     '/dashboard/:path*',
     '/account/:path*',
@@ -177,3 +178,4 @@ export const config = {
     '/commercial-intelligence',
   ],
 }
+
