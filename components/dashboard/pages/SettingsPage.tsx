@@ -84,13 +84,9 @@ export const SettingsPage = React.memo(function SettingsPage({
               <span className="sg-ctx-label">ISO Code</span>
               <span className="sg-ctx-val sg-ctx-mono">{country.iso2}</span>
             </div>
-            <div className="sg-ctx-row">
-              <span className="sg-ctx-label">Role</span>
-              <span className="sg-ctx-val">{role || 'Not selected'}</span>
-            </div>
           </div>
           <p className="sg-ctx-note">
-            Change your market or role using the selectors in the header bar. Context is applied
+            Change your market using the selector in the header bar. Context is applied
             to all pages in the Command Centre.
           </p>
 

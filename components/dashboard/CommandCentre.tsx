@@ -4040,17 +4040,6 @@ export default function CommandCentre({
         </div>
 
         <div className="cc-header-right">
-          <div className="cc-role-selector">
-            <span className="cc-role-label">ROLE</span>
-            <CustomSelect
-              value={role}
-              options={roleOptions}
-              placeholder="Select role"
-              onChange={setRole}
-              className="cc-role-select"
-            />
-          </div>
-
           <button
             className="cc-kbd-btn"
             onClick={() => setPaletteOpen(true)}
