@@ -3,12 +3,18 @@
 # Local dev: wrangler dev
 
 name = "harbourview-intelligence"
-main = "scripts/engine/start-worker.ts"
+# scripts/engine/start-worker.ts is the Node.js daemon entrypoint (infinite
+# poll loop) for a persistent host (Docker/ECS/Cloud Run/Fly/Railway) --
+# incompatible with this platform, which has no persistent process.
+# cloudflare-worker.ts exports the scheduled()/fetch() handlers this
+# platform actually invokes; only the "Ingestion run" cron below has a
+# real implementation behind it today (see that file's header comment).
+main = "scripts/engine/cloudflare-worker.ts"
 compatibility_date = "2025-06-28"
 compatibility_flags = ["nodejs_compat"]
 
 [build]
-command = "npx tsx --noEmit scripts/engine/start-worker.ts || true"
+command = "npx tsc --noEmit scripts/engine/cloudflare-worker.ts || true"
 
 # ── Cron triggers ──────────────────────────────────────────────────────────────
 [triggers]

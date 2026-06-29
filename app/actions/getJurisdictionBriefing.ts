@@ -21,6 +21,7 @@ export async function getJurisdictionBriefing(
     .eq('jurisdiction_type', 'country')
     .order('last_reviewed_date', { ascending: false })
     .limit(1)
+    .returns<import('@/lib/globe/jurisdictionBriefingTypes').JurisdictionBriefing>()
     .maybeSingle()
 
   if (error) console.error('[getJurisdictionBriefing]', error)

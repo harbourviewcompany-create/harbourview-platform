@@ -53,6 +53,29 @@ export class WorkerNode {
    * scripts/engine/start-worker.ts, which reads them from env vars), so
    * tuning doesn't require a code change.
    */
+  /**
+   * A single bounded processBatch() pass, for invocation-per-trigger hosts
+   * (Cloudflare Workers' scheduled handler in particular, which runs each
+   * cron tick as its own isolated execution -- there is no persistent
+   * process to loop in). Does not start the Node http health server (not
+   * available/meaningful on that runtime); callers on that platform should
+   * read worker_heartbeats directly instead (see
+   * scripts/engine/cloudflare-worker.ts). Use start() instead for a
+   * persistent host where an infinite poll loop is the correct shape.
+   */
+  async runOnce(batchSize: number = 10): Promise<{ targetsProcessed: number }> {
+    await this.writeHeartbeat('running');
+    try {
+      await this.processBatch(batchSize);
+      await this.writeHeartbeat('idle');
+      return { targetsProcessed: this.targetsProcessedTotal };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.writeHeartbeat('idle', message);
+      throw err;
+    }
+  }
+
   async start(pollIntervalMs: number = 10000, batchSize: number = 10) {
     this.isRunning = true;
     await this.writeHeartbeat('running');

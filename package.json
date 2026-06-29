@@ -31,6 +31,7 @@
     "smoke:marketplace:rls": "vitest run tests/marketplace/seedImportSchema.test.ts tests/marketplace/publicProjection.test.ts",
     "test:e2e": "npx playwright test tests/e2e/",
     "probe:production-visibility": "node scripts/probe-public-leakage.mjs",
+    "check:critical-env": "node scripts/check-critical-env.mjs",
     "test": "npm run test:globe-router && npm run test:country-role && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
     "intelligence:discover": "tsx scripts/engine/global-discovery.ts",
@@ -64,11 +65,11 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.185.0",
-    "@tailwindcss/postcss": "^4.3.1",
     "eslint": "^10.5.0",
     "eslint-config-next": "^15.3.1",
     "postcss": "^8.5.15",
