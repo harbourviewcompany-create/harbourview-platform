@@ -47,7 +47,7 @@
     "class-variance-authority": "^0.7.1",
     "sonner": "^1.7.4",
     "@google/genai": "^2.10.0",
-    "@opennextjs/cloudflare": "^1.20.0",
+    "@opennextjs/cloudflare": "^1.20.1",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
     "@react-three/postprocessing": "^3.0.4",
