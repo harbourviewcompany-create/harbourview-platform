@@ -1,0 +1,46 @@
+name: Vercel Deploy Debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        description: Branch/ref to deploy to production
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel production deployment (git source)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: ${{ secrets.VERCEL_ORG_ID }}
+          PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -uo pipefail
+          REF="${{ inputs.ref_name || 'main' }}"
+          echo "team=$TEAM_ID project=$PROJECT_ID ref=$REF"
+          resp=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://api.vercel.com/v13/deployments?teamId=${TEAM_ID}&forceNew=1" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"harbourview\",
+              \"project\": \"${PROJECT_ID}\",
+              \"target\": \"production\",
+              \"gitSource\": { \"type\": \"github\", \"repoId\": 1214598473, \"ref\": \"${REF}\" }
+            }")
+          status=$(echo "$resp" | sed -n 's/^HTTP_STATUS://p')
+          body=$(echo "$resp" | sed '/^HTTP_STATUS:/d')
+          flat=$(echo "$body" | tr '\n' ' ' | head -c 900)
+          echo "HTTP $status"
+          echo "::notice::Vercel HTTP $status :: $flat"
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::Vercel HTTP $status :: $flat"
+            exit 1
+          fi

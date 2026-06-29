@@ -85,7 +85,7 @@ jobs:
           echo "HTTP $status"
           echo "$body" | head -c 1200; echo
           if [ "$status" != "200" ] && [ "$status" != "201" ]; then
-            echo "::error::Vercel deployment trigger failed (HTTP $status)"
+            echo "::error::Vercel deploy HTTP $status :: $(echo "$body" | tr '\n' ' ' | head -c 900)"
             exit 1
           fi
           url=$(echo "$body" | python3 -c "import sys,json;print(json.load(sys.stdin).get('url',''))" 2>/dev/null || true)
