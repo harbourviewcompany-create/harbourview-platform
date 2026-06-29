@@ -1,0 +1,38 @@
+name: Vercel Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: Deployment ID (dpl_...) to promote to production
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promote deployment to production alias
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
+          PROJECT_ID: prj_Zp8HBDstqAAOCN6W7LAElahsq3qS
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+        run: |
+          set -uo pipefail
+          echo "Promoting $DEPLOYMENT_ID to production on project $PROJECT_ID"
+          resp=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://api.vercel.com/v10/projects/${PROJECT_ID}/promote/${DEPLOYMENT_ID}?teamId=${TEAM_ID}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json")
+          status=$(echo "$resp" | sed -n 's/^HTTP_STATUS://p')
+          body=$(echo "$resp" | sed '/^HTTP_STATUS:/d' | tr '\n' ' ' | head -c 700)
+          echo "HTTP $status :: $body"
+          if [ "$status" != "200" ] && [ "$status" != "201" ] && [ "$status" != "204" ]; then
+            echo "::error::Promote HTTP $status :: $body"
+            exit 1
+          fi
+          echo "::notice::Promote HTTP $status :: $body"
