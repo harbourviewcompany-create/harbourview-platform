@@ -1,19 +1,33 @@
 /**
- * Stripe singleton — import this everywhere instead of instantiating Stripe directly.
- * Throws at startup if STRIPE_SECRET_KEY is missing so misconfiguration fails fast.
+ * Stripe singleton — import `stripe` everywhere instead of instantiating Stripe
+ * directly. The underlying client is created lazily on first use (getStripe), so
+ * importing this module never throws at build time. `next build` collects page
+ * data by importing route modules where STRIPE_SECRET_KEY is absent; eager init
+ * crashed the build there. The missing-key check still fails fast — at request
+ * time, when the client is first used. Mirrors lib/stripe/server.ts.
  */
 import 'server-only'
 import Stripe from 'stripe'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error(
-    '[harbourview:billing] STRIPE_SECRET_KEY is not set. ' +
-    'Add it to your Vercel environment variables.'
-  )
+let _stripe: Stripe | null = null
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) {
+      throw new Error(
+        '[harbourview:billing] STRIPE_SECRET_KEY is not set. ' +
+        'Add it to your Vercel environment variables.'
+      )
+    }
+    _stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' })
+  }
+  return _stripe
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-06-24.dahlia',
+// Proxy keeps the `stripe.xxx` call pattern working without eager init.
+export const stripe = new Proxy({} as Stripe, {
+  get(_t, prop) { return getStripe()[prop as keyof Stripe] },
 })
 
 // Tier mapping: Stripe Price ID → internal SubscriptionTier
