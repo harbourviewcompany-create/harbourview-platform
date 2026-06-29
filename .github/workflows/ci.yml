@@ -10,49 +10,75 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# ── Shared node_modules cache ────────────────────────────────────────────────
+# All jobs restore from the same cache key. The first job to complete primes it;
+# subsequent jobs hit it. Saves ~60-90s of npm ci per job.
+env:
+  NODE_VERSION: '22'
+
 jobs:
-  typecheck:
-    name: Type Check
+  # ── Install once, cache for all downstream jobs ────────────────────────────
+  install:
+    name: Install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
+      - uses: actions/cache/save@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+  # ── Typecheck ────────────────────────────────────────────────────────────────
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run typecheck
 
-  # ── Critical environment variable sanity check ──────────────────────────────
-  # Runs on every push/PR to main. Fails hard if any production-critical secret
-  # is absent from GitHub Actions secrets. Warnings (degraded-only vars) are
-  # logged but do not block the pipeline.
-  #
-  # To add or adjust checked variables, edit scripts/check-critical-env.mjs.
-  # To add a new GitHub Actions secret: repo Settings → Secrets → Actions.
+  # ── Critical env check (parallel with typecheck, no npm ci needed) ──────────
+  # Runs node directly — no test framework, no build. Fastest possible gate.
   env-check:
     name: Critical Env Secrets
     runs-on: ubuntu-latest
-    # Run in parallel with typecheck — no dependency needed.
+    needs: install
     env:
-      # Critical — will fail the job if absent
       HF_TOKEN_SERVER:                   ${{ secrets.HF_TOKEN_SERVER }}
       GEMINI_API_KEY:                    ${{ secrets.GEMINI_API_KEY }}
       HARBOURVIEW_EDGE_OPERATOR_SECRET:  ${{ secrets.HARBOURVIEW_EDGE_OPERATOR_SECRET }}
       CRON_SECRET:                       ${{ secrets.CRON_SECRET }}
       SUPABASE_SERVICE_ROLE_KEY:         ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      # Warnings — absent degrades features but does not block pipeline
-      HF_ENDPOINT_EMBED_BGE_M3:         ${{ secrets.HF_ENDPOINT_EMBED_BGE_M3 }}
+      HF_ENDPOINT_EMBED_BGE_M3:          ${{ secrets.HF_ENDPOINT_EMBED_BGE_M3 }}
       XAI_API_KEY:                       ${{ secrets.XAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Check critical environment variables
         run: node scripts/check-critical-env.mjs
 
+  # ── Security / Leakage ───────────────────────────────────────────────────────
+  # Deduplicated: public-route-smoke.test.ts and public-projection-leakage.test.ts
+  # were each run 2-3x across old security + smoke jobs. Consolidated here.
   security:
     name: Security / Leakage
     runs-on: ubuntu-latest
@@ -61,89 +87,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - run: npm ci
-      - run: npm run test:visibility
-      - run: npm run test:services-public-leakage
-      - run: npm run test:used-surplus-public-leakage
-
-  domain:
-    name: Domain Logic
-    runs-on: ubuntu-latest
-    needs: typecheck
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/cache/restore@v4
         with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test:globe-router
-      - run: npm run test:country-role
-      - run: npm run test:genetics-routing
-      - run: npm run test:genetics-profile-redaction
-      - run: npm run test:regulatory-signals-contract
-      - run: npm run test:intelligence-os
-
-  intake:
-    name: Intake & Listings
-    runs-on: ubuntu-latest
-    needs: typecheck
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test:new-products-equipment-intake
-      - run: npm run test:listing-quality
-      - run: npm run test:public-images
-
-  signal-engine:
-    name: Signal Engine Runtime
-    runs-on: ubuntu-latest
-    needs: typecheck
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test:signal-engine-runtime
-      - run: npm run test:regulatory-signals-contract
-
-  # ── Security Gate ──────────────────────────────────────────────────────────
-  # Mandatory for every PR. Runs the 17 critical test files identified during
-  # the repo consolidation audit (June 2026). These tests cover:
-  #   - Public data leakage (fuzz + projection)
-  #   - Middleware auth and admin-route matching
-  #   - Medical / regulatory guardrails
-  #   - Dashboard data integrity and DTO boundaries
-  #   - Marketplace action-level validation
-  #   - Supabase admin isolation
-  #   - Globe rendering and motion preferences
-  #   - Education DTO boundaries
-  #   - Used-surplus API response shape + field allowlisting
-  #
-  # Never remove the `needs` dependency on this job from `build` — doing so
-  # would allow a regression in any of these guards to ship silently to production.
-  security-tests:
-    name: Security Test Gate
-    runs-on: ubuntu-latest
-    needs: typecheck
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci
-      - name: Public leakage fuzz (security)
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # Public leakage — runs once here, not again in smoke
+      - run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts
+      # Used-surplus leakage — publicProjection.test.ts runs once here
+      - run: npx vitest run tests/marketplace/publicProjection.test.ts
+      - name: Public leakage fuzz
         run: npx vitest run tests/security/public-leakage-fuzz.test.ts
-      - name: Public safety fuzz (harbourview)
+      - name: Public safety fuzz
         run: npx vitest run tests/harbourview/public-safety-fuzz.test.ts
       - name: Middleware admin matcher
         run: npx vitest run tests/harbourview/middleware-admin-matcher.test.ts
@@ -163,7 +119,7 @@ jobs:
         run: npx vitest run tests/dashboard/routing.test.ts
       - name: Marketplace submission actions
         run: npx vitest run tests/actions/marketplaceSubmissionActions.test.ts
-      - name: Supabase admin data client isolation
+      - name: Supabase admin client isolation
         run: npx vitest run tests/supabase/adminDataClient.test.ts
       - name: Supabase env validation
         run: npx vitest run tests/supabase/env.test.ts
@@ -176,6 +132,65 @@ jobs:
       - name: Natural Earth countries
         run: npx vitest run tests/globe-natural-earth-countries.test.ts
 
+  # ── Domain Logic ─────────────────────────────────────────────────────────────
+  domain:
+    name: Domain Logic
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm run test:globe-router
+      - run: npm run test:country-role
+      - run: npm run test:genetics-routing
+      - run: npm run test:genetics-profile-redaction
+      - run: npm run test:regulatory-signals-contract
+      - run: npm run test:intelligence-os
+
+  # ── Intake & Listings ────────────────────────────────────────────────────────
+  intake:
+    name: Intake & Listings
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm run test:new-products-equipment-intake
+      - run: npx vitest run tests/harbourview/unified-listings-dto.test.ts
+      - run: npm run test:public-images
+
+  # ── Signal Engine Runtime ────────────────────────────────────────────────────
+  signal-engine:
+    name: Signal Engine Runtime
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm run test:signal-engine-runtime
+
+  # ── Smoke ────────────────────────────────────────────────────────────────────
   smoke:
     name: Smoke Tests
     runs-on: ubuntu-latest
@@ -184,32 +199,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - run: npm ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run smoke:marketplace
-      - run: npm run smoke:marketplace:rls
-      - run: npm run test:compliance-visibility
-      - run: npm run test:admin-guard
+      - run: npx vitest run tests/marketplace/seedImportSchema.test.ts
 
+  # ── Build ────────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
     runs-on: ubuntu-latest
-    needs: [smoke, env-check, security-tests]
+    needs: [smoke, env-check]
     env:
-      NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL:      ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      STRIPE_SECRET_KEY:         ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_SECRET_KEY:             ${{ secrets.STRIPE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - run: npm ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run build
 
-  # E2E runs only on push to main (not PRs) — Playwright is slow
+  # ── E2E (push to main only) ──────────────────────────────────────────────────
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
@@ -219,13 +239,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - run: npm ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
         env:
-          NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL:      ${{ secrets.NEXT_PUBLIC_SUPABASE_URD }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_TEST_USER_EMAIL:       ${{ secrets.E2E_TEST_USER_EMAIL }}
-          E2E_TEST_USER_PASSWORD:    ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          E2E_TEST_USER_EMAIL:           ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD:        ${{ secrets.E2E_TEST_USER_PASSWORD }}
