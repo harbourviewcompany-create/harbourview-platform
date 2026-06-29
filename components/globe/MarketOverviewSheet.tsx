@@ -155,51 +155,62 @@ export function MarketOverviewSheet({
       return
     }
 
+    // Throw on a real PostgREST/transport error so it surfaces as the retryable
+    // error state. A clean empty result (`[]`) returns null → genuine "no briefing".
+    function firstOrThrow(
+      result: { data: JurisdictionBriefing[] | null; error: { message: string } | null },
+      label: string,
+    ): JurisdictionBriefing | null {
+      if (result.error) {
+        // Real failure (auth, RLS, network, schema) — do NOT mask as "no briefing".
+        throw new Error(`cc_jurisdiction_briefings[${label}]: ${result.error.message}`)
+      }
+      return result.data?.[0] ?? null
+    }
+
+    // NOTE: we use `.limit(1)` returning an ARRAY, never `.maybeSingle()`.
+    // PostgREST returns HTTP 406 for the single-object accept header when zero
+    // rows match; supabase-js surfaces that as an error, making a genuinely
+    // empty briefing indistinguishable from a real transport failure (the root
+    // cause of every jurisdiction rendering "no briefing on file"). An array
+    // select makes an empty result a clean `[]` (HTTP 200); only true errors throw.
     async function load(): Promise<JurisdictionBriefing | null> {
       const db = getClient()
 
       if (code.includes('-')) {
         const parentIso2 = code.split('-')[0]
 
-        const { data: stateRow, error: stateErr } = await db
+        const stateRes = await db
           .from('cc_jurisdiction_briefings')
           .select(BRIEFING_SELECT)
           .eq('country_iso2', parentIso2)
           .eq('state_iso2', code)
           .order('last_reviewed_date', { ascending: false })
           .limit(1)
-          .returns<JurisdictionBriefing>()
-          .maybeSingle()
+          .returns<JurisdictionBriefing[]>()
+        const stateRow = firstOrThrow(stateRes, 'state')
+        if (stateRow) return stateRow
 
-        if (stateErr) console.error('[MarketOverviewSheet] subnational fetch:', stateErr.message)
-        if (stateRow) return stateRow as unknown as JurisdictionBriefing
-
-        const { data: countryRow, error: countryErr } = await db
+        const countryRes = await db
           .from('cc_jurisdiction_briefings')
           .select(BRIEFING_SELECT)
           .eq('country_iso2', parentIso2)
           .eq('jurisdiction_type', 'country')
           .order('last_reviewed_date', { ascending: false })
           .limit(1)
-          .returns<JurisdictionBriefing>()
-          .maybeSingle()
-
-        if (countryErr) console.error('[MarketOverviewSheet] country fallback fetch:', countryErr.message)
-        return (countryRow as unknown as JurisdictionBriefing | null) ?? null
+          .returns<JurisdictionBriefing[]>()
+        return firstOrThrow(countryRes, 'country-fallback')
       }
 
-      const { data, error } = await db
+      const res = await db
         .from('cc_jurisdiction_briefings')
         .select(BRIEFING_SELECT)
         .eq('country_iso2', code)
         .eq('jurisdiction_type', 'country')
         .order('last_reviewed_date', { ascending: false })
         .limit(1)
-        .returns<JurisdictionBriefing>()
-        .maybeSingle()
-
-      if (error) console.error('[MarketOverviewSheet] country fetch:', error.message)
-      return (data as unknown as JurisdictionBriefing | null) ?? null
+        .returns<JurisdictionBriefing[]>()
+      return firstOrThrow(res, 'country')
     }
 
     load()
