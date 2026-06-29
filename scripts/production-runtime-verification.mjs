@@ -9,15 +9,15 @@ const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 const routes = [
   { path: '/', expected: 'ok' },
-  { path: '/signals', expected: 'ok' },
-  { path: '/intelligence', expected: 'ok' },
+  { path: '/signals', expected: 'auth-denied' },      // protected: redirects to /login
+  { path: '/intelligence', expected: 'auth-denied' }, // protected: redirects to /login
   { path: '/marketplace', expected: 'ok' },
   { path: '/marketplace/listings', expected: 'ok' },
   { path: '/marketplace/wanted', expected: 'ok' },
   { path: '/marketplace/sell', expected: 'auth-denied' }, // gated in middleware.ts PROTECTED_PREFIXES
   { path: '/markets', expected: 'ok' },
   { path: '/contact', expected: 'ok' },
-  { path: '/intake', expected: 'ok' },
+  { path: '/intake', expected: 'auth-denied' },       // protected: redirects to /login
   { path: '/admin', expected: 'auth-denied' },
 ]
 
@@ -160,6 +160,7 @@ function markdownReport(report) {
     '## Gate rules',
     '',
     '- Public routes must return HTTP 200.',
+    '- Protected routes must return 401, 403, redirect or recognized denial content.',
     '- `/admin` must return 401, 403, redirect or recognized admin-denial content.',
     '- Forbidden leakage strings must be absent from rendered HTML.',
     '- Runtime-error markers must be absent from rendered HTML.',
