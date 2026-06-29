@@ -23,6 +23,36 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
 
+  # ── Critical environment variable sanity check ──────────────────────────────
+  # Runs on every push/PR to main. Fails hard if any production-critical secret
+  # is absent from GitHub Actions secrets. Warnings (degraded-only vars) are
+  # logged but do not block the pipeline.
+  #
+  # To add or adjust checked variables, edit scripts/check-critical-env.mjs.
+  # To add a new GitHub Actions secret: repo Settings → Secrets → Actions.
+  env-check:
+    name: Critical Env Secrets
+    runs-on: ubuntu-latest
+    # Run in parallel with typecheck — no dependency needed.
+    env:
+      # Critical — will fail the job if absent
+      HF_TOKEN_SERVER:                   ${{ secrets.HF_TOKEN_SERVER }}
+      GEMINI_API_KEY:                    ${{ secrets.GEMINI_API_KEY }}
+      HARBOURVIEW_EDGE_OPERATOR_SECRET:  ${{ secrets.HARBOURVIEW_EDGE_OPERATOR_SECRET }}
+      CRON_SECRET:                       ${{ secrets.CRON_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY:         ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Warnings — absent degrades features but does not block pipeline
+      HF_ENDPOINT_EMBED_BGE_M3:         ${{ secrets.HF_ENDPOINT_EMBED_BGE_M3 }}
+      XAI_API_KEY:                       ${{ secrets.XAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Check critical environment variables
+        run: node scripts/check-critical-env.mjs
+
   security:
     name: Security / Leakage
     runs-on: ubuntu-latest
@@ -104,7 +134,8 @@ jobs:
   build:
     name: Next.js Build
     runs-on: ubuntu-latest
-    needs: smoke
+    # Build requires both smoke tests AND the env-check to pass
+    needs: [smoke, env-check]
     env:
       NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

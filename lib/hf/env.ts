@@ -18,12 +18,21 @@ const optionalUrl = optionalStr.pipe(z.string().url().optional());
 /**
  * All HF_ environment variables are server-only.
  * Browser-exposed ("NEXT_PUBLIC_" prefixed) HF variables are NEVER authorized.
+ *
+ * Canonical token variable: HF_TOKEN_SERVER
+ * The legacy alias HF_TOKEN is no longer silently accepted here. Every module
+ * that previously read process.env.HF_TOKEN directly has been updated to read
+ * HF_TOKEN_SERVER. If you see HF_ENV_INVALID failures referencing HF_TOKEN_SERVER,
+ * set HF_TOKEN_SERVER in your environment — do not add HF_TOKEN back.
  */
 const schema = z.object({
   HF_ORG: requiredStr.default('Harbourview'),
   HF_TOKEN_SERVER: requiredStr,
 
-  // Inference endpoint URLs — set once endpoints are provisioned
+  // Inference endpoint URLs — set once endpoints are provisioned (paid tier).
+  // Until provisioned, embed-artifacts uses the free serverless inference API
+  // (sentence-transformers/all-MiniLM-L6-v2, 384-dim) — no cost, no endpoint
+  // required. See docs/OPERATING_AUTHORITY.md for provisioning status.
   HF_ENDPOINT_EMBED_BGE_M3: optionalUrl,
   HF_ENDPOINT_RERANK_BGE_V2_M3: optionalUrl,
   HF_ENDPOINT_EXTRACT_QWEN3_4B: optionalUrl,
@@ -50,8 +59,11 @@ export function parseHfEnv(raw: NodeJS.ProcessEnv = process.env) {
   const merged = {
     ...FREE_API_DEFAULTS,
     ...raw,
-    // Accept HF_TOKEN as fallback when HF_TOKEN_SERVER is absent
-    HF_TOKEN_SERVER: raw.HF_TOKEN_SERVER || raw.HF_TOKEN,
+    // HF_TOKEN_SERVER is the only authorized token variable.
+    // We do NOT fall back to HF_TOKEN here — the fallback was silently masking
+    // misconfigured deployments. If HF_TOKEN_SERVER is absent, validation will
+    // fail with a clear error. See scripts/check-critical-env.mjs for the CI
+    // sanity check that catches this before it reaches production.
   };
   return schema.safeParse(merged);
 }
