@@ -63,7 +63,7 @@
     },
     {
       "path": "/api/cron/marketplace-match",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }
