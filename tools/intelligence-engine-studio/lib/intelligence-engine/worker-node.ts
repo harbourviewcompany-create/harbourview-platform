@@ -9,6 +9,11 @@ import { IDataAdapter, ScrapeTarget, ScraperResult } from './types';
 import crypto from 'crypto';
 import http from 'http';
 
+// PostgREST on this Supabase project only exposes the `api` schema, not
+// `public` -- see orchestrator.ts in this same directory for the full
+// explanation; kept in sync with the main app's lib/supabase/env.ts.
+const SUPABASE_DB_SCHEMA = 'api' as const;
+
 const RETRYABLE_STATUS_PATTERN = /\b(429|500|502|503|504|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN)\b/i;
 
 function sleep(ms: number) {
@@ -16,7 +21,7 @@ function sleep(ms: number) {
 }
 
 export class WorkerNode {
-  private supabase: SupabaseClient;
+  private supabase: SupabaseClient<any, any>;
   private queue: DistributedTaskQueue;
   private circuitBreaker: CircuitBreaker;
 
@@ -37,7 +42,7 @@ export class WorkerNode {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-    this.supabase = createClient(url, key, { auth: { persistSession: false } });
+    this.supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } });
     this.queue = new DistributedTaskQueue(this.supabase);
     this.circuitBreaker = new CircuitBreaker(this.supabase);
 

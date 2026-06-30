@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
-import { getSupabaseUrl, getSupabasePublicClientKey } from '@/lib/supabase/env'
+import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 
 export type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
@@ -10,8 +10,9 @@ export async function getJurisdictionBriefing(
   countryIso2: string,
 ): Promise<import('@/lib/globe/jurisdictionBriefingTypes').JurisdictionBriefing | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createClient<any>(getSupabaseUrl(), getSupabasePublicClientKey(), {
+  const supabase = createClient<any, 'api'>(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
   })
 
   const { data, error } = await supabase

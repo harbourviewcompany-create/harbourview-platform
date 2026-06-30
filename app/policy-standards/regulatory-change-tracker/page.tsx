@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const metadata: Metadata = {
   title: 'Regulatory Change Tracker | Harbourview Policy Standards',
@@ -21,7 +22,7 @@ async function getRegChangeSignals(): Promise<Signal[]> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
   const cutoff = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10)
-  const client = createClient(url, key, { auth: { persistSession: false } })
+  const client = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const { data } = await client
     .from('signals')
     .select('id,headline,country,date,top_lane,cat')

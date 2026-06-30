@@ -1,6 +1,11 @@
 import { EntityResolver } from '../../lib/intelligence-engine/deep-discovery/entity-resolver';
 import { createClient } from '@supabase/supabase-js';
 
+// PostgREST on this Supabase project only exposes the `api` schema, not
+// `public` -- see lib/intelligence-engine/orchestrator.ts for the full
+// explanation; kept in sync with the main app's lib/supabase/env.ts.
+const SUPABASE_DB_SCHEMA = 'api' as const;
+
 /**
  * Deep Source Matrix Generator
  * 
@@ -17,7 +22,7 @@ async function generateDeepMatrix() {
 
   if (!url || !key) throw new Error('Missing Supabase credentials');
   
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } });
   const resolver = new EntityResolver();
 
   // Load active jurisdictions

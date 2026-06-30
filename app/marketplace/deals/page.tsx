@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ async function getUserDealRooms() {
   const cookieStore = await cookies()
   const svc = createClient(url, anonKey, {
     auth: { persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
     global: {
       headers: { Cookie: cookieStore.toString() },
     },

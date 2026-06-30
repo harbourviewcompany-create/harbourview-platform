@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const metadata: Metadata = {
   title: 'Professional Briefings | Harbourview Education',
@@ -29,7 +30,7 @@ async function getRecentBriefings(): Promise<Briefing[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
-  const client = createClient(url, key, { auth: { persistSession: false } })
+  const client = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const { data } = await client
     .from('jurisdiction_briefings')
     .select('id,country_iso2,country_name,legal_status,market_maturity,headline,summary,week_ending,signal_count')

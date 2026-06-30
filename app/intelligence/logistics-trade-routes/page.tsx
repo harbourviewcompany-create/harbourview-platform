@@ -4,6 +4,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
 
 export const metadata: Metadata = {
@@ -60,7 +61,7 @@ async function getData(): Promise<{ briefings: Map<string, Briefing>; signals: S
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return { briefings: new Map(), signals: [] }
-  const client = createClient(url, key, { auth: { persistSession: false } })
+  const client = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 
   const [bRes, sRes] = await Promise.all([
     client.from('jurisdiction_briefings')

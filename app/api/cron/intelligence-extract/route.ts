@@ -21,6 +21,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { IntelligenceProcessor } from '@/lib/ai/intelligence-processor'
 import type { IntelligenceRecord } from '@/lib/scraper/types'
 import crypto from 'node:crypto'
@@ -192,7 +193,7 @@ export async function GET(request: Request) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } },
   )
 
   // ── Pull staged rows ────────────────────────────────────────────────────────

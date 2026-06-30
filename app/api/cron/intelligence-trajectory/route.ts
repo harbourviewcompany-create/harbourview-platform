@@ -16,6 +16,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } },
   )
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

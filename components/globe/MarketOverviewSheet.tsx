@@ -3,15 +3,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { RouterBottomSheet } from './RouterBottomSheet'
-import { getSupabaseUrl, getSupabasePublicClientKey } from '@/lib/supabase/env'
+import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
 import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 
 /** Lazy singleton — reuses one client instance for the lifetime of the page. */
 function getClient() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createClient<any>(getSupabaseUrl(), getSupabasePublicClientKey(), {
+  return createClient<any, 'api'>(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
   })
 }
 

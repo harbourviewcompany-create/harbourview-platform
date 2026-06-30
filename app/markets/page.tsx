@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 
@@ -52,7 +53,7 @@ async function getAllBriefings(): Promise<Briefing[]> {
   const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
 
-  const svc = createClient(url, key, { auth: { persistSession: false } })
+  const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const { data } = await svc
     .from('jurisdiction_briefings')
     .select('country_iso2, country_name, headline, legal_status, market_maturity, summary, week_ending, signal_count')
