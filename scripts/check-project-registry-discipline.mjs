@@ -186,7 +186,8 @@ async function main() {
     if (!hasCheckedRegistryDecision(body)) {
       errors.push('Sensitive files changed, but no registry-change decision is checked in the PR body.');
     }
-    if (!registryUpdated(files) && /new row required/i.test(body) && !/^-\s*\[[xX]\]\s+HOLD/im.test(body)) {
+    const newRowChecked = checkedLines(body).some((line) => /new row required/i.test(line));
+    if (!registryUpdated(files) && newRowChecked && !/^-\s*\[[xX]\]\s+HOLD/im.test(body)) {
       errors.push('PR references a new registry row but does not update PROJECT_REGISTRY.md or mark the PR as HOLD.');
     }
   }
