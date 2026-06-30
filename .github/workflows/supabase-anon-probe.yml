@@ -1,0 +1,40 @@
+name: Supabase Anon Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query cc_jurisdiction_briefings as anon (array query, like the fixed client)
+        run: |
+          set -uo pipefail
+          BASE="https://zvxdgdkukjrrwamdpqrg.supabase.co/rest/v1/cc_jurisdiction_briefings"
+          SEL="select=jurisdiction_slug,program_status,public_summary,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,last_reviewed_date,confidence_score,confidence_categories"
+          Q="country_iso2=eq.MX&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1"
+          LEGACY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2eGRnZGt1a2pycndhbWRwcXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNDMxNzUsImV4cCI6MjA5MjgxOTE3NX0.MEGWEsDpJO3964Ef2G2Cbo-Q5JKT46WB1xtlXE-ue5M"
+          PUB="sb_publishable_NYBI7qhhkjR57WTweVGVFQ_BWPYJ2Q_"
+
+          probe () {
+            local label="$1"; local key="$2"; local accept="$3"
+            local hdr=()
+            if [ -n "$accept" ]; then hdr=(-H "Accept: $accept"); fi
+            local resp
+            resp=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" "${hdr[@]}" \
+              -H "apikey: ${key}" -H "Authorization: Bearer ${key}" \
+              "${BASE}?${SEL}&${Q}")
+            local status; status=$(echo "$resp" | sed -n 's/^HTTP_STATUS://p')
+            local body; body=$(echo "$resp" | sed '/^HTTP_STATUS:/d' | tr '\n' ' ' | head -c 300)
+            echo "::notice::[$label] HTTP $status :: ${body}"
+            echo "[$label] HTTP $status :: ${body}"
+          }
+
+          # New client behaviour: array query (no object Accept header)
+          probe "legacy-anon ARRAY" "$LEGACY" ""
+          probe "publishable ARRAY" "$PUB" ""
+          # Old client behaviour: single-object Accept header (reproduces the 406 path)
+          probe "legacy-anon OBJECT" "$LEGACY" "application/vnd.pgrst.object+json"
