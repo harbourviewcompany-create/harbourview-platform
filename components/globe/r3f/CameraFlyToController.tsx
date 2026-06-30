@@ -25,7 +25,7 @@ export function getFlyToMotionProfile(prefersReducedMotion: boolean): {
 } {
   return {
     shouldAnimate: !prefersReducedMotion,
-    flyDurationMs: prefersReducedMotion ? 0 : 900,
+    flyDurationMs: prefersReducedMotion ? 0 : GLOBE_CAMERA_CONFIG.flyDurationMs,
     allowCountryFocus: !prefersReducedMotion,
   }
 }
