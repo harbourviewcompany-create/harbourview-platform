@@ -13,6 +13,14 @@ import { ScrapeTarget, ScraperResult, IDataAdapter } from './types';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
 import { PlaywrightDataAdapter } from './adapters/playwright-fetcher';
 
+// PostgREST on this Supabase project only exposes the `api` schema, not
+// `public` (Settings → Data API → Exposed schemas), even though every table
+// physically lives in `public`. This app has no shared lib/supabase/env.ts
+// of its own (separate deployment from the main Next.js app, no shared
+// modules) -- see lib/supabase/env.ts in the main app for the single source
+// of truth this value is kept in sync with.
+const SUPABASE_DB_SCHEMA = 'api' as const;
+
 interface SourceRegistryRow {
   id: string;
   source_url: string;
@@ -53,7 +61,7 @@ function parseCadenceHours(raw: string | null): number {
 }
 
 export class IntelligenceOrchestrator {
-  private supabase: SupabaseClient;
+  private supabase: SupabaseClient<any, any>;
   private htmlAdapter: HTMLDataAdapter;
   private playwrightAdapter: PlaywrightDataAdapter;
 
@@ -61,7 +69,7 @@ export class IntelligenceOrchestrator {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
-    this.supabase = createClient(url, key, { auth: { persistSession: false } });
+    this.supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } });
     this.htmlAdapter = new HTMLDataAdapter();
     this.playwrightAdapter = new PlaywrightDataAdapter();
   }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 export const metadata: Metadata = {
@@ -51,7 +52,7 @@ async function getVerifiedProfessionals(): Promise<Professional[]> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
 
-  const svc = createClient(url, key, { auth: { persistSession: false } })
+  const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const { data } = await svc
     .from('hv_professionals')
     .select('id, profile_slug, full_name, title, credential_type, specialties, countries, languages, bio_public, institution, institution_country, accepts_referrals, consultation_available, clinical_focus')

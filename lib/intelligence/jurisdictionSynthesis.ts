@@ -1,6 +1,7 @@
 import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 // ── Active markets to synthesise weekly ──────────────────────────────────────
 export const SYNTHESIS_MARKETS: { iso2: string; name: string }[] = [
@@ -54,7 +55,7 @@ async function fetchSignalsForCountry(
   svcKey: string,
   countryName: string,
 ): Promise<SignalRow[]> {
-  const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false } })
+  const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   // Primary: curated signals table, last 30 days
@@ -181,7 +182,7 @@ export async function synthesiseJurisdiction(
   const svcKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!svcUrl || !svcKey) return { ok: false, error: 'Supabase env vars missing' }
 
-  const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false } })
+  const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const signals = await fetchSignalsForCountry(svcUrl, svcKey, countryName)
   const signalText = formatSignalsForPrompt(signals)
 
@@ -229,7 +230,7 @@ export async function getLatestBriefing(
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!svcUrl || !anonKey) return null
 
-  const svc = createClient(svcUrl, anonKey, { auth: { persistSession: false } })
+  const svc = createClient(svcUrl, anonKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 
   const { data, error } = await svc
     .from('jurisdiction_briefings')

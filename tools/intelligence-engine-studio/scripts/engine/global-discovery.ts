@@ -6,6 +6,11 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
+// PostgREST on this Supabase project only exposes the `api` schema, not
+// `public` -- see lib/intelligence-engine/orchestrator.ts for the full
+// explanation; kept in sync with the main app's lib/supabase/env.ts.
+const SUPABASE_DB_SCHEMA = 'api' as const;
+
 const SEED_SOURCES = [
   // Examples of expansion templates that would be dynamically generated
   { suffix: 'gov', name: 'Ministry of Health' },
@@ -22,7 +27,7 @@ async function runDiscovery() {
     throw new Error('Missing Supabase credentials in env.');
   }
 
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } });
 
   console.log('--- HarbourView Global Target Discovery ---');
   console.log('Fetching active jurisdictions...');

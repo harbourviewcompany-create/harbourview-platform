@@ -12,12 +12,13 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase env not configured')
-  return createClient(url, key, { auth: { persistSession: false } })
+  return createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 }
 
 interface ListingRow {

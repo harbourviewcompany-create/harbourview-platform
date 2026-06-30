@@ -25,7 +25,7 @@ interface SourceRegistryRow {
 }
 
 export class DistributedTaskQueue {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient<any, any, 'api'>) {}
 
   /**
    * Acquire a batch of targets due for crawling.

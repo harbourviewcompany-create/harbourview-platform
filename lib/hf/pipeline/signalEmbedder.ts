@@ -48,7 +48,7 @@ export interface EmbedSignalsResult {
  * @param limit     Max signals to process. Default 20.
  */
 export async function embedUnprocessedSignals(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, any>,
   { limit = DEFAULT_BATCH }: { limit?: number } = {},
 ): Promise<EmbedSignalsResult> {
   // ── 1. Fetch un-embedded signals ────────────────────────────────────────────

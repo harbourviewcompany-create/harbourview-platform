@@ -5,6 +5,7 @@
 // status='active' + verification_status='verified' before it appears publicly.
 
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export type ProfessionalApplicationState = {
   status: 'idle' | 'success' | 'error'
@@ -106,7 +107,7 @@ export async function submitProfessionalApplication(
     }
   }
 
-  const svc = createClient(url, serviceKey, { auth: { persistSession: false } })
+  const svc = createClient(url, serviceKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 
   const baseSlug = slugify(fullName) || `professional-${Date.now()}`
   let profileSlug = baseSlug

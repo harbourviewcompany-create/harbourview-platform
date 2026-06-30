@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
+import { getSupabasePublicClientKey, getSupabaseUrl, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { createClient as createRawClient } from '@supabase/supabase-js'
 
 // ── Session-aware server client (cookie-passing, respects RLS) ────────────────
@@ -14,6 +14,7 @@ export async function createClient() {
     getSupabaseUrl(),
     getSupabasePublicClientKey(),
     {
+      db: { schema: SUPABASE_DB_SCHEMA },
       cookies: {
         getAll() {
           return cookieStore.getAll()
@@ -44,7 +45,10 @@ export async function createSupabaseServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('[harbourview] SUPABASE_SERVICE_ROLE_KEY not configured')
-  return createRawClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createRawClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
+  })
 }
 
 /** Returns the authenticated user or null — short-circuits auth boilerplate in route handlers */

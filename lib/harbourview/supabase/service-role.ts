@@ -1,5 +1,6 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export function createHarbourviewServiceRoleSupabaseClient() {
   // Accept either env var so server clients resolve the same project URL
@@ -13,5 +14,6 @@ export function createHarbourviewServiceRoleSupabaseClient() {
 
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
   });
 }

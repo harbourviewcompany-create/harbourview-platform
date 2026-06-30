@@ -20,6 +20,7 @@
 // only source_system + raw_payload causes silent insert failures.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { DistributedTaskQueue } from './queue/task-queue';
 import { CircuitBreaker } from './queue/circuit-breaker';
 import { HTMLDataAdapter } from './adapters/html-fetcher';
@@ -43,7 +44,7 @@ export interface ExtractionSummary {
 }
 
 export class IntelligenceOrchestrator {
-  private supabase: SupabaseClient;
+  private supabase: SupabaseClient<any, any, 'api'>;
   private queue: DistributedTaskQueue;
   private circuitBreaker: CircuitBreaker;
   private htmlAdapter: HTMLDataAdapter;
@@ -55,7 +56,7 @@ export class IntelligenceOrchestrator {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) throw new Error('Missing Supabase credentials in env.');
-    this.supabase = createClient(url, key, { auth: { persistSession: false } });
+    this.supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } });
     this.queue = new DistributedTaskQueue(this.supabase);
     this.circuitBreaker = new CircuitBreaker(this.supabase);
     this.htmlAdapter = new HTMLDataAdapter();

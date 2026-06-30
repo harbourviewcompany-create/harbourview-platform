@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '../lib/supabase/env'
 import { countryIdentityRows, expectedGlobalCountryRouteCount } from '../lib/country-data/generated-country-identity-rows'
 import { getPublicCountryProfiles } from '../lib/country-data/public-country-dto'
 
@@ -81,7 +82,7 @@ async function main() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase URL and service role key are required for country-data write mode')
 
-  const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+  const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const importRunId = `country_data_identity_${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}`
 
   const { error: runError } = await supabase.from('country_data_import_runs').upsert({

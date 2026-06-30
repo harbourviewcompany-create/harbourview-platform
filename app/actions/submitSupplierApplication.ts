@@ -6,6 +6,7 @@
 // Mirrors submitProfessionalApplication.ts exactly in structure and security patterns.
 
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export type SupplierApplicationState = {
   status: 'idle' | 'success' | 'error'
@@ -105,7 +106,7 @@ export async function submitSupplierApplication(
     }
   }
 
-  const svc = createClient(url, serviceKey, { auth: { persistSession: false } })
+  const svc = createClient(url, serviceKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 
   const baseSlug = slugify(companyName) || `supplier-${Date.now()}`
   let profileSlug = baseSlug

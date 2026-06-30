@@ -5,6 +5,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { getAllPlaybooks } from '@/lib/intelligence/jurisdictionPlaybooks'
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ async function getCounterpartySignals(): Promise<Signal[]> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  const client = createClient(url, key, { auth: { persistSession: false } })
+  const client = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const { data } = await client
     .from('signals')
     .select('id, headline, country, date, top_lane')

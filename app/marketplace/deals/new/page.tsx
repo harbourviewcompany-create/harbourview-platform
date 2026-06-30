@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,7 @@ export default async function NewDealRoomPage({
   const cookieStore = await cookies()
   const svc = createClient(url, anonKey, {
     auth: { persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
     global: { headers: { Cookie: cookieStore.toString() } },
   })
 

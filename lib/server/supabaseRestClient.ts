@@ -83,6 +83,14 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
 
     const endpoint = `${trimUrl(this.url)}/rest/v1/${this.table}?${params.toString()}`
 
+    // PostgREST on this project only exposes the `api` schema (not `public`).
+    // Accept-Profile selects schema for GET; Content-Profile selects schema
+    // for POST/PATCH/DELETE. Without these, PostgREST falls back to `public`,
+    // which is not exposed, and every call here 406s with PGRST106.
+    const profileHeader: Record<string, string> = this.method === 'GET'
+      ? { 'accept-profile': 'api' }
+      : { 'content-profile': 'api' }
+
     const response = await fetch(endpoint, {
       method: this.method,
       // @deprecated use next: { revalidate: N } or cache: 'no-store' explicitly at call sites
@@ -92,6 +100,7 @@ class SupabaseRestQuery<T = unknown> implements PromiseLike<SupabaseResponse<T>>
         authorization: `Bearer ${this.key}`,
         'content-type': 'application/json',
         prefer: 'return=representation',
+        ...profileHeader,
       },
       body: this.method === 'GET' ? undefined : JSON.stringify(this.body),
     })

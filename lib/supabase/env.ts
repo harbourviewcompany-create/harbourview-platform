@@ -2,6 +2,14 @@ const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
 const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
 
+// PostgREST on this project only exposes the `api` schema (Settings → Data API
+// → Exposed schemas). It does NOT expose `public`, even though every table
+// physically lives in `public`. supabase-js defaults to `public` schema if not
+// told otherwise, which produces PGRST106 "Invalid schema" 406 errors on every
+// REST call. Every Supabase client in this codebase — browser, server, and
+// service-role — must pass `db: { schema: SUPABASE_DB_SCHEMA }`.
+export const SUPABASE_DB_SCHEMA = 'api' as const
+
 function readEnv(name: string) {
   switch (name) {
     case 'NEXT_PUBLIC_SUPABASE_URL':
