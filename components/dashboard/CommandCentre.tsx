@@ -16,6 +16,7 @@ import { ListingDetailModal } from './ListingDetailModal'
 import { WantedDetailModal } from './WantedDetailModal'
 import { GeneticsRequestModal } from './GeneticsRequestModal'
 import { GeneticsProgramModal } from './GeneticsProgramModal'
+import { QuoteModal } from './QuoteModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -796,6 +797,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   const [search,    setSearch]    = useState('')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [selectedWantedId,  setSelectedWantedId]  = useState<string | null>(null)
+  const [quoteOpen,          setQuoteOpen]          = useState(false)
   const selectedWanted = useMemo(
     () => (selectedWantedId ? (wantedListings?.find(w => w.id === selectedWantedId) ?? null) : null),
     [selectedWantedId, wantedListings]
@@ -1007,6 +1009,11 @@ const MarketplacePage = React.memo(function MarketplacePage({
           </div>
         )}
         <div className="cc-right-section">
+          <div className="cc-right-head">ROUTED INQUIRY</div>
+          <p className="cc-right-prose">Submit a quote or sourcing inquiry for Harbourview to review and route to verified suppliers or export partners.</p>
+          <button className="cc-right-link" onClick={() => setQuoteOpen(true)}>Submit routed inquiry →</button>
+        </div>
+        <div className="cc-right-section">
           <div className="cc-right-head">MARKETPLACE ACCESS REQUIREMENTS</div>
           {ACCESS_REQS.map(r => (
             <div key={r.label} className="cc-req-row">
@@ -1076,6 +1083,10 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <WantedDetailModal
         listing={selectedWanted}
         onClose={() => setSelectedWantedId(null)}
+      />
+      <QuoteModal
+        open={quoteOpen}
+        onClose={() => setQuoteOpen(false)}
       />
     </div>
   )
@@ -2357,6 +2368,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
   } = pathwayData ?? { template: null, steps: [], requirements: [], progress: null, requirementStatuses: [] }
 
   const [activeStep, setActiveStep] = useState<number>(progress?.current_step ?? 1)
+  const [quoteOpen, setQuoteOpen] = useState(false)
 
   const currentStep     = steps.find(s => s.step_number === activeStep)
   const currentStepReqs = requirements.filter(r => r.step_id === currentStep?.id)
@@ -2538,6 +2550,12 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
           <Link href="/intelligence/source-engine" className="cc-right-link">View all documents →</Link>
         </div>
 
+        <div className="cc-right-section">
+          <div className="cc-right-head">ROUTED INQUIRY</div>
+          <p className="cc-right-prose">Submit a sourcing or access inquiry for Harbourview to review before routing to the appropriate export partner.</p>
+          <button className="cc-right-link" onClick={() => setQuoteOpen(true)}>Submit inquiry →</button>
+        </div>
+
         {relSignals.length > 0 && (
           <div className="cc-right-section">
             <div className="cc-right-head">RELATED SIGNALS</div>
@@ -2618,6 +2636,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
           </div>
         )}
       </aside>
+      <QuoteModal open={quoteOpen} onClose={() => setQuoteOpen(false)} />
     </div>
   )
 })

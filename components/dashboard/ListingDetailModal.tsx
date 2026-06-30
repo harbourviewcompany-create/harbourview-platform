@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useListingDetail, type ListingDetail } from '@/hooks/useListingDetail'
 import { StatusBadge } from './StatusBadge'
+import { QuoteModal } from './QuoteModal'
 
 interface Props {
   listingId: string | null
@@ -28,6 +29,7 @@ function formatPrice(amount: number | null, currency: string, display: string | 
 export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatch }: Props) {
   const detail = useListingDetail(listingId)
   const [watchState, setWatchState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [quoteOpen, setQuoteOpen] = useState(false)
 
   useEffect(() => {
     if (!listingId) return
@@ -158,7 +160,7 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
                 {/* Actions */}
                 <div className="mt-1 flex gap-2">
                   <button
-                    onClick={() => onRequestAccess?.(d.id)}
+                    onClick={() => setQuoteOpen(true)}
                     className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all"
                     style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                   >
@@ -191,6 +193,12 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
           )}
         </div>
       </div>
+      <QuoteModal
+        open={quoteOpen}
+        listingTitle={detail.status === 'ok' ? detail.data.title : undefined}
+        onClose={() => setQuoteOpen(false)}
+        zIndex={210}
+      />
     </div>
   )
 }
