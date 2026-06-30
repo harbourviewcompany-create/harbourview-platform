@@ -19,7 +19,7 @@ export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-product
 export type MarketRow = [string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
-type CommandPage =
+export type CommandPage =
   | 'briefing'
   | 'access-pathway'
   | 'marketplace'
@@ -62,6 +62,7 @@ type Props = {
   eduCategories:    { icon: string; title: string; desc: string }[]
   initialCountryIso2?: string | null
   initialRoleId?:   string | null
+  initialPage?:     CommandPage | null
   wantedCount?:     number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
   pipeline?:        PipelineCounts
@@ -3867,6 +3868,7 @@ export default function CommandCentre({
   eduCategories,
   initialCountryIso2,
   initialRoleId,
+  initialPage,
   wantedCount = 0,
   marketplaceRows,
   pipeline,
@@ -3920,7 +3922,7 @@ export default function CommandCentre({
   const [country,      setCountry]     = useState(initialCountry)
   const [region,       setRegion]      = useState('')
   const [role,         setRole]        = useState(initialRoleId ?? '')
-  const [activePage,   setActivePage]  = useState<CommandPage>('briefing')
+  const [activePage,   setActivePage]  = useState<CommandPage>(initialPage ?? 'briefing')
   const [paletteOpen,  setPaletteOpen] = useState(false)
 
   // ⌘K keyboard shortcut
@@ -3945,24 +3947,34 @@ export default function CommandCentre({
   const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
   // ── Handlers ───────────────────────────────────────────────────────────────
+  // Shared URL-sync helper — keeps country/role/page in the query string so any
+  // Command Centre view can be deep-linked from a redirect or a shared link.
+  const syncUrl = useCallback((next: { countryIso2: string; roleId: string; page: CommandPage }) => {
+    const params = new URLSearchParams()
+    if (next.countryIso2 !== 'GLOBAL') params.set('country', next.countryIso2)
+    if (next.roleId) params.set('role', next.roleId)
+    if (next.page !== 'briefing') params.set('page', next.page)
+    const qs = params.toString()
+    router.replace(qs ? `/dashboard?${qs}` : '/dashboard', { scroll: false })
+  }, [router])
+
   const handleCountryChange = useCallback((iso2: string) => {
     const found = COUNTRIES.find(c => c.iso2 === iso2)
     if (!found) return
     setCountry(found)
     setRegion('')
-    const params = new URLSearchParams()
-    params.set('country', iso2)
-    if (role) params.set('role', role)
-    router.replace(`/dashboard?${params.toString()}`, { scroll: false })
-  }, [role, router])
+    syncUrl({ countryIso2: iso2, roleId: role, page: activePage })
+  }, [role, activePage, syncUrl])
 
   const handleRoleChange = useCallback((roleId: string) => {
     setRole(roleId)
-    const params = new URLSearchParams()
-    if (country.iso2 !== 'GLOBAL') params.set('country', country.iso2)
-    params.set('role', roleId)
-    router.replace(`/dashboard?${params.toString()}`, { scroll: false })
-  }, [country.iso2, router])
+    syncUrl({ countryIso2: country.iso2, roleId, page: activePage })
+  }, [country.iso2, activePage, syncUrl])
+
+  const handlePageChange = useCallback((page: CommandPage) => {
+    setActivePage(page)
+    syncUrl({ countryIso2: country.iso2, roleId: role, page })
+  }, [country.iso2, role, syncUrl])
 
   // ── Page renderer ──────────────────────────────────────────────────────────
   const renderPage = () => {
@@ -3973,11 +3985,11 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={setActivePage} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
       case 'education':
-        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={setActivePage} />
+        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />
       case 'local-intel':
@@ -4032,7 +4044,7 @@ export default function CommandCentre({
           <div className="cc-page-title">
             {pageTitle}
             {activePage !== 'briefing' && (
-              <button className="cc-change-ctx" onClick={() => setActivePage('briefing')}>
+              <button className="cc-change-ctx" onClick={() => handlePageChange('briefing')}>
                 Change Context
               </button>
             )}
@@ -4074,7 +4086,7 @@ export default function CommandCentre({
                   key={item.id}
                   type="button"
                   className={`cc-nav-btn${activePage === item.id ? ' active' : ''}`}
-                  onClick={() => setActivePage(item.id)}
+                  onClick={() => handlePageChange(item.id)}
                   aria-current={activePage === item.id ? 'page' : undefined}
                 >
                   <span className="cc-nav-icon" aria-hidden="true">{item.icon}</span>
@@ -4105,7 +4117,7 @@ export default function CommandCentre({
           <button
             key={item.id}
             className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}
-            onClick={() => setActivePage(item.id)}
+            onClick={() => handlePageChange(item.id)}
           >
             <span aria-hidden="true">{item.icon}</span>
             <em>{item.label}</em>
@@ -4119,7 +4131,7 @@ export default function CommandCentre({
         onClose={() => setPaletteOpen(false)}
         country={country}
         role={role}
-        onPage={setActivePage}
+        onPage={handlePageChange}
       />
     </div>
   )
