@@ -281,6 +281,22 @@
     background: rgba(255,255,255,0.72);
   }
 
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-sm px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] transition;
+    border: 1px solid rgba(11,26,47,0.18);
+    color: #0B1A2F;
+    background: rgba(255,255,255,0.92);
+  }
+
+  .btn-secondary:hover {
+    background: #ffffff;
+    border-color: rgba(11,26,47,0.32);
+  }
+
+  .section-heading {
+    @apply text-2xl sm:text-3xl font-semibold tracking-tight text-navy;
+  }
+
   @media (min-width: 1025px) and (max-height: 820px) {
     .hero-grid {
       min-height: clamp(430px, calc(100svh - 174px), 560px);
@@ -432,3 +448,4 @@
     background-color: rgba(198, 165, 90, 0.1);
   }
 }
+
