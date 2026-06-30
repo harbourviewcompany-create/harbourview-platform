@@ -1,5 +1,2 @@
 import { redirect } from 'next/navigation'
-
-export default function HistoryPage() {
-  redirect('/education/cannabis-history-library')
-}
+export default function Page() { redirect('/dashboard?page=education') }
