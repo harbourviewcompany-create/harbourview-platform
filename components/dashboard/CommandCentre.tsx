@@ -19,6 +19,7 @@ import { GeneticsProgramModal } from './GeneticsProgramModal'
 import { QuoteModal } from './QuoteModal'
 import { SubmitListingModal } from './SubmitListingModal'
 import { MySubmissionsPanel } from './MySubmissionsPanel'
+import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -799,8 +800,9 @@ const MarketplacePage = React.memo(function MarketplacePage({
   const [search,    setSearch]    = useState('')
   const [selectedListingId,  setSelectedListingId]  = useState<string | null>(null)
   const [selectedWantedId,   setSelectedWantedId]   = useState<string | null>(null)
-  const [quoteOpen,           setQuoteOpen]           = useState(false)
-  const [submitListingOpen,   setSubmitListingOpen]   = useState(false)
+  const [quoteOpen,              setQuoteOpen]              = useState(false)
+  const [submitListingOpen,      setSubmitListingOpen]      = useState(false)
+  const [consumablesOpen,        setConsumablesOpen]        = useState(false)
   const selectedWanted = useMemo(
     () => (selectedWantedId ? (wantedListings?.find(w => w.id === selectedWantedId) ?? null) : null),
     [selectedWantedId, wantedListings]
@@ -1016,6 +1018,13 @@ const MarketplacePage = React.memo(function MarketplacePage({
           <p className="cc-right-prose">Submit a quote or sourcing inquiry for Harbourview to review and route to verified suppliers or export partners.</p>
           <button className="cc-right-link" onClick={() => setQuoteOpen(true)}>Submit routed inquiry →</button>
         </div>
+        {activeTab === 'consumables' && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">CONSUMABLES SOURCING</div>
+            <p className="cc-right-prose">Request pre-roll cones, pouches, jars, labels, closures, or production tools. Harbourview reviews fit before any supplier routing.</p>
+            <button className="cc-right-link" onClick={() => setConsumablesOpen(true)}>Request consumables →</button>
+          </div>
+        )}
         <div className="cc-right-section">
           <div className="cc-right-head">SUBMIT LISTING</div>
           <p className="cc-right-prose">List inventory, equipment, or a business opportunity for Harbourview&apos;s private review. All submissions are screened before any routing or visibility is granted.</p>
@@ -1100,6 +1109,10 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <SubmitListingModal
         open={submitListingOpen}
         onClose={() => setSubmitListingOpen(false)}
+      />
+      <ConsumablesRequestModal
+        open={consumablesOpen}
+        onClose={() => setConsumablesOpen(false)}
       />
     </div>
   )
