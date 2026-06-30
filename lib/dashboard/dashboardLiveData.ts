@@ -238,7 +238,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
         { headers: hdr },
       ),
       fetch(
-        `${_INTEL_SUPABASE_URL}/rest/v1/country_intel?select=commercial_pathway_summary,review_status,regulatory_tier&country_code=eq.${safeIso2}&review_status=eq.active&limit=1`,
+        `${_INTEL_SUPABASE_URL}/rest/v1/country_intel?select=public_summary,commercial_pathway_summary,review_status,regulatory_tier,last_reviewed_at&country_code=eq.${safeIso2}&review_status=in.(approved,active)&order=last_reviewed_at.desc&limit=1`,
         { headers: hdr },
       ),
       fetch(
@@ -292,7 +292,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
     return {
       country_code:               cd.iso_alpha2,
       country_name:               cd.country_name,
-      public_summary:             cd.public_summary,
+      public_summary:             ci?.public_summary ?? cd.public_summary,
       commercial_pathway_summary: ci?.commercial_pathway_summary ?? null,
       review_status:              ci?.review_status ?? 'active',
       regulatory_tier:            ci?.regulatory_tier ?? null,
