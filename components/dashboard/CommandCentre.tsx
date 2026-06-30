@@ -12,6 +12,7 @@ import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { ListingDetailModal } from './ListingDetailModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -790,6 +791,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return 'cannabis'
   })
   const [search,    setSearch]    = useState('')
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
@@ -942,9 +944,9 @@ const MarketplacePage = React.memo(function MarketplacePage({
                       </svg>
                     </div>
                     <div className="cc-mkt-cell cc-acts-col">
-                      <button className="cc-act-primary">Request access</button>
-                      <button className="cc-act-sec">Watch</button>
-                      <button className="cc-act-sec">Requirements</button>
+                      <button className="cc-act-primary" onClick={() => setSelectedListingId(row[MR.ID])}>Request access</button>
+                      <button className="cc-act-sec" onClick={() => setSelectedListingId(row[MR.ID])}>Watch</button>
+                      <button className="cc-act-sec" onClick={() => setSelectedListingId(row[MR.ID])}>Requirements</button>
                     </div>
                   </div>
                 )
@@ -1047,6 +1049,13 @@ const MarketplacePage = React.memo(function MarketplacePage({
           </div>
         )}
       </aside>
+
+      <ListingDetailModal
+        listingId={selectedListingId}
+        onClose={() => setSelectedListingId(null)}
+        onRequestAccess={() => onPageChange?.('access-pathway')}
+        onWatch={() => onPageChange?.('watchlist')}
+      />
     </div>
   )
 })
