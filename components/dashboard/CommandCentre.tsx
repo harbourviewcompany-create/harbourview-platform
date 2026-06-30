@@ -14,6 +14,8 @@ import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WantedDetailModal } from './WantedDetailModal'
+import { GeneticsRequestModal } from './GeneticsRequestModal'
+import { GeneticsProgramModal } from './GeneticsProgramModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -3412,6 +3414,8 @@ const GeneticsPage = React.memo(function GeneticsPage({
   collaborationProjects?: PublicCollaborationProject[]
 }) {
   const [tab, setTab] = useState<GeneticsTab>('passports')
+  const [requestModal, setRequestModal] = useState<{ open: boolean; profileName?: string }>({ open: false })
+  const [programModal, setProgramModal] = useState(false)
 
   const isGlobal = country.iso2 === 'GLOBAL'
   const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
@@ -3478,9 +3482,9 @@ const GeneticsPage = React.memo(function GeneticsPage({
                           </div>
                         ))}
                         {countryOpps.length > 0 ? (
-                          <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-brief">{countryOpps[0].cta} →</Link>
+                          <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: p.displayName })}>{countryOpps[0].cta} →</button>
                         ) : (
-                          <Link href={`/genetics/cultivars/${p.slug}`} className="cc-sig-brief">View passport →</Link>
+                          <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: p.displayName })}>Request access →</button>
                         )}
                       </div>
                     </div>
@@ -3513,7 +3517,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
                         <span className="cc-opp-tag">{sp.verification_level.replace(/_/g, ' ')}</span>
                         {sp.country_code && <span className="cc-opp-tag">{sp.country_code}</span>}
                       </div>
-                      <Link href="/contact" className="cc-sig-brief">Request verification →</Link>
+                      <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true })}>Request verification →</button>
                     </div>
                   </div>
                 ))}
@@ -3544,7 +3548,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
                         <span className="cc-opp-tag">{cp.status.replace(/_/g, ' ')}</span>
                         {cp.countryCode && <span className="cc-opp-tag">{cp.countryCode}</span>}
                       </div>
-                      <Link href="/contact" className="cc-sig-brief">{cp.cta} →</Link>
+                      <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true })}>{cp.cta} →</button>
                     </div>
                   </div>
                 ))}
@@ -3573,9 +3577,24 @@ const GeneticsPage = React.memo(function GeneticsPage({
         <div className="cc-right-section">
           <div className="cc-right-head">ACCESS &amp; LICENSING</div>
           <p className="cc-right-prose">Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require an access request.</p>
-          <Link href="/genetics" className="cc-right-link">Genetics hub →</Link>
+          <button className="cc-right-link" onClick={() => setRequestModal({ open: true })}>Request genetics access →</button>
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">GENETICS PROGRAMS</div>
+          <p className="cc-right-prose">Breeders, seed companies, and tissue-culture laboratories can submit programs for controlled Harbourview visibility.</p>
+          <button className="cc-right-link" onClick={() => setProgramModal(true)}>Submit a program →</button>
         </div>
       </aside>
+
+      <GeneticsRequestModal
+        open={requestModal.open}
+        profileName={requestModal.profileName}
+        onClose={() => setRequestModal({ open: false })}
+      />
+      <GeneticsProgramModal
+        open={programModal}
+        onClose={() => setProgramModal(false)}
+      />
     </div>
   )
 })
