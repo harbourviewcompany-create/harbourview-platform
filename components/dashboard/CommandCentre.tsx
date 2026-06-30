@@ -13,6 +13,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { ListingDetailModal } from './ListingDetailModal'
+import { WantedDetailModal } from './WantedDetailModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -792,6 +793,11 @@ const MarketplacePage = React.memo(function MarketplacePage({
   })
   const [search,    setSearch]    = useState('')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
+  const [selectedWantedId,  setSelectedWantedId]  = useState<string | null>(null)
+  const selectedWanted = useMemo(
+    () => (selectedWantedId ? (wantedListings?.find(w => w.id === selectedWantedId) ?? null) : null),
+    [selectedWantedId, wantedListings]
+  )
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
@@ -944,11 +950,18 @@ const MarketplacePage = React.memo(function MarketplacePage({
                       </svg>
                     </div>
                     <div className="cc-mkt-cell cc-acts-col">
-                      {/* "Wanted" rows carry a wanted_requests id, not a marketplace_public_listings_v1 id — the
-                          detail modal can only resolve real listings, so skip wiring it for that tab. */}
-                      <button className="cc-act-primary" onClick={activeTab !== 'wanted' ? () => setSelectedListingId(row[MR.ID]) : undefined}>Request access</button>
-                      <button className="cc-act-sec" onClick={activeTab !== 'wanted' ? () => setSelectedListingId(row[MR.ID]) : undefined}>Watch</button>
-                      <button className="cc-act-sec" onClick={activeTab !== 'wanted' ? () => setSelectedListingId(row[MR.ID]) : undefined}>Requirements</button>
+                      {activeTab === 'wanted' ? (
+                        <>
+                          <button className="cc-act-primary" onClick={() => setSelectedWantedId(row[MR.ID])}>Respond</button>
+                          <button className="cc-act-sec" onClick={() => setSelectedWantedId(row[MR.ID])}>View demand</button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="cc-act-primary" onClick={() => setSelectedListingId(row[MR.ID])}>Request access</button>
+                          <button className="cc-act-sec" onClick={() => setSelectedListingId(row[MR.ID])}>Watch</button>
+                          <button className="cc-act-sec" onClick={() => setSelectedListingId(row[MR.ID])}>Requirements</button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )
@@ -1057,6 +1070,10 @@ const MarketplacePage = React.memo(function MarketplacePage({
         onClose={() => setSelectedListingId(null)}
         onRequestAccess={() => onPageChange?.('access-pathway')}
         onWatch={() => onPageChange?.('watchlist')}
+      />
+      <WantedDetailModal
+        listing={selectedWanted}
+        onClose={() => setSelectedWantedId(null)}
       />
     </div>
   )
