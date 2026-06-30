@@ -254,7 +254,7 @@ export function DynamicMarketplaceIntakeForm({
         <p className="mt-3 text-sm leading-6 text-[#F5F1E8]/60">{submitStatus}</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/marketplace/my-listings"
+            href="/dashboard?page=marketplace"
             className="rounded-full bg-[#C6A55A] px-5 py-2.5 text-sm font-semibold text-[#061322] hover:bg-[#D8BD75] transition-colors"
           >
             View my submissions →

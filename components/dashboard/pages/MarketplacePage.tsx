@@ -114,8 +114,8 @@ export const MarketplacePage = React.memo(function MarketplacePage({
           <p className="mp-sub">{country.label} · {totalListings > 0 ? `${totalListings} active listings` : 'Listings loading'}</p>
         </div>
         <div className="mp-header-actions">
-          <a href="/marketplace/wanted" className="mp-cta-outline">Post Wanted Request</a>
-          <a href="/marketplace/sell" className="mp-cta-gold">List for Sale →</a>
+          <a href="/dashboard?page=marketplace" className="mp-cta-outline">Post Wanted Request</a>
+          <a href="/dashboard?page=marketplace" className="mp-cta-gold">List for Sale →</a>
         </div>
       </div>
 
@@ -178,7 +178,7 @@ export const MarketplacePage = React.memo(function MarketplacePage({
             </p>
             <div className="mp-gap-actions">
               <a href="/marketplace" className="mp-cta-outline">Browse Marketplace</a>
-              <a href="/marketplace/sell" className="mp-cta-gold">Submit Listing →</a>
+              <a href="/dashboard?page=marketplace" className="mp-cta-gold">Submit Listing →</a>
             </div>
           </div>
         )}

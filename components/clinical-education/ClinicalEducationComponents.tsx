@@ -62,7 +62,7 @@ export function ClinicalEducationHero({ item }: { item: ClinicalEducationModule 
           <Link href={item.ctaHref} className="btn-primary px-6 py-3 text-sm">
             {item.ctaLabel}
           </Link>
-          <Link href="/marketplace/wanted" className="btn-outline border-gold px-6 py-3 text-sm text-gold hover:bg-gold hover:text-navy">
+          <Link href="/dashboard?page=marketplace" className="btn-outline border-gold px-6 py-3 text-sm text-gold hover:bg-gold hover:text-navy">
             Submit a Wanted Request
           </Link>
         </div>

@@ -31,7 +31,7 @@ export function CurrentDropCard({ drop }: { drop: PublicGeneticsDropCardData }) 
       </div>
 
       <Link
-        href="/marketplace/genetics/request-access"
+        href="/dashboard?page=genetics"
         className="mt-7 inline-flex text-sm font-medium text-gold/85 hover:text-gold-light"
       >
         {drop.cta}

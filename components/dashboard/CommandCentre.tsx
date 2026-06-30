@@ -354,11 +354,11 @@ const BriefingRoom = React.memo(function BriefingRoom({
                   <strong>{r.label}</strong>
                   <small>{r.status}</small>
                 </div>
-                <a className="cc-watch-region-btn" href={`/signals/countries/${r.label.toLowerCase().replace(/ /g, '-')}`}>View</a>
+                <a className="cc-watch-region-btn" href="/dashboard?page=signals">View</a>
               </div>
             ))}
           </div>
-          <Link href="/signals/countries" className="cc-right-link">View all jurisdictions →</Link>
+          <Link href="/dashboard?page=countries" className="cc-right-link">View all jurisdictions →</Link>
         </div>
 
         {recentChanges.length > 0 && (
@@ -1281,7 +1281,7 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
           ))}
-          <Link href="/intelligence/source-engine" className="cc-right-link">Go to Evidence &amp; Sources →</Link>
+          <Link href="/dashboard?page=evidence" className="cc-right-link">Go to Evidence &amp; Sources →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -1678,7 +1678,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-comp-dot ${j.active ? 'active' : ''}`}>●</span>
             </div>
           ))}
-          <Link href="/signals/countries" className="cc-right-link">View comparisons →</Link>
+          <Link href="/dashboard?page=countries" className="cc-right-link">View comparisons →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -1700,7 +1700,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-gap-badge ${g.level}`}>{g.level === 'high' ? 'High Gap' : 'Medium Gap'}</span>
             </div>
           ))}
-          <Link href="/intelligence/source-engine" className="cc-right-link">Improve coverage →</Link>
+          <Link href="/dashboard?page=evidence" className="cc-right-link">Improve coverage →</Link>
         </div>
       </aside>
     </div>
@@ -2338,7 +2338,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               </div>
             </div>
           ))}
-          <Link href="/intelligence/source-engine" className="cc-right-link">View coverage map →</Link>
+          <Link href="/dashboard?page=evidence" className="cc-right-link">View coverage map →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -2573,7 +2573,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               </div>
             )
           })}
-          <Link href="/intelligence/source-engine" className="cc-right-link">View all documents →</Link>
+          <Link href="/dashboard?page=evidence" className="cc-right-link">View all documents →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -3219,7 +3219,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               </div>
             </div>
           ))}
-          <Link href="/intelligence/source-engine" className="cc-right-link">View all gaps →</Link>
+          <Link href="/dashboard?page=evidence" className="cc-right-link">View all gaps →</Link>
         </div>
 
         {reviewQueue.length > 0 && (
@@ -3262,7 +3262,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               <span className="cc-conf-bar-pct">{row.n} ({row.pct}%)</span>
             </div>
           ))}
-          <Link href="/intelligence/source-engine" className="cc-right-link">View freshness report →</Link>
+          <Link href="/dashboard?page=evidence" className="cc-right-link">View freshness report →</Link>
         </div>
 
         <div className="cc-right-section">
