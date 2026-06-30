@@ -79,7 +79,13 @@ describe('dashboard country registry', () => {
     for (const slug of requiredCountries) {
       expect(fixtureCountries.some((country) => country.slug === slug)).toBe(true)
     }
-    expect(fixtureCountries.map((country) => country.dashboardStatus)).toEqual(expect.arrayContaining(['live', 'partial', 'request-only', 'fallback-backed', 'static-orientation', 'review-required', 'unavailable']))
+    // fixtureStatusBySlug (lib/dashboard/countries.ts) only ever assigns these four
+    // top-level statuses to fixture countries. 'fallback-backed', 'static-orientation',
+    // and 'unavailable' are valid DashboardPanelState values but are only used
+    // internally for individual panels (intelligence/signals/connections) or as the
+    // fallback for non-fixture countries (which fixtureCountries excludes by definition
+    // — it filters to slugs explicitly present in fixtureStatusBySlug).
+    expect(fixtureCountries.map((country) => country.dashboardStatus)).toEqual(expect.arrayContaining(['live', 'partial', 'request-only', 'review-required']))
   })
 
   it('resolves every Natural Earth globe country to a dashboard-safe country record', () => {

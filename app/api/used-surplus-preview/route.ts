@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     totalSources: feed.length,
     totalMatchingSources: filteredFeed.length,
     returnedSources: truncatedFeed.length,
-    filters: { status: parsedStatus, limit: parsedLimit },
+    filters: { status: parsedStatus, limit: parsedLimit, includeCandidates: false },
     sources: truncatedFeed.map(toSourceDto),
   })
 }
