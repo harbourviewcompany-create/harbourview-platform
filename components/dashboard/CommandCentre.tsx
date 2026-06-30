@@ -17,6 +17,8 @@ import { WantedDetailModal } from './WantedDetailModal'
 import { GeneticsRequestModal } from './GeneticsRequestModal'
 import { GeneticsProgramModal } from './GeneticsProgramModal'
 import { QuoteModal } from './QuoteModal'
+import { SubmitListingModal } from './SubmitListingModal'
+import { MySubmissionsPanel } from './MySubmissionsPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -795,9 +797,10 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return 'cannabis'
   })
   const [search,    setSearch]    = useState('')
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
-  const [selectedWantedId,  setSelectedWantedId]  = useState<string | null>(null)
-  const [quoteOpen,          setQuoteOpen]          = useState(false)
+  const [selectedListingId,  setSelectedListingId]  = useState<string | null>(null)
+  const [selectedWantedId,   setSelectedWantedId]   = useState<string | null>(null)
+  const [quoteOpen,           setQuoteOpen]           = useState(false)
+  const [submitListingOpen,   setSubmitListingOpen]   = useState(false)
   const selectedWanted = useMemo(
     () => (selectedWantedId ? (wantedListings?.find(w => w.id === selectedWantedId) ?? null) : null),
     [selectedWantedId, wantedListings]
@@ -1014,6 +1017,12 @@ const MarketplacePage = React.memo(function MarketplacePage({
           <button className="cc-right-link" onClick={() => setQuoteOpen(true)}>Submit routed inquiry →</button>
         </div>
         <div className="cc-right-section">
+          <div className="cc-right-head">SUBMIT LISTING</div>
+          <p className="cc-right-prose">List inventory, equipment, or a business opportunity for Harbourview&apos;s private review. All submissions are screened before any routing or visibility is granted.</p>
+          <button className="cc-right-link" onClick={() => setSubmitListingOpen(true)}>Submit a listing →</button>
+        </div>
+        <MySubmissionsPanel />
+        <div className="cc-right-section">
           <div className="cc-right-head">MARKETPLACE ACCESS REQUIREMENTS</div>
           {ACCESS_REQS.map(r => (
             <div key={r.label} className="cc-req-row">
@@ -1087,6 +1096,10 @@ const MarketplacePage = React.memo(function MarketplacePage({
       <QuoteModal
         open={quoteOpen}
         onClose={() => setQuoteOpen(false)}
+      />
+      <SubmitListingModal
+        open={submitListingOpen}
+        onClose={() => setSubmitListingOpen(false)}
       />
     </div>
   )
