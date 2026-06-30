@@ -27,7 +27,7 @@ export class CircuitBreaker {
   private lockedDomains: Set<string> = new Set();
   private lastRefreshedAt = 0;
 
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient<any, any, 'api'>) {}
 
   /** Re-sync the in-memory lockout snapshot from the shared table. */
   async refresh(): Promise<void> {

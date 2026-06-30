@@ -5,6 +5,7 @@
  * public jurisdiction data in Harbourview.
  */
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_DB_SCHEMA } from '../../lib/supabase/env'
 
 const SEED_SOURCES = [
   // Examples of expansion templates that would be dynamically generated
@@ -22,7 +23,7 @@ async function runDiscovery() {
     throw new Error('Missing Supabase credentials in env.');
   }
 
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } });
 
   console.log('--- HarbourView Global Target Discovery ---');
   console.log('Fetching active jurisdictions...');

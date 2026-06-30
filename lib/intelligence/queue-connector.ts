@@ -11,6 +11,7 @@
  */
 import 'server-only'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
 
@@ -25,7 +26,7 @@ export interface IntelligenceJob {
   created_at:  string
 }
 
-function getAdminClient(): SupabaseClient {
+function getAdminClient(): SupabaseClient<any, any, 'api'> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
@@ -33,6 +34,7 @@ function getAdminClient(): SupabaseClient {
   }
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
   })
 }
 
