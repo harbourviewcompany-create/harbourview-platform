@@ -944,9 +944,11 @@ const MarketplacePage = React.memo(function MarketplacePage({
                       </svg>
                     </div>
                     <div className="cc-mkt-cell cc-acts-col">
-                      <button className="cc-act-primary" onClick={() => setSelectedListingId(row[MR.ID])}>Request access</button>
-                      <button className="cc-act-sec" onClick={() => setSelectedListingId(row[MR.ID])}>Watch</button>
-                      <button className="cc-act-sec" onClick={() => setSelectedListingId(row[MR.ID])}>Requirements</button>
+                      {/* "Wanted" rows carry a wanted_requests id, not a marketplace_public_listings_v1 id — the
+                          detail modal can only resolve real listings, so skip wiring it for that tab. */}
+                      <button className="cc-act-primary" onClick={activeTab !== 'wanted' ? () => setSelectedListingId(row[MR.ID]) : undefined}>Request access</button>
+                      <button className="cc-act-sec" onClick={activeTab !== 'wanted' ? () => setSelectedListingId(row[MR.ID]) : undefined}>Watch</button>
+                      <button className="cc-act-sec" onClick={activeTab !== 'wanted' ? () => setSelectedListingId(row[MR.ID]) : undefined}>Requirements</button>
                     </div>
                   </div>
                 )
