@@ -29,6 +29,7 @@ type Props = {
   eduCategories: { icon: string; title: string; desc: string }[]
   initialCountryIso2?: string | null
   initialRoleId?: string | null
+  initialPage?: string | null
   wantedCount?: number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
   pipeline?: PipelineCounts
@@ -3097,6 +3098,7 @@ export default function MobileCommandCentre({
   eduCategories,
   initialCountryIso2,
   initialRoleId,
+  initialPage,
   wantedCount = 0,
   marketplaceRows,
   wantedListings = [],
@@ -3124,7 +3126,10 @@ export default function MobileCommandCentre({
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
-  const [activePage, setActivePage] = useState<CommandPage>('briefing')
+  const [activePage, setActivePage] = useState<CommandPage>(() => {
+    const valid = MOBILE_NAV.some(item => item.id === initialPage)
+    return valid ? (initialPage as CommandPage) : 'briefing'
+  })
   const [contextOpen, setContextOpen] = useState(false)
   const [briefingSub, setBriefingSub] = useState<BriefingSub>('overview')
   const [signalsSub, setSignalsSub] = useState<SignalSub>('feed')
@@ -3140,10 +3145,11 @@ export default function MobileCommandCentre({
   // SettingsMobile, which shares these same handlers) updated the visible
   // label/"Active" badge instantly — so the header could show a country
   // whose data was never actually fetched.
-  const applyContext = (iso2: string, roleVal: string) => {
+  const applyContext = (iso2: string, roleVal: string, pageVal: CommandPage) => {
     const params = new URLSearchParams()
     if (iso2 && iso2 !== 'GLOBAL') params.set('country', iso2)
     if (roleVal) params.set('role', roleVal)
+    if (pageVal !== 'briefing') params.set('page', pageVal)
     const qs = params.toString()
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
@@ -3152,13 +3158,18 @@ export default function MobileCommandCentre({
     const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
     if (nextCountry) {
       setCountry(nextCountry)
-      applyContext(iso2, role)
+      applyContext(iso2, role, activePage)
     }
   }
 
   const handleRoleChange = (roleVal: string) => {
     setRole(roleVal)
-    applyContext(country.iso2, roleVal)
+    applyContext(country.iso2, roleVal, activePage)
+  }
+
+  const handlePageChange = (pageVal: CommandPage) => {
+    setActivePage(pageVal)
+    applyContext(country.iso2, role, pageVal)
   }
 
   const titlebartabs = (() => {
@@ -3238,7 +3249,7 @@ export default function MobileCommandCentre({
 
       <nav className="hvm-bottom-nav" aria-label="Mobile command centre navigation">
         {MOBILE_NAV.map(item => (
-          <button key={item.id} type="button" className={activePage === item.id ? 'active' : ''} onClick={() => setActivePage(item.id)}>
+          <button key={item.id} type="button" className={activePage === item.id ? 'active' : ''} onClick={() => handlePageChange(item.id)}>
             <span aria-hidden="true">{item.icon}</span>
             <em>{item.label}</em>
           </button>

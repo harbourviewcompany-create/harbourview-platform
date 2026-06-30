@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       totalInserted: summary.totalInserted,
       totalSkipped: summary.totalSkipped,
       totalFailed: summary.totalFailed,
+      budgetExceeded: summary.budgetExceeded,
     })
 
     // Send digest email (non-blocking — we return success regardless)
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
       totalInserted: summary.totalInserted,
       totalSkipped: summary.totalSkipped,
       totalFailed: summary.totalFailed,
+      budgetExceeded: summary.budgetExceeded ?? false,
       sourceCount: summary.sourceResults.length,
       sourceResults: summary.sourceResults.map(r => ({
         source: r.source.id ?? r.source.name ?? 'unknown',

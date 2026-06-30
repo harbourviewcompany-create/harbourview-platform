@@ -17,6 +17,14 @@ import type { ScrapeRunResult, ScrapeRunSummary } from './types'
 const MAX_ITEMS_PER_SOURCE = 10 // throttle AI calls per run
 const INTER_SOURCE_DELAY_MS = 800 // polite delay between site fetches
 
+// Vercel Pro caps this route's execution at maxDuration = 300s. With 300+ enabled
+// sources, the inter-source delay alone (301 * 800ms ≈ 241s) leaves no headroom for
+// fetch/parse/AI work, so the function gets hard-killed mid-run before it can
+// persist a response. Stop pulling new sources once we're within this budget so the
+// run always returns a normal (partial) summary; per-source cadence state already
+// persisted this tick means skipped sources are simply picked up on the next run.
+const TIME_BUDGET_MS = 260_000
+
 // Exponential backoff cap: after 5 consecutive failures a source is retried
 // only after 32× its normal cadence (e.g. a 24h source backs off to ~32 days).
 const MAX_BACKOFF_MULTIPLIER = 32
@@ -34,6 +42,7 @@ function isPassthrough(normalised: { isPassthrough?: boolean; redactionNote?: st
 }
 
 export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
+  const runStart = Date.now()
   const startedAt = new Date().toISOString()
   const id = runId()
 
@@ -47,8 +56,14 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
   let totalInserted = 0
   let totalSkipped = 0
   let totalFailed = 0
+  let budgetExceeded = false
 
   for (const source of sources) {
+    if (Date.now() - runStart >= TIME_BUDGET_MS) {
+      budgetExceeded = true
+      break
+    }
+
     const state = sourceStates.get(source.id)
     const prevFailures = state?.consecutive_failures ?? 0
 
@@ -171,5 +186,6 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
     totalSkipped,
     totalFailed,
     sourceResults,
+    budgetExceeded,
   }
 }

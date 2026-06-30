@@ -4,7 +4,7 @@ import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount 
 import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
-import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
@@ -67,6 +67,20 @@ function normalizeRoleParam(raw: string | null): string | null {
   const key = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
   const resolved = ROLE_ALIASES[key] ?? (key as RoleId)
   return ROLE_PROFILES[resolved] ? resolved : null
+}
+
+// Every redirected standalone route lands on one of these — keep in sync with
+// the CommandPage union and CommandCentre's NAV_ITEMS_FLAT.
+const VALID_COMMAND_PAGES: readonly CommandPage[] = [
+  'briefing', 'access-pathway', 'marketplace', 'evidence', 'education',
+  'regulatory', 'local-intel', 'signals', 'watchlist', 'settings',
+  'genetics', 'compliance', 'countries',
+]
+
+function normalizePageParam(raw: string | null): CommandPage | null {
+  if (!raw) return null
+  const key = raw.trim().toLowerCase()
+  return (VALID_COMMAND_PAGES as readonly string[]).includes(key) ? (key as CommandPage) : null
 }
 
 function safeText(value: string | null | undefined, fallback: string): string {
@@ -169,6 +183,7 @@ export default async function DashboardPage({
 
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole    = normalizeRoleParam(firstParam(params.role))
+  const urlPage     = normalizePageParam(firstParam(params.page))
 
   let userId:           string | null = null
   let userEmail:        string | null = null
@@ -227,12 +242,13 @@ export default async function DashboardPage({
 
   return (
     <DashboardResponsiveShell
-      key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}`}
+      key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
       signals={signals}
       eduCategories={eduCategories}
       liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
+      initialPage={urlPage}
       wantedCount={wantedCount}
       marketplaceRows={marketplaceRows}
       pipeline={pipeline}

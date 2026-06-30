@@ -114,4 +114,5 @@ export interface ScrapeRunSummary {
   totalSkipped: number
   totalFailed: number
   sourceResults: ScrapeRunResult[]
+  budgetExceeded?: boolean // true if the run stopped early to stay under the route's maxDuration
 }
