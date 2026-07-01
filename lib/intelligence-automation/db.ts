@@ -555,3 +555,13 @@ export async function updateIaCounterpartyDocumentationStatus(
     { documentation_status: documentationStatus },
   )
 }
+
+export async function deleteIaCounterparty(
+  counterpartyId: string,
+): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation(
+    `/rest/v1/ia_counterparties?id=eq.${encodeURIComponent(counterpartyId)}`,
+    'DELETE',
+    undefined,
+  )
+}
