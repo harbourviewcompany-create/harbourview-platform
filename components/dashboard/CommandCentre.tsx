@@ -2385,33 +2385,518 @@ const REQ_STATUS_COLOR: Record<string, string> = {
 // ── Corridor Playbooks ────────────────────────────────────────────────────────
 
 type Corridor = {
-  from:      string
-  to:        string
-  status:    'Active' | 'Emerging' | 'Restricted' | 'Pilot'
-  authority: string
-  permit:    string
-  leadWeeks: string
-  docs:      string[]
-  bottleneck: string
-  note:      string
+  from:             string
+  to:               string
+  status:           'Active' | 'Emerging' | 'Restricted' | 'Pilot'
+  authority:        string
+  permit:           string
+  leadWeeks:        string
+  docs:             string[]
+  bottleneck:       string
+  note:             string
+  destLicenceClass: string
+  clearanceDays:    string
+  rejectionReasons: string[]
+  keyRisk:          string
+  timeline:         string
 }
 
 const CORRIDORS: Corridor[] = [
-  { from: 'Netherlands',  to: 'Germany',        status: 'Active',     authority: 'BfArM / iBCS',             permit: 'BfArM Import Permit',        leadWeeks: '6–10',  docs: ['COA (EU GMP)', 'Batch Release', 'Import Permit', 'GACP Certificate'], bottleneck: 'BfArM permit processing backlog; strict THC/CBD ratio limits',           note: 'Highest-volume EU medical corridor. Bedrocan primary supplier.' },
-  { from: 'Canada',       to: 'Germany',         status: 'Active',     authority: 'Health Canada / BfArM',    permit: 'Section 56 Exemption + BfArM', leadWeeks: '10–16', docs: ['EU GMP Certificate', 'COA', 'Import/Export Permit', 'GACP Cert'], bottleneck: 'EU GMP equivalency audit timeline; currency hedging',                     note: 'Largest trans-Atlantic medical flow. Canopy, Aurora, Aphria active.' },
-  { from: 'Canada',       to: 'United Kingdom',  status: 'Active',     authority: 'Health Canada / MHRA',     permit: 'MHRA Import Licence',         leadWeeks: '8–12',  docs: ['MHRA Import Licence', 'COA', 'GMP Certificate', 'Controlled Drug Licence'], bottleneck: 'MHRA licence processing 8–12 weeks; Schedule 1 CDL requirements', note: 'Growing post-2018 medical expansion. IMC-licensed producers dominant.' },
-  { from: 'Portugal',     to: 'Germany / EU',    status: 'Active',     authority: 'Infarmed / BfArM',         permit: 'EU Import Permit',            leadWeeks: '8–14',  docs: ['EU GMP Certificate', 'COA', 'Phytosanitary', 'Import Permit'], bottleneck: 'EU GMP audit backlog for Portuguese cultivators',                         note: 'Lowest-cost EU cultivation base. RPK Biopharma, Sativa Group active.' },
-  { from: 'Denmark',      to: 'Germany / EU',    status: 'Active',     authority: 'DKMA / BfArM',             permit: 'EU Narcotics Export/Import',  leadWeeks: '6–10',  docs: ['DKMA Export Cert', 'COA', 'EU GMP Cert', 'Import Permit'], bottleneck: 'Limited licensed cultivators; production scale constraints',              note: 'Auroras, Stenocare operating. Pilot scheme expanding to EU distribution.' },
-  { from: 'Australia',    to: 'Global',           status: 'Active',     authority: 'ODC (TGA)',                permit: 'ODC Import/Export Permit',    leadWeeks: '8–12',  docs: ['ODC Export Permit', 'TGA Import Permit (dest)', 'COA', 'GMP Cert'], bottleneck: 'Destination country import permits; TGA scheduling',                  note: 'Asia-Pacific hub. Cann Group, Cannatrek, Althea active exporters.' },
-  { from: 'Israel',       to: 'Germany / EU',    status: 'Emerging',   authority: 'IMCA / BfArM',             permit: 'Research Grade Import',       leadWeeks: '12–20', docs: ['IMCA Export Authorisation', 'Research Protocol', 'COA', 'Import Permit'], bottleneck: 'EU GMP equivalency not yet confirmed for all producers; regulatory parity debate', note: 'High R&D grade quality. IMC-GMP certification underway for EU access.' },
-  { from: 'Malta',        to: 'EU',               status: 'Pilot',      authority: 'MRA',                      permit: 'MRA Cultivation Licence',     leadWeeks: '16–24', docs: ['MRA Export Cert', 'COA', 'EU GMP Cert', 'Import Permit (dest)'], bottleneck: 'First adult-use EU licensed market; limited production volume at launch',  note: 'Pioneer EU adult-use jurisdiction. Regulatory model still maturing.' },
-  { from: 'Switzerland',  to: 'EU',               status: 'Pilot',      authority: 'Swissmedic / FOPH',        permit: 'Swissmedic Narcotics Permit', leadWeeks: '10–16', docs: ['Swissmedic Permit', 'COA', 'GMP Certificate', 'Phytosanitary'], bottleneck: 'Non-EU MRA status; bilateral negotiations ongoing',                      note: 'Swiss cannabis pilot (2025) — medical and adult-use research export anticipated.' },
-  { from: 'Colombia',     to: 'EU / LATAM',       status: 'Emerging',   authority: 'MinSalud / INVIMA',        permit: 'INVIMA Export Cert + Dest Import', leadWeeks: '14–20', docs: ['INVIMA Export Cert', 'GACP Cert', 'COA', 'Dest Import Permit'], bottleneck: 'EU GMP certification gap; currency controls; logistics infrastructure', note: 'Scale cultivation advantage. Khiron, Flora Growth, Ecomedics active.' },
-  { from: 'Jamaica',      to: 'North America / EU', status: 'Restricted', authority: 'CLA (Cannabis Licensing Authority)', permit: 'CLA Export Permit + Dest Narcotics Import', leadWeeks: '16–28', docs: ['CLA Export Permit', 'COA', 'GACP Cert', 'Phytosanitary', 'Dest Permit'], bottleneck: 'Limited regulatory framework maturity; US Schedule I barrier for domestic products', note: 'Heritage and CBD products viable. Medical THC export pathway limited.' },
-  { from: 'Uruguay',      to: 'EU',               status: 'Restricted', authority: 'IRCCA / Ministry of Health', permit: 'IRCCA Authorization + EU Import', leadWeeks: '20–30', docs: ['IRCCA Cert', 'COA', 'GMP Cert', 'Phytosanitary', 'EU Import Permit'], bottleneck: 'State-only supply model restricts commercial volume; EU regulatory parity unclear', note: 'First adult-use legalisation globally. IRCCA restricts commercial export volumes.' },
-  { from: 'Morocco',      to: 'EU',               status: 'Emerging',   authority: 'ONICL / EMA',              permit: 'Agricultural Export Cert',    leadWeeks: '8–14',  docs: ['Agricultural Export Cert', 'COA', 'Phytosanitary', 'Hemp <0.3% THC Declaration'], bottleneck: 'Primarily hemp/CBD; medical THC framework nascent',                     note: 'Major hemp cultivation base. CBD isolate and fibre export active. Medical THC pathway emerging.' },
-  { from: 'Thailand',     to: 'Asia-Pacific',     status: 'Emerging',   authority: 'FDA Thailand / ONCB',      permit: 'ONCB Export Licence',         leadWeeks: '12–20', docs: ['ONCB Export Licence', 'FDA Certificate', 'COA', 'Phytosanitary', 'Dest Import Permit'], bottleneck: 'Regulatory rollback risk; limited licensed exporters; patchwork regional import rules', note: 'Post-2022 delisting created unprecedented access. Regional regulatory fragmentation remains.' },
-  { from: 'Germany',      to: 'EU Distribution', status: 'Active',     authority: 'BfArM',                    permit: 'Wholesale Distribution Licence', leadWeeks: '4–8',  docs: ['EU GMP Cert', 'Wholesale Licence', 'COA', 'Batch Release Certificate'], bottleneck: 'Pharmacy-only distribution until adult-use expansion; tight batch documentation', note: 'Intra-EU distribution hub. Cannamedical, Demecan, Cansativa dominant distributors.' },
+  // ── Established EU Medical Corridors ─────────────────────────────────────
+  {
+    from: 'Netherlands', to: 'Germany', status: 'Active', authority: 'BfArM / iBCS',
+    permit: 'BfArM Import Permit', leadWeeks: '6–10',
+    docs: ['COA (EU GMP)', 'Batch Release', 'Import Permit', 'GACP Certificate'],
+    bottleneck: 'BfArM permit processing backlog; strict THC/CBD ratio limits',
+    note: 'Highest-volume EU medical corridor. Bedrocan primary supplier. Intra-EU shipment via licensed wholesale.',
+    destLicenceClass: 'BfArM Narcotics Import Permit (§3 BtMG)',
+    clearanceDays: '3–5',
+    rejectionReasons: ['THC/CBD ratio outside BfArM specification', 'Missing EU GMP batch release signatory', 'Incomplete GACP documentation'],
+    keyRisk: 'BfArM processing backlog — 8–12 week queue common; plan permit applications 16+ weeks before target delivery',
+    timeline: '10–16 weeks end-to-end',
+  },
+  {
+    from: 'Canada', to: 'Germany', status: 'Active', authority: 'Health Canada / BfArM',
+    permit: 'Section 56 Exemption + BfArM Import Permit', leadWeeks: '10–16',
+    docs: ['EU GMP Certificate', 'COA', 'Import/Export Permit', 'GACP Cert', 'Batch Release'],
+    bottleneck: 'EU GMP equivalency audit timeline; currency hedging on CAD/EUR',
+    note: 'Largest trans-Atlantic medical corridor. Canopy, Aurora, Aphria all active. EU GMP audit is single biggest barrier.',
+    destLicenceClass: 'BfArM Narcotics Import Permit (Schedule I BtMG)',
+    clearanceDays: '5–8',
+    rejectionReasons: ['EU GMP equivalency not recognised for facility', 'Health Canada export licence not in place', 'COA not formatted to EU GMP Annex 11 standard'],
+    keyRisk: 'EU GMP equivalency — Canadian facilities must obtain full EU GMP audit; can add 6–12 months for first-time producers',
+    timeline: '14–22 weeks end-to-end',
+  },
+  {
+    from: 'Canada', to: 'United Kingdom', status: 'Active', authority: 'Health Canada / MHRA',
+    permit: 'MHRA Import Licence + Home Office Authority', leadWeeks: '8–12',
+    docs: ['MHRA Import Licence', 'COA', 'UK GMP Certificate', 'Home Office Controlled Drug Licence'],
+    bottleneck: 'MHRA licence processing 8–12 weeks; Schedule 2 CDL requirements; post-Brexit UK GMP divergence',
+    note: 'Growing post-2018 UK medical expansion. Tilray, Canopy, Aurora dominant. UK GMP now separate from EU GMP post-Brexit.',
+    destLicenceClass: 'Schedule 2 Controlled Drug Importation Licence (MHRA / Home Office)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['MHRA licence not issued before shipment', 'UK GMP not obtained (separate from EU GMP)', 'Product not on UK approved product list'],
+    keyRisk: 'Post-Brexit dual GMP burden — UK GMP recognition is separate from EU GMP; producers must maintain both certifications for dual-market access',
+    timeline: '12–18 weeks end-to-end',
+  },
+  {
+    from: 'Portugal', to: 'Germany / EU', status: 'Active', authority: 'Infarmed / BfArM',
+    permit: 'EU Import Permit', leadWeeks: '8–14',
+    docs: ['EU GMP Certificate', 'COA', 'Phytosanitary', 'Import Permit', 'GACP Cert'],
+    bottleneck: 'EU GMP audit backlog for Portuguese cultivators; QP batch release signatory qualification',
+    note: 'Lowest-cost EU cultivation base. RPK Biopharma, Sativa Group, Clever Leaves active. Strong outdoor climate.',
+    destLicenceClass: 'EU National Narcotics Import Permit (BfArM / destination authority)',
+    clearanceDays: '3–5',
+    rejectionReasons: ['EU GMP audit not yet complete for facility', 'Phytosanitary certificate errors from DGAV', 'Batch release signatory not EQP-qualified'],
+    keyRisk: 'EU GMP audit backlog — Portuguese producers face 6–12 month delays entering EU GMP certification queue',
+    timeline: '10–16 weeks (once EU GMP in place)',
+  },
+  {
+    from: 'Denmark', to: 'Germany / EU', status: 'Active', authority: 'DKMA / BfArM',
+    permit: 'EU Narcotics Export/Import Permit', leadWeeks: '6–10',
+    docs: ['DKMA Export Cert', 'COA', 'EU GMP Cert', 'Import Permit', 'Batch Release'],
+    bottleneck: 'Limited licensed cultivators; production scale constraints; domestic pilot scheme demand',
+    note: 'Aurora Cannabis, Stenocare operating. Danish pilot scheme expanding to EU distribution. Limited supplier base creates concentration risk.',
+    destLicenceClass: 'EU National Narcotics Import Permit',
+    clearanceDays: '3–5',
+    rejectionReasons: ['Production volume constraints limit contract fulfilment', 'Labelling non-compliance with EU Annex 17', 'GACP gaps for outdoor cultivation lots'],
+    keyRisk: 'Single-source concentration — limited licensed Danish producers; supply disruption from one facility affects multiple EU buyers',
+    timeline: '8–14 weeks end-to-end',
+  },
+  {
+    from: 'Australia', to: 'Global', status: 'Active', authority: 'ODC (TGA)',
+    permit: 'ODC Import/Export Permit', leadWeeks: '8–12',
+    docs: ['ODC Export Permit', 'TGA Import Permit (dest)', 'COA', 'GMP Cert', 'Phytosanitary'],
+    bottleneck: 'Destination country import permits; TGA scheduling classification at destination',
+    note: 'Asia-Pacific hub. Cann Group, Cannatrek, Althea, Bod Australia active exporters. Each market requires separate destination import permit.',
+    destLicenceClass: 'Varies by destination — TGA GMP-equivalent required at receiving jurisdiction',
+    clearanceDays: '5–14',
+    rejectionReasons: ['Destination import permit not issued before export dispatch', 'Incorrect product scheduling classification at destination', 'TGA GMP not recognised by destination authority'],
+    keyRisk: 'Destination regulatory patchwork — each export market requires separate import permit; multi-market strategy requires parallel permitting processes',
+    timeline: '12–20 weeks end-to-end (destination permit-dependent)',
+  },
+  {
+    from: 'Germany', to: 'EU Distribution', status: 'Active', authority: 'BfArM',
+    permit: 'Wholesale Distribution Licence (GDP)', leadWeeks: '4–8',
+    docs: ['EU GMP Cert', 'Wholesale Licence', 'COA', 'Batch Release Certificate', 'GDP Compliance Certificate'],
+    bottleneck: 'Pharmacy-only distribution until adult-use commercial expansion; tight batch documentation requirements',
+    note: 'Intra-EU distribution hub. Cannamedical, Demecan, Cansativa dominant distributors. Germany Anbauvereinigungen framework expanding domestic supply.',
+    destLicenceClass: 'EU Wholesale Distribution Authorisation (GDP compliant) at destination',
+    clearanceDays: '2–4',
+    rejectionReasons: ['Batch documentation incomplete for GDP chain-of-custody', 'GDP cold chain breach during transit', 'Consignee wholesale licence expired or not covering product category'],
+    keyRisk: 'Batch documentation integrity — EU GDP requires complete chain-of-custody from cultivation to pharmacy; any gap triggers batch quarantine',
+    timeline: '6–10 weeks end-to-end',
+  },
+
+  // ── Trans-Atlantic & Cross-Regional ──────────────────────────────────────
+  {
+    from: 'Netherlands', to: 'United Kingdom', status: 'Active', authority: 'CBG / MHRA',
+    permit: 'MHRA Import Licence + Home Office Authority', leadWeeks: '8–12',
+    docs: ['MHRA Import Licence', 'Home Office Controlled Drug Authority', 'UK GMP Cert', 'COA', 'Batch Release'],
+    bottleneck: 'Post-Brexit UK GMP recognition separate from EU GMP; MHRA processing 10–14 weeks',
+    note: 'Bedrocan, Transvaal active on this route. UK medical cannabis market growing rapidly. Netherlands remains dominant EU supplier to UK.',
+    destLicenceClass: 'Schedule 2 Controlled Drug Importation Licence (MHRA / Home Office)',
+    clearanceDays: '5–8',
+    rejectionReasons: ['UK GMP not yet granted for EU facility (post-Brexit divergence)', 'Home Office authority not in place before shipment', 'Import licence product specification mismatch'],
+    keyRisk: 'Post-Brexit dual GMP burden — EU GMP alone insufficient for UK market access; separate UK GMP recognition adds 4–8 months',
+    timeline: '12–18 weeks end-to-end',
+  },
+  {
+    from: 'Canada', to: 'Australia', status: 'Active', authority: 'Health Canada / ODC (TGA)',
+    permit: 'ODC Import Permit + TGA GMP Licence', leadWeeks: '10–14',
+    docs: ['ODC Import Permit', 'Health Canada Export Permit', 'TGA GMP Licence', 'COA', 'Phytosanitary'],
+    bottleneck: 'TGA GMP recognition — Canadian producers must hold TGA manufacturing licence separately from Health Canada/EU GMP',
+    note: 'Trans-Pacific route growing. Tilray, Aurora, Canopy have TGA-recognised facilities. Second-largest Canadian export corridor after Germany.',
+    destLicenceClass: 'ODC Cannabis Import Permit (Schedule 8 Controlled Drug, TGA)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['TGA GMP not recognised for Canadian facility', 'Incorrect product scheduling under TGA Poisons Standard', 'ODC import permit not issued before dispatch'],
+    keyRisk: 'TGA GMP recognition — entirely separate from Canadian and EU GMP regimes; TGA audit adds 4–8 months for producers without prior recognition',
+    timeline: '14–20 weeks end-to-end',
+  },
+  {
+    from: 'Canada', to: 'France', status: 'Active', authority: 'Health Canada / ANSM',
+    permit: 'ANSM Import Authorisation + Health Canada Export', leadWeeks: '10–16',
+    docs: ['ANSM Import Authorisation', 'Health Canada Export Permit', 'EU GMP Cert', 'COA', 'GACP Cert'],
+    bottleneck: 'ANSM processing timelines; each product SKU requires separate authorisation; flower/extract distinction in French framework',
+    note: 'France cannabis médicale pilot expanded 2024 — flower and extract both authorised. Aurora, Tilray among authorised Canadian suppliers.',
+    destLicenceClass: 'ANSM Stupéfiants Import Authorisation (Art. L.5132-8 CSP)',
+    clearanceDays: '5–8',
+    rejectionReasons: ['Product format not covered by ANSM authorisation', 'EU GMP not recognised for Canadian facility', 'GACP documentation missing for flower products'],
+    keyRisk: 'ANSM product-level authorisation — each product format and SKU requires separate ANSM import authorisation; SKU proliferation multiplies administrative burden',
+    timeline: '14–22 weeks end-to-end',
+  },
+  {
+    from: 'Canada', to: 'Israel', status: 'Active', authority: 'Health Canada / IMCA',
+    permit: 'Health Canada Export Licence + IMCA Import Permit', leadWeeks: '10–14',
+    docs: ['Health Canada Export Licence', 'IMCA Import Permit', 'IMC-GMP or Canadian GMP Cert', 'COA'],
+    bottleneck: 'IMCA import volumes quota-controlled; Israeli shekel/USD exchange volatility; shipping route constraints via Europe',
+    note: 'Active bilateral medical corridor. Israel is a significant testing ground for Canadian products ahead of EU regulatory expansion. Multiple Canadian LPs active.',
+    destLicenceClass: 'IMCA (Israeli Medical Cannabis Agency) Import Permit',
+    clearanceDays: '5–10',
+    rejectionReasons: ['IMCA quarterly quota exhausted', 'GMP certificate not IMCA-recognised format', 'COA not in IMCA-compliant format', 'Transit country prohibited by IMCA routing requirements'],
+    keyRisk: 'IMCA volume quotas — quarterly import limits can be filled by dominant suppliers; late-cycle applications may be rejected regardless of product quality',
+    timeline: '14–20 weeks end-to-end',
+  },
+  {
+    from: 'Portugal', to: 'United Kingdom', status: 'Active', authority: 'Infarmed / MHRA',
+    permit: 'MHRA Import Licence + Infarmed Export Cert', leadWeeks: '10–14',
+    docs: ['MHRA Import Licence', 'UK GMP Certificate', 'COA', 'Infarmed Export Authorisation', 'GACP Cert'],
+    bottleneck: 'UK GMP separate from EU GMP for Portuguese producers; MHRA processing 8–12 weeks; post-Brexit regulatory divergence',
+    note: 'Growing route as Portuguese operators pursue multi-market export diversification beyond Germany. RPK Biopharma among active exporters.',
+    destLicenceClass: 'Schedule 2 Controlled Drug Import Licence (MHRA)',
+    clearanceDays: '5–8',
+    rejectionReasons: ['UK GMP not obtained (separate from EU GMP post-Brexit)', 'MHRA licence not issued for specific product specification', 'Infarmed export cert missing or expired'],
+    keyRisk: 'Post-Brexit dual GMP burden — EU GMP certification alone is insufficient; UK GMP recognition requires separate MHRA audit process',
+    timeline: '14–20 weeks end-to-end',
+  },
+  {
+    from: 'Colombia', to: 'EU / LATAM', status: 'Emerging', authority: 'MinSalud / INVIMA',
+    permit: 'INVIMA Export Cert + Destination Import Permit', leadWeeks: '14–20',
+    docs: ['INVIMA Export Cert', 'GACP Cert', 'COA', 'Dest Import Permit', 'Phytosanitary'],
+    bottleneck: 'EU GMP certification gap; Colombian peso volatility; INVIMA export cert processing 4–8 weeks',
+    note: 'Scale cultivation advantage. Khiron, Flora Growth, Clever Leaves, Ecomedics active. Lowest-cost medical cannabis globally at scale.',
+    destLicenceClass: 'EU Narcotics Import Permit / LATAM equivalent (destination-specific)',
+    clearanceDays: '8–14',
+    rejectionReasons: ['EU GMP gap — Colombian facilities typically GACP-certified only', 'INVIMA export cert delays', 'Currency controls delaying payment settlement'],
+    keyRisk: 'EU GMP certification gap — Colombian producers require full EU GMP audit before EU medical export; bridging period of GACP-only production limits destination markets',
+    timeline: '18–28 weeks end-to-end',
+  },
+  {
+    from: 'Colombia', to: 'United Kingdom', status: 'Active', authority: 'MinSalud / MHRA',
+    permit: 'MHRA Import Licence + INVIMA Export Cert', leadWeeks: '12–18',
+    docs: ['MHRA Import Licence', 'UK GMP Certificate', 'INVIMA Export Cert', 'COA', 'GACP Cert'],
+    bottleneck: 'UK GMP separate from EU GMP; INVIMA export cert processing delays; MHRA licence backlog',
+    note: 'UK–Colombia corridor growing as Colombian exporters diversify. Khiron, Clever Leaves active on this route. UK became priority market post-Brexit.',
+    destLicenceClass: 'Schedule 2 Controlled Drug Importation Licence (MHRA)',
+    clearanceDays: '7–12',
+    rejectionReasons: ['UK GMP not obtained for Colombian facility', 'INVIMA export cert not issued in time', 'MHRA licence processing backlog', 'COA format not UK GMP-compliant'],
+    keyRisk: 'Dual UK/EU GMP burden — producers targeting both markets must obtain and maintain separate certifications; significant ongoing compliance cost',
+    timeline: '16–26 weeks end-to-end',
+  },
+
+  // ── Emerging / Pilot ─────────────────────────────────────────────────────
+  {
+    from: 'Israel', to: 'Germany / EU', status: 'Emerging', authority: 'IMCA / BfArM',
+    permit: 'Research Grade Import Authorisation', leadWeeks: '12–20',
+    docs: ['IMCA Export Authorisation', 'Research Protocol', 'COA', 'Import Permit', 'End-Use Declaration'],
+    bottleneck: 'EU GMP equivalency not yet confirmed for all Israeli producers; regulatory parity debate between EU and Israel',
+    note: 'High R&D-grade quality. IMC-GMP certification underway for EU access. Tikun Olam, BOL Pharma among producers targeting EU equivalency.',
+    destLicenceClass: 'BfArM Import Permit — Research Grade',
+    clearanceDays: '7–14',
+    rejectionReasons: ['IMC-GMP not accepted as EU GMP equivalent', 'Research protocol required for non-standard clinical applications', 'Extended customs hold for non-EU-GMP products'],
+    keyRisk: 'EU GMP equivalency unresolved — IMC-GMP parity with EU GMP expected 2025–2026; until then, Israeli products enter EU only under research pathways',
+    timeline: '16–26 weeks end-to-end',
+  },
+  {
+    from: 'Malta', to: 'EU', status: 'Pilot', authority: 'MRA',
+    permit: 'MRA Cultivation Licence + Export Certificate', leadWeeks: '16–24',
+    docs: ['MRA Export Cert', 'COA', 'EU GMP Cert', 'Import Permit (dest)', 'GACP Certificate'],
+    bottleneck: 'First adult-use EU licensed market; limited production volume at launch; export framework operational maturity',
+    note: 'Pioneer EU adult-use jurisdiction. MRA regulatory model still maturing. Small island geography limits cultivation scale.',
+    destLicenceClass: 'EU National Narcotics Import Permit (destination-specific)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['MRA export licence not yet issued to specific producer', 'Production volumes insufficient for commercial shipment minimum', 'EU GMP not yet certified for Maltese facility'],
+    keyRisk: 'Framework maturity — Malta adult-use framework <2 years old; export rules and commercial precedents still being established',
+    timeline: '20–32 weeks end-to-end',
+  },
+  {
+    from: 'Switzerland', to: 'EU', status: 'Pilot', authority: 'Swissmedic / FOPH',
+    permit: 'Swissmedic Narcotics Export Permit', leadWeeks: '10–16',
+    docs: ['Swissmedic Export Permit', 'COA', 'GMP Certificate', 'Phytosanitary', 'Dest Import Permit'],
+    bottleneck: 'Non-EU MRA status; bilateral negotiations ongoing; each shipment requires separate government authorisation',
+    note: 'Swiss cannabis pilot (2025) — medical and adult-use research export anticipated. Non-EU MRA creates additional bilateral permitting burden.',
+    destLicenceClass: 'EU National Narcotics Import Permit + Swissmedic Narcotics Export Permit',
+    clearanceDays: '5–10',
+    rejectionReasons: ['Non-EU MRA status — dual certification burden for each shipment', 'Swissmedic permit valid only if EU destination authority pre-authorised', 'Pilot scheme volume caps exceeded'],
+    keyRisk: 'Bilateral authorisation per shipment — Switzerland–EU MRA does not cover narcotics; each export requires co-authorisation from both Swissmedic and destination authority',
+    timeline: '14–22 weeks end-to-end',
+  },
+  {
+    from: 'Spain', to: 'EU', status: 'Emerging', authority: 'AEMPS',
+    permit: 'AEMPS Narcotic Export Authorisation', leadWeeks: '12–18',
+    docs: ['AEMPS Export Auth', 'EU GMP Certificate', 'GACP Certificate', 'COA', 'Dest Import Permit'],
+    bottleneck: 'Spain cultivation licensed but export framework nascent; AEMPS export authorisation process not fully operationalised',
+    note: 'Multiple licensed cultivators established post-2021 but primarily domestic supply. Export corridor emerging 2024–2025. Strong outdoor climate advantage.',
+    destLicenceClass: 'EU National Narcotics Import Permit (destination-specific)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['AEMPS export authorisation process still being operationalised', 'Product not on EU pharmacopoeia monograph', 'Batch release signatory qualification gaps'],
+    keyRisk: 'Framework nascency — Spain export regulations still being operationalised; no established commercial export precedent creates first-mover uncertainty',
+    timeline: '16–26 weeks end-to-end',
+  },
+  {
+    from: 'North Macedonia', to: 'EU', status: 'Emerging', authority: 'Agency for Medicines / BfArM',
+    permit: 'National Export Certificate + EU Import Permit', leadWeeks: '12–18',
+    docs: ['National Export Certificate', 'EU GMP Cert', 'COA', 'GACP Certificate', 'Dest Import Permit'],
+    bottleneck: 'EU candidacy complicates regulatory alignment; EU GMP for North Macedonian facilities requires EU-qualified QP oversight',
+    note: 'Tikun Olam North Macedonia, CannabisMK active. Low-cost outdoor cultivation base with EU access ambitions. EU accession process may streamline pathway.',
+    destLicenceClass: 'EU National Narcotics Import Permit',
+    clearanceDays: '5–10',
+    rejectionReasons: ['EU GMP not certified for facility', 'QP batch release signatory not EU-qualified or EU-based', 'GACP documentation gaps for outdoor cultivation'],
+    keyRisk: 'EU GMP QP requirement — non-EU producers must engage an EU-qualified QP for batch release; adds ongoing cost and dependency',
+    timeline: '16–26 weeks end-to-end',
+  },
+  {
+    from: 'Greece', to: 'EU Distribution', status: 'Emerging', authority: 'EOF',
+    permit: 'EOF Export Permit + Dest Import Permit', leadWeeks: '10–16',
+    docs: ['EOF Export Permit', 'EU GMP Certificate', 'GACP Cert', 'COA', 'Phytosanitary', 'Dest Import Permit'],
+    bottleneck: 'Greek EU GMP-certified capacity limited; EOF regulatory capacity stretched; few established commercial exporters',
+    note: 'Greece 2019 medical cannabis export framework. Ideal Mediterranean climate for outdoor cultivation. InsightFul, Ecoark Hellas active.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['EU GMP not certified for facility', 'EOF export permit processing delays', 'GACP documentation gaps for outdoor cultivation', 'Phytosanitary certificate errors'],
+    keyRisk: 'EU GMP for outdoor cultivation — EU GMP inspection standards are biased toward indoor facilities; outdoor Greek cultivators face additional audit complexity',
+    timeline: '14–22 weeks end-to-end',
+  },
+  {
+    from: 'Czech Republic', to: 'EU Distribution', status: 'Active', authority: 'SÚKL',
+    permit: 'SÚKL Narcotics Export Permit + Dest Import Permit', leadWeeks: '6–10',
+    docs: ['SÚKL Export Permit', 'EU GMP Certificate', 'COA', 'Batch Release Certificate', 'Dest Import Permit'],
+    bottleneck: 'Limited domestic export-oriented producers; large domestic prescription demand competes with export volume allocation',
+    note: 'Czech Republic has largest EU medical cannabis market by prescription volume. Elkana, MedCan among producers. Domestic demand typically prioritised over export.',
+    destLicenceClass: 'EU National Narcotics Import Permit',
+    clearanceDays: '3–6',
+    rejectionReasons: ['SÚKL export permit delays due to domestic prioritisation', 'Batch release documentation incomplete', 'Specification mismatch between import permit and actual product batch'],
+    keyRisk: 'Domestic market cannibalism — rapidly growing Czech prescription volumes compete directly with export allocation; supply commitments at risk in high-demand periods',
+    timeline: '8–14 weeks end-to-end',
+  },
+  {
+    from: 'Italy', to: 'EU Distribution', status: 'Emerging', authority: 'ISS / AIFA',
+    permit: 'ISS Narcotics Export Authorisation + Dest Import Permit', leadWeeks: '12–20',
+    docs: ['ISS Export Authorisation', 'EU GMP Certificate', 'GACP Cert', 'COA', 'Dest Import Permit'],
+    bottleneck: 'Italy domestic medical market prioritised by ISS; export framework operationally underutilised; limited private sector EU GMP capacity',
+    note: 'Italy large domestic cannabis market. FAMFB (Army) sole historical EU GMP producer; private sector growing. Export corridor emerging as private capacity scales.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['ISS export authorisation processing delays', 'Limited private sector EU GMP capacity in Italy', 'Product volume constraints given domestic supply priority'],
+    keyRisk: 'State supply priority — ISS historically prioritises domestic pharmacy supply; commercial export framework slow to develop',
+    timeline: '16–26 weeks end-to-end',
+  },
+  {
+    from: 'Poland', to: 'EU Distribution', status: 'Active', authority: 'URPL',
+    permit: 'URPL Narcotics Export Permit + Dest Import Permit', leadWeeks: '6–10',
+    docs: ['URPL Export Permit', 'EU GMP Certificate', 'COA', 'Batch Release Certificate', 'Dest Import Permit'],
+    bottleneck: 'Polish domestic prescription market large and fast-growing; URPL processing time 8–12 weeks; few export-oriented licensed producers',
+    note: 'Poland largest EU medical cannabis market by prescription volume. Growing licensed producer base. Aurora-licensed, Canopy distribution active.',
+    destLicenceClass: 'EU National Narcotics Import Permit (destination-specific)',
+    clearanceDays: '3–6',
+    rejectionReasons: ['URPL export permit processing delays due to high domestic demand', 'Batch release documentation incomplete', 'Product specification mismatch between import permit and actual batch'],
+    keyRisk: 'URPL processing capacity — high domestic demand creates competing priorities; export permit processing may be deprioritised during domestic supply crunches',
+    timeline: '8–14 weeks end-to-end',
+  },
+
+  // ── Africa ───────────────────────────────────────────────────────────────
+  {
+    from: 'South Africa', to: 'Germany / EU', status: 'Emerging', authority: 'SAHPRA / BfArM',
+    permit: 'SAHPRA Export Permit + BfArM Import Permit', leadWeeks: '14–22',
+    docs: ['SAHPRA Export Permit', 'EU GMP Certificate', 'COA', 'GACP Certificate', 'Phytosanitary', 'Import Permit'],
+    bottleneck: 'EU GMP certification for South African facilities; SAHPRA processing capacity; cold chain over 9,000km haul',
+    note: 'Galeshewe, Africanpure, others pursuing EU GMP. Climate advantage for outdoor cultivation at scale. Long logistics chain requires robust cold chain.',
+    destLicenceClass: 'BfArM Import Permit (§3 BtMG) / EU Narcotics Import Permit',
+    clearanceDays: '7–14',
+    rejectionReasons: ['EU GMP not yet certified (SAHPRA GMP not EU-equivalent)', 'SAHPRA export permit delays (8–16 weeks processing)', 'Cold chain documentation incomplete for long-haul', 'Phytosanitary inspection failures'],
+    keyRisk: 'EU GMP gap — SAHPRA GMP not accepted as EU equivalent; full EU GMP audit mandatory for all South African producers targeting EU markets',
+    timeline: '20–32 weeks end-to-end',
+  },
+  {
+    from: 'Zimbabwe', to: 'EU / UK', status: 'Emerging', authority: 'MCAZ / BfArM or MHRA',
+    permit: 'MCAZ Export Licence + EU/UK Import Permit', leadWeeks: '16–24',
+    docs: ['MCAZ Export Licence', 'EU/UK GMP Certificate', 'COA', 'GACP Certificate', 'Phytosanitary'],
+    bottleneck: 'Limited EU/UK GMP-certified capacity; MCAZ framework nascent; currency and international banking constraints',
+    note: 'Creso Pharma, Doozy Products active. Low-cost outdoor cultivation. MCAZ (Medicines Control Authority Zimbabwe) regulatory framework maturing.',
+    destLicenceClass: 'EU Narcotics Import Permit / UK Schedule 2 CDL (destination-specific)',
+    clearanceDays: '8–16',
+    rejectionReasons: ['GMP not certified for EU/UK market', 'MCAZ export licence processing delays', 'International banking restrictions on Zimbabwean transactions', 'GACP documentation inadequate for EU import'],
+    keyRisk: 'Banking restrictions — international payment infrastructure for Zimbabwean entities remains constrained; payment delays can halt shipment release',
+    timeline: '22–34 weeks end-to-end',
+  },
+  {
+    from: 'Lesotho', to: 'EU', status: 'Emerging', authority: 'LHDA / BfArM or ANSM',
+    permit: 'Lesotho Health Dept Export Cert + EU Import Permit', leadWeeks: '14–22',
+    docs: ['Health Dept Export Cert', 'EU GMP Certificate', 'COA', 'GACP Certificate', 'Phytosanitary'],
+    bottleneck: 'EU GMP not yet certified for major Lesotho operators; landlocked logistics dependency on South Africa transit routing',
+    note: 'MG Health, Medigrow, Mountain High active. Highest-altitude cultivation globally — exceptional terpene and quality profile. Landlocked geography adds logistics complexity.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '7–14',
+    rejectionReasons: ['EU GMP gap — most operators GACP-level only', 'Landlocked transit routing via RSA disrupted', 'Phytosanitary cert errors from Lesotho health authority', 'COA not EU GMP Annex 11 formatted'],
+    keyRisk: 'Landlocked logistics — all shipments transit South Africa; any RSA border disruption, labour action, or customs delay affects entire Lesotho supply chain',
+    timeline: '20–30 weeks end-to-end',
+  },
+  {
+    from: 'Rwanda', to: 'EU / Africa', status: 'Emerging', authority: 'RDB / BfArM',
+    permit: 'RDB Cannabis Export Permit + Dest Import Permit', leadWeeks: '14–20',
+    docs: ['RDB Export Permit', 'GACP Certificate', 'COA', 'Phytosanitary', 'Dest Import Permit'],
+    bottleneck: 'Very early-stage framework — RDB licensing issued 2022; EU GMP-certified capacity essentially absent; limited accredited testing infrastructure',
+    note: 'Rwanda targeting medical cannabis as economic diversification. RightGreen Health, others licensed. Pioneer of African continental cannabis regulatory compliance framework.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '7–14',
+    rejectionReasons: ['EU GMP absent — production at GACP level only', 'RDB export permit processing delays', 'Limited accredited laboratory access for COA generation'],
+    keyRisk: 'Framework nascency — Rwanda cannabis regulation <3 years old; EU export pathway not commercially proven; first-mover must build regulatory precedent',
+    timeline: '20–30 weeks end-to-end',
+  },
+  {
+    from: 'Morocco', to: 'EU', status: 'Emerging', authority: 'ONICL / EMA',
+    permit: 'Agricultural Export Certificate', leadWeeks: '8–14',
+    docs: ['Agricultural Export Cert', 'COA', 'Phytosanitary (ONSSA)', 'Hemp <0.2% THC Declaration'],
+    bottleneck: 'Medical THC framework nascent; hemp/CBD export viable but THC limit compliance critical; ONSSA phytosanitary requirements',
+    note: 'Major hemp cultivation base — traditionally illicit kif production. CBD isolate, fibre, seed export active. Medical THC pathway emerging post-2021 legalisation.',
+    destLicenceClass: 'EU Hemp Import Certificate (no narcotics permit for compliant hemp <0.2% THC)',
+    clearanceDays: '5–10',
+    rejectionReasons: ['THC content exceeding EU hemp threshold (0.2%)', 'Missing ONSSA phytosanitary certificate', 'Product misclassification at EU customs as controlled substance'],
+    keyRisk: 'Medical THC pathway absent — hemp/CBD export is viable; medical cannabis THC export pathway does not yet exist commercially',
+    timeline: '8–14 weeks end-to-end (hemp/CBD only)',
+  },
+
+  // ── Americas ─────────────────────────────────────────────────────────────
+  {
+    from: 'Jamaica', to: 'North America / EU', status: 'Restricted', authority: 'CLA (Cannabis Licensing Authority)',
+    permit: 'CLA Export Permit + Destination Narcotics Import Permit', leadWeeks: '16–28',
+    docs: ['CLA Export Permit', 'COA', 'GACP Cert', 'Phytosanitary', 'Dest Permit', 'End-Use Cert'],
+    bottleneck: 'Limited regulatory framework maturity; US Schedule I barrier blocks THC products entirely; EU regulatory parity not established',
+    note: 'Heritage and CBD products viable. Medical THC export pathway limited to non-US jurisdictions. CLA framework gaining maturity.',
+    destLicenceClass: 'DEA Schedule I Permit (US, THC) — effectively blocked / EU Narcotics Import Permit',
+    clearanceDays: '14–21',
+    rejectionReasons: ['US Schedule I barrier — Jamaican THC products cannot legally enter US regardless of Jamaican licensing', 'CLA framework not recognised as EU equivalent', 'Financial transaction complications from US banking sensitivity'],
+    keyRisk: 'US Schedule I wall — US market completely inaccessible for Jamaican THC products under current federal law; EU-only viable for medical THC',
+    timeline: '24–36 weeks end-to-end (EU pathway only)',
+  },
+  {
+    from: 'Uruguay', to: 'EU', status: 'Restricted', authority: 'IRCCA / Ministry of Health',
+    permit: 'IRCCA Authorization + EU Import Permit', leadWeeks: '20–30',
+    docs: ['IRCCA Cert', 'COA', 'GMP Cert', 'Phytosanitary', 'EU Import Permit', 'End-Use Declaration'],
+    bottleneck: 'State-only supply model; IRCCA restricts commercial export volumes; EU GMP equivalency not formally established for Uruguayan producers',
+    note: 'First adult-use legalisation globally (2013). IRCCA state-controlled production model restricts commercial scale. Export pathway exists but volumes tightly constrained.',
+    destLicenceClass: 'EU National Narcotics Import Permit + IRCCA export authorisation',
+    clearanceDays: '10–18',
+    rejectionReasons: ['IRCCA state-only model limits commercial operator access', 'EU GMP equivalency not established for Uruguayan facilities', 'Limited product range under state-controlled cultivation parameters'],
+    keyRisk: 'State supply model — IRCCA permits only state-licensed production; commercial export at scale essentially unavailable to private operators',
+    timeline: '24–36 weeks end-to-end',
+  },
+  {
+    from: 'Mexico', to: 'United States', status: 'Restricted', authority: 'COFEPRIS / FDA',
+    permit: 'FDA Prior Notice + DEA Hemp Registration', leadWeeks: '8–16',
+    docs: ['FDA Prior Notice', 'COA (<0.3% THC)', 'COFEPRIS Export Cert', 'Certificate of Origin', 'USDA Phytosanitary'],
+    bottleneck: 'FDA Import Alert 54-15 applies to CBD; DEA hemp import rules complex; THC content testing at border',
+    note: 'Hemp-derived CBD and fibre viable under 2018 US Farm Bill. THC products face Schedule I barrier. COFEPRIS hemp framework established 2019.',
+    destLicenceClass: 'FDA-registered importer; DEA Hemp Importer Registration (>0.1% THC lots)',
+    clearanceDays: '5–12',
+    rejectionReasons: ['THC content >0.3% — automatic Schedule I seizure and DEA referral', 'FDA Import Alert 54-15 coverage for CBD', 'Missing COFEPRIS phytosanitary clearance', 'Certificate of origin discrepancy at border'],
+    keyRisk: 'THC threshold enforcement — any product testing above 0.3% THC at US border triggers Schedule I seizure; margin-of-error lots require testing well below threshold',
+    timeline: '10–20 weeks end-to-end',
+  },
+  {
+    from: 'Brazil', to: 'EU', status: 'Emerging', authority: 'ANVISA / EMA',
+    permit: 'ANVISA Export Authorisation + EU Import Permit', leadWeeks: '14–20',
+    docs: ['ANVISA Export Auth', 'GACP Cert', 'COA', 'EU GMP Certificate', 'Phytosanitary', 'Dest Import Permit'],
+    bottleneck: 'ANVISA framework principally import-focused; export pathway for cannabis derivatives nascent; EU GMP gap for Brazilian producers',
+    note: 'Brazil fastest-growing medical cannabis import market globally. Export potential for CBDA, isolates. Regulatory inversion to full export framework likely by 2026.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '8–14',
+    rejectionReasons: ['ANVISA export framework not fully operationalised', 'EU GMP gap for Brazilian producers', 'Product classification uncertainty (extract vs. finished pharmaceutical product)'],
+    keyRisk: 'ANVISA export framework gap — Brazilian regulations are oriented toward importation; commercial export pathway is being established but not commercially proven',
+    timeline: '18–28 weeks end-to-end',
+  },
+  {
+    from: 'Ecuador', to: 'EU', status: 'Emerging', authority: 'ARCSA / EMA',
+    permit: 'ARCSA Export Certificate + EU Import Permit', leadWeeks: '14–22',
+    docs: ['ARCSA Export Cert', 'GACP Cert', 'COA', 'EU GMP Certificate', 'Phytosanitary', 'Dest Import Permit'],
+    bottleneck: 'Cannabis regulatory framework nascent post-2021 reform; EU GMP gap; controlled substance export logistics infrastructure still being built',
+    note: 'Ecuador 2021 cannabis reform opened cultivation for medicinal and industrial use. Export framework early stage. Ideal equatorial growing conditions for year-round cultivation.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '8–14',
+    rejectionReasons: ['ARCSA export certificate not yet operationalised for cannabis', 'EU GMP absent for all Ecuadorian facilities', 'Limited accredited testing infrastructure for compliant COA generation'],
+    keyRisk: 'Framework nascency — Ecuador regulatory infrastructure for controlled substance export still being built; no commercial export precedent established',
+    timeline: '20–32 weeks end-to-end',
+  },
+  {
+    from: 'Peru', to: 'EU', status: 'Emerging', authority: 'DIGEMID / EMA',
+    permit: 'DIGEMID Export Authorisation + EU Import Permit', leadWeeks: '16–24',
+    docs: ['DIGEMID Export Auth', 'GACP Cert', 'COA', 'Phytosanitary', 'EU Import Permit'],
+    bottleneck: 'Peru cannabis medical decree (2019) principally enables importation; EU GMP-certified export capacity essentially absent',
+    note: 'Peru emerging cultivation corridor. CBD oil and derivatives active domestically. Medical THC export framework very early stage. Andean altitude cultivation advantage.',
+    destLicenceClass: 'EU Narcotics Import Permit (destination-specific)',
+    clearanceDays: '8–16',
+    rejectionReasons: ['EU GMP absent for all Peruvian producers', 'DIGEMID export authorisation not yet operationalised for cannabis', 'Limited accredited testing capacity', 'Phytosanitary certification gaps'],
+    keyRisk: 'EU GMP gap — Peruvian producers at GACP level at best; EU medical cannabis requires complete EU GMP-certified supply chain',
+    timeline: '22–34 weeks end-to-end',
+  },
+
+  // ── Asia-Pacific ─────────────────────────────────────────────────────────
+  {
+    from: 'Thailand', to: 'Asia-Pacific', status: 'Emerging', authority: 'FDA Thailand / ONCB',
+    permit: 'ONCB Export Licence', leadWeeks: '12–20',
+    docs: ['ONCB Export Licence', 'FDA Thailand Certificate', 'COA', 'Phytosanitary', 'Dest Import Permit'],
+    bottleneck: 'Regulatory rollback risk; limited licensed exporters; patchwork regional import rules across Asia-Pacific markets',
+    note: 'Post-2022 delisting created unprecedented access. 2024 partial re-scheduling added uncertainty. Regional regulatory fragmentation remains primary commercial barrier.',
+    destLicenceClass: 'ONCB-equivalent narcotics import permit at destination',
+    clearanceDays: '7–14',
+    rejectionReasons: ['Destination country refuses Thai regulatory status due to re-scheduling controversy', 'ONCB export licence processing delays', 'Inconsistent product classification between Thai and destination scheduling'],
+    keyRisk: 'Regulatory rollback risk — Thailand 2024 partial re-scheduling created uncertainty; commercial export volumes limited until regulatory stability confirmed',
+    timeline: '16–24 weeks end-to-end',
+  },
+  {
+    from: 'New Zealand', to: 'Australia', status: 'Active', authority: 'Medsafe / TGA',
+    permit: 'Medsafe Export Certificate + TGA Import Permit', leadWeeks: '6–10',
+    docs: ['Medsafe Export Certificate', 'TGA Import Permit', 'COA', 'GMP Certificate', 'Phytosanitary'],
+    bottleneck: 'Trans-Tasman MRA does not cover cannabis specifically; separate TGA and Medsafe licensing required despite close regulatory alignment',
+    note: 'Helius Therapeutics, Tilray NZ among exporters. Shortest established corridor by distance. TGA recognition growing for NZ facilities.',
+    destLicenceClass: 'ODC Cannabis Import Permit + TGA-registered product (Schedule 8)',
+    clearanceDays: '3–6',
+    rejectionReasons: ['TGA product registration not completed for specific formulation', 'ODC import permit not issued before dispatch', 'COA method reference not TGA-recognised'],
+    keyRisk: 'TGA product registration — each product formulation must be separately registered with TGA before import; SKU proliferation multiplies registration burden',
+    timeline: '10–16 weeks end-to-end',
+  },
+  {
+    from: 'Singapore', to: 'Asia-Pacific (Transit)', status: 'Active', authority: 'HSA Singapore',
+    permit: 'HSA Controlled Drug Transit Permit', leadWeeks: '1–2 (transit only)',
+    docs: ['HSA Transit Permit', 'Intact Manifest (no break of bulk)', 'Dest Import Permit', 'COA', 'Airway Bill'],
+    bottleneck: 'Singapore zero-tolerance — no storage, no transhipment with break of bulk; criminal liability for any unauthorised handling',
+    note: 'Singapore is Asia-Pacific logistics hub but has absolute zero-tolerance cannabis policy. Transit permitted only with HSA pre-authorisation, sealed original packaging, no storage.',
+    destLicenceClass: 'Destination country narcotics import permit (Singapore issues transit permit only)',
+    clearanceDays: '1–3 (airside transit only)',
+    rejectionReasons: ['Break of bulk attempted during transit — immediate seizure', 'Missing HSA transit permit obtained in advance', 'Product not in original sealed manufacturer packaging', 'Airway bill discrepancy from cargo manifest'],
+    keyRisk: 'Zero-tolerance enforcement — Singapore imposes severe penalties including death for drug trafficking above threshold weights; any transit irregularity carries extreme legal risk',
+    timeline: 'Adds 2–5 days to overall route (transit component only)',
+  },
+
+  // ── Hemp / CBD Routes ─────────────────────────────────────────────────────
+  {
+    from: 'United States', to: 'EU', status: 'Active', authority: 'DEA / USDA / EMA',
+    permit: 'DEA Export Certificate (hemp) + EU CBD Novel Food Authorisation', leadWeeks: '8–14',
+    docs: ['DEA Export Certificate', 'USDA Phytosanitary', 'COA (<0.3% THC)', 'EU Novel Food Authorisation', 'Dest Import Permit'],
+    bottleneck: 'EU Novel Food classification for CBD creates additional approval requirements; separate EU and US THC threshold standards (0.3% US vs 0.2% EU)',
+    note: 'CBD isolate, broad-spectrum, and hemp seed oil exported from US to EU. Novel Food status complicates consumer product imports. Industrial hemp fibre unaffected.',
+    destLicenceClass: 'EU Novel Food Authorisation (CBD) / Hemp Import Certificate',
+    clearanceDays: '5–10',
+    rejectionReasons: ['CBD classified as Novel Food — EU authorisation not in place', 'THC content >0.2% (EU threshold lower than US 0.3%)', 'USDA phytosanitary cert missing or incorrect', 'Novel Food labelling non-compliance at EU customs'],
+    keyRisk: 'EU Novel Food classification — CBD requires separate Novel Food authorisation in EU; adds 6–12 months and significant cost for new product market entries',
+    timeline: '12–20 weeks end-to-end',
+  },
+  {
+    from: 'Turkey', to: 'EU', status: 'Active', authority: 'TEAB / EU Customs',
+    permit: 'TEAB Export Certificate + EU Hemp Import Declaration', leadWeeks: '6–10',
+    docs: ['TEAB Export Certificate', 'Certificate of Origin', 'Phytosanitary', 'COA (<0.2% THC)', 'EU Hemp Declaration'],
+    bottleneck: 'Medical THC products prohibited for export; hemp fibre and seed only; EU THC threshold (0.2%) compliance critical; customs scrutiny at EU border',
+    note: 'Turkey major hemp cultivation base. Fibre, seed, and CBD (<0.2% THC) export active to EU. No medical THC export pathway under current Turkish law.',
+    destLicenceClass: 'EU Hemp/Agricultural Import Certificate (no narcotics permit required for compliant hemp)',
+    clearanceDays: '4–8',
+    rejectionReasons: ['THC content >0.2% EU threshold', 'Missing TEAB export certificate', 'Certificate of origin discrepancy at customs', 'Phytosanitary inspection failure at origin or destination'],
+    keyRisk: 'THC compliance near-threshold — hemp products near EU limit risk testing above threshold during transit due to temperature/environmental variation; lots should target <0.15%',
+    timeline: '8–14 weeks end-to-end',
+  },
+
+  // ── Restricted / Complex ─────────────────────────────────────────────────
+  {
+    from: 'Lebanon', to: 'EU', status: 'Pilot', authority: 'MoPH Lebanon / BfArM or ANSM',
+    permit: 'MoPH Export Authorisation + EU Import Permit', leadWeeks: '16–28',
+    docs: ['MoPH Export Authorisation', 'GACP Cert', 'COA', 'Phytosanitary', 'EU Import Permit', 'End-Use Certificate'],
+    bottleneck: 'Lebanon economic and political instability severely constrains pharmaceutical-grade export infrastructure; banking crisis blocks international payment',
+    note: 'Lebanon 2020 cannabis legalisation for medical export. Significant cultivation knowledge base and historic expertise. Infrastructure and banking constraints currently dominate.',
+    destLicenceClass: 'EU Narcotics Import Permit + End-Use Certificate (heightened due diligence required)',
+    clearanceDays: '10–20',
+    rejectionReasons: ['International banking transaction cannot complete due to Lebanese banking restrictions', 'MoPH export authorisation delayed by government capacity constraints', 'GMP not certified for export standard', 'EU heightened due diligence requirements for Lebanese counterparties'],
+    keyRisk: 'Banking/financial infrastructure — Lebanese banking crisis prevents standard cannabis trade payment flows; creative financial structuring required for each transaction',
+    timeline: '24–40 weeks end-to-end',
+  },
 ]
 
 const CORRIDOR_STATUS_COLOR: Record<string, string> = {
@@ -2552,19 +3037,48 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
               {/* Expanded detail */}
               {isOpen && (
                 <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '14px' }}>
+                  {/* Key risk callout */}
+                  <div style={{
+                    marginTop: '14px', padding: '10px 12px', borderRadius: '8px',
+                    background: 'rgba(224,92,92,.07)', border: '1px solid rgba(224,92,92,.22)',
+                    display: 'flex', gap: '8px', alignItems: 'flex-start',
+                  }}>
+                    <span style={{ color: '#e05c5c', fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>⚠</span>
                     <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>PERMIT TYPE</div>
-                      <div style={{ fontSize: '12px', color: '#f5f0e8', fontWeight: 600 }}>{c.permit}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>LEAD TIME</div>
-                      <div style={{ fontSize: '12px', color: '#d4a84b', fontWeight: 700 }}>{c.leadWeeks} weeks</div>
+                      <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#e05c5c', marginBottom: '3px', fontWeight: 600 }}>KEY RISK</div>
+                      <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.75)', lineHeight: 1.5, margin: 0 }}>{c.keyRisk}</p>
                     </div>
                   </div>
 
+                  {/* 4-cell stats grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
+                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>PERMIT TYPE</div>
+                      <div style={{ fontSize: '11px', color: '#f5f0e8', fontWeight: 600, lineHeight: 1.35 }}>{c.permit}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>PERMIT LEAD TIME</div>
+                      <div style={{ fontSize: '14px', color: '#d4a84b', fontWeight: 700 }}>{c.leadWeeks} <span style={{ fontSize: '10px', fontWeight: 400 }}>weeks</span></div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>CUSTOMS CLEARANCE</div>
+                      <div style={{ fontSize: '14px', color: '#5b9bd5', fontWeight: 700 }}>{c.clearanceDays} <span style={{ fontSize: '10px', fontWeight: 400 }}>days</span></div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>END-TO-END TIMELINE</div>
+                      <div style={{ fontSize: '11px', color: '#4caf82', fontWeight: 600, lineHeight: 1.35 }}>{c.timeline}</div>
+                    </div>
+                  </div>
+
+                  {/* Destination licence class */}
                   <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>REQUIRED DOCUMENTATION</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>DESTINATION LICENCE CLASS</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.7)', lineHeight: 1.4 }}>{c.destLicenceClass}</div>
+                  </div>
+
+                  {/* Required documentation */}
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>REQUIRED DOCUMENTATION</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       {c.docs.map(d => (
                         <span key={d} style={{
@@ -2575,18 +3089,33 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
                     </div>
                   </div>
 
+                  {/* Rejection risk factors */}
                   <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>⚠ KEY BOTTLENECK</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>COMMON REJECTION / DELAY REASONS</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {c.rejectionReasons.map((r, ri) => (
+                        <div key={ri} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#e05c5c', fontSize: '9px', marginTop: '2px', flexShrink: 0 }}>✕</span>
+                          <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.5)', lineHeight: 1.45 }}>{r}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bottleneck */}
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>OPERATIONAL BOTTLENECK</div>
                     <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)', lineHeight: 1.5, margin: 0 }}>{c.bottleneck}</p>
                   </div>
 
+                  {/* Notes */}
                   <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>NOTES</div>
+                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>INTELLIGENCE NOTES</div>
                     <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.45)', lineHeight: 1.5, margin: 0 }}>{c.note}</p>
                   </div>
 
                   <a href="/intake" style={{
-                    display: 'inline-flex', marginTop: '12px', padding: '7px 16px', borderRadius: '8px',
+                    display: 'inline-flex', marginTop: '14px', padding: '8px 18px', borderRadius: '8px',
                     background: 'linear-gradient(135deg,#d4a84b,#b88c35)', color: '#0d1117',
                     fontSize: '11px', fontWeight: 700, textDecoration: 'none',
                   }}>Request Introduction for this corridor →</a>
@@ -2599,7 +3128,7 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
 
       <div className="cc-feed-footer">
         <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.3)' }}>
-          {sorted.length} of {CORRIDORS.length} corridors · Harbourview curated · Updated July 2025
+          {sorted.length} of {CORRIDORS.length} corridors · Harbourview curated · Updated July 2025 · EU · Americas · Africa · Asia-Pacific
         </span>
         <a href="/intake" className="cc-right-link">Request corridor analysis →</a>
       </div>
@@ -2668,7 +3197,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
           <p>Follow the pathway to establish and maintain access to export markets.</p>
           <div className="cc-mkt-tabs" style={{marginTop:'14px'}}>
             <button className={`cc-mkt-tab${mainTab==='pathway'?' active':''}`} onClick={() => setMainTab('pathway')}>My Pathway</button>
-            <button className={`cc-mkt-tab${mainTab==='corridors'?' active':''}`} onClick={() => setMainTab('corridors')}>Corridor Playbooks <span className="cc-tab-badge">15</span></button>
+            <button className={`cc-mkt-tab${mainTab==='corridors'?' active':''}`} onClick={() => setMainTab('corridors')}>Corridor Playbooks <span className="cc-tab-badge">40</span></button>
           </div>
         </div>
 
