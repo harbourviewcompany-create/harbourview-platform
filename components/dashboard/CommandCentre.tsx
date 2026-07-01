@@ -7417,6 +7417,28 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
 
 // ── Jobs Board page ────────────────────────────────────────────────────────────
 
+const ROLE_SECTORS_MAP: Record<string, JobSector[]> = {
+  'Doctor':      ['medical'],
+  'Pharmacist':  ['medical'],
+  'Budtender':   ['sales'],
+  'Cultivator':  ['cultivation', 'research'],
+  'Geneticist':  ['research', 'cultivation'],
+  'Processor':   ['manufacturing'],
+  'Lab/QA':      ['manufacturing', 'research'],
+  'Importer':    ['logistics', 'regulatory'],
+  'Exporter':    ['logistics', 'regulatory', 'sales'],
+  'Distributor': ['logistics', 'sales'],
+  'Clinic Op.':  ['medical', 'executive'],
+  'Retail':      ['sales', 'executive'],
+  'Compliance':  ['regulatory', 'legal'],
+  'Legal':       ['legal', 'regulatory'],
+  'Investor':    ['finance', 'executive'],
+  'Regulator':   ['regulatory'],
+  'Patient Ed.': ['medical'],
+  'GMP/QA':      ['manufacturing', 'regulatory'],
+  'Logistics':   ['logistics'],
+}
+
 const JobsBoardPage = React.memo(function JobsBoardPage({
   country, role,
 }: { country: string; region: string; role: string }) {
@@ -7425,11 +7447,15 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
   const [filterType,    setFilterType]    = useState<JobType | 'all'>('all')
   const [filterCountry, setFilterCountry] = useState<string>('all')
   const [filterRemote,  setFilterRemote]  = useState(false)
+  const [filterMyRole,  setFilterMyRole]  = useState(false)
   const [expanded,      setExpanded]      = useState<string | null>(null)
+
+  const roleSectors = useMemo<JobSector[]>(() => ROLE_SECTORS_MAP[role] ?? [], [role])
 
   const filtered = useMemo(() => {
     const ql = search.toLowerCase()
     return JOB_LISTINGS.filter(j => {
+      if (filterMyRole && roleSectors.length > 0 && !roleSectors.includes(j.sector)) return false
       if (filterSector  !== 'all' && j.sector  !== filterSector)  return false
       if (filterType    !== 'all' && j.type    !== filterType)    return false
       if (filterCountry !== 'all' && j.country !== filterCountry) return false
@@ -7439,14 +7465,17 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
           !j.description.toLowerCase().includes(ql)) return false
       return true
     }).sort((a, b) => {
-      // Featured + home country first
+      const aRole = roleSectors.includes(a.sector)
+      const bRole = roleSectors.includes(b.sector)
+      if (aRole && !bRole) return -1
+      if (bRole && !aRole) return  1
       if (a.featured && !b.featured) return -1
       if (b.featured && !a.featured) return  1
       if (country && a.country === country && b.country !== country) return -1
       if (country && b.country === country && a.country !== country) return  1
       return b.posted.localeCompare(a.posted)
     })
-  }, [search, filterSector, filterType, filterCountry, filterRemote, country])
+  }, [search, filterSector, filterType, filterCountry, filterRemote, filterMyRole, roleSectors, country])
 
   const sectorCounts = useMemo(() => {
     const m: Record<string, number> = {}
@@ -7477,6 +7506,10 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
 .jb-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; margin-bottom: 10px; overflow: hidden; transition: border-color .15s; }
 .jb-card:hover { border-color: rgba(212,168,75,.3); }
 .jb-card.featured { border-color: rgba(212,168,75,.25); background: rgba(212,168,75,.04); }
+.jb-card.role-match { border-left: 3px solid #10b981; }
+.jb-role-match-badge { font-size: .62rem; padding: 1px 6px; background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.35); border-radius: 8px; color: #10b981; font-weight: 700; }
+.jb-my-role-btn { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.35); border-radius: 20px; padding: 3px 11px; color: #10b981; font-size: .73rem; cursor: pointer; white-space: nowrap; font-weight: 600; transition: all .15s; }
+.jb-my-role-btn.active { background: rgba(16,185,129,.25); border-color: #10b981; }
 .jb-card-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; cursor: pointer; }
 .jb-card-main { flex: 1; }
 .jb-card-title { font-size: .92rem; font-weight: 700; color: #f5f0e8; margin-bottom: 3px; }
@@ -7506,6 +7539,14 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
 
         <div className="jb-filters">
           <input className="jb-search" placeholder="Search roles, companies…" value={search} onChange={e => setSearch(e.target.value)} />
+          {role && roleSectors.length > 0 && (
+            <button
+              className={`jb-my-role-btn${filterMyRole ? ' active' : ''}`}
+              onClick={() => { setFilterMyRole(v => !v); setFilterSector('all') }}
+            >
+              ◎ For {role}s ({JOB_LISTINGS.filter(j => roleSectors.includes(j.sector)).length})
+            </button>
+          )}
           <span className={`jb-remote-toggle${filterRemote ? ' on' : ''}`} onClick={() => setFilterRemote(v => !v)}>
             <span style={{ width: 13, height: 13, border: '1px solid', borderRadius: 3, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '.6rem', borderColor: filterRemote ? '#10b981' : '#6b7280' }}>{filterRemote ? '✓' : ''}</span>
             Remote only
@@ -7538,8 +7579,10 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
 
         <div className="jb-results">{filtered.length} role{filtered.length !== 1 ? 's' : ''}</div>
 
-        {filtered.map(j => (
-          <div key={j.id} className={`jb-card${j.featured ? ' featured' : ''}`}>
+        {filtered.map(j => {
+          const isRoleMatch = roleSectors.includes(j.sector)
+          return (
+          <div key={j.id} className={`jb-card${j.featured ? ' featured' : ''}${isRoleMatch ? ' role-match' : ''}`}>
             <div className="jb-card-header" onClick={() => setExpanded(expanded === j.id ? null : j.id)}>
               <div className="jb-card-main">
                 <div className="jb-card-title">{j.title}</div>
@@ -7550,6 +7593,7 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
                   {j.salary && <span className="jb-salary" style={{ color: '#d4a84b', fontSize: '.74rem', fontWeight: 600 }}>{j.salary}</span>}
                   {j.remote  && <span className="jb-remote-badge">REMOTE</span>}
                   {j.featured && <span className="jb-featured-badge">FEATURED</span>}
+                  {isRoleMatch && role && <span className="jb-role-match-badge">✓ {role}</span>}
                 </div>
               </div>
               <span style={{ color: '#6b7280', fontSize: '.8rem', transition: 'transform .2s', transform: expanded === j.id ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>▶</span>
@@ -7572,11 +7616,44 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Right panel ──────────────────────────────────────────────── */}
       <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* For Your Role card — shown only when a role is detected */}
+        {role && roleSectors.length > 0 && (() => {
+          const roleMatchCount = JOB_LISTINGS.filter(j => roleSectors.includes(j.sector)).length
+          const roleMatchCountry = JOB_LISTINGS.filter(j => roleSectors.includes(j.sector) && j.country === country).length
+          return (
+            <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
+              <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>For {role}s</div>
+              <div style={{ fontSize: '.78rem', color: '#b0b0c0', marginBottom: 10, lineHeight: 1.5 }}>
+                Roles matched to your professional profile across all markets.
+              </div>
+              {([
+                ['Matching Roles', roleMatchCount],
+                ['In Your Market', roleMatchCountry],
+                ['Remote Options', JOB_LISTINGS.filter(j => roleSectors.includes(j.sector) && j.remote).length],
+              ] as [string, number][]).map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+                  <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#10b981' }}>{val}</span>
+                </div>
+              ))}
+              <button
+                className={`jb-my-role-btn${filterMyRole ? ' active' : ''}`}
+                style={{ width: '100%', marginTop: 8 }}
+                onClick={() => { setFilterMyRole(v => !v); setFilterSector('all') }}
+              >
+                {filterMyRole ? '✓ Showing Your Roles' : `Show ${roleMatchCount} ${role} Roles`}
+              </button>
+            </div>
+          )
+        })()}
+
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Board Stats</div>
           {([
