@@ -63,7 +63,7 @@ export default async function DealRoomsPage() {
 
       <div className="dr-wrap">
         <header className="dr-header">
-          <Link href="/marketplace" className="dr-back">← Exchange</Link>
+          <Link href="/dashboard?page=marketplace" className="dr-back">← Exchange</Link>
           <div className="dr-eyebrow">Private Negotiations</div>
           <h1 className="dr-title">Deal Rooms</h1>
           <p className="dr-sub">
@@ -97,8 +97,8 @@ export default async function DealRoomsPage() {
                 products, services, or opportunities, then open a deal room to start a private negotiation.
               </p>
               <div className="dr-empty-actions">
-                <Link href="/marketplace" className="dr-cta-primary">Browse Exchange →</Link>
-                <Link href="/marketplace/listings" className="dr-cta-secondary">Reviewed Listings</Link>
+                <Link href="/dashboard?page=marketplace" className="dr-cta-primary">Browse Exchange →</Link>
+                <Link href="/dashboard?page=marketplace" className="dr-cta-secondary">Reviewed Listings</Link>
               </div>
             </div>
 
@@ -151,8 +151,8 @@ export default async function DealRoomsPage() {
             or guarantee counterparty performance. All commercial execution is the responsibility of the parties.
           </p>
           <div className="dr-footnote-links">
-            <Link href="/marketplace/listings">Reviewed Listings →</Link>
-            <Link href="/marketplace/wanted">Wanted Requests →</Link>
+            <Link href="/dashboard?page=marketplace">Reviewed Listings →</Link>
+            <Link href="/dashboard?page=marketplace">Wanted Requests →</Link>
             <Link href="/contact">Commercial Enquiry →</Link>
           </div>
         </footer>

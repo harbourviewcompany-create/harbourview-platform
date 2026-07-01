@@ -20,6 +20,7 @@ import { QuoteModal } from './QuoteModal'
 import { SubmitListingModal } from './SubmitListingModal'
 import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
+import { DealRoomsPanel } from './DealRoomsPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1010,9 +1011,10 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace" className="cc-right-link">View pipeline →</Link>
+            <Link href="/marketplace/deals" className="cc-right-link">View pipeline →</Link>
           </div>
         )}
+        <DealRoomsPanel />
         <div className="cc-right-section">
           <div className="cc-right-head">ROUTED INQUIRY</div>
           <p className="cc-right-prose">Submit a quote or sourcing inquiry for Harbourview to review and route to verified suppliers or export partners.</p>
