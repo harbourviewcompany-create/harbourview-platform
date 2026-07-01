@@ -22,6 +22,7 @@ import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 import { DealRoomsPanel } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
+import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -2903,14 +2904,61 @@ const CORRIDOR_STATUS_COLOR: Record<string, string> = {
   Active: '#4caf82', Emerging: '#d4a84b', Restricted: '#e05c5c', Pilot: '#5b9bd5',
 }
 
+type CorridorStats = {
+  count: number | null; avg_days: number | null; median_days: number | null
+  min_days: number | null; max_days: number | null; p90_days: number | null
+}
+type CorridorAlert = {
+  id: string; alert_date: string; severity: 'major' | 'minor' | 'watch'
+  summary: string; detail: string; source: string
+}
+const ALERT_SEVERITY_COLOR: Record<string, string> = { major: '#e05c5c', minor: '#d4a84b', watch: '#5b9bd5' }
+function parseLogisticsRange(s: string): { currency: string; lo: number; hi: number } | null {
+  const m = s.match(/^(€|£|CAD\s?|AUD\s?|USD\s?)([\d,]+)[–\-]([\d,]+)/)
+  if (!m) return null
+  return { currency: m[1].trim(), lo: parseFloat(m[2].replace(/,/g, '')), hi: parseFloat(m[3].replace(/,/g, '')) }
+}
+
 function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; label: string }; role: string }) {
-  const [search,     setSearch]     = useState('')
-  const [filterFrom, setFilterFrom] = useState('')
-  const [filterTo,   setFilterTo]   = useState('')
-  const [expanded,   setExpanded]   = useState<string | null>(null)
+  const [sectionTab,  setSectionTab]  = useState<'corridors' | 'modeller'>('corridors')
+  const [search,      setSearch]      = useState('')
+  const [filterFrom,  setFilterFrom]  = useState('')
+  const [filterTo,    setFilterTo]    = useState('')
+  const [expanded,    setExpanded]    = useState<string | null>(null)
+  const [liveData,    setLiveData]    = useState<Record<string, { stats: CorridorStats; alerts: CorridorAlert[] }>>({})
+  const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set())
+  const [submitDays,  setSubmitDays]  = useState('')
+  const [submitRole,  setSubmitRole]  = useState('')
+  const [submitted,   setSubmitted]   = useState<Set<string>>(new Set())
+  const [submitErr,   setSubmitErr]   = useState<string | null>(null)
+  const [modelKey,    setModelKey]    = useState('')
+  const [modelKg,     setModelKg]     = useState('10')
 
   const roleIsImporter = role.toLowerCase().includes('import') || role.toLowerCase().includes('buyer') || role.toLowerCase().includes('pharma')
   const roleIsExporter = role.toLowerCase().includes('export') || role.toLowerCase().includes('supplier') || role.toLowerCase().includes('cultivat')
+
+  useEffect(() => {
+    if (!expanded || liveData[expanded] || loadingKeys.has(expanded)) return
+    setLoadingKeys(prev => { const s = new Set(prev); s.add(expanded); return s })
+    fetch(`/api/corridors/data?key=${encodeURIComponent(expanded)}`)
+      .then(r => r.json())
+      .then((d: { stats?: CorridorStats; alerts?: CorridorAlert[] }) =>
+        setLiveData(prev => ({ ...prev, [expanded]: { stats: d.stats ?? {} as CorridorStats, alerts: d.alerts ?? [] } })))
+      .catch(() => setLiveData(prev => ({ ...prev, [expanded]: { stats: {} as CorridorStats, alerts: [] } })))
+      .finally(() => setLoadingKeys(prev => { const s = new Set(prev); s.delete(expanded); return s }))
+  }, [expanded])
+
+  const handleSubmit = async (intelKey: string) => {
+    const days = parseInt(submitDays, 10)
+    if (isNaN(days) || days < 1 || days > 999) { setSubmitErr('Enter a valid number of days (1–999)'); return }
+    setSubmitErr(null)
+    const res = await fetch('/api/corridors/submit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corridorKey: intelKey, daysTaken: days, role: submitRole }),
+    })
+    if (res.ok) { setSubmitted(prev => new Set(prev).add(intelKey)); setSubmitDays(''); setSubmitRole('') }
+    else setSubmitErr('Submission failed. Please try again.')
+  }
 
   const filtered = CORRIDORS.filter(c => {
     const q = search.toLowerCase()
@@ -2920,218 +2968,442 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
     return matchSearch && matchFrom && matchTo
   })
 
-  // Sort by relevance to selected country
   const sorted = [...filtered].sort((a, b) => {
     const aRel = a.from.toLowerCase().includes(country.label.toLowerCase()) || a.to.toLowerCase().includes(country.label.toLowerCase()) ? -1 : 0
     const bRel = b.from.toLowerCase().includes(country.label.toLowerCase()) || b.to.toLowerCase().includes(country.label.toLowerCase()) ? -1 : 0
     return aRel - bRel
   })
 
-  const fromOptions  = Array.from(new Set(CORRIDORS.map(c => c.from))).sort()
-  const toOptions    = Array.from(new Set(CORRIDORS.map(c => c.to))).sort()
+  const fromOptions = Array.from(new Set(CORRIDORS.map(c => c.from))).sort()
+  const toOptions   = Array.from(new Set(CORRIDORS.map(c => c.to))).sort()
+  const costKeys    = Object.keys(CORRIDOR_COSTS)
+  const modelCost   = modelKey ? CORRIDOR_COSTS[modelKey] : null
+  const modelCorr   = modelKey ? CORRIDORS.find(c => `${c.from}→${c.to}` === modelKey) : null
+  const kgNum       = parseFloat(modelKg) || 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflow: 'auto' }}>
 
-      {/* Role context banner */}
-      {(roleIsImporter || roleIsExporter) && (
-        <div style={{
-          padding: '10px 14px', borderRadius: '8px', fontSize: '11px',
-          background: 'rgba(212,168,75,.06)', border: '1px solid rgba(212,168,75,.18)',
-          color: 'rgba(245,240,232,.7)', display: 'flex', gap: '8px', alignItems: 'center',
-        }}>
-          <span style={{ color: '#d4a84b' }}>◎</span>
-          {roleIsImporter
-            ? `Showing corridors relevant to ${country.label} importers. Corridors reaching ${country.label} are highlighted.`
-            : `Showing corridors relevant to ${country.label} exporters. Corridors originating from ${country.label} are highlighted.`}
-        </div>
-      )}
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search corridors, authorities, notes…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            flex: '1 1 200px', minWidth: '160px', background: 'rgba(255,255,255,.04)',
-            border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px',
-            color: '#f5f0e8', fontSize: '12px', padding: '7px 12px', outline: 'none',
-          }}
-        />
-        <select
-          value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
-          style={{
-            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
-            borderRadius: '8px', color: filterFrom ? '#f5f0e8' : 'rgba(245,240,232,.4)',
-            fontSize: '12px', padding: '7px 12px', outline: 'none',
-          }}
-        >
-          <option value="">All origins</option>
-          {fromOptions.map(f => <option key={f} value={f} style={{ background: '#050c18' }}>{f}</option>)}
-        </select>
-        <select
-          value={filterTo} onChange={e => setFilterTo(e.target.value)}
-          style={{
-            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
-            borderRadius: '8px', color: filterTo ? '#f5f0e8' : 'rgba(245,240,232,.4)',
-            fontSize: '12px', padding: '7px 12px', outline: 'none',
-          }}
-        >
-          <option value="">All destinations</option>
-          {toOptions.map(t => <option key={t} value={t} style={{ background: '#050c18' }}>{t}</option>)}
-        </select>
+      {/* Section tab bar */}
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
+        {([['corridors', `Corridor Playbooks (${CORRIDORS.length})`], ['modeller', '⊞ Cost Modeller']] as Array<['corridors'|'modeller', string]>).map(([t, label]) => (
+          <button key={t} onClick={() => setSectionTab(t)} style={{
+            padding: '8px 18px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600, background: 'transparent',
+            color: sectionTab === t ? '#d4a84b' : 'rgba(245,240,232,.4)',
+            borderBottom: sectionTab === t ? '2px solid #d4a84b' : '2px solid transparent', marginBottom: '-1px',
+          }}>{label}</button>
+        ))}
       </div>
 
-      {/* Corridor list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {sorted.length === 0 && (
-          <div className="cc-empty-state" style={{ padding: '24px' }}>
-            <span>⬡</span><p>No corridors match your filters.</p>
+      {sectionTab === 'modeller' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ fontSize: '12px', color: 'rgba(245,240,232,.5)', lineHeight: 1.5 }}>
+            Estimate regulatory and logistics costs for a corridor and shipment volume. Reference ranges based on July 2026 intelligence.
           </div>
-        )}
-        {sorted.map((c, i) => {
-          const key     = `${c.from}-${c.to}`
-          const isOpen  = expanded === key
-          const isLocal = c.from.toLowerCase().includes(country.label.toLowerCase()) || c.to.toLowerCase().includes(country.label.toLowerCase())
-          return (
-            <div
-              key={i}
-              style={{
-                borderRadius: '10px', overflow: 'hidden',
-                border: isLocal ? '1px solid rgba(212,168,75,.3)' : '1px solid rgba(255,255,255,.07)',
-                background: isLocal ? 'rgba(212,168,75,.04)' : 'rgba(255,255,255,.02)',
-              }}
-            >
-              {/* Header row */}
-              <button
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
-                  padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
-                }}
-                onClick={() => setExpanded(isOpen ? null : key)}
-              >
-                <span style={{ color: CORRIDOR_STATUS_COLOR[c.status], fontSize: '16px', flexShrink: 0 }}>⬡</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{c.from}</strong>
-                    <span style={{ fontSize: '12px', color: 'rgba(245,240,232,.35)' }}>→</span>
-                    <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{c.to}</strong>
-                    {isLocal && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.3)', color: '#d4a84b' }}>RELEVANT</span>}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '2 1 200px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>CORRIDOR</div>
+              <select value={modelKey} onChange={e => setModelKey(e.target.value)}
+                style={{ width: '100%', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px', color: modelKey ? '#f5f0e8' : 'rgba(245,240,232,.4)', fontSize: '12px', padding: '8px 12px', outline: 'none' }}>
+                <option value="">Select corridor…</option>
+                {costKeys.map(k => <option key={k} value={k} style={{ background: '#050c18' }}>{k}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 100px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>VOLUME (KG)</div>
+              <input type="number" min="0.1" step="0.5" value={modelKg} onChange={e => setModelKg(e.target.value)}
+                style={{ width: '100%', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px', color: '#f5f0e8', fontSize: '12px', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+          {modelCost ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {[
+                  { lbl: 'PERMIT FEE',          val: modelCost.permitFee },
+                  { lbl: 'LAB COST / BATCH',    val: modelCost.labCostBatch },
+                  { lbl: 'FX EXPOSURE',          val: modelCost.fxExposure },
+                  { lbl: 'GMP AUDIT (ONE-TIME)', val: modelCost.gmpAudit },
+                ].map(({ lbl, val }) => (
+                  <div key={lbl} style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '8px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>{lbl}</div>
+                    <div style={{ fontSize: '11px', color: '#f5f0e8', lineHeight: 1.4 }}>{val}</div>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.42)', marginTop: '2px' }}>{c.authority}</div>
+                ))}
+              </div>
+              <div style={{ background: 'rgba(212,168,75,.06)', border: '1px solid rgba(212,168,75,.2)', borderRadius: '8px', padding: '12px 14px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#d4a84b', marginBottom: '6px' }}>LOGISTICS ESTIMATE FOR {kgNum} KG</div>
+                <div style={{ fontSize: '12px', color: '#f5f0e8', fontWeight: 600, marginBottom: '4px' }}>
+                  {(() => {
+                    const p = parseLogisticsRange(modelCost.logisticsPerKg)
+                    if (!p || kgNum <= 0) return modelCost.logisticsPerKg
+                    return `${p.currency}${Math.round(p.lo * kgNum).toLocaleString()}–${p.currency}${Math.round(p.hi * kgNum).toLocaleString()} (${p.currency}${p.lo}–${p.hi}/kg × ${kgNum}kg)`
+                  })()}
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                  <span style={{
-                    fontSize: '9px', padding: '2px 8px', borderRadius: '99px', fontWeight: 600,
-                    background: `${CORRIDOR_STATUS_COLOR[c.status]}18`,
-                    border: `1px solid ${CORRIDOR_STATUS_COLOR[c.status]}40`,
-                    color: CORRIDOR_STATUS_COLOR[c.status],
-                  }}>{c.status}</span>
-                  <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.35)', minWidth: '60px', textAlign: 'right' }}>{c.leadWeeks}w</span>
-                  <span style={{ fontSize: '13px', color: 'rgba(245,240,232,.25)', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
+                <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.45)' }}>{modelCost.logisticsPerKg}</div>
+              </div>
+              {modelCost.notes && (
+                <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,.02)', borderRadius: '7px', border: '1px solid rgba(255,255,255,.06)' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>NOTES</div>
+                  <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)', lineHeight: 1.5, margin: 0 }}>{modelCost.notes}</p>
                 </div>
-              </button>
-
-              {/* Expanded detail */}
-              {isOpen && (
-                <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
-                  {/* Key risk callout */}
-                  <div style={{
-                    marginTop: '14px', padding: '10px 12px', borderRadius: '8px',
-                    background: 'rgba(224,92,92,.07)', border: '1px solid rgba(224,92,92,.22)',
-                    display: 'flex', gap: '8px', alignItems: 'flex-start',
-                  }}>
-                    <span style={{ color: '#e05c5c', fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>⚠</span>
-                    <div>
-                      <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#e05c5c', marginBottom: '3px', fontWeight: 600 }}>KEY RISK</div>
-                      <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.75)', lineHeight: 1.5, margin: 0 }}>{c.keyRisk}</p>
-                    </div>
+              )}
+              {modelCorr && (
+                <div style={{ padding: '10px 12px', background: 'rgba(76,175,130,.05)', borderRadius: '7px', border: '1px solid rgba(76,175,130,.15)' }}>
+                  <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#4caf82', marginBottom: '4px' }}>ESTIMATED START-BY DATE</div>
+                  <div style={{ fontSize: '12px', color: '#f5f0e8', fontWeight: 600 }}>
+                    {(() => {
+                      const wks = parseInt(modelCorr.leadWeeks, 10)
+                      if (isNaN(wks)) return '—'
+                      const d = new Date(); d.setDate(d.getDate() + wks * 7 + 14)
+                      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                    })()}
                   </div>
-
-                  {/* 4-cell stats grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
-                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
-                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>PERMIT TYPE</div>
-                      <div style={{ fontSize: '11px', color: '#f5f0e8', fontWeight: 600, lineHeight: 1.35 }}>{c.permit}</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
-                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>PERMIT LEAD TIME</div>
-                      <div style={{ fontSize: '14px', color: '#d4a84b', fontWeight: 700 }}>{c.leadWeeks} <span style={{ fontSize: '10px', fontWeight: 400 }}>weeks</span></div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
-                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>CUSTOMS CLEARANCE</div>
-                      <div style={{ fontSize: '14px', color: '#5b9bd5', fontWeight: 700 }}>{c.clearanceDays} <span style={{ fontSize: '10px', fontWeight: 400 }}>days</span></div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
-                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>END-TO-END TIMELINE</div>
-                      <div style={{ fontSize: '11px', color: '#4caf82', fontWeight: 600, lineHeight: 1.35 }}>{c.timeline}</div>
-                    </div>
-                  </div>
-
-                  {/* Destination licence class */}
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>DESTINATION LICENCE CLASS</div>
-                    <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.7)', lineHeight: 1.4 }}>{c.destLicenceClass}</div>
-                  </div>
-
-                  {/* Required documentation */}
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>REQUIRED DOCUMENTATION</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {c.docs.map(d => (
-                        <span key={d} style={{
-                          fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
-                          background: 'rgba(91,155,213,.08)', border: '1px solid rgba(91,155,213,.2)', color: '#5b9bd5',
-                        }}>{d}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Rejection risk factors */}
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>COMMON REJECTION / DELAY REASONS</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {c.rejectionReasons.map((r, ri) => (
-                        <div key={ri} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start' }}>
-                          <span style={{ color: '#e05c5c', fontSize: '9px', marginTop: '2px', flexShrink: 0 }}>✕</span>
-                          <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.5)', lineHeight: 1.45 }}>{r}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Bottleneck */}
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>OPERATIONAL BOTTLENECK</div>
-                    <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)', lineHeight: 1.5, margin: 0 }}>{c.bottleneck}</p>
-                  </div>
-
-                  {/* Notes */}
-                  <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>INTELLIGENCE NOTES</div>
-                    <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.45)', lineHeight: 1.5, margin: 0 }}>{c.note}</p>
-                  </div>
-
-                  <a href="/intake" style={{
-                    display: 'inline-flex', marginTop: '14px', padding: '8px 18px', borderRadius: '8px',
-                    background: 'linear-gradient(135deg,#d4a84b,#b88c35)', color: '#0d1117',
-                    fontSize: '11px', fontWeight: 700, textDecoration: 'none',
-                  }}>Request Introduction for this corridor →</a>
+                  <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.4)', marginTop: '2px' }}>Based on {modelCorr.leadWeeks}-week permit lead time + 2-week buffer from today</div>
                 </div>
               )}
             </div>
-          )
-        })}
-      </div>
+          ) : (
+            <div className="cc-empty-state" style={{ padding: '32px' }}>
+              <span>⊞</span><p>Select a corridor above to see cost estimates.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Role context banner */}
+          {(roleIsImporter || roleIsExporter) && (
+            <div style={{
+              padding: '10px 14px', borderRadius: '8px', fontSize: '11px',
+              background: 'rgba(212,168,75,.06)', border: '1px solid rgba(212,168,75,.18)',
+              color: 'rgba(245,240,232,.7)', display: 'flex', gap: '8px', alignItems: 'center',
+            }}>
+              <span style={{ color: '#d4a84b' }}>◎</span>
+              {roleIsImporter
+                ? `Showing corridors relevant to ${country.label} importers. Corridors reaching ${country.label} are highlighted.`
+                : `Showing corridors relevant to ${country.label} exporters. Corridors originating from ${country.label} are highlighted.`}
+            </div>
+          )}
 
-      <div className="cc-feed-footer">
-        <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.3)' }}>
-          {sorted.length} of {CORRIDORS.length} corridors · Harbourview curated · Updated July 2025 · EU · Americas · Africa · Asia-Pacific
-        </span>
-        <a href="/intake" className="cc-right-link">Request corridor analysis →</a>
-      </div>
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search corridors, authorities, notes…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                flex: '1 1 200px', minWidth: '160px', background: 'rgba(255,255,255,.04)',
+                border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px',
+                color: '#f5f0e8', fontSize: '12px', padding: '7px 12px', outline: 'none',
+              }}
+            />
+            <select
+              value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+              style={{
+                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+                borderRadius: '8px', color: filterFrom ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+                fontSize: '12px', padding: '7px 12px', outline: 'none',
+              }}
+            >
+              <option value="">All origins</option>
+              {fromOptions.map(f => <option key={f} value={f} style={{ background: '#050c18' }}>{f}</option>)}
+            </select>
+            <select
+              value={filterTo} onChange={e => setFilterTo(e.target.value)}
+              style={{
+                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+                borderRadius: '8px', color: filterTo ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+                fontSize: '12px', padding: '7px 12px', outline: 'none',
+              }}
+            >
+              <option value="">All destinations</option>
+              {toOptions.map(t => <option key={t} value={t} style={{ background: '#050c18' }}>{t}</option>)}
+            </select>
+          </div>
+
+          {/* Corridor list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {sorted.length === 0 && (
+              <div className="cc-empty-state" style={{ padding: '24px' }}>
+                <span>⬡</span><p>No corridors match your filters.</p>
+              </div>
+            )}
+            {sorted.map((c, i) => {
+              const intelKey    = `${c.from}→${c.to}`
+              const isOpen      = expanded === intelKey
+              const isLocal     = c.from.toLowerCase().includes(country.label.toLowerCase()) || c.to.toLowerCase().includes(country.label.toLowerCase())
+              const live        = liveData[intelKey]
+              const isLoading   = loadingKeys.has(intelKey)
+              const banking     = CORRIDOR_BANKING[intelKey]
+              const authority   = CORRIDOR_AUTHORITY[intelKey]
+              const costs       = CORRIDOR_COSTS[intelKey]
+              const majorAlerts = live?.alerts.filter(a => a.severity === 'major').length ?? 0
+              return (
+                <div
+                  key={i}
+                  style={{
+                    borderRadius: '10px', overflow: 'hidden',
+                    border: isLocal ? '1px solid rgba(212,168,75,.3)' : '1px solid rgba(255,255,255,.07)',
+                    background: isLocal ? 'rgba(212,168,75,.04)' : 'rgba(255,255,255,.02)',
+                  }}
+                >
+                  {/* Header row */}
+                  <button
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+                    }}
+                    onClick={() => setExpanded(isOpen ? null : intelKey)}
+                  >
+                    <span style={{ color: CORRIDOR_STATUS_COLOR[c.status], fontSize: '16px', flexShrink: 0 }}>⬡</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{c.from}</strong>
+                        <span style={{ fontSize: '12px', color: 'rgba(245,240,232,.35)' }}>→</span>
+                        <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{c.to}</strong>
+                        {isLocal && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.3)', color: '#d4a84b' }}>RELEVANT</span>}
+                        {majorAlerts > 0 && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(224,92,92,.15)', border: '1px solid rgba(224,92,92,.3)', color: '#e05c5c' }}>⚠ {majorAlerts} ALERT{majorAlerts > 1 ? 'S' : ''}</span>}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.42)', marginTop: '2px' }}>{c.authority}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: '9px', padding: '2px 8px', borderRadius: '99px', fontWeight: 600,
+                        background: `${CORRIDOR_STATUS_COLOR[c.status]}18`,
+                        border: `1px solid ${CORRIDOR_STATUS_COLOR[c.status]}40`,
+                        color: CORRIDOR_STATUS_COLOR[c.status],
+                      }}>{c.status}</span>
+                      <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.35)', minWidth: '60px', textAlign: 'right' }}>{c.leadWeeks}w</span>
+                      <span style={{ fontSize: '13px', color: 'rgba(245,240,232,.25)', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
+                    </div>
+                  </button>
+
+                  {/* Expanded detail */}
+                  {isOpen && (
+                    <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
+                      {/* Key risk */}
+                      <div style={{
+                        marginTop: '14px', padding: '10px 12px', borderRadius: '8px',
+                        background: 'rgba(224,92,92,.07)', border: '1px solid rgba(224,92,92,.22)',
+                        display: 'flex', gap: '8px', alignItems: 'flex-start',
+                      }}>
+                        <span style={{ color: '#e05c5c', fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>⚠</span>
+                        <div>
+                          <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#e05c5c', marginBottom: '3px', fontWeight: 600 }}>KEY RISK</div>
+                          <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.75)', lineHeight: 1.5, margin: 0 }}>{c.keyRisk}</p>
+                        </div>
+                      </div>
+
+                      {/* Live loading indicator */}
+                      {isLoading && (
+                        <div style={{ marginTop: '10px', fontSize: '11px', color: 'rgba(245,240,232,.35)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <span>⟳</span> Loading live intelligence…
+                        </div>
+                      )}
+
+                      {/* Regulatory alerts */}
+                      {(live?.alerts.length ?? 0) > 0 && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>REGULATORY ALERTS</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {live!.alerts.slice(0, 5).map(a => (
+                              <div key={a.id} style={{
+                                padding: '8px 10px', borderRadius: '7px',
+                                background: `${ALERT_SEVERITY_COLOR[a.severity] ?? '#888'}10`,
+                                border: `1px solid ${ALERT_SEVERITY_COLOR[a.severity] ?? '#888'}28`,
+                                display: 'flex', gap: '8px', alignItems: 'flex-start',
+                              }}>
+                                <span style={{ color: ALERT_SEVERITY_COLOR[a.severity] ?? '#888', fontSize: '9px', marginTop: '2px', flexShrink: 0, fontWeight: 700, letterSpacing: '.06em' }}>{a.severity.toUpperCase()}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '11px', color: '#f5f0e8', fontWeight: 600, lineHeight: 1.35 }}>{a.summary}</div>
+                                  <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.45)', lineHeight: 1.4, marginTop: '2px' }}>{a.detail}</div>
+                                  <div style={{ fontSize: '9px', color: 'rgba(245,240,232,.28)', marginTop: '3px' }}>{a.alert_date} · {a.source}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 4-cell stats grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
+                        <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>PERMIT TYPE</div>
+                          <div style={{ fontSize: '11px', color: '#f5f0e8', fontWeight: 600, lineHeight: 1.35 }}>{c.permit}</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>PERMIT LEAD TIME</div>
+                          <div style={{ fontSize: '14px', color: '#d4a84b', fontWeight: 700 }}>{c.leadWeeks} <span style={{ fontSize: '10px', fontWeight: 400 }}>weeks</span></div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>CUSTOMS CLEARANCE</div>
+                          <div style={{ fontSize: '14px', color: '#5b9bd5', fontWeight: 700 }}>{c.clearanceDays} <span style={{ fontSize: '10px', fontWeight: 400 }}>days</span></div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>END-TO-END TIMELINE</div>
+                          <div style={{ fontSize: '11px', color: '#4caf82', fontWeight: 600, lineHeight: 1.35 }}>{c.timeline}</div>
+                        </div>
+                      </div>
+
+                      {/* Community processing times */}
+                      {live?.stats && live.stats.count != null && live.stats.count > 0 && (
+                        <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(76,175,130,.05)', border: '1px solid rgba(76,175,130,.15)', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#4caf82', marginBottom: '6px' }}>COMMUNITY PROCESSING TIMES (n={live.stats.count})</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                            {[
+                              { lbl: 'AVG',    val: live.stats.avg_days    != null ? `${Math.round(live.stats.avg_days)}d`    : '—' },
+                              { lbl: 'MEDIAN', val: live.stats.median_days != null ? `${Math.round(live.stats.median_days)}d` : '—' },
+                              { lbl: 'P90',    val: live.stats.p90_days    != null ? `${Math.round(live.stats.p90_days)}d`    : '—' },
+                              { lbl: 'RANGE',  val: live.stats.min_days    != null ? `${live.stats.min_days}–${live.stats.max_days}d` : '—' },
+                            ].map(({ lbl, val }) => (
+                              <div key={lbl} style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '8px', color: 'rgba(245,240,232,.3)', letterSpacing: '.1em' }}>{lbl}</div>
+                                <div style={{ fontSize: '13px', color: '#4caf82', fontWeight: 700 }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Named authority & queue */}
+                      {authority && (
+                        <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.07)', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>NAMED AUTHORITY & QUEUE STATUS</div>
+                          <div style={{ fontSize: '11px', color: '#f5f0e8', fontWeight: 600, marginBottom: '2px' }}>{authority.team}</div>
+                          <div style={{ fontSize: '10px', color: '#5b9bd5', marginBottom: '3px' }}>{authority.email}</div>
+                          <div style={{ fontSize: '10px', color: '#d4a84b', marginBottom: '4px' }}>⏱ {authority.queue}</div>
+                          <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.45)', lineHeight: 1.45 }}>{authority.notes}</div>
+                        </div>
+                      )}
+
+                      {/* Destination licence class */}
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>DESTINATION LICENCE CLASS</div>
+                        <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.7)', lineHeight: 1.4 }}>{c.destLicenceClass}</div>
+                      </div>
+
+                      {/* Required documentation */}
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>REQUIRED DOCUMENTATION</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {c.docs.map(d => (
+                            <span key={d} style={{
+                              fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+                              background: 'rgba(91,155,213,.08)', border: '1px solid rgba(91,155,213,.2)', color: '#5b9bd5',
+                            }}>{d}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Banking intelligence */}
+                      {banking && (
+                        <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.07)', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>BANKING INTELLIGENCE</div>
+                          <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.7)', lineHeight: 1.5, margin: '0 0 6px' }}>{banking.summary}</p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                            {banking.providers.map(p => (
+                              <span key={p} style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '4px', background: 'rgba(76,175,130,.08)', border: '1px solid rgba(76,175,130,.2)', color: '#4caf82' }}>{p}</span>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.45)' }}>FX: {banking.fxRisk}</div>
+                        </div>
+                      )}
+
+                      {/* Cost reference */}
+                      {costs && (
+                        <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(212,168,75,.03)', border: '1px solid rgba(212,168,75,.12)', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#d4a84b', marginBottom: '6px' }}>COST REFERENCE</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+                            {[
+                              { lbl: 'Permit fee',     val: costs.permitFee },
+                              { lbl: 'Lab / batch',    val: costs.labCostBatch },
+                              { lbl: 'Logistics / kg', val: costs.logisticsPerKg },
+                              { lbl: 'FX exposure',    val: costs.fxExposure },
+                              { lbl: 'GMP audit',      val: costs.gmpAudit },
+                            ].map(({ lbl, val }) => (
+                              <div key={lbl}>
+                                <div style={{ fontSize: '8px', color: 'rgba(245,240,232,.3)', letterSpacing: '.1em', textTransform: 'uppercase' }}>{lbl}</div>
+                                <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.65)', lineHeight: 1.3 }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {costs.notes && <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.4)', marginTop: '6px', lineHeight: 1.4 }}>{costs.notes}</div>}
+                        </div>
+                      )}
+
+                      {/* Rejection risk factors */}
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>COMMON REJECTION / DELAY REASONS</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {c.rejectionReasons.map((r, ri) => (
+                            <div key={ri} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start' }}>
+                              <span style={{ color: '#e05c5c', fontSize: '9px', marginTop: '2px', flexShrink: 0 }}>✕</span>
+                              <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.5)', lineHeight: 1.45 }}>{r}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Bottleneck */}
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>OPERATIONAL BOTTLENECK</div>
+                        <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)', lineHeight: 1.5, margin: 0 }}>{c.bottleneck}</p>
+                      </div>
+
+                      {/* Intelligence notes */}
+                      <div style={{ marginTop: '10px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>INTELLIGENCE NOTES</div>
+                        <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.45)', lineHeight: 1.5, margin: 0 }}>{c.note}</p>
+                      </div>
+
+                      {/* Crowdsource processing time */}
+                      <div style={{ marginTop: '14px', padding: '12px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: '8px' }}>
+                        <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>SHARE YOUR EXPERIENCE</div>
+                        {submitted.has(intelKey) ? (
+                          <div style={{ fontSize: '11px', color: '#4caf82' }}>✓ Thank you. Your data will be reviewed and added to the community dataset.</div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <input
+                                type="number" min="1" max="999" placeholder="Days taken (permit to arrival)"
+                                value={submitDays} onChange={e => setSubmitDays(e.target.value)}
+                                style={{ flex: '1 1 140px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '6px', color: '#f5f0e8', fontSize: '11px', padding: '6px 10px', outline: 'none' }}
+                              />
+                              <input
+                                type="text" placeholder="Your role (optional)"
+                                value={submitRole} onChange={e => setSubmitRole(e.target.value)}
+                                style={{ flex: '1 1 120px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '6px', color: '#f5f0e8', fontSize: '11px', padding: '6px 10px', outline: 'none' }}
+                              />
+                              <button
+                                onClick={() => { void handleSubmit(intelKey) }}
+                                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, flexShrink: 0 }}
+                              >Submit</button>
+                            </div>
+                            {submitErr && <div style={{ fontSize: '10px', color: '#e05c5c' }}>{submitErr}</div>}
+                          </div>
+                        )}
+                      </div>
+
+                      <a href="/intake" style={{
+                        display: 'inline-flex', marginTop: '14px', padding: '8px 18px', borderRadius: '8px',
+                        background: 'linear-gradient(135deg,#d4a84b,#b88c35)', color: '#0d1117',
+                        fontSize: '11px', fontWeight: 700, textDecoration: 'none',
+                      }}>Request Introduction for this corridor →</a>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="cc-feed-footer">
+            <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.3)' }}>
+              {sorted.length} of {CORRIDORS.length} corridors · Harbourview curated · Updated July 2026 · EU · Americas · Africa · Asia-Pacific
+            </span>
+            <a href="/intake" className="cc-right-link">Request corridor analysis →</a>
+          </div>
+        </>
+      )}
     </div>
   )
 }
