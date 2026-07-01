@@ -24,6 +24,7 @@ import { DealRoomsPanel } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
+import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export type CommandPage =
   | 'documents'
   | 'events'
   | 'experts'
+  | 'banking'
 
 type PublicServiceProvider = {
   id: string
@@ -149,6 +151,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
       { id: 'events',      label: 'Events',          icon: '◷' },
       { id: 'experts',     label: 'Expert Directory', icon: '⊚' },
+      { id: 'banking',     label: 'Banking',          icon: '⊟' },
       { id: 'assistant',   label: 'AI Assistant',    icon: '◈' },
       { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
@@ -5876,6 +5879,232 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
   )
 })
 
+// ── Banking Directory page ─────────────────────────────────────────────────────
+
+const BANKING_TYPE_OPTIONS = Object.keys(PROVIDER_TYPE_LABELS) as BankingProvider['type'][]
+const BANKING_STANCE_OPTIONS = Object.keys(STANCE_LABELS) as BankingProvider['stance'][]
+
+const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
+  country, region, role,
+}: { country: string; region: string; role: string }) {
+  const [search,    setSearch]    = useState('')
+  const [filterType, setFilterType] = useState<BankingProvider['type'] | 'all'>('all')
+  const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
+  const [filterRegion, setFilterRegion] = useState<string>('all')
+  const [expanded,  setExpanded]  = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    const ql = search.toLowerCase()
+    return BANKING_PROVIDERS.filter(p => {
+      if (filterType   !== 'all' && p.type   !== filterType)   return false
+      if (filterStance !== 'all' && p.stance !== filterStance) return false
+      if (filterRegion !== 'all' && !p.regions.includes(filterRegion as BankingProvider['regions'][number])) return false
+      if (search && !p.name.toLowerCase().includes(ql) && !p.notes.toLowerCase().includes(ql) && !p.services.some(s => s.toLowerCase().includes(ql))) return false
+      return true
+    })
+  }, [search, filterType, filterStance, filterRegion])
+
+  const featured = useMemo(() => BANKING_PROVIDERS.filter(p => p.featured), [])
+
+  const regionCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const p of BANKING_PROVIDERS) for (const r of p.regions) m[r] = (m[r] ?? 0) + 1
+    return m
+  }, [])
+
+  const typeCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const p of BANKING_PROVIDERS) m[p.type] = (m[p.type] ?? 0) + 1
+    return m
+  }, [])
+
+  const regions = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania']
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.bnk-header { margin-bottom: 18px; }
+.bnk-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; letter-spacing: -.01em; }
+.bnk-sub { font-size: .78rem; color: #8a8a9a; margin-top: 3px; }
+.bnk-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.bnk-search { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 7px 12px; color: #f5f0e8; font-size: .82rem; width: 200px; outline: none; }
+.bnk-search:focus { border-color: #d4a84b; }
+.bnk-filter-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 4px 12px; color: #8a8a9a; font-size: .74rem; cursor: pointer; transition: all .15s; white-space: nowrap; }
+.bnk-filter-btn.active { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.bnk-filter-btn:hover:not(.active) { border-color: rgba(255,255,255,.2); color: #f5f0e8; }
+.bnk-results { font-size: .74rem; color: #6b7280; margin-bottom: 10px; }
+.bnk-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; margin-bottom: 10px; overflow: hidden; transition: border-color .15s; }
+.bnk-card:hover { border-color: rgba(212,168,75,.3); }
+.bnk-card-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.bnk-card-name { font-size: .9rem; font-weight: 600; color: #f5f0e8; flex: 1; }
+.bnk-type-chip { font-size: .68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.bnk-stance-chip { font-size: .68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.bnk-expand-arrow { font-size: .8rem; color: #6b7280; transition: transform .2s; }
+.bnk-expand-arrow.open { transform: rotate(90deg); }
+.bnk-card-body { padding: 0 14px 14px; border-top: 1px solid rgba(255,255,255,.05); padding-top: 12px; }
+.bnk-notes { font-size: .8rem; color: #b0b0c0; line-height: 1.5; margin-bottom: 10px; }
+.bnk-services { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.bnk-svc-chip { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 4px; padding: 2px 7px; font-size: .7rem; color: #9090a0; }
+.bnk-flags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.bnk-flag { font-size: 1rem; }
+.bnk-cta-row { display: flex; gap: 8px; align-items: center; }
+.bnk-visit-btn { background: rgba(212,168,75,.15); border: 1px solid rgba(212,168,75,.4); border-radius: 6px; padding: 5px 12px; color: #d4a84b; font-size: .76rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: background .15s; }
+.bnk-visit-btn:hover { background: rgba(212,168,75,.25); }
+.bnk-enquire-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 5px 12px; color: #d0cfc8; font-size: .76rem; cursor: pointer; transition: background .15s; }
+.bnk-enquire-btn:hover { background: rgba(255,255,255,.12); }
+.bnk-featured-badge { font-size: .62rem; padding: 1px 6px; background: rgba(212,168,75,.2); border: 1px solid rgba(212,168,75,.4); border-radius: 8px; color: #d4a84b; font-weight: 700; margin-left: 4px; }
+.bnk-empty { text-align: center; padding: 40px 20px; color: #6b7280; font-size: .85rem; }
+        `}</style>
+
+        <div className="bnk-header">
+          <div className="bnk-title">Banking &amp; Finance Directory</div>
+          <div className="bnk-sub">Cannabis-friendly banks, EMIs, and payment processors — curated by jurisdiction</div>
+        </div>
+
+        <div className="bnk-filters">
+          <input
+            className="bnk-search"
+            placeholder="Search providers…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <button className={`bnk-filter-btn${filterType === 'all' ? ' active' : ''}`} onClick={() => setFilterType('all')}>All Types</button>
+          {BANKING_TYPE_OPTIONS.map(t => (
+            <button key={t} className={`bnk-filter-btn${filterType === t ? ' active' : ''}`} onClick={() => setFilterType(t)}>
+              {PROVIDER_TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+        <div className="bnk-filters">
+          <button className={`bnk-filter-btn${filterStance === 'all' ? ' active' : ''}`} onClick={() => setFilterStance('all')}>Any Stance</button>
+          {BANKING_STANCE_OPTIONS.map(s => (
+            <button key={s} className={`bnk-filter-btn${filterStance === s ? ' active' : ''}`} onClick={() => setFilterStance(s)}>
+              {STANCE_LABELS[s]}
+            </button>
+          ))}
+          <button className={`bnk-filter-btn${filterRegion === 'all' ? ' active' : ''}`} onClick={() => setFilterRegion('all')}>All Regions</button>
+          {regions.map(r => (
+            <button key={r} className={`bnk-filter-btn${filterRegion === r ? ' active' : ''}`} onClick={() => setFilterRegion(r)}>{r}</button>
+          ))}
+        </div>
+
+        <div className="bnk-results">{filtered.length} provider{filtered.length !== 1 ? 's' : ''} found</div>
+
+        {filtered.length === 0 && (
+          <div className="bnk-empty">No providers match your filters.<br />Try broadening your search or adjusting the region.</div>
+        )}
+
+        {filtered.map(p => (
+          <div key={p.id} className="bnk-card">
+            <div className="bnk-card-header" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+              <div>
+                <div className="bnk-card-name">
+                  {p.name}
+                  {p.featured && <span className="bnk-featured-badge">FEATURED</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                  <span className="bnk-type-chip" style={{ background: PROVIDER_TYPE_COLORS[p.type] + '28', color: PROVIDER_TYPE_COLORS[p.type], border: `1px solid ${PROVIDER_TYPE_COLORS[p.type]}55` }}>
+                    {PROVIDER_TYPE_LABELS[p.type]}
+                  </span>
+                  <span className="bnk-stance-chip" style={{ background: STANCE_COLORS[p.stance] + '28', color: STANCE_COLORS[p.stance], border: `1px solid ${STANCE_COLORS[p.stance]}55` }}>
+                    {STANCE_LABELS[p.stance]}
+                  </span>
+                  {p.countries.slice(0, 5).map(c => (
+                    <span key={c} className="bnk-flag">{flagEmoji(c)}</span>
+                  ))}
+                  {p.countries.length > 5 && <span style={{ fontSize: '.72rem', color: '#6b7280' }}>+{p.countries.length - 5}</span>}
+                </div>
+              </div>
+              <span className={`bnk-expand-arrow${expanded === p.id ? ' open' : ''}`}>▶</span>
+            </div>
+
+            {expanded === p.id && (
+              <div className="bnk-card-body">
+                <p className="bnk-notes">{p.notes}</p>
+                <div style={{ fontSize: '.74rem', color: '#8a8a9a', marginBottom: 6 }}>Services offered</div>
+                <div className="bnk-services">
+                  {p.services.map(s => <span key={s} className="bnk-svc-chip">{s}</span>)}
+                </div>
+                <div style={{ fontSize: '.74rem', color: '#8a8a9a', marginBottom: 6 }}>Jurisdictions served</div>
+                <div className="bnk-flags">
+                  {p.countries.map(c => (
+                    <span key={c} title={c} className="bnk-flag">{flagEmoji(c)}</span>
+                  ))}
+                </div>
+                <div className="bnk-cta-row">
+                  {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="bnk-visit-btn">Visit Website →</a>}
+                  <button className="bnk-enquire-btn">Request Introduction</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Stats */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Directory Stats</div>
+          {([
+            ['Total Providers', BANKING_PROVIDERS.length],
+            ['Cannabis-Specialized', BANKING_PROVIDERS.filter(p => p.stance === 'specialized').length],
+            ['Cannabis-Friendly', BANKING_PROVIDERS.filter(p => p.stance === 'cannabis-friendly').length],
+            ['Crypto / Digital Assets', BANKING_PROVIDERS.filter(p => p.type === 'crypto').length],
+          ] as [string, number][]).map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+              <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#d4a84b' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* By type */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>By Type</div>
+          {BANKING_TYPE_OPTIONS.filter(t => (typeCounts[t] ?? 0) > 0).map(t => (
+            <div key={t} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, cursor: 'pointer' }}
+              onClick={() => setFilterType(filterType === t ? 'all' : t)}>
+              <span style={{ fontSize: '.78rem', color: filterType === t ? '#d4a84b' : '#b0b0c0' }}>{PROVIDER_TYPE_LABELS[t]}</span>
+              <span style={{ fontSize: '.82rem', fontWeight: 700, color: PROVIDER_TYPE_COLORS[t] }}>{typeCounts[t] ?? 0}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* By region */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>By Region</div>
+          {regions.filter(r => (regionCounts[r] ?? 0) > 0).map(r => (
+            <div key={r} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, cursor: 'pointer' }}
+              onClick={() => setFilterRegion(filterRegion === r ? 'all' : r)}>
+              <span style={{ fontSize: '.78rem', color: filterRegion === r ? '#d4a84b' : '#b0b0c0' }}>{r}</span>
+              <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#f5f0e8' }}>{regionCounts[r] ?? 0}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Cannabis SAFE Banking Act note */}
+        <div style={{ background: 'rgba(212,168,75,.07)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(212,168,75,.2)' }}>
+          <div style={{ fontSize: '.72rem', color: '#d4a84b', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>US: SAFER Banking</div>
+          <div style={{ fontSize: '.78rem', color: '#b0b0c0', lineHeight: 1.5 }}>
+            The SAFER Banking Act passed the Senate Banking Committee in 2023. If enacted, it would provide a federal safe harbour for banks serving state-legal cannabis businesses, dramatically expanding traditional banking access.
+          </div>
+        </div>
+
+        {/* Submit CTA */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Know a provider?</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Help the industry by submitting cannabis-friendly financial institutions we haven't listed yet.</div>
+          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+            Submit a Provider
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -6367,6 +6596,8 @@ export default function CommandCentre({
         return <EventsPage country={country} region={region} role={roleLabel} />
       case 'experts':
         return <ExpertDirectoryPage country={country} region={region} role={roleLabel} />
+      case 'banking':
+        return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
