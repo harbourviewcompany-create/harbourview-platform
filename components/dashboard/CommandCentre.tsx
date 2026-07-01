@@ -27,6 +27,7 @@ import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEve
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
 import { PRICE_BENCHMARKS, PRODUCT_TYPE_LABELS, PRODUCT_TYPE_ICONS, TIER_LABELS, TIER_COLORS, type PriceBenchmark } from './data/priceIntelligence'
 import { LOGISTICS_PROVIDERS, LOGISTICS_TYPE_LABELS, LOGISTICS_TYPE_COLORS, type LogisticsType } from './data/logisticsProviders'
+import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type JobType, type JobSector } from './data/jobsBoard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ export type CommandPage =
   | 'kyb'
   | 'prices'
   | 'logistics'
+  | 'jobs'
 
 type PublicServiceProvider = {
   id: string
@@ -160,6 +162,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'banking',       label: 'Banking',          icon: '⊟' },
       { id: 'prices',        label: 'Price Intel',      icon: '⊕' },
       { id: 'logistics',     label: 'Logistics',        icon: '⬡' },
+      { id: 'jobs',          label: 'Jobs Board',       icon: '◉' },
       { id: 'notifications', label: 'Notifications',    icon: '◎' },
       { id: 'kyb',           label: 'KYB / Verify',     icon: '◫' },
       { id: 'assistant',     label: 'AI Assistant',     icon: '◈' },
@@ -7399,6 +7402,204 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
   )
 })
 
+// ── Jobs Board page ────────────────────────────────────────────────────────────
+
+const JobsBoardPage = React.memo(function JobsBoardPage({
+  country, role,
+}: { country: string; region: string; role: string }) {
+  const [search,        setSearch]        = useState('')
+  const [filterSector,  setFilterSector]  = useState<JobSector | 'all'>('all')
+  const [filterType,    setFilterType]    = useState<JobType | 'all'>('all')
+  const [filterCountry, setFilterCountry] = useState<string>('all')
+  const [filterRemote,  setFilterRemote]  = useState(false)
+  const [expanded,      setExpanded]      = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    const ql = search.toLowerCase()
+    return JOB_LISTINGS.filter(j => {
+      if (filterSector  !== 'all' && j.sector  !== filterSector)  return false
+      if (filterType    !== 'all' && j.type    !== filterType)    return false
+      if (filterCountry !== 'all' && j.country !== filterCountry) return false
+      if (filterRemote  && !j.remote) return false
+      if (search && !j.title.toLowerCase().includes(ql) &&
+          !j.company.toLowerCase().includes(ql) &&
+          !j.description.toLowerCase().includes(ql)) return false
+      return true
+    }).sort((a, b) => {
+      // Featured + home country first
+      if (a.featured && !b.featured) return -1
+      if (b.featured && !a.featured) return  1
+      if (country && a.country === country && b.country !== country) return -1
+      if (country && b.country === country && a.country !== country) return  1
+      return b.posted.localeCompare(a.posted)
+    })
+  }, [search, filterSector, filterType, filterCountry, filterRemote, country])
+
+  const sectorCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const j of JOB_LISTINGS) m[j.sector] = (m[j.sector] ?? 0) + 1
+    return m
+  }, [])
+
+  const countries = useMemo(() => [...new Set(JOB_LISTINGS.map(j => j.country))].sort(), [])
+  const sectors   = Object.keys(JOB_SECTOR_LABELS) as JobSector[]
+  const types     = Object.keys(JOB_TYPE_LABELS)   as JobType[]
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.jb-header { margin-bottom: 16px; }
+.jb-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.jb-sub { font-size: .78rem; color: #8a8a9a; margin-top: 3px; }
+.jb-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.jb-search { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 7px 12px; color: #f5f0e8; font-size: .82rem; width: 220px; outline: none; }
+.jb-search:focus { border-color: #d4a84b; }
+.jb-filter-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 3px 11px; color: #8a8a9a; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.jb-filter-btn.active { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.jb-filter-btn:hover:not(.active) { color: #f5f0e8; border-color: rgba(255,255,255,.2); }
+.jb-remote-toggle { font-size: .73rem; color: #8a8a9a; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.jb-remote-toggle.on { color: #10b981; }
+.jb-results { font-size: .74rem; color: #6b7280; margin-bottom: 10px; }
+.jb-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; margin-bottom: 10px; overflow: hidden; transition: border-color .15s; }
+.jb-card:hover { border-color: rgba(212,168,75,.3); }
+.jb-card.featured { border-color: rgba(212,168,75,.25); background: rgba(212,168,75,.04); }
+.jb-card-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; cursor: pointer; }
+.jb-card-main { flex: 1; }
+.jb-card-title { font-size: .92rem; font-weight: 700; color: #f5f0e8; margin-bottom: 3px; }
+.jb-card-company { font-size: .8rem; color: #8a8a9a; margin-bottom: 5px; }
+.jb-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.jb-type-chip { font-size: .66rem; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.jb-sector-chip { font-size: .66rem; padding: 2px 7px; border-radius: 8px; background: rgba(255,255,255,.08); color: #9090a0; }
+.jb-salary { font-size: .76rem; color: '#d4a84b'; font-weight: 600; }
+.jb-remote-badge { font-size: .64rem; padding: 1px 6px; background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.35); border-radius: 8px; color: #10b981; font-weight: 600; }
+.jb-featured-badge { font-size: .62rem; padding: 1px 6px; background: rgba(212,168,75,.2); border: 1px solid rgba(212,168,75,.4); border-radius: 8px; color: #d4a84b; font-weight: 700; }
+.jb-card-body { padding: 0 14px 14px; border-top: 1px solid rgba(255,255,255,.05); padding-top: 12px; }
+.jb-desc { font-size: .8rem; color: #b0b0c0; line-height: 1.5; margin-bottom: 10px; }
+.jb-req-label { font-size: .72rem; color: '#8a8a9a'; margin-bottom: 5px; }
+.jb-req-list { list-style: none; padding: 0; margin: 0 0 12px; }
+.jb-req-item { font-size: .76rem; color: #9090a0; padding: 2px 0 2px 12px; position: relative; }
+.jb-req-item::before { content: '·'; position: absolute; left: 0; color: #d4a84b; }
+.jb-dates { font-size: .72rem; color: #6b7280; margin-bottom: 10px; }
+.jb-cta-row { display: flex; gap: 8px; }
+.jb-apply-btn { background: rgba(212,168,75,.15); border: 1px solid rgba(212,168,75,.4); border-radius: 6px; padding: 6px 14px; color: #d4a84b; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.jb-save-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 6px 12px; color: #9090a0; font-size: .78rem; cursor: pointer; }
+        `}</style>
+
+        <div className="jb-header">
+          <div className="jb-title">Cannabis Industry Jobs Board</div>
+          <div className="jb-sub">{JOB_LISTINGS.length} live roles across {new Set(JOB_LISTINGS.map(j => j.country)).size} countries — updated weekly</div>
+        </div>
+
+        <div className="jb-filters">
+          <input className="jb-search" placeholder="Search roles, companies…" value={search} onChange={e => setSearch(e.target.value)} />
+          <span className={`jb-remote-toggle${filterRemote ? ' on' : ''}`} onClick={() => setFilterRemote(v => !v)}>
+            <span style={{ width: 13, height: 13, border: '1px solid', borderRadius: 3, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '.6rem', borderColor: filterRemote ? '#10b981' : '#6b7280' }}>{filterRemote ? '✓' : ''}</span>
+            Remote only
+          </span>
+        </div>
+
+        <div className="jb-filters">
+          <button className={`jb-filter-btn${filterSector === 'all' ? ' active' : ''}`} onClick={() => setFilterSector('all')}>All Sectors</button>
+          {sectors.filter(s => (sectorCounts[s] ?? 0) > 0).map(s => (
+            <button key={s} className={`jb-filter-btn${filterSector === s ? ' active' : ''}`} onClick={() => setFilterSector(s)}>
+              {JOB_SECTOR_LABELS[s]}
+            </button>
+          ))}
+        </div>
+
+        <div className="jb-filters" style={{ marginBottom: 12 }}>
+          <button className={`jb-filter-btn${filterType === 'all' ? ' active' : ''}`} onClick={() => setFilterType('all')}>Any Type</button>
+          {types.map(t => (
+            <button key={t} className={`jb-filter-btn${filterType === t ? ' active' : ''}`} onClick={() => setFilterType(t)} style={filterType === t ? {} : { color: JOB_TYPE_COLORS[t] + 'cc' }}>
+              {JOB_TYPE_LABELS[t]}
+            </button>
+          ))}
+          <button className={`jb-filter-btn${filterCountry === 'all' ? ' active' : ''}`} onClick={() => setFilterCountry('all')}>All Countries</button>
+          {countries.map(c => (
+            <button key={c} className={`jb-filter-btn${filterCountry === c ? ' active' : ''}`} onClick={() => setFilterCountry(c)}>
+              {flagEmoji(c)} {c}
+            </button>
+          ))}
+        </div>
+
+        <div className="jb-results">{filtered.length} role{filtered.length !== 1 ? 's' : ''}</div>
+
+        {filtered.map(j => (
+          <div key={j.id} className={`jb-card${j.featured ? ' featured' : ''}`}>
+            <div className="jb-card-header" onClick={() => setExpanded(expanded === j.id ? null : j.id)}>
+              <div className="jb-card-main">
+                <div className="jb-card-title">{j.title}</div>
+                <div className="jb-card-company">{j.company} · {flagEmoji(j.country)} {j.city}</div>
+                <div className="jb-card-meta">
+                  <span className="jb-type-chip" style={{ background: JOB_TYPE_COLORS[j.type] + '28', color: JOB_TYPE_COLORS[j.type], border: `1px solid ${JOB_TYPE_COLORS[j.type]}44` }}>{JOB_TYPE_LABELS[j.type]}</span>
+                  <span className="jb-sector-chip">{JOB_SECTOR_LABELS[j.sector]}</span>
+                  {j.salary && <span className="jb-salary" style={{ color: '#d4a84b', fontSize: '.74rem', fontWeight: 600 }}>{j.salary}</span>}
+                  {j.remote  && <span className="jb-remote-badge">REMOTE</span>}
+                  {j.featured && <span className="jb-featured-badge">FEATURED</span>}
+                </div>
+              </div>
+              <span style={{ color: '#6b7280', fontSize: '.8rem', transition: 'transform .2s', transform: expanded === j.id ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>▶</span>
+            </div>
+
+            {expanded === j.id && (
+              <div className="jb-card-body">
+                <p className="jb-desc">{j.description}</p>
+                <div style={{ fontSize: '.72rem', color: '#8a8a9a', marginBottom: 5 }}>Key Requirements</div>
+                <ul className="jb-req-list">
+                  {j.requirements.map(r => <li key={r} className="jb-req-item">{r}</li>)}
+                </ul>
+                <div className="jb-dates">
+                  Posted: {j.posted}{j.closes ? ` · Closes: ${j.closes}` : ''}
+                </div>
+                <div className="jb-cta-row">
+                  <button className="jb-apply-btn">Apply Now →</button>
+                  <button className="jb-save-btn">Save Role</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Board Stats</div>
+          {([
+            ['Live Roles', JOB_LISTINGS.length],
+            ['Countries', new Set(JOB_LISTINGS.map(j => j.country)).size],
+            ['Remote Roles', JOB_LISTINGS.filter(j => j.remote).length],
+            ['Featured Roles', JOB_LISTINGS.filter(j => j.featured).length],
+          ] as [string, number][]).map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+              <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#d4a84b' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>By Sector</div>
+          {sectors.filter(s => (sectorCounts[s] ?? 0) > 0).map(s => (
+            <div key={s} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, cursor: 'pointer' }}
+              onClick={() => setFilterSector(filterSector === s ? 'all' : s)}>
+              <span style={{ fontSize: '.76rem', color: filterSector === s ? '#d4a84b' : '#b0b0c0' }}>{JOB_SECTOR_LABELS[s]}</span>
+              <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#f5f0e8' }}>{sectorCounts[s]}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Post a Role</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Reach cannabis professionals across 20 role profiles in 191 jurisdictions. Featured listings appear first and are highlighted to relevant roles.</div>
+          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>Post a Job</button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -7896,6 +8097,8 @@ export default function CommandCentre({
         return <PriceIntelligencePage country={country} region={region} role={roleLabel} />
       case 'logistics':
         return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} />
+      case 'jobs':
+        return <JobsBoardPage country={country} region={region} role={roleLabel} />
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} />
       case 'kyb':
