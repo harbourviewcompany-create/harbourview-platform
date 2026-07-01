@@ -42,7 +42,7 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.107.0",
+    "@anthropic-ai/sdk": "^0.109.0",
     "@tanstack/react-query": "^5.80.7",
     "class-variance-authority": "^0.7.1",
     "sonner": "^1.7.4",
