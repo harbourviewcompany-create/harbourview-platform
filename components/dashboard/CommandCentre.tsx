@@ -52,6 +52,7 @@ export type CommandPage =
   | 'experts'
   | 'banking'
   | 'notifications'
+  | 'kyb'
 
 type PublicServiceProvider = {
   id: string
@@ -154,7 +155,8 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'experts',     label: 'Expert Directory', icon: '⊚' },
       { id: 'banking',       label: 'Banking',          icon: '⊟' },
       { id: 'notifications', label: 'Notifications',   icon: '◎' },
-      { id: 'assistant',   label: 'AI Assistant',    icon: '◈' },
+      { id: 'kyb',           label: 'KYB / Verify',    icon: '◫' },
+      { id: 'assistant',     label: 'AI Assistant',    icon: '◈' },
       { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
   },
@@ -6516,6 +6518,441 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
   )
 })
 
+// ── KYB Verification page ─────────────────────────────────────────────────────
+
+type KybCategory = 'identity' | 'licensing' | 'compliance' | 'financial' | 'operational' | 'legal'
+type KybStatus   = 'not-started' | 'in-progress' | 'complete' | 'flagged'
+
+type KybCheckItem = {
+  id:          string
+  category:    KybCategory
+  title:       string
+  description: string
+  mandatory:   boolean
+  docsNeeded?: string[]
+  tooltip?:    string
+}
+
+const KYB_CATEGORY_LABELS: Record<KybCategory, string> = {
+  identity:    'Identity & Ownership',
+  licensing:   'Licences & Permits',
+  compliance:  'Compliance & AML',
+  financial:   'Financial Standing',
+  operational: 'Operational Capacity',
+  legal:       'Legal & Sanctions',
+}
+const KYB_CATEGORY_ICONS: Record<KybCategory, string> = {
+  identity:    '◎',
+  licensing:   '◷',
+  compliance:  '◫',
+  financial:   '⊞',
+  operational: '⊕',
+  legal:       '⬡',
+}
+const KYB_CATEGORY_COLORS: Record<KybCategory, string> = {
+  identity:    '#6366f1',
+  licensing:   '#d4a84b',
+  compliance:  '#10b981',
+  financial:   '#3b82f6',
+  operational: '#8b5cf6',
+  legal:       '#ef4444',
+}
+
+const KYB_CHECKLIST: KybCheckItem[] = [
+  // Identity & Ownership
+  { id: 'kyb-cert-incorp', category: 'identity', mandatory: true,
+    title: 'Certificate of Incorporation',
+    description: 'Obtain a certified copy of the entity\'s certificate of incorporation (or equivalent founding document) from the relevant commercial registry.',
+    docsNeeded: ['Certificate of Incorporation', 'Articles of Association'],
+  },
+  { id: 'kyb-ubo', category: 'identity', mandatory: true,
+    title: 'Ultimate Beneficial Owners (UBO) Disclosure',
+    description: 'Identify all natural persons who directly or indirectly own or control ≥25% of the entity (or the threshold required under applicable AML law). Verify identity via government-issued ID + proof of address.',
+    docsNeeded: ['UBO Declaration Form', 'Passport / National ID (per UBO)', 'Proof of address (per UBO)'],
+    tooltip: 'Many jurisdictions apply a 10% threshold for cannabis sector UBO disclosure.',
+  },
+  { id: 'kyb-director-id', category: 'identity', mandatory: true,
+    title: 'Director & Officer Identification',
+    description: 'Collect identity documents for all directors, officers, and authorised signatories who will transact with your business.',
+    docsNeeded: ['Passport / National ID', 'Proof of address', 'Signed authority mandate'],
+  },
+  { id: 'kyb-ownership-structure', category: 'identity', mandatory: true,
+    title: 'Corporate Ownership Structure Chart',
+    description: 'Obtain a group structure chart showing all legal entities in the ownership chain up to the natural-person UBOs, including jurisdiction of incorporation for each entity.',
+    docsNeeded: ['Group structure chart (signed)', 'Incorporation docs for each intermediate entity'],
+  },
+  { id: 'kyb-registered-address', category: 'identity', mandatory: false,
+    title: 'Registered Address Verification',
+    description: 'Confirm the registered business address matches the official registry entry and obtain a utility bill or bank statement issued within 3 months confirming a physical presence.',
+    docsNeeded: ['Utility bill or bank statement (≤3 months)'],
+  },
+  // Licences & Permits
+  { id: 'kyb-cannabis-licence', category: 'licensing', mandatory: true,
+    title: 'Cannabis Operating Licence',
+    description: 'Obtain a certified copy of the entity\'s current, valid cannabis operating licence issued by the competent regulatory authority (e.g., BfArM DE, INFARMED PT, IMCA IL, Health Canada, TGA AU).',
+    docsNeeded: ['Cannabis operating licence (certified copy)', 'Licence schedule / endorsed activities'],
+  },
+  { id: 'kyb-licence-scope', category: 'licensing', mandatory: true,
+    title: 'Licence Scope & Activity Verification',
+    description: 'Confirm that the licence covers the specific activities you will transact in (e.g., cultivation, manufacture, import, export, distribution, wholesale). Watch for activity gaps.',
+    docsNeeded: ['Licence activities endorsement', 'Any licence amendments or conditions'],
+    tooltip: 'A partner with a cultivation licence only cannot legally export without a separate import/export endorsement.',
+  },
+  { id: 'kyb-gmp', category: 'licensing', mandatory: false,
+    title: 'GMP / EU-GMP Certification',
+    description: 'For pharmaceutical-grade cannabis, verify current EU-GMP (or equivalent) certification. Check the EMA EUDRAGMDP database for EU-GMP status.',
+    docsNeeded: ['GMP certificate (current)', 'Last inspection report (if available)'],
+  },
+  { id: 'kyb-import-export-permit', category: 'licensing', mandatory: false,
+    title: 'Import / Export Permits (transaction-specific)',
+    description: 'For each shipment, confirm both the exporting jurisdiction\'s export authorisation and the importing jurisdiction\'s import permit are current and cover the specific lot.',
+    docsNeeded: ['Export authorisation (per shipment)', 'Import permit (per shipment)'],
+  },
+  { id: 'kyb-business-registration', category: 'licensing', mandatory: true,
+    title: 'Business Registration / Tax Number',
+    description: 'Verify the entity is currently registered and in good standing in its jurisdiction. Obtain the VAT / tax ID and confirm no dissolution or insolvency proceedings are underway.',
+    docsNeeded: ['Current business registration extract (≤6 months)', 'VAT / tax registration certificate'],
+  },
+  // Compliance & AML
+  { id: 'kyb-aml-policy', category: 'compliance', mandatory: true,
+    title: 'AML / CTF Policy',
+    description: 'Request the counterparty\'s current Anti-Money Laundering and Counter-Terrorist Financing policy. Assess whether it is proportionate to the cannabis sector\'s risk profile.',
+    docsNeeded: ['AML/CTF Policy (current version)'],
+  },
+  { id: 'kyb-sanctions-screening', category: 'compliance', mandatory: true,
+    title: 'Sanctions & PEP Screening',
+    description: 'Screen the entity, its UBOs, directors, and officers against OFAC SDN, EU Consolidated Sanctions List, UN Consolidated List, and HMT (UK) databases. Document screening results and date.',
+    tooltip: 'Run screening at onboarding AND on a recurring basis (at minimum annually, or on material news events).',
+  },
+  { id: 'kyb-adverse-media', category: 'compliance', mandatory: true,
+    title: 'Adverse Media & Reputational Check',
+    description: 'Conduct a structured adverse media search in local language(s) for the entity name, trading names, and key individuals. Document findings and risk assessment.',
+    docsNeeded: ['Adverse media screening report'],
+  },
+  { id: 'kyb-pep-declaration', category: 'compliance', mandatory: false,
+    title: 'Politically Exposed Person (PEP) Declaration',
+    description: 'Obtain a signed declaration from each UBO and director confirming whether they are, or are associated with, a PEP. Apply enhanced due diligence if any PEP relationship exists.',
+    docsNeeded: ['Signed PEP Declaration (per individual)'],
+  },
+  { id: 'kyb-compliance-officer', category: 'compliance', mandatory: false,
+    title: 'Compliance Officer / MLRO Contact',
+    description: 'Identify the counterparty\'s designated compliance officer or Money Laundering Reporting Officer. Maintain direct contact for ongoing compliance matters.',
+    docsNeeded: ['Compliance officer name & contact details'],
+  },
+  // Financial Standing
+  { id: 'kyb-financial-statements', category: 'financial', mandatory: true,
+    title: 'Audited Financial Statements',
+    description: 'Obtain the two most recent audited annual financial statements. Assess solvency, liquidity ratios, and any going-concern qualifications.',
+    docsNeeded: ['Audited financials (last 2 years)', 'Auditor\'s report'],
+  },
+  { id: 'kyb-bank-reference', category: 'financial', mandatory: false,
+    title: 'Bank Reference Letter',
+    description: 'Request a bank reference letter from the counterparty\'s primary banking institution confirming the account standing and relationship duration.',
+    docsNeeded: ['Bank reference letter (≤3 months)'],
+  },
+  { id: 'kyb-credit-check', category: 'financial', mandatory: false,
+    title: 'Credit & Insolvency Check',
+    description: 'Run a commercial credit check through a recognised bureau (e.g., Dun & Bradstreet, Creditsafe, Experian Business) and verify no insolvency, administration, or winding-up proceedings.',
+    docsNeeded: ['Commercial credit report (≤3 months)'],
+  },
+  { id: 'kyb-insurance', category: 'financial', mandatory: false,
+    title: 'Insurance Certificates',
+    description: 'Verify the counterparty holds appropriate insurance for the activities transacted — typically product liability, cargo/transit, and professional indemnity as applicable.',
+    docsNeeded: ['Insurance schedule / certificate of currency'],
+  },
+  // Operational Capacity
+  { id: 'kyb-facility-audit', category: 'operational', mandatory: false,
+    title: 'Facility Audit or Site Visit',
+    description: 'Where material, conduct or commission a physical audit or virtual tour of cultivation/manufacturing facilities to verify capacity and GMP adherence.',
+  },
+  { id: 'kyb-track-trace', category: 'operational', mandatory: true,
+    title: 'Track & Trace System Confirmation',
+    description: 'Confirm the counterparty participates in the applicable seed-to-sale or track-and-trace system mandated by their jurisdiction (e.g., METRC in US, Cannabis Tracking System in Canada, BfArM/Narcotics database in Germany).',
+    docsNeeded: ['Track-and-trace system account confirmation or certificate'],
+  },
+  { id: 'kyb-quality-certs', category: 'operational', mandatory: false,
+    title: 'COA / Quality Testing Protocols',
+    description: 'Review the counterparty\'s standard certificate of analysis (COA) for a reference lot. Confirm testing covers cannabinoids, terpenes, heavy metals, pesticides, microbials, and residual solvents as required by destination market.',
+    docsNeeded: ['Sample COA (recent lot)', 'List of accredited testing laboratories used'],
+  },
+  { id: 'kyb-logistics-capability', category: 'operational', mandatory: false,
+    title: 'Logistics & Cold Chain Capability',
+    description: 'Verify shipping, storage, and transport arrangements meet applicable requirements — particularly temperature-controlled logistics for perishable or pharmaceutical-grade products.',
+    docsNeeded: ['Logistics partner confirmation', 'Controlled substance transport authorisation (if applicable)'],
+  },
+  // Legal & Sanctions
+  { id: 'kyb-litigation-check', category: 'legal', mandatory: true,
+    title: 'Litigation & Regulatory Action Check',
+    description: 'Search court records and regulatory databases for any pending or past litigation, regulatory sanctions, licence revocations, or enforcement actions against the entity or key individuals.',
+  },
+  { id: 'kyb-contractual-capacity', category: 'legal', mandatory: true,
+    title: 'Contractual Authority Verification',
+    description: 'Confirm the individual signing contracts has authority to bind the entity. Obtain board resolution, power of attorney, or equivalent authorisation document.',
+    docsNeeded: ['Board resolution or POA authorising signatory'],
+  },
+  { id: 'kyb-data-protection', category: 'legal', mandatory: false,
+    title: 'Data Protection Compliance',
+    description: 'Confirm the counterparty is registered with the relevant data protection authority where required (e.g., ICO in UK, DPA in Germany) and has a current privacy policy for any data shared.',
+    docsNeeded: ['DPA registration confirmation (if applicable)', 'Data Processing Agreement (DPA)'],
+  },
+]
+
+function kybCategoryProgress(items: KybCheckItem[], statuses: Record<string, KybStatus>, cat: KybCategory) {
+  const catItems = items.filter(i => i.category === cat)
+  const done = catItems.filter(i => statuses[i.id] === 'complete').length
+  return { done, total: catItems.length, pct: catItems.length ? Math.round(done / catItems.length * 100) : 0 }
+}
+
+const KybVerificationPage = React.memo(function KybVerificationPage({
+  country,
+}: { country: string; region: string; role: string }) {
+  const [statuses,    setStatuses]    = useState<Record<string, KybStatus>>({})
+  const [notes,       setNotes]       = useState<Record<string, string>>({})
+  const [filterCat,   setFilterCat]   = useState<KybCategory | 'all'>('all')
+  const [filterStatus, setFilterStatus] = useState<KybStatus | 'all'>('all')
+  const [showMandOnly, setShowMandOnly] = useState(false)
+  const [expanded,    setExpanded]    = useState<string | null>(null)
+  const [entityName,  setEntityName]  = useState('')
+
+  const setStatus = (id: string, s: KybStatus) => setStatuses(prev => ({ ...prev, [id]: s }))
+  const setNote   = (id: string, v: string)    => setNotes(prev => ({ ...prev, [id]: v }))
+
+  const filtered = useMemo(() => KYB_CHECKLIST.filter(i => {
+    if (showMandOnly && !i.mandatory) return false
+    if (filterCat    !== 'all' && i.category !== filterCat)              return false
+    if (filterStatus !== 'all' && (statuses[i.id] ?? 'not-started') !== filterStatus) return false
+    return true
+  }), [filterCat, filterStatus, showMandOnly, statuses])
+
+  const totalPct = useMemo(() => {
+    const mandatory = KYB_CHECKLIST.filter(i => i.mandatory)
+    const done = mandatory.filter(i => statuses[i.id] === 'complete').length
+    return mandatory.length ? Math.round(done / mandatory.length * 100) : 0
+  }, [statuses])
+
+  const overallComplete = KYB_CHECKLIST.filter(i => statuses[i.id] === 'complete').length
+  const flaggedCount    = KYB_CHECKLIST.filter(i => statuses[i.id] === 'flagged').length
+
+  const STATUS_LABELS: Record<KybStatus, string> = {
+    'not-started': 'Not Started',
+    'in-progress': 'In Progress',
+    'complete':    'Complete',
+    'flagged':     'Flagged',
+  }
+  const STATUS_COLORS: Record<KybStatus, string> = {
+    'not-started': '#6b7280',
+    'in-progress': '#d4a84b',
+    'complete':    '#10b981',
+    'flagged':     '#ef4444',
+  }
+
+  const categories = Object.keys(KYB_CATEGORY_LABELS) as KybCategory[]
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.kyb-header { margin-bottom: 18px; }
+.kyb-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.kyb-sub { font-size: .78rem; color: #8a8a9a; margin-top: 3px; }
+.kyb-entity-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.kyb-entity-input { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 8px 12px; color: #f5f0e8; font-size: .85rem; flex: 1; outline: none; }
+.kyb-entity-input:focus { border-color: #d4a84b; }
+.kyb-entity-label { font-size: .76rem; color: #8a8a9a; white-space: nowrap; }
+.kyb-progress-bar-wrap { background: rgba(255,255,255,.06); border-radius: 6px; overflow: hidden; height: 8px; margin-bottom: 4px; }
+.kyb-progress-bar { height: 8px; border-radius: 6px; transition: width .3s; }
+.kyb-progress-label { font-size: .72rem; color: #8a8a9a; margin-bottom: 14px; }
+.kyb-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.kyb-filter-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 3px 11px; color: #8a8a9a; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.kyb-filter-btn.active { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.kyb-filter-btn:hover:not(.active) { color: #f5f0e8; border-color: rgba(255,255,255,.2); }
+.kyb-mand-toggle { font-size: .73rem; color: #8a8a9a; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.kyb-item { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.kyb-item.flagged { border-color: rgba(239,68,68,.3); }
+.kyb-item.complete { border-color: rgba(16,185,129,.25); }
+.kyb-item-header { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; }
+.kyb-mand-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+.kyb-opt-dot  { width: 6px; height: 6px; border-radius: 50%; background: #6b7280; flex-shrink: 0; }
+.kyb-item-title { font-size: .85rem; font-weight: 600; color: #f5f0e8; flex: 1; }
+.kyb-cat-chip { font-size: .67rem; padding: 1px 7px; border-radius: 8px; font-weight: 600; }
+.kyb-status-select { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 3px 7px; font-size: .73rem; color: #f5f0e8; cursor: pointer; outline: none; }
+.kyb-item-body { padding: 0 14px 14px; border-top: 1px solid rgba(255,255,255,.05); padding-top: 12px; }
+.kyb-item-desc { font-size: .78rem; color: #9090a0; line-height: 1.5; margin-bottom: 10px; }
+.kyb-docs { margin-bottom: 10px; }
+.kyb-docs-label { font-size: .72rem; color: #8a8a9a; margin-bottom: 5px; }
+.kyb-doc-chip { display: inline-block; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 4px; padding: 2px 7px; font-size: .69rem; color: #9090a0; margin: 2px 3px 2px 0; }
+.kyb-notes-input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; padding: 7px 10px; color: #f5f0e8; font-size: .77rem; resize: vertical; min-height: 56px; outline: none; box-sizing: border-box; }
+.kyb-notes-input:focus { border-color: #d4a84b; }
+.kyb-notes-label { font-size: .72rem; color: #8a8a9a; margin-bottom: 4px; margin-top: 8px; }
+.kyb-tooltip { font-size: .72rem; color: #d4a84b; background: rgba(212,168,75,.1); border: 1px solid rgba(212,168,75,.25); border-radius: 5px; padding: 5px 8px; margin-bottom: 8px; }
+        `}</style>
+
+        <div className="kyb-header">
+          <div className="kyb-title">KYB / Know-Your-Counterparty</div>
+          <div className="kyb-sub">Due diligence checklist for cannabis business verification — {KYB_CHECKLIST.length} items across 6 categories</div>
+        </div>
+
+        <div className="kyb-entity-row">
+          <span className="kyb-entity-label">Counterparty:</span>
+          <input
+            className="kyb-entity-input"
+            placeholder="Enter company name being verified…"
+            value={entityName}
+            onChange={e => setEntityName(e.target.value)}
+          />
+        </div>
+
+        <div className="kyb-progress-bar-wrap">
+          <div className="kyb-progress-bar" style={{ width: `${totalPct}%`, background: totalPct === 100 ? '#10b981' : totalPct > 50 ? '#d4a84b' : '#6366f1' }} />
+        </div>
+        <div className="kyb-progress-label">
+          {totalPct}% mandatory items complete — {overallComplete} of {KYB_CHECKLIST.length} total
+          {flaggedCount > 0 && <span style={{ color: '#ef4444', marginLeft: 10 }}>⚠ {flaggedCount} flagged</span>}
+        </div>
+
+        <div className="kyb-filters">
+          <button className={`kyb-filter-btn${filterCat === 'all' ? ' active' : ''}`} onClick={() => setFilterCat('all')}>All Categories</button>
+          {categories.map(c => (
+            <button key={c} className={`kyb-filter-btn${filterCat === c ? ' active' : ''}`} onClick={() => setFilterCat(c)}>
+              {KYB_CATEGORY_ICONS[c]} {KYB_CATEGORY_LABELS[c]}
+            </button>
+          ))}
+        </div>
+        <div className="kyb-filters" style={{ marginBottom: 14 }}>
+          <button className={`kyb-filter-btn${filterStatus === 'all' ? ' active' : ''}`} onClick={() => setFilterStatus('all')}>Any Status</button>
+          {(['not-started', 'in-progress', 'complete', 'flagged'] as KybStatus[]).map(s => (
+            <button key={s} className={`kyb-filter-btn${filterStatus === s ? ' active' : ''}`}
+              style={filterStatus === s ? {} : { color: STATUS_COLORS[s] + 'cc' }}
+              onClick={() => setFilterStatus(s)}>{STATUS_LABELS[s]}</button>
+          ))}
+          <span className="kyb-mand-toggle" onClick={() => setShowMandOnly(v => !v)}>
+            <span style={{ width: 13, height: 13, border: '1px solid #6b7280', borderRadius: 3, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '.58rem' }}>{showMandOnly ? '✓' : ''}</span>
+            Mandatory only
+          </span>
+        </div>
+
+        {filtered.map(item => {
+          const status = (statuses[item.id] ?? 'not-started') as KybStatus
+          const isExpanded = expanded === item.id
+          return (
+            <div key={item.id} className={`kyb-item${status === 'flagged' ? ' flagged' : status === 'complete' ? ' complete' : ''}`}>
+              <div className="kyb-item-header" onClick={() => setExpanded(isExpanded ? null : item.id)}>
+                <div className={item.mandatory ? 'kyb-mand-dot' : 'kyb-opt-dot'} title={item.mandatory ? 'Mandatory' : 'Optional'} />
+                <div className="kyb-item-title">{item.title}</div>
+                <span className="kyb-cat-chip" style={{ background: KYB_CATEGORY_COLORS[item.category] + '22', color: KYB_CATEGORY_COLORS[item.category], border: `1px solid ${KYB_CATEGORY_COLORS[item.category]}44` }}>
+                  {KYB_CATEGORY_ICONS[item.category]} {KYB_CATEGORY_LABELS[item.category]}
+                </span>
+                <select
+                  className="kyb-status-select"
+                  value={status}
+                  style={{ color: STATUS_COLORS[status] }}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => { e.stopPropagation(); setStatus(item.id, e.target.value as KybStatus) }}>
+                  {(['not-started', 'in-progress', 'complete', 'flagged'] as KybStatus[]).map(s => (
+                    <option key={s} value={s} style={{ color: STATUS_COLORS[s] }}>{STATUS_LABELS[s]}</option>
+                  ))}
+                </select>
+                <span style={{ color: '#6b7280', fontSize: '.8rem', transition: 'transform .2s', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+              </div>
+
+              {isExpanded && (
+                <div className="kyb-item-body">
+                  {item.tooltip && <div className="kyb-tooltip">ℹ {item.tooltip}</div>}
+                  <div className="kyb-item-desc">{item.description}</div>
+                  {item.docsNeeded && item.docsNeeded.length > 0 && (
+                    <div className="kyb-docs">
+                      <div className="kyb-docs-label">Documents required</div>
+                      {item.docsNeeded.map(d => <span key={d} className="kyb-doc-chip">{d}</span>)}
+                    </div>
+                  )}
+                  <div className="kyb-notes-label">Notes / Evidence log</div>
+                  <textarea
+                    className="kyb-notes-input"
+                    placeholder="Record findings, document references, dates…"
+                    value={notes[item.id] ?? ''}
+                    onChange={e => setNote(item.id, e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Overall progress */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Overall Progress</div>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: totalPct === 100 ? '#10b981' : '#d4a84b', lineHeight: 1 }}>{totalPct}%</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10 }}>mandatory items complete</div>
+          <div style={{ background: 'rgba(255,255,255,.06)', borderRadius: 6, overflow: 'hidden', height: 6, marginBottom: 10 }}>
+            <div style={{ height: 6, borderRadius: 6, background: totalPct === 100 ? '#10b981' : totalPct > 50 ? '#d4a84b' : '#6366f1', width: `${totalPct}%`, transition: 'width .3s' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.75rem', color: '#8a8a9a' }}>
+            <span>{overallComplete} complete</span>
+            <span>{flaggedCount > 0 && <span style={{ color: '#ef4444' }}>{flaggedCount} flagged</span>}</span>
+            <span>{KYB_CHECKLIST.length - overallComplete} remaining</span>
+          </div>
+        </div>
+
+        {/* Category breakdown */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>By Category</div>
+          {categories.map(c => {
+            const { done, total, pct } = kybCategoryProgress(KYB_CHECKLIST, statuses, c)
+            return (
+              <div key={c} style={{ marginBottom: 10, cursor: 'pointer' }} onClick={() => setFilterCat(filterCat === c ? 'all' : c)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span style={{ fontSize: '.76rem', color: filterCat === c ? '#d4a84b' : '#b0b0c0' }}>
+                    {KYB_CATEGORY_ICONS[c]} {KYB_CATEGORY_LABELS[c]}
+                  </span>
+                  <span style={{ fontSize: '.74rem', color: '#6b7280' }}>{done}/{total}</span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,.06)', borderRadius: 4, overflow: 'hidden', height: 4 }}>
+                  <div style={{ height: 4, borderRadius: 4, background: KYB_CATEGORY_COLORS[c], width: `${pct}%`, transition: 'width .3s' }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Risk note */}
+        {flaggedCount > 0 && (
+          <div style={{ background: 'rgba(239,68,68,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(239,68,68,.3)' }}>
+            <div style={{ fontSize: '.72rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Risk Flags</div>
+            <div style={{ fontSize: '.78rem', color: '#b0b0c0', lineHeight: 1.5 }}>
+              {flaggedCount} item{flaggedCount !== 1 ? 's' : ''} flagged. Review flagged items before proceeding with this counterparty. Consider escalating to your compliance officer.
+            </div>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Legend</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+            <span style={{ fontSize: '.75rem', color: '#b0b0c0' }}>Red dot = Mandatory item</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#6b7280', display: 'inline-block' }} />
+            <span style={{ fontSize: '.75rem', color: '#b0b0c0' }}>Grey dot = Optional but recommended</span>
+          </div>
+        </div>
+
+        {/* Export CTA */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Export Report</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Download a PDF due diligence report for your compliance records or to share with your legal team.</div>
+          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+            Export PDF Report
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -7011,6 +7448,8 @@ export default function CommandCentre({
         return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} />
+      case 'kyb':
+        return <KybVerificationPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
