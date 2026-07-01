@@ -6,7 +6,7 @@
 import type { RawScrapedItem, AINormalisedListing, ScraperCategory } from './types'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 
 const SYSTEM = `You are a listing normalisation engine for Harbourview, a regulated cannabis market intelligence platform.
 Your job is to take raw scraped text from equipment dealer, packaging supplier, lab, or logistics websites and return a clean, public-safe listing record.

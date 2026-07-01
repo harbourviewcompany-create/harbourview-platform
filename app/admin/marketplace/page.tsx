@@ -83,6 +83,7 @@ export default async function AdminMarketplacePage() {
             { href: '/marketplace/consumables', label: 'Live consumables page', desc: 'View the public marketplace as a buyer sees it', external: true },
             { href: '/marketplace/sell', label: 'Seller intake form', desc: 'The form sellers use to submit listings', external: true },
             { href: '/admin/marketplace/intake', label: 'All submissions', desc: 'Full history including rejected and published', external: false },
+            { href: '/admin/marketplace/matches', label: 'Matches', desc: 'Listing ↔ buyer request pairs with AI-generated rationale', external: false },
           ].map(lane => (
             <Link
               key={lane.href}

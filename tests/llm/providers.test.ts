@@ -26,6 +26,34 @@ const baseRequest = {
 };
 
 describe('LLM provider adapters', () => {
+  it('calls Anthropic Messages API with system prompt split out', async () => {
+    const fetcherMock = mockFetch({
+      content: [{ type: 'text', text: 'Anthropic response' }],
+      usage: { input_tokens: 10, output_tokens: 6 },
+    });
+    const fetcher = fetcherMock as unknown as typeof fetch;
+
+    const config: LlmProviderConfig = { provider: 'anthropic', apiKey: 'test-anthropic-key', model: 'claude-sonnet-4-6' };
+    const request = {
+      messages: [
+        { role: 'system' as const, content: 'You are a helpful assistant.' },
+        { role: 'user' as const, content: 'Hello' },
+      ],
+      temperature: 0.2,
+      maxOutputTokens: 128,
+    };
+    const result = await callLlmProvider(config, request, 1_000, 'req-anthropic', fetcher);
+    const [url, init] = firstFetchCall(fetcherMock);
+
+    expect(String(url)).toBe('https://api.anthropic.com/v1/messages');
+    expect(init?.headers).toMatchObject({ 'x-api-key': 'test-anthropic-key', 'anthropic-version': '2023-06-01' });
+    const body = JSON.parse(String(init?.body));
+    expect(body.system).toBe('You are a helpful assistant.');
+    expect(body.messages).toEqual([{ role: 'user', content: 'Hello' }]);
+    expect(result.text).toBe('Anthropic response');
+    expect(result.usage?.totalTokens).toBe(16);
+  });
+
   it('calls Gemini without exposing the key in the URL', async () => {
     const fetcherMock = mockFetch({
       candidates: [{ content: { parts: [{ text: 'Gemini response' }] } }],
