@@ -1,3 +1,18 @@
+## Session: Jul 1 2026 (continued) — deploy consolidation
+
+### Agent: Claude (claude.ai)
+
+**Canonical deploy target is Vercel** (vercel.json: git deploys + 15 production crons). Removed from repo: `wrangler.jsonc` + `open-next.config.ts` + `@opennextjs/cloudflare` dep (dead OpenNext/Cloudflare app-deploy experiment — gate-1-build-evidence.yml already fails builds that use it), `netlify.toml` + its ignore script (was already a no-op). **Kept**: `vercel.json`, `wrangler.toml` (intelligence pipeline worker — purposeful, not app-deploy duplication), `deploy/` + SELF_HOST_RUNBOOK (inert docs).
+
+**Dashboard-side disconnects only Tyler can do** (repo cleanup does not stop these checks firing):
+1. Cloudflare dashboard -> Workers & Pages -> `harbourview-platform` Workers Builds git integration — disconnect (source of the perpetually failing "Workers Builds" check).
+2. Cloudflare Pages project — passing but decide: if it serves nothing user-facing, disconnect for one-deploy-path hygiene.
+3. GCP `splendid-tower-496523-j6` -> Cloud Build triggers -> delete both `rmgpgab-*` triggers.
+
+E2E status: `@playwright/test` dep fix landed; job now executes real tests (~9 min) instead of dying on MODULE_NOT_FOUND, but tests fail — they have never run in CI and need a triage pass against the live app.
+
+---
+
 ## Session: Jul 1 2026
 
 ### Agent: Claude (claude.ai)
