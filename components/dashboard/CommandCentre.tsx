@@ -7062,16 +7062,63 @@ const KybVerificationPage = React.memo(function KybVerificationPage({
 
 // ── Price Intelligence page ────────────────────────────────────────────────────
 
+const PRICE_ROLE_PRODUCTS_MAP: Record<string, string[]> = {
+  'Doctor':      ['oil', 'capsule', 'topical'],
+  'Pharmacist':  ['oil', 'capsule', 'flower'],
+  'Budtender':   ['flower', 'pre-roll', 'edible', 'oil'],
+  'Cultivator':  ['flower', 'seeds'],
+  'Geneticist':  ['flower', 'seeds'],
+  'Processor':   ['oil', 'distillate', 'concentrate', 'wax'],
+  'Lab/QA':      ['flower', 'oil', 'concentrate'],
+  'Importer':    ['flower', 'oil', 'distillate'],
+  'Exporter':    ['flower', 'oil', 'distillate'],
+  'Distributor': ['flower', 'oil', 'pre-roll', 'edible'],
+  'Clinic Op.':  ['oil', 'capsule', 'topical', 'flower'],
+  'Retail':      ['flower', 'pre-roll', 'edible', 'oil', 'topical'],
+  'Compliance':  [],
+  'Legal':       [],
+  'Investor':    ['flower', 'oil', 'distillate'],
+  'Regulator':   [],
+  'Patient Ed.': ['oil', 'capsule', 'topical', 'flower'],
+  'GMP/QA':      ['flower', 'oil', 'concentrate'],
+  'Logistics':   ['flower', 'oil'],
+}
+
+const PRICE_ROLE_CHANNEL_MAP: Record<string, string> = {
+  'Doctor':      'medical-wholesale',
+  'Pharmacist':  'medical-wholesale',
+  'Budtender':   'wholesale',
+  'Cultivator':  'wholesale',
+  'Geneticist':  'wholesale',
+  'Processor':   'wholesale',
+  'Lab/QA':      'wholesale',
+  'Importer':    'wholesale',
+  'Exporter':    'wholesale',
+  'Distributor': 'wholesale',
+  'Clinic Op.':  'medical-wholesale',
+  'Retail':      'wholesale',
+  'Compliance':  '',
+  'Legal':       '',
+  'Investor':    'wholesale',
+  'Regulator':   '',
+  'Patient Ed.': 'medical-wholesale',
+  'GMP/QA':      'wholesale',
+  'Logistics':   'wholesale',
+}
+
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
-  country,
+  country, role,
 }: { country: string; region: string; role: string }) {
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
   const [filterRegion,   setFilterRegion]   = useState<string>('all')
   const [filterChannel,  setFilterChannel]  = useState<string>('all')
-  const [sortBy,         setSortBy]         = useState<'country' | 'price-asc' | 'price-desc' | 'trend'>('country')
+  const [sortBy,         setSortBy]         = useState<'country' | 'price-asc' | 'price-desc' | 'trend' | 'role'>('country')
   const [compareMode,    setCompareMode]    = useState(false)
   const [compareIds,     setCompareIds]     = useState<Set<string>>(new Set())
+
+  const roleProducts  = useMemo(() => PRICE_ROLE_PRODUCTS_MAP[role] ?? [], [role])
+  const roleChannel   = PRICE_ROLE_CHANNEL_MAP[role] ?? ''
 
   const filtered = useMemo(() => {
     let list = PRICE_BENCHMARKS.slice()
@@ -7079,20 +7126,28 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
     if (filterTier    !== 'all') list = list.filter(b => b.tier    === filterTier)
     if (filterRegion  !== 'all') list = list.filter(b => b.region  === filterRegion)
     if (filterChannel !== 'all') list = list.filter(b => b.channel === filterChannel)
-    if (country) {
-      // Boost home country to top but don't filter it out
+    if (sortBy === 'price-asc')  list.sort((a, b) => a.minPrice - b.minPrice)
+    else if (sortBy === 'price-desc') list.sort((a, b) => b.maxPrice - a.maxPrice)
+    else if (sortBy === 'trend') list.sort((a, b) => (b.trendPct ?? 0) - (a.trendPct ?? 0))
+    else if (sortBy === 'role' && roleProducts.length > 0) {
       list.sort((a, b) => {
+        const aRole = roleProducts.includes(a.product) ? 1 : 0
+        const bRole = roleProducts.includes(b.product) ? 1 : 0
+        if (bRole - aRole !== 0) return bRole - aRole
         if (a.country === country && b.country !== country) return -1
         if (b.country === country && a.country !== country) return  1
         return 0
       })
+    } else {
+      // default: home country first, then alphabetical
+      list.sort((a, b) => {
+        if (a.country === country && b.country !== country) return -1
+        if (b.country === country && a.country !== country) return  1
+        return a.country.localeCompare(b.country)
+      })
     }
-    if (sortBy === 'price-asc')  list.sort((a, b) => a.minPrice - b.minPrice)
-    if (sortBy === 'price-desc') list.sort((a, b) => b.maxPrice - a.maxPrice)
-    if (sortBy === 'trend') list.sort((a, b) => (b.trendPct ?? 0) - (a.trendPct ?? 0))
-    if (sortBy === 'country') list.sort((a, b) => a.country.localeCompare(b.country))
     return list
-  }, [filterProduct, filterTier, filterRegion, filterChannel, sortBy, country])
+  }, [filterProduct, filterTier, filterRegion, filterChannel, sortBy, country, roleProducts])
 
   const compareItems = useMemo(() => PRICE_BENCHMARKS.filter(b => compareIds.has(b.id)), [compareIds])
 
@@ -7157,6 +7212,8 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
 .pi-compare-card-country { font-size: .72rem; color: #8a8a9a; margin-bottom: 3px; }
 .pi-compare-card-price { font-size: 1rem; font-weight: 700; color: #f5f0e8; }
 .pi-compare-card-label { font-size: .68rem; color: #6b7280; margin-top: 2px; }
+.pi-tr.role-highlight { background: rgba(16,185,129,.04); }
+.pi-role-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; margin-right: 5px; vertical-align: middle; }
         `}</style>
 
         <div className="pi-header">
@@ -7215,6 +7272,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
             <option value="price-asc">Price ↑</option>
             <option value="price-desc">Price ↓</option>
             <option value="trend">Trend (rising first)</option>
+            {role && roleProducts.length > 0 && <option value="role">Role Relevance ({role})</option>}
           </select>
           <span className={`pi-compare-toggle${compareMode ? ' on' : ''}`} onClick={() => setCompareMode(v => !v)}>
             ⊞ {compareMode ? `Compare mode (${compareIds.size}/4 selected)` : 'Compare mode'}
@@ -7238,13 +7296,18 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
               </tr>
             </thead>
             <tbody>
-              {filtered.map(b => (
-                <tr key={b.id} className={`pi-tr${compareIds.has(b.id) ? ' selected' : ''}`}>
+              {filtered.map(b => {
+                const isRoleRow = roleProducts.length > 0 && roleProducts.includes(b.product)
+                return (
+                <tr key={b.id} className={`pi-tr${compareIds.has(b.id) ? ' selected' : ''}${isRoleRow ? ' role-highlight' : ''}`}>
                   <td className="pi-td">
                     <span className="pi-flag">{flagEmoji(b.country)}</span>{' '}
                     <span style={{ fontWeight: 600, color: b.country === country ? '#d4a84b' : '#f5f0e8' }}>{b.country}</span>
                   </td>
-                  <td className="pi-td"><span className="pi-prod-chip">{PRODUCT_TYPE_ICONS[b.product]} {PRODUCT_TYPE_LABELS[b.product]}</span></td>
+                  <td className="pi-td">
+                    {isRoleRow && <span className="pi-role-dot" title={`Relevant for ${role}s`} />}
+                    <span className="pi-prod-chip">{PRODUCT_TYPE_ICONS[b.product]} {PRODUCT_TYPE_LABELS[b.product]}</span>
+                  </td>
                   <td className="pi-td">
                     <span className="pi-tier-chip" style={{ background: TIER_COLORS[b.tier] + '22', color: TIER_COLORS[b.tier], border: `1px solid ${TIER_COLORS[b.tier]}44` }}>
                       {TIER_LABELS[b.tier]}
@@ -7265,7 +7328,8 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
                     </td>
                   )}
                 </tr>
-              ))}
+              )
+            })}
             </tbody>
           </table>
         </div>
@@ -7273,6 +7337,42 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
 
       {/* ── Right panel ──────────────────────────────────────────────── */}
       <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Role spotlight card */}
+        {role && roleProducts.length > 0 && (() => {
+          const roleMarketBenchmarks = PRICE_BENCHMARKS.filter(b => roleProducts.includes(b.product) && b.country === country)
+          const roleGlobalCount      = PRICE_BENCHMARKS.filter(b => roleProducts.includes(b.product)).length
+          const roleChannelLabel     = roleChannel === 'medical-wholesale' ? 'Medical Wholesale' : roleChannel === 'wholesale' ? 'Wholesale' : 'All'
+          return (
+            <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
+              <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                {role} Price Profile
+              </div>
+              <div style={{ fontSize: '.74rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>
+                Key products for your role in {country || 'your market'} · {roleChannelLabel} channel
+              </div>
+              {roleMarketBenchmarks.length > 0 ? (
+                roleMarketBenchmarks.slice(0, 3).map(b => (
+                  <div key={b.id} style={{ marginBottom: 8, padding: '6px 8px', background: 'rgba(255,255,255,.04)', borderRadius: 6 }}>
+                    <div style={{ fontSize: '.72rem', color: '#8a8a9a', marginBottom: 2 }}>{PRODUCT_TYPE_ICONS[b.product]} {PRODUCT_TYPE_LABELS[b.product]} · {TIER_LABELS[b.tier]}</div>
+                    <div style={{ fontSize: '.85rem', fontWeight: 700, color: '#10b981' }}>{b.currency} {b.minPrice.toLocaleString()}–{b.maxPrice.toLocaleString()}<span style={{ fontSize: '.68rem', fontWeight: 400, color: '#6b7280', marginLeft: 4 }}>/{b.unit}</span></div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize: '.76rem', color: '#6b7280', fontStyle: 'italic', marginBottom: 8 }}>
+                  No benchmarks yet for {country}. {roleGlobalCount} global benchmarks available.
+                </div>
+              )}
+              <button
+                style={{ background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '5px 10px', color: '#10b981', fontSize: '.73rem', cursor: 'pointer', width: '100%', marginTop: 4 }}
+                onClick={() => setSortBy(sortBy === 'role' ? 'country' : 'role')}
+              >
+                {sortBy === 'role' ? '✓ Sorted by Role' : `Sort by ${role} Relevance`}
+              </button>
+            </div>
+          )
+        })()}
+
         {/* Coverage */}
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Coverage</div>
