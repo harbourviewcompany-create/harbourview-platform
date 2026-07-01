@@ -1,288 +1,234 @@
-## Sessions: Jun 25 – Jul 1 2026
+# HANDOFF — Harbourview Platform
 
-### Agent: Claude (Sonnet 4.6)
+> **New agent? Read the top four sections before touching anything.**
+> Last updated: Jul 1 2026 · Claude (Sonnet 4.6)
 
-### What shipped this window (PRs + direct Supabase migrations)
+---
+
+## CURRENT STATE
+
+| | |
+|---|---|
+| **Supabase** | `ACTIVE_HEALTHY` · PostgreSQL 17.6.1 · `zvxdgdkukjrrwamdpqrg` · us-west-2 |
+| **Vercel** | ✅ Green · project `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` |
+| **Cloudflare Pages** | ✅ Green |
+| **Last migration** | `fix_cron_trigger_auth_headers_v2` — Jul 1 2026 |
+| **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
+| **Open PRs** | #923 (HANDOFF.md docs update — pending merge, all CI expected) |
+| **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
+| **TypeScript** | 2 pre-existing errors on main: `@tanstack/react-query` missing dep + Stripe API version |
+
+---
+
+## DO NOT TOUCH
+
+**1. `supplier_profiles` — do not seed**
+The Jun 24 backward audit deleted 10 migration files that would have inserted fake "VERIFIED SUPPLIER" businesses (Elena Voss, Marcus Hale, Dr. Lena Park at `.example.com` domains) with no demo labelling. The table stays empty. The apply flow (`/supplier-directory/apply`) + admin approval is the correct population path. If Tyler wants demo data, that's an explicit decision to make with proper labelling — not a quiet backfill.
+
+**2. Concurrent session output — verify before building on it**
+Multiple sessions have shipped code that built on fictional schemas or deleted working functions with placeholder comments (`// Keep other functions as they were` committed as literal code). Treat another agent's prior work with the same scrutiny as your own: check live schema, check what exists, don't assume.
+
+**3. `applicationsQuery.ts` — verify exports before editing**
+This file has been gutted and restored twice. Before touching it, check that `listPendingProfessionals`, `decideProfessionalApplication`, and `decideSupplierApplication` still exist and that the status value is `pending_review` (not `pending`).
+
+**4. `public-assets` storage bucket — do not modify RLS**
+The bucket has a broad SELECT policy enabling file listing. Whether this should be restricted is Tyler's call. Don't tighten or loosen it without explicit instruction.
+
+---
+
+## PRE-EXISTING FAILURES — Do Not Investigate These
+
+These fail on every PR regardless of content. They failed on #922 (merged Jul 1). They are not caused by your change.
+
+| Check | Failure type | First seen | Safe to ignore |
+|---|---|---|---|
+| Netlify `harbourview-platform`: Pages changed | Build failure | Jun 29 | ✅ Yes |
+| Netlify `harbourview-platform`: Header rules | Build failure | Jun 29 | ✅ Yes |
+| Netlify `harbourview-platform`: Redirect rules | Build failure | Jun 29 | ✅ Yes |
+| Cloudflare Workers: `harbourview-platform` (acct `c9bde393b4`) | Deploy failure | Jun 30 | ✅ Yes |
+| Cloudflare Workers: `harbourview-platform` (acct `4a7c450c9c`) | Deploy failure | Jul 1 | ✅ Yes |
+| GitHub Actions: `Enforce registry impact discipline` | Script failure | Jun 30 | ✅ Yes — pre-existing |
+| 17 vitest test files on `main` | `lib/hf/`, dashboard, middleware matchers, globe motion, security fuzzing, supabase admin client | Jun 23 | ✅ Yes — pre-existing |
+
+**Checks that DO matter:** Vercel Preview, Cloudflare Pages, Supabase Preview, `tsc --noEmit`, `Next.js Build`, `Smoke Tests`, `Security / Leakage`.
+
+---
+
+## OPEN ITEMS
+
+### P0 — Needs Tyler (agent cannot unblock)
+
+| Item | Detail |
+|---|---|
+| **Auth leaked password protection** | Disabled in Supabase Auth dashboard. One-click fix at dashboard.supabase.com → Auth → Security. |
+| **Public bucket listing decision** | `public-assets` allows clients to list all files. Restrict or keep — Tyler's call. |
+| **v2 worker host** | Code + `Dockerfile.worker` are ready. Needs a persistent host. Cheapest confirmed options: Fly.io ~$2/mo, Railway $5/mo. Vercel cannot run it (not serverless-compatible). |
+
+### P1 — Agent-actionable, user-visible
+
+| Item | Detail | Tracking |
+|---|---|---|
+| **Phase 0: Counterparties CRUD** | Full create/edit/delete + market normalization | #801 |
+| **Phase 0: Watchlist rule builder UI** | Rule configuration interface | #801 |
+| **Phase 0: Genetics catalog** | Basic search + detail pages | #801 |
+| **Phase 0: Admin pending review polish** | UX pass on pending applications queue | #801 |
+
+### P2 — Agent-actionable, infrastructure/security
+
+| Item | Detail |
+|---|---|
+| **14 tables: RLS on, no policy** | `supplier_applications`, `_push_staging`, `adi_cache`, `adi_source_log`, `country_coverage_matrix`, `country_data_import_runs`, `country_regulatory_profiles_admin`, `llm_rate_limits`, `review_queue`, `source_expansion_*` (3 tables), `source_import_batches`, `source_import_rejections`. Fails closed (not exposed), but should have explicit intent documented. |
+| **13 functions: mutable search_path** | `hv_clean_scraped_headline`, `trg_track_country_field_changes`, `trg_track_briefing_field_changes`, `get_field_changes_for_country`, `get_regulatory_calendar`, `claim_pipeline_tasks`, `fail_pipeline_task`, `complete_pipeline_task`, `sync_playbook_regulators`, `hv_trigger_extract`, `hv_trigger_score`, `hv_trigger_embed`, `get_corridor_stats`. Add `SET search_path = public` to each. |
+| **2 tables: USING(true)/WITH CHECK(true) for ALL** | `hv_entity_mentions` and `hv_regulatory_trajectory` both have `service_role_full_access` that bypasses RLS entirely. Should be scoped to `auth.role() = 'service_role'`. |
+| **~100+ unindexed foreign keys** | 102 flagged as of Jun 24, has likely grown since. Dedicated pass warranted. |
+| **~200 duplicate permissive RLS policies** | Multiple sessions each added their own SELECT policy without checking what existed. Needs per-table review — do not bulk-consolidate blindly. |
+| **`@tanstack/react-query` missing dep** | `app/providers.tsx` — requires package install, not a code fix. |
+| **Stripe API version mismatch** | `lib/stripe/server.ts` — requires package bump. |
+
+### P3 — Known, low urgency
+
+| Item | Detail |
+|---|---|
+| **PlaywrightDataAdapter is a mock** | `playwright_full` targets return `blocked`. No real browser scraping yet. |
+| **`tools/intelligence-engine-studio/` deployment target** | `.env.example` references Cloud Run/Gemini; actual code reads Supabase env vars. Unresolved. |
+| **Genetics seed accuracy gap** | One commit claims "12 cultivar passports, country opportunities, service providers" — only 2 of each actually landed. Data is demo-labelled, so not a live integrity problem. |
+
+---
+
+## DECISIONS (ADR)
+
+Numbered permanently. Do not re-litigate without new information.
+
+| # | Date | Decision | Rationale |
+|---|---|---|---|
+| 1 | Jun 24 | `supplier_profiles` stays empty | Seed data contained fake verified businesses with no demo labelling. Apply flow is the correct population path. |
+| 2 | Jun 24 | Genetics `cultivar_passports` seed left as-is | Explicitly labelled "Demo Cultivar Alpha/Beta" with disclaimers throughout. Safe to keep. |
+| 3 | Jun 24 | Concurrent agent output gets same scrutiny as own output | Same model + different context window = same blind spots, not lower trust. |
+| 4 | Jun 23 | v2 worker cannot run on Vercel | Not serverless-compatible. Needs always-on host (Fly.io or Railway). |
+| 5 | Jun 23 | `lib/genetics/storage.ts` left with zero callers | Signed-URL evidence access is correctly gated server-side. Zero callers is fine until the UI is built. |
+| 6 | Jun 23 | Placeholder comments are landmines | `// Keep other functions as they were` was committed as literal code, silently deleting 3 working functions. Never commit placeholder comments as code. |
+
+---
+
+## MIGRATION DRIFT PROTOCOL
+
+> ⚠️ **Non-negotiable.** 4 drift reconciliation PRs in 4 days (Jun 29–Jul 1).
+
+Every `apply_migration` call **must** be paired with the corresponding `.sql` file committed to `supabase/migrations/` in the same session or PR. Applying migrations via Supabase MCP without committing the file creates drift that blocks the next CI run and wastes a full session to reconcile.
+
+**Before any schema work:** run `supabase db diff` or check `list_migrations` against `supabase/migrations/` to confirm you're starting from a clean baseline.
+
+---
+
+## ACTIVE BRANCHES
+
+Branches known to be in-flight as of Jul 1. Status unknown unless noted.
+
+| Branch | Purpose | Status |
+|---|---|---|
+| `claude/harbourview-github-supabase-updates-15vrcr` | HANDOFF.md restructure (this PR, #923) | Pending merge |
+| `claude/counterparties-crud` | Phase 0 Counterparties | Unknown — check if stale |
+| `claude/intelligence-engine-full-stack` | Intelligence engine | Unknown — may be superseded |
+| `claude/intelligence-pipeline-complete` | Pipeline work | Unknown — may be superseded |
+| `claude/intelligence-ingest-throughput` | Ingest perf | Unknown |
+| `claude/live-market-compliance-pages` | Market compliance | Unknown |
+| `claude/fix-jurisdiction-briefing-client` | Briefing client fix | Unknown |
+| `claude/data-sources-optimization-qgzhzp` | Data sources | Unknown |
+| `claude/country-market-entry-flow-9jz2ys` | Country entry flow | Unknown |
+| `chatgpt/verify-command-centre-route-chrome` | Verification | Unknown |
+
+**Before starting new work:** check if a branch already exists for your task and what state it's in.
+
+---
+
+## SESSION LOG
+
+> Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Sessions: Jun 25 – Jul 1 2026 · Claude (Sonnet 4.6)
 
 No PRs landed Jun 25–28 — all schema work went directly to Supabase via MCP. PRs resumed Jun 29.
 
+**PRs merged:**
+
 | PR | What | Date |
 |---|---|---|
-| **#900, #901** | Dep bumps: sonner 2.0.7, lucide-react 1.22.0 | Jun 29 |
-| **#913** | fix(cron/scrape): stop runner before Vercel maxDuration to avoid hard-kill + listing detail modal | Jun 30 |
-| **#914** | fix(dashboard): `country_intel` never loaded; `public_summary` fell back to generic copy; professionals list empty | Jun 30 |
-| **#915** | fix: reconcile 24 remote-only migrations; dedupe timestamp collision; stale CSS test | Jun 30 |
-| **#916** | Complete PostgREST `api_schema` migration — 31 files that the prior open PR missed | Jun 30 |
-| **#910–912** | Dep bumps: tailwindcss 4.3.2, @tailwindcss/postcss 4.3.2, @anthropic-ai/sdk 0.107.0 | Jun 30 |
-| **#917** | fix(supabase): correct invalid `project_type` enum values — root cause of Supabase Preview CI failure | Jul 1 |
-| **#918–920** | Dep bumps: @supabase/supabase-js 2.110.0, @anthropic-ai/sdk 0.109.0, wrangler 4.106.0 | Jul 1 |
-| **#921** | feat(ai): register Anthropic as gateway provider; add `match_rationale` + digest narrative columns | Jul 1 |
-| **#922** | fix(supabase): reconcile 11 more remote-only migrations (**4th reconciliation in 4 days**) | Jul 1 |
+| #900, #901 | Dep bumps: sonner 2.0.7, lucide-react 1.22.0 | Jun 29 |
+| #913 | fix(cron/scrape): stop runner before Vercel maxDuration; listing detail modal | Jun 30 |
+| #914 | fix(dashboard): `country_intel` never loaded; `public_summary` generic; professionals empty | Jun 30 |
+| #915 | fix: reconcile 24 remote-only migrations; dedupe timestamp collision; stale CSS test | Jun 30 |
+| #916 | Complete PostgREST `api_schema` migration — 31 files the prior PR missed | Jun 30 |
+| #910–912 | Dep bumps: tailwindcss 4.3.2, @tailwindcss/postcss 4.3.2, @anthropic-ai/sdk 0.107.0 | Jun 30 |
+| #917 | fix(supabase): invalid `project_type` enum values — root cause of Supabase Preview CI failure | Jul 1 |
+| #918–920 | Dep bumps: @supabase/supabase-js 2.110.0, @anthropic-ai/sdk 0.109.0, wrangler 4.106.0 | Jul 1 |
+| #921 | feat(ai): Anthropic as gateway provider; `match_rationale` + digest narrative columns | Jul 1 |
+| #922 | fix(supabase): reconcile 11 more remote-only migrations (4th in 4 days) | Jul 1 |
 
-### Major schema work applied directly (Supabase MCP, no PR)
+**Direct Supabase migrations (no PR — the drift source):**
 
-**Jun 25**
-- `stripe_webhook_events_and_subscription_columns` — Stripe webhook events table + subscription columns
-- `create_supplier_applications_table` — new table replacing the supplier_profiles intake path
-- `add_regulatory_trajectory_and_coverage` — `hv_regulatory_trajectory` + coverage columns
-- Signal fixes: `fix_extract_signals_remove_dropped_columns`, `auto_review_scraped_signals_clean_headlines` (`hv_clean_scraped_headline` function), RLS grant for anon/authenticated on signals
-
-**Jun 26**
-- Full PostgREST `api_schema`: `create_api_user_roles_view`, `create_api_schema_admin_views`, `extend_api_schema_views_enterprise_ia_hub`
-- Wave 3 tables: `wave3_signal_engine_tables`, `wave3_network_tables`
-
-**Jun 27**
-- `regulatory_change_tracking_and_calendar` — new tables for regulatory event tracking + calendar view
-- `classify_import_status_33_countries` — import status seeded for 33 countries
-- `fix_null_source_types_and_scraper_state`
-- Education module 1 sections 09–15 seeded
-
-**Jun 28**
-- `create_cc_jurisdiction_briefings_schema` + `patch_cc_jurisdiction_briefings` — Command Centre jurisdiction briefings table (separate from `jurisdiction_briefings`)
-- `intelligence_job_queue` — distributed job queue tables
-- Education sections 16–18; Australia country briefing seeded
-- RLS hardening on cc_jurisdiction_briefings (3 separate passes to get anon+auth read right)
-- `add_cc_jurisdiction_briefings_confidence_href_columns`, `enable_rls_regulatory_field_changes_calendar`
-- `regulatory_signals_pipeline_missing_columns` — columns that the pipeline was writing to but that didn't exist
-
-**Jun 29**
-- Full intelligence pipeline stack: `source_registry`, `discovery`, `collection`, `intelligence`, `queue_and_review` tables + indexes/RLS/helpers (6 migrations)
-- Views: `jurisdiction_playbooks_regulator_drift_view`, `local_intel_jurisdiction_combined_view`
-- `seed_hv_regulatory_trajectory` — trajectory seed data
-- `expose_cc_jurisdiction_briefings_api_schema`, `grant_api_schema_permissions`
-
-**Jun 30**
-- Education module 2: sections 01–20 fully seeded
-- `seed_hv_regulatory_trajectory_remaining` — trajectory data for remaining countries
-- `add_match_rationale_columns` — for #921's Anthropic match rationale feature
-
-**Jul 1**
-- `fix_api_schema_views_rls_bypass`, `add_missing_api_schema_views` — RLS was bypassed in definer views; added views missed in first pass
-- `wire_extract_score_to_cron` — score extraction now fires on schedule
-- `corridor_intelligence_tables` — new trade corridor intel tables
-- `seed_professionals_jul2026_v3` — professionals directory refreshed
-- `fix_cron_trigger_auth_headers` + `_v2` — cron HTTP trigger missing auth headers; required two passes
-
-### Systemic issue: recurring migration drift
-
-This is the **4th drift reconciliation in 4 days** (PRs #915, #922, plus at least two others). Root cause: schema changes applied directly via Supabase MCP don't automatically generate migration files. Each session that applies MCP migrations without creating the corresponding `.sql` file creates drift that has to be reconciled later. Going forward, every `apply_migration` call should have a corresponding file committed to `supabase/migrations/`.
-
-### Status of items flagged in Jun 24 backward audit
-
-| Item | Status |
-|---|---|
-| Auth leaked password protection disabled | **Still open** — confirmed by today's security advisor |
-| Public bucket `public-assets` broad listing policy | **Still open** — confirmed today |
-| 13 tables RLS-on, no policy | **Worsened** — now 14 tables (supplier_applications added) |
-| 102 unindexed foreign keys | Unknown — no dedicated pass done |
-| 202 duplicate permissive RLS policies | Unknown |
-| `@tanstack/react-query` missing dep | Unknown |
-| Stripe API version mismatch | Unknown |
-| 17 test files failing on main | Unknown |
-| v2 worker not deployed | **Still open** — no host decision made |
-| PlaywrightDataAdapter still a mock | Unknown |
-
-### Open GitHub issues (Phase 0 epic)
-
-Issues #801, #802, #805 remain open. Still outstanding from the Phase 0 epic:
-- Counterparties full CRUD + market normalization
-- Watchlist rule builder UI
-- Genetics basic catalog search + details
-- Admin pending review polish
-
-### Current open PRs
-None.
+Jun 25: `stripe_webhook_events_and_subscription_columns`, `create_supplier_applications_table`, `add_regulatory_trajectory_and_coverage`, signal RLS + column fixes.
+Jun 26: Full PostgREST `api_schema` views, Wave 3 signal + network tables.
+Jun 27: `regulatory_change_tracking_and_calendar`, 33-country import status, education sections 09–15.
+Jun 28: `cc_jurisdiction_briefings` schema (3-pass RLS), `intelligence_job_queue`, education sections 16–18, Australia briefing seeded.
+Jun 29: Full pipeline stack (source_registry, discovery, collection, intelligence, queue_and_review + indexes/RLS), trajectory seed, api_schema exposure + permissions.
+Jun 30: Education module 2 sections 01–20, trajectory remaining, `add_match_rationale_columns`.
+Jul 1: `fix_api_schema_views_rls_bypass`, `add_missing_api_schema_views`, `wire_extract_score_to_cron`, `corridor_intelligence_tables`, professionals v3 seed, cron auth headers fix (two passes).
 
 ---
 
-## Session: Jun 24 2026 (continued)
+### Session: Jun 24 2026 (continued) · Claude (Sonnet 4.6)
 
-### Agent: Claude (Sonnet 4.6)
+**Built:** "Fix all" gaps pass — PR #890 replaced 6 remaining static `PublicSurfacePage` wrappers with live-data pages (`/education/gacp`, `/education/gdp`, `/education/gmp`, `/education/briefings`, `/education/export-import-readiness`, `/policy-standards/regulatory-change-tracker`). Bug caught: `mod.audience` is `string[]` not `string` — fixed array indexing before push.
 
-### Built this session — "Fix all" gaps pass (PR #890)
-
-Completed the full gaps audit fix list. All actionable static wrappers are now live-data pages.
-
-| PR | What | |
-|---|---|---|
-| **#890** | Replace 6 remaining static `PublicSurfacePage` wrappers with live pages | ✅ merged |
-
-### Detail — #890
-
-| Route | Before | After |
-|---|---|---|
-| `/education/gacp` | `PublicSurfacePage` | GACP 4-panel explainer + live education modules (quality/compliance tracks) |
-| `/education/gdp` | `PublicSurfacePage` | GDP 4-panel explainer (cold chain, narcotics custody) + live modules |
-| `/education/gmp` | `PublicSurfacePage` | GMP 4-panel explainer (EU-GMP, QP requirement) + live modules |
-| `/education/briefings` | `PublicSurfacePage` (no data) | Live `jurisdiction_briefings` grid — 60 briefings, one per country |
-| `/education/export-import-readiness` | `PublicSurfacePage` | Live modules (export/import/logistics tracks) + 3-column doc checklist |
-| `/policy-standards/regulatory-change-tracker` | `PublicSurfacePage` | Live `signals` filtered to regulatory/policy/legislative — 40 signals, 180-day window |
-
-**Bug caught during implementation:** `mod.audience` is `string[]` not `string` — `AUDIENCE_LABELS[mod.audience]` would index with an array. Fixed to `.map((a) => AUDIENCE_LABELS[a] ?? a).join(', ')` before pushing.
-
-### Static surfaces intentionally left as-is
-
-- `/intelligence/source-engine` — explains methodology, appropriately static
-- `/intelligence/watchlists` — gated intake-only, static CTA by design
-- `/network`, `/opportunities`, `/reviewed-connections`, `/institutional-partnerships`, `/policy-standards` — `InstitutionalPage` gating pages, design intent not a gap
-
-### typecheck: 0 errors on main
-
-All TS errors from the previous audit have been resolved (PRs #820, #821). Two pre-existing errors remain on main (`@tanstack/react-query` module resolution, Stripe API version) — both require package upgrades, not code fixes.
-
-### Open PRs
-
-4 held major Dependabot bumps (#724, #726, #732, #733) — unchanged.
+**Static surfaces intentionally left as-is:** `/intelligence/source-engine` (methodology, correctly static), `/intelligence/watchlists` (gated intake CTA by design), `InstitutionalPage` gating pages (`/network`, `/opportunities`, etc.).
 
 ---
 
-## Session: Jun 23 2026
+### Session: Jun 24 2026 — Backward Audit · Claude (Sonnet 4.6)
 
-### Agent: Claude (Sonnet 4.6)
+The most important session in the file. Read it if you're starting work on anything that was touched Jun 22–24.
 
-### Built this session — gap audit + five highest-leverage fixes (PRs #820, #821)
+**Fixed (PRs #807, #808, #818, #823, #824):**
+- Education hub rendering raw UUIDs as track headers (19/31 modules) — `getTrackLabelMap()` fixed
+- `applicationsQuery.ts` gutted by placeholder comments — restored 3 functions, fixed `pending_review` status and real column names
+- Supplier directory built around fictional schema (`profile_slug`, `regions_served`, `website`, `hq_country`, `verification_status` — none exist) — restored real schema, renamed `[slug]`→`[id]`
+- 10 supplier_profiles migration files that never ran (no-op'd against existing table, seed INSERTs would fail on nonexistent columns) — deleted as live landmines
+- `hv_public_feed` duplicate UNIQUE constraint — dropped
 
-**Gap audit results:**
-- 🔴 Static wrappers: `/intelligence/logistics-trade-routes`, `/intelligence/counterparty-intelligence`, `/intelligence/regulatory-pathways`, `/education/glossary`, `/education/glossary/[term]`
-- 🔴 Zero-row: `genetics_collaboration_projects`
-- 🔴 Missing exports blocking admin review loop: `listPendingProfessionals`, `decideProfessionalApplication`, `decideSupplierApplication` deleted from `applicationsQuery.ts`
+**Verified correct (not everything was wrong):** PR #793 data gap migrations landed correctly. Globe shader saga was normal debugging, not drift.
 
-| PR | What | |
-|---|---|---|
-| **#820** | 3 static intelligence wrappers → live pages + real 26-term glossary + 10 collab projects seeded | ✅ merged |
-| **#821** | Missing applicationsQuery exports restored + duplicate country-data re-exports removed | ✅ merged |
-
-### Remaining TS errors (2, both pre-existing on main)
-- `app/providers.tsx`: `@tanstack/react-query` missing from deps
-- `lib/stripe/server.ts`: Stripe API version mismatch
-
-### Next priorities
-1. Fix `@tanstack/react-query` missing dependency
-2. Fix Stripe API version (bump package)
-3. Fix Supabase migration drift (P0 blocker)
-4. Admin notification when pending applications land
-5. Diagnose Cloudflare Workers Build failure
+**Key lesson documented:** Same model + different context window = same blind spots. Treat concurrent session output with same scrutiny as own output.
 
 ---
 
-## Session: Jun 24 2026 — Backward Audit
+### Session: Jun 23 2026 (evening) · Claude (claude.ai)
 
-### Agent: Claude (Sonnet 4.6)
+- `tools/intelligence-engine-studio/`: brought to parity with main app worker hardening
+- `country_intel` schema mismatch fixed (`country_code` not `iso2`, `country_name` not `name`)
+- `lib/genetics/storage.ts`: wired with `getGranteeAccessGrants()` + `/dashboard/genetics/granted-access` page + server action
+- `Retry-After` handling end-to-end: `ScraperResult.http_status` / `retry_after_seconds`, capped at 30s
+- 29 tests added (first tests for this logic)
 
-### Context
-
-User asked "is this thorough enough yet" after a session spent closing gaps in education/counterparty/watchlist/professionals/suppliers. Honest answer was no — every fix had been chained off the previous one, but nothing had been checked against *other* concurrent sessions' work. User corrected the framing directly: the other sessions are other Claude instances, same model, same knowledge — meaning same blind spots, not lower or higher trust than my own output. That correction changed what got checked next.
-
-### Found and fixed (merged + deployed/applied this session)
-
-| Issue | Fix | PR |
-|---|---|---|
-| Education hub rendering raw UUIDs as track headers (19 of 31 modules) — a parallel session added `education_tracks` with UUID keys, didn't know `educationModulesQuery.ts` existed | `getTrackLabelMap()` merges static legacy-slug labels with a live `education_tracks` lookup | #807 |
-| `lib/admin/applicationsQuery.ts` gutted — a concurrent edit committed literal placeholder comments (`// Keep other functions as they were`) as real code, deleting 3 working functions; the one survivor queried a nonexistent status value and invented columns | Restored all 3 functions; fixed status (`pending_review` not `pending`) and columns, verified against live schema directly | #808 |
-| Supplier-directory page/query/detail-route rewritten around a fictional schema (`profile_slug`, `regions_served`, `website`, `hq_country`, `verification_status` — none exist) | Restored real schema throughout; kept the detail-page design (it was good), renamed `[slug]`→`[id]` since there's no slug column; also fixed an invented `PublicCard href` prop that doesn't exist on the component | #818 |
-| 10 `supabase/migrations/*.sql` files (table creation + 8 seed batches + batch_id column) for supplier_profiles — **zero of them ever ran**. `CREATE TABLE IF NOT EXISTS` no-op'd against the table that already existed (built in #774, different schema); every seed INSERT after it would fail outright on nonexistent columns | Deleted all 10 — they were a live landmine for the next `supabase db push` (no-op, then fail on first INSERT, blocking everything after it in the run). Did **not** recreate the seed data under the real schema — see below | #823 |
-| `hv_public_feed` had two identical UNIQUE constraints on `artifact_id` (Supabase perf advisor finding) | Dropped the redundant one via `apply_migration`, mirrored the file in-repo | #824 |
-
-### Judgment call: why the supplier seed data wasn't recreated
-
-Checked the actual content of the 10 orphaned migration files before deciding what to do with them. The seed data was fabricated companies with `.example.com` websites and invented contact names (Elena Voss, Marcus Hale, Dr. Lena Park), set to insert as `status='active', verification_status='verified'` — meaning if it had run, the public directory would show a "VERIFIED SUPPLIER" badge on entirely fictional businesses, with no demo/placeholder labelling anywhere a visitor would see.
-
-Compared this against genetics seed data from the same window (`cultivar_passports`) — explicitly labelled "Demo Cultivar Alpha/Beta" with disclaimers throughout ("Demo-only," "not seed, clone, pollen, or plant-material offers"). That one was fine to leave as-is; not reformatted or touched.
-
-**`supplier_profiles` stays empty.** The apply flow (#774) + admin approval (#780) is the correct path to populate it with real submissions. If Tyler wants the directory to look populated for now, that's a deliberate decision to make explicitly — not something to backfill quietly under a fixed schema.
-
-### Verified correct — not everything from other sessions was wrong
-
-- The big "7 data gap migrations" PR (#793) — same wave that broke supplier-directory and `applicationsQuery.ts` — **did** land correctly for its primary claims. `source_snapshots` has 4,157 real rows, `hv_import_staging` 471, `jurisdiction_crossref` 203, `market_metrics`/`trade_flows`/`cannabis_operators` in the teens. Found `pr793_migration_drift_guard` and `register_gap_migration_versions` migrations specifically aimed at preventing the kind of drift this audit found elsewhere — that session was already aware of the risk and guarded against it.
-- Globe shader saga (6 "fix" commits for the Russia black-void bug) looked alarming from the commit log alone but traces to a normal debugging trajectory: visual band-aids (lighthouse emblem, gold disc) → root cause found (back-face normal not flipping under FMA-inverted triangle winding) → real fix → band-aids cleanly reverted, no orphaned dead code → final polish (equatorial lighting). Not drift.
-
-### Found and flagged — not fixed, needs a decision or access I don't have
-
-| Finding | Severity | Why not fixed now |
-|---|---|---|
-| Genetics: 1 seed commit claims "12 cultivar passports, country opportunities, service providers" — only 2 of each actually landed | Low | Data is explicitly demo-labelled either way; reporting accuracy gap, not a live data integrity problem |
-| Security advisor: leaked-password-protection still disabled | Low, zero-risk one-click fix | No tool access to Supabase Auth dashboard settings — needs Tyler |
-| Security advisor: public bucket `public-assets` has a broad SELECT policy allowing object listing | Low-Medium | Needs a decision on whether listing should be restricted, not a blind fix |
-| Security advisor: 13 tables with RLS enabled but no policy (`_push_staging`, `adi_cache`, `country_coverage_matrix`, etc.) | Low (fails closed, not exposed) | Likely new tables created after the Jun 22 security pass (#790) claimed "all findings addressed" — that claim doesn't fully hold today, but nothing here is actively exposing data |
-| Performance advisor: 102 unindexed foreign keys, despite #791 being titled "add missing FK indexes flagged by Supabase advisor" | Medium | Likely mostly on tables created after #791 ran, given how much schema growth happened Jun 22–24. Adding indexes is low-risk but 102 is enough volume that it deserves a dedicated pass, not a blind batch |
-| Performance advisor: 202 instances of multiple permissive RLS policies on the same table/role/action (e.g. `countries` has both `countries_anon_select` and `countries_public_read` doing the same job) | Medium | Same root cause as everything else in this audit — multiple sessions each adding their own policy without checking what existed. Needs per-table review before consolidating; collapsing the wrong policy could silently change access |
-
-### Lesson for future sessions
-
-Every drift case this session traces to the same root cause: a session claiming work was done without verifying it against the live database, or building something without checking what already existed. Not a competence gap — the same model, working from a different context window, makes the same kind of mistake at a different layer each time (migrations instead of application code, RLS policies instead of React components). Treat "another Claude already worked on this" as a reason to check with the same rigor as your own output, not less.
+**Not done:** v2 worker undeployed, `tools/intelligence-engine-studio/` deployment target unconfirmed, 17 pre-existing test failures on main.
 
 ---
 
-## Session: Jun 23 2026 (evening, continued)
+### Session: Jun 23 2026 (afternoon/evening) · Claude (claude.ai)
 
-### Agent: Claude (claude.ai)
-
-### Built this session (continuation — "fix these" pass on the items flagged above)
-
-- `tools/intelligence-engine-studio/`: brought to parity with the main app's worker hardening (it had every bug the main app had before today — hardcoded failure count, in-memory-only circuit breaker, no rss/api adapters, no heartbeat/health endpoint, sync stop()+immediate exit). Caught and fixed a regression I introduced mid-port: blindly copying the main app's `selectAdapter()` switch silently dropped this app's `json_api` → `APIDataAdapter` route.
-- `lib/country-data/server.ts`: `country_intel` was a phantom table this morning; a concurrent session has since created it — with a different schema than the scaffold assumed (`country_code` not `iso2`, `country_name` not `name`). Fixed to match the real table, cross-checked against `lib/dashboard/dashboardLiveData.ts`'s existing query.
-- `lib/genetics/storage.ts` (signed-URL evidence access) had zero callers. New `getGranteeAccessGrants()` query + `/dashboard/genetics/granted-access` page + server action + client button — a grantee can now actually request and open a signed link to evidence they were granted. Server action re-verifies the grant server-side; never trusts client-supplied grant data.
-- Implemented `Retry-After` handling end-to-end: `ScraperResult` gains `http_status`/`retry_after_seconds`, all 3 real adapters populate both, `worker-node.ts`'s retry logic honors it (capped at 30s) in both apps.
-- Added 29 tests (zero existed for any of this logic before today): Retry-After parsing, the distributed circuit breaker against a fake Supabase client, genetics scoring/gating, access-grant validation. All passing.
-
-### Current Status / Not done
-
-- Ran the **full** existing vitest suite, not just new files: 17 test files fail on bare `main`, confirmed via stash to be pre-existing and unrelated to anything touched today (lib/hf/, dashboard, middleware matchers, globe motion, security fuzzing, supabase admin client). Flagging, not fixing — outside this task's scope and spans domains with no context here.
-- The v2 worker is still not deployed anywhere (still waiting on a host decision — Fly.io ~$2/mo or Railway $5/mo were the cheapest real options as of today). All the hardening above is dormant until something actually runs it.
-- `tools/intelligence-engine-studio/`'s actual deployment target is still unconfirmed — its `.env.example` references Cloud Run/AI-Studio/Gemini, not the Supabase env vars its own code reads at runtime.
+- Fixed `cultivar_passport_network_p0.sql`: 4 syntax errors meant the 14-table network never existed in production — applied + seeded live
+- Wired `lib/introduction-routing/` scoring engine to public genetics access-request form
+- Hardened v2 distributed worker: adapter parity, fixed hardcoded failure count (`1`), Supabase-backed circuit breaker replacing in-process one, `/healthz`, graceful shutdown, `Dockerfile.worker`
+- Fixed full-repo `tsc --noEmit` breakage from concurrent edit overwriting `lib/country-data/types.ts`
+- Resolved 3 same-task collisions with concurrent sessions (genetics admin wiring, orchestrator routing, `acquire_crawl_targets` RPC)
 
 ---
 
-## Session: Jun 23 2026 (afternoon/evening)
+### Session: Jun 23 2026 (morning) · Grok
 
-### Agent: Claude (claude.ai)
+Built supplier directory intake flow (Phase 0): `supplierProfilesQuery.ts`, detail page `[slug]/page.tsx`, admin query, `PROJECT_REGISTRY.md` updated.
 
-### Built this session
-
-- Fixed `supabase/migrations/20260607130000_cultivar_passport_network_p0.sql`: 4 unbalanced-parenthesis syntax errors (confirmed via the real Postgres grammar parser, not eyeballing) meant the entire 14-table Cultivar Passport Network had never actually existed in production. Applied + seeded live, verified.
-- Wired `lib/introduction-routing/` (scoring engine, previously built but never called by anything live) to the public genetics access-request form: new `app/api/genetics/access-request/route.ts`, `lib/introduction-routing/liveQueries.ts`, rewired `app/admin/(protected)/routing/genetics/page.tsx` off a hardcoded sample onto live data. Generic-intake requests never auto-set `introduction_ready` — always require operator review.
-- Hardened the v2 distributed worker (`lib/intelligence-engine/worker-node.ts` + `queue/task-queue.ts` + `queue/circuit-breaker.ts`), which had not gotten the same pass as the v1 orchestrator path from other concurrent sessions today: adapter parity (rss/api, not just html/playwright), fixed a bug where every failure call hardcoded `1` instead of the real failure count (backoff never actually escalated), fixed circuit-broken skips penalizing the wrong source, replaced the in-process circuit breaker with a Supabase-backed one (new tables `crawl_domain_circuit_state`, `worker_heartbeats`, applied + verified live). Added retry-with-backoff, a `/healthz` endpoint, graceful shutdown that waits for in-flight work, `WORKER_BATCH_SIZE` env config, and `Dockerfile.worker` (none existed).
-- Fixed full-repo `npx tsc --noEmit` breakage: `lib/country-data/types.ts`+`server.ts` had been overwritten by a concurrent edit adding an unrelated "CountryBriefing" feature, deleting the public-profile DTO that `app/countries/*` depends on, and importing a module (`@/lib/supabase`) that doesn't exist anywhere in the repo. Both feature sets now coexist. Also fixed `app/supplier-directory/page.tsx`'s real component-contract mismatches (`PublicHero` missing required `children`, `PublicCard` doesn't have an `href` prop — every card was an unclickable dead div, `FooterCta` called with zero required props) and a `supplier.title` reference to a field that doesn't exist on `SupplierProfile`.
-- Resolved three separate same-task collisions with concurrent sessions today (genetics passport-network admin wiring, orchestrator adapter-routing, and the `acquire_crawl_targets` RPC) by comparing implementations directly and deferring to whichever was actually better — see closed PRs #782/#783 for the writeups.
-
-### Current Status / Not done
-
-- **The v2 worker is not running anywhere.** Code + `Dockerfile.worker` are deployment-ready; no host is chosen or provisioned. Needs a persistent host (Vercel can't run it — not serverless-compatible). Cheapest real options as of today: Fly.io ~$2/mo single always-on machine, or Railway $5/mo flat.
-- `tools/intelligence-engine-studio/` (parallel duplicate app) was not touched — likely has the same stale adapter-taxonomy bug fixed elsewhere today.
-- `PlaywrightDataAdapter` is still a mock; `playwright_full` targets get an honest `blocked` result, not real content.
-- `lib/genetics/storage.ts` (signed-URL evidence access, correctly gated) has zero callers anywhere in the app.
-- The new "CountryBriefing" feature (`getCountryBriefing`/`seedAllCountries`) now compiles but its target table `country_intel` does not exist in the database. Nothing calls these functions yet, so not an active bug — just unfinished.
-- No automated tests were added for anything built this session.
-- **This file wasn't updated by whichever agent(s) did the genetics-passport-network admin wiring, orchestrator hardening, or the several other PRs merged today (#788, #790, #791, #793, #795, #808, and others)** — their work isn't reflected above. If you're an agent reading this: please log here before/after a session, not just when you remember to.
+**Note:** Most of this session's work was corrected by the Jun 24 backward audit (fictional schema, gutted applicationsQuery). Treat this entry as historical context only — do not build on it without checking against live schema first.
 
 ---
-
-## Previous content below
-## Session: Jun 23 2026 (morning)
-
-### Agent: Grok
-
-### Built this session — Complete Supplier Directory Intake Flow (Phase 0)
-
-- Fixed and aligned `lib/server/supplierProfilesQuery.ts` to use correct RLS filters (`status=active` + `verification_status=verified`)
-- Updated types and label maps to match new `supplier_profiles` schema
-- Created detail page `app/supplier-directory/[slug]/page.tsx`
-- Aligned admin query `lib/admin/applicationsQuery.ts` to `status=eq.pending`
-- Updated `docs/control/PROJECT_REGISTRY.md` with Supplier Directory routes and table
-- All core intake flow now fully functional end-to-end
-
-### Current Status
-
-Supplier Directory is now complete for Phase 0:
-- Apply form + server action working
-- Pending records created correctly
-- Public query aligned with RLS
-- Detail pages live
-- Admin pending list aligned
-
-Next priorities remain the other Phase 0 items (Counterparties polish, Watchlist rule builder, Genetics catalog).
-
----
-
-## Previous content below
-
