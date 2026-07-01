@@ -28,6 +28,8 @@ import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_L
 import { PRICE_BENCHMARKS, PRODUCT_TYPE_LABELS, PRODUCT_TYPE_ICONS, TIER_LABELS, TIER_COLORS, type PriceBenchmark } from './data/priceIntelligence'
 import { LOGISTICS_PROVIDERS, LOGISTICS_TYPE_LABELS, LOGISTICS_TYPE_COLORS, type LogisticsType } from './data/logisticsProviders'
 import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type JobType, type JobSector } from './data/jobsBoard'
+import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
+import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,9 @@ export type CommandPage =
   | 'prices'
   | 'logistics'
   | 'jobs'
+  | 'insurance'
+  | 'licences'
+  | 'trade-calc'
 
 type PublicServiceProvider = {
   id: string
@@ -138,41 +143,49 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: 'Prescribers',
+    label: 'Clinical',
     items: [
       { id: 'access-pathway', label: 'Access Pathway',   icon: '⬡' },
       { id: 'regulatory',     label: 'Regulatory Watch', icon: '◷' },
       { id: 'local-intel',    label: 'Local Intel',      icon: '◉' },
+      { id: 'evidence',       label: 'Research',         icon: '⊟' },
     ],
   },
   {
-    label: 'Research',
+    label: 'Trade & Commerce',
     items: [
-      { id: 'evidence', label: 'Research', icon: '⊟' },
+      { id: 'prices',     label: 'Price Intel',     icon: '⊕' },
+      { id: 'trade-calc', label: 'Trade Calculator', icon: '⊜' },
+      { id: 'logistics',  label: 'Logistics',       icon: '⬡' },
+      { id: 'banking',    label: 'Banking',         icon: '⊟' },
+      { id: 'insurance',  label: 'Insurance',       icon: '⊡' },
+    ],
+  },
+  {
+    label: 'Industry',
+    items: [
+      { id: 'events',  label: 'Events',          icon: '◷' },
+      { id: 'jobs',    label: 'Jobs Board',      icon: '◉' },
+      { id: 'experts', label: 'Expert Directory', icon: '⊚' },
+    ],
+  },
+  {
+    label: 'Compliance & Legal',
+    items: [
+      { id: 'genetics',   label: 'Genetics',    icon: '⊕' },
+      { id: 'compliance', label: 'Compliance',  icon: '◫' },
+      { id: 'licences',   label: 'Licences',    icon: '◨' },
+      { id: 'kyb',        label: 'KYB / Verify', icon: '◫' },
+      { id: 'countries',  label: 'Countries',   icon: '⊗' },
     ],
   },
   {
     label: 'Platform',
     items: [
-      { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
-      { id: 'compliance',  label: 'Compliance',  icon: '◫' },
-      { id: 'countries',   label: 'Countries',   icon: '⊗' },
-      { id: 'events',        label: 'Events',           icon: '◷' },
-      { id: 'experts',       label: 'Expert Directory', icon: '⊚' },
-      { id: 'banking',       label: 'Banking',          icon: '⊟' },
-      { id: 'prices',        label: 'Price Intel',      icon: '⊕' },
-      { id: 'logistics',     label: 'Logistics',        icon: '⬡' },
-      { id: 'jobs',          label: 'Jobs Board',       icon: '◉' },
-      { id: 'notifications', label: 'Notifications',    icon: '◎' },
-      { id: 'kyb',           label: 'KYB / Verify',     icon: '◫' },
-      { id: 'assistant',     label: 'AI Assistant',     icon: '◈' },
-      { id: 'documents',   label: 'Documents',    icon: '⊡' },
-    ],
-  },
-  {
-    label: 'Settings',
-    items: [
-      { id: 'settings', label: 'Settings', icon: '⊙' },
+      { id: 'assistant',     label: 'AI Assistant',  icon: '◈' },
+      { id: 'notifications', label: 'Notifications', icon: '◎' },
+      { id: 'documents',     label: 'Documents',     icon: '⊡' },
+      { id: 'settings',      label: 'Settings',      icon: '⊙' },
     ],
   },
 ]
@@ -7600,6 +7613,803 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
   )
 })
 
+// ── Insurance Directory page ──────────────────────────────────────────────────
+
+function InsCard({ p, homeCountry }: { p: InsuranceProvider; homeCountry: string }) {
+  const isLocal = p.countries.includes(homeCountry)
+  const roleRgba: Record<InsuranceProviderRole, string> = {
+    'mga':          'rgba(99,102,241',
+    'carrier':      'rgba(16,185,129',
+    'broker':       'rgba(212,168,75',
+    'lloyd':        'rgba(139,92,246',
+    'program-admin':'rgba(6,182,212',
+  }
+  return (
+    <div className={`ins-card${p.featured ? ' ins-featured' : ''}`}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div style={{ fontSize: '.9rem', fontWeight: 700, color: '#f5f0e8' }}>
+          {p.name}
+          {isLocal && <span style={{ fontSize: '.64rem', color: '#d4a84b', marginLeft: 6 }}>★ Your Market</span>}
+        </div>
+        {p.featured && <span style={{ fontSize: '.62rem', color: '#d4a84b', background: 'rgba(212,168,75,.12)', borderRadius: 4, padding: '2px 7px', fontWeight: 700, whiteSpace: 'nowrap', marginLeft: 8 }}>FEATURED</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 10 }}>
+        <span style={{ fontSize: '.68rem', fontWeight: 600, letterSpacing: '.04em', borderRadius: 4, padding: '3px 7px', background: `${roleRgba[p.role]},0.15)`, color: INSURANCE_ROLE_COLORS[p.role] }}>
+          {INSURANCE_ROLE_LABELS[p.role]}
+        </span>
+        {p.countries.map(c => (
+          <span key={c} style={{ fontSize: '.68rem', fontWeight: 600, borderRadius: 4, padding: '3px 7px', background: 'rgba(255,255,255,.07)', color: '#b0b0c0' }}>
+            {flagEmoji(c)} {c}
+          </span>
+        ))}
+      </div>
+      <div style={{ fontSize: '.78rem', color: '#b0b0c0', lineHeight: 1.6, marginBottom: 10 }}>{p.description}</div>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const }}>
+        {p.types.map(t => (
+          <span key={t} style={{ fontSize: '.64rem', padding: '2px 6px', borderRadius: 3, background: 'rgba(255,255,255,.07)', color: '#9a9aaa' }}>
+            {INSURANCE_LINE_LABELS[t]}
+          </span>
+        ))}
+      </div>
+      {p.url && (
+        <div style={{ marginTop: 10 }}>
+          <a href={p.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '.72rem', color: '#6366f1', textDecoration: 'none' }}>
+            {p.url.replace('https://', '')} ↗
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const INS_ROLE_OPTIONS: InsuranceProviderRole[] = ['mga', 'carrier', 'broker', 'lloyd', 'program-admin']
+const INS_LINE_OPTIONS: InsuranceLineType[] = [
+  'commercial-general', 'product-liability', 'directors-officers', 'property',
+  'crop', 'professional-indemnity', 'cyber', 'cargo', 'workers-comp',
+]
+
+const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
+  country, region, role,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+}) {
+  const [search,        setSearch]        = useState('')
+  const [filterRole,    setFilterRole]    = useState<InsuranceProviderRole | 'all'>('all')
+  const [filterType,    setFilterType]    = useState<InsuranceLineType | 'all'>('all')
+  const [filterCountry, setFilterCountry] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return INSURANCE_PROVIDERS.filter(p => {
+      const matchQ       = !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+      const matchRole    = filterRole === 'all' || p.role === filterRole
+      const matchType    = filterType === 'all' || (p.types as string[]).includes(filterType)
+      const matchCountry = !filterCountry || p.countries.includes(filterCountry)
+      return matchQ && matchRole && matchType && matchCountry
+    })
+  }, [search, filterRole, filterType, filterCountry])
+
+  const featured = filtered.filter(p => p.featured)
+  const rest     = filtered.filter(p => !p.featured)
+  const homeCountry = country.iso2
+
+  return (
+    <div className="cc-two-col-page">
+      <style>{`
+        .ins-card { background: rgba(255,255,255,.04); border-radius: 12px; border: 1px solid rgba(255,255,255,.08); padding: 18px 20px; margin-bottom: 14px; transition: border-color .15s; }
+        .ins-card:hover { border-color: rgba(212,168,75,.35); }
+        .ins-card.ins-featured { border-color: rgba(212,168,75,.25); background: rgba(212,168,75,.04); }
+        .ins-search { width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 9px 14px; color: #f5f0e8; font-size: .84rem; outline: none; margin-bottom: 14px; box-sizing: border-box; }
+        .ins-search:focus { border-color: rgba(212,168,75,.5); }
+        .ins-section-hdr { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: #d4a84b; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(212,168,75,.2); }
+        .ins-filter-lbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8a9a; margin-bottom: 7px; }
+        .ins-filter-btn { display: block; width: 100%; text-align: left; background: none; border: none; padding: 5px 0; font-size: .77rem; color: #9a9aaa; cursor: pointer; }
+        .ins-filter-btn.active { color: #d4a84b; font-weight: 600; }
+        .ins-filter-select { width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 7px 10px; color: #f5f0e8; font-size: .78rem; margin-bottom: 14px; }
+      `}</style>
+
+      <div className="cc-two-main">
+        <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 16 }}>
+          Insurance & Risk Coverage — {filtered.length} providers
+        </div>
+        <input className="ins-search" placeholder="Search providers, specialties, coverage lines..." value={search} onChange={e => setSearch(e.target.value)} />
+
+        {featured.length > 0 && (
+          <>
+            <div className="ins-section-hdr">Featured</div>
+            {featured.map(p => <InsCard key={p.id} p={p} homeCountry={homeCountry} />)}
+          </>
+        )}
+        {rest.length > 0 && (
+          <>
+            {featured.length > 0 && <div className="ins-section-hdr">All Providers</div>}
+            {rest.map(p => <InsCard key={p.id} p={p} homeCountry={homeCountry} />)}
+          </>
+        )}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', color: '#5a5a7a', padding: '40px 20px', fontSize: '.85rem' }}>No providers match your filters</div>
+        )}
+      </div>
+
+      <div className="cc-two-right">
+        <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 14 }}>Filters</div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div className="ins-filter-lbl">Provider Type</div>
+          {(['all', ...INS_ROLE_OPTIONS] as const).map(r => (
+            <button key={r} className={`ins-filter-btn${filterRole === r ? ' active' : ''}`} onClick={() => setFilterRole(r as InsuranceProviderRole | 'all')}>
+              {r === 'all' ? 'All Types' : INSURANCE_ROLE_LABELS[r as InsuranceProviderRole]}
+              {r !== 'all' && <span style={{ marginLeft: 4, fontSize: '.64rem', opacity: .7 }}>({INSURANCE_PROVIDERS.filter(p => p.role === r).length})</span>}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div className="ins-filter-lbl">Line of Insurance</div>
+          <select className="ins-filter-select" value={filterType} onChange={e => setFilterType(e.target.value as InsuranceLineType | 'all')}>
+            <option value="all">All Lines</option>
+            {INS_LINE_OPTIONS.map(t => <option key={t} value={t}>{INSURANCE_LINE_LABELS[t]}</option>)}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div className="ins-filter-lbl">Market</div>
+          <select className="ins-filter-select" value={filterCountry} onChange={e => setFilterCountry(e.target.value)}>
+            <option value="">All Markets</option>
+            {['US','CA','GB','DE','NL','PT','CH','AU','IL','ZA'].map(c => (
+              <option key={c} value={c}>{flagEmoji(c)} {c}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ background: 'rgba(212,168,75,.08)', border: '1px solid rgba(212,168,75,.25)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+          <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#d4a84b', marginBottom: 6 }}>Specialist Placement</div>
+          <div style={{ fontSize: '.74rem', color: '#b0b0c0', lineHeight: 1.6 }}>Standard brokers frequently decline cannabis risks. Always use a specialist MGA or wholesale broker with a documented cannabis book — standard commercial policies often exclude controlled substances.</div>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 8 }}>Coverage Checklist</div>
+          {[
+            ['Product Liability', 'Critical — contamination, mislabelling'],
+            ['Commercial GL', 'Premises & operations'],
+            ['Cargo', 'Cross-border shipments'],
+            ['D&O', 'For funded companies'],
+            ['Crop', 'Cultivators & LPs'],
+            ['Professional Indemnity', 'Advisors & clinicians'],
+          ].map(([line, note]) => (
+            <div key={line} style={{ marginBottom: 7 }}>
+              <div style={{ fontSize: '.76rem', color: '#d4a84b' }}>✓ {line}</div>
+              <div style={{ fontSize: '.68rem', color: '#8a8a9a' }}>{note}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+// ── Licence Tracker page ───────────────────────────────────────────────────────
+
+type TrackedLicence = {
+  id:         string
+  name:       string
+  type:       string
+  authority:  string
+  country:    string
+  licenceNo:  string
+  issuedDate: string
+  expiryDate: string
+  notes:      string
+}
+
+type LicenceStatus = 'active' | 'expiring' | 'expired'
+
+function calcLicenceStatus(expiryDate: string): LicenceStatus {
+  if (!expiryDate) return 'active'
+  const days = Math.ceil((new Date(expiryDate + 'T23:59:59').getTime() - Date.now()) / 86400000)
+  if (days < 0)  return 'expired'
+  if (days < 60) return 'expiring'
+  return 'active'
+}
+
+function licenceDaysLeft(expiryDate: string): number | null {
+  if (!expiryDate) return null
+  return Math.ceil((new Date(expiryDate + 'T23:59:59').getTime() - Date.now()) / 86400000)
+}
+
+const LIC_STATUS_COLORS: Record<LicenceStatus, string> = { active: '#10b981', expiring: '#f59e0b', expired: '#ef4444' }
+const LIC_STATUS_LABELS: Record<LicenceStatus, string> = { active: 'Active', expiring: 'Expiring', expired: 'Expired' }
+const LIC_TYPES = [
+  'Import Licence', 'Export Licence', 'Cultivation Licence', 'Manufacturing / GMP',
+  'Distribution Licence', 'Wholesale Licence', 'Retail / Dispensary', 'Pharmacy Licence',
+  'Research Licence', 'Transport Permit', 'Processing Licence', 'Other',
+]
+const LIC_LS_KEY = 'hv_licences_v1'
+
+function loadLicences(): TrackedLicence[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(LIC_LS_KEY) ?? '[]') } catch { return [] }
+}
+function saveLicences(lics: TrackedLicence[]) {
+  if (typeof window !== 'undefined') localStorage.setItem(LIC_LS_KEY, JSON.stringify(lics))
+}
+
+const BLANK_LIC: Omit<TrackedLicence, 'id'> = {
+  name: '', type: LIC_TYPES[0], authority: '', country: '',
+  licenceNo: '', issuedDate: '', expiryDate: '', notes: '',
+}
+
+const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
+  country,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+}) {
+  const [licences,     setLicences]     = useState<TrackedLicence[]>([])
+  const [showForm,     setShowForm]     = useState(false)
+  const [editId,       setEditId]       = useState<string | null>(null)
+  const [form,         setForm]         = useState<Omit<TrackedLicence, 'id'>>(BLANK_LIC)
+  const [sortKey,      setSortKey]      = useState<'expiryDate' | 'name' | 'type'>('expiryDate')
+  const [filterStatus, setFilterStatus] = useState<LicenceStatus | 'all'>('all')
+
+  useEffect(() => { setLicences(loadLicences()) }, [])
+
+  const stats = useMemo(() => ({
+    active:   licences.filter(l => calcLicenceStatus(l.expiryDate) === 'active').length,
+    expiring: licences.filter(l => calcLicenceStatus(l.expiryDate) === 'expiring').length,
+    expired:  licences.filter(l => calcLicenceStatus(l.expiryDate) === 'expired').length,
+  }), [licences])
+
+  const sorted = useMemo(() => {
+    let list = filterStatus === 'all' ? [...licences] : licences.filter(l => calcLicenceStatus(l.expiryDate) === filterStatus)
+    return list.sort((a, b) => {
+      if (sortKey === 'expiryDate') {
+        const da = licenceDaysLeft(a.expiryDate) ?? 99999
+        const db = licenceDaysLeft(b.expiryDate) ?? 99999
+        return da - db
+      }
+      return (a[sortKey] ?? '').localeCompare(b[sortKey] ?? '')
+    })
+  }, [licences, sortKey, filterStatus])
+
+  function openAdd() {
+    setEditId(null); setForm({ ...BLANK_LIC, country: country.iso2 }); setShowForm(true)
+  }
+  function openEdit(lic: TrackedLicence) {
+    setEditId(lic.id); const { id: _id, ...rest } = lic; setForm(rest); setShowForm(true)
+  }
+  function saveLic() {
+    if (!form.name.trim()) return
+    const next = editId
+      ? licences.map(l => l.id === editId ? { ...form, id: editId } : l)
+      : [...licences, { ...form, id: crypto.randomUUID() }]
+    setLicences(next); saveLicences(next); setShowForm(false)
+  }
+  function removeLic(id: string) {
+    const next = licences.filter(l => l.id !== id); setLicences(next); saveLicences(next)
+  }
+
+  return (
+    <div style={{ padding: '20px 24px', maxWidth: 1080, margin: '0 auto' }}>
+      <style>{`
+        .lt-stat { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 14px 18px; flex: 1; cursor: pointer; transition: border-color .15s; }
+        .lt-stat:hover { border-color: rgba(212,168,75,.3); }
+        .lt-num { font-size: 1.6rem; font-weight: 700; font-family: 'Courier New', monospace; }
+        .lt-lbl { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8a9a; margin-top: 3px; }
+        .lt-table { width: 100%; border-collapse: collapse; }
+        .lt-table th { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8a9a; padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.09); }
+        .lt-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.04); font-size: .78rem; color: #c0c0d0; vertical-align: middle; }
+        .lt-table tr:hover td { background: rgba(255,255,255,.025); }
+        .lt-pill { display: inline-flex; align-items: center; gap: 5px; font-size: .66rem; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+        .lt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .lt-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .lt-modal { background: #0f1929; border: 1px solid rgba(255,255,255,.14); border-radius: 14px; padding: 28px 32px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+        .lt-inp { width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 9px 12px; color: #f5f0e8; font-size: .84rem; outline: none; margin-top: 4px; }
+        .lt-inp:focus { border-color: rgba(212,168,75,.5); }
+        .lt-inp-lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8a9a; margin-top: 12px; display: block; }
+        .lt-r2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .lt-btn-p { background: rgba(212,168,75,.15); border: 1px solid rgba(212,168,75,.4); border-radius: 7px; padding: 9px 18px; color: #d4a84b; font-size: .82rem; font-weight: 600; cursor: pointer; }
+        .lt-btn-g { background: none; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 9px 18px; color: #8a8a9a; font-size: .82rem; cursor: pointer; }
+        .lt-btn-d { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); border-radius: 4px; padding: 3px 8px; color: #ef4444; font-size: .7rem; cursor: pointer; }
+        .lt-sort-btn { background: none; border: none; color: #6a6a8a; cursor: pointer; font-size: .68rem; padding: 2px 6px; border-radius: 3px; }
+        .lt-sort-btn.active { color: #d4a84b; background: rgba(212,168,75,.1); }
+      `}</style>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 }}>
+        <div>
+          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f5f0e8', marginBottom: 3 }}>Licence Tracker</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a' }}>Track regulatory licences, permits, and authorisations with automated expiry monitoring. Stored locally on this device.</div>
+        </div>
+        <button className="lt-btn-p" onClick={openAdd} style={{ flexShrink: 0, marginLeft: 16 }}>+ Add Licence</button>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 22 }}>
+        {([
+          { key: 'active',   label: 'Active',        color: '#10b981' },
+          { key: 'expiring', label: 'Expiring ≤60d', color: '#f59e0b' },
+          { key: 'expired',  label: 'Expired',       color: '#ef4444' },
+          { key: 'total',    label: 'Total',          color: '#6366f1' },
+        ] as const).map(({ key, label, color }) => (
+          <div
+            key={key}
+            className="lt-stat"
+            style={{ borderColor: filterStatus === key ? `${color}40` : undefined }}
+            onClick={() => key !== 'total' && setFilterStatus(prev => prev === key ? 'all' : key as LicenceStatus)}
+          >
+            <div className="lt-num" style={{ color }}>{key === 'total' ? licences.length : stats[key as LicenceStatus]}</div>
+            <div className="lt-lbl">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Alerts */}
+      {stats.expiring > 0 && (
+        <div style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 8, padding: '11px 15px', marginBottom: 14, fontSize: '.78rem', color: '#f59e0b' }}>
+          ⚠ {stats.expiring} licence{stats.expiring > 1 ? 's' : ''} expiring within 60 days — initiate renewal processes immediately.
+        </div>
+      )}
+      {stats.expired > 0 && (
+        <div style={{ background: 'rgba(239,68,68,.07)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 8, padding: '11px 15px', marginBottom: 14, fontSize: '.78rem', color: '#ef4444' }}>
+          ✕ {stats.expired} expired licence{stats.expired > 1 ? 's' : ''} — operating without valid authorisation may constitute a regulatory offence.
+        </div>
+      )}
+
+      {/* Empty state */}
+      {licences.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '70px 20px', color: '#5a5a7a' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 14, opacity: .5 }}>◨</div>
+          <div style={{ fontSize: '1rem', fontWeight: 600, color: '#8a8a9a', marginBottom: 8 }}>No licences tracked</div>
+          <div style={{ fontSize: '.8rem', marginBottom: 22, maxWidth: 360, margin: '0 auto 22px' }}>
+            Add your import permits, cultivation licences, GMP certificates, and all other regulatory authorisations. Get notified before they expire.
+          </div>
+          <button className="lt-btn-p" onClick={openAdd}>Add Your First Licence</button>
+        </div>
+      )}
+
+      {/* Table */}
+      {licences.length > 0 && (
+        <div style={{ background: 'rgba(255,255,255,.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,.08)', overflow: 'hidden' }}>
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: '.68rem', color: '#6a6a8a', marginRight: 4 }}>Sort:</span>
+            {(['expiryDate', 'name', 'type'] as const).map(k => (
+              <button key={k} className={`lt-sort-btn${sortKey === k ? ' active' : ''}`} onClick={() => setSortKey(k)}>
+                {k === 'expiryDate' ? 'Expiry ▾' : k === 'name' ? 'Name' : 'Type'}
+              </button>
+            ))}
+            {filterStatus !== 'all' && (
+              <button className="lt-sort-btn" onClick={() => setFilterStatus('all')} style={{ marginLeft: 'auto', color: '#d4a84b' }}>
+                ✕ Clear filter
+              </button>
+            )}
+          </div>
+          <table className="lt-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Authority</th>
+                <th>Country</th>
+                <th>Licence No.</th>
+                <th>Issued</th>
+                <th>Expires</th>
+                <th>Days</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(lic => {
+                const st  = calcLicenceStatus(lic.expiryDate)
+                const col = LIC_STATUS_COLORS[st]
+                const days = licenceDaysLeft(lic.expiryDate)
+                return (
+                  <tr key={lic.id}>
+                    <td>
+                      <span className="lt-pill" style={{ background: `${col}1a`, color: col }}>
+                        <span className="lt-dot" style={{ background: col }} />
+                        {LIC_STATUS_LABELS[st]}
+                      </span>
+                    </td>
+                    <td style={{ color: '#f5f0e8', fontWeight: 500 }}>{lic.name}</td>
+                    <td style={{ color: '#9a9aaa', fontSize: '.74rem' }}>{lic.type}</td>
+                    <td>{lic.authority || '—'}</td>
+                    <td>{lic.country ? `${flagEmoji(lic.country)} ${lic.country}` : '—'}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '.74rem', color: '#8a8a9a' }}>{lic.licenceNo || '—'}</td>
+                    <td style={{ fontSize: '.74rem', color: '#8a8a9a' }}>{lic.issuedDate || '—'}</td>
+                    <td style={{ fontSize: '.74rem' }}>{lic.expiryDate || '—'}</td>
+                    <td style={{ fontWeight: 700, color: days === null ? '#6a6a8a' : days < 0 ? '#ef4444' : days < 60 ? '#f59e0b' : '#10b981' }}>
+                      {days === null ? '—' : days < 0 ? `${Math.abs(days)}d ago` : `${days}d`}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' as const }}>
+                      <button style={{ background: 'none', border: 'none', color: '#8a8a9a', cursor: 'pointer', fontSize: '.72rem', padding: '2px 8px' }} onClick={() => openEdit(lic)}>Edit</button>
+                      <button className="lt-btn-d" onClick={() => removeLic(lic.id)}>✕</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal */}
+      {showForm && (
+        <div className="lt-modal-bg" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
+          <div className="lt-modal">
+            <div style={{ fontSize: '.92rem', fontWeight: 700, color: '#f5f0e8', marginBottom: 18 }}>{editId ? 'Edit Licence' : 'Add Licence'}</div>
+
+            <label className="lt-inp-lbl">Licence Name *</label>
+            <input className="lt-inp" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. BfArM Import Permit — Germany" />
+
+            <div className="lt-r2">
+              <div>
+                <label className="lt-inp-lbl">Type</label>
+                <select className="lt-inp" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                  {LIC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="lt-inp-lbl">Country (ISO2)</label>
+                <input className="lt-inp" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="DE" maxLength={2} />
+              </div>
+            </div>
+
+            <label className="lt-inp-lbl">Issuing Authority</label>
+            <input className="lt-inp" value={form.authority} onChange={e => setForm(f => ({ ...f, authority: e.target.value }))} placeholder="e.g. BfArM, MHRA, Health Canada, TGA" />
+
+            <label className="lt-inp-lbl">Licence Number</label>
+            <input className="lt-inp" value={form.licenceNo} onChange={e => setForm(f => ({ ...f, licenceNo: e.target.value }))} placeholder="Official licence / permit number" />
+
+            <div className="lt-r2">
+              <div>
+                <label className="lt-inp-lbl">Issue Date</label>
+                <input type="date" className="lt-inp" value={form.issuedDate} onChange={e => setForm(f => ({ ...f, issuedDate: e.target.value }))} />
+              </div>
+              <div>
+                <label className="lt-inp-lbl">Expiry Date</label>
+                <input type="date" className="lt-inp" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} />
+              </div>
+            </div>
+
+            <label className="lt-inp-lbl">Notes</label>
+            <textarea className="lt-inp" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Conditions, restrictions, renewal lead-time, contacts..." rows={3} style={{ resize: 'vertical' }} />
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button className="lt-btn-g" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="lt-btn-p" onClick={saveLic}>{editId ? 'Save Changes' : 'Add Licence'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+})
+
+// ── Landed Cost / Trade Calculator page ───────────────────────────────────────
+
+function fmtUSD(n: number, dec = 0): string {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+}
+
+function CostBar({ label, low, high, maxVal, color }: { label: string; low: number; high: number; maxVal: number; color: string }) {
+  const mid = (low + high) / 2
+  const pct = Math.min((mid / maxVal) * 100, 100)
+  const same = Math.abs(high - low) < 0.5
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+        <span style={{ fontSize: '.72rem', color: '#b0b0c0' }}>{label}</span>
+        <span style={{ fontSize: '.72rem', fontFamily: 'monospace', color: '#f5f0e8', fontWeight: 600 }}>
+          {same ? fmtUSD(low) : `${fmtUSD(low)} – ${fmtUSD(high)}`}
+        </span>
+      </div>
+      <div style={{ height: 5, background: 'rgba(255,255,255,.06)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, opacity: .85 }} />
+      </div>
+    </div>
+  )
+}
+
+const LandedCostPage = React.memo(function LandedCostPage({
+  country, region, role,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+}) {
+  const exporterIso2s = EXPORTER_ORIGINS.map(o => o.iso2)
+  const importerIso2s = DESTINATION_MARKETS.map(d => d.iso2)
+
+  const [originIso2,      setOriginIso2]      = useState(() => exporterIso2s.includes(country.iso2) ? country.iso2 : 'IL')
+  const [destIso2,        setDestIso2]        = useState(() => importerIso2s.includes(country.iso2) ? country.iso2 : 'DE')
+  const [product,         setProduct]         = useState<LandedProductType>('flower-premium')
+  const [volumeKg,        setVolumeKg]        = useState(20)
+  const [compareMode,     setCompareMode]     = useState(false)
+  const [customProdLow,   setCustomProdLow]   = useState('')
+  const [customProdHigh,  setCustomProdHigh]  = useState('')
+  const [targetSellPrice, setTargetSellPrice] = useState('')
+
+  const origin   = EXPORTER_ORIGINS.find(o => o.iso2 === originIso2)
+  const dest     = DESTINATION_MARKETS.find(d => d.iso2 === destIso2)
+  const corridor = FREIGHT_CORRIDORS.find(c => c.originIso2 === originIso2 && c.destIso2 === destIso2)
+
+  const result = useMemo(() => calcLandedCost(
+    originIso2, destIso2, product, volumeKg,
+    customProdLow  ? parseFloat(customProdLow)  : undefined,
+    customProdHigh ? parseFloat(customProdHigh) : undefined,
+  ), [originIso2, destIso2, product, volumeKg, customProdLow, customProdHigh])
+
+  const comparisons = useMemo(() => {
+    if (!compareMode) return []
+    return EXPORTER_ORIGINS
+      .map(o => ({ origin: o, result: calcLandedCost(o.iso2, destIso2, product, volumeKg) }))
+      .filter(c => c.result.available)
+      .sort((a, b) => a.result.totalLandedPerKg.low - b.result.totalLandedPerKg.low)
+  }, [compareMode, destIso2, product, volumeKg])
+
+  const maxBarVal = result.available ? result.totalLandedPerKg.high * 1.2 || 10000 : 10000
+
+  const sell = targetSellPrice ? parseFloat(targetSellPrice) : null
+  const customMarginLow  = sell && result.totalLandedPerKg.high > 0 ? ((sell - result.totalLandedPerKg.high) / sell) * 100 : null
+  const customMarginHigh = sell && result.totalLandedPerKg.low  > 0 ? ((sell - result.totalLandedPerKg.low ) / sell) * 100 : null
+
+  return (
+    <div style={{ padding: '20px 24px' }}>
+      <style>{`
+        .tc-panel { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 18px 20px; }
+        .tc-inp { width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 8px 11px; color: #f5f0e8; font-size: .82rem; outline: none; }
+        .tc-inp:focus { border-color: rgba(212,168,75,.5); }
+        .tc-lbl { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8a9a; margin-bottom: 5px; display: block; }
+        .tc-field { margin-bottom: 13px; }
+        .tc-hr { border: none; border-top: 1px solid rgba(255,255,255,.07); margin: 14px 0; }
+        .tc-sec { font-size: .64rem; text-transform: uppercase; letter-spacing: .1em; color: #d4a84b; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(212,168,75,.18); }
+        .tc-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+        .tc-row-lbl { font-size: .72rem; color: #8a8a9a; }
+        .tc-row-val { font-size: .78rem; font-weight: 600; font-family: monospace; color: #f5f0e8; }
+        .tc-highlight { background: rgba(212,168,75,.07); border: 1px solid rgba(212,168,75,.22); border-radius: 8px; padding: 12px 14px; margin-top: 12px; }
+        .tc-cmp-row { display: grid; grid-template-columns: 22px 1fr 96px 96px 80px; gap: 6px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer; }
+        .tc-cmp-row:hover { background: rgba(255,255,255,.02); }
+        .tc-range { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; outline: none; cursor: pointer; }
+        .tc-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #d4a84b; cursor: pointer; }
+        .tc-unavail { background: rgba(239,68,68,.05); border: 1px solid rgba(239,68,68,.18); border-radius: 8px; padding: 20px; color: #ef4444; font-size: .82rem; text-align: center; margin-top: 16px; line-height: 1.7; }
+      `}</style>
+
+      <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 16 }}>
+        Trade Economics Calculator — Landed Cost Analysis
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '270px 1fr 248px', gap: 14 }}>
+
+        {/* ── Inputs ─────────────────────────────────── */}
+        <div className="tc-panel">
+          <div className="tc-sec">Trade Parameters</div>
+
+          <div className="tc-field">
+            <label className="tc-lbl">Origin Country</label>
+            <select className="tc-inp" value={originIso2} onChange={e => setOriginIso2(e.target.value)}>
+              {EXPORTER_ORIGINS.map(o => <option key={o.iso2} value={o.iso2}>{flagEmoji(o.iso2)} {o.label}</option>)}
+            </select>
+            {origin && <div style={{ fontSize: '.65rem', color: '#6a6a8a', marginTop: 3 }}>{origin.regulatoryBody}</div>}
+          </div>
+
+          <div className="tc-field">
+            <label className="tc-lbl">Destination Market</label>
+            <select className="tc-inp" value={destIso2} onChange={e => setDestIso2(e.target.value)}>
+              {DESTINATION_MARKETS.map(d => <option key={d.iso2} value={d.iso2}>{flagEmoji(d.iso2)} {d.label}</option>)}
+            </select>
+            {dest && <div style={{ fontSize: '.65rem', color: '#6a6a8a', marginTop: 3 }}>{dest.regulatoryBody}</div>}
+          </div>
+
+          <div className="tc-field">
+            <label className="tc-lbl">Product</label>
+            <select className="tc-inp" value={product} onChange={e => setProduct(e.target.value as LandedProductType)}>
+              {(Object.keys(LANDED_PRODUCT_LABELS) as LandedProductType[]).map(p => (
+                <option key={p} value={p}>{LANDED_PRODUCT_LABELS[p]}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="tc-field">
+            <label className="tc-lbl">Volume per Shipment — {volumeKg} kg</label>
+            <input type="range" className="tc-range" min={1} max={100} value={volumeKg} onChange={e => setVolumeKg(Number(e.target.value))} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.6rem', color: '#5a5a7a', marginTop: 2 }}>
+              <span>1 kg</span><span>50 kg</span><span>100 kg</span>
+            </div>
+          </div>
+
+          <hr className="tc-hr" />
+          <div className="tc-sec">Override Production Cost</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
+            <div>
+              <label className="tc-lbl">Low (USD/kg)</label>
+              <input className="tc-inp" type="number" placeholder={String(origin?.productionCost[product]?.low ?? '')} value={customProdLow} onChange={e => setCustomProdLow(e.target.value)} />
+            </div>
+            <div>
+              <label className="tc-lbl">High (USD/kg)</label>
+              <input className="tc-inp" type="number" placeholder={String(origin?.productionCost[product]?.high ?? '')} value={customProdHigh} onChange={e => setCustomProdHigh(e.target.value)} />
+            </div>
+          </div>
+          {origin?.productionCost[product] && !customProdLow && (
+            <div style={{ fontSize: '.66rem', color: '#6a6a8a', marginBottom: 4 }}>
+              Default: {fmtUSD(origin.productionCost[product]!.low)} – {fmtUSD(origin.productionCost[product]!.high)}/kg
+            </div>
+          )}
+
+          <hr className="tc-hr" />
+          <div className="tc-sec">Target Analysis</div>
+
+          <div className="tc-field">
+            <label className="tc-lbl">Your Target Sell Price (USD/kg)</label>
+            <input className="tc-inp" type="number" placeholder="Wholesale target" value={targetSellPrice} onChange={e => setTargetSellPrice(e.target.value)} />
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.78rem', color: '#b0b0c0' }}>
+            <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)} />
+            Compare all origins → {dest?.label ?? destIso2}
+          </label>
+        </div>
+
+        {/* ── Cost Breakdown ─────────────────────────── */}
+        <div>
+          {!result.available ? (
+            <div className="tc-unavail">
+              <div style={{ fontSize: '1.5rem', marginBottom: 10 }}>✕</div>
+              <strong>{flagEmoji(originIso2)} {origin?.label}</strong> does not typically export{' '}
+              {LANDED_PRODUCT_LABELS[product].toLowerCase()} in commercial volumes.<br />
+              Try a different origin or product type.
+            </div>
+          ) : (
+            <>
+              <div className="tc-panel" style={{ marginBottom: 12 }}>
+                <div className="tc-sec">Cost Waterfall — USD per kg ({volumeKg} kg shipment)</div>
+                <CostBar label="Production Cost"             low={result.productionCostPerKg.low}     high={result.productionCostPerKg.high}     maxVal={maxBarVal} color="#6366f1" />
+                <CostBar label="Export Permit (amortised)"  low={result.exportPermitPerKg.low}        high={result.exportPermitPerKg.high}        maxVal={maxBarVal} color="#8b5cf6" />
+                <CostBar label="Export Documentation"       low={result.exportDocPerKg.low}           high={result.exportDocPerKg.high}           maxVal={maxBarVal} color="#8b5cf6" />
+                <CostBar label="Air Freight"                low={result.freightPerKg.low}             high={result.freightPerKg.high}             maxVal={maxBarVal} color="#06b6d4" />
+                <CostBar label="Narcotics Handling"         low={result.narcoticsSurchargePerKg.low}  high={result.narcoticsSurchargePerKg.high}  maxVal={maxBarVal} color="#06b6d4" />
+                <CostBar label="Import Permit (amortised)"  low={result.importPermitPerKg.low}        high={result.importPermitPerKg.high}        maxVal={maxBarVal} color="#d4a84b" />
+                <CostBar label="Customs Clearance"          low={result.customsClearancePerKg.low}    high={result.customsClearancePerKg.high}    maxVal={maxBarVal} color="#d4a84b" />
+                {result.dutyPerKg.low > 0.5
+                  ? <CostBar label={`Import Duty (${dest?.dutyRatePct?.[product] ?? 0}%)`} low={result.dutyPerKg.low} high={result.dutyPerKg.high} maxVal={maxBarVal} color="#f97316" />
+                  : <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, opacity: .65 }}>
+                      <span style={{ fontSize: '.72rem', color: '#b0b0c0' }}>Import Duty</span>
+                      <span style={{ fontSize: '.72rem', fontFamily: 'monospace', color: '#10b981', fontWeight: 600 }}>0% — Duty Free (HS 3004)</span>
+                    </div>
+                }
+                <CostBar label="GDP Distribution"          low={result.gdpDistributionPerKg.low}     high={result.gdpDistributionPerKg.high}     maxVal={maxBarVal} color="#10b981" />
+                <CostBar label="Destination Lab Testing"   low={result.testingPerKg.low}             high={result.testingPerKg.high}             maxVal={maxBarVal} color="#10b981" />
+
+                <div style={{ borderTop: '2px solid rgba(212,168,75,.3)', paddingTop: 10, marginTop: 10 }}>
+                  <CostBar label="TOTAL LANDED COST / KG" low={result.totalLandedPerKg.low} high={result.totalLandedPerKg.high} maxVal={maxBarVal} color="#d4a84b" />
+                </div>
+
+                {result.wholesaleTarget && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,.07)', paddingTop: 10, marginTop: 4 }}>
+                    <CostBar
+                      label={`${dest?.label ?? destIso2} Wholesale Price Range`}
+                      low={result.wholesaleTarget.low}
+                      high={result.wholesaleTarget.high}
+                      maxVal={maxBarVal}
+                      color="#10b981"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="tc-panel">
+                <div className="tc-sec">Trade Economics</div>
+                <div className="tc-row"><span className="tc-row-lbl">Corridor</span><span className="tc-row-val">{flagEmoji(originIso2)} {origin?.label} → {flagEmoji(destIso2)} {dest?.label}</span></div>
+                {corridor && <div className="tc-row"><span className="tc-row-lbl">Transit Time (air)</span><span className="tc-row-val">{corridor.transitDays} days</span></div>}
+                <div className="tc-row"><span className="tc-row-lbl">Shipment Total Cost</span><span className="tc-row-val">{fmtUSD(result.totalLandedPerKg.low * volumeKg)} – {fmtUSD(result.totalLandedPerKg.high * volumeKg)}</span></div>
+                {result.breakEvenVolumeKg !== null && <div className="tc-row"><span className="tc-row-lbl">Break-Even Volume</span><span className="tc-row-val" style={{ color: '#d4a84b' }}>{result.breakEvenVolumeKg} kg / shipment</span></div>}
+
+                {result.impliedMarginPct && (
+                  <div className="tc-highlight">
+                    <div style={{ fontSize: '.68rem', color: '#d4a84b', marginBottom: 5, fontWeight: 600 }}>Implied Gross Margin at Market Price</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'monospace', color: result.impliedMarginPct.low < 0 ? '#ef4444' : '#10b981' }}>
+                      {result.impliedMarginPct.low.toFixed(1)}% – {result.impliedMarginPct.high.toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: '.65rem', color: '#8a8a9a', marginTop: 2 }}>vs. {dest?.label} current wholesale benchmark</div>
+                  </div>
+                )}
+
+                {sell !== null && customMarginLow !== null && (
+                  <div className="tc-highlight" style={{ marginTop: 10, borderColor: customMarginLow < 0 ? 'rgba(239,68,68,.3)' : 'rgba(16,185,129,.28)' }}>
+                    <div style={{ fontSize: '.68rem', color: '#d4a84b', marginBottom: 5, fontWeight: 600 }}>Margin at Target Price ({fmtUSD(sell)}/kg)</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'monospace', color: customMarginLow < 0 ? '#ef4444' : '#10b981' }}>
+                      {customMarginLow.toFixed(1)}% – {(customMarginHigh ?? 0).toFixed(1)}%
+                    </div>
+                    {customMarginLow < 0 && (
+                      <div style={{ fontSize: '.7rem', color: '#ef4444', marginTop: 5 }}>
+                        ⚠ Target price below landed cost — unprofitable at {volumeKg} kg. Increase volume or revise supply chain.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {dest && (
+                  <div style={{ marginTop: 12, padding: 11, background: 'rgba(255,255,255,.025)', borderRadius: 7, fontSize: '.7rem', color: '#8a8a9a', lineHeight: 1.6 }}>
+                    <strong style={{ color: '#b0b0c0' }}>Market Note:</strong> {dest.notes}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Right Panel ─────────────────────────────── */}
+        <div>
+          {compareMode ? (
+            <div className="tc-panel">
+              <div className="tc-sec">All Origins → {dest?.label}</div>
+              <div style={{ marginBottom: 4 }}>
+                <div className="tc-cmp-row" style={{ cursor: 'default', opacity: .5, paddingBottom: 4 }}>
+                  <div style={{ fontSize: '.6rem', color: '#6a6a8a' }}>#</div>
+                  <div style={{ fontSize: '.6rem', color: '#6a6a8a' }}>Origin</div>
+                  <div style={{ fontSize: '.6rem', color: '#6a6a8a' }}>Low</div>
+                  <div style={{ fontSize: '.6rem', color: '#6a6a8a' }}>High</div>
+                  <div style={{ fontSize: '.6rem', color: '#6a6a8a' }}>Margin</div>
+                </div>
+                {comparisons.map((c, i) => (
+                  <div key={c.origin.iso2} className="tc-cmp-row" onClick={() => { setOriginIso2(c.origin.iso2); setCompareMode(false) }}>
+                    <span style={{ fontSize: '.7rem', color: i === 0 ? '#10b981' : '#6a6a8a', fontWeight: 600 }}>#{i + 1}</span>
+                    <span style={{ fontSize: '.73rem', color: c.origin.iso2 === originIso2 ? '#d4a84b' : '#f5f0e8' }}>
+                      {flagEmoji(c.origin.iso2)} {c.origin.label}
+                    </span>
+                    <span style={{ fontSize: '.71rem', fontFamily: 'monospace', color: '#c0c0d0' }}>{fmtUSD(c.result.totalLandedPerKg.low)}</span>
+                    <span style={{ fontSize: '.71rem', fontFamily: 'monospace', color: '#c0c0d0' }}>{fmtUSD(c.result.totalLandedPerKg.high)}</span>
+                    <span style={{ fontSize: '.7rem', fontFamily: 'monospace', color: c.result.impliedMarginPct ? (c.result.impliedMarginPct.low < 5 ? '#ef4444' : '#10b981') : '#6a6a8a' }}>
+                      {c.result.impliedMarginPct ? `${c.result.impliedMarginPct.low.toFixed(0)}–${c.result.impliedMarginPct.high.toFixed(0)}%` : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: '.65rem', color: '#6a6a8a', marginTop: 8 }}>Click a row to select that origin</div>
+            </div>
+          ) : (
+            <>
+              <div className="tc-panel" style={{ marginBottom: 12 }}>
+                <div className="tc-sec">Corridor Detail</div>
+                {corridor ? (
+                  <>
+                    <div className="tc-row"><span className="tc-row-lbl">Freight Rate</span><span className="tc-row-val">${corridor.airFreightUSDPerKg.low}–${corridor.airFreightUSDPerKg.high}/kg</span></div>
+                    <div className="tc-row"><span className="tc-row-lbl">Narcotics Surcharge</span><span className="tc-row-val">${corridor.narcoticsSurchargeUSDPerKg}/kg</span></div>
+                    <div className="tc-row"><span className="tc-row-lbl">Transit</span><span className="tc-row-val">{corridor.transitDays} days (air)</span></div>
+                    {corridor.notes && <div style={{ marginTop: 8, fontSize: '.7rem', color: '#8a8a9a', lineHeight: 1.55 }}>{corridor.notes}</div>}
+                  </>
+                ) : (
+                  <div style={{ fontSize: '.74rem', color: '#8a8a9a' }}>No specific corridor data — using regional estimates.</div>
+                )}
+              </div>
+
+              <div className="tc-panel" style={{ marginBottom: 12 }}>
+                <div className="tc-sec">Regulatory</div>
+                {origin && <div className="tc-row"><span className="tc-row-lbl">Export Authority</span><span style={{ fontSize: '.7rem', color: '#c0c0d0', textAlign: 'right' as const }}>{origin.exportLicenceBody}</span></div>}
+                {dest && <div className="tc-row"><span className="tc-row-lbl">Import Authority</span><span style={{ fontSize: '.7rem', color: '#c0c0d0', textAlign: 'right' as const }}>{dest.regulatoryBody}</span></div>}
+                {dest && <div className="tc-row"><span className="tc-row-lbl">Typical Batch</span><span className="tc-row-val">{dest.typicalBatchSizeKg} kg</span></div>}
+                {dest && <div className="tc-row"><span className="tc-row-lbl">Duty Rate</span><span className="tc-row-val" style={{ color: (dest.dutyRatePct[product] ?? 0) > 0 ? '#f97316' : '#10b981' }}>{dest.dutyRatePct[product] ?? 0}%</span></div>}
+              </div>
+
+              <div className="tc-panel">
+                <div className="tc-sec">Economics Guide</div>
+                <div style={{ fontSize: '.72rem', color: '#8a8a9a', lineHeight: 1.7 }}>
+                  <p style={{ marginTop: 0 }}><strong style={{ color: '#c0c0d0' }}>Volume is leverage.</strong> Fixed costs (permits, testing, customs) dilute per kg as shipment size grows. Doubling from 10→20 kg often cuts unit overhead by 30–40%.</p>
+                  <p><strong style={{ color: '#c0c0d0' }}>HS 3004 advantage.</strong> Medical cannabis as a pharmaceutical preparation enters most markets at 0% duty. Biomass (HS 1211) typically carries 6.4% EU MFN tariff.</p>
+                  <p style={{ marginBottom: 0 }}><strong style={{ color: '#c0c0d0' }}>Compare mode.</strong> Enable above to rank all export origins by landed cost for your destination — essential for supply chain decisions.</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -8103,6 +8913,12 @@ export default function CommandCentre({
         return <NotificationCentrePage country={country} region={region} role={roleLabel} />
       case 'kyb':
         return <KybVerificationPage country={country} region={region} role={roleLabel} />
+      case 'insurance':
+        return <InsuranceDirectoryPage country={country} region={region} role={roleLabel} />
+      case 'licences':
+        return <LicenceTrackerPage country={country} region={region} role={roleLabel} />
+      case 'trade-calc':
+        return <LandedCostPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
