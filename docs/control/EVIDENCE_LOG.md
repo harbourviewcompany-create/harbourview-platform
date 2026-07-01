@@ -234,3 +234,27 @@ Expected Pass 1 evidence:
 - No auth/RLS changed.
 - No deployment setting changed.
 - No Notion, Drive, Linear, or Monday workspace changed.
+
+## Anthropic Gateway Provider + Match Rationale + Digest Narrative (2026-07-01)
+
+**Summary:** Registered `anthropic` as a first-class provider in the unified LLM gateway (`lib/llm/`), fixed a stale hardcoded Claude model snapshot in `lib/scrapers/normaliser.ts`, added AI match-rationale generation to the marketplace matching engine (`lib/marketplace/matchRationale.ts`), and added an AI executive-summary narrative to the signal digest email (`lib/signals/digestNarrative.ts`).
+
+**Context:** Prompted by a leaked `ANTHROPIC_API_KEY` (screenshotted in a platform.claude.com dialog) which was rotated in Anthropic Console. Investigation found the Supabase edge function secret of the same name is unused (only `airtable-sync` edge function exists, and it doesn't reference it) — all live Claude call sites run in the Next.js app on Vercel and read `process.env.ANTHROPIC_API_KEY` directly via ad hoc SDK/fetch calls in 7+ files, with no shared provider config despite `.env.example` declaring `HARBOURVIEW_LLM_DEFAULT_PROVIDER=anthropic` (a default that referenced a nonexistent gateway provider prior to this change).
+
+**Schema change:** Added `match_rationale text`, `match_rationale_model text`, `match_rationale_generated_at timestamptz` to `public.matches` (migration `add_match_rationale_columns`, applied directly to Supabase project `zvxdgdkukjrrwamdpqrg`, verified via `information_schema.columns`).
+
+**Design notes:**
+- Both new AI features are strictly best-effort/additive: `generateMatchRationale` and `generateDigestNarrative` catch all gateway failures (`LlmGatewayError` or otherwise) and return `null`, so match creation and digest sending are unaffected if the gateway is disabled/unconfigured/erroring.
+- `matchEngine.ts` caps AI rationale generation at 8 matches per run (`MAX_RATIONALE_PER_RUN`) to bound serverless function time/cost on large batch runs (e.g. the `runFullMarketplaceMatch` cron sweep). Matches beyond the cap are still created with only the existing templated `internal_notes` line.
+- Anthropic provider config falls back to model `claude-sonnet-4-6` by default in `lib/llm/config.ts`, matching the model used elsewhere post-fix.
+
+**Commands and results (UTC, 2026-07-01):**
+- `npx tsc --noEmit` — PASS (0 errors)
+- `npx vitest run tests/llm/providers.test.ts tests/llm/rateLimit.test.ts tests/llm/validation.test.ts` — PASS (12/12)
+- `npx vitest run tests/marketplace/publicProjection.test.ts tests/harbourview/unified-listings-dto.test.ts` — PASS (6/6)
+- `npm run build` — PASS
+- `npm run lint` / `next lint` — BLOCKED in this sandbox: pre-existing `eslint-config-next`/`@eslint/eslintrc` dependency mismatch unrelated to this change (fails identically on a clean checkout before any edits). Typecheck + full build used as substitute evidence per AGENTS.md fallback guidance.
+
+**Data handling:** No secrets, keys, or customer PII included in code, tests, commits, or this log. AI prompts constructed in `matchRationale.ts` and `digestNarrative.ts` truncate free-text fields to 1,200/400 chars respectively before sending to the provider.
+
+**Rollback:** Revert PR (single branch, additive-only diff — no existing call sites were removed, only the stale model string in `normaliser.ts` was changed and the `LLM_PROVIDERS` union was extended). New `matches` columns are nullable and additive; no rollback migration required to restore prior behavior (rationale fields simply go unused).

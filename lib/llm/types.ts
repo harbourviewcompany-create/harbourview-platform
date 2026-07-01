@@ -1,4 +1,4 @@
-export const LLM_PROVIDERS = ['gemini', 'moonshot', 'deepseek'] as const;
+export const LLM_PROVIDERS = ['anthropic', 'gemini', 'moonshot', 'deepseek'] as const;
 
 export type LlmProvider = (typeof LLM_PROVIDERS)[number];
 export type LlmMessageRole = 'system' | 'user' | 'assistant';

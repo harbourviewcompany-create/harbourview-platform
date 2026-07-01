@@ -25,6 +25,12 @@ export interface SignalDigestPayload {
   subscriptionId: string
   unsubscribeUrl: string
   siteUrl: string
+  /**
+   * Optional AI-generated executive summary paragraph (2-3 sentences),
+   * rendered above the signal list when present. See lib/signals/digestNarrative.ts.
+   * Omitted entirely (not just empty) when generation was skipped/disabled.
+   */
+  narrative?: string | null
 }
 
 export type SignalNotificationResult =
@@ -80,9 +86,13 @@ function escHtml(str: string): string {
 // ── HTML builder ───────────────────────────────────────────────────────────────
 
 export function buildSignalDigestHtml(payload: SignalDigestPayload): string {
-  const { signals, siteUrl, unsubscribeUrl } = payload
+  const { signals, siteUrl, unsubscribeUrl, narrative } = payload
   const count = signals.length
   const today = new Date().toLocaleDateString('en-CA')
+
+  const narrativeBlock = narrative
+    ? `<p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6;padding-bottom:16px;border-bottom:1px solid #e5e7eb">${escHtml(narrative)}</p>`
+    : ''
 
   const signalRows = signals
     .slice(0, 10)  // cap at 10 signals per email
@@ -103,6 +113,7 @@ export function buildSignalDigestHtml(payload: SignalDigestPayload): string {
     <h1 style="margin:0 0 4px;font-size:20px;font-weight:600;color:#111827">Your signal digest</h1>
     <p style="margin:0 0 24px;font-size:13px;color:#6b7280">${count} new signal${count !== 1 ? 's' : ''} · ${today}</p>
 
+    ${narrativeBlock}
     ${signalRows}
     ${overflowNote}
 

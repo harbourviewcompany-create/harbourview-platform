@@ -13,6 +13,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
+import { generateMatchRationale } from '@/lib/marketplace/matchRationale'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -21,12 +22,20 @@ function getClient() {
   return createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 }
 
+// Cap AI rationale generation per matching run so one large batch (e.g. a
+// cron sweep across many listings) can't blow the function's time budget or
+// run away on cost. Matches beyond the cap are still created, just without
+// the AI rationale — the existing templated internal_notes line still applies.
+const MAX_RATIONALE_PER_RUN = 8
+
 interface ListingRow {
   id: string
   category: string
   region: string
   status: string
   title: string
+  description: string | null
+  high_level_specs?: unknown
 }
 
 interface BuyerRequestRow {
@@ -35,12 +44,64 @@ interface BuyerRequestRow {
   region: string
   status: string
   title: string
+  description: string | null
+  requirements?: unknown
 }
 
 function regionsCompatible(a: string, b: string): boolean {
   if (!a || !b) return true
   if (a === 'global' || b === 'global') return true
   return a === b
+}
+
+type PendingMatchRow = {
+  listing_id: string
+  buyer_request_id: string
+  status: string
+  internal_notes: string
+  match_rationale?: string | null
+  match_rationale_model?: string | null
+  match_rationale_generated_at?: string | null
+}
+
+/**
+ * Best-effort enrichment: generates an AI rationale for up to
+ * MAX_RATIONALE_PER_RUN of the given rows (in place) using the listing/buyer
+ * pair data supplied by `lookup`. Never throws — failures just leave the
+ * rationale fields unset on that row.
+ */
+async function attachRationales(
+  rows: PendingMatchRow[],
+  lookup: (row: PendingMatchRow) => { listing: ListingRow; buyerRequest: BuyerRequestRow } | null,
+): Promise<void> {
+  const candidates = rows.slice(0, MAX_RATIONALE_PER_RUN)
+
+  await Promise.all(
+    candidates.map(async (row) => {
+      const pair = lookup(row)
+      if (!pair) return
+      const result = await generateMatchRationale({
+        listing: {
+          title: pair.listing.title,
+          description: pair.listing.description,
+          category: pair.listing.category,
+          region: pair.listing.region,
+          high_level_specs: pair.listing.high_level_specs,
+        },
+        buyerRequest: {
+          title: pair.buyerRequest.title,
+          description: pair.buyerRequest.description,
+          category: pair.buyerRequest.category,
+          region: pair.buyerRequest.region,
+          requirements: pair.buyerRequest.requirements,
+        },
+      })
+      if (!result) return
+      row.match_rationale = result.rationale
+      row.match_rationale_model = result.model
+      row.match_rationale_generated_at = new Date().toISOString()
+    }),
+  )
 }
 
 /**
@@ -55,7 +116,7 @@ export async function matchListingToBuyerRequests(
   // Fetch the listing
   const { data: listing, error: lErr } = await db
     .from('listings')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, high_level_specs')
     .eq('id', listingId)
     .single()
 
@@ -69,7 +130,7 @@ export async function matchListingToBuyerRequests(
   // Find compatible buyer_requests
   const { data: buyers, error: bErr } = await db
     .from('buyer_requests')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, requirements')
     .eq('category', listing.category)
     .not('status', 'in', '("closed","archived")')
 
@@ -90,7 +151,8 @@ export async function matchListingToBuyerRequests(
 
   const alreadyMatched = new Set((existing ?? []).map((r: { buyer_request_id: string }) => r.buyer_request_id))
 
-  const toInsert = compatible
+  const buyersById = new Map(compatible.map(b => [b.id, b]))
+  const toInsert: PendingMatchRow[] = compatible
     .filter(b => !alreadyMatched.has(b.id))
     .map(b => ({
       listing_id: listingId,
@@ -100,6 +162,11 @@ export async function matchListingToBuyerRequests(
     }))
 
   if (!toInsert.length) return 0
+
+  await attachRationales(toInsert, (row) => {
+    const buyer = buyersById.get(row.buyer_request_id)
+    return buyer ? { listing: listing as ListingRow, buyerRequest: buyer } : null
+  })
 
   const { error: iErr } = await db.from('matches').insert(toInsert)
   if (iErr) {
@@ -122,7 +189,7 @@ export async function matchBuyerRequestToListings(
 
   const { data: buyer, error: bErr } = await db
     .from('buyer_requests')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, requirements')
     .eq('id', buyerRequestId)
     .single()
 
@@ -130,7 +197,7 @@ export async function matchBuyerRequestToListings(
 
   const { data: listings, error: lErr } = await db
     .from('listings')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, high_level_specs')
     .eq('category', buyer.category)
     .eq('status', 'approved')
 
@@ -150,7 +217,8 @@ export async function matchBuyerRequestToListings(
 
   const alreadyMatched = new Set((existing ?? []).map((r: { listing_id: string }) => r.listing_id))
 
-  const toInsert = compatible
+  const listingsById = new Map(compatible.map(l => [l.id, l]))
+  const toInsert: PendingMatchRow[] = compatible
     .filter(l => !alreadyMatched.has(l.id))
     .map(l => ({
       listing_id: l.id,
@@ -160,6 +228,11 @@ export async function matchBuyerRequestToListings(
     }))
 
   if (!toInsert.length) return 0
+
+  await attachRationales(toInsert, (row) => {
+    const listing = listingsById.get(row.listing_id)
+    return listing ? { listing, buyerRequest: buyer as BuyerRequestRow } : null
+  })
 
   const { error: iErr } = await db.from('matches').insert(toInsert)
   if (iErr) {
