@@ -3916,7 +3916,7 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
                       </div>
                       <div className="cc-sig-acts">
                         <Link
-                          href={`/countries/${c.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
+                          href={`/country/${c.iso2.toLowerCase()}/role/importer`}
                           className="cc-sig-brief"
                           onClick={e => e.stopPropagation()}
                         >Profile →</Link>
@@ -3948,7 +3948,7 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
         <div className="cc-right-section">
           <div className="cc-right-head">CLICK TO EXPLORE</div>
           <p className="cc-right-prose">Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
-          <Link href="/countries" className="cc-right-link">Full country profiles →</Link>
+          <Link href="/dashboard?page=countries" className="cc-right-link">Full country directory →</Link>
         </div>
       </aside>
     </div>
