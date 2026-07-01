@@ -44,6 +44,7 @@ export type CommandPage =
   | 'compliance'
   | 'countries'
   | 'assistant'
+  | 'documents'
 
 type PublicServiceProvider = {
   id: string
@@ -143,6 +144,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'compliance',  label: 'Compliance',  icon: '◫' },
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
       { id: 'assistant',   label: 'AI Assistant', icon: '◈' },
+      { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
   },
   {
@@ -2380,6 +2382,231 @@ const REQ_STATUS_COLOR: Record<string, string> = {
   pending:  'var(--cc-dim)',   rejected:  'var(--cc-red)',   waived: 'var(--cc-dim)',
 }
 
+// ── Corridor Playbooks ────────────────────────────────────────────────────────
+
+type Corridor = {
+  from:      string
+  to:        string
+  status:    'Active' | 'Emerging' | 'Restricted' | 'Pilot'
+  authority: string
+  permit:    string
+  leadWeeks: string
+  docs:      string[]
+  bottleneck: string
+  note:      string
+}
+
+const CORRIDORS: Corridor[] = [
+  { from: 'Netherlands',  to: 'Germany',        status: 'Active',     authority: 'BfArM / iBCS',             permit: 'BfArM Import Permit',        leadWeeks: '6–10',  docs: ['COA (EU GMP)', 'Batch Release', 'Import Permit', 'GACP Certificate'], bottleneck: 'BfArM permit processing backlog; strict THC/CBD ratio limits',           note: 'Highest-volume EU medical corridor. Bedrocan primary supplier.' },
+  { from: 'Canada',       to: 'Germany',         status: 'Active',     authority: 'Health Canada / BfArM',    permit: 'Section 56 Exemption + BfArM', leadWeeks: '10–16', docs: ['EU GMP Certificate', 'COA', 'Import/Export Permit', 'GACP Cert'], bottleneck: 'EU GMP equivalency audit timeline; currency hedging',                     note: 'Largest trans-Atlantic medical flow. Canopy, Aurora, Aphria active.' },
+  { from: 'Canada',       to: 'United Kingdom',  status: 'Active',     authority: 'Health Canada / MHRA',     permit: 'MHRA Import Licence',         leadWeeks: '8–12',  docs: ['MHRA Import Licence', 'COA', 'GMP Certificate', 'Controlled Drug Licence'], bottleneck: 'MHRA licence processing 8–12 weeks; Schedule 1 CDL requirements', note: 'Growing post-2018 medical expansion. IMC-licensed producers dominant.' },
+  { from: 'Portugal',     to: 'Germany / EU',    status: 'Active',     authority: 'Infarmed / BfArM',         permit: 'EU Import Permit',            leadWeeks: '8–14',  docs: ['EU GMP Certificate', 'COA', 'Phytosanitary', 'Import Permit'], bottleneck: 'EU GMP audit backlog for Portuguese cultivators',                         note: 'Lowest-cost EU cultivation base. RPK Biopharma, Sativa Group active.' },
+  { from: 'Denmark',      to: 'Germany / EU',    status: 'Active',     authority: 'DKMA / BfArM',             permit: 'EU Narcotics Export/Import',  leadWeeks: '6–10',  docs: ['DKMA Export Cert', 'COA', 'EU GMP Cert', 'Import Permit'], bottleneck: 'Limited licensed cultivators; production scale constraints',              note: 'Auroras, Stenocare operating. Pilot scheme expanding to EU distribution.' },
+  { from: 'Australia',    to: 'Global',           status: 'Active',     authority: 'ODC (TGA)',                permit: 'ODC Import/Export Permit',    leadWeeks: '8–12',  docs: ['ODC Export Permit', 'TGA Import Permit (dest)', 'COA', 'GMP Cert'], bottleneck: 'Destination country import permits; TGA scheduling',                  note: 'Asia-Pacific hub. Cann Group, Cannatrek, Althea active exporters.' },
+  { from: 'Israel',       to: 'Germany / EU',    status: 'Emerging',   authority: 'IMCA / BfArM',             permit: 'Research Grade Import',       leadWeeks: '12–20', docs: ['IMCA Export Authorisation', 'Research Protocol', 'COA', 'Import Permit'], bottleneck: 'EU GMP equivalency not yet confirmed for all producers; regulatory parity debate', note: 'High R&D grade quality. IMC-GMP certification underway for EU access.' },
+  { from: 'Malta',        to: 'EU',               status: 'Pilot',      authority: 'MRA',                      permit: 'MRA Cultivation Licence',     leadWeeks: '16–24', docs: ['MRA Export Cert', 'COA', 'EU GMP Cert', 'Import Permit (dest)'], bottleneck: 'First adult-use EU licensed market; limited production volume at launch',  note: 'Pioneer EU adult-use jurisdiction. Regulatory model still maturing.' },
+  { from: 'Switzerland',  to: 'EU',               status: 'Pilot',      authority: 'Swissmedic / FOPH',        permit: 'Swissmedic Narcotics Permit', leadWeeks: '10–16', docs: ['Swissmedic Permit', 'COA', 'GMP Certificate', 'Phytosanitary'], bottleneck: 'Non-EU MRA status; bilateral negotiations ongoing',                      note: 'Swiss cannabis pilot (2025) — medical and adult-use research export anticipated.' },
+  { from: 'Colombia',     to: 'EU / LATAM',       status: 'Emerging',   authority: 'MinSalud / INVIMA',        permit: 'INVIMA Export Cert + Dest Import', leadWeeks: '14–20', docs: ['INVIMA Export Cert', 'GACP Cert', 'COA', 'Dest Import Permit'], bottleneck: 'EU GMP certification gap; currency controls; logistics infrastructure', note: 'Scale cultivation advantage. Khiron, Flora Growth, Ecomedics active.' },
+  { from: 'Jamaica',      to: 'North America / EU', status: 'Restricted', authority: 'CLA (Cannabis Licensing Authority)', permit: 'CLA Export Permit + Dest Narcotics Import', leadWeeks: '16–28', docs: ['CLA Export Permit', 'COA', 'GACP Cert', 'Phytosanitary', 'Dest Permit'], bottleneck: 'Limited regulatory framework maturity; US Schedule I barrier for domestic products', note: 'Heritage and CBD products viable. Medical THC export pathway limited.' },
+  { from: 'Uruguay',      to: 'EU',               status: 'Restricted', authority: 'IRCCA / Ministry of Health', permit: 'IRCCA Authorization + EU Import', leadWeeks: '20–30', docs: ['IRCCA Cert', 'COA', 'GMP Cert', 'Phytosanitary', 'EU Import Permit'], bottleneck: 'State-only supply model restricts commercial volume; EU regulatory parity unclear', note: 'First adult-use legalisation globally. IRCCA restricts commercial export volumes.' },
+  { from: 'Morocco',      to: 'EU',               status: 'Emerging',   authority: 'ONICL / EMA',              permit: 'Agricultural Export Cert',    leadWeeks: '8–14',  docs: ['Agricultural Export Cert', 'COA', 'Phytosanitary', 'Hemp <0.3% THC Declaration'], bottleneck: 'Primarily hemp/CBD; medical THC framework nascent',                     note: 'Major hemp cultivation base. CBD isolate and fibre export active. Medical THC pathway emerging.' },
+  { from: 'Thailand',     to: 'Asia-Pacific',     status: 'Emerging',   authority: 'FDA Thailand / ONCB',      permit: 'ONCB Export Licence',         leadWeeks: '12–20', docs: ['ONCB Export Licence', 'FDA Certificate', 'COA', 'Phytosanitary', 'Dest Import Permit'], bottleneck: 'Regulatory rollback risk; limited licensed exporters; patchwork regional import rules', note: 'Post-2022 delisting created unprecedented access. Regional regulatory fragmentation remains.' },
+  { from: 'Germany',      to: 'EU Distribution', status: 'Active',     authority: 'BfArM',                    permit: 'Wholesale Distribution Licence', leadWeeks: '4–8',  docs: ['EU GMP Cert', 'Wholesale Licence', 'COA', 'Batch Release Certificate'], bottleneck: 'Pharmacy-only distribution until adult-use expansion; tight batch documentation', note: 'Intra-EU distribution hub. Cannamedical, Demecan, Cansativa dominant distributors.' },
+]
+
+const CORRIDOR_STATUS_COLOR: Record<string, string> = {
+  Active: '#4caf82', Emerging: '#d4a84b', Restricted: '#e05c5c', Pilot: '#5b9bd5',
+}
+
+function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; label: string }; role: string }) {
+  const [search,     setSearch]     = useState('')
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo,   setFilterTo]   = useState('')
+  const [expanded,   setExpanded]   = useState<string | null>(null)
+
+  const roleIsImporter = role.toLowerCase().includes('import') || role.toLowerCase().includes('buyer') || role.toLowerCase().includes('pharma')
+  const roleIsExporter = role.toLowerCase().includes('export') || role.toLowerCase().includes('supplier') || role.toLowerCase().includes('cultivat')
+
+  const filtered = CORRIDORS.filter(c => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || c.from.toLowerCase().includes(q) || c.to.toLowerCase().includes(q) || c.authority.toLowerCase().includes(q) || c.note.toLowerCase().includes(q)
+    const matchFrom = !filterFrom || c.from.toLowerCase().includes(filterFrom.toLowerCase())
+    const matchTo   = !filterTo   || c.to.toLowerCase().includes(filterTo.toLowerCase())
+    return matchSearch && matchFrom && matchTo
+  })
+
+  // Sort by relevance to selected country
+  const sorted = [...filtered].sort((a, b) => {
+    const aRel = a.from.toLowerCase().includes(country.label.toLowerCase()) || a.to.toLowerCase().includes(country.label.toLowerCase()) ? -1 : 0
+    const bRel = b.from.toLowerCase().includes(country.label.toLowerCase()) || b.to.toLowerCase().includes(country.label.toLowerCase()) ? -1 : 0
+    return aRel - bRel
+  })
+
+  const fromOptions  = Array.from(new Set(CORRIDORS.map(c => c.from))).sort()
+  const toOptions    = Array.from(new Set(CORRIDORS.map(c => c.to))).sort()
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflow: 'auto' }}>
+
+      {/* Role context banner */}
+      {(roleIsImporter || roleIsExporter) && (
+        <div style={{
+          padding: '10px 14px', borderRadius: '8px', fontSize: '11px',
+          background: 'rgba(212,168,75,.06)', border: '1px solid rgba(212,168,75,.18)',
+          color: 'rgba(245,240,232,.7)', display: 'flex', gap: '8px', alignItems: 'center',
+        }}>
+          <span style={{ color: '#d4a84b' }}>◎</span>
+          {roleIsImporter
+            ? `Showing corridors relevant to ${country.label} importers. Corridors reaching ${country.label} are highlighted.`
+            : `Showing corridors relevant to ${country.label} exporters. Corridors originating from ${country.label} are highlighted.`}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Search corridors, authorities, notes…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            flex: '1 1 200px', minWidth: '160px', background: 'rgba(255,255,255,.04)',
+            border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px',
+            color: '#f5f0e8', fontSize: '12px', padding: '7px 12px', outline: 'none',
+          }}
+        />
+        <select
+          value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+          style={{
+            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+            borderRadius: '8px', color: filterFrom ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+            fontSize: '12px', padding: '7px 12px', outline: 'none',
+          }}
+        >
+          <option value="">All origins</option>
+          {fromOptions.map(f => <option key={f} value={f} style={{ background: '#050c18' }}>{f}</option>)}
+        </select>
+        <select
+          value={filterTo} onChange={e => setFilterTo(e.target.value)}
+          style={{
+            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+            borderRadius: '8px', color: filterTo ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+            fontSize: '12px', padding: '7px 12px', outline: 'none',
+          }}
+        >
+          <option value="">All destinations</option>
+          {toOptions.map(t => <option key={t} value={t} style={{ background: '#050c18' }}>{t}</option>)}
+        </select>
+      </div>
+
+      {/* Corridor list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {sorted.length === 0 && (
+          <div className="cc-empty-state" style={{ padding: '24px' }}>
+            <span>⬡</span><p>No corridors match your filters.</p>
+          </div>
+        )}
+        {sorted.map((c, i) => {
+          const key     = `${c.from}-${c.to}`
+          const isOpen  = expanded === key
+          const isLocal = c.from.toLowerCase().includes(country.label.toLowerCase()) || c.to.toLowerCase().includes(country.label.toLowerCase())
+          return (
+            <div
+              key={i}
+              style={{
+                borderRadius: '10px', overflow: 'hidden',
+                border: isLocal ? '1px solid rgba(212,168,75,.3)' : '1px solid rgba(255,255,255,.07)',
+                background: isLocal ? 'rgba(212,168,75,.04)' : 'rgba(255,255,255,.02)',
+              }}
+            >
+              {/* Header row */}
+              <button
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+                onClick={() => setExpanded(isOpen ? null : key)}
+              >
+                <span style={{ color: CORRIDOR_STATUS_COLOR[c.status], fontSize: '16px', flexShrink: 0 }}>⬡</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{c.from}</strong>
+                    <span style={{ fontSize: '12px', color: 'rgba(245,240,232,.35)' }}>→</span>
+                    <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{c.to}</strong>
+                    {isLocal && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.3)', color: '#d4a84b' }}>RELEVANT</span>}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.42)', marginTop: '2px' }}>{c.authority}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{
+                    fontSize: '9px', padding: '2px 8px', borderRadius: '99px', fontWeight: 600,
+                    background: `${CORRIDOR_STATUS_COLOR[c.status]}18`,
+                    border: `1px solid ${CORRIDOR_STATUS_COLOR[c.status]}40`,
+                    color: CORRIDOR_STATUS_COLOR[c.status],
+                  }}>{c.status}</span>
+                  <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.35)', minWidth: '60px', textAlign: 'right' }}>{c.leadWeeks}w</span>
+                  <span style={{ fontSize: '13px', color: 'rgba(245,240,232,.25)', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
+                </div>
+              </button>
+
+              {/* Expanded detail */}
+              {isOpen && (
+                <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '14px' }}>
+                    <div>
+                      <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>PERMIT TYPE</div>
+                      <div style={{ fontSize: '12px', color: '#f5f0e8', fontWeight: 600 }}>{c.permit}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>LEAD TIME</div>
+                      <div style={{ fontSize: '12px', color: '#d4a84b', fontWeight: 700 }}>{c.leadWeeks} weeks</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '6px' }}>REQUIRED DOCUMENTATION</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {c.docs.map(d => (
+                        <span key={d} style={{
+                          fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+                          background: 'rgba(91,155,213,.08)', border: '1px solid rgba(91,155,213,.2)', color: '#5b9bd5',
+                        }}>{d}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>⚠ KEY BOTTLENECK</div>
+                    <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)', lineHeight: 1.5, margin: 0 }}>{c.bottleneck}</p>
+                  </div>
+
+                  <div style={{ marginTop: '10px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '4px' }}>NOTES</div>
+                    <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.45)', lineHeight: 1.5, margin: 0 }}>{c.note}</p>
+                  </div>
+
+                  <a href="/intake" style={{
+                    display: 'inline-flex', marginTop: '12px', padding: '7px 16px', borderRadius: '8px',
+                    background: 'linear-gradient(135deg,#d4a84b,#b88c35)', color: '#0d1117',
+                    fontSize: '11px', fontWeight: 700, textDecoration: 'none',
+                  }}>Request Introduction for this corridor →</a>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="cc-feed-footer">
+        <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.3)' }}>
+          {sorted.length} of {CORRIDORS.length} corridors · Harbourview curated · Updated July 2025
+        </span>
+        <a href="/intake" className="cc-right-link">Request corridor analysis →</a>
+      </div>
+    </div>
+  )
+}
+
 // ── AccessPathwayPage ─────────────────────────────────────────────────────────
 
 const AccessPathwayPage = React.memo(function AccessPathwayPage({
@@ -2400,6 +2627,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
 
   const [activeStep, setActiveStep] = useState<number>(progress?.current_step ?? 1)
   const [quoteOpen, setQuoteOpen] = useState(false)
+  const [mainTab, setMainTab]     = useState<'pathway' | 'corridors'>('pathway')
 
   const currentStep     = steps.find(s => s.step_number === activeStep)
   const currentStepReqs = requirements.filter(r => r.step_id === currentStep?.id)
@@ -2432,31 +2660,30 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
     [CONF_BARS],
   )
 
-  if (!template) {
-    return (
-      <div className="cc-page cc-two-col-page">
-        <div className="cc-two-main">
-          <div className="cc-empty-state" style={{flex:1}}>
-            <span>⬡</span>
-            <p>No Access Pathway defined for {country.label}{role ? ` · ${role}` : ''}.</p>
-            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>Pathways are configured per country and role. Contact Harbourview to set up your pathway.</small>
-          </div>
-        </div>
-        <aside className="cc-two-right" />
-      </div>
-    )
-  }
-
   return (
     <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <div className="cc-inner-header">
           <h2>{country.label}{role ? ` ${role}` : ''} Access Pathway</h2>
           <p>Follow the pathway to establish and maintain access to export markets.</p>
+          <div className="cc-mkt-tabs" style={{marginTop:'14px'}}>
+            <button className={`cc-mkt-tab${mainTab==='pathway'?' active':''}`} onClick={() => setMainTab('pathway')}>My Pathway</button>
+            <button className={`cc-mkt-tab${mainTab==='corridors'?' active':''}`} onClick={() => setMainTab('corridors')}>Corridor Playbooks <span className="cc-tab-badge">15</span></button>
+          </div>
         </div>
 
-        {/* ── Step progress strip ───────────────────────────── */}
-        <div className="cc-ap-strip">
+        {mainTab === 'corridors' ? (
+          <CorridorPlaybooksSection country={country} role={role} />
+        ) : !template ? (
+          <div className="cc-empty-state" style={{flex:1}}>
+            <span>⬡</span>
+            <p>No Access Pathway defined for {country.label}{role ? ` · ${role}` : ''}.</p>
+            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>Pathways are configured per country and role. Contact Harbourview to set up your pathway.</small>
+          </div>
+        ) : (
+          <>
+            {/* ── Step progress strip ───────────────────────────── */}
+            <div className="cc-ap-strip">
           {steps.map((step, i) => {
             const isSelected = step.step_number === activeStep
             const isCurrent  = step.step_number === (progress?.current_step ?? 1)
@@ -2559,6 +2786,8 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
 
@@ -4092,6 +4321,395 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
   )
 })
 
+// ── Documents page ────────────────────────────────────────────────────────────
+
+type DocTemplate = {
+  id:       string
+  title:    string
+  desc:     string
+  category: string
+  tags:     string[]
+  pages?:   number
+  format:   string
+}
+
+const DOC_TEMPLATES: DocTemplate[] = [
+  // Import / Export
+  { id: 'ie-1', category: 'Import / Export', format: 'DOCX', pages: 4, tags: ['import','permit','application'],
+    title: 'Import Permit Application Template',
+    desc:  'Standardised narrative sections for national import permit applications covering product specs, importer credentials, intended use, and storage conditions.' },
+  { id: 'ie-2', category: 'Import / Export', format: 'DOCX', pages: 3, tags: ['phytosanitary','certificate','plant health'],
+    title: 'Phytosanitary Certificate Requirements Checklist',
+    desc:  'Country-by-country checklist of phytosanitary certificate requirements, endorsement language, and inspection schedules for cannabis/hemp shipments.' },
+  { id: 'ie-3', category: 'Import / Export', format: 'XLSX', pages: 2, tags: ['COA','certificate of analysis','specification'],
+    title: 'Certificate of Analysis (COA) Specification Template',
+    desc:  'Standardised COA template covering cannabinoid profile, residual solvents, microbials, heavy metals, pesticides, and moisture — aligned to EU GMP Annex 1 requirements.' },
+  { id: 'ie-4', category: 'Import / Export', format: 'PDF', pages: 2, tags: ['bill of lading','shipping','documentation'],
+    title: 'Cannabis Shipment Documentation Checklist',
+    desc:  'Master checklist of all documentation required for a cross-border cannabis shipment: import/export permits, COA, phytosanitary cert, bill of lading, commercial invoice, packing list.' },
+  { id: 'ie-5', category: 'Import / Export', format: 'DOCX', pages: 5, tags: ['export','permit','application'],
+    title: 'Export Permit Application Framework',
+    desc:  'Structured framework for export permit applications including product schedule, consignee attestation, end-use declarations, and authority notification requirements.' },
+  { id: 'ie-6', category: 'Import / Export', format: 'DOCX', pages: 3, tags: ['DEA','S1','controlled substance','import'],
+    title: 'Controlled Substance Import Declaration (DEA Form 357)',
+    desc:  'Annotated template and completion guide for US DEA Form 357 import declarations for Schedule I/II cannabis-derived substances.' },
+
+  // Compliance & Licensing
+  { id: 'cl-1', category: 'Compliance & Licensing', format: 'DOCX', pages: 2, tags: ['GMP','declaration','EU','quality'],
+    title: 'EU GMP Declaration of Conformance Template',
+    desc:  'Declaration template confirming compliance with EU GMP Annex requirements for cannabis APIs, including batch release signatory fields.' },
+  { id: 'cl-2', category: 'Compliance & Licensing', format: 'DOCX', pages: 8, tags: ['quality','agreement','contract','supplier'],
+    title: 'Quality Agreement Template (Supplier / Manufacturer)',
+    desc:  'Bilateral quality agreement covering responsibilities, batch release criteria, change control, deviations, recall procedures, and audit rights — aligned to ICH Q10.' },
+  { id: 'cl-3', category: 'Compliance & Licensing', format: 'XLSX', pages: 4, tags: ['facility','audit','GMP','inspection'],
+    title: 'Facility GMP Audit Checklist',
+    desc:  'Pre-audit self-assessment checklist covering premises, personnel, documentation, production, QC, storage and distribution — maps to EU GMP chapters and WHO guidelines.' },
+  { id: 'cl-4', category: 'Compliance & Licensing', format: 'DOCX', pages: 3, tags: ['licence','application','cover letter','regulatory'],
+    title: 'Licence Application Cover Letter Template',
+    desc:  'Professional cover letter template for national cannabis licence applications, including applicant background narrative, regulatory compliance history, and competency statements.' },
+  { id: 'cl-5', category: 'Compliance & Licensing', format: 'DOCX', pages: 6, tags: ['SOP','standard operating procedure','GMP'],
+    title: 'Standard Operating Procedure (SOP) Framework',
+    desc:  'Skeleton SOP framework with header, purpose, scope, definitions, procedure, responsibilities, and revision history sections — ready for facility-specific population.' },
+  { id: 'cl-6', category: 'Compliance & Licensing', format: 'DOCX', pages: 3, tags: ['GACP','cultivation','good agricultural'],
+    title: 'GACP Cultivation Compliance Declaration',
+    desc:  'Declaration template attesting to Good Agricultural and Collection Practices (GACP) compliance for cannabis cultivation sites, aligned to WHO/EMEA guidelines.' },
+
+  // Commercial
+  { id: 'cm-1', category: 'Commercial', format: 'DOCX', pages: 2, tags: ['LOI','letter of intent','supply'],
+    title: 'Letter of Intent (LOI) — Cannabis Supply',
+    desc:  'Non-binding LOI template for cannabis supply arrangements covering product specs, indicative volumes, pricing basis, exclusivity, and next-step milestones.' },
+  { id: 'cm-2', category: 'Commercial', format: 'DOCX', pages: 4, tags: ['term sheet','supply','commercial'],
+    title: 'Supply Agreement Term Sheet',
+    desc:  'Commercial term sheet for cannabis supply agreements: product definition, volume commitments, pricing mechanism (fixed/indexed), delivery terms (Incoterms), and key conditions precedent.' },
+  { id: 'cm-3', category: 'Commercial', format: 'DOCX', pages: 3, tags: ['NDA','confidentiality','cannabis'],
+    title: 'Cannabis Industry NDA Template',
+    desc:  'Mutual NDA template tailored for cannabis industry contexts — covers proprietary regulatory strategies, strain IP, client lists, pricing, and cultivation/extraction methods.' },
+  { id: 'cm-4', category: 'Commercial', format: 'DOCX', pages: 12, tags: ['supply','agreement','framework','long-form'],
+    title: 'Supply Agreement Framework (Long-Form)',
+    desc:  'Comprehensive supply agreement framework with boilerplate covering product specifications, quality obligations, regulatory compliance warranties, force majeure, and dispute resolution.' },
+  { id: 'cm-5', category: 'Commercial', format: 'DOCX', pages: 3, tags: ['distribution','agreement','wholesale'],
+    title: 'Distribution Agreement Term Sheet',
+    desc:  'Term sheet for cannabis distribution arrangements covering territory, exclusivity, minimum purchase obligations, pricing, marketing, and termination provisions.' },
+  { id: 'cm-6', category: 'Commercial', format: 'DOCX', pages: 2, tags: ['invoice','commercial','customs'],
+    title: 'Commercial Invoice Template (Cross-Border)',
+    desc:  'Compliant commercial invoice template for cross-border cannabis transactions including HS codes, country of origin, Incoterms declaration, and controlled substance descriptions.' },
+
+  // Due Diligence
+  { id: 'dd-1', category: 'Due Diligence', format: 'XLSX', pages: 3, tags: ['KYC','counterparty','verification'],
+    title: 'Counterparty KYC Checklist',
+    desc:  'Know-Your-Counterparty checklist covering entity verification, beneficial ownership, licence validation, sanctions screening, and financial crime red flags for cannabis operators.' },
+  { id: 'dd-2', category: 'Due Diligence', format: 'XLSX', pages: 2, tags: ['operator','verification','licence'],
+    title: 'Operator Verification Checklist',
+    desc:  'Step-by-step checklist for verifying a cannabis operator\'s licence status, facility approvals, GMP certificates, and regulatory standing across key jurisdictions.' },
+  { id: 'dd-3', category: 'Due Diligence', format: 'XLSX', pages: 2, tags: ['COA','lab','verification','testing'],
+    title: 'Lab COA Verification Checklist',
+    desc:  'Checklist for verifying cannabis certificate of analysis authenticity: lab accreditation status, chain of custody, test method references, and result plausibility checks.' },
+  { id: 'dd-4', category: 'Due Diligence', format: 'DOCX', pages: 5, tags: ['M&A','acquisition','due diligence','cannabis'],
+    title: 'M&A Due Diligence Request List — Cannabis',
+    desc:  'Structured due diligence request list for cannabis company acquisitions covering corporate structure, licences, regulatory history, key contracts, IP, financials, and litigation.' },
+]
+
+const DOC_CATEGORIES = ['Import / Export', 'Compliance & Licensing', 'Commercial', 'Due Diligence'] as const
+
+const DOC_CATEGORY_META: Record<string, { icon: string; desc: string }> = {
+  'Import / Export':       { icon: '↔', desc: 'Permits, certificates, shipping documentation' },
+  'Compliance & Licensing': { icon: '◫', desc: 'GMP, GACP, audit tools, licence applications' },
+  'Commercial':            { icon: '⊞', desc: 'NDAs, term sheets, supply agreements, invoices' },
+  'Due Diligence':         { icon: '◉', desc: 'KYC, operator verification, M&A checklists' },
+}
+
+const DOC_FORMAT_COLOR: Record<string, string> = {
+  DOCX: 'rgba(91,155,213,.9)',
+  XLSX: 'rgba(76,175,82,.9)',
+  PDF:  'rgba(212,168,75,.9)',
+}
+
+const DocumentsPage = React.memo(function DocumentsPage({
+  country, role,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+}) {
+  const [search,      setSearch]      = useState('')
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [requested,   setRequested]   = useState<Set<string>>(new Set())
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return DOC_TEMPLATES.filter(d => {
+      const catMatch = activeCategory === 'all' || d.category === activeCategory
+      if (!catMatch) return false
+      if (!q) return true
+      return d.title.toLowerCase().includes(q) || d.desc.toLowerCase().includes(q) || d.tags.some(t => t.includes(q))
+    })
+  }, [search, activeCategory])
+
+  const handleRequest = (id: string) => {
+    setRequested(prev => new Set([...prev, id]))
+  }
+
+  const countByCategory = useMemo(() => {
+    const m: Record<string, number> = { all: DOC_TEMPLATES.length }
+    for (const t of DOC_TEMPLATES) m[t.category] = (m[t.category] ?? 0) + 1
+    return m
+  }, [])
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <style>{DOC_CSS}</style>
+      <div className="cc-two-main">
+        <div className="cc-inner-header">
+          <h2>Document Template Library</h2>
+          <p>
+            {DOC_TEMPLATES.length} professional templates for cannabis import/export, compliance, commercial, and due diligence workflows.
+            {country.label !== 'Global' ? ` Contextualised for ${country.label}.` : ''}
+            {role ? ` · ${role}` : ''}
+          </p>
+        </div>
+
+        {/* Search + filter bar */}
+        <div className="doc-toolbar">
+          <input
+            className="cc-search-input"
+            type="text"
+            placeholder="Search templates by title, keyword, or tag…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+        </div>
+
+        {/* Category filter tabs */}
+        <div className="doc-cat-tabs">
+          <button
+            className={`doc-cat-tab${activeCategory === 'all' ? ' active' : ''}`}
+            onClick={() => setActiveCategory('all')}
+          >
+            All <span className="cc-tab-badge">{countByCategory.all}</span>
+          </button>
+          {DOC_CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              className={`doc-cat-tab${activeCategory === cat ? ' active' : ''}`}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {DOC_CATEGORY_META[cat].icon} {cat.split('/')[0].trim()}
+              <span className="cc-tab-badge">{countByCategory[cat] ?? 0}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Template grid */}
+        {filtered.length === 0 ? (
+          <div className="cc-empty-state">
+            <span>⊡</span>
+            <p>No templates match your search. Try a different keyword.</p>
+          </div>
+        ) : (
+          <div className="doc-grid">
+            {filtered.map(doc => {
+              const isRequested = requested.has(doc.id)
+              return (
+                <div key={doc.id} className="doc-card">
+                  <div className="doc-card-top">
+                    <div className="doc-card-meta">
+                      <span className="doc-format-badge" style={{ background: DOC_FORMAT_COLOR[doc.format] ?? 'rgba(255,255,255,.15)' }}>
+                        {doc.format}
+                      </span>
+                      {doc.pages && <span className="doc-pages">{doc.pages}p</span>}
+                      <span className="doc-category-label">{doc.category}</span>
+                    </div>
+                    <h4 className="doc-card-title">{doc.title}</h4>
+                    <p className="doc-card-desc">{doc.desc}</p>
+                    <div className="doc-tags">
+                      {doc.tags.slice(0, 4).map(t => (
+                        <span key={t} className="doc-tag">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    className={`doc-request-btn${isRequested ? ' requested' : ''}`}
+                    onClick={() => handleRequest(doc.id)}
+                    disabled={isRequested}
+                  >
+                    {isRequested ? '✓ Template requested' : 'Request template →'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <p style={{ fontSize: '10px', color: 'rgba(245,240,232,.2)', padding: '8px 24px 20px', textAlign: 'center' }}>
+          Templates are professional frameworks — review with qualified legal/regulatory counsel before use in your jurisdiction.
+        </p>
+      </div>
+
+      {/* Right sidebar */}
+      <aside className="cc-two-right">
+        <div className="cc-right-section">
+          <div className="cc-right-head">TEMPLATE CATEGORIES</div>
+          {DOC_CATEGORIES.map(cat => (
+            <div key={cat} className="doc-cat-summary" onClick={() => setActiveCategory(cat)} style={{ cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                <span style={{ fontSize: '14px', color: '#d4a84b' }}>{DOC_CATEGORY_META[cat].icon}</span>
+                <span style={{ fontSize: '11px', color: '#f5f0e8', fontWeight: 500 }}>{cat}</span>
+                <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.4)', marginLeft: 'auto' }}>{countByCategory[cat] ?? 0}</span>
+              </div>
+              <p style={{ fontSize: '10px', color: 'rgba(245,240,232,.4)', margin: '0 0 10px 22px', lineHeight: 1.4 }}>
+                {DOC_CATEGORY_META[cat].desc}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">CUSTOM TEMPLATES</div>
+          <p className="cc-right-prose">
+            Need a jurisdiction-specific or role-specific document template? Harbourview can produce custom compliance documents tailored to {country.label} requirements.
+          </p>
+          <button className="cc-nba-btn" style={{ marginTop: '8px', width: '100%' }}>
+            Request custom template →
+          </button>
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">AI ASSISTANT</div>
+          <p className="cc-right-prose">
+            Use the Compliance Intelligence Assistant to draft bespoke compliance narratives, permit application language, or regulatory correspondence for {country.label}.
+          </p>
+        </div>
+      </aside>
+    </div>
+  )
+})
+
+const DOC_CSS = `
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px 12px;
+}
+.doc-cat-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 24px 16px;
+  flex-wrap: wrap;
+}
+.doc-cat-tab {
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.09);
+  color: rgba(245,240,232,.55);
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.doc-cat-tab:hover { background: rgba(255,255,255,.09); color: #f5f0e8; }
+.doc-cat-tab.active {
+  background: rgba(212,168,75,.12);
+  border-color: rgba(212,168,75,.35);
+  color: #d4a84b;
+}
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+.doc-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  transition: border-color .12s, background .12s;
+}
+.doc-card:hover { background: rgba(255,255,255,.05); border-color: rgba(212,168,75,.2); }
+.doc-card-top { display: flex; flex-direction: column; gap: 8px; }
+.doc-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.doc-format-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #0d1117;
+}
+.doc-pages {
+  font-size: 10px;
+  color: rgba(245,240,232,.35);
+}
+.doc-category-label {
+  font-size: 9px;
+  color: rgba(245,240,232,.3);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+.doc-card-title {
+  font-family: 'Georgia', serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #f5f0e8;
+  margin: 0;
+  line-height: 1.4;
+}
+.doc-card-desc {
+  font-size: 11px;
+  color: rgba(245,240,232,.5);
+  line-height: 1.55;
+  margin: 0;
+}
+.doc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.doc-tag {
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  color: rgba(245,240,232,.4);
+  letter-spacing: .03em;
+}
+.doc-request-btn {
+  font-size: 11px;
+  padding: 8px 14px;
+  border-radius: 7px;
+  background: rgba(212,168,75,.1);
+  border: 1px solid rgba(212,168,75,.25);
+  color: #d4a84b;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  text-align: left;
+  width: 100%;
+}
+.doc-request-btn:hover:not(:disabled) { background: rgba(212,168,75,.18); border-color: rgba(212,168,75,.4); }
+.doc-request-btn.requested {
+  background: rgba(76,175,82,.08);
+  border-color: rgba(76,175,82,.25);
+  color: #4caf82;
+  cursor: default;
+}
+.doc-cat-summary { border-bottom: 1px solid rgba(255,255,255,.05); padding-bottom: 2px; }
+.doc-cat-summary:last-child { border-bottom: none; }
+`
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CommandCentre({
@@ -4239,6 +4857,8 @@ export default function CommandCentre({
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       case 'assistant':
         return <AssistantPage country={country} region={region} role={roleLabel} />
+      case 'documents':
+        return <DocumentsPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
