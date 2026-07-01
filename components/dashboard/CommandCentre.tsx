@@ -6409,13 +6409,38 @@ const SEED_NOTIFICATIONS: Notification[] = [
   },
 ]
 
+const NOTIF_ROLE_CATEGORIES_MAP: Record<string, NotifCategory[]> = {
+  'Doctor':      ['regulatory', 'compliance', 'market'],
+  'Pharmacist':  ['regulatory', 'compliance', 'market'],
+  'Budtender':   ['regulatory', 'market'],
+  'Cultivator':  ['regulatory', 'market', 'watchlist'],
+  'Geneticist':  ['regulatory', 'market', 'watchlist'],
+  'Processor':   ['regulatory', 'compliance', 'market'],
+  'Lab/QA':      ['regulatory', 'compliance', 'market'],
+  'Importer':    ['corridor', 'regulatory', 'market', 'watchlist'],
+  'Exporter':    ['corridor', 'regulatory', 'market', 'watchlist'],
+  'Distributor': ['corridor', 'market', 'regulatory'],
+  'Clinic Op.':  ['regulatory', 'compliance', 'market'],
+  'Retail':      ['regulatory', 'market', 'compliance'],
+  'Compliance':  ['regulatory', 'compliance', 'watchlist'],
+  'Legal':       ['regulatory', 'compliance', 'watchlist'],
+  'Investor':    ['market', 'watchlist', 'regulatory'],
+  'Regulator':   ['regulatory', 'compliance', 'watchlist'],
+  'Patient Ed.': ['regulatory', 'market'],
+  'GMP/QA':      ['regulatory', 'compliance'],
+  'Logistics':   ['corridor', 'market', 'regulatory'],
+}
+
 const NotificationCentrePage = React.memo(function NotificationCentrePage({
   country, role,
 }: { country: string; region: string; role: string }) {
-  const [readIds,      setReadIds]      = useState<Set<string>>(new Set())
-  const [filterCat,   setFilterCat]    = useState<NotifCategory | 'all'>('all')
-  const [filterSev,   setFilterSev]    = useState<NotifSeverity | 'all'>('all')
-  const [showRead,    setShowRead]     = useState(false)
+  const [readIds,       setReadIds]       = useState<Set<string>>(new Set())
+  const [filterCat,     setFilterCat]     = useState<NotifCategory | 'all'>('all')
+  const [filterSev,     setFilterSev]     = useState<NotifSeverity | 'all'>('all')
+  const [showRead,      setShowRead]      = useState(false)
+  const [filterMyRole,  setFilterMyRole]  = useState(false)
+
+  const roleCategories = useMemo<NotifCategory[]>(() => NOTIF_ROLE_CATEGORIES_MAP[role] ?? [], [role])
 
   const allNotifs = useMemo(() => {
     let list = SEED_NOTIFICATIONS.slice()
@@ -6424,13 +6449,22 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
   }, [country])
 
   const filtered = useMemo(() => {
-    return allNotifs.filter(n => {
-      if (!showRead && readIds.has(n.id)) return false
-      if (filterCat !== 'all' && n.category !== filterCat) return false
-      if (filterSev !== 'all' && n.severity !== filterSev) return false
-      return true
-    })
-  }, [allNotifs, readIds, filterCat, filterSev, showRead])
+    return allNotifs
+      .filter(n => {
+        if (!showRead && readIds.has(n.id)) return false
+        if (filterCat !== 'all' && n.category !== filterCat) return false
+        if (filterSev !== 'all' && n.severity !== filterSev) return false
+        if (filterMyRole && roleCategories.length > 0 && !roleCategories.includes(n.category)) return false
+        return true
+      })
+      .sort((a, b) => {
+        if (filterMyRole) return 0 // keep date order when already role-filtered
+        const aRole = roleCategories.includes(a.category) ? 1 : 0
+        const bRole = roleCategories.includes(b.category) ? 1 : 0
+        if (bRole - aRole !== 0) return bRole - aRole
+        return b.date.localeCompare(a.date)
+      })
+  }, [allNotifs, readIds, filterCat, filterSev, showRead, filterMyRole, roleCategories])
 
   const unreadCount = allNotifs.filter(n => !readIds.has(n.id)).length
 
@@ -6481,6 +6515,9 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
 .nc-dismiss-btn { font-size: .73rem; color: #6b7280; background: transparent; border: none; cursor: pointer; margin-left: auto; }
 .nc-dismiss-btn:hover { color: #9090a0; }
 .nc-empty { text-align: center; padding: 40px 20px; color: #6b7280; font-size: .85rem; }
+.nc-role-btn { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); border-radius: 20px; padding: 3px 11px; color: #10b981; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.nc-role-btn.active { background: rgba(16,185,129,.22); border-color: #10b981; font-weight: 600; }
+.nc-notif.role-relevant { border-left: 3px solid rgba(16,185,129,.5); }
         `}</style>
 
         <div className="nc-header">
@@ -6521,6 +6558,14 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
               {(sevCounts[s] ?? 0) > 0 && <span style={{ marginLeft: 4, opacity: .7 }}>{sevCounts[s]}</span>}
             </button>
           ))}
+          {role && roleCategories.length > 0 && (
+            <button
+              className={`nc-role-btn${filterMyRole ? ' active' : ''}`}
+              onClick={() => setFilterMyRole(v => !v)}
+            >
+              ◎ For {role}s ({allNotifs.filter(n => roleCategories.includes(n.category) && !readIds.has(n.id)).length} unread)
+            </button>
+          )}
         </div>
 
         {filtered.length === 0 && (
@@ -6530,9 +6575,10 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
         )}
 
         {filtered.map(n => {
-          const isRead = readIds.has(n.id)
+          const isRead      = readIds.has(n.id)
+          const isRoleAlert = roleCategories.includes(n.category)
           return (
-            <div key={n.id} className={`nc-notif${isRead ? ' read' : ''}`}
+            <div key={n.id} className={`nc-notif${isRead ? ' read' : ''}${isRoleAlert && !isRead ? ' role-relevant' : ''}`}
               style={{ background: isRead ? 'rgba(255,255,255,.02)' : `rgba(${n.severity === 'critical' ? '239,68,68' : n.severity === 'high' ? '249,115,22' : '255,255,255'},.04)` }}>
               <div className="nc-notif-top">
                 <div className="nc-sev-dot" style={{ background: NOTIF_SEVERITY_COLORS[n.severity] }} />
@@ -6566,6 +6612,37 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
 
       {/* ── Right panel ──────────────────────────────────────────────── */}
       <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Role Alerts card */}
+        {role && roleCategories.length > 0 && (() => {
+          const roleUnread = allNotifs.filter(n => roleCategories.includes(n.category) && !readIds.has(n.id))
+          const roleCritical = roleUnread.filter(n => n.severity === 'critical' || n.severity === 'high').length
+          return (
+            <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
+              <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                {role} Alerts
+              </div>
+              {([
+                ['Unread for Your Role', roleUnread.length],
+                ['High Priority', roleCritical],
+                ['Categories Tracked', roleCategories.length],
+              ] as [string, number][]).map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+                  <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#10b981' }}>{val}</span>
+                </div>
+              ))}
+              <button
+                className={`nc-role-btn${filterMyRole ? ' active' : ''}`}
+                style={{ width: '100%', marginTop: 8 }}
+                onClick={() => setFilterMyRole(v => !v)}
+              >
+                {filterMyRole ? '✓ Showing Role Alerts' : `Show ${roleUnread.length} ${role} Alerts`}
+              </button>
+            </div>
+          )
+        })()}
+
         {/* Summary */}
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Alert Summary</div>
