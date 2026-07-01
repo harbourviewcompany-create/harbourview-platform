@@ -5910,25 +5910,61 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
 const BANKING_TYPE_OPTIONS = Object.keys(PROVIDER_TYPE_LABELS) as BankingProvider['type'][]
 const BANKING_STANCE_OPTIONS = Object.keys(STANCE_LABELS) as BankingProvider['stance'][]
 
+const BANKING_ROLE_TYPES_MAP: Record<string, BankingProvider['type'][]> = {
+  'Doctor':      ['bank', 'credit-union'],
+  'Pharmacist':  ['bank', 'credit-union'],
+  'Budtender':   ['bank', 'credit-union'],
+  'Cultivator':  ['bank', 'credit-union', 'fintech'],
+  'Geneticist':  ['bank', 'credit-union'],
+  'Processor':   ['bank', 'payment-processor', 'fintech'],
+  'Lab/QA':      ['bank', 'credit-union'],
+  'Importer':    ['bank', 'emi', 'fintech'],
+  'Exporter':    ['bank', 'emi', 'fintech', 'payment-processor'],
+  'Distributor': ['bank', 'payment-processor', 'fintech'],
+  'Clinic Op.':  ['bank', 'credit-union', 'payment-processor'],
+  'Retail':      ['bank', 'credit-union', 'payment-processor', 'fintech'],
+  'Compliance':  ['bank'],
+  'Legal':       ['bank'],
+  'Investor':    ['bank', 'crypto', 'fintech'],
+  'Regulator':   ['bank'],
+  'Patient Ed.': ['bank', 'credit-union'],
+  'GMP/QA':      ['bank', 'credit-union'],
+  'Logistics':   ['bank', 'emi', 'payment-processor'],
+}
+
 const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   country, region, role,
 }: { country: string; region: string; role: string }) {
-  const [search,    setSearch]    = useState('')
-  const [filterType, setFilterType] = useState<BankingProvider['type'] | 'all'>('all')
+  const [search,      setSearch]      = useState('')
+  const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
   const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
   const [filterRegion, setFilterRegion] = useState<string>('all')
-  const [expanded,  setExpanded]  = useState<string | null>(null)
+  const [filterMyRole, setFilterMyRole] = useState(false)
+  const [expanded,    setExpanded]    = useState<string | null>(null)
+
+  const roleTypes = useMemo<BankingProvider['type'][]>(() => BANKING_ROLE_TYPES_MAP[role] ?? [], [role])
 
   const filtered = useMemo(() => {
     const ql = search.toLowerCase()
-    return BANKING_PROVIDERS.filter(p => {
-      if (filterType   !== 'all' && p.type   !== filterType)   return false
-      if (filterStance !== 'all' && p.stance !== filterStance) return false
-      if (filterRegion !== 'all' && !p.regions.includes(filterRegion as BankingProvider['regions'][number])) return false
-      if (search && !p.name.toLowerCase().includes(ql) && !p.notes.toLowerCase().includes(ql) && !p.services.some(s => s.toLowerCase().includes(ql))) return false
-      return true
-    })
-  }, [search, filterType, filterStance, filterRegion])
+    return BANKING_PROVIDERS
+      .filter(p => {
+        if (filterType   !== 'all' && p.type   !== filterType)   return false
+        if (filterStance !== 'all' && p.stance !== filterStance) return false
+        if (filterRegion !== 'all' && !p.regions.includes(filterRegion as BankingProvider['regions'][number])) return false
+        if (filterMyRole && roleTypes.length > 0 && !roleTypes.includes(p.type)) return false
+        if (search && !p.name.toLowerCase().includes(ql) && !p.notes.toLowerCase().includes(ql) && !p.services.some(s => s.toLowerCase().includes(ql))) return false
+        return true
+      })
+      .sort((a, b) => {
+        const aRole = roleTypes.includes(a.type)
+        const bRole = roleTypes.includes(b.type)
+        if (aRole && !bRole) return -1
+        if (bRole && !aRole) return 1
+        if (a.featured && !b.featured) return -1
+        if (b.featured && !a.featured) return 1
+        return 0
+      })
+  }, [search, filterType, filterStance, filterRegion, filterMyRole, roleTypes])
 
   const featured = useMemo(() => BANKING_PROVIDERS.filter(p => p.featured), [])
 
@@ -5981,6 +6017,10 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
 .bnk-enquire-btn:hover { background: rgba(255,255,255,.12); }
 .bnk-featured-badge { font-size: .62rem; padding: 1px 6px; background: rgba(212,168,75,.2); border: 1px solid rgba(212,168,75,.4); border-radius: 8px; color: #d4a84b; font-weight: 700; margin-left: 4px; }
 .bnk-empty { text-align: center; padding: 40px 20px; color: #6b7280; font-size: .85rem; }
+.bnk-card.role-match { border-left: 3px solid #10b981; }
+.bnk-role-match-badge { font-size: .62rem; padding: 1px 6px; background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.35); border-radius: 8px; color: #10b981; font-weight: 700; margin-left: 4px; }
+.bnk-my-role-btn { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); border-radius: 20px; padding: 4px 12px; color: #10b981; font-size: .74rem; cursor: pointer; transition: all .15s; white-space: nowrap; }
+.bnk-my-role-btn.active { background: rgba(16,185,129,.22); border-color: #10b981; font-weight: 600; }
         `}</style>
 
         <div className="bnk-header">
@@ -6013,6 +6053,14 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
           {regions.map(r => (
             <button key={r} className={`bnk-filter-btn${filterRegion === r ? ' active' : ''}`} onClick={() => setFilterRegion(r)}>{r}</button>
           ))}
+          {role && roleTypes.length > 0 && (
+            <button
+              className={`bnk-my-role-btn${filterMyRole ? ' active' : ''}`}
+              onClick={() => { setFilterMyRole(v => !v); setFilterType('all') }}
+            >
+              ◎ For {role}s ({BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type)).length})
+            </button>
+          )}
         </div>
 
         <div className="bnk-results">{filtered.length} provider{filtered.length !== 1 ? 's' : ''} found</div>
@@ -6021,13 +6069,16 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
           <div className="bnk-empty">No providers match your filters.<br />Try broadening your search or adjusting the region.</div>
         )}
 
-        {filtered.map(p => (
-          <div key={p.id} className="bnk-card">
+        {filtered.map(p => {
+          const isRoleMatch = roleTypes.includes(p.type)
+          return (
+          <div key={p.id} className={`bnk-card${isRoleMatch ? ' role-match' : ''}`}>
             <div className="bnk-card-header" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
               <div>
                 <div className="bnk-card-name">
                   {p.name}
                   {p.featured && <span className="bnk-featured-badge">FEATURED</span>}
+                  {isRoleMatch && role && <span className="bnk-role-match-badge">✓ {role}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                   <span className="bnk-type-chip" style={{ background: PROVIDER_TYPE_COLORS[p.type] + '28', color: PROVIDER_TYPE_COLORS[p.type], border: `1px solid ${PROVIDER_TYPE_COLORS[p.type]}55` }}>
@@ -6065,11 +6116,45 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Right panel ──────────────────────────────────────────────── */}
       <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* For Your Role card */}
+        {role && roleTypes.length > 0 && (() => {
+          const roleMatchTotal   = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type)).length
+          const roleMatchCountry = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.countries.includes(country)).length
+          const roleMatchSpec    = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.stance === 'specialized').length
+          return (
+            <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
+              <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>For {role}s</div>
+              <div style={{ fontSize: '.76rem', color: '#b0b0c0', marginBottom: 10, lineHeight: 1.5 }}>
+                Provider types most relevant to your professional profile.
+              </div>
+              {([
+                ['Relevant Providers', roleMatchTotal],
+                ['In Your Market', roleMatchCountry],
+                ['Cannabis-Specialized', roleMatchSpec],
+              ] as [string, number][]).map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+                  <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#10b981' }}>{val}</span>
+                </div>
+              ))}
+              <button
+                className={`bnk-my-role-btn${filterMyRole ? ' active' : ''}`}
+                style={{ width: '100%', marginTop: 8 }}
+                onClick={() => { setFilterMyRole(v => !v); setFilterType('all') }}
+              >
+                {filterMyRole ? '✓ Showing Your Providers' : `Show ${roleMatchTotal} ${role} Providers`}
+              </button>
+            </div>
+          )
+        })()}
+
         {/* Stats */}
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Directory Stats</div>
