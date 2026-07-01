@@ -8015,6 +8015,28 @@ const INS_LINE_OPTIONS: InsuranceLineType[] = [
   'crop', 'professional-indemnity', 'cyber', 'cargo', 'workers-comp',
 ]
 
+const INSURANCE_PROF_LINES_MAP: Record<string, InsuranceLineType[]> = {
+  'Doctor':      ['professional-indemnity', 'commercial-general'],
+  'Pharmacist':  ['professional-indemnity', 'product-liability', 'commercial-general'],
+  'Budtender':   ['commercial-general', 'workers-comp', 'employers-liability'],
+  'Cultivator':  ['crop', 'commercial-general', 'product-liability', 'workers-comp', 'employers-liability'],
+  'Geneticist':  ['commercial-general', 'professional-indemnity'],
+  'Processor':   ['product-liability', 'commercial-general', 'workers-comp', 'employers-liability'],
+  'Lab/QA':      ['professional-indemnity', 'commercial-general', 'product-liability'],
+  'Importer':    ['cargo', 'commercial-general', 'product-liability'],
+  'Exporter':    ['cargo', 'commercial-general', 'product-liability'],
+  'Distributor': ['cargo', 'commercial-general', 'product-liability'],
+  'Clinic Op.':  ['professional-indemnity', 'commercial-general', 'product-liability', 'property'],
+  'Retail':      ['commercial-general', 'product-liability', 'workers-comp', 'employers-liability', 'property'],
+  'Compliance':  ['professional-indemnity', 'cyber'],
+  'Legal':       ['professional-indemnity'],
+  'Investor':    ['directors-officers', 'commercial-general', 'cyber'],
+  'Regulator':   ['commercial-general', 'professional-indemnity'],
+  'Patient Ed.': ['professional-indemnity', 'commercial-general'],
+  'GMP/QA':      ['professional-indemnity', 'product-liability', 'commercial-general'],
+  'Logistics':   ['cargo', 'commercial-general', 'workers-comp', 'employers-liability'],
+}
+
 const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
   country, region, role,
 }: {
@@ -8027,16 +8049,29 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
   const [filterType,    setFilterType]    = useState<InsuranceLineType | 'all'>('all')
   const [filterCountry, setFilterCountry] = useState('')
 
+  const profLines = useMemo<InsuranceLineType[]>(() => INSURANCE_PROF_LINES_MAP[role] ?? [], [role])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return INSURANCE_PROVIDERS.filter(p => {
-      const matchQ       = !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
-      const matchRole    = filterRole === 'all' || p.role === filterRole
-      const matchType    = filterType === 'all' || (p.types as string[]).includes(filterType)
-      const matchCountry = !filterCountry || p.countries.includes(filterCountry)
-      return matchQ && matchRole && matchType && matchCountry
-    })
-  }, [search, filterRole, filterType, filterCountry])
+    return INSURANCE_PROVIDERS
+      .filter(p => {
+        const matchQ       = !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+        const matchRole    = filterRole === 'all' || p.role === filterRole
+        const matchType    = filterType === 'all' || (p.types as string[]).includes(filterType)
+        const matchCountry = !filterCountry || p.countries.includes(filterCountry)
+        return matchQ && matchRole && matchType && matchCountry
+      })
+      .sort((a, b) => {
+        const aLines = a.types as string[]
+        const bLines = b.types as string[]
+        const aScore = profLines.filter(l => aLines.includes(l)).length
+        const bScore = profLines.filter(l => bLines.includes(l)).length
+        if (bScore - aScore !== 0) return bScore - aScore
+        if (a.featured && !b.featured) return -1
+        if (b.featured && !a.featured) return 1
+        return 0
+      })
+  }, [search, filterRole, filterType, filterCountry, profLines])
 
   const featured = filtered.filter(p => p.featured)
   const rest     = filtered.filter(p => !p.featured)
@@ -8080,7 +8115,44 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
         )}
       </div>
 
-      <div className="cc-two-right">
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Your Coverage Profile */}
+        {role && profLines.length > 0 && (
+          <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
+            <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+              {role} Coverage Profile
+            </div>
+            <div style={{ fontSize: '.72rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>
+              Recommended lines for your role:
+            </div>
+            {profLines.slice(0, 5).map(line => (
+              <div key={line}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, cursor: 'pointer' }}
+                onClick={() => setFilterType(filterType === line ? 'all' : line)}
+              >
+                <span style={{ fontSize: '.62rem', color: filterType === line ? '#10b981' : '#10b98166', fontWeight: 700 }}>✓</span>
+                <span style={{ fontSize: '.76rem', color: filterType === line ? '#10b981' : '#b0b0c0' }}>
+                  {INSURANCE_LINE_LABELS[line]}
+                  <span style={{ marginLeft: 4, fontSize: '.64rem', color: '#6b7280' }}>
+                    ({INSURANCE_PROVIDERS.filter(p => (p.types as string[]).includes(line)).length})
+                  </span>
+                </span>
+              </div>
+            ))}
+            {profLines.length > 5 && (
+              <div style={{ fontSize: '.72rem', color: '#6b7280', marginTop: 4 }}>+{profLines.length - 5} more lines</div>
+            )}
+            <button
+              style={{ background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '5px 10px', color: '#10b981', fontSize: '.73rem', cursor: 'pointer', width: '100%', marginTop: 10 }}
+              onClick={() => { setFilterType('all'); setFilterRole('all') }}
+            >
+              Show All for {role}
+            </button>
+          </div>
+        )}
+
+        <div>
         <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 14 }}>Filters</div>
 
         <div style={{ marginBottom: 16 }}>
@@ -8131,6 +8203,7 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
               <div style={{ fontSize: '.68rem', color: '#8a8a9a' }}>{note}</div>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>
