@@ -43,9 +43,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.0",
-    "@tanstack/react-query": "^5.80.7",
-    "class-variance-authority": "^0.7.1",
-    "sonner": "^1.7.4",
     "@google/genai": "^2.10.0",
     "@opennextjs/cloudflare": "^1.20.1",
     "@react-three/drei": "^10.0.0",
@@ -66,6 +63,7 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",
