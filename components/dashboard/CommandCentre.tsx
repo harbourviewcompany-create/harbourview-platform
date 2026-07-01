@@ -48,6 +48,7 @@ export type CommandPage =
   | 'assistant'
   | 'documents'
   | 'events'
+  | 'experts'
 
 type PublicServiceProvider = {
   id: string
@@ -146,8 +147,9 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
       { id: 'compliance',  label: 'Compliance',  icon: '◫' },
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
-      { id: 'events',      label: 'Events',       icon: '◷' },
-      { id: 'assistant',   label: 'AI Assistant', icon: '◈' },
+      { id: 'events',      label: 'Events',          icon: '◷' },
+      { id: 'experts',     label: 'Expert Directory', icon: '⊚' },
+      { id: 'assistant',   label: 'AI Assistant',    icon: '◈' },
       { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
   },
@@ -5514,6 +5516,366 @@ const DOC_CSS = `
 .doc-cat-summary:last-child { border-bottom: none; }
 `
 
+// ── Expert Directory page ─────────────────────────────────────────────────────
+
+type ExpertRecord = {
+  id:                      string
+  full_name:               string
+  title:                   string | null
+  credential_type:         string
+  specialties:             string[]
+  countries:               string[]
+  institution:             string | null
+  accepts_referrals:       boolean
+  consultation_available:  boolean
+  bio_public:              string | null
+}
+
+const CREDENTIAL_LABELS: Record<string, string> = {
+  physician:          'Physician',
+  pharmacist:         'Pharmacist',
+  nurse_practitioner: 'Nurse Practitioner',
+  researcher:         'Researcher',
+  pharmacologist:     'Pharmacologist',
+  lawyer:             'Lawyer / Attorney',
+  consultant:         'Consultant',
+  regulator:          'Regulator',
+  educator:           'Educator',
+  other:              'Specialist',
+}
+
+const CREDENTIAL_COLORS: Record<string, string> = {
+  physician:          '#5b9bd5',
+  pharmacist:         '#4caf82',
+  nurse_practitioner: '#6dd4b8',
+  researcher:         '#9b6dd4',
+  pharmacologist:     '#d49b6d',
+  lawyer:             '#d4a84b',
+  consultant:         '#e07b5b',
+  regulator:          '#e05c5c',
+  educator:           '#5bd4b8',
+  other:              '#8a8a9b',
+}
+
+const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
+  country, role,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+}) {
+  const [search,      setSearch]      = useState('')
+  const [credential,  setCredential]  = useState('')
+  const [countryFilt, setCountryFilt] = useState('')
+  const [experts,     setExperts]     = useState<ExpertRecord[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [expanded,    setExpanded]    = useState<string | null>(null)
+  const [referralSent, setReferralSent] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    setLoading(true)
+    fetch('/api/experts')
+      .then(r => r.json())
+      .then((d: { experts?: ExpertRecord[] }) => setExperts(d.experts ?? []))
+      .catch(() => setExperts([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return experts.filter(e => {
+      const matchQ    = !q || e.full_name.toLowerCase().includes(q) ||
+                        (e.title ?? '').toLowerCase().includes(q) ||
+                        (e.institution ?? '').toLowerCase().includes(q) ||
+                        e.specialties.some(s => s.toLowerCase().includes(q))
+      const matchCred = !credential  || e.credential_type === credential
+      const matchCtry = !countryFilt || e.countries.includes(countryFilt.toUpperCase())
+      return matchQ && matchCred && matchCtry
+    })
+  }, [experts, search, credential, countryFilt])
+
+  const consultAvail = filtered.filter(e => e.consultation_available).length
+  const referralAvail = filtered.filter(e => e.accepts_referrals).length
+
+  // Countries that appear in expert profiles
+  const expertCountries = useMemo(() => {
+    const set = new Set<string>()
+    experts.forEach(e => e.countries.forEach(c => set.add(c)))
+    return Array.from(set).sort()
+  }, [experts])
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main" style={{ overflowY: 'auto' }}>
+        <div className="cc-inner-header">
+          <h2>Expert Directory</h2>
+          <p>Verified cannabis industry specialists — regulatory consultants, legal advisors, clinical prescribers, GMP auditors, and market access experts across 191 jurisdictions.</p>
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '0 24px 12px' }}>
+          <input
+            type="text" placeholder="Search by name, specialty, institution…"
+            value={search} onChange={e => setSearch(e.target.value)}
+            style={{
+              flex: '1 1 200px', background: 'rgba(255,255,255,.04)',
+              border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px',
+              color: '#f5f0e8', fontSize: '12px', padding: '7px 12px', outline: 'none',
+            }}
+          />
+          <select value={credential} onChange={e => setCredential(e.target.value)} style={{
+            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+            borderRadius: '8px', color: credential ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+            fontSize: '12px', padding: '7px 12px', outline: 'none',
+          }}>
+            <option value="">All credentials</option>
+            {Object.entries(CREDENTIAL_LABELS).map(([k, v]) => (
+              <option key={k} value={k} style={{ background: '#050c18' }}>{v}</option>
+            ))}
+          </select>
+          <select value={countryFilt} onChange={e => setCountryFilt(e.target.value)} style={{
+            background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+            borderRadius: '8px', color: countryFilt ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+            fontSize: '12px', padding: '7px 12px', outline: 'none',
+          }}>
+            <option value="">All jurisdictions</option>
+            {expertCountries.map(c => (
+              <option key={c} value={c} style={{ background: '#050c18' }}>{flagEmoji(c)} {c}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Expert list */}
+        <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {loading && (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(245,240,232,.3)', fontSize: '12px' }}>
+              Loading expert directory…
+            </div>
+          )}
+
+          {!loading && filtered.length === 0 && (
+            <div className="cc-empty-state">
+              <span>◈</span>
+              <p>No experts match your filters.</p>
+            </div>
+          )}
+
+          {!loading && filtered.map(expert => {
+            const isOpen  = expanded === expert.id
+            const credCol = CREDENTIAL_COLORS[expert.credential_type] ?? '#8a8a9b'
+            const sent    = referralSent.has(expert.id)
+            return (
+              <div key={expert.id} style={{
+                borderRadius: '10px', overflow: 'hidden',
+                border: `1px solid ${isOpen ? 'rgba(212,168,75,.3)' : 'rgba(255,255,255,.07)'}`,
+                background: isOpen ? 'rgba(212,168,75,.03)' : 'rgba(255,255,255,.02)',
+                transition: 'border-color .15s',
+              }}>
+                {/* Header row */}
+                <button
+                  onClick={() => setExpanded(isOpen ? null : expert.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  {/* Avatar */}
+                  <div style={{
+                    flexShrink: 0, width: '40px', height: '40px', borderRadius: '50%',
+                    background: `${credCol}20`, border: `1px solid ${credCol}40`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '14px', color: credCol, fontWeight: 700,
+                  }}>
+                    {expert.full_name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                  </div>
+
+                  {/* Name + credential + institution */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '13px', color: '#f5f0e8' }}>{expert.full_name}</strong>
+                      <span style={{
+                        fontSize: '9px', padding: '1px 6px', borderRadius: '4px', fontWeight: 600,
+                        background: `${credCol}14`, border: `1px solid ${credCol}30`, color: credCol,
+                      }}>{CREDENTIAL_LABELS[expert.credential_type] ?? expert.credential_type}</span>
+                      {expert.consultation_available && (
+                        <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(76,175,130,.12)', border: '1px solid rgba(76,175,130,.25)', color: '#4caf82' }}>CONSULT AVAIL.</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.5)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {expert.title}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.32)', marginTop: '1px' }}>
+                      {expert.institution}
+                    </div>
+                  </div>
+
+                  {/* Countries */}
+                  <div style={{ flexShrink: 0, display: 'flex', gap: '2px', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '80px' }}>
+                    {expert.countries.slice(0, 4).map(c => (
+                      <span key={c} style={{ fontSize: '14px' }}>{flagEmoji(c)}</span>
+                    ))}
+                    {expert.countries.length > 4 && (
+                      <span style={{ fontSize: '9px', color: 'rgba(245,240,232,.3)', alignSelf: 'center' }}>+{expert.countries.length - 4}</span>
+                    )}
+                  </div>
+
+                  <span style={{ fontSize: '13px', color: 'rgba(245,240,232,.25)', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>›</span>
+                </button>
+
+                {/* Expanded detail */}
+                {isOpen && (
+                  <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
+
+                    {/* Bio */}
+                    {expert.bio_public && (
+                      <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.65)', lineHeight: 1.6, margin: '14px 0 10px' }}>{expert.bio_public}</p>
+                    )}
+
+                    {/* Specialties */}
+                    <div style={{ marginBottom: '10px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>SPECIALTIES</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {expert.specialties.map(s => (
+                          <span key={s} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,155,213,.08)', border: '1px solid rgba(91,155,213,.2)', color: '#5b9bd5' }}>{s}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Countries active */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '5px' }}>JURISDICTIONS COVERED</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {expert.countries.map(c => (
+                          <span key={c} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', color: 'rgba(245,240,232,.6)' }}>
+                            {flagEmoji(c)} {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Availability row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '8px 10px' }}>
+                        <div style={{ fontSize: '9px', color: 'rgba(245,240,232,.3)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '3px' }}>REFERRALS</div>
+                        <div style={{ fontSize: '11px', color: expert.accepts_referrals ? '#4caf82' : 'rgba(245,240,232,.35)', fontWeight: 600 }}>
+                          {expert.accepts_referrals ? '✓ Accepting' : '✕ Not accepting'}
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(255,255,255,.03)', borderRadius: '7px', padding: '8px 10px' }}>
+                        <div style={{ fontSize: '9px', color: 'rgba(245,240,232,.3)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '3px' }}>CONSULTATION</div>
+                        <div style={{ fontSize: '11px', color: expert.consultation_available ? '#4caf82' : 'rgba(245,240,232,.35)', fontWeight: 600 }}>
+                          {expert.consultation_available ? '✓ Available' : '✕ Not available'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Request intro CTA */}
+                    {sent ? (
+                      <div style={{ fontSize: '11px', color: '#4caf82', padding: '8px 0' }}>✓ Introduction request sent. Harbourview will facilitate within 48 hours.</div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setReferralSent(prev => { const s = new Set(prev); s.add(expert.id); return s })}
+                          style={{
+                            padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            background: 'linear-gradient(135deg,#d4a84b,#b88c35)', color: '#0d1117',
+                            fontSize: '11px', fontWeight: 700,
+                          }}
+                        >
+                          Request Introduction →
+                        </button>
+                        <a href="/intake" style={{
+                          padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,.1)',
+                          color: 'rgba(245,240,232,.6)', fontSize: '11px', textDecoration: 'none',
+                          display: 'inline-flex', alignItems: 'center',
+                        }}>
+                          Book via Intake
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="cc-feed-footer">
+          <span>{experts.length} verified experts · {filtered.length} matching current filters</span>
+          <a href="/intake" className="cc-right-link">List your practice →</a>
+        </div>
+      </div>
+
+      {/* Right panel */}
+      <div className="cc-two-right">
+        <div style={{ padding: '16px' }}>
+
+          {/* Stats */}
+          <div style={{ marginBottom: '18px' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>DIRECTORY STATS</div>
+            {[
+              { lbl: 'Verified experts',       val: String(experts.length) },
+              { lbl: 'Consultation available', val: String(consultAvail) },
+              { lbl: 'Accepting referrals',    val: String(referralAvail) },
+              { lbl: 'Jurisdictions covered',  val: String(expertCountries.length) },
+            ].map(({ lbl, val }) => (
+              <div key={lbl} className="cc-metric-row">
+                <span className="cc-metric-name">{lbl}</span>
+                <span className="cc-metric-value">{val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* By credential type */}
+          {!loading && experts.length > 0 && (
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>BY CREDENTIAL</div>
+              {Object.entries(CREDENTIAL_LABELS).map(([k, v]) => {
+                const cnt = experts.filter(e => e.credential_type === k).length
+                if (cnt === 0) return null
+                const col = CREDENTIAL_COLORS[k] ?? '#888'
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setCredential(credential === k ? '' : k)}
+                    style={{
+                      display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,.04)',
+                      background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,.04)',
+                      cursor: 'pointer', color: credential === k ? col : 'rgba(245,240,232,.55)',
+                    }}
+                  >
+                    <span style={{ fontSize: '11px' }}>{v}</span>
+                    <span style={{ fontSize: '11px', color: col, fontWeight: 600 }}>{cnt}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Relevant to role */}
+          {role && (
+            <div style={{ padding: '10px 12px', background: 'rgba(212,168,75,.04)', border: '1px solid rgba(212,168,75,.15)', borderRadius: '8px', marginBottom: '14px' }}>
+              <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#d4a84b', marginBottom: '5px' }}>YOUR CONTEXT</div>
+              <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.65)', lineHeight: 1.5 }}>
+                Showing all verified specialists. Use the credential and jurisdiction filters to find experts relevant to your {role} operations in {country.label}.
+              </div>
+            </div>
+          )}
+
+          <a href="/intake" style={{
+            display: 'flex', padding: '9px 14px', borderRadius: '8px',
+            background: 'rgba(212,168,75,.12)', border: '1px solid rgba(212,168,75,.25)',
+            color: '#d4a84b', fontSize: '11px', fontWeight: 600, textDecoration: 'none', gap: '6px', alignItems: 'center',
+          }}>
+            <span>⊕</span> List your practice
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -6003,6 +6365,8 @@ export default function CommandCentre({
         return <DocumentsPage country={country} region={region} role={roleLabel} />
       case 'events':
         return <EventsPage country={country} region={region} role={roleLabel} />
+      case 'experts':
+        return <ExpertDirectoryPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
