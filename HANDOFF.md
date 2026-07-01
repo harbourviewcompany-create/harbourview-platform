@@ -1,53 +1,97 @@
-## Session: Jul 1 2026 (continued) — deploy consolidation
+## Sessions: Jun 25 – Jul 1 2026
 
-### Agent: Claude (claude.ai)
+### Agent: Claude (Sonnet 4.6)
 
-**Canonical deploy target is Vercel** (vercel.json: git deploys + 15 production crons). Removed from repo: `wrangler.jsonc` + `open-next.config.ts` + `@opennextjs/cloudflare` dep (dead OpenNext/Cloudflare app-deploy experiment — gate-1-build-evidence.yml already fails builds that use it), `netlify.toml` + its ignore script (was already a no-op). **Kept**: `vercel.json`, `wrangler.toml` (intelligence pipeline worker — purposeful, not app-deploy duplication), `deploy/` + SELF_HOST_RUNBOOK (inert docs).
+### What shipped this window (PRs + direct Supabase migrations)
 
-**Dashboard-side disconnects only Tyler can do** (repo cleanup does not stop these checks firing):
-1. Cloudflare dashboard -> Workers & Pages -> `harbourview-platform` Workers Builds git integration — disconnect (source of the perpetually failing "Workers Builds" check).
-2. Cloudflare Pages project — passing but decide: if it serves nothing user-facing, disconnect for one-deploy-path hygiene.
-3. GCP `splendid-tower-496523-j6` -> Cloud Build triggers -> delete both `rmgpgab-*` triggers.
+No PRs landed Jun 25–28 — all schema work went directly to Supabase via MCP. PRs resumed Jun 29.
 
-E2E status: `@playwright/test` dep fix landed; job now executes real tests (~9 min) instead of dying on MODULE_NOT_FOUND, but tests fail — they have never run in CI and need a triage pass against the live app.
+| PR | What | Date |
+|---|---|---|
+| **#900, #901** | Dep bumps: sonner 2.0.7, lucide-react 1.22.0 | Jun 29 |
+| **#913** | fix(cron/scrape): stop runner before Vercel maxDuration to avoid hard-kill + listing detail modal | Jun 30 |
+| **#914** | fix(dashboard): `country_intel` never loaded; `public_summary` fell back to generic copy; professionals list empty | Jun 30 |
+| **#915** | fix: reconcile 24 remote-only migrations; dedupe timestamp collision; stale CSS test | Jun 30 |
+| **#916** | Complete PostgREST `api_schema` migration — 31 files that the prior open PR missed | Jun 30 |
+| **#910–912** | Dep bumps: tailwindcss 4.3.2, @tailwindcss/postcss 4.3.2, @anthropic-ai/sdk 0.107.0 | Jun 30 |
+| **#917** | fix(supabase): correct invalid `project_type` enum values — root cause of Supabase Preview CI failure | Jul 1 |
+| **#918–920** | Dep bumps: @supabase/supabase-js 2.110.0, @anthropic-ai/sdk 0.109.0, wrangler 4.106.0 | Jul 1 |
+| **#921** | feat(ai): register Anthropic as gateway provider; add `match_rationale` + digest narrative columns | Jul 1 |
+| **#922** | fix(supabase): reconcile 11 more remote-only migrations (**4th reconciliation in 4 days**) | Jul 1 |
 
----
+### Major schema work applied directly (Supabase MCP, no PR)
 
-## Session: Jul 1 2026
+**Jun 25**
+- `stripe_webhook_events_and_subscription_columns` — Stripe webhook events table + subscription columns
+- `create_supplier_applications_table` — new table replacing the supplier_profiles intake path
+- `add_regulatory_trajectory_and_coverage` — `hv_regulatory_trajectory` + coverage columns
+- Signal fixes: `fix_extract_signals_remove_dropped_columns`, `auto_review_scraped_signals_clean_headlines` (`hv_clean_scraped_headline` function), RLS grant for anon/authenticated on signals
 
-### Agent: Claude (claude.ai)
+**Jun 26**
+- Full PostgREST `api_schema`: `create_api_user_roles_view`, `create_api_schema_admin_views`, `extend_api_schema_views_enterprise_ia_hub`
+- Wave 3 tables: `wave3_signal_engine_tables`, `wave3_network_tables`
 
-### Current state snapshot (read this first)
+**Jun 27**
+- `regulatory_change_tracking_and_calendar` — new tables for regulatory event tracking + calendar view
+- `classify_import_status_33_countries` — import status seeded for 33 countries
+- `fix_null_source_types_and_scraper_state`
+- Education module 1 sections 09–15 seeded
 
-- **Migration ledger and repo are exactly reconciled: 294 == 294.** Diff both directions before adding migrations; do not apply schema changes without either a repo file + ledger registration or MCP apply_migration.
-- **`supplier_profiles` is empty BY DESIGN.** Approved suppliers must come through intake -> payment (Stripe `subscriptions`) -> admin approval. Do NOT seed suppliers, cultivators, or any marketplace entity representing a real business relationship. This is the second session to violate and then re-learn this rule (see Jun 24 backward audit) — it is now policy, not preference. The table also carries a `supplier_profiles_no_delete` rule (archive-only) — respect it.
-- **"Apply Supabase migrations" CI has NEVER been able to pass**: repo secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` do not exist. Needs Tyler (Supabase dashboard -> account tokens; then add both repo secrets). Until then, ignore that check's failure — it exits before touching the DB.
-- The two `rmgpgab-*` europe-west1 Cloud Build checks fail on every push — stale auto-created triggers in GCP project `splendid-tower-496523-j6`. Deletable noise (deploys are Vercel); needs Tyler's GCP console.
+**Jun 28**
+- `create_cc_jurisdiction_briefings_schema` + `patch_cc_jurisdiction_briefings` — Command Centre jurisdiction briefings table (separate from `jurisdiction_briefings`)
+- `intelligence_job_queue` — distributed job queue tables
+- Education sections 16–18; Australia country briefing seeded
+- RLS hardening on cc_jurisdiction_briefings (3 separate passes to get anon+auth read right)
+- `add_cc_jurisdiction_briefings_confidence_href_columns`, `enable_rls_regulatory_field_changes_calendar`
+- `regulatory_signals_pipeline_missing_columns` — columns that the pipeline was writing to but that didn't exist
 
-### Built this session
+**Jun 29**
+- Full intelligence pipeline stack: `source_registry`, `discovery`, `collection`, `intelligence`, `queue_and_review` tables + indexes/RLS/helpers (6 migrations)
+- Views: `jurisdiction_playbooks_regulator_drift_view`, `local_intel_jurisdiction_combined_view`
+- `seed_hv_regulatory_trajectory` — trajectory seed data
+- `expose_cc_jurisdiction_briefings_api_schema`, `grant_api_schema_permissions`
 
-| What | Result |
+**Jun 30**
+- Education module 2: sections 01–20 fully seeded
+- `seed_hv_regulatory_trajectory_remaining` — trajectory data for remaining countries
+- `add_match_rationale_columns` — for #921's Anthropic match rationale feature
+
+**Jul 1**
+- `fix_api_schema_views_rls_bypass`, `add_missing_api_schema_views` — RLS was bypassed in definer views; added views missed in first pass
+- `wire_extract_score_to_cron` — score extraction now fires on schedule
+- `corridor_intelligence_tables` — new trade corridor intel tables
+- `seed_professionals_jul2026_v3` — professionals directory refreshed
+- `fix_cron_trigger_auth_headers` + `_v2` — cron HTTP trigger missing auth headers; required two passes
+
+### Systemic issue: recurring migration drift
+
+This is the **4th drift reconciliation in 4 days** (PRs #915, #922, plus at least two others). Root cause: schema changes applied directly via Supabase MCP don't automatically generate migration files. Each session that applies MCP migrations without creating the corresponding `.sql` file creates drift that has to be reconciled later. Going forward, every `apply_migration` call should have a corresponding file committed to `supabase/migrations/`.
+
+### Status of items flagged in Jun 24 backward audit
+
+| Item | Status |
 |---|---|
-| github-bridge edge function reviewed + v26 deployed | Fixed OPTIONS preflight (204-with-body TypeError broke all browser callers). Custom auth via x-github-token preserved. |
-| Deleted 5 never-applied fabricated-supplier seed migrations (Jun 23 batch, `profile_slug` phantom schema) | Commit 8aab513. Same class the Jun 24 audit deleted 10 of — they had been re-added. |
-| Full migration reconciliation of the 14 unapplied Jun 27–29 files | Supabase Preview: GREEN (was failing on every push). |
-| Fixed `NEXT_PUBLIC_SUPABASE_URD` typo in ci.yml e2e job | E2E was running with an empty Supabase URL. |
-| Interim seed of 18 supplier profiles | REVERTED same session — violated pay-to-approve and no-fabricated-suppliers rules. Purged; policy recorded above. |
+| Auth leaked password protection disabled | **Still open** — confirmed by today's security advisor |
+| Public bucket `public-assets` broad listing policy | **Still open** — confirmed today |
+| 13 tables RLS-on, no policy | **Worsened** — now 14 tables (supplier_applications added) |
+| 102 unindexed foreign keys | Unknown — no dedicated pass done |
+| 202 duplicate permissive RLS policies | Unknown |
+| `@tanstack/react-query` missing dep | Unknown |
+| Stripe API version mismatch | Unknown |
+| 17 test files failing on main | Unknown |
+| v2 worker not deployed | **Still open** — no host decision made |
+| PlaywrightDataAdapter still a mock | Unknown |
 
-### Reconciliation detail (the 14 unapplied files)
+### Open GitHub issues (Phase 0 epic)
 
-- **Registered in prod ledger (changes already existed in prod, applied out-of-band):** 20260627000000 (regulatory tracking — file REWRITTEN to prod truth: `row_id` design, real trigger fn bodies; original iso2 index was what broke CI), 20260628000000/000001 (ccjb create + patch), 20260628153000 (AU briefing row), 154000/155000 (ccjb RLS final state), 20260629000000 (anon grants), 20260629210000 (api schema exposure).
-- **Applied to prod (genuinely missing):** 20260628000500 `intelligence_jobs` table + `claim_intelligence_job()` RPC + admin-read RLS. Workers can now be pointed at it.
-- **Deleted (landmines):** 20260628000002/000100/000200/000300 — blanket RLS hardening on `cultivar_%`, `cannabis_%`, `cc_%`, `education_%` with full anon revoke. Had db push ever run, these would have blanked the public education, genetics, and country-briefing surfaces (cc_% even catches cc_jurisdiction_briefings, contradicting 155000 from the same day). If auth-gating those domains is wanted, it needs a reviewed per-table pass. Also deleted 20260628000400 (targets phantom table `stripe_subscriptions_user_profiles`; real table is `subscriptions`).
+Issues #801, #802, #805 remain open. Still outstanding from the Phase 0 epic:
+- Counterparties full CRUD + market normalization
+- Watchlist rule builder UI
+- Genetics basic catalog search + details
+- Admin pending review polish
 
-### Known-latent (documented, not fixed)
-
-- A from-scratch replay of all 294 migrations does NOT run clean (~80 failures: ordering, out-of-band table creation, FK-dependent seeds). This does not affect CI — Supabase Preview branches clone prod then apply only unregistered files — but a true greenfield environment cannot be built from migrations alone. Fix only if/when that's actually needed.
-- Jun 24 audit items still open: leaked-password protection (Tyler, dashboard), public-assets bucket listing policy (decision), 13 RLS-enabled-no-policy tables, ~102 unindexed FKs, ~202 duplicate permissive policies.
-
-### Process note
-
-HANDOFF.md was 7 days stale and missed the late-June reconciliation + security_invoker sessions entirely. The supplier-seeding mistake this session happened partly because this file wasn't consulted before acting. Log here, and read the snapshot section before touching migrations or marketplace data.
+### Current open PRs
+None.
 
 ---
 
