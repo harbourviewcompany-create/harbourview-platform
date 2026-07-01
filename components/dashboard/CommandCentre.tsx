@@ -7433,23 +7433,59 @@ const LOGISTICS_SPECIALTY_LABELS: Record<string, string> = {
   'road-freight':         'Road Freight',
 }
 
+const LOGISTICS_ROLE_TYPES_MAP: Record<string, LogisticsType[]> = {
+  'Doctor':      ['cold-chain', 'courier'],
+  'Pharmacist':  ['cold-chain', 'courier'],
+  'Budtender':   ['courier'],
+  'Cultivator':  ['cold-chain', 'courier', '3pl'],
+  'Geneticist':  ['courier', 'cold-chain'],
+  'Processor':   ['cold-chain', '3pl', 'courier'],
+  'Lab/QA':      ['cold-chain', 'courier'],
+  'Importer':    ['freight-forwarder', 'customs-broker', 'cold-chain', 'armoured'],
+  'Exporter':    ['freight-forwarder', 'customs-broker', 'cold-chain', 'armoured'],
+  'Distributor': ['freight-forwarder', 'cold-chain', '3pl', 'courier'],
+  'Clinic Op.':  ['cold-chain', 'courier'],
+  'Retail':      ['courier', 'cold-chain', '3pl'],
+  'Compliance':  ['customs-broker'],
+  'Legal':       ['customs-broker'],
+  'Investor':    ['freight-forwarder', '3pl'],
+  'Regulator':   ['customs-broker', 'armoured'],
+  'Patient Ed.': ['courier', 'cold-chain'],
+  'GMP/QA':      ['cold-chain', 'customs-broker'],
+  'Logistics':   ['freight-forwarder', 'customs-broker', 'cold-chain', '3pl', 'courier', 'armoured'],
+}
+
 const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
-  country,
+  country, role,
 }: { country: string; region: string; role: string }) {
-  const [search,       setSearch]       = useState('')
-  const [filterType,   setFilterType]   = useState<LogisticsType | 'all'>('all')
-  const [filterRegion, setFilterRegion] = useState<string>('all')
-  const [expanded,     setExpanded]     = useState<string | null>(null)
+  const [search,        setSearch]        = useState('')
+  const [filterType,    setFilterType]    = useState<LogisticsType | 'all'>('all')
+  const [filterRegion,  setFilterRegion]  = useState<string>('all')
+  const [filterMyRole,  setFilterMyRole]  = useState(false)
+  const [expanded,      setExpanded]      = useState<string | null>(null)
+
+  const roleTypes = useMemo<LogisticsType[]>(() => LOGISTICS_ROLE_TYPES_MAP[role] ?? [], [role])
 
   const filtered = useMemo(() => {
     const ql = search.toLowerCase()
-    return LOGISTICS_PROVIDERS.filter(p => {
-      if (filterType   !== 'all' && p.type   !== filterType)   return false
-      if (filterRegion !== 'all' && !p.regions.includes(filterRegion)) return false
-      if (search && !p.name.toLowerCase().includes(ql) && !p.description.toLowerCase().includes(ql)) return false
-      return true
-    })
-  }, [search, filterType, filterRegion])
+    return LOGISTICS_PROVIDERS
+      .filter(p => {
+        if (filterType   !== 'all' && p.type   !== filterType)   return false
+        if (filterRegion !== 'all' && !p.regions.includes(filterRegion)) return false
+        if (filterMyRole && roleTypes.length > 0 && !roleTypes.includes(p.type)) return false
+        if (search && !p.name.toLowerCase().includes(ql) && !p.description.toLowerCase().includes(ql)) return false
+        return true
+      })
+      .sort((a, b) => {
+        const aRole = roleTypes.includes(a.type)
+        const bRole = roleTypes.includes(b.type)
+        if (aRole && !bRole) return -1
+        if (bRole && !aRole) return 1
+        if (a.featured && !b.featured) return -1
+        if (b.featured && !a.featured) return 1
+        return 0
+      })
+  }, [search, filterType, filterRegion, filterMyRole, roleTypes])
 
   const typeCounts = useMemo(() => {
     const m: Record<string, number> = {}
@@ -7488,6 +7524,10 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
 .log-cta-row { display: flex; gap: 8px; }
 .log-visit-btn { background: rgba(212,168,75,.15); border: 1px solid rgba(212,168,75,.4); border-radius: 6px; padding: 5px 12px; color: #d4a84b; font-size: .76rem; font-weight: 600; cursor: pointer; text-decoration: none; }
 .log-enquire-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 5px 12px; color: #d0cfc8; font-size: .76rem; cursor: pointer; }
+.log-card.role-match { border-left: 3px solid #10b981; }
+.log-role-match-badge { font-size: .62rem; padding: 1px 6px; background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.35); border-radius: 8px; color: #10b981; font-weight: 700; margin-left: 4px; }
+.log-my-role-btn { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); border-radius: 20px; padding: 3px 11px; color: #10b981; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.log-my-role-btn.active { background: rgba(16,185,129,.22); border-color: #10b981; font-weight: 600; }
         `}</style>
 
         <div className="log-header">
@@ -7509,17 +7549,28 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
           {regions.map(r => (
             <button key={r} className={`log-filter-btn${filterRegion === r ? ' active' : ''}`} onClick={() => setFilterRegion(r)}>{r}</button>
           ))}
+          {role && roleTypes.length > 0 && (
+            <button
+              className={`log-my-role-btn${filterMyRole ? ' active' : ''}`}
+              onClick={() => { setFilterMyRole(v => !v); setFilterType('all') }}
+            >
+              ◎ For {role}s ({LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type)).length})
+            </button>
+          )}
         </div>
 
         <div className="log-results">{filtered.length} provider{filtered.length !== 1 ? 's' : ''}</div>
 
-        {filtered.map(p => (
-          <div key={p.id} className="log-card">
+        {filtered.map(p => {
+          const isRoleMatch = roleTypes.includes(p.type)
+          return (
+          <div key={p.id} className={`log-card${isRoleMatch ? ' role-match' : ''}`}>
             <div className="log-card-header" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
               <div style={{ flex: 1 }}>
                 <div className="log-card-name">
                   {p.name}
                   {p.featured && <span className="log-featured-badge">FEATURED</span>}
+                  {isRoleMatch && role && <span className="log-role-match-badge">✓ {role}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span className="log-type-chip" style={{ background: LOGISTICS_TYPE_COLORS[p.type] + '28', color: LOGISTICS_TYPE_COLORS[p.type], border: `1px solid ${LOGISTICS_TYPE_COLORS[p.type]}55` }}>
@@ -7552,11 +7603,45 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Right panel ──────────────────────────────────────────────── */}
       <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* For Your Role card */}
+        {role && roleTypes.length > 0 && (() => {
+          const roleMatchTotal   = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type)).length
+          const roleMatchCountry = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.countries.includes(country)).length
+          const roleMatchGdp     = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.specialties.includes('gdp-compliant')).length
+          return (
+            <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
+              <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>For {role}s</div>
+              <div style={{ fontSize: '.76rem', color: '#b0b0c0', marginBottom: 10, lineHeight: 1.5 }}>
+                Logistics providers matched to your role's typical shipping profile.
+              </div>
+              {([
+                ['Matched Providers', roleMatchTotal],
+                ['Serving Your Market', roleMatchCountry],
+                ['GDP-Compliant', roleMatchGdp],
+              ] as [string, number][]).map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+                  <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#10b981' }}>{val}</span>
+                </div>
+              ))}
+              <button
+                className={`log-my-role-btn${filterMyRole ? ' active' : ''}`}
+                style={{ width: '100%', marginTop: 8 }}
+                onClick={() => { setFilterMyRole(v => !v); setFilterType('all') }}
+              >
+                {filterMyRole ? '✓ Showing Your Providers' : `Show ${roleMatchTotal} ${role} Providers`}
+              </button>
+            </div>
+          )
+        })()}
+
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Directory Stats</div>
           {([
