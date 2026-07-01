@@ -3249,7 +3249,7 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
                       {live?.stats && live.stats.count != null && live.stats.count > 0 && (
                         <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(76,175,130,.05)', border: '1px solid rgba(76,175,130,.15)', borderRadius: '8px' }}>
                           <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#4caf82', marginBottom: '6px' }}>COMMUNITY PROCESSING TIMES (n={live.stats.count})</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))', gap: '6px' }}>
                             {[
                               { lbl: 'AVG',    val: live.stats.avg_days    != null ? `${Math.round(live.stats.avg_days)}d`    : '—' },
                               { lbl: 'MEDIAN', val: live.stats.median_days != null ? `${Math.round(live.stats.median_days)}d` : '—' },
