@@ -21,6 +21,7 @@ import { SubmitListingModal } from './SubmitListingModal'
 import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 import { DealRoomsPanel } from './DealRoomsPanel'
+import { AssistantPage } from './pages/AssistantPage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ export type CommandPage =
   | 'genetics'
   | 'compliance'
   | 'countries'
+  | 'assistant'
 
 type PublicServiceProvider = {
   id: string
@@ -140,6 +142,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
       { id: 'compliance',  label: 'Compliance',  icon: '◫' },
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
+      { id: 'assistant',   label: 'AI Assistant', icon: '◈' },
     ],
   },
   {
@@ -2897,7 +2900,7 @@ const WatchlistPage = React.memo(function WatchlistPage({
 
 // ── Evidence & Sources helpers ────────────────────────────────────────────────
 
-type EvidenceTab = 'regulatory'|'guidance'|'licensing'|'clinical'|'market'|'import_export'|'education'|'local'
+type EvidenceTab = 'regulatory'|'guidance'|'licensing'|'clinical'|'market'|'import_export'|'education'|'local'|'labs'
 
 const EV_TABS: { id: EvidenceTab; label: string }[] = [
   { id: 'regulatory',    label: 'Regulatory & Statute'    },
@@ -2908,7 +2911,139 @@ const EV_TABS: { id: EvidenceTab; label: string }[] = [
   { id: 'import_export', label: 'Import / Export'         },
   { id: 'education',     label: 'Education / Professional'},
   { id: 'local',         label: 'Local / Subnational'     },
+  { id: 'labs',          label: 'Lab Directory'           },
 ]
+
+type LabEntry = {
+  name:         string
+  country:      string
+  accreditation: string[]
+  scope:        string[]
+  iso:          string
+  intl:         boolean
+}
+
+const LAB_REGISTRY: LabEntry[] = [
+  { name: 'Eurofins Scientific',       country: 'Germany / Global',    accreditation: ['ISO/IEC 17025', 'EU GMP'],           scope: ['Potency', 'Pesticides', 'Mycotoxins', 'Heavy Metals', 'Terpenes', 'Microbiological'], iso: 'ISO/IEC 17025', intl: true },
+  { name: 'Tentamus Cannabis Lab',     country: 'Germany',             accreditation: ['ISO/IEC 17025', 'EU GMP Annex 16'],  scope: ['Potency', 'Pesticides', 'Residual Solvents', 'Contaminants', 'COA Issuance'],           iso: 'ISO/IEC 17025', intl: true },
+  { name: 'TÜV SÜD',                  country: 'Germany / Global',    accreditation: ['ISO/IEC 17025', 'GMP'],              scope: ['Potency', 'Contaminants', 'Terpenes', 'Stability Testing'],                              iso: 'ISO/IEC 17025', intl: true },
+  { name: 'Cannalytics Supply GmbH',  country: 'Germany',             accreditation: ['ISO/IEC 17025'],                      scope: ['Potency', 'Terpenes', 'Residual Solvents', 'Pesticides'],                               iso: 'ISO/IEC 17025', intl: false },
+  { name: 'Bedrocan Quality Labs',    country: 'Netherlands',          accreditation: ['ISO/IEC 17025', 'GMP'],              scope: ['Potency', 'Microbiological', 'Pesticides', 'Heavy Metals', 'Full Panel'],                 iso: 'ISO/IEC 17025', intl: true },
+  { name: 'Centre for Natural Products', country: 'Canada (Health Canada)', accreditation: ['ISO/IEC 17025', 'GMP'],         scope: ['Potency', 'Pesticides', 'Microbiological', 'Heavy Metals', 'Terpenes'],                   iso: 'ISO/IEC 17025', intl: true },
+  { name: 'Anandia Labs',             country: 'Canada',               accreditation: ['ISO/IEC 17025', 'GMP'],              scope: ['Potency', 'Terpenes', 'Pesticides', 'Contaminants', 'Genetic Testing'],                   iso: 'ISO/IEC 17025', intl: true },
+  { name: 'Green Leaf Lab',           country: 'USA (Oregon)',         accreditation: ['ISO/IEC 17025', 'ORELAP'],           scope: ['Potency', 'Pesticides', 'Microbiological', 'Terpenes', 'Residual Solvents'],               iso: 'ISO/IEC 17025', intl: false },
+  { name: 'SC Laboratories',          country: 'USA (California)',     accreditation: ['ISO/IEC 17025', 'CDPH'],             scope: ['Full Panel', 'Potency', 'Pesticides', 'Heavy Metals', 'Terpenes'],                        iso: 'ISO/IEC 17025', intl: false },
+  { name: 'KCL / Aphria Labs',        country: 'UK',                   accreditation: ['ISO/IEC 17025', 'MHRA GMP'],         scope: ['Potency', 'Purity', 'Contaminants', 'Microbiological', 'Stability'],                      iso: 'ISO/IEC 17025', intl: true },
+  { name: 'PhytoVista Laboratories',  country: 'UK',                   accreditation: ['ISO/IEC 17025', 'UKAS'],             scope: ['Cannabinoid Profile', 'Terpenes', 'Contaminants', 'Heavy Metals', 'Pesticides'],           iso: 'ISO/IEC 17025', intl: true },
+  { name: 'Alkemist Labs',            country: 'USA (California)',     accreditation: ['ISO/IEC 17025'],                      scope: ['Botanical Identity', 'Potency', 'Contaminants', 'Pesticides', 'Adulterant Screening'],   iso: 'ISO/IEC 17025', intl: false },
+  { name: 'Steep Hill Labs',          country: 'USA (Multi-state)',    accreditation: ['ISO/IEC 17025'],                      scope: ['Full Panel', 'Potency', 'Pesticides', 'Terpenes', 'Residual Solvents'],                   iso: 'ISO/IEC 17025', intl: false },
+  { name: 'RPC Photonics / AgriScience Labs', country: 'Australia',   accreditation: ['ISO/IEC 17025', 'NATA'],             scope: ['Potency', 'Pesticides', 'Microbiological', 'Heavy Metals'],                               iso: 'ISO/IEC 17025', intl: true },
+]
+
+function LabDirectorySection({ country }: { country: { iso2: string; label: string } }) {
+  const [search, setSearch] = useState('')
+  const [intlOnly, setIntlOnly] = useState(false)
+  const filtered = LAB_REGISTRY.filter(l => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || l.name.toLowerCase().includes(q) || l.country.toLowerCase().includes(q) || l.scope.some(s => s.toLowerCase().includes(q))
+    const matchIntl = !intlOnly || l.intl
+    return matchSearch && matchIntl
+  })
+  const highlighted = filtered.filter(l =>
+    l.country.toLowerCase().includes(country.label.toLowerCase()) ||
+    l.intl,
+  )
+  const display = search || intlOnly ? filtered : highlighted.length > 0 ? highlighted : filtered
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <input
+          type="text"
+          placeholder="Search labs by name, country, or test type…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            flex: 1, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+            borderRadius: '8px', color: '#f5f0e8', fontSize: '12px', padding: '7px 12px', outline: 'none',
+          }}
+        />
+        <button
+          onClick={() => setIntlOnly(v => !v)}
+          style={{
+            padding: '7px 14px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer',
+            background: intlOnly ? 'rgba(212,168,75,.15)' : 'rgba(255,255,255,.04)',
+            border: `1px solid ${intlOnly ? 'rgba(212,168,75,.35)' : 'rgba(255,255,255,.1)'}`,
+            color: intlOnly ? '#d4a84b' : 'rgba(245,240,232,.5)',
+            transition: 'all .12s',
+          }}
+        >
+          International Samples Only
+        </button>
+      </div>
+
+      <div className="cc-ev-thead">
+        <span className="cc-mkt-th" style={{ flex: '2' }}>LAB NAME</span>
+        <span className="cc-mkt-th">COUNTRY</span>
+        <span className="cc-mkt-th">ACCREDITATION</span>
+        <span className="cc-mkt-th">TESTING SCOPE</span>
+        <span className="cc-mkt-th">INTL SAMPLES</span>
+      </div>
+      {display.map(lab => (
+        <div key={lab.name} className="cc-ev-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 2fr 80px' }}>
+          <div className="cc-ev-cell">
+            <strong style={{ fontSize: '12px', color: '#f5f0e8' }}>{lab.name}</strong>
+            <small style={{ display: 'block', fontSize: '10px', color: 'rgba(245,240,232,.35)', marginTop: '2px' }}>{lab.iso}</small>
+          </div>
+          <div className="cc-ev-cell" style={{ fontSize: '11px', color: 'rgba(245,240,232,.6)' }}>{lab.country}</div>
+          <div className="cc-ev-cell">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+              {lab.accreditation.map(a => (
+                <span key={a} style={{
+                  fontSize: '9px', padding: '1px 6px', borderRadius: '4px',
+                  background: 'rgba(76,175,130,.1)', border: '1px solid rgba(76,175,130,.2)', color: '#4caf82',
+                }}>{a}</span>
+              ))}
+            </div>
+          </div>
+          <div className="cc-ev-cell">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+              {lab.scope.slice(0, 4).map(s => (
+                <span key={s} style={{
+                  fontSize: '9px', padding: '1px 6px', borderRadius: '4px',
+                  background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)', color: 'rgba(245,240,232,.45)',
+                }}>{s}</span>
+              ))}
+              {lab.scope.length > 4 && (
+                <span style={{ fontSize: '9px', color: 'rgba(245,240,232,.3)' }}>+{lab.scope.length - 4} more</span>
+              )}
+            </div>
+          </div>
+          <div className="cc-ev-cell">
+            <span style={{
+              fontSize: '10px', padding: '2px 7px', borderRadius: '99px',
+              background: lab.intl ? 'rgba(91,155,213,.1)' : 'rgba(255,255,255,.04)',
+              border: `1px solid ${lab.intl ? 'rgba(91,155,213,.25)' : 'rgba(255,255,255,.07)'}`,
+              color: lab.intl ? '#5b9bd5' : 'rgba(245,240,232,.3)',
+            }}>
+              {lab.intl ? 'Yes' : 'Domestic'}
+            </span>
+          </div>
+        </div>
+      ))}
+      {display.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '32px', color: 'rgba(245,240,232,.35)', fontSize: '12px' }}>
+          No labs match your search.
+        </div>
+      )}
+      <div className="cc-feed-footer" style={{ marginTop: '8px' }}>
+        <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.3)' }}>
+          {display.length} accredited labs · Harbourview curated registry · Contact Harbourview to add your lab
+        </span>
+      </div>
+    </div>
+  )
+}
 
 const CAT_TO_TAB: Record<string, EvidenceTab> = {
   cannabis_licence_database:    'regulatory',
@@ -3103,8 +3238,10 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
           })}
         </div>
 
-        {/* ── Source table ──────────────────────────────────── */}
-        {tabSources.length === 0 && orgDocs.length === 0 ? (
+        {/* ── Source table / Lab Directory ──────────────────── */}
+        {activeTab === 'labs' ? (
+          <LabDirectorySection country={country} />
+        ) : tabSources.length === 0 && orgDocs.length === 0 ? (
           <div className="cc-empty-state" style={{flex:1}}>
             <span>⊟</span>
             <p>No {EV_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} sources for {country.label}.</p>
@@ -4100,6 +4237,8 @@ export default function CommandCentre({
         return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
+      case 'assistant':
+        return <AssistantPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }

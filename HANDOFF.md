@@ -1,3 +1,81 @@
+## Session: Jul 1 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### Context
+User mandate (set across prior sessions): "Everything that's not part of the globe screen should be in the command centre." All standalone page trees retired to CC redirects across this and prior sessions.
+
+User then asked: "Is anything missing that is materially important?" + "What's missing to make Harbourview the true North Star commercial operating system for the global cannabis industry?"
+
+### Completed this session
+
+#### Route consolidation — all standalone trees now retired
+
+| Commit | What |
+|---|---|
+| `fd5f340` | `MySubmissionsPanel` CC component + `/api/marketplace/my-submissions` route |
+| `24fdb9f` | `ConsumablesRequestModal` CC component |
+| `973d95b` | `DealRoomsPanel` CC component + `/api/marketplace/my-deal-rooms` route |
+| `0acd3cd` | Retire 30 `app/marketplace/**` routes → CC redirects |
+| `d88b864` | Retire 11 `app/intelligence/**` routes → CC redirects |
+| `83af173` | Retire 5 `app/signals/**` routes → CC redirects |
+| `ca43ffb` | Retire 28 `app/education/**` routes → CC redirects |
+| `e63d6c7` | Retire 7 `app/compliance/**` routes → CC redirects |
+| `1703fb4` | Fix all stale internal links in Nav + 13 components |
+| `833001e` | Retire 31 remaining standalone pages across 9 more route trees |
+| `e56ce1e` | Fix broken country profile links in CountriesDirectoryPage |
+
+**Intentionally kept as standalone:**
+- `app/country/[country]/role/[role]/page.tsx` — globe→CC jurisdiction routing entry point (renders `DashboardResponsiveShell`)
+- `app/country/[country]/page.tsx` + `[country]/state/[state]/page.tsx` — junction redirectors feeding into above
+- `app/marketplace/deals/[id]/page.tsx` — real-time Supabase channel chat; cannot embed in CC modal cleanly
+
+#### Game plan established — Harbourview as industry North Star
+
+Full strategic audit completed. Priority tiers:
+
+**Tier 1 — Immediate depth (building now):**
+1. AI compliance assistant — Claude-powered chat in CC, grounded in jurisdiction data
+2. Corridor playbooks — active export/import corridor guides inside AccessPathwayPage
+3. Lab directory — accredited testing lab directory inside EvidencePage
+
+**Tier 2 — Stickiness:**
+4. Events & regulatory calendar
+5. Banking/finance directory by jurisdiction
+6. Document and template library
+7. Unified notification centre
+8. Expert/consultant directory
+
+**Tier 3 — Network effects:**
+9. KYB verification layer for marketplace
+10. Organisation profiles
+11. Genetics depth (terpene profiles, lineage trees, phenotype data)
+12. M&A and investment tracker
+13. Regulatory trajectory scoring (pipeline exists, needs CC visualisation)
+
+**Tier 4 — Moats:**
+14. Proprietary pricing index (from marketplace transaction data)
+15. API access for compliance data
+16. Mobile-native experience
+17. Role-specific daily briefings
+
+### Architecture decisions
+- AI assistant uses Anthropic Claude (`claude-sonnet-5`) via `/api/ai/compliance` — Anthropic API key already configured, more capable than xAI for regulatory reasoning
+- Corridor playbooks: new tab in `AccessPathwayPage`, data-driven from static corridor registry (no new DB tables needed initially)
+- Lab directory: new tab in `EvidencePage`, static registry expandable to DB-backed
+
+### Open issues (from backward audit, still unresolved)
+- Security: leaked-password-protection disabled (one-click Supabase dashboard fix — needs Tyler)
+- Security: `public-assets` bucket has broad SELECT policy allowing listing
+- Security: 13 tables RLS enabled, no policy (`_push_staging`, `adi_cache`, `country_coverage_matrix`, etc.)
+- Performance: 102 unindexed foreign keys
+- Performance: 202 duplicate permissive RLS policies
+- The v2 intelligence worker is not deployed (needs Fly.io ~$2/mo or Railway $5/mo)
+- `PlaywrightDataAdapter` is still a mock
+- Pre-existing TS errors: `@tanstack/react-query` missing dep, Stripe API version mismatch
+
+---
+
 ## Session: Jun 24 2026 (continued)
 
 ### Agent: Claude (Sonnet 4.6)
@@ -188,4 +266,3 @@ Next priorities remain the other Phase 0 items (Counterparties polish, Watchlist
 ---
 
 ## Previous content below
-
