@@ -1,3 +1,100 @@
+## Sessions: Jun 25 – Jul 1 2026
+
+### Agent: Claude (Sonnet 4.6)
+
+### What shipped this window (PRs + direct Supabase migrations)
+
+No PRs landed Jun 25–28 — all schema work went directly to Supabase via MCP. PRs resumed Jun 29.
+
+| PR | What | Date |
+|---|---|---|
+| **#900, #901** | Dep bumps: sonner 2.0.7, lucide-react 1.22.0 | Jun 29 |
+| **#913** | fix(cron/scrape): stop runner before Vercel maxDuration to avoid hard-kill + listing detail modal | Jun 30 |
+| **#914** | fix(dashboard): `country_intel` never loaded; `public_summary` fell back to generic copy; professionals list empty | Jun 30 |
+| **#915** | fix: reconcile 24 remote-only migrations; dedupe timestamp collision; stale CSS test | Jun 30 |
+| **#916** | Complete PostgREST `api_schema` migration — 31 files that the prior open PR missed | Jun 30 |
+| **#910–912** | Dep bumps: tailwindcss 4.3.2, @tailwindcss/postcss 4.3.2, @anthropic-ai/sdk 0.107.0 | Jun 30 |
+| **#917** | fix(supabase): correct invalid `project_type` enum values — root cause of Supabase Preview CI failure | Jul 1 |
+| **#918–920** | Dep bumps: @supabase/supabase-js 2.110.0, @anthropic-ai/sdk 0.109.0, wrangler 4.106.0 | Jul 1 |
+| **#921** | feat(ai): register Anthropic as gateway provider; add `match_rationale` + digest narrative columns | Jul 1 |
+| **#922** | fix(supabase): reconcile 11 more remote-only migrations (**4th reconciliation in 4 days**) | Jul 1 |
+
+### Major schema work applied directly (Supabase MCP, no PR)
+
+**Jun 25**
+- `stripe_webhook_events_and_subscription_columns` — Stripe webhook events table + subscription columns
+- `create_supplier_applications_table` — new table replacing the supplier_profiles intake path
+- `add_regulatory_trajectory_and_coverage` — `hv_regulatory_trajectory` + coverage columns
+- Signal fixes: `fix_extract_signals_remove_dropped_columns`, `auto_review_scraped_signals_clean_headlines` (`hv_clean_scraped_headline` function), RLS grant for anon/authenticated on signals
+
+**Jun 26**
+- Full PostgREST `api_schema`: `create_api_user_roles_view`, `create_api_schema_admin_views`, `extend_api_schema_views_enterprise_ia_hub`
+- Wave 3 tables: `wave3_signal_engine_tables`, `wave3_network_tables`
+
+**Jun 27**
+- `regulatory_change_tracking_and_calendar` — new tables for regulatory event tracking + calendar view
+- `classify_import_status_33_countries` — import status seeded for 33 countries
+- `fix_null_source_types_and_scraper_state`
+- Education module 1 sections 09–15 seeded
+
+**Jun 28**
+- `create_cc_jurisdiction_briefings_schema` + `patch_cc_jurisdiction_briefings` — Command Centre jurisdiction briefings table (separate from `jurisdiction_briefings`)
+- `intelligence_job_queue` — distributed job queue tables
+- Education sections 16–18; Australia country briefing seeded
+- RLS hardening on cc_jurisdiction_briefings (3 separate passes to get anon+auth read right)
+- `add_cc_jurisdiction_briefings_confidence_href_columns`, `enable_rls_regulatory_field_changes_calendar`
+- `regulatory_signals_pipeline_missing_columns` — columns that the pipeline was writing to but that didn't exist
+
+**Jun 29**
+- Full intelligence pipeline stack: `source_registry`, `discovery`, `collection`, `intelligence`, `queue_and_review` tables + indexes/RLS/helpers (6 migrations)
+- Views: `jurisdiction_playbooks_regulator_drift_view`, `local_intel_jurisdiction_combined_view`
+- `seed_hv_regulatory_trajectory` — trajectory seed data
+- `expose_cc_jurisdiction_briefings_api_schema`, `grant_api_schema_permissions`
+
+**Jun 30**
+- Education module 2: sections 01–20 fully seeded
+- `seed_hv_regulatory_trajectory_remaining` — trajectory data for remaining countries
+- `add_match_rationale_columns` — for #921's Anthropic match rationale feature
+
+**Jul 1**
+- `fix_api_schema_views_rls_bypass`, `add_missing_api_schema_views` — RLS was bypassed in definer views; added views missed in first pass
+- `wire_extract_score_to_cron` — score extraction now fires on schedule
+- `corridor_intelligence_tables` — new trade corridor intel tables
+- `seed_professionals_jul2026_v3` — professionals directory refreshed
+- `fix_cron_trigger_auth_headers` + `_v2` — cron HTTP trigger missing auth headers; required two passes
+
+### Systemic issue: recurring migration drift
+
+This is the **4th drift reconciliation in 4 days** (PRs #915, #922, plus at least two others). Root cause: schema changes applied directly via Supabase MCP don't automatically generate migration files. Each session that applies MCP migrations without creating the corresponding `.sql` file creates drift that has to be reconciled later. Going forward, every `apply_migration` call should have a corresponding file committed to `supabase/migrations/`.
+
+### Status of items flagged in Jun 24 backward audit
+
+| Item | Status |
+|---|---|
+| Auth leaked password protection disabled | **Still open** — confirmed by today's security advisor |
+| Public bucket `public-assets` broad listing policy | **Still open** — confirmed today |
+| 13 tables RLS-on, no policy | **Worsened** — now 14 tables (supplier_applications added) |
+| 102 unindexed foreign keys | Unknown — no dedicated pass done |
+| 202 duplicate permissive RLS policies | Unknown |
+| `@tanstack/react-query` missing dep | Unknown |
+| Stripe API version mismatch | Unknown |
+| 17 test files failing on main | Unknown |
+| v2 worker not deployed | **Still open** — no host decision made |
+| PlaywrightDataAdapter still a mock | Unknown |
+
+### Open GitHub issues (Phase 0 epic)
+
+Issues #801, #802, #805 remain open. Still outstanding from the Phase 0 epic:
+- Counterparties full CRUD + market normalization
+- Watchlist rule builder UI
+- Genetics basic catalog search + details
+- Admin pending review polish
+
+### Current open PRs
+None.
+
+---
+
 ## Session: Jun 24 2026 (continued)
 
 ### Agent: Claude (Sonnet 4.6)
