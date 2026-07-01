@@ -51,6 +51,7 @@ export type CommandPage =
   | 'events'
   | 'experts'
   | 'banking'
+  | 'notifications'
 
 type PublicServiceProvider = {
   id: string
@@ -151,7 +152,8 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
       { id: 'events',      label: 'Events',          icon: '◷' },
       { id: 'experts',     label: 'Expert Directory', icon: '⊚' },
-      { id: 'banking',     label: 'Banking',          icon: '⊟' },
+      { id: 'banking',       label: 'Banking',          icon: '⊟' },
+      { id: 'notifications', label: 'Notifications',   icon: '◎' },
       { id: 'assistant',   label: 'AI Assistant',    icon: '◈' },
       { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
@@ -6105,6 +6107,415 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   )
 })
 
+// ── Notification Centre page ───────────────────────────────────────────────────
+
+type NotifSeverity = 'critical' | 'high' | 'medium' | 'info'
+type NotifCategory = 'regulatory' | 'corridor' | 'watchlist' | 'market' | 'compliance' | 'platform'
+
+type Notification = {
+  id:         string
+  severity:   NotifSeverity
+  category:   NotifCategory
+  title:      string
+  body:       string
+  country?:   string
+  date:       string
+  read?:      boolean
+  actionUrl?: string
+  actionLabel?: string
+}
+
+const NOTIF_SEVERITY_COLORS: Record<NotifSeverity, string> = {
+  critical: '#ef4444',
+  high:     '#f97316',
+  medium:   '#d4a84b',
+  info:     '#6b7280',
+}
+const NOTIF_SEVERITY_LABELS: Record<NotifSeverity, string> = {
+  critical: 'CRITICAL',
+  high:     'HIGH',
+  medium:   'MEDIUM',
+  info:     'INFO',
+}
+const NOTIF_CATEGORY_LABELS: Record<NotifCategory, string> = {
+  regulatory: 'Regulatory',
+  corridor:   'Corridor Alert',
+  watchlist:  'Watchlist',
+  market:     'Market Intel',
+  compliance: 'Compliance',
+  platform:   'Platform',
+}
+const NOTIF_CATEGORY_ICONS: Record<NotifCategory, string> = {
+  regulatory: '◷',
+  corridor:   '⬡',
+  watchlist:  '◈',
+  market:     '⊞',
+  compliance: '◫',
+  platform:   '◎',
+}
+
+const SEED_NOTIFICATIONS: Notification[] = [
+  {
+    id: 'n-de-cang-update',
+    severity: 'critical',
+    category: 'regulatory',
+    title: 'Germany CanG Amendment — Social Club Cap Revised',
+    body: 'The Bundesrat passed an amendment reducing the maximum membership capacity for Anbauvereinigungen from 500 to 300. Clubs above 300 members must apply for transitional exemption by 31 Aug 2026. Check your compliance posture immediately.',
+    country: 'DE',
+    date: '2026-06-28',
+    actionLabel: 'View Regulatory Watch',
+    actionUrl: '/dashboard?page=regulatory',
+  },
+  {
+    id: 'n-th-hemp-export',
+    severity: 'high',
+    category: 'corridor',
+    title: 'Thailand–EU Hemp Export Corridor: New Phytosanitary Requirements',
+    body: 'The EU Plant Health Authority (EUPHRESCO) issued updated import inspection protocols effective 1 Sep 2026 for hemp biomass from Thailand. TRACES NT pre-notification now mandatory 72h before arrival (previously 24h).',
+    country: 'TH',
+    date: '2026-06-27',
+    actionLabel: 'Access Pathway',
+    actionUrl: '/dashboard?page=access-pathway',
+  },
+  {
+    id: 'n-us-safe-banking',
+    severity: 'high',
+    category: 'regulatory',
+    title: 'SAFER Banking Act — Senate Floor Vote Scheduled',
+    body: 'Senate Majority Leader has scheduled a floor vote on the SAFER Banking Act for the week of 14 July 2026. If passed, the bill moves to conference with the House. Monitor closely — passage would unlock traditional US banking for plant-touching businesses.',
+    country: 'US',
+    date: '2026-06-26',
+    actionLabel: 'Banking Directory',
+    actionUrl: '/dashboard?page=banking',
+  },
+  {
+    id: 'n-pt-infarmed-quota',
+    severity: 'high',
+    category: 'regulatory',
+    title: 'Portugal INFARMED Annual Cultivation Quota Released',
+    body: 'INFARMED published the 2026/27 cultivation quota allocations. Total licensed area increased 18% YoY to 412 ha. New applications accepted until 15 Aug 2026. Full quota document available via the INFARMED portal.',
+    country: 'PT',
+    date: '2026-06-25',
+  },
+  {
+    id: 'n-il-imca-export-halt',
+    severity: 'critical',
+    category: 'corridor',
+    title: 'Israel IMCA: Temporary Export Suspension — Quality Review',
+    body: 'IMCA issued a temporary suspension on export certificates for Lot Series 2026-Q2 following a post-market quality audit. Affects exporters shipping EU-GMP flower to Germany and Czech Republic. Estimated suspension duration: 3–4 weeks.',
+    country: 'IL',
+    date: '2026-06-24',
+    actionLabel: 'View Corridor Intel',
+    actionUrl: '/dashboard?page=access-pathway',
+  },
+  {
+    id: 'n-nl-tolerance-review',
+    severity: 'medium',
+    category: 'regulatory',
+    title: 'Netherlands Gedoogbeleid Review: Government Consultation Open',
+    body: 'The Dutch Ministry of Health (VWS) has opened a public consultation on reforming the tolerance policy for coffeeshops ahead of the pilot cities\' supply chain experiment conclusions (expected Q4 2026). Stakeholder submissions accepted until 31 Jul 2026.',
+    country: 'NL',
+    date: '2026-06-23',
+  },
+  {
+    id: 'n-au-tga-guidance',
+    severity: 'medium',
+    category: 'compliance',
+    title: 'Australia TGA Updated Medicinal Cannabis Guidance: Label Requirements',
+    body: 'TGA published revised labelling guidelines for Schedule 8 medicinal cannabis products effective 1 Oct 2026. Key changes: THC content must now be expressed as mg/unit (not %) for all manufactured dose forms. Update product registrations before the deadline.',
+    country: 'AU',
+    date: '2026-06-22',
+  },
+  {
+    id: 'n-ca-hc-aha-update',
+    severity: 'medium',
+    category: 'regulatory',
+    title: 'Canada Health Canada — AHA Application Processing Backlog Warning',
+    body: 'Health Canada issued an advisory noting a 14-week average processing time for Annual Health Assessment renewals (standard SLA: 8 weeks). Licence holders should submit AHA renewals at least 20 weeks before expiry to avoid operational gaps.',
+    country: 'CA',
+    date: '2026-06-21',
+  },
+  {
+    id: 'n-za-dagga-project',
+    severity: 'medium',
+    category: 'regulatory',
+    title: 'South Africa: Cannabis for Private Purposes Bill — National Assembly Reading',
+    body: 'The Cannabis for Private Purposes Bill is listed for second reading in the National Assembly on 22 July 2026. If enacted, it would decriminalise adult private use and create a foundation for future commercial regulation under SAHPRA.',
+    country: 'ZA',
+    date: '2026-06-20',
+  },
+  {
+    id: 'n-ch-pilot-enrollment',
+    severity: 'medium',
+    category: 'regulatory',
+    title: 'Switzerland Cannabis Pilot Trials — Basel & Geneva Open Enrollment',
+    body: 'Basel-Stadt and Geneva have opened participant enrollment for the federal cannabis pilot trials under Art. 8a nBetmG. Pharmacies in both cantons will begin distribution in September 2026. Up to 5,000 adult participants per city.',
+    country: 'CH',
+    date: '2026-06-19',
+  },
+  {
+    id: 'n-gb-acmd-thcv',
+    severity: 'info',
+    category: 'regulatory',
+    title: 'UK ACMD Consultation: THCV Scheduling Review',
+    body: 'The Advisory Council on the Misuse of Drugs (ACMD) has launched a consultation on the scheduling of THCV following growing evidence of therapeutic potential. Interested parties may submit written evidence before 1 Sep 2026.',
+    country: 'GB',
+    date: '2026-06-18',
+  },
+  {
+    id: 'n-market-mjbiz-data',
+    severity: 'info',
+    category: 'market',
+    title: 'Global Cannabis Market Report Q2 2026 — Key Findings',
+    body: 'MJBizDaily\'s Q2 2026 global report projects the worldwide cannabis market to reach $84B by end of 2026, led by US adult-use ($39B), Canada ($4.9B), and Germany ($2.1B). European medical market growing at 31% YoY, fastest among regulated regions.',
+    date: '2026-06-17',
+  },
+  {
+    id: 'n-platform-signals',
+    severity: 'info',
+    category: 'platform',
+    title: 'Harbourview Intelligence: 47 New Regulatory Signals This Week',
+    body: 'The signal pipeline processed 47 new regulatory data points this week across 23 jurisdictions. Largest clusters: Germany (12), Netherlands (8), Thailand (6), Portugal (5). Visit the Intelligence page to review and triage.',
+    date: '2026-06-16',
+    actionLabel: 'Open Intelligence',
+    actionUrl: '/dashboard?page=signals',
+  },
+  {
+    id: 'n-co-colombia-decree',
+    severity: 'medium',
+    category: 'regulatory',
+    title: 'Colombia: Decree 613 — Medical Cannabis Export Simplification',
+    body: 'Colombia\'s Ministry of Justice issued Decree 613 streamlining the export certification process for cannabis derivatives. Single-window digital submission now replaces the 3-form paper process. Effective immediately for ICA-licensed exporters.',
+    country: 'CO',
+    date: '2026-06-15',
+  },
+  {
+    id: 'n-be-belgium-update',
+    severity: 'info',
+    category: 'regulatory',
+    title: 'Belgium: Federal Coalition Agreement Includes Medical Cannabis Expansion',
+    body: 'The newly formed Belgian federal coalition agreement includes a commitment to expand the medical cannabis access programme and establish a national regulatory framework by mid-2027. Currently only compassionate use is permitted.',
+    country: 'BE',
+    date: '2026-06-14',
+  },
+]
+
+const NotificationCentrePage = React.memo(function NotificationCentrePage({
+  country, role,
+}: { country: string; region: string; role: string }) {
+  const [readIds,      setReadIds]      = useState<Set<string>>(new Set())
+  const [filterCat,   setFilterCat]    = useState<NotifCategory | 'all'>('all')
+  const [filterSev,   setFilterSev]    = useState<NotifSeverity | 'all'>('all')
+  const [showRead,    setShowRead]     = useState(false)
+
+  const allNotifs = useMemo(() => {
+    let list = SEED_NOTIFICATIONS.slice()
+    if (country) list = list.filter(n => !n.country || n.country === country || true)
+    return list.sort((a, b) => b.date.localeCompare(a.date))
+  }, [country])
+
+  const filtered = useMemo(() => {
+    return allNotifs.filter(n => {
+      if (!showRead && readIds.has(n.id)) return false
+      if (filterCat !== 'all' && n.category !== filterCat) return false
+      if (filterSev !== 'all' && n.severity !== filterSev) return false
+      return true
+    })
+  }, [allNotifs, readIds, filterCat, filterSev, showRead])
+
+  const unreadCount = allNotifs.filter(n => !readIds.has(n.id)).length
+
+  const markRead  = (id: string) => setReadIds(prev => new Set([...prev, id]))
+  const markAllRead = () => setReadIds(new Set(allNotifs.map(n => n.id)))
+
+  const catCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const n of allNotifs) if (!readIds.has(n.id)) m[n.category] = (m[n.category] ?? 0) + 1
+    return m
+  }, [allNotifs, readIds])
+
+  const sevCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const n of allNotifs) if (!readIds.has(n.id)) m[n.severity] = (m[n.severity] ?? 0) + 1
+    return m
+  }, [allNotifs, readIds])
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.nc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.nc-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.nc-unread-badge { background: rgba(239,68,68,.2); border: 1px solid rgba(239,68,68,.4); border-radius: 10px; padding: 2px 8px; font-size: .74rem; color: #ef4444; font-weight: 700; }
+.nc-mark-all { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 5px 12px; color: #9090a0; font-size: .75rem; cursor: pointer; }
+.nc-mark-all:hover { color: #f5f0e8; }
+.nc-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.nc-filter-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 3px 11px; color: #8a8a9a; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.nc-filter-btn.active { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.nc-filter-btn:hover:not(.active) { color: #f5f0e8; border-color: rgba(255,255,255,.2); }
+.nc-show-read { font-size: .74rem; color: #6b7280; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 3px 0; }
+.nc-notif { border-radius: 10px; border: 1px solid rgba(255,255,255,.08); padding: 14px; margin-bottom: 8px; transition: border-color .15s; position: relative; }
+.nc-notif:hover { border-color: rgba(212,168,75,.25); }
+.nc-notif.read { opacity: .5; }
+.nc-notif-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.nc-sev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.nc-notif-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; align-items: center; }
+.nc-sev-chip { font-size: .65rem; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+.nc-cat-chip { font-size: .68rem; padding: 1px 6px; border-radius: 8px; background: rgba(255,255,255,.08); color: #9090a0; }
+.nc-date { font-size: .68rem; color: #6b7280; }
+.nc-flag { font-size: .9rem; }
+.nc-notif-title { font-size: .88rem; font-weight: 600; color: #f5f0e8; line-height: 1.35; margin-bottom: 5px; }
+.nc-notif-body { font-size: .78rem; color: #9090a0; line-height: 1.5; }
+.nc-notif-actions { display: flex; gap: 8px; margin-top: 10px; }
+.nc-action-btn { font-size: .73rem; color: #d4a84b; background: rgba(212,168,75,.1); border: 1px solid rgba(212,168,75,.3); border-radius: 5px; padding: 4px 10px; cursor: pointer; text-decoration: none; }
+.nc-action-btn:hover { background: rgba(212,168,75,.2); }
+.nc-dismiss-btn { font-size: .73rem; color: #6b7280; background: transparent; border: none; cursor: pointer; margin-left: auto; }
+.nc-dismiss-btn:hover { color: #9090a0; }
+.nc-empty { text-align: center; padding: 40px 20px; color: #6b7280; font-size: .85rem; }
+        `}</style>
+
+        <div className="nc-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="nc-title">Notification Centre</div>
+            {unreadCount > 0 && <span className="nc-unread-badge">{unreadCount} unread</span>}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="nc-show-read" onClick={() => setShowRead(v => !v)}>
+              <span style={{ width: 14, height: 14, border: '1px solid #6b7280', borderRadius: 3, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '.6rem' }}>
+                {showRead ? '✓' : ''}
+              </span>
+              Show read
+            </span>
+            {unreadCount > 0 && <button className="nc-mark-all" onClick={markAllRead}>Mark all read</button>}
+          </div>
+        </div>
+
+        {/* Category filters */}
+        <div className="nc-filters">
+          <button className={`nc-filter-btn${filterCat === 'all' ? ' active' : ''}`} onClick={() => setFilterCat('all')}>All</button>
+          {(Object.keys(NOTIF_CATEGORY_LABELS) as NotifCategory[]).map(c => (
+            <button key={c} className={`nc-filter-btn${filterCat === c ? ' active' : ''}`} onClick={() => setFilterCat(c)}>
+              {NOTIF_CATEGORY_ICONS[c]} {NOTIF_CATEGORY_LABELS[c]}
+              {(catCounts[c] ?? 0) > 0 && <span style={{ marginLeft: 4, background: 'rgba(212,168,75,.3)', borderRadius: 8, padding: '0 4px', fontSize: '.65rem', color: '#d4a84b' }}>{catCounts[c]}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Severity filters */}
+        <div className="nc-filters" style={{ marginBottom: 16 }}>
+          <button className={`nc-filter-btn${filterSev === 'all' ? ' active' : ''}`} onClick={() => setFilterSev('all')}>Any Severity</button>
+          {(Object.keys(NOTIF_SEVERITY_LABELS) as NotifSeverity[]).map(s => (
+            <button key={s} className={`nc-filter-btn${filterSev === s ? ' active' : ''}`}
+              style={filterSev === s ? {} : { color: NOTIF_SEVERITY_COLORS[s] + 'cc' }}
+              onClick={() => setFilterSev(s)}>
+              {NOTIF_SEVERITY_LABELS[s]}
+              {(sevCounts[s] ?? 0) > 0 && <span style={{ marginLeft: 4, opacity: .7 }}>{sevCounts[s]}</span>}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="nc-empty">
+            {showRead ? 'No notifications match your filters.' : 'All caught up — no unread notifications.'}
+          </div>
+        )}
+
+        {filtered.map(n => {
+          const isRead = readIds.has(n.id)
+          return (
+            <div key={n.id} className={`nc-notif${isRead ? ' read' : ''}`}
+              style={{ background: isRead ? 'rgba(255,255,255,.02)' : `rgba(${n.severity === 'critical' ? '239,68,68' : n.severity === 'high' ? '249,115,22' : '255,255,255'},.04)` }}>
+              <div className="nc-notif-top">
+                <div className="nc-sev-dot" style={{ background: NOTIF_SEVERITY_COLORS[n.severity] }} />
+                <div style={{ flex: 1 }}>
+                  <div className="nc-notif-meta">
+                    <span className="nc-sev-chip" style={{ background: NOTIF_SEVERITY_COLORS[n.severity] + '28', color: NOTIF_SEVERITY_COLORS[n.severity], border: `1px solid ${NOTIF_SEVERITY_COLORS[n.severity]}55` }}>
+                      {NOTIF_SEVERITY_LABELS[n.severity]}
+                    </span>
+                    <span className="nc-cat-chip">{NOTIF_CATEGORY_ICONS[n.category]} {NOTIF_CATEGORY_LABELS[n.category]}</span>
+                    {n.country && <span className="nc-flag">{flagEmoji(n.country)}</span>}
+                    <span className="nc-date">{n.date}</span>
+                  </div>
+                  <div className="nc-notif-title">{n.title}</div>
+                  <div className="nc-notif-body">{n.body}</div>
+                  {(n.actionLabel || !isRead) && (
+                    <div className="nc-notif-actions">
+                      {n.actionLabel && (
+                        <span className="nc-action-btn">{n.actionLabel} →</span>
+                      )}
+                      {!isRead && (
+                        <button className="nc-dismiss-btn" onClick={() => markRead(n.id)}>Mark read ✕</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Summary */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Alert Summary</div>
+          {(Object.keys(NOTIF_SEVERITY_LABELS) as NotifSeverity[]).map(s => {
+            const count = allNotifs.filter(n => n.severity === s).length
+            return (
+              <div key={s} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7, cursor: 'pointer' }}
+                onClick={() => setFilterSev(filterSev === s ? 'all' : s)}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: NOTIF_SEVERITY_COLORS[s], display: 'inline-block' }} />
+                  <span style={{ fontSize: '.78rem', color: filterSev === s ? '#d4a84b' : '#b0b0c0' }}>{NOTIF_SEVERITY_LABELS[s]}</span>
+                </span>
+                <span style={{ fontSize: '.88rem', fontWeight: 700, color: NOTIF_SEVERITY_COLORS[s] }}>{count}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* By category */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>By Category</div>
+          {(Object.keys(NOTIF_CATEGORY_LABELS) as NotifCategory[]).map(c => {
+            const count = allNotifs.filter(n => n.category === c).length
+            if (!count) return null
+            return (
+              <div key={c} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, cursor: 'pointer' }}
+                onClick={() => setFilterCat(filterCat === c ? 'all' : c)}>
+                <span style={{ fontSize: '.78rem', color: filterCat === c ? '#d4a84b' : '#b0b0c0' }}>
+                  {NOTIF_CATEGORY_ICONS[c]} {NOTIF_CATEGORY_LABELS[c]}
+                </span>
+                <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#f5f0e8' }}>{count}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Critical alerts callout */}
+        {allNotifs.some(n => n.severity === 'critical' && !readIds.has(n.id)) && (
+          <div style={{ background: 'rgba(239,68,68,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(239,68,68,.3)' }}>
+            <div style={{ fontSize: '.72rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Action Required</div>
+            <div style={{ fontSize: '.78rem', color: '#b0b0c0', lineHeight: 1.5 }}>
+              You have {allNotifs.filter(n => n.severity === 'critical' && !readIds.has(n.id)).length} critical unread alert{allNotifs.filter(n => n.severity === 'critical' && !readIds.has(n.id)).length !== 1 ? 's' : ''} that may require immediate review.
+            </div>
+          </div>
+        )}
+
+        {/* Preferences note */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Alert Preferences</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Customise which jurisdictions, corridors, and categories trigger alerts. Email and Slack delivery available on Pro plans.</div>
+          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+            Configure Alerts
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -6598,6 +7009,8 @@ export default function CommandCentre({
         return <ExpertDirectoryPage country={country} region={region} role={roleLabel} />
       case 'banking':
         return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
+      case 'notifications':
+        return <NotificationCentrePage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
