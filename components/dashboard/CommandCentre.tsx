@@ -26,6 +26,7 @@ import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/cor
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
 import { PRICE_BENCHMARKS, PRODUCT_TYPE_LABELS, PRODUCT_TYPE_ICONS, TIER_LABELS, TIER_COLORS, type PriceBenchmark } from './data/priceIntelligence'
+import { LOGISTICS_PROVIDERS, LOGISTICS_TYPE_LABELS, LOGISTICS_TYPE_COLORS, type LogisticsType } from './data/logisticsProviders'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ export type CommandPage =
   | 'notifications'
   | 'kyb'
   | 'prices'
+  | 'logistics'
 
 type PublicServiceProvider = {
   id: string
@@ -157,6 +159,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'experts',       label: 'Expert Directory', icon: '⊚' },
       { id: 'banking',       label: 'Banking',          icon: '⊟' },
       { id: 'prices',        label: 'Price Intel',      icon: '⊕' },
+      { id: 'logistics',     label: 'Logistics',        icon: '⬡' },
       { id: 'notifications', label: 'Notifications',    icon: '◎' },
       { id: 'kyb',           label: 'KYB / Verify',     icon: '◫' },
       { id: 'assistant',     label: 'AI Assistant',     icon: '◈' },
@@ -7217,6 +7220,185 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   )
 })
 
+// ── Logistics Directory page ───────────────────────────────────────────────────
+
+const LOGISTICS_SPECIALTY_LABELS: Record<string, string> = {
+  'controlled-substance': 'Controlled Substance',
+  'gdp-compliant':        'GDP Compliant',
+  'eu-import':            'EU Import Specialist',
+  'pharma-grade':         'Pharma-Grade Handling',
+  'air-freight':          'Air Freight',
+  'sea-freight':          'Sea Freight',
+  'road-freight':         'Road Freight',
+}
+
+const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
+  country,
+}: { country: string; region: string; role: string }) {
+  const [search,       setSearch]       = useState('')
+  const [filterType,   setFilterType]   = useState<LogisticsType | 'all'>('all')
+  const [filterRegion, setFilterRegion] = useState<string>('all')
+  const [expanded,     setExpanded]     = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    const ql = search.toLowerCase()
+    return LOGISTICS_PROVIDERS.filter(p => {
+      if (filterType   !== 'all' && p.type   !== filterType)   return false
+      if (filterRegion !== 'all' && !p.regions.includes(filterRegion)) return false
+      if (search && !p.name.toLowerCase().includes(ql) && !p.description.toLowerCase().includes(ql)) return false
+      return true
+    })
+  }, [search, filterType, filterRegion])
+
+  const typeCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const p of LOGISTICS_PROVIDERS) m[p.type] = (m[p.type] ?? 0) + 1
+    return m
+  }, [])
+
+  const types    = Object.keys(LOGISTICS_TYPE_LABELS) as LogisticsType[]
+  const regions  = ['Europe', 'Americas', 'Asia-Pacific', 'Africa']
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.log-header { margin-bottom: 16px; }
+.log-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.log-sub { font-size: .78rem; color: #8a8a9a; margin-top: 3px; }
+.log-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.log-search { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 7px 12px; color: #f5f0e8; font-size: .82rem; width: 200px; outline: none; }
+.log-search:focus { border-color: #d4a84b; }
+.log-filter-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 3px 11px; color: #8a8a9a; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.log-filter-btn.active { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.log-filter-btn:hover:not(.active) { color: #f5f0e8; border-color: rgba(255,255,255,.2); }
+.log-results { font-size: .74rem; color: #6b7280; margin-bottom: 10px; }
+.log-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; margin-bottom: 10px; overflow: hidden; transition: border-color .15s; }
+.log-card:hover { border-color: rgba(212,168,75,.3); }
+.log-card-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.log-card-name { font-size: .9rem; font-weight: 600; color: #f5f0e8; flex: 1; }
+.log-type-chip { font-size: .68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.log-featured-badge { font-size: .62rem; padding: 1px 6px; background: rgba(212,168,75,.2); border: 1px solid rgba(212,168,75,.4); border-radius: 8px; color: #d4a84b; font-weight: 700; margin-left: 4px; }
+.log-card-body { padding: 0 14px 14px; border-top: 1px solid rgba(255,255,255,.05); padding-top: 12px; }
+.log-desc { font-size: .8rem; color: #b0b0c0; line-height: 1.5; margin-bottom: 10px; }
+.log-spec-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.log-spec-chip { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 4px; padding: 2px 7px; font-size: .68rem; color: #9090a0; }
+.log-flags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.log-cta-row { display: flex; gap: 8px; }
+.log-visit-btn { background: rgba(212,168,75,.15); border: 1px solid rgba(212,168,75,.4); border-radius: 6px; padding: 5px 12px; color: #d4a84b; font-size: .76rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+.log-enquire-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 5px 12px; color: #d0cfc8; font-size: .76rem; cursor: pointer; }
+        `}</style>
+
+        <div className="log-header">
+          <div className="log-title">Logistics &amp; Shipping Directory</div>
+          <div className="log-sub">Cannabis freight forwarders, customs brokers, cold-chain specialists, and armoured transport</div>
+        </div>
+
+        <div className="log-filters">
+          <input className="log-search" placeholder="Search providers…" value={search} onChange={e => setSearch(e.target.value)} />
+          <button className={`log-filter-btn${filterType === 'all' ? ' active' : ''}`} onClick={() => setFilterType('all')}>All Types</button>
+          {types.map(t => (
+            <button key={t} className={`log-filter-btn${filterType === t ? ' active' : ''}`} onClick={() => setFilterType(t)}>
+              {LOGISTICS_TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+        <div className="log-filters" style={{ marginBottom: 12 }}>
+          <button className={`log-filter-btn${filterRegion === 'all' ? ' active' : ''}`} onClick={() => setFilterRegion('all')}>All Regions</button>
+          {regions.map(r => (
+            <button key={r} className={`log-filter-btn${filterRegion === r ? ' active' : ''}`} onClick={() => setFilterRegion(r)}>{r}</button>
+          ))}
+        </div>
+
+        <div className="log-results">{filtered.length} provider{filtered.length !== 1 ? 's' : ''}</div>
+
+        {filtered.map(p => (
+          <div key={p.id} className="log-card">
+            <div className="log-card-header" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+              <div style={{ flex: 1 }}>
+                <div className="log-card-name">
+                  {p.name}
+                  {p.featured && <span className="log-featured-badge">FEATURED</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span className="log-type-chip" style={{ background: LOGISTICS_TYPE_COLORS[p.type] + '28', color: LOGISTICS_TYPE_COLORS[p.type], border: `1px solid ${LOGISTICS_TYPE_COLORS[p.type]}55` }}>
+                    {LOGISTICS_TYPE_LABELS[p.type]}
+                  </span>
+                  {p.countries.slice(0, 6).map(c => (
+                    <span key={c} style={{ fontSize: '1rem' }}>{flagEmoji(c)}</span>
+                  ))}
+                  {p.countries.length > 6 && <span style={{ fontSize: '.72rem', color: '#6b7280' }}>+{p.countries.length - 6}</span>}
+                </div>
+              </div>
+              <span style={{ color: '#6b7280', fontSize: '.8rem', transition: 'transform .2s', transform: expanded === p.id ? 'rotate(90deg)' : 'none' }}>▶</span>
+            </div>
+
+            {expanded === p.id && (
+              <div className="log-card-body">
+                <p className="log-desc">{p.description}</p>
+                <div style={{ fontSize: '.74rem', color: '#8a8a9a', marginBottom: 5 }}>Specialities</div>
+                <div className="log-spec-row">
+                  {p.specialties.map(s => <span key={s} className="log-spec-chip">{LOGISTICS_SPECIALTY_LABELS[s] ?? s}</span>)}
+                </div>
+                <div style={{ fontSize: '.74rem', color: '#8a8a9a', marginBottom: 6 }}>Countries served</div>
+                <div className="log-flags">
+                  {p.countries.map(c => <span key={c} title={c} style={{ fontSize: '1.05rem' }}>{flagEmoji(c)}</span>)}
+                </div>
+                <div className="log-cta-row">
+                  {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="log-visit-btn">Visit Website →</a>}
+                  <button className="log-enquire-btn">Request Quote</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Directory Stats</div>
+          {([
+            ['Total Providers', LOGISTICS_PROVIDERS.length],
+            ['GDP Compliant', LOGISTICS_PROVIDERS.filter(p => p.specialties.includes('gdp-compliant')).length],
+            ['Controlled Substance', LOGISTICS_PROVIDERS.filter(p => p.specialties.includes('controlled-substance')).length],
+            ['Regions Covered', new Set(LOGISTICS_PROVIDERS.flatMap(p => p.regions)).size],
+          ] as [string, number][]).map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+              <span style={{ fontSize: '.9rem', fontWeight: 700, color: '#d4a84b' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>By Type</div>
+          {types.filter(t => (typeCounts[t] ?? 0) > 0).map(t => (
+            <div key={t} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, cursor: 'pointer' }}
+              onClick={() => setFilterType(filterType === t ? 'all' : t)}>
+              <span style={{ fontSize: '.78rem', color: filterType === t ? '#d4a84b' : '#b0b0c0' }}>{LOGISTICS_TYPE_LABELS[t]}</span>
+              <span style={{ fontSize: '.82rem', fontWeight: 700, color: LOGISTICS_TYPE_COLORS[t] }}>{typeCounts[t]}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'rgba(212,168,75,.07)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(212,168,75,.2)' }}>
+          <div style={{ fontSize: '.72rem', color: '#d4a84b', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Key Requirement</div>
+          <div style={{ fontSize: '.78rem', color: '#b0b0c0', lineHeight: 1.5 }}>
+            All cannabis cross-border shipments require a transaction-specific import permit from the destination country AND an export authorisation from the origin country. GDP-compliance and cold-chain documentation are mandatory for EU medical imports.
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Know a provider?</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Submit cannabis-experienced logistics providers to help the industry navigate controlled-substance shipping.</div>
+          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>Submit a Provider</button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -7712,6 +7894,8 @@ export default function CommandCentre({
         return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
       case 'prices':
         return <PriceIntelligencePage country={country} region={region} role={roleLabel} />
+      case 'logistics':
+        return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} />
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} />
       case 'kyb':
