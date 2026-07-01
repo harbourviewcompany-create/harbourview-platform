@@ -23,6 +23,7 @@ import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 import { DealRoomsPanel } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
+import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export type CommandPage =
   | 'countries'
   | 'assistant'
   | 'documents'
+  | 'events'
 
 type PublicServiceProvider = {
   id: string
@@ -144,6 +146,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
       { id: 'compliance',  label: 'Compliance',  icon: '◫' },
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
+      { id: 'events',      label: 'Events',       icon: '◷' },
       { id: 'assistant',   label: 'AI Assistant', icon: '◈' },
       { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
@@ -5511,6 +5514,344 @@ const DOC_CSS = `
 .doc-cat-summary:last-child { border-bottom: none; }
 `
 
+// ── Events page ───────────────────────────────────────────────────────────────
+
+const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
+
+function evtDateRange(e: CannabisEvent): string {
+  const fmt = (s: string) => {
+    const d = new Date(s + 'T00:00:00')
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  if (!e.dateEnd || e.dateEnd === e.dateStart) return fmt(e.dateStart)
+  const s = new Date(e.dateStart + 'T00:00:00')
+  const f = new Date(e.dateEnd   + 'T00:00:00')
+  const sameMonth = s.getMonth() === f.getMonth() && s.getFullYear() === f.getFullYear()
+  if (sameMonth) {
+    return `${s.getDate()}–${f.getDate()} ${s.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
+  }
+  return `${fmt(e.dateStart)} – ${fmt(e.dateEnd)}`
+}
+
+function evtMonthKey(e: CannabisEvent): string {
+  const d = new Date(e.dateStart + 'T00:00:00')
+  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
+
+function evtIsUpcoming(e: CannabisEvent): boolean {
+  const end = e.dateEnd ?? e.dateStart
+  return new Date(end + 'T23:59:59') >= new Date()
+}
+
+function evtIsRelevant(e: CannabisEvent, role: string): boolean {
+  if (!role) return false
+  if (e.roles.includes('all')) return true
+  const rl = role.toLowerCase()
+  return e.roles.some(r => rl.includes(r))
+}
+
+const EventsPage = React.memo(function EventsPage({
+  country, role,
+}: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+}) {
+  const [search,     setSearch]     = useState('')
+  const [region,     setRegion]     = useState<string>('')
+  const [typeFilter, setTypeFilter] = useState<string>('')
+  const [tab,        setTab]        = useState<'upcoming' | 'past'>('upcoming')
+  const [submitName,     setSubmitName]     = useState('')
+  const [submitCity,     setSubmitCity]     = useState('')
+  const [submitDate,     setSubmitDate]     = useState('')
+  const [submitOrg,      setSubmitOrg]      = useState('')
+  const [submitUrl,      setSubmitUrl]      = useState('')
+  const [submitSent,     setSubmitSent]     = useState(false)
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return INDUSTRY_EVENTS.filter(e => {
+      const matchUpcoming = tab === 'upcoming' ? evtIsUpcoming(e) : !evtIsUpcoming(e)
+      const matchSearch   = !q || e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) ||
+                            e.organizer.toLowerCase().includes(q) || e.focus.some(f => f.toLowerCase().includes(q))
+      const matchRegion   = !region     || e.region === region
+      const matchType     = !typeFilter || e.type   === typeFilter
+      return matchUpcoming && matchSearch && matchRegion && matchType
+    })
+  }, [search, region, typeFilter, tab])
+
+  // Group by month
+  const grouped = useMemo(() => {
+    const map: Map<string, CannabisEvent[]> = new Map()
+    filtered.forEach(e => {
+      const mk = evtMonthKey(e)
+      if (!map.has(mk)) map.set(mk, [])
+      map.get(mk)!.push(e)
+    })
+    return Array.from(map.entries())
+  }, [filtered])
+
+  const relevantCount = useMemo(() =>
+    filtered.filter(e => evtIsRelevant(e, role)).length,
+    [filtered, role],
+  )
+
+  return (
+    <div className="cc-page cc-two-col-page">
+      <div className="cc-two-main" style={{ overflowY: 'auto' }}>
+        <div className="cc-inner-header">
+          <h2>Industry Events Calendar</h2>
+          <p>Global cannabis industry events — conferences, expos, workshops, and webinars across all jurisdictions. {relevantCount > 0 && role ? `${relevantCount} relevant to ${role}.` : ''}</p>
+        </div>
+
+        {/* Tab + filters row */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 24px 0' }}>
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,.07)' }}>
+            {(['upcoming', 'past'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                background: 'transparent',
+                color: tab === t ? '#d4a84b' : 'rgba(245,240,232,.4)',
+                borderBottom: tab === t ? '2px solid #d4a84b' : '2px solid transparent',
+                marginBottom: '-1px', textTransform: 'capitalize',
+              }}>{t === 'upcoming' ? 'Upcoming' : 'Past Events'}</button>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '4px' }}>
+            <input
+              type="text" placeholder="Search events, locations, organizers…"
+              value={search} onChange={e => setSearch(e.target.value)}
+              style={{
+                flex: '1 1 200px', background: 'rgba(255,255,255,.04)',
+                border: '1px solid rgba(255,255,255,.1)', borderRadius: '8px',
+                color: '#f5f0e8', fontSize: '12px', padding: '7px 12px', outline: 'none',
+              }}
+            />
+            <select value={region} onChange={e => setRegion(e.target.value)} style={{
+              background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+              borderRadius: '8px', color: region ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+              fontSize: '12px', padding: '7px 12px', outline: 'none',
+            }}>
+              <option value="">All regions</option>
+              {REGION_OPTIONS.map(r => <option key={r} value={r} style={{ background: '#050c18' }}>{r}</option>)}
+            </select>
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{
+              background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)',
+              borderRadius: '8px', color: typeFilter ? '#f5f0e8' : 'rgba(245,240,232,.4)',
+              fontSize: '12px', padding: '7px 12px', outline: 'none',
+            }}>
+              <option value="">All types</option>
+              {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
+                <option key={k} value={k} style={{ background: '#050c18' }}>{v}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Event list */}
+        <div style={{ padding: '8px 24px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {grouped.length === 0 && (
+            <div className="cc-empty-state">
+              <span>◷</span>
+              <p>No events match your filters.</p>
+            </div>
+          )}
+
+          {grouped.map(([month, events]) => (
+            <div key={month}>
+              <div style={{ fontSize: '9px', letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(245,240,232,.28)', marginBottom: '10px', fontWeight: 700 }}>
+                {month}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {events.map(ev => {
+                  const isRelevant = evtIsRelevant(ev, role)
+                  const typeColor  = EVENT_TYPE_COLORS[ev.type]
+                  return (
+                    <div key={ev.id} style={{
+                      borderRadius: '10px', overflow: 'hidden',
+                      border: ev.featured
+                        ? '1px solid rgba(212,168,75,.35)'
+                        : isRelevant
+                          ? '1px solid rgba(76,175,130,.25)'
+                          : '1px solid rgba(255,255,255,.07)',
+                      background: ev.featured
+                        ? 'rgba(212,168,75,.03)'
+                        : isRelevant
+                          ? 'rgba(76,175,130,.03)'
+                          : 'rgba(255,255,255,.02)',
+                    }}>
+                      <div style={{ padding: '12px 16px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                        {/* Date badge */}
+                        <div style={{
+                          flexShrink: 0, width: '44px', textAlign: 'center',
+                          background: 'rgba(255,255,255,.04)', borderRadius: '7px',
+                          padding: '6px 4px', border: '1px solid rgba(255,255,255,.08)',
+                        }}>
+                          <div style={{ fontSize: '17px', color: ev.featured ? '#d4a84b' : '#f5f0e8', fontWeight: 700, lineHeight: 1 }}>
+                            {new Date(ev.dateStart + 'T00:00:00').getDate()}
+                          </div>
+                          <div style={{ fontSize: '8px', color: 'rgba(245,240,232,.4)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: '2px' }}>
+                            {new Date(ev.dateStart + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short' })}
+                          </div>
+                        </div>
+
+                        {/* Main content */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {/* Name + badges */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', flexWrap: 'wrap', marginBottom: '3px' }}>
+                            <span style={{ fontSize: '13px', color: ev.featured ? '#d4a84b' : '#f5f0e8', fontWeight: 600, lineHeight: 1.3, flex: '1 1 auto' }}>
+                              {ev.name}
+                            </span>
+                            {ev.featured && (
+                              <span style={{ fontSize: '8px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.3)', color: '#d4a84b', fontWeight: 700, letterSpacing: '.08em', flexShrink: 0 }}>FEATURED</span>
+                            )}
+                            {isRelevant && (
+                              <span style={{ fontSize: '8px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(76,175,130,.15)', border: '1px solid rgba(76,175,130,.3)', color: '#4caf82', fontWeight: 700, letterSpacing: '.08em', flexShrink: 0 }}>RELEVANT</span>
+                            )}
+                          </div>
+
+                          {/* Location + date + type */}
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '5px' }}>
+                            <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)' }}>
+                              {ev.countryIso2 !== 'ONLINE' ? `${flagEmoji(ev.countryIso2)} ` : '🌐 '}{ev.city}
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.28)' }}>·</span>
+                            <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.4)' }}>{evtDateRange(ev)}</span>
+                            <span style={{ fontSize: '10px', color: 'rgba(245,240,232,.28)' }}>·</span>
+                            <span style={{
+                              fontSize: '9px', padding: '1px 6px', borderRadius: '4px', fontWeight: 600,
+                              background: `${typeColor}14`, border: `1px solid ${typeColor}30`, color: typeColor,
+                            }}>{EVENT_TYPE_LABELS[ev.type]}</span>
+                          </div>
+
+                          {/* Organizer */}
+                          <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.38)', marginBottom: '5px' }}>by {ev.organizer}</div>
+
+                          {/* Description */}
+                          <p style={{ fontSize: '11px', color: 'rgba(245,240,232,.6)', lineHeight: 1.5, margin: '0 0 7px' }}>{ev.description}</p>
+
+                          {/* Focus tags + CTA */}
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {ev.focus.slice(0, 5).map(f => (
+                              <span key={f} style={{ fontSize: '9px', padding: '1px 7px', borderRadius: '4px', background: 'rgba(91,155,213,.07)', border: '1px solid rgba(91,155,213,.18)', color: '#5b9bd5' }}>{f}</span>
+                            ))}
+                            {ev.url && (
+                              <a href={ev.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', fontSize: '10px', color: '#d4a84b', textDecoration: 'none', flexShrink: 0 }}>
+                                Learn more →
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="cc-feed-footer">
+          <span>{INDUSTRY_EVENTS.filter(evtIsUpcoming).length} upcoming events · Curated by Harbourview · Updated July 2026</span>
+          <button
+            className="cc-right-link"
+            onClick={() => {
+              const el = document.getElementById('cc-events-submit')
+              el?.scrollIntoView({ behavior: 'smooth' })
+            }}
+          >Submit an event →</button>
+        </div>
+      </div>
+
+      {/* Right panel */}
+      <div className="cc-two-right">
+        <div style={{ padding: '16px' }}>
+
+          {/* Quick stats */}
+          <div style={{ marginBottom: '18px' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>EVENTS OVERVIEW</div>
+            {[
+              { lbl: 'Upcoming events',   val: String(INDUSTRY_EVENTS.filter(evtIsUpcoming).length) },
+              { lbl: 'Countries covered', val: String(new Set(INDUSTRY_EVENTS.filter(evtIsUpcoming).map(e => e.countryIso2)).size) },
+              { lbl: 'Regions',           val: '6' },
+              { lbl: `Relevant to ${role || 'you'}`, val: String(INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role)).length) },
+            ].map(({ lbl, val }) => (
+              <div key={lbl} className="cc-metric-row">
+                <span className="cc-metric-name">{lbl}</span>
+                <span className="cc-metric-value">{val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Next featured */}
+          {(() => {
+            const next = INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && e.featured)[0]
+            if (!next) return null
+            return (
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>NEXT FEATURED EVENT</div>
+                <div style={{ padding: '10px 12px', background: 'rgba(212,168,75,.05)', border: '1px solid rgba(212,168,75,.2)', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#d4a84b', fontWeight: 600, marginBottom: '3px' }}>{next.name}</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.5)', marginBottom: '3px' }}>{flagEmoji(next.countryIso2)} {next.city} · {evtDateRange(next)}</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(245,240,232,.35)' }}>{next.organizer}</div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* By region breakdown */}
+          <div style={{ marginBottom: '18px' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>UPCOMING BY REGION</div>
+            {REGION_OPTIONS.map(r => {
+              const cnt = INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && e.region === r).length
+              if (cnt === 0) return null
+              return (
+                <div key={r} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                  <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)' }}>{r}</span>
+                  <span style={{ fontSize: '11px', color: '#d4a84b', fontWeight: 600 }}>{cnt}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Submit event form */}
+          <div id="cc-events-submit">
+            <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>SUBMIT AN EVENT</div>
+            {submitSent ? (
+              <div style={{ fontSize: '11px', color: '#4caf82' }}>✓ Thank you — we'll review and add it to the calendar.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {[
+                  { ph: 'Event name', val: submitName, set: setSubmitName },
+                  { ph: 'City / Country', val: submitCity, set: setSubmitCity },
+                  { ph: 'Date (e.g. Nov 15–17, 2027)', val: submitDate, set: setSubmitDate },
+                  { ph: 'Organizer', val: submitOrg, set: setSubmitOrg },
+                  { ph: 'Event URL', val: submitUrl, set: setSubmitUrl },
+                ].map(({ ph, val, set }) => (
+                  <input
+                    key={ph} type="text" placeholder={ph} value={val}
+                    onChange={e => set(e.target.value)}
+                    style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: '6px', color: '#f5f0e8', fontSize: '11px', padding: '6px 10px', outline: 'none' }}
+                  />
+                ))}
+                <button
+                  onClick={() => { if (submitName && submitCity) setSubmitSent(true) }}
+                  style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, marginTop: '2px' }}
+                >
+                  Submit Event
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CommandCentre({
@@ -5660,6 +6001,8 @@ export default function CommandCentre({
         return <AssistantPage country={country} region={region} role={roleLabel} />
       case 'documents':
         return <DocumentsPage country={country} region={region} role={roleLabel} />
+      case 'events':
+        return <EventsPage country={country} region={region} role={roleLabel} />
       default:
         return null
     }
