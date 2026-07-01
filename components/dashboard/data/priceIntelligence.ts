@@ -1,0 +1,196 @@
+export type ProductType = 'flower' | 'biomass' | 'distillate' | 'oil' | 'concentrate' | 'pre-roll' | 'hash'
+export type QualityTier = 'premium' | 'standard' | 'economy'
+export type PriceTrend  = 'up' | 'down' | 'stable'
+export type PriceUnit   = 'kg' | 'gram' | 'unit'
+
+export type PriceBenchmark = {
+  id:          string
+  country:     string   // ISO2
+  region:      string
+  product:     ProductType
+  tier:        QualityTier
+  currency:    string
+  minPrice:    number
+  maxPrice:    number
+  unit:        PriceUnit
+  trend:       PriceTrend
+  trendPct?:   number   // % change vs prior quarter
+  notes?:      string
+  updatedQ:    string   // e.g. "Q2 2026"
+  channel:     'wholesale' | 'medical-wholesale' | 'retail'
+}
+
+export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
+  flower:      'Flower (dried)',
+  biomass:     'Biomass / Trim',
+  distillate:  'Distillate',
+  oil:         'Cannabis Oil',
+  concentrate: 'Concentrate / Extract',
+  'pre-roll':  'Pre-Roll',
+  hash:        'Hash / Resin',
+}
+
+export const PRODUCT_TYPE_ICONS: Record<ProductType, string> = {
+  flower:      '🌿',
+  biomass:     '🌾',
+  distillate:  '💧',
+  oil:         '🧴',
+  concentrate: '🧬',
+  'pre-roll':  '🚬',
+  hash:        '🟫',
+}
+
+export const TIER_LABELS: Record<QualityTier, string> = {
+  premium:  'Premium',
+  standard: 'Standard',
+  economy:  'Economy',
+}
+
+export const TIER_COLORS: Record<QualityTier, string> = {
+  premium:  '#d4a84b',
+  standard: '#6366f1',
+  economy:  '#6b7280',
+}
+
+export const PRICE_BENCHMARKS: PriceBenchmark[] = [
+  // ── Germany ────────────────────────────────────────────────────────────────
+  { id: 'de-flower-premium', country: 'DE', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'EUR', minPrice: 4800, maxPrice: 6200, unit: 'kg', trend: 'down', trendPct: -8,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'EU-GMP certified, THC ≥22%. Price pressure from rising domestic Anbauvereinigung supply and Portuguese/Dutch imports.' },
+  { id: 'de-flower-standard', country: 'DE', region: 'Europe', product: 'flower', tier: 'standard',
+    currency: 'EUR', minPrice: 2800, maxPrice: 4200, unit: 'kg', trend: 'down', trendPct: -12,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'EU-GMP or third-country equivalent. Increasing supply from Canadian LPs expanding into European market.' },
+  { id: 'de-biomass-standard', country: 'DE', region: 'Europe', product: 'biomass', tier: 'standard',
+    currency: 'EUR', minPrice: 280, maxPrice: 520, unit: 'kg', trend: 'down', trendPct: -15,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'CBD/hemp biomass for extraction. Domestic CanG social club excess trim entering market.' },
+  { id: 'de-oil-premium', country: 'DE', region: 'Europe', product: 'oil', tier: 'premium',
+    currency: 'EUR', minPrice: 8, maxPrice: 15, unit: 'gram', trend: 'stable', trendPct: -2,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Full-spectrum THC oil (≥25 mg/mL). Pharmacy-route product, must meet DAC/NRF monograph.' },
+
+  // ── Netherlands ────────────────────────────────────────────────────────────
+  { id: 'nl-flower-premium', country: 'NL', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'EUR', minPrice: 4200, maxPrice: 5800, unit: 'kg', trend: 'stable', trendPct: 1,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Bureau Medicinale Cannabis (BMC) contract prices. Bedrocan varieties; limited supply allocation.' },
+  { id: 'nl-hash-standard', country: 'NL', region: 'Europe', product: 'hash', tier: 'standard',
+    currency: 'EUR', minPrice: 3200, maxPrice: 5500, unit: 'kg', trend: 'stable',
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Moroccan and domestically-produced hash. Coffeeshop wholesale reference; tolerance policy (gedoogbeleid) product.' },
+
+  // ── Portugal ───────────────────────────────────────────────────────────────
+  { id: 'pt-flower-premium', country: 'PT', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'EUR', minPrice: 2200, maxPrice: 3800, unit: 'kg', trend: 'down', trendPct: -6,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'INFARMED-licensed. Portugal remains a cost-competitive EU-GMP exporter. Growing competition from Iberian peers.' },
+  { id: 'pt-biomass-standard', country: 'PT', region: 'Europe', product: 'biomass', tier: 'standard',
+    currency: 'EUR', minPrice: 150, maxPrice: 320, unit: 'kg', trend: 'down', trendPct: -10,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Hemp biomass (CBD ≥4%). High-volume outdoor cultivation; used by EU extractors.' },
+
+  // ── Switzerland ────────────────────────────────────────────────────────────
+  { id: 'ch-flower-premium', country: 'CH', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'CHF', minPrice: 5500, maxPrice: 8000, unit: 'kg', trend: 'up', trendPct: 5,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'SWISSMEDIC-authorised. Swiss pilot programme volumes lifting prices. Ultra-premium products reach CHF 12k/kg.' },
+  { id: 'ch-flower-standard', country: 'CH', region: 'Europe', product: 'flower', tier: 'standard',
+    currency: 'CHF', minPrice: 800, maxPrice: 2000, unit: 'kg', trend: 'down', trendPct: -20,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Swiss hemp flower (THC <1%). Domestic market only; export restrictions apply.' },
+
+  // ── United Kingdom ─────────────────────────────────────────────────────────
+  { id: 'gb-flower-premium', country: 'GB', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'GBP', minPrice: 5500, maxPrice: 8200, unit: 'kg', trend: 'stable', trendPct: 0,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Schedule 2 controlled drug. MHRA-licensed product; predominantly imported from Canada and Netherlands.' },
+  { id: 'gb-oil-premium', country: 'GB', region: 'Europe', product: 'oil', tier: 'premium',
+    currency: 'GBP', minPrice: 10, maxPrice: 22, unit: 'gram', trend: 'stable',
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'THC-containing oil on private prescription via pharmacy. Bedrocan and Grow Pharma dominate.' },
+
+  // ── Israel ─────────────────────────────────────────────────────────────────
+  { id: 'il-flower-premium', country: 'IL', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'USD', minPrice: 1800, maxPrice: 3200, unit: 'kg', trend: 'down', trendPct: -18,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'IMCA-licensed. Domestic oversupply driving sharp price declines. Export volumes critical for Israeli operators to remain viable.' },
+  { id: 'il-flower-standard', country: 'IL', region: 'Europe', product: 'flower', tier: 'standard',
+    currency: 'USD', minPrice: 800, maxPrice: 1600, unit: 'kg', trend: 'down', trendPct: -25,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Significant domestic price compression. Indoor standard-grade facing severe competition from lower-tier greenhouse product.' },
+
+  // ── Canada ─────────────────────────────────────────────────────────────────
+  { id: 'ca-flower-premium', country: 'CA', region: 'Americas', product: 'flower', tier: 'premium',
+    currency: 'CAD', minPrice: 3200, maxPrice: 5500, unit: 'kg', trend: 'stable', trendPct: 2,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Health Canada LP. Premium craft and indoor. Export to EU commands 20–40% premium over domestic pricing.' },
+  { id: 'ca-flower-economy', country: 'CA', region: 'Americas', product: 'flower', tier: 'economy',
+    currency: 'CAD', minPrice: 600, maxPrice: 1400, unit: 'kg', trend: 'down', trendPct: -5,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Value-tier greenhouse product. Bulk volume; significant price deflation ongoing since 2022.' },
+  { id: 'ca-distillate-standard', country: 'CA', region: 'Americas', product: 'distillate', tier: 'standard',
+    currency: 'CAD', minPrice: 2, maxPrice: 5, unit: 'gram', trend: 'down', trendPct: -8,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'THC distillate (>90% THC). Concentrated market with several large extractors; pricing under pressure.' },
+
+  // ── United States ──────────────────────────────────────────────────────────
+  { id: 'us-ca-flower-premium', country: 'US', region: 'Americas', product: 'flower', tier: 'premium',
+    currency: 'USD', minPrice: 800, maxPrice: 2200, unit: 'kg', trend: 'down', trendPct: -14,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'California wholesale (licensed dispensary channel). Sustained price compression from oversupply; legacy market competition.' },
+  { id: 'us-co-flower-standard', country: 'US', region: 'Americas', product: 'flower', tier: 'standard',
+    currency: 'USD', minPrice: 400, maxPrice: 1000, unit: 'kg', trend: 'down', trendPct: -10,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Colorado mature market. One of the lowest-cost US wholesale markets; 10+ years of adult-use regulation.' },
+  { id: 'us-mi-distillate-standard', country: 'US', region: 'Americas', product: 'distillate', tier: 'standard',
+    currency: 'USD', minPrice: 1.5, maxPrice: 3.5, unit: 'gram', trend: 'down', trendPct: -12,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Michigan distillate — one of the most price-competitive extraction markets in North America.' },
+
+  // ── Australia ──────────────────────────────────────────────────────────────
+  { id: 'au-flower-premium', country: 'AU', region: 'Asia-Pacific', product: 'flower', tier: 'premium',
+    currency: 'AUD', minPrice: 9000, maxPrice: 14000, unit: 'kg', trend: 'down', trendPct: -7,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'TGA-licensed. Historically high prices due to import dependency; domestic cultivation now ramping. Predominantly irradiated imports from Canada.' },
+  { id: 'au-oil-premium', country: 'AU', region: 'Asia-Pacific', product: 'oil', tier: 'premium',
+    currency: 'AUD', minPrice: 15, maxPrice: 35, unit: 'gram', trend: 'down', trendPct: -5,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'TGA Schedule 8 cannabis oil. Patient access via authorised prescriber or SAS-B pathway. Premium CBD/THC formulations.' },
+
+  // ── Thailand ───────────────────────────────────────────────────────────────
+  { id: 'th-flower-standard', country: 'TH', region: 'Asia-Pacific', product: 'flower', tier: 'standard',
+    currency: 'THB', minPrice: 80000, maxPrice: 180000, unit: 'kg', trend: 'down', trendPct: -22,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Post-reclassification market. Significant price compression; tourism-adjacent wellness channel dominant.' },
+  { id: 'th-biomass-standard', country: 'TH', region: 'Asia-Pacific', product: 'biomass', tier: 'standard',
+    currency: 'THB', minPrice: 8000, maxPrice: 20000, unit: 'kg', trend: 'down', trendPct: -18,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Hemp biomass for export. Thailand establishing itself as low-cost Asian biomass supplier for EU extractors.' },
+
+  // ── South Africa ───────────────────────────────────────────────────────────
+  { id: 'za-flower-standard', country: 'ZA', region: 'Africa', product: 'flower', tier: 'standard',
+    currency: 'USD', minPrice: 600, maxPrice: 1400, unit: 'kg', trend: 'up', trendPct: 8,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'SAHPRA-licensed export. Low production cost; growing EU export interest. Outdoor/greenhouse growing regions in Western Cape and KZN.' },
+  { id: 'za-biomass-economy', country: 'ZA', region: 'Africa', product: 'biomass', tier: 'economy',
+    currency: 'USD', minPrice: 120, maxPrice: 280, unit: 'kg', trend: 'up', trendPct: 12,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Low-cost African biomass. Attractive to European extractors seeking cost efficiencies; logistics remain a constraint.' },
+
+  // ── Colombia ───────────────────────────────────────────────────────────────
+  { id: 'co-flower-standard', country: 'CO', region: 'Americas', product: 'flower', tier: 'standard',
+    currency: 'USD', minPrice: 400, maxPrice: 900, unit: 'kg', trend: 'up', trendPct: 6,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'ICA-licensed export. Colombia offers the lowest production cost among major exporters. Increasing EU and UK import interest.' },
+  { id: 'co-biomass-economy', country: 'CO', region: 'Americas', product: 'biomass', tier: 'economy',
+    currency: 'USD', minPrice: 60, maxPrice: 150, unit: 'kg', trend: 'stable',
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'Ultra-low-cost outdoor biomass. Ideal feedstock for European distillate/concentrate producers seeking cost-optimised supply chains.' },
+]
+
+export function formatPrice(b: PriceBenchmark): string {
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(n < 10 ? 2 : 0)
+  return `${b.currency} ${fmt(b.minPrice)}–${fmt(b.maxPrice)} / ${b.unit}`
+}

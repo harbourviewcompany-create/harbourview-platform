@@ -25,6 +25,7 @@ import { AssistantPage } from './pages/AssistantPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
+import { PRICE_BENCHMARKS, PRODUCT_TYPE_LABELS, PRODUCT_TYPE_ICONS, TIER_LABELS, TIER_COLORS, type PriceBenchmark } from './data/priceIntelligence'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export type CommandPage =
   | 'banking'
   | 'notifications'
   | 'kyb'
+  | 'prices'
 
 type PublicServiceProvider = {
   id: string
@@ -151,12 +153,13 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
       { id: 'compliance',  label: 'Compliance',  icon: '◫' },
       { id: 'countries',   label: 'Countries',   icon: '⊗' },
-      { id: 'events',      label: 'Events',          icon: '◷' },
-      { id: 'experts',     label: 'Expert Directory', icon: '⊚' },
+      { id: 'events',        label: 'Events',           icon: '◷' },
+      { id: 'experts',       label: 'Expert Directory', icon: '⊚' },
       { id: 'banking',       label: 'Banking',          icon: '⊟' },
-      { id: 'notifications', label: 'Notifications',   icon: '◎' },
-      { id: 'kyb',           label: 'KYB / Verify',    icon: '◫' },
-      { id: 'assistant',     label: 'AI Assistant',    icon: '◈' },
+      { id: 'prices',        label: 'Price Intel',      icon: '⊕' },
+      { id: 'notifications', label: 'Notifications',    icon: '◎' },
+      { id: 'kyb',           label: 'KYB / Verify',     icon: '◫' },
+      { id: 'assistant',     label: 'AI Assistant',     icon: '◈' },
       { id: 'documents',   label: 'Documents',    icon: '⊡' },
     ],
   },
@@ -6953,6 +6956,267 @@ const KybVerificationPage = React.memo(function KybVerificationPage({
   )
 })
 
+// ── Price Intelligence page ────────────────────────────────────────────────────
+
+const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
+  country,
+}: { country: string; region: string; role: string }) {
+  const [filterProduct,  setFilterProduct]  = useState<string>('all')
+  const [filterTier,     setFilterTier]     = useState<string>('all')
+  const [filterRegion,   setFilterRegion]   = useState<string>('all')
+  const [filterChannel,  setFilterChannel]  = useState<string>('all')
+  const [sortBy,         setSortBy]         = useState<'country' | 'price-asc' | 'price-desc' | 'trend'>('country')
+  const [compareMode,    setCompareMode]    = useState(false)
+  const [compareIds,     setCompareIds]     = useState<Set<string>>(new Set())
+
+  const filtered = useMemo(() => {
+    let list = PRICE_BENCHMARKS.slice()
+    if (filterProduct !== 'all') list = list.filter(b => b.product === filterProduct)
+    if (filterTier    !== 'all') list = list.filter(b => b.tier    === filterTier)
+    if (filterRegion  !== 'all') list = list.filter(b => b.region  === filterRegion)
+    if (filterChannel !== 'all') list = list.filter(b => b.channel === filterChannel)
+    if (country) {
+      // Boost home country to top but don't filter it out
+      list.sort((a, b) => {
+        if (a.country === country && b.country !== country) return -1
+        if (b.country === country && a.country !== country) return  1
+        return 0
+      })
+    }
+    if (sortBy === 'price-asc')  list.sort((a, b) => a.minPrice - b.minPrice)
+    if (sortBy === 'price-desc') list.sort((a, b) => b.maxPrice - a.maxPrice)
+    if (sortBy === 'trend') list.sort((a, b) => (b.trendPct ?? 0) - (a.trendPct ?? 0))
+    if (sortBy === 'country') list.sort((a, b) => a.country.localeCompare(b.country))
+    return list
+  }, [filterProduct, filterTier, filterRegion, filterChannel, sortBy, country])
+
+  const compareItems = useMemo(() => PRICE_BENCHMARKS.filter(b => compareIds.has(b.id)), [compareIds])
+
+  const toggleCompare = (id: string) => {
+    setCompareIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else if (next.size < 4) next.add(id)
+      return next
+    })
+  }
+
+  const trendIcon = (t: string, pct?: number) => {
+    if (t === 'up')   return <span style={{ color: '#10b981' }}>▲ {pct ? `+${pct}%` : ''}</span>
+    if (t === 'down') return <span style={{ color: '#ef4444' }}>▼ {pct ? `${pct}%` : ''}</span>
+    return <span style={{ color: '#6b7280' }}>— {pct ? `${pct}%` : 'stable'}</span>
+  }
+
+  const CHANNEL_LABELS: Record<string, string> = {
+    'wholesale': 'Wholesale', 'medical-wholesale': 'Medical Wholesale', 'retail': 'Retail'
+  }
+  const regions = ['Europe', 'Americas', 'Asia-Pacific', 'Africa']
+  const products = Object.keys(PRODUCT_TYPE_LABELS) as (keyof typeof PRODUCT_TYPE_LABELS)[]
+  const tiers    = Object.keys(TIER_LABELS)    as (keyof typeof TIER_LABELS)[]
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.pi-header { margin-bottom: 16px; }
+.pi-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.pi-sub { font-size: .78rem; color: #8a8a9a; margin-top: 3px; }
+.pi-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pi-filter-btn { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 3px 11px; color: #8a8a9a; font-size: .73rem; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.pi-filter-btn.active { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.pi-filter-btn:hover:not(.active) { color: #f5f0e8; border-color: rgba(255,255,255,.2); }
+.pi-sort-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.pi-sort-label { font-size: .73rem; color: #6b7280; }
+.pi-sort-select { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 4px 8px; color: #f5f0e8; font-size: .73rem; outline: none; cursor: pointer; }
+.pi-compare-toggle { font-size: .73rem; color: #8a8a9a; cursor: pointer; display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.pi-compare-toggle.on { color: #d4a84b; }
+.pi-results { font-size: .74rem; color: #6b7280; margin-bottom: 10px; }
+.pi-table { width: 100%; border-collapse: collapse; }
+.pi-th { font-size: .68rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; white-space: nowrap; }
+.pi-tr { border-bottom: 1px solid rgba(255,255,255,.04); transition: background .12s; cursor: default; }
+.pi-tr:hover { background: rgba(255,255,255,.03); }
+.pi-tr.selected { background: rgba(212,168,75,.07); }
+.pi-td { padding: 9px 8px; font-size: .8rem; vertical-align: middle; }
+.pi-flag { font-size: 1.1rem; }
+.pi-price { font-weight: 700; color: #f5f0e8; font-size: .82rem; }
+.pi-currency { font-size: .68rem; color: #6b7280; margin-left: 3px; }
+.pi-tier-chip { font-size: .65rem; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+.pi-prod-chip { font-size: .65rem; padding: 1px 6px; border-radius: 8px; background: rgba(255,255,255,.08); color: #9090a0; }
+.pi-trend { font-size: .76rem; font-weight: 600; white-space: nowrap; }
+.pi-note { font-size: .72rem; color: #6b7280; max-width: 280px; line-height: 1.4; }
+.pi-compare-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 5px; padding: 2px 7px; font-size: .68rem; color: #9090a0; cursor: pointer; }
+.pi-compare-btn.selected { background: rgba(212,168,75,.18); border-color: #d4a84b; color: #d4a84b; }
+.pi-compare-panel { background: rgba(212,168,75,.06); border: 1px solid rgba(212,168,75,.25); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+.pi-compare-title { font-size: .78rem; font-weight: 600; color: #d4a84b; margin-bottom: 10px; }
+.pi-compare-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.pi-compare-card { background: rgba(255,255,255,.05); border-radius: 7px; padding: 10px; }
+.pi-compare-card-country { font-size: .72rem; color: #8a8a9a; margin-bottom: 3px; }
+.pi-compare-card-price { font-size: 1rem; font-weight: 700; color: #f5f0e8; }
+.pi-compare-card-label { font-size: .68rem; color: #6b7280; margin-top: 2px; }
+        `}</style>
+
+        <div className="pi-header">
+          <div className="pi-title">Price Intelligence</div>
+          <div className="pi-sub">Wholesale cannabis benchmark prices by jurisdiction, product type, and quality tier — updated {PRICE_BENCHMARKS[0]?.updatedQ}</div>
+        </div>
+
+        {compareMode && compareIds.size > 0 && (
+          <div className="pi-compare-panel">
+            <div className="pi-compare-title">Comparing {compareIds.size} benchmark{compareIds.size !== 1 ? 's' : ''}</div>
+            <div className="pi-compare-grid">
+              {compareItems.map(b => (
+                <div key={b.id} className="pi-compare-card">
+                  <div className="pi-compare-card-country">{flagEmoji(b.country)} {b.country} · {TIER_LABELS[b.tier]}</div>
+                  <div className="pi-compare-card-price">{b.currency} {b.minPrice.toLocaleString()}–{b.maxPrice.toLocaleString()}</div>
+                  <div className="pi-compare-card-label">/{b.unit} · {PRODUCT_TYPE_LABELS[b.product]}</div>
+                  <div style={{ marginTop: 4, fontSize: '.7rem' }}>{trendIcon(b.trend, b.trendPct)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="pi-filters">
+          <button className={`pi-filter-btn${filterProduct === 'all' ? ' active' : ''}`} onClick={() => setFilterProduct('all')}>All Products</button>
+          {products.map(p => (
+            <button key={p} className={`pi-filter-btn${filterProduct === p ? ' active' : ''}`} onClick={() => setFilterProduct(p)}>
+              {PRODUCT_TYPE_ICONS[p]} {PRODUCT_TYPE_LABELS[p]}
+            </button>
+          ))}
+        </div>
+        <div className="pi-filters">
+          <button className={`pi-filter-btn${filterTier === 'all' ? ' active' : ''}`} onClick={() => setFilterTier('all')}>All Tiers</button>
+          {tiers.map(t => (
+            <button key={t} className={`pi-filter-btn${filterTier === t ? ' active' : ''}`} onClick={() => setFilterTier(t)} style={filterTier === t ? {} : { color: TIER_COLORS[t] + 'bb' }}>
+              {TIER_LABELS[t]}
+            </button>
+          ))}
+          <button className={`pi-filter-btn${filterRegion === 'all' ? ' active' : ''}`} onClick={() => setFilterRegion('all')}>All Regions</button>
+          {regions.map(r => (
+            <button key={r} className={`pi-filter-btn${filterRegion === r ? ' active' : ''}`} onClick={() => setFilterRegion(r)}>{r}</button>
+          ))}
+        </div>
+        <div className="pi-filters" style={{ marginBottom: 0 }}>
+          <button className={`pi-filter-btn${filterChannel === 'all' ? ' active' : ''}`} onClick={() => setFilterChannel('all')}>All Channels</button>
+          {(['wholesale', 'medical-wholesale'] as const).map(c => (
+            <button key={c} className={`pi-filter-btn${filterChannel === c ? ' active' : ''}`} onClick={() => setFilterChannel(c)}>{CHANNEL_LABELS[c]}</button>
+          ))}
+        </div>
+
+        <div className="pi-sort-row">
+          <span className="pi-sort-label">Sort:</span>
+          <select className="pi-sort-select" value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}>
+            <option value="country">Country</option>
+            <option value="price-asc">Price ↑</option>
+            <option value="price-desc">Price ↓</option>
+            <option value="trend">Trend (rising first)</option>
+          </select>
+          <span className={`pi-compare-toggle${compareMode ? ' on' : ''}`} onClick={() => setCompareMode(v => !v)}>
+            ⊞ {compareMode ? `Compare mode (${compareIds.size}/4 selected)` : 'Compare mode'}
+          </span>
+        </div>
+
+        <div className="pi-results">{filtered.length} price benchmark{filtered.length !== 1 ? 's' : ''}</div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table className="pi-table">
+            <thead>
+              <tr>
+                <th className="pi-th">Market</th>
+                <th className="pi-th">Product</th>
+                <th className="pi-th">Tier</th>
+                <th className="pi-th">Price Range</th>
+                <th className="pi-th">Channel</th>
+                <th className="pi-th">Trend (QoQ)</th>
+                <th className="pi-th">Notes</th>
+                {compareMode && <th className="pi-th">Compare</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(b => (
+                <tr key={b.id} className={`pi-tr${compareIds.has(b.id) ? ' selected' : ''}`}>
+                  <td className="pi-td">
+                    <span className="pi-flag">{flagEmoji(b.country)}</span>{' '}
+                    <span style={{ fontWeight: 600, color: b.country === country ? '#d4a84b' : '#f5f0e8' }}>{b.country}</span>
+                  </td>
+                  <td className="pi-td"><span className="pi-prod-chip">{PRODUCT_TYPE_ICONS[b.product]} {PRODUCT_TYPE_LABELS[b.product]}</span></td>
+                  <td className="pi-td">
+                    <span className="pi-tier-chip" style={{ background: TIER_COLORS[b.tier] + '22', color: TIER_COLORS[b.tier], border: `1px solid ${TIER_COLORS[b.tier]}44` }}>
+                      {TIER_LABELS[b.tier]}
+                    </span>
+                  </td>
+                  <td className="pi-td">
+                    <span className="pi-price">{b.minPrice.toLocaleString()}–{b.maxPrice.toLocaleString()}</span>
+                    <span className="pi-currency">{b.currency}/{b.unit}</span>
+                  </td>
+                  <td className="pi-td" style={{ fontSize: '.72rem', color: '#8a8a9a' }}>{CHANNEL_LABELS[b.channel]}</td>
+                  <td className="pi-td"><span className="pi-trend">{trendIcon(b.trend, b.trendPct)}</span></td>
+                  <td className="pi-td"><div className="pi-note">{b.notes}</div></td>
+                  {compareMode && (
+                    <td className="pi-td">
+                      <button className={`pi-compare-btn${compareIds.has(b.id) ? ' selected' : ''}`} onClick={() => toggleCompare(b.id)}>
+                        {compareIds.has(b.id) ? '✓ Added' : '+ Add'}
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div className="cc-two-right" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Coverage */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Coverage</div>
+          {([
+            ['Total Benchmarks', PRICE_BENCHMARKS.length],
+            ['Markets Covered', new Set(PRICE_BENCHMARKS.map(b => b.country)).size],
+            ['Product Types', new Set(PRICE_BENCHMARKS.map(b => b.product)).size],
+            ['Trending Up', PRICE_BENCHMARKS.filter(b => b.trend === 'up').length],
+            ['Trending Down', PRICE_BENCHMARKS.filter(b => b.trend === 'down').length],
+          ] as [string, number][]).map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: '.78rem', color: '#b0b0c0' }}>{label}</span>
+              <span style={{ fontSize: '.88rem', fontWeight: 700, color: '#d4a84b' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Trend summary */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Market Trend — Q2 2026</div>
+          <div style={{ fontSize: '.78rem', color: '#b0b0c0', lineHeight: 1.6 }}>
+            Global cannabis wholesale prices continue their multi-year compression in most markets. Germany (−8–12%), Israel (−18–25%), and Thailand (−22%) are experiencing the sharpest declines as supply outpaces demand.
+            <br /><br />
+            South Africa (+8–12%) and Colombia (+6%) are counter-trend — rising on growing EU export demand and competitive cost structures.
+          </div>
+        </div>
+
+        {/* Methodology */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Methodology</div>
+          <div style={{ fontSize: '.74rem', color: '#8a8a9a', lineHeight: 1.55 }}>
+            Benchmarks are compiled from Harbourview network transactions, operator surveys, published exchange data, and regulatory filings. Prices represent indicative wholesale ranges — actual transaction prices will vary by volume, specification, incoterms, and counterparty relationship.
+          </div>
+        </div>
+
+        {/* Submit CTA */}
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Contribute Pricing Data</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Share anonymised transaction data to improve benchmark accuracy for your market.</div>
+          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+            Submit Price Data
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 // ── Events page ───────────────────────────────────────────────────────────────
 
 const REGION_OPTIONS = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania', 'Online'] as const
@@ -7446,6 +7710,8 @@ export default function CommandCentre({
         return <ExpertDirectoryPage country={country} region={region} role={roleLabel} />
       case 'banking':
         return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
+      case 'prices':
+        return <PriceIntelligencePage country={country} region={region} role={roleLabel} />
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} />
       case 'kyb':
