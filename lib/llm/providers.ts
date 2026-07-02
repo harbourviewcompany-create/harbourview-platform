@@ -64,6 +64,14 @@ function messagesToPrompt(request: LlmGatewayRequest) {
   return request.messages.map((message) => `${message.role.toUpperCase()}: ${message.content}`).join('\n\n');
 }
 
+type AnthropicResponse = {
+  content?: Array<{ type?: string; text?: string }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+};
+
 type GeminiResponse = {
   candidates?: Array<{
     content?: {
@@ -90,6 +98,17 @@ type ChatCompletionsResponse = {
   };
 };
 
+function normalizeAnthropicUsage(usage?: AnthropicResponse['usage']): LlmUsage | undefined {
+  if (!usage) return undefined;
+  const inputTokens = usage.input_tokens;
+  const outputTokens = usage.output_tokens;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens !== undefined && outputTokens !== undefined ? inputTokens + outputTokens : undefined,
+  };
+}
+
 function normalizeUsage(usage?: ChatCompletionsResponse['usage']): LlmUsage | undefined {
   if (!usage) return undefined;
   return {
@@ -114,6 +133,62 @@ function ensureText(text: string | undefined, provider: LlmProviderConfig['provi
     throw new LlmGatewayError('LLM_GATEWAY_EMPTY_RESPONSE', `${provider} returned an empty response.`, 502, provider);
   }
   return normalized;
+}
+
+function splitAnthropicMessages(request: LlmGatewayRequest) {
+  const system = request.messages
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content)
+    .join('\n\n') || undefined;
+
+  const messages = request.messages
+    .filter((message): message is LlmGatewayRequest['messages'][number] & { role: 'user' | 'assistant' } =>
+      message.role === 'user' || message.role === 'assistant')
+    .map((message) => ({ role: message.role, content: message.content }));
+
+  return { system, messages };
+}
+
+export async function callAnthropicProvider(
+  config: LlmProviderConfig,
+  request: LlmGatewayRequest,
+  timeoutMs: number,
+  requestId: string,
+  fetcher?: FetchLike,
+): Promise<LlmGatewaySuccess> {
+  const { system, messages } = splitAnthropicMessages(request);
+
+  const json = await postJson({
+    url: 'https://api.anthropic.com/v1/messages',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': config.apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: {
+      model: config.model,
+      system,
+      messages,
+      temperature: request.temperature,
+      max_tokens: request.maxOutputTokens ?? 1024,
+    },
+    timeoutMs,
+    provider: config.provider,
+    fetcher,
+  }) as AnthropicResponse;
+
+  const text = ensureText(
+    json.content?.filter((block) => block.type === 'text').map((block) => block.text || '').join('').trim(),
+    config.provider,
+  );
+  return {
+    ok: true,
+    provider: config.provider,
+    model: config.model,
+    text,
+    usage: normalizeAnthropicUsage(json.usage),
+    requestId,
+  };
 }
 
 export async function callGeminiProvider(
@@ -193,6 +268,8 @@ export async function callLlmProvider(
   requestId: string,
   fetcher?: FetchLike,
 ): Promise<LlmGatewaySuccess> {
+  if (config.provider === 'anthropic') return callAnthropicProvider(config, request, timeoutMs, requestId, fetcher);
+
   if (config.provider === 'gemini') return callGeminiProvider(config, request, timeoutMs, requestId, fetcher);
 
   if (config.provider === 'moonshot') {

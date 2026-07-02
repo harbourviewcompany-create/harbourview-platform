@@ -11,7 +11,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'EU-GMP Equivalence Documentation for Colombian Cultivars',
   'eu-gmp-equivalence-colombia',
-  'research',
+  'verification_project',
   'public_summary',
   'open',
   'CO', 'Colombia',
@@ -22,7 +22,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'High-CBD Phenotype Stability Trial — Northern Europe',
   'cbd-stability-trial-northern-europe',
-  'clinical_trial',
+  'trial_project',
   'public_summary',
   'open',
   'NL', 'Netherlands',
@@ -33,7 +33,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'South African Landrace Provenance Documentation',
   'sa-landrace-provenance-documentation',
-  'research',
+  'research_collaboration',
   'public_summary',
   'open',
   'ZA', 'South Africa',
@@ -44,7 +44,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'Pharmaceutical Terpene Profile Standardisation — Australian Phenotypes',
   'pharma-terpene-standardisation-australia',
-  'research',
+  'research_collaboration',
   'public_summary',
   'open',
   'AU', 'Australia',
@@ -55,7 +55,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'Minor Cannabinoid Extraction Yield Optimisation',
   'minor-cannabinoid-extraction-yield',
-  'research',
+  'research_collaboration',
   'public_summary',
   'open',
   'CA', 'Canada',
@@ -66,7 +66,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'Israeli Cultivar Import Compliance Package for German Market',
   'israel-germany-import-compliance-package',
-  'licensing',
+  'licensing_discussion',
   'public_summary',
   'open',
   'IL', 'Israel',
@@ -77,7 +77,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'Hemp-Derived CBD Novel Food Dossier — EU Pathway',
   'hemp-cbd-novel-food-eu-dossier',
-  'licensing',
+  'licensing_discussion',
   'public_summary',
   'open',
   'PT', 'Portugal / EU',
@@ -88,7 +88,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'New Zealand Balanced THC:CBD Export Feasibility Study',
   'nz-balanced-cultivar-export-feasibility',
-  'research',
+  'verification_project',
   'public_summary',
   'open',
   'NZ', 'New Zealand',
@@ -99,7 +99,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'GACP Certification Support for Thai Licensed Cultivators',
   'gacp-certification-thailand',
-  'licensing',
+  'licensing_discussion',
   'public_summary',
   'open',
   'TH', 'Thailand',
@@ -110,7 +110,7 @@ INSERT INTO genetics_collaboration_projects (
 (
   'Cultivar Passport Cross-Registry Harmonisation Initiative',
   'cultivar-passport-cross-registry',
-  'research',
+  'research_collaboration',
   'public_summary',
   'open',
   NULL, 'Global / Multi-jurisdiction',

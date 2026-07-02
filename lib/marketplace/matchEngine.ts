@@ -9,10 +9,20 @@
  *   2. region must match OR either side is 'global'
  *   3. Neither side is archived/closed
  *   4. No existing match between these two rows
+ *
+ * AI rationale generation is intentionally decoupled from match creation.
+ * matchListingToBuyerRequests() and matchBuyerRequestToListings() are both
+ * called synchronously from admin request paths (e.g. the listing publish
+ * route) where a human is waiting on the HTTP response — they only ever do
+ * fast DB reads/writes. backfillMatchRationales() enriches already-created
+ * matches with an AI rationale out of band and is intended to be called from
+ * a cron (see app/api/cron/marketplace-match/route.ts), decoupled from any
+ * user-facing request.
  */
 
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
+import { generateMatchRationale } from '@/lib/marketplace/matchRationale'
 
 function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -21,12 +31,20 @@ function getClient() {
   return createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 }
 
+// Cap AI rationale generation per backfill run so one cron invocation can't
+// blow the function's time budget or run away on cost. Any matches beyond
+// the cap are picked up on the next cron run — match_rationale stays NULL
+// in the meantime, which the admin UI treats as "pending", not an error.
+const MAX_RATIONALE_PER_BACKFILL_RUN = 20
+
 interface ListingRow {
   id: string
   category: string
   region: string
   status: string
   title: string
+  description: string | null
+  high_level_specs?: unknown
 }
 
 interface BuyerRequestRow {
@@ -35,12 +53,21 @@ interface BuyerRequestRow {
   region: string
   status: string
   title: string
+  description: string | null
+  requirements?: unknown
 }
 
 function regionsCompatible(a: string, b: string): boolean {
   if (!a || !b) return true
   if (a === 'global' || b === 'global') return true
   return a === b
+}
+
+type PendingMatchRow = {
+  listing_id: string
+  buyer_request_id: string
+  status: string
+  internal_notes: string
 }
 
 /**
@@ -55,7 +82,7 @@ export async function matchListingToBuyerRequests(
   // Fetch the listing
   const { data: listing, error: lErr } = await db
     .from('listings')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, high_level_specs')
     .eq('id', listingId)
     .single()
 
@@ -69,7 +96,7 @@ export async function matchListingToBuyerRequests(
   // Find compatible buyer_requests
   const { data: buyers, error: bErr } = await db
     .from('buyer_requests')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, requirements')
     .eq('category', listing.category)
     .not('status', 'in', '("closed","archived")')
 
@@ -90,7 +117,7 @@ export async function matchListingToBuyerRequests(
 
   const alreadyMatched = new Set((existing ?? []).map((r: { buyer_request_id: string }) => r.buyer_request_id))
 
-  const toInsert = compatible
+  const toInsert: PendingMatchRow[] = compatible
     .filter(b => !alreadyMatched.has(b.id))
     .map(b => ({
       listing_id: listingId,
@@ -122,7 +149,7 @@ export async function matchBuyerRequestToListings(
 
   const { data: buyer, error: bErr } = await db
     .from('buyer_requests')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, requirements')
     .eq('id', buyerRequestId)
     .single()
 
@@ -130,7 +157,7 @@ export async function matchBuyerRequestToListings(
 
   const { data: listings, error: lErr } = await db
     .from('listings')
-    .select('id, category, region, status, title')
+    .select('id, category, region, status, title, description, high_level_specs')
     .eq('category', buyer.category)
     .eq('status', 'approved')
 
@@ -150,7 +177,7 @@ export async function matchBuyerRequestToListings(
 
   const alreadyMatched = new Set((existing ?? []).map((r: { listing_id: string }) => r.listing_id))
 
-  const toInsert = compatible
+  const toInsert: PendingMatchRow[] = compatible
     .filter(l => !alreadyMatched.has(l.id))
     .map(l => ({
       listing_id: l.id,
@@ -190,4 +217,87 @@ export async function runFullMarketplaceMatch(): Promise<{ listingsProcessed: nu
   }
 
   return { listingsProcessed: (listings ?? []).length, matchesCreated }
+}
+
+/**
+ * Finds matches with no AI rationale yet (match_rationale IS NULL) and
+ * enriches up to MAX_RATIONALE_PER_BACKFILL_RUN of them, oldest first.
+ * Intended to be called from a cron, decoupled from any user-facing request
+ * — see the module doc comment above. Never throws; per-match failures are
+ * logged and simply leave that row's rationale NULL for the next run.
+ *
+ * Returns the number of matches successfully enriched.
+ */
+export async function backfillMatchRationales(): Promise<number> {
+  const db = getClient()
+
+  const { data: pending, error: pErr } = await db
+    .from('matches')
+    .select('id, listing_id, buyer_request_id')
+    .is('match_rationale', null)
+    .order('created_at', { ascending: true })
+    .limit(MAX_RATIONALE_PER_BACKFILL_RUN)
+
+  if (pErr) {
+    console.error('matchEngine: backfill fetch failed', pErr.message)
+    return 0
+  }
+  if (!pending?.length) return 0
+
+  const listingIds = [...new Set(pending.map(m => m.listing_id))]
+  const buyerIds = [...new Set(pending.map(m => m.buyer_request_id))]
+
+  const [{ data: listings }, { data: buyers }] = await Promise.all([
+    db.from('listings').select('id, category, region, status, title, description, high_level_specs').in('id', listingIds),
+    db.from('buyer_requests').select('id, category, region, status, title, description, requirements').in('id', buyerIds),
+  ])
+
+  const listingsById = new Map((listings ?? []).map((l: ListingRow) => [l.id, l]))
+  const buyersById = new Map((buyers ?? []).map((b: BuyerRequestRow) => [b.id, b]))
+
+  let enriched = 0
+
+  await Promise.all(
+    pending.map(async (match) => {
+      const listing = listingsById.get(match.listing_id)
+      const buyer = buyersById.get(match.buyer_request_id)
+      if (!listing || !buyer) return
+
+      const result = await generateMatchRationale({
+        listing: {
+          title: listing.title,
+          description: listing.description,
+          category: listing.category,
+          region: listing.region,
+          high_level_specs: listing.high_level_specs,
+        },
+        buyerRequest: {
+          title: buyer.title,
+          description: buyer.description,
+          category: buyer.category,
+          region: buyer.region,
+          requirements: buyer.requirements,
+        },
+      })
+      if (!result) return
+
+      const { error: uErr } = await db
+        .from('matches')
+        .update({
+          match_rationale: result.rationale,
+          match_rationale_model: result.model,
+          match_rationale_generated_at: new Date().toISOString(),
+        })
+        .eq('id', match.id)
+
+      if (uErr) {
+        console.error('matchEngine: backfill update failed', match.id, uErr.message)
+        return
+      }
+      enriched += 1
+    }),
+  )
+
+  console.info(`matchEngine: backfilled rationale for ${enriched}/${pending.length} match(es)`)
+  return enriched
 }
