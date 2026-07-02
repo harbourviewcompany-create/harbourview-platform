@@ -16,8 +16,9 @@
 | **Supabase Preview CI** | ✅ Green (was failing on every push; fixed by reconciling 14 unapplied files Jul 1) |
 | **E2E tests** | Runs (~9 min) but fails — tests have never passed in CI; need triage pass |
 | **Last migration** | `fix_cron_trigger_auth_headers_v2` — Jul 1 2026 |
+| **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | #923 (HANDOFF.md restructure — pending merge) |
+| **Open PRs** | None (last merged: #923 HANDOFF.md restructure) |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | 2 pre-existing errors on main: `@tanstack/react-query` missing dep + Stripe API version |
 
@@ -91,6 +92,7 @@ These fail on every PR regardless of content. They failed on #922 (merged Jul 1)
 | **2 tables: USING(true)/WITH CHECK(true) for ALL** | `hv_entity_mentions` and `hv_regulatory_trajectory` both have `service_role_full_access` that bypasses RLS entirely. Should be scoped to `auth.role() = 'service_role'`. |
 | **~100+ unindexed foreign keys** | 102 flagged as of Jun 24, has likely grown since. Dedicated pass warranted. |
 | **~200 duplicate permissive RLS policies** | Multiple sessions each added their own SELECT policy without checking what existed. Needs per-table review — do not bulk-consolidate blindly. |
+| **`intelligence_jobs` worker not wired** | `intelligence_jobs` table + `claim_intelligence_job()` RPC were applied Jul 1 (migration `20260628000500`). The `wrangler.toml` intelligence pipeline worker can now be pointed at it — but hasn't been. Half-done. |
 | **`@tanstack/react-query` missing dep** | `app/providers.tsx` — requires package install, not a code fix. |
 | **Stripe API version mismatch** | `lib/stripe/server.ts` — requires package bump. |
 
@@ -119,6 +121,12 @@ Numbered permanently. Do not re-litigate without new information.
 | 6 | Jun 23 | Placeholder comments are landmines | `// Keep other functions as they were` was committed as literal code, silently deleting 3 working functions. Never commit placeholder comments as code. |
 | 7 | Jul 1 | `supplier_profiles` no-seed is **policy**, not preference | Rule violated twice (Jun 23 seed, Jul 1 18-row seed). Table carries `supplier_profiles_no_delete` rule — archive only. Approved suppliers must come through intake → payment (Stripe `subscriptions`) → admin approval. |
 | 8 | Jul 1 | Canonical deploy target is Vercel | Removed: `wrangler.jsonc`, `open-next.config.ts`, `@opennextjs/cloudflare`, `netlify.toml` + ignore script. Kept: `vercel.json`, `wrangler.toml` (intelligence pipeline worker — not app deploy). |
+
+---
+
+## EVIDENCE LOG
+
+`docs/control/EVIDENCE_LOG.md` is the canonical compliance artifact for this project. Any completion claim ("Gate N GO", "build clean", "routes verified") is only valid if evidence is recorded there with a date, command/source, and result. Current status: **Gate 4 GO** as of Jun 25 2026 (19 test scripts passed, typecheck + lint + build clean). Post-Gate-4 sessions have not updated it — it is stale against the current migration state and E2E failures. Before making any finish-line or deployment claims, check and update it.
 
 ---
 
