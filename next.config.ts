@@ -1,10 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  eslint: {
-    // ESLint runs as a separate CI step; don't block the build on it
-    ignoreDuringBuilds: true,
-  },
+  // eslint.ignoreDuringBuilds removed — Next.js 16 dropped this option from NextConfig.
+  // ESLint runs as a separate CI step and no longer needs suppression here.
   reactStrictMode: true,
   experimental: {
     authInterrupts: true,
