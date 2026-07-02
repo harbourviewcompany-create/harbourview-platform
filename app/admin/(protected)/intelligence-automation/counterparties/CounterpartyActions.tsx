@@ -190,6 +190,167 @@ export function DeleteCounterpartyButton({ id, name }: { id: string; name: strin
   )
 }
 
+export function EditCounterpartyButton({
+  id, name, role, markets, categories, needsProfile, supplyProfile, notes,
+}: {
+  id: string
+  name: string
+  role: string
+  markets: string[]
+  categories: string[]
+  needsProfile?: string
+  supplyProfile?: string
+  notes?: string
+}) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const [form, setForm] = useState({
+    name,
+    role,
+    markets: markets.join(', '),
+    categories: categories.join(', '),
+    needsProfile: needsProfile ?? '',
+    supplyProfile: supplyProfile ?? '',
+    notes: notes ?? '',
+  })
+
+  function handleOpen() {
+    setForm({
+      name,
+      role,
+      markets: markets.join(', '),
+      categories: categories.join(', '),
+      needsProfile: needsProfile ?? '',
+      supplyProfile: supplyProfile ?? '',
+      notes: notes ?? '',
+    })
+    setError(null)
+    setOpen(true)
+  }
+
+  function update(field: keyof typeof form, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    setError(null)
+  }
+
+  async function submit() {
+    if (!form.name.trim()) { setError('Name is required'); return }
+    if (!form.markets.trim()) { setError('At least one market is required'); return }
+    if (!form.categories.trim()) { setError('At least one category is required'); return }
+
+    setError(null)
+    setSubmitting(true)
+    const res = await fetch(`/api/admin/intelligence/counterparties/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: form.name.trim(),
+        role: form.role,
+        markets: form.markets.split(',').map((m) => m.trim()).filter(Boolean),
+        categories: form.categories.split(',').map((c) => c.trim()).filter(Boolean),
+        needsProfile: form.needsProfile || undefined,
+        supplyProfile: form.supplyProfile || undefined,
+        notes: form.notes || undefined,
+      }),
+    })
+    setSubmitting(false)
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? 'Failed to update counterparty')
+      return
+    }
+
+    setOpen(false)
+    startTransition(() => router.refresh())
+  }
+
+  const inputClass = 'w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-[#F5F1E8] placeholder-[#F5F1E8]/30 focus:border-[#C6A55A]/40 focus:outline-none'
+
+  return (
+    <>
+      <button
+        onClick={handleOpen}
+        className="mt-1 text-[10px] uppercase tracking-[0.1em] text-[#C6A55A]/60 transition hover:text-[#C6A55A] disabled:opacity-50"
+      >
+        Edit
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F] p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.18em] text-[#C6A55A]">Edit counterparty</p>
+              <button onClick={() => setOpen(false)} className="text-[#F5F1E8]/40 hover:text-[#F5F1E8]/70 text-sm">✕</button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Name *</label>
+                <input value={form.name} onChange={(e) => update('name', e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Role</label>
+                <select value={form.role} onChange={(e) => update('role', e.target.value)} className={inputClass}>
+                  {ROLES.map((r) => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Markets * (comma-separated)</label>
+                <input value={form.markets} onChange={(e) => update('markets', e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Categories * (comma-separated)</label>
+                <input value={form.categories} onChange={(e) => update('categories', e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Needs profile</label>
+                <input value={form.needsProfile} onChange={(e) => update('needsProfile', e.target.value)} placeholder="What they're looking to buy" className={inputClass} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Supply profile</label>
+                <input value={form.supplyProfile} onChange={(e) => update('supplyProfile', e.target.value)} placeholder="What they have to offer" className={inputClass} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[#C6A55A]/70">Notes</label>
+                <input value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Optional context" className={inputClass} />
+              </div>
+            </div>
+
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
+            <div className="flex gap-3">
+              <button
+                onClick={submit}
+                disabled={submitting}
+                className="rounded-xl bg-[#C6A55A] px-5 py-2.5 text-sm font-medium text-[#081423] transition hover:bg-[#D8BC73] disabled:opacity-50"
+              >
+                {submitting ? 'Saving…' : 'Save changes'}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-[#F5F1E8]/50 transition hover:text-[#F5F1E8]/80"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 const DOC_STATUSES = ['complete', 'partial', 'missing'] as const
 type DocStatus = (typeof DOC_STATUSES)[number]
 
