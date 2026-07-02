@@ -8952,8 +8952,9 @@ const EventsPage = React.memo(function EventsPage({
 }) {
   const [search,     setSearch]     = useState('')
   const [region,     setRegion]     = useState<string>('')
-  const [typeFilter, setTypeFilter] = useState<string>('')
-  const [tab,        setTab]        = useState<'upcoming' | 'past'>('upcoming')
+  const [typeFilter,   setTypeFilter]   = useState<string>('')
+  const [filterMyRole, setFilterMyRole] = useState(false)
+  const [tab,          setTab]          = useState<'upcoming' | 'past'>('upcoming')
   const [submitName,     setSubmitName]     = useState('')
   const [submitCity,     setSubmitCity]     = useState('')
   const [submitDate,     setSubmitDate]     = useState('')
@@ -8967,11 +8968,12 @@ const EventsPage = React.memo(function EventsPage({
       const matchUpcoming = tab === 'upcoming' ? evtIsUpcoming(e) : !evtIsUpcoming(e)
       const matchSearch   = !q || e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) ||
                             e.organizer.toLowerCase().includes(q) || e.focus.some(f => f.toLowerCase().includes(q))
-      const matchRegion   = !region     || e.region === region
-      const matchType     = !typeFilter || e.type   === typeFilter
-      return matchUpcoming && matchSearch && matchRegion && matchType
+      const matchRegion   = !region       || e.region === region
+      const matchType     = !typeFilter   || e.type   === typeFilter
+      const matchRole     = !filterMyRole || evtIsRelevant(e, role)
+      return matchUpcoming && matchSearch && matchRegion && matchType && matchRole
     })
-  }, [search, region, typeFilter, tab])
+  }, [search, region, typeFilter, tab, filterMyRole, role])
 
   // Group by month
   const grouped = useMemo(() => {
@@ -9041,6 +9043,17 @@ const EventsPage = React.memo(function EventsPage({
                 <option key={k} value={k} style={{ background: '#050c18' }}>{v}</option>
               ))}
             </select>
+            {role && (
+              <button onClick={() => setFilterMyRole(f => !f)} style={{
+                padding: '7px 12px', borderRadius: '8px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
+                border: filterMyRole ? '1px solid rgba(16,185,129,.5)' : '1px solid rgba(255,255,255,.1)',
+                background: filterMyRole ? 'rgba(16,185,129,.12)' : 'rgba(255,255,255,.04)',
+                color: filterMyRole ? '#10b981' : 'rgba(245,240,232,.5)',
+                fontSize: '11px', fontWeight: filterMyRole ? 700 : 400,
+              }}>
+                ◎ For {role}s ({INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role)).length})
+              </button>
+            )}
           </div>
         </div>
 
@@ -9162,6 +9175,45 @@ const EventsPage = React.memo(function EventsPage({
       {/* Right panel */}
       <div className="cc-two-right">
         <div style={{ padding: '16px' }}>
+
+          {/* Role events card */}
+          {role && (() => {
+            const upcoming  = INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role))
+            const now       = new Date()
+            const thisMonth = upcoming.filter(e => {
+              const d = new Date(e.dateStart + 'T00:00:00')
+              return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+            })
+            const nextEvent = upcoming[0]
+            return (
+              <div style={{ marginBottom: '18px', padding: '12px', background: 'rgba(16,185,129,.05)', border: '1px solid rgba(16,185,129,.2)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#10b981', marginBottom: '8px', fontWeight: 700 }}>FOR {role.toUpperCase()}S</div>
+                {[
+                  { lbl: 'Upcoming relevant', val: String(upcoming.length) },
+                  { lbl: 'This month',         val: String(thisMonth.length) },
+                ].map(({ lbl, val }) => (
+                  <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(16,185,129,.08)' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)' }}>{lbl}</span>
+                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>{val}</span>
+                  </div>
+                ))}
+                {nextEvent && (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ fontSize: '9px', color: 'rgba(245,240,232,.3)', marginBottom: '3px' }}>NEXT FOR YOU</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(245,240,232,.75)', fontWeight: 500, lineHeight: 1.3, marginBottom: '2px' }}>{nextEvent.name}</div>
+                    <div style={{ fontSize: '9px', color: 'rgba(245,240,232,.35)' }}>{evtDateRange(nextEvent)} · {nextEvent.city}</div>
+                  </div>
+                )}
+                <button onClick={() => setFilterMyRole(f => !f)} style={{
+                  marginTop: '8px', width: '100%', padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  background: filterMyRole ? 'rgba(16,185,129,.2)' : 'rgba(16,185,129,.1)',
+                  color: '#10b981', fontSize: '10px', fontWeight: 600,
+                }}>
+                  {filterMyRole ? '✓ Showing Role Events' : 'Show Role Events'}
+                </button>
+              </div>
+            )
+          })()}
 
           {/* Quick stats */}
           <div style={{ marginBottom: '18px' }}>
