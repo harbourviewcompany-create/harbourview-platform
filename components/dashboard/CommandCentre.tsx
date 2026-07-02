@@ -5586,6 +5586,28 @@ const CREDENTIAL_COLORS: Record<string, string> = {
   other:              '#8a8a9b',
 }
 
+const EXPERT_ROLE_CREDS_MAP: Record<string, string[]> = {
+  'Doctor':      ['physician', 'pharmacologist'],
+  'Pharmacist':  ['pharmacist', 'pharmacologist'],
+  'Budtender':   ['educator', 'consultant'],
+  'Cultivator':  ['consultant', 'researcher'],
+  'Geneticist':  ['researcher', 'pharmacologist'],
+  'Processor':   ['researcher', 'consultant', 'pharmacologist'],
+  'Lab/QA':      ['researcher', 'pharmacologist'],
+  'Importer':    ['lawyer', 'consultant', 'regulator'],
+  'Exporter':    ['lawyer', 'consultant', 'regulator'],
+  'Distributor': ['consultant', 'lawyer'],
+  'Clinic Op.':  ['physician', 'pharmacist', 'nurse_practitioner'],
+  'Retail':      ['consultant', 'educator'],
+  'Compliance':  ['regulator', 'lawyer', 'consultant'],
+  'Legal':       ['lawyer', 'consultant'],
+  'Investor':    ['consultant', 'lawyer'],
+  'Regulator':   ['regulator', 'lawyer'],
+  'Patient Ed.': ['educator', 'nurse_practitioner', 'pharmacist'],
+  'GMP/QA':      ['researcher', 'consultant', 'pharmacologist'],
+  'Logistics':   ['consultant', 'lawyer'],
+}
+
 const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
   country, role,
 }: {
@@ -5593,12 +5615,13 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
   region:  string
   role:    string
 }) {
-  const [search,      setSearch]      = useState('')
-  const [credential,  setCredential]  = useState('')
-  const [countryFilt, setCountryFilt] = useState('')
-  const [experts,     setExperts]     = useState<ExpertRecord[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [expanded,    setExpanded]    = useState<string | null>(null)
+  const [search,       setSearch]       = useState('')
+  const [credential,   setCredential]   = useState('')
+  const [countryFilt,  setCountryFilt]  = useState('')
+  const [filterMyRole, setFilterMyRole] = useState(false)
+  const [experts,      setExperts]      = useState<ExpertRecord[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [expanded,     setExpanded]     = useState<string | null>(null)
   const [referralSent, setReferralSent] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -5610,6 +5633,11 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
       .finally(() => setLoading(false))
   }, [])
 
+  const roleCredentials = useMemo(
+    () => EXPERT_ROLE_CREDS_MAP[role] ?? [],
+    [role],
+  )
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return experts.filter(e => {
@@ -5617,11 +5645,17 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
                         (e.title ?? '').toLowerCase().includes(q) ||
                         (e.institution ?? '').toLowerCase().includes(q) ||
                         e.specialties.some(s => s.toLowerCase().includes(q))
-      const matchCred = !credential  || e.credential_type === credential
-      const matchCtry = !countryFilt || e.countries.includes(countryFilt.toUpperCase())
-      return matchQ && matchCred && matchCtry
+      const matchCred = !credential    || e.credential_type === credential
+      const matchCtry = !countryFilt   || e.countries.includes(countryFilt.toUpperCase())
+      const matchRole = !filterMyRole  || roleCredentials.includes(e.credential_type)
+      return matchQ && matchCred && matchCtry && matchRole
+    }).sort((a, b) => {
+      if (!role) return 0
+      const ar = roleCredentials.includes(a.credential_type) ? 0 : 1
+      const br = roleCredentials.includes(b.credential_type) ? 0 : 1
+      return ar - br
     })
-  }, [experts, search, credential, countryFilt])
+  }, [experts, search, credential, countryFilt, filterMyRole, roleCredentials, role])
 
   const consultAvail = filtered.filter(e => e.consultation_available).length
   const referralAvail = filtered.filter(e => e.accepts_referrals).length
@@ -5672,6 +5706,17 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
               <option key={c} value={c} style={{ background: '#050c18' }}>{flagEmoji(c)} {c}</option>
             ))}
           </select>
+          {role && roleCredentials.length > 0 && (
+            <button onClick={() => setFilterMyRole(f => !f)} style={{
+              padding: '7px 12px', borderRadius: '8px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
+              border: filterMyRole ? '1px solid rgba(16,185,129,.5)' : '1px solid rgba(255,255,255,.1)',
+              background: filterMyRole ? 'rgba(16,185,129,.12)' : 'rgba(255,255,255,.04)',
+              color: filterMyRole ? '#10b981' : 'rgba(245,240,232,.5)',
+              fontSize: '11px', fontWeight: filterMyRole ? 700 : 400,
+            }}>
+              ◎ For {role}s ({experts.filter(e => roleCredentials.includes(e.credential_type)).length})
+            </button>
+          )}
         </div>
 
         {/* Expert list */}
@@ -5882,15 +5927,37 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
             </div>
           )}
 
-          {/* Relevant to role */}
-          {role && (
-            <div style={{ padding: '10px 12px', background: 'rgba(212,168,75,.04)', border: '1px solid rgba(212,168,75,.15)', borderRadius: '8px', marginBottom: '14px' }}>
-              <div style={{ fontSize: '9px', letterSpacing: '.12em', textTransform: 'uppercase', color: '#d4a84b', marginBottom: '5px' }}>YOUR CONTEXT</div>
-              <div style={{ fontSize: '11px', color: 'rgba(245,240,232,.65)', lineHeight: 1.5 }}>
-                Showing all verified specialists. Use the credential and jurisdiction filters to find experts relevant to your {role} operations in {country.label}.
+          {/* Role experts card */}
+          {role && roleCredentials.length > 0 && (() => {
+            const roleExperts = experts.filter(e => roleCredentials.includes(e.credential_type))
+            const inCountry   = roleExperts.filter(e => e.countries.includes(country.iso2))
+            const withConsult = roleExperts.filter(e => e.consultation_available)
+            return (
+              <div style={{ padding: '12px', background: 'rgba(16,185,129,.05)', border: '1px solid rgba(16,185,129,.2)', borderRadius: '10px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#10b981', marginBottom: '8px', fontWeight: 700 }}>FOR {role.toUpperCase()}S</div>
+                {[
+                  { lbl: 'Matched experts',      val: String(roleExperts.length) },
+                  { lbl: `In ${country.label}`,  val: String(inCountry.length) },
+                  { lbl: 'Consult available',    val: String(withConsult.length) },
+                ].map(({ lbl, val }) => (
+                  <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(16,185,129,.08)' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.55)' }}>{lbl}</span>
+                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>{val}</span>
+                  </div>
+                ))}
+                <div style={{ marginTop: '7px', fontSize: '10px', color: 'rgba(245,240,232,.38)', lineHeight: 1.4 }}>
+                  Credential types: {roleCredentials.map(c => CREDENTIAL_LABELS[c] ?? c).join(', ')}
+                </div>
+                <button onClick={() => setFilterMyRole(f => !f)} style={{
+                  marginTop: '8px', width: '100%', padding: '5px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  background: filterMyRole ? 'rgba(16,185,129,.2)' : 'rgba(16,185,129,.1)',
+                  color: '#10b981', fontSize: '10px', fontWeight: 600,
+                }}>
+                  {filterMyRole ? '✓ Showing Role Experts' : 'Show Role Experts'}
+                </button>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           <a href="/intake" style={{
             display: 'flex', padding: '9px 14px', borderRadius: '8px',
@@ -6881,6 +6948,28 @@ const KYB_CHECKLIST: KybCheckItem[] = [
   },
 ]
 
+const KYB_ROLE_PRIORITY_CATS: Record<string, KybCategory[]> = {
+  'Doctor':      ['licensing', 'compliance', 'identity'],
+  'Pharmacist':  ['licensing', 'compliance', 'financial'],
+  'Budtender':   ['identity', 'licensing', 'operational'],
+  'Cultivator':  ['licensing', 'operational', 'compliance'],
+  'Geneticist':  ['licensing', 'operational', 'identity'],
+  'Processor':   ['licensing', 'operational', 'compliance'],
+  'Lab/QA':      ['licensing', 'operational', 'identity'],
+  'Importer':    ['licensing', 'compliance', 'legal'],
+  'Exporter':    ['licensing', 'compliance', 'legal'],
+  'Distributor': ['licensing', 'compliance', 'operational'],
+  'Clinic Op.':  ['licensing', 'compliance', 'financial'],
+  'Retail':      ['licensing', 'identity', 'financial'],
+  'Compliance':  ['compliance', 'legal', 'identity'],
+  'Legal':       ['legal', 'compliance', 'identity'],
+  'Investor':    ['financial', 'legal', 'identity'],
+  'Regulator':   ['licensing', 'legal', 'compliance'],
+  'Patient Ed.': ['identity', 'licensing', 'compliance'],
+  'GMP/QA':      ['licensing', 'operational', 'compliance'],
+  'Logistics':   ['licensing', 'operational', 'legal'],
+}
+
 function kybCategoryProgress(items: KybCheckItem[], statuses: Record<string, KybStatus>, cat: KybCategory) {
   const catItems = items.filter(i => i.category === cat)
   const done = catItems.filter(i => statuses[i.id] === 'complete').length
@@ -6888,7 +6977,7 @@ function kybCategoryProgress(items: KybCheckItem[], statuses: Record<string, Kyb
 }
 
 const KybVerificationPage = React.memo(function KybVerificationPage({
-  country,
+  country, role,
 }: { country: string; region: string; role: string }) {
   const [statuses,    setStatuses]    = useState<Record<string, KybStatus>>({})
   const [notes,       setNotes]       = useState<Record<string, string>>({})
@@ -7110,6 +7199,42 @@ const KybVerificationPage = React.memo(function KybVerificationPage({
             </div>
           </div>
         )}
+
+        {/* Role priority card */}
+        {role && (() => {
+          const priorityCats = KYB_ROLE_PRIORITY_CATS[role] ?? []
+          if (priorityCats.length === 0) return null
+          return (
+            <div style={{ background: 'rgba(16,185,129,.05)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.2)' }}>
+              <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontWeight: 700 }}>PRIORITY FOR {role.toUpperCase()}S</div>
+              <div style={{ fontSize: '.75rem', color: 'rgba(245,240,232,.5)', marginBottom: 10, lineHeight: 1.4 }}>
+                Focus these categories first when verifying a {role} counterparty:
+              </div>
+              {priorityCats.map((cat, i) => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCat(filterCat === cat ? 'all' : cat)}
+                  style={{
+                    display: 'flex', width: '100%', alignItems: 'center', gap: 8,
+                    padding: '5px 8px', borderRadius: 6, marginBottom: 5, cursor: 'pointer',
+                    background: filterCat === cat ? `${KYB_CATEGORY_COLORS[cat]}22` : 'rgba(255,255,255,.03)',
+                    border: filterCat === cat ? `1px solid ${KYB_CATEGORY_COLORS[cat]}55` : '1px solid rgba(255,255,255,.06)',
+                  }}
+                >
+                  <span style={{ fontSize: '.75rem', color: '#10b981', fontWeight: 700, flexShrink: 0 }}>#{i + 1}</span>
+                  <span style={{ fontSize: '.73rem', color: 'rgba(245,240,232,.7)' }}>{KYB_CATEGORY_ICONS[cat]} {KYB_CATEGORY_LABELS[cat]}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: '.68rem', color: KYB_CATEGORY_COLORS[cat], fontWeight: 600 }}>
+                    {kybCategoryProgress(KYB_CHECKLIST, statuses, cat).done}/{kybCategoryProgress(KYB_CHECKLIST, statuses, cat).total}
+                  </span>
+                </button>
+              ))}
+              <button onClick={() => setFilterCat('all')} style={{
+                marginTop: 2, width: '100%', padding: '4px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                background: 'rgba(16,185,129,.1)', color: '#10b981', fontSize: '.71rem', fontWeight: 600,
+              }}>Show All Categories</button>
+            </div>
+          )
+        })()}
 
         {/* Legend */}
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
