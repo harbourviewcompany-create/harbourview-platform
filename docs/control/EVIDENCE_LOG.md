@@ -234,3 +234,50 @@ Expected Pass 1 evidence:
 - No auth/RLS changed.
 - No deployment setting changed.
 - No Notion, Drive, Linear, or Monday workspace changed.
+
+## Anthropic Gateway Provider + Match Rationale + Digest Narrative (2026-07-01)
+
+**Summary:** Registered `anthropic` as a first-class provider in the unified LLM gateway (`lib/llm/`), fixed a stale hardcoded Claude model snapshot in `lib/scrapers/normaliser.ts`, added AI match-rationale generation to the marketplace matching engine (`lib/marketplace/matchRationale.ts`), and added an AI executive-summary narrative to the signal digest email (`lib/signals/digestNarrative.ts`).
+
+**Context:** Prompted by a leaked `ANTHROPIC_API_KEY` (screenshotted in a platform.claude.com dialog) which was rotated in Anthropic Console. Investigation found the Supabase edge function secret of the same name is unused (only `airtable-sync` edge function exists, and it doesn't reference it) — all live Claude call sites run in the Next.js app on Vercel and read `process.env.ANTHROPIC_API_KEY` directly via ad hoc SDK/fetch calls in 7+ files, with no shared provider config despite `.env.example` declaring `HARBOURVIEW_LLM_DEFAULT_PROVIDER=anthropic` (a default that referenced a nonexistent gateway provider prior to this change).
+
+**Schema change:** Added `match_rationale text`, `match_rationale_model text`, `match_rationale_generated_at timestamptz` to `public.matches` (migration `add_match_rationale_columns`, applied directly to Supabase project `zvxdgdkukjrrwamdpqrg`, verified via `information_schema.columns`).
+
+**Design notes:**
+- Both new AI features are strictly best-effort/additive: `generateMatchRationale` and `generateDigestNarrative` catch all gateway failures (`LlmGatewayError` or otherwise) and return `null`, so match creation and digest sending are unaffected if the gateway is disabled/unconfigured/erroring.
+- `matchEngine.ts` caps AI rationale generation at 8 matches per run (`MAX_RATIONALE_PER_RUN`) to bound serverless function time/cost on large batch runs (e.g. the `runFullMarketplaceMatch` cron sweep). Matches beyond the cap are still created with only the existing templated `internal_notes` line.
+- Anthropic provider config falls back to model `claude-sonnet-4-6` by default in `lib/llm/config.ts`, matching the model used elsewhere post-fix.
+
+**Commands and results (UTC, 2026-07-01):**
+- `npx tsc --noEmit` — PASS (0 errors)
+- `npx vitest run tests/llm/providers.test.ts tests/llm/rateLimit.test.ts tests/llm/validation.test.ts` — PASS (12/12)
+- `npx vitest run tests/marketplace/publicProjection.test.ts tests/harbourview/unified-listings-dto.test.ts` — PASS (6/6)
+- `npm run build` — PASS
+- `npm run lint` / `next lint` — BLOCKED in this sandbox: pre-existing `eslint-config-next`/`@eslint/eslintrc` dependency mismatch unrelated to this change (fails identically on a clean checkout before any edits). Typecheck + full build used as substitute evidence per AGENTS.md fallback guidance.
+
+**Data handling:** No secrets, keys, or customer PII included in code, tests, commits, or this log. AI prompts constructed in `matchRationale.ts` and `digestNarrative.ts` truncate free-text fields to 1,200/400 chars respectively before sending to the provider.
+
+**Rollback:** Revert PR (single branch, additive-only diff — no existing call sites were removed, only the stale model string in `normaliser.ts` was changed and the `LLM_PROVIDERS` union was extended). New `matches` columns are nullable and additive; no rollback migration required to restore prior behavior (rationale fields simply go unused).
+
+## Decouple match rationale from publish request path + admin matches view (2026-07-01)
+
+**Summary:** Follow-up to the Anthropic gateway PR (#921). Removed AI rationale generation from the synchronous match-creation path (`matchListingToBuyerRequests`, `matchBuyerRequestToListings`) — it was previously awaited inline inside `app/api/admin/marketplace/inquiries/[id]/publish/route.ts`, adding up to 8 parallel Anthropic round-trips to an admin's "publish listing" click. Added `backfillMatchRationales()` to `matchEngine.ts`, called from the daily `/api/cron/marketplace-match` cron, which finds matches with `match_rationale IS NULL` (oldest first, capped at 20/run) and enriches them out of band. Also added `app/admin/marketplace/matches/page.tsx` — the first UI surface that actually reads `match_rationale`, which until now was write-only (populated but never displayed).
+
+**Why:** Self-identified in a repo review — flagged as the two things that would "materially improve" the initial PR: (1) real added latency on a synchronous admin request path, verified by tracing the actual caller (`publish/route.ts`), and (2) the rationale column had zero UI consumers.
+
+**Design notes:**
+- `backfillMatchRationales()` batches listing/buyer_request lookups via `.in()` rather than N+1 queries.
+- Cap raised from 8 (matched to a single request's latency budget) to 20 (bounded by the cron's `maxDuration`, no human waiting on it) — `maxDuration` bumped 60s → 120s accordingly.
+- Admin matches page follows the existing `getAdminDataClient()` / PostgREST-embed pattern from `app/admin/marketplace/page.tsx` and `.../promote/route.ts`, including the same defensive array-or-object normalization for embedded FK relations seen in the promote route.
+- New page linked from the marketplace hub's lane grid (`app/admin/marketplace/page.tsx`).
+- Fixed a stale code comment in the cron route (claimed "every 6 hours"; `vercel.json` actually runs it once daily at 14:00 UTC) while in the file for an unrelated reason.
+
+**Commands and results (UTC, 2026-07-01):**
+- `npx tsc --noEmit` — PASS (0 errors)
+- `npx vitest run tests/llm/providers.test.ts tests/llm/rateLimit.test.ts tests/llm/validation.test.ts tests/marketplace/publicProjection.test.ts tests/harbourview/unified-listings-dto.test.ts` — PASS (18/18)
+- `npm run build` — PASS; confirmed `/admin/marketplace/matches` and `/api/cron/marketplace-match` registered with no errors
+- `next lint` — still blocked by the pre-existing sandbox dependency issue noted in the prior entry; unchanged.
+
+**Known limitation:** With the cron on its current daily schedule, a match created via the publish route can take up to ~24h to receive its AI rationale (shows "Pending" in the admin view until then). Not addressed here — would require either a more frequent cron or a fire-and-forget post-response task; left as a deliberate scope boundary since 24h latency on a non-blocking enrichment field is acceptable, not a defect.
+
+**Rollback:** Revert PR. No schema changes in this follow-up (columns already existed from the prior migration). No existing route behavior changed except: (a) publish-route latency improves (rationale no longer awaited), (b) the marketplace-match cron takes longer per run and returns one new `rationalesBackfilled` field.

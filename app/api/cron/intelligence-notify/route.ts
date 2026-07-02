@@ -25,6 +25,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { sendSignalDigest, type DigestSignal } from '@/lib/signals/notification'
+import { generateDigestNarrative } from '@/lib/signals/digestNarrative'
 
 export const dynamic   = 'force-dynamic'
 export const maxDuration = 300
@@ -141,6 +142,7 @@ export async function GET(request: Request) {
       }
 
       const unsubscribeUrl = `${siteUrl}/api/signals/subscribe?action=unsubscribe&id=${sub.id}`
+      const narrative = await generateDigestNarrative(filtered as DigestSignal[])
 
       const result = await sendSignalDigest({
         recipientEmail:  sub.email,
@@ -148,6 +150,7 @@ export async function GET(request: Request) {
         subscriptionId:  sub.id,
         unsubscribeUrl,
         siteUrl,
+        narrative,
       })
 
       if (result.status !== 'sent') {
