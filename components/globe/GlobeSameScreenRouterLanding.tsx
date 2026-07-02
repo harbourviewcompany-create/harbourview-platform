@@ -179,14 +179,32 @@ export function GlobeSameScreenRouterLanding() {
           onHoverCountry={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback'
             ? undefined
             : (countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+          onSelectCountry={(countryIso2) => {
+            if (state.mode === 'multi_market') {
+              dispatch({ type: 'MULTI_MARKET_ADD', countryIso2 })
+              return
+            }
+            // Single-market: skip the market_overview interstitial entirely.
+            // Batched dispatches resolve to one render at step:'routing', so
+            // MarketOverviewSheet never mounts for this path — the briefing
+            // content it showed is redundant with BriefingRoom on the
+            // destination dashboard, which already handles the no-briefing
+            // case inline. See HANDOFF.md "collapse interstitial" entry.
+            dispatch({ type: 'COUNTRY_SELECT', countryIso2 })
+            dispatch({ type: 'MARKET_ENTER' })
+          }}
         />
       )}
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => {
+          // COUNTRY_SEARCH_SELECT always sets mode:'single_market' in the
+          // reducer regardless of prior mode, so this path is unconditionally
+          // single-market — same interstitial-skip treatment as the globe
+          // click handler above.
           dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })
-          setSrAnnouncement(`Country selected: ${getCountryName(countryIso2)}.`)
+          dispatch({ type: 'MARKET_ENTER' })
+          setSrAnnouncement(`Entering ${getCountryName(countryIso2)}.`)
         }}
         onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
         onAnnouncement={setSrAnnouncement}

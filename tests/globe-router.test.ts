@@ -333,6 +333,23 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
+  it('batches COUNTRY_SELECT + MARKET_ENTER to skip the market_overview interstitial for single-market selection', () => {
+    // GlobeSameScreenRouterLanding's onSelectCountry dispatches these two
+    // actions together (React batches them into one render) so the
+    // MarketOverviewSheet interstitial never mounts for the primary
+    // single-market flow — selecting a country goes straight to routing.
+    // Reducer still supports market_overview as a standalone step (used by
+    // multi-market and by BACK-from-fallback recovery); this test locks in
+    // the specific two-action sequence the UI relies on to skip it.
+    const afterSelect = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
+    const afterEnter = globeRouterReducer(afterSelect, { type: 'MARKET_ENTER' })
+
+    expect(afterEnter.step).toBe('routing')
+    expect(afterEnter.routeStatus).toBe('resolving')
+    expect(afterEnter.selectedCountryIso2).toBe('DE')
+    expect(afterEnter.selectedRoleId).toBe('importer')
+  })
+
   it('returns to the country step on back from market_overview so the camera can fly back to globe', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const afterBack = globeRouterReducer(afterCountry, { type: 'BACK' })
