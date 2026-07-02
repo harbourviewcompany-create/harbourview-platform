@@ -8,6 +8,22 @@ This file defines baseline instructions for all agents and contributors working 
 - **Conflict rule:** The most deeply nested `AGENTS.md` wins for style/process details, while higher-level safety/compliance constraints still apply unless explicitly tightened.
 - **Stricter subdirectory guidance:** Teams should add nested `AGENTS.md` files in sensitive areas (for example data ingestion, auth, billing, analytics, or infra) when stricter controls are needed.
 
+## Multi-Agent Coordination (claude.ai / MCP Sessions vs Claude Code)
+
+This repository is actively worked by two categories of Claude agent with different capabilities and blast radii. Both must follow this section.
+
+- **Claude Code** (this file's primary audience): sustained code authoring, CI/lint/test discipline, PR-based changes to the git repo.
+- **Claude via claude.ai using MCP connectors** (Supabase/Vercel/GitHub tools): live incident response — can query and mutate production Supabase directly (SQL, migrations, edge function deploys, grants) and Vercel directly, in the same conversation, without a PR cycle first. This is by design for outage/incident work, but it means schema and infra state can change outside the normal commit flow if the session doesn't close the loop.
+
+Rules for both:
+
+1. **Every direct-to-prod change gets a same-session migration file.** If an MCP session applies a migration via `apply_migration` / `execute_sql` DDL, it must also write the matching file into `supabase/migrations/` and push it (to a branch, not `main`) before ending the session — not leave it as ledger-only drift for a later reconciliation pass. A `remote_applied_repair.sql` stub is a fallback for already-orphaned drift, not a first resort.
+2. **`git fetch origin main` before acting, every session**, and skim the top entry of `HANDOFF.md`. Sessions run concurrently and the repo moves fast — see the migration-drift reconciliations logged there for what happens when this is skipped.
+3. **Branch, don't push to `main` directly** — for both agent types, even for MCP-driven incident fixes. Open a PR so the next session sees a reviewable diff, not a surprise in `git log`.
+4. **Log the session in `HANDOFF.md`**, using the existing format (`### Agent: <name>`, what changed, known-latent items). This predates this file and is the primary handoff mechanism — keep using it, including for MCP-only sessions that never touch a code editor.
+5. **Git identity convention**: MCP/claude.ai sessions commit as `Harbourview <harbourviewcompany@gmail.com>`; Claude Code sessions commit as `Claude <claude@harbourview.dev>`. Keeps `git log --author` able to cleanly separate the two.
+6. **Edge Functions deploy outside git.** Only `supabase/functions/airtable-sync/` is currently version-controlled; the other deployed functions exist solely as live Supabase state (deployed via MCP `deploy_edge_function`, not `git push`). Any MCP session that patches a live edge function should also commit the same source under `supabase/functions/<slug>/index.ts` in the same push, to close that gap incrementally rather than widen it.
+
 ## Coding & Style Expectations
 - Follow existing conventions in touched files; do not introduce a second style system in the same module.
 - Keep changes minimal, composable, and reversible; avoid opportunistic refactors unless requested.

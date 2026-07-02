@@ -1,4 +1,30 @@
-## Session: Jul 1 2026 (continued) — deploy consolidation
+## Session: Jul 1 2026 (continued, evening) — schema routing incident + pipeline recovery
+
+### Agent: Claude (claude.ai, MCP session)
+
+**Root cause found and fixed:** PostgREST on this project only exposes the `api` schema (Settings → Data API → Exposed schemas), not `public`, even though every table physically lives in `public`. supabase-js defaults to `public` when no schema is specified — this was causing PGRST106 406s on every REST call across the entire app (regulatory briefings, dashboard, marketplace, everything) and every cron-triggered Edge Function (signal ingestion pipeline dead since ~Jun 23).
+
+**Fixed across three layers:**
+1. **App code** (`lib/supabase/client.ts`, `server.ts`, 11 raw `createClient()` call sites, `lib/server/supabaseRestClient.ts`) — all now pass `db: { schema: 'api' }` or `Accept-Profile`/`Content-Profile` headers. Landed on `main` via `fix/schema-api-everywhere` PR (later superseded/absorbed by a broader Claude Code sweep in #916 that caught 31 more files — both passes were needed).
+2. **Grants** — `anon`/`authenticated` had zero SELECT grants on most `api.*` views (migration `20260629235346`). Separately, **`service_role` had zero grants on the `api` schema at all** (migration `20260630100731`) — this blocked every cron job and Edge Function independent of the schema-routing fix, and was easy to miss since it only surfaces as `permission denied for schema api`, not PGRST106.
+3. **Edge Functions** — audited all 26 deployed functions. 10 had the same raw-client bug (`hv-extract`, `hv-score`, `hv-pipeline-orchestrator`, `hv-embed-worker`, `source-universe-loader`, `bulk-source-upsert`, `compute-passport-score`, `generate-org-snapshot`, `generate-signed-url`, `adi-engine` — the last is an unrelated side project sharing this Supabase instance). All patched and redeployed. **Only `supabase/functions/airtable-sync/` is version-controlled** — the other 25 exist solely as live Supabase state; this is a standing gap (see new AGENTS.md §Multi-Agent Coordination item 6).
+
+**Wired extract/score/embed into pg_cron** (migration `20260701111452`) — these Edge Functions existed and worked but were never scheduled; only fetch (`hv-source-pull-runner`) was. Added `hv_trigger_extract`/`hv_trigger_score`/`hv_trigger_embed` SQL functions + `cron.schedule` entries at `:10/:40`, `:20/:50`, `:25/:55` respectively.
+
+**Self-inflicted bug, caught and fixed same session** (migrations `20260701191146`/`...191208`): the three new trigger functions copied their `pg_net.http_post` header pattern from the existing `hv_trigger_source_pull_runner`, which works *without* an `Authorization` header only because its target function has `verify_jwt: false`. `hv-extract`/`hv-score`/`hv-embed-worker` all have `verify_jwt: true` at the platform gateway — every automated cron call was 401ing at the gateway before function code ran, for the ~2 hours between wiring the cron jobs and catching it via `get_logs`. Fixed by inlining the anon JWT into all three trigger functions. **Lesson: `current_setting('app.settings.anon_key', true)` is not a GUC that exists in this project — returns NULL silently, would have reproduced the same bug under a different name. Verify GUCs exist before relying on them; don't assume a convention from another codebase applies here.**
+
+**`hv-extract` now supports Anthropic with OpenAI fallback** — `ANTHROPIC_API_KEY` was never set in Supabase Edge Function secrets (only existed in Vercel, which Edge Functions can't read — separate secret stores). Tyler added it mid-session. `OPENAI_API_KEY` was already present but over quota; extract now tries Anthropic (`claude-haiku-4-5`) first, falls back to OpenAI (`gpt-4o-mini`) only if the Anthropic key is absent.
+
+**Verified end-to-end post-fix:** `extracted` count on `source_snapshots` moved 17 → 119 within the hour purely from cron firing on schedule (no manual triggers), confirming the full fetch → extract → score chain is live and self-sustaining for the first time since the June 23 regression.
+
+### Known-latent (documented, not fixed this session)
+
+- **Two separate extraction pipelines coexist**: the old SQL-native `hv_extract_signals_from_captured_text()` (keyword-matching, runs 06:00–07:00 daily, writes to `signal_candidates` JSONB on the snapshot) and the new LLM-powered Edge Function pipeline (writes to `hv_import_staging` → `hv_artifacts`). Not reconciled or deduplicated against each other — worth a decision on whether the old one should be retired now that the new one is confirmed live.
+- **Migration-drift reconciliation is happening ~4x/week** (see Claude Code's own note in `95fba292`). This session added to that load (5 migrations applied via MCP mid-incident, since reconciled). New AGENTS.md section commits both agent types to writing the migration file in the same session as any live DB change going forward — worth checking in a few sessions whether that actually holds.
+- **`tools/intelligence-engine-studio/`** remains an unversioned duplicate of `lib/intelligence-engine/` (orchestrator, worker-node, scripts all mirrored) — flagged in earlier sessions, still unresolved.
+- Two GitHub PATs were pasted directly into a claude.ai chat this session (by Tyler, to authorize a push) — both should be rotated; flagged to Tyler in-session but rotation itself wasn't verified.
+
+---
 
 ### Agent: Claude (claude.ai)
 
