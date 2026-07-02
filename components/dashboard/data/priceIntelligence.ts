@@ -276,6 +276,64 @@ export const PRICE_BENCHMARKS: PriceBenchmark[] = [
     currency: 'USD', minPrice: 200, maxPrice: 700, unit: 'kg', trend: 'down', trendPct: -18,
     channel: 'wholesale', updatedQ: 'Q2 2026',
     notes: 'Oklahoma OMMA-licensed medical market — highest cultivator licence density in the US (10,000+ licences). Severe structural oversupply depressing prices; market rationalization underway following adult-use vote failure in 2023.' },
+
+  // ── Poland ─────────────────────────────────────────────────────────────────
+  { id: 'pl-flower-premium', country: 'PL', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'EUR', minPrice: 3400, maxPrice: 5200, unit: 'kg', trend: 'down', trendPct: -7,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'URPL-regulated medical market since 2017. Primary imports from Canada, Netherlands, and Germany. High import duties and regulatory overhead add ~EUR 800/kg above German equivalent. Supply expanding slowly as domestic patient registry grows.' },
+  { id: 'pl-flower-standard', country: 'PL', region: 'Europe', product: 'flower', tier: 'standard',
+    currency: 'EUR', minPrice: 1900, maxPrice: 3400, unit: 'kg', trend: 'down', trendPct: -10,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Mid-tier imports filling growing patient demand. Pharmacy dispensing via NFZ-reimbursed prescriptions creating volume pull. Price erosion driven by new supplier agreements and volume commitments from major importers.' },
+  { id: 'pl-oil-premium', country: 'PL', region: 'Europe', product: 'oil', tier: 'premium',
+    currency: 'EUR', minPrice: 11, maxPrice: 19, unit: 'gram', trend: 'stable', trendPct: -1,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'THC oil (≥25 mg/mL) for pharmacy dispensing. Very limited product authorizations compared to flower; European-manufactured products dominate. Reimbursement approval pending for several SKUs.' },
+
+  // ── France ─────────────────────────────────────────────────────────────────
+  { id: 'fr-flower-premium', country: 'FR', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'EUR', minPrice: 4600, maxPrice: 6800, unit: 'kg', trend: 'up', trendPct: 4,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'ANSM-authorized medical pilot (expérimentation). Extremely constrained supply; only SATIPHARM and select EU-GMP producers hold authorizations. Pharmacy distribution via AGEPS. Pilot extension underway toward permanent framework.' },
+  { id: 'fr-oil-premium', country: 'FR', region: 'Europe', product: 'oil', tier: 'premium',
+    currency: 'EUR', minPrice: 13, maxPrice: 22, unit: 'gram', trend: 'up', trendPct: 6,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Full-spectrum oil products dispensed via hospital pharmacies. Very few authorized SKUs; Sativex (nabiximols) approved separately. Premium pricing reflects supply scarcity and high regulatory entry cost for new products.' },
+  { id: 'fr-flower-standard', country: 'FR', region: 'Europe', product: 'flower', tier: 'standard',
+    currency: 'EUR', minPrice: 2800, maxPrice: 4500, unit: 'kg', trend: 'stable', trendPct: 2,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Standard-tier imports entering pilot programme. ANSM tightening supplier qualification requirements. Pilot expanding gradually; eventual market size projected to match Germany at scale if permanent framework passes.' },
+
+  // ── Sweden ─────────────────────────────────────────────────────────────────
+  { id: 'se-flower-premium', country: 'SE', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'SEK', minPrice: 75000, maxPrice: 115000, unit: 'kg', trend: 'stable', trendPct: 1,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Läkemedelsverket-authorized. Sweden maintains one of the most restrictive medical cannabis frameworks in the EU. Apoteket AB monopoly distribution significantly inflates landed cost. Specialist prescription only; very small patient population (~3,000 active).' },
+  { id: 'se-oil-premium', country: 'SE', region: 'Europe', product: 'oil', tier: 'premium',
+    currency: 'SEK', minPrice: 160, maxPrice: 280, unit: 'gram', trend: 'stable', trendPct: -2,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'THC oil dispensed via Apoteket. Bedrocan and select EU-GMP products authorized. High per-gram price reflects mono-channel distribution, specialist prescribing requirements, and absence of cost competition. Sativex reimbursed separately via NT-rådet.' },
+
+  // ── Norway ─────────────────────────────────────────────────────────────────
+  { id: 'no-flower-premium', country: 'NO', region: 'Europe', product: 'flower', tier: 'premium',
+    currency: 'NOK', minPrice: 70000, maxPrice: 105000, unit: 'kg', trend: 'stable', trendPct: 0,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Statens Legemiddelverk (SLV) licensed. Non-EU jurisdiction with high import compliance cost. Apotek 1 / Vitus distribution monopoly. Extremely small patient population; most prescriptions are §28c compassionate use. Import volumes among the lowest per-capita in Europe.' },
+  { id: 'no-oil-premium', country: 'NO', region: 'Europe', product: 'oil', tier: 'premium',
+    currency: 'NOK', minPrice: 2200, maxPrice: 3800, unit: 'gram', trend: 'stable', trendPct: 1,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'SLV §28c exempt products. Bedrocan, Tilray, and Canadian LPs supply small volume. Pharmacy price markups under Apotek 1/Vitus frame substantial add to wholesale base. Very high end-patient cost limits adherence and patient uptake.' },
+
+  // ── South Africa (additional products) ────────────────────────────────────
+  { id: 'za-distillate-standard', country: 'ZA', region: 'Africa', product: 'distillate', tier: 'standard',
+    currency: 'USD', minPrice: 400, maxPrice: 900, unit: 'kg', trend: 'up', trendPct: 10,
+    channel: 'wholesale', updatedQ: 'Q2 2026',
+    notes: 'SAHPRA-licensed extract producers targeting EU export corridors. Low production cost base (outdoor/greenhouse) creates strong margin at destination. EU-GMP certification pathway being pursued by leading Cape producers to unlock European pharmacy markets.' },
+  { id: 'za-oil-standard', country: 'ZA', region: 'Africa', product: 'oil', tier: 'standard',
+    currency: 'USD', minPrice: 3, maxPrice: 7, unit: 'gram', trend: 'up', trendPct: 9,
+    channel: 'medical-wholesale', updatedQ: 'Q2 2026',
+    notes: 'Section 21 / complementary medicines-authorized oil products. Domestic medical market nascent but growing. EU export potential significant for finished oil if GMP certification achieved. Several operators approaching international pharmacy channel readiness.' },
 ]
 
 export function formatPrice(b: PriceBenchmark): string {
