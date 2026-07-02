@@ -1,8 +1,8 @@
 'use server'
 
 // Server action for the Supplier Directory application form.
-// Writes a pending row to supplier_profiles — admin reviews and flips
-// status='active' + verification_status='verified' before it appears publicly.
+// Writes a pending_review row to supplier_profiles — admin reviews and flips
+// status='approved' before it appears publicly in the supplier directory.
 // Mirrors submitProfessionalApplication.ts exactly in structure and security patterns.
 
 import { createClient } from '@supabase/supabase-js'
@@ -129,7 +129,7 @@ export async function submitSupplierApplication(
     ? `${descriptionPublic}\n\n[Application contact: ${email}]`
     : `[Application contact: ${email}]`
 
-  const { error } = await svc.from('supplier_applications').insert({
+  const { error } = await svc.from('supplier_profiles').insert({
     profile_slug: profileSlug,
     company_name: companyName,
     contact_name: contactName || null,
@@ -142,7 +142,7 @@ export async function submitSupplierApplication(
     website: websiteUrl || null,
     hq_country: hqCountry || null,
     services_offered: servicesOffered,
-    status: 'pending',
+    status: 'pending_review',
   })
 
   if (error) {

@@ -164,6 +164,32 @@ export function LogInteractionButton({ id, currentCount }: { id: string; current
   )
 }
 
+export function DeleteCounterpartyButton({ id, name }: { id: string; name: string }) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleDelete() {
+    if (!confirm(`Delete counterparty "${name}"? This cannot be undone.`)) return
+    setSubmitting(true)
+    const res = await fetch(`/api/admin/intelligence/counterparties/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+    setSubmitting(false)
+    if (res.ok) startTransition(() => router.refresh())
+  }
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={submitting}
+      className="mt-1 text-[10px] uppercase tracking-[0.1em] text-red-400/60 transition hover:text-red-400 disabled:opacity-50"
+    >
+      {submitting ? 'Deleting…' : 'Delete'}
+    </button>
+  )
+}
+
 const DOC_STATUSES = ['complete', 'partial', 'missing'] as const
 type DocStatus = (typeof DOC_STATUSES)[number]
 

@@ -90,11 +90,11 @@ export function getAdminError(result: AdminDataResult<unknown>): AdminDataError 
   return (result as Extract<AdminDataResult<unknown>, { ok: false }>).error;
 }
 
-/** Mutation variant — PATCH/POST/DELETE with body */
+/** Mutation variant — PATCH/POST/DELETE with optional body */
 export async function fetchAdminSupabaseJsonMutation<T>(
   path: string,
   method: 'PATCH' | 'POST' | 'DELETE',
-  body: Record<string, unknown>,
+  body?: Record<string, unknown>,
 ): Promise<AdminDataResult<T>> {
   const client = getAdminDataClient();
   if (!client.ok) return client;
@@ -107,7 +107,7 @@ export async function fetchAdminSupabaseJsonMutation<T>(
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
-    body: JSON.stringify(body),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     cache: 'no-store',
   });
 

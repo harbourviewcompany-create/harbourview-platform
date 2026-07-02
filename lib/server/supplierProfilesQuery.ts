@@ -40,12 +40,12 @@ export const CATEGORY_LABELS: Record<string, string> = {
   supplier_directory: 'General Supply',
 }
 
-export async function getApprovedSupplierProfileById(id: string): Promise<SupplierProfile | null> {
+export async function getApprovedSupplierProfileById(profileSlug: string): Promise<SupplierProfile | null> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
   try {
     const params = new URLSearchParams({
       select: 'id,profile_slug,company_name,title,seller_type,regions_served,categories,description_public,created_at',
-      id: `eq.${id}`,
+      profile_slug: `eq.${profileSlug}`,
       status: 'eq.approved',
       limit: '1',
     })

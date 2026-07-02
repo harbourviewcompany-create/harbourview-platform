@@ -3,6 +3,7 @@ import { requireAdminAuth } from '@/lib/auth/adminGuard'
 import {
   logIaCounterpartyInteraction,
   updateIaCounterpartyDocumentationStatus,
+  deleteIaCounterparty,
 } from '@/lib/intelligence-automation/db'
 
 const VALID_DOC_STATUSES = ['complete', 'partial', 'missing'] as const
@@ -45,6 +46,24 @@ export async function PATCH(
       return NextResponse.json({ error: result.error.message }, { status: 500 })
     }
 
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdminAuth()
+    const { id } = await params
+    const result = await deleteIaCounterparty(id)
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error.message }, { status: 500 })
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
