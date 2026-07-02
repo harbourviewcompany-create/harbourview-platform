@@ -7550,8 +7550,8 @@ const PRICE_ROLE_CHANNEL_MAP: Record<string, string> = {
 }
 
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
-  country, role,
-}: { country: string; region: string; role: string }) {
+  country, role, onPageChange,
+}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
   const [filterRegion,   setFilterRegion]   = useState<string>('all')
@@ -7859,6 +7859,27 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
             Submit Price Data
           </button>
         </div>
+
+        {/* Cross-page navigation */}
+        <div style={{ background: 'rgba(16,185,129,.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.2)' }}>
+          <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>Model Your Trade Economics</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>
+            Use benchmarks to model total landed cost across a trade corridor — including freight, duties, permits, and FX.
+          </div>
+          <button style={{ background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '7px 14px', color: '#10b981', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('trade-calc')}>
+            Open Landed Cost Calculator →
+          </button>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Live Market Listings</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Compare benchmarks against actual available product listings, specs, and ask prices in the marketplace.</div>
+          <button style={{ background: 'rgba(212,168,75,.1)', border: '1px solid rgba(212,168,75,.25)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('marketplace')}>
+            Open Marketplace →
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -7899,8 +7920,8 @@ const LOGISTICS_ROLE_TYPES_MAP: Record<string, LogisticsType[]> = {
 }
 
 const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
-  country, role,
-}: { country: string; region: string; role: string }) {
+  country, role, onPageChange,
+}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [search,        setSearch]        = useState('')
   const [filterType,    setFilterType]    = useState<LogisticsType | 'all'>('all')
   const [filterRegion,  setFilterRegion]  = useState<string>('all')
@@ -8122,6 +8143,24 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
           <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Know a provider?</div>
           <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Submit cannabis-experienced logistics providers to help the industry navigate controlled-substance shipping.</div>
           <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>Submit a Provider</button>
+        </div>
+
+        <div style={{ background: 'rgba(16,185,129,.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.2)' }}>
+          <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Corridor Economics</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Model freight costs, duties, permit fees, and total landed cost across your target trade corridor.</div>
+          <button style={{ background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '7px 14px', color: '#10b981', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('trade-calc')}>
+            Open Landed Cost Calculator →
+          </button>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Permit Requirements</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Review the import/export permit chain and narcotics documentation required for each trade corridor.</div>
+          <button style={{ background: 'rgba(212,168,75,.1)', border: '1px solid rgba(212,168,75,.25)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('access-pathway')}>
+            Open Access Pathway →
+          </button>
         </div>
       </div>
     </div>
@@ -8481,11 +8520,12 @@ const INSURANCE_PROF_LINES_MAP: Record<string, InsuranceLineType[]> = {
 }
 
 const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
-  country, region, role,
+  country, region, role, onPageChange,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [search,        setSearch]        = useState('')
   const [filterRole,    setFilterRole]    = useState<InsuranceProviderRole | 'all'>('all')
@@ -8646,6 +8686,24 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
               <div style={{ fontSize: '.68rem', color: '#8a8a9a' }}>{note}</div>
             </div>
           ))}
+        </div>
+
+        <div style={{ background: 'rgba(16,185,129,.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.2)' }}>
+          <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Compliance Obligations</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Understand the regulatory obligations in {country.label} that drive your minimum insurance coverage requirements.</div>
+          <button style={{ background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '7px 14px', color: '#10b981', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('compliance')}>
+            Open Compliance →
+          </button>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Licence Renewals</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Insurance must be maintained throughout the licence lifecycle. Track expiry dates and renewals together.</div>
+          <button style={{ background: 'rgba(212,168,75,.1)', border: '1px solid rgba(212,168,75,.25)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('licences')}>
+            Open Licence Tracker →
+          </button>
         </div>
         </div>
       </div>
@@ -9874,9 +9932,9 @@ export default function CommandCentre({
       case 'banking':
         return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
       case 'prices':
-        return <PriceIntelligencePage country={country} region={region} role={roleLabel} />
+        return <PriceIntelligencePage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'logistics':
-        return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} />
+        return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'jobs':
         return <JobsBoardPage country={country} region={region} role={roleLabel} />
       case 'notifications':
@@ -9884,7 +9942,7 @@ export default function CommandCentre({
       case 'kyb':
         return <KybVerificationPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'insurance':
-        return <InsuranceDirectoryPage country={country} region={region} role={roleLabel} />
+        return <InsuranceDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'licences':
         return <LicenceTrackerPage country={country} region={region} role={roleLabel} />
       case 'trade-calc':
