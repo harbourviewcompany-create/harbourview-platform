@@ -630,13 +630,14 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
 const SignalsPage = React.memo(function SignalsPage({
-  country, region, role, signals, watchlistData,
+  country, region, role, signals, watchlistData, onPageChange,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
   signals: DashboardSignal[]
   watchlistData?: WatchlistData
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [filterImpact,  setFilterImpact]  = useState('all')
   const [filterConf,    setFilterConf]    = useState('all')
@@ -908,15 +909,25 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-right-section">
           <div className="cc-right-head">SIGNAL METHODOLOGY</div>
           <p className="cc-right-prose">Signals are sourced from regulatory releases, market data, trade intelligence, and verified industry sources. Each signal is scored for impact and confidence based on source credibility and recency.</p>
-          <Link href="/source-methodology" className="cc-right-link">Learn more about our methodology →</Link>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">REGULATORY TRACKING</div>
+          <p className="cc-right-prose">Monitor legislative changes, consultation periods, and enforcement actions driving signal activity in {country.label}.</p>
+          <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('regulatory')}>Open Regulatory Watch →</button>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">WATCHLIST</div>
+          <p className="cc-right-prose">Saved topics and jurisdictions — track changes across your priority markets without re-filtering each session.</p>
+          <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('watchlist')}>Open Watchlist →</button>
         </div>
 
         {nextBest && (
           <div className="cc-right-section">
             <div className="cc-right-head">NEXT BEST ACTION</div>
             <p className="cc-right-prose">{nextBest.title.length > 90 ? nextBest.title.slice(0,90)+'…' : nextBest.title}</p>
-            <a className="cc-nba-btn" href={nextBest?.slug ? `/signals/${nextBest.slug}` : '/signals'}>Open Signal Brief ↗</a>
-            <Link href="/signals" className="cc-right-link">View all recommended actions →</Link>
+            <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('regulatory')}>View Regulatory Context →</button>
           </div>
         )}
       </aside>
@@ -2227,7 +2238,7 @@ function buildAuthorities(country: { iso2: string; label: string }) {
 }
 
 const LocalIntelPage = React.memo(function LocalIntelPage({
-  country, region, role, signals, countryIntel, localIntel,
+  country, region, role, signals, countryIntel, localIntel, onPageChange,
 }: {
   country:      { iso2: string; label: string }
   region:       string
@@ -2235,6 +2246,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
   signals:      DashboardSignal[]
   countryIntel?: CountryIntelProfile | null
   localIntel?:   LocalIntelData | null
+  onPageChange?: (page: CommandPage) => void
 }) {
   const municipalities = useMemo(() => buildMunicipalData(country, region), [country, region])
   const authorities    = useMemo(() => buildAuthorities(country), [country])
@@ -2511,7 +2523,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               </div>
             </div>
           ))}
-          <Link href="/dashboard?page=evidence" className="cc-right-link">View coverage map →</Link>
+          <button className="cc-nba-btn" style={{ marginTop: '4px', fontSize: '.73rem' }} onClick={() => onPageChange?.('evidence')}>View Evidence Sources →</button>
         </div>
 
         <div className="cc-right-section">
@@ -2522,7 +2534,13 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               <span>{q}</span>
             </div>
           ))}
-          <Link href="/intelligence" className="cc-right-link">View all questions →</Link>
+          <button className="cc-nba-btn" style={{ marginTop: '8px', fontSize: '.73rem', width: '100%' }} onClick={() => onPageChange?.('signals')}>View Signals →</button>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">REGULATORY TRACKING</div>
+          <p className="cc-right-prose">Monitor rule changes, enforcement actions, and consultations affecting {country.label}{region ? ` · ${region}` : ''} operations.</p>
+          <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('regulatory')}>Open Regulatory Watch →</button>
         </div>
 
         {nextBest && (
@@ -2531,8 +2549,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
             <p className="cc-right-prose">
               Engage local planning authorities to confirm current zoning status for {country.label}{region ? ` · ${region}` : ''}.
             </p>
-            <button className="cc-nba-btn full" style={{marginTop:'8px'}}>Create Action</button>
-            <Link href="/signals" className="cc-right-link" style={{marginTop:'6px',display:'inline-block'}}>View Suggested Actions →</Link>
+            <button className="cc-nba-btn full" style={{marginTop:'8px'}} onClick={() => onPageChange?.('signals')}>View Suggested Actions →</button>
           </div>
         )}
       </aside>
@@ -4299,7 +4316,7 @@ function freshnessLabel(dateStr: string | null): string {
 // ── EvidenceSourcesPage ───────────────────────────────────────────────────────
 
 const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
-  country, region, role, evidenceData, pathwayData, professionals = [],
+  country, region, role, evidenceData, pathwayData, professionals = [], onPageChange,
 }: {
   country:        { iso2: string; label: string }
   region:         string
@@ -4307,6 +4324,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   evidenceData?:  EvidenceData
   pathwayData?:   PathwayData
   professionals?: HvProfessional[]
+  onPageChange?:  (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
   const { sources = [], orgDocs = [] } = evidenceData ?? {}
@@ -4613,7 +4631,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               : `Add verified regulatory sources for ${country.label} to improve evidence coverage.`
             }
           </p>
-          <button className="cc-nba-btn full" style={{marginTop:'8px'}}>Go to Review Queue →</button>
+          <button className="cc-nba-btn full" style={{marginTop:'8px'}} onClick={() => onPageChange?.('regulatory')}>Open Regulatory Watch →</button>
         </div>
 
         {professionals.length > 0 && (
@@ -4629,7 +4647,15 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
                 </div>
               </div>
             ))}
-            <Link href="/intake" className="cc-right-link">Request introduction →</Link>
+            <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('experts')}>Find Verified Experts →</button>
+          </div>
+        )}
+
+        {professionals.length === 0 && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">EXPERT DIRECTORY</div>
+            <p className="cc-right-prose">Connect with verified professionals who can help interpret evidence sources and navigate {country.label} regulatory requirements.</p>
+            <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('experts')}>Find Verified Experts →</button>
           </div>
         )}
       </aside>
@@ -4986,15 +5012,46 @@ const GeneticsPage = React.memo(function GeneticsPage({
 
 // ── Compliance page ───────────────────────────────────────────────────────────
 
+const COMPLIANCE_ROLE_FOCUS: Record<string, { icon: string; items: string[] }> = {
+  'Compliance': { icon: '◫',
+    items: ['SOP frameworks and audit readiness', 'Licence portfolio and renewal calendar', 'Variance reporting and CAPA documentation', 'Regulatory change impact assessments'] },
+  'Legal': { icon: '⊙',
+    items: ['Legislative compliance and contract enforceability', 'AML and financial crime obligations', 'Director liability and corporate compliance', 'IP protection and trade secret protocols'] },
+  'GMP/QA': { icon: '◎',
+    items: ['EU-GMP, ICH Q7, and GACP certification requirements', 'QP-qualified batch release signatories', 'Deviations, OOS investigations, and CAPA', 'Product recall and controlled drug quarantine procedures'] },
+  'Lab/QA': { icon: '⊞',
+    items: ['ISO 17025 accreditation and scope of testing', 'COA format and potency testing methodology', 'Proficiency testing and inter-lab calibration', 'Chain-of-custody for controlled substance samples'] },
+  'Regulator': { icon: '◷',
+    items: ['Cross-jurisdictional standards comparison', 'Emerging regulatory frameworks and reform tracking', 'Evidence base for framework design', 'International treaty obligations (1961/1988 Conventions)'] },
+  'Importer': { icon: '↓',
+    items: ['Import permit requirements and customs documentation', 'GDP cold-chain compliance obligations', 'Country-of-origin and phytosanitary certification', 'Narcotics import certificate (S10/INCB)'] },
+  'Exporter': { icon: '↑',
+    items: ['Export licence and narcotics export certificate', 'EU GMP equivalency for destination market access', 'GACP and cultivation documentation requirements', 'Multi-market permitting strategy'] },
+  'Cultivator': { icon: '⬡',
+    items: ['GACP (Good Agricultural and Collection Practice)', 'Seed-to-sale track-and-trace obligations', 'Site security and access control requirements', 'Annual regulatory inspection readiness'] },
+  'Processor': { icon: '⬟',
+    items: ['GMP manufacturing authorization and facility certification', 'Solvent residue and extraction process validation', 'Batch documentation and QP batch release', 'Controlled substance destruction and disposal records'] },
+  'Distributor': { icon: '◈',
+    items: ['GDP (Good Distribution Practice) certification', 'Cold-chain monitoring and temperature excursion protocols', 'Controlled drug wholesale licence requirements', 'Chain-of-custody and batch traceability obligations'] },
+}
+
 const CompliancePage = React.memo(function CompliancePage({
   country,
   countryIntel,
   jurisdictionPlaybook,
+  role,
+  onPageChange,
 }: {
   country: { iso2: string; label: string }
   countryIntel?: CountryIntelProfile | null
   jurisdictionPlaybook?: JurisdictionPlaybook | null
+  role?: string
+  onPageChange?: (page: CommandPage) => void
 }) {
+  const roleFocus = role ? (COMPLIANCE_ROLE_FOCUS[role] ?? null) : null
+  const showLicencesCta = role && ['Compliance', 'GMP/QA', 'Lab/QA', 'Cultivator', 'Processor', 'Distributor', 'Retail', 'Clinic Op.'].includes(role)
+  const showKybCta = role && ['Compliance', 'Legal', 'Investor'].includes(role)
+
   return (
     <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
@@ -5160,11 +5217,47 @@ const CompliancePage = React.memo(function CompliancePage({
             ))}
           </div>
         </div>
+        {roleFocus && (
+          <div className="cc-right-section" style={{ borderLeft: '2px solid rgba(16,185,129,.35)', paddingLeft: 12 }}>
+            <div className="cc-right-head" style={{ color: '#10b981' }}>COMPLIANCE FOCUS — {(role ?? '').toUpperCase()}</div>
+            {roleFocus.items.map((item, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 7, alignItems: 'flex-start' }}>
+                <span style={{ color: '#10b981', fontSize: '.72rem', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{roleFocus.icon}</span>
+                <span style={{ fontSize: '.73rem', color: 'rgba(245,240,232,.65)', lineHeight: 1.4 }}>{item}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="cc-right-section">
-          <div className="cc-right-head">CURRENT JURISDICTION</div>
-          <p className="cc-right-prose">{country.label} — compliance data for this jurisdiction is subject to source review. Contact Harbourview for a specialist-reviewed access pathway.</p>
-          <Link href="/contact" className="cc-right-link">Get compliance support →</Link>
+          <div className="cc-right-head">REGULATORY MONITORING</div>
+          <p className="cc-right-prose">Track regulatory changes, consultations, and enforcement actions affecting compliance obligations in {country.label}.</p>
+          <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('regulatory')}>Open Regulatory Watch →</button>
         </div>
+
+        {showLicencesCta && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">LICENCE MANAGEMENT</div>
+            <p className="cc-right-prose">Track licence expiry, renewal deadlines, and certification compliance across your {country.label} operations.</p>
+            <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('licences')}>Open Licence Tracker →</button>
+          </div>
+        )}
+
+        {showKybCta && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">ENTITY VERIFICATION</div>
+            <p className="cc-right-prose">Due diligence checklists, AML, and KYB verification for counterparty onboarding and compliance assurance.</p>
+            <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('kyb')}>Open KYB Verification →</button>
+          </div>
+        )}
+
+        {!roleFocus && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">CURRENT JURISDICTION</div>
+            <p className="cc-right-prose">{country.label} — compliance data for this jurisdiction is subject to source review. Contact Harbourview for a specialist-reviewed access pathway.</p>
+            <Link href="/contact" className="cc-right-link">Get compliance support →</Link>
+          </div>
+        )}
       </aside>
     </div>
   )
@@ -9751,15 +9844,15 @@ export default function CommandCentre({
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
       case 'evidence':
-        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
+        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} onPageChange={handlePageChange} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} onPageChange={handlePageChange} />
       case 'local-intel':
-        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} />
+        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
       case 'signals':
-        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} />
+        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
@@ -9767,7 +9860,7 @@ export default function CommandCentre({
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'compliance':
-        return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
+        return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       case 'assistant':
