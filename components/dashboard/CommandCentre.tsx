@@ -8463,8 +8463,30 @@ const BLANK_LIC: Omit<TrackedLicence, 'id'> = {
   licenceNo: '', issuedDate: '', expiryDate: '', notes: '',
 }
 
+const LIC_ROLE_TYPES_MAP: Record<string, string[]> = {
+  'Doctor':      ['Pharmacy Licence', 'Research Licence', 'Other'],
+  'Pharmacist':  ['Pharmacy Licence', 'Other'],
+  'Budtender':   ['Retail / Dispensary', 'Other'],
+  'Cultivator':  ['Cultivation Licence', 'Manufacturing / GMP', 'Processing Licence'],
+  'Geneticist':  ['Cultivation Licence', 'Research Licence'],
+  'Processor':   ['Processing Licence', 'Manufacturing / GMP', 'Distribution Licence'],
+  'Lab/QA':      ['Research Licence', 'Manufacturing / GMP', 'Other'],
+  'Importer':    ['Import Licence', 'Distribution Licence', 'Wholesale Licence'],
+  'Exporter':    ['Export Licence', 'Manufacturing / GMP', 'Transport Permit'],
+  'Distributor': ['Distribution Licence', 'Wholesale Licence', 'Transport Permit'],
+  'Clinic Op.':  ['Pharmacy Licence', 'Retail / Dispensary', 'Other'],
+  'Retail':      ['Retail / Dispensary', 'Wholesale Licence', 'Other'],
+  'Compliance':  ['Other'],
+  'Legal':       ['Other'],
+  'Investor':    ['Other'],
+  'Regulator':   ['Other'],
+  'Patient Ed.': ['Other'],
+  'GMP/QA':      ['Manufacturing / GMP', 'Research Licence', 'Other'],
+  'Logistics':   ['Transport Permit', 'Distribution Licence', 'Other'],
+}
+
 const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
-  country,
+  country, role,
 }: {
   country: { iso2: string; label: string }
   region:  string
@@ -8547,6 +8569,19 @@ const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
         </div>
         <button className="lt-btn-p" onClick={openAdd} style={{ flexShrink: 0, marginLeft: 16 }}>+ Add Licence</button>
       </div>
+
+      {/* Role suggestions */}
+      {role && (LIC_ROLE_TYPES_MAP[role] ?? []).filter(t => t !== 'Other').length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '.68rem', color: 'rgba(16,185,129,.7)', textTransform: 'uppercase', letterSpacing: '.06em', flexShrink: 0 }}>Common for {role}s:</span>
+          {(LIC_ROLE_TYPES_MAP[role] ?? []).filter(t => t !== 'Other').map(t => (
+            <button key={t} onClick={() => { setForm(f => ({ ...f, type: t, country: country.iso2 })); setEditId(null); setShowForm(true) }} style={{
+              fontSize: '.7rem', padding: '2px 10px', borderRadius: 12, cursor: 'pointer',
+              background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', color: '#10b981',
+            }}>+ {t}</button>
+          ))}
+        </div>
+      )}
 
       {/* Stats row */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 22 }}>
@@ -9015,6 +9050,26 @@ const LandedCostPage = React.memo(function LandedCostPage({
                 {dest && <div className="tc-row"><span className="tc-row-lbl">Typical Batch</span><span className="tc-row-val">{dest.typicalBatchSizeKg} kg</span></div>}
                 {dest && <div className="tc-row"><span className="tc-row-lbl">Duty Rate</span><span className="tc-row-val" style={{ color: (dest.dutyRatePct[product] ?? 0) > 0 ? '#f97316' : '#10b981' }}>{dest.dutyRatePct[product] ?? 0}%</span></div>}
               </div>
+
+              {role && (() => {
+                const tips: Record<string, { headline: string; body: string }> = {
+                  'Importer':    { headline: 'Importer Focus', body: 'Your key costs are import permits, customs clearance, GDP distribution, and destination testing. Prioritise corridors with established narcotics import channels and known customs brokers.' },
+                  'Exporter':    { headline: 'Exporter Focus', body: 'Production cost and export permit fees are your largest variables. GMP certification significantly reduces per-unit compliance cost at scale. Compare origins to benchmark your competitiveness.' },
+                  'Distributor': { headline: 'Distributor Focus', body: 'Distribution and in-country logistics dominate your margins. GDP cold-chain costs vary significantly — lock in distribution agreements before committing to import volumes.' },
+                  'Logistics':   { headline: 'Logistics Focus', body: 'Air freight rates and narcotics surcharges are your primary cost drivers. Transit time and narcotics handling certification matter as much as rate when bidding corridors.' },
+                  'Investor':    { headline: 'Investor Focus', body: 'Total landed cost determines the commercially viable wholesale price floor. Focus on implied margin at market price and break-even volume — the two metrics that drive unit economics.' },
+                  'Cultivator':  { headline: 'Cultivator Focus', body: 'Your production cost is the base of every landed cost calculation. Lowering production cost/kg directly expands your export addressable margin. EU-GMP certification opens premium corridors.' },
+                  'GMP/QA':      { headline: 'GMP / QA Focus', body: 'Testing costs and GDP compliance add $15–60/kg on most corridors. Accredited lab partnerships in destination markets reduce per-shipment testing fees significantly.' },
+                }
+                const tip = tips[role]
+                if (!tip) return null
+                return (
+                  <div className="tc-panel" style={{ marginBottom: 12, borderColor: 'rgba(16,185,129,.2)', background: 'rgba(16,185,129,.03)' }}>
+                    <div className="tc-sec" style={{ color: '#10b981', borderBottomColor: 'rgba(16,185,129,.18)' }}>{tip.headline}</div>
+                    <div style={{ fontSize: '.72rem', color: 'rgba(245,240,232,.5)', lineHeight: 1.6 }}>{tip.body}</div>
+                  </div>
+                )
+              })()}
 
               <div className="tc-panel">
                 <div className="tc-sec">Economics Guide</div>
