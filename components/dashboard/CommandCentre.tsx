@@ -5839,11 +5839,12 @@ const EXPERT_ROLE_CREDS_MAP: Record<string, string[]> = {
 }
 
 const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
-  country, role,
+  country, role, onPageChange,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [search,       setSearch]       = useState('')
   const [credential,   setCredential]   = useState('')
@@ -6196,6 +6197,19 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
           }}>
             <span>⊕</span> List your practice
           </a>
+
+          <div style={{ marginTop: 14, borderTop: '1px solid rgba(255,255,255,.06)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              style={{ background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.25)', borderRadius: 8, padding: '8px 12px', color: '#10b981', fontSize: '11px', fontWeight: 600, cursor: 'pointer', textAlign: 'left' as const }}
+              onClick={() => onPageChange?.('events')}>
+              ◷ Find Experts at Industry Events →
+            </button>
+            <button
+              style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, padding: '8px 12px', color: 'rgba(245,240,232,.6)', fontSize: '11px', cursor: 'pointer', textAlign: 'left' as const }}
+              onClick={() => onPageChange?.('access-pathway')}>
+              ◎ View Regulatory Access Pathway →
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -6230,8 +6244,8 @@ const BANKING_ROLE_TYPES_MAP: Record<string, BankingProvider['type'][]> = {
 }
 
 const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
-  country, region, role,
-}: { country: string; region: string; role: string }) {
+  country, region, role, onPageChange,
+}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [search,      setSearch]      = useState('')
   const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
   const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
@@ -6506,6 +6520,24 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
           <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Help the industry by submitting cannabis-friendly financial institutions we haven't listed yet.</div>
           <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
             Submit a Provider
+          </button>
+        </div>
+
+        <div style={{ background: 'rgba(16,185,129,.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.2)' }}>
+          <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Counterparty Due Diligence</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Verify banking counterparties and financial institution credentials before opening accounts or transferring funds.</div>
+          <button style={{ background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '7px 14px', color: '#10b981', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('kyb')}>
+            Open KYB Verification →
+          </button>
+        </div>
+
+        <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Corridor Payment Modelling</div>
+          <div style={{ fontSize: '.75rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Model cross-border payment costs alongside trade economics — banking fees are a significant component of total landed cost.</div>
+          <button style={{ background: 'rgba(212,168,75,.1)', border: '1px solid rgba(212,168,75,.25)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            onClick={() => onPageChange?.('trade-calc')}>
+            Open Landed Cost Calculator →
           </button>
         </div>
       </div>
@@ -8785,11 +8817,12 @@ const LIC_ROLE_TYPES_MAP: Record<string, string[]> = {
 }
 
 const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
-  country, role,
+  country, role, onPageChange,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [licences,     setLicences]     = useState<TrackedLicence[]>([])
   const [showForm,     setShowForm]     = useState(false)
@@ -8992,6 +9025,22 @@ const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
         </div>
       )}
 
+      {/* Cross-page navigation */}
+      <div style={{ display: 'flex', gap: 10, padding: '0 24px 24px', flexWrap: 'wrap' }}>
+        <button style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', borderRadius: 8, padding: '8px 14px', color: '#10b981', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer' }}
+          onClick={() => onPageChange?.('compliance')}>
+          ◫ Open Compliance →
+        </button>
+        <button style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, padding: '8px 14px', color: 'rgba(245,240,232,.55)', fontSize: '.75rem', cursor: 'pointer' }}
+          onClick={() => onPageChange?.('access-pathway')}>
+          ◎ View Access Pathway →
+        </button>
+        <button style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, padding: '8px 14px', color: 'rgba(245,240,232,.55)', fontSize: '.75rem', cursor: 'pointer' }}
+          onClick={() => onPageChange?.('regulatory')}>
+          ◷ Regulatory Watch →
+        </button>
+      </div>
+
       {/* Modal */}
       {showForm && (
         <div className="lt-modal-bg" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
@@ -9071,11 +9120,12 @@ function CostBar({ label, low, high, maxVal, color }: { label: string; low: numb
 }
 
 const LandedCostPage = React.memo(function LandedCostPage({
-  country, region, role,
+  country, region, role, onPageChange,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
+  onPageChange?: (page: CommandPage) => void
 }) {
   const exporterIso2s = EXPORTER_ORIGINS.map(o => o.iso2)
   const importerIso2s = DESTINATION_MARKETS.map(d => d.iso2)
@@ -9378,6 +9428,17 @@ const LandedCostPage = React.memo(function LandedCostPage({
                   <p style={{ marginBottom: 0 }}><strong style={{ color: '#c0c0d0' }}>Compare mode.</strong> Enable above to rank all export origins by landed cost for your destination — essential for supply chain decisions.</p>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                <button className="tc-panel" style={{ textAlign: 'left' as const, cursor: 'pointer', color: '#10b981', fontSize: '.76rem', fontWeight: 600, border: '1px solid rgba(16,185,129,.25)' }}
+                  onClick={() => onPageChange?.('prices')}>
+                  ⊞ Price Intelligence — Benchmark Reference Data →
+                </button>
+                <button className="tc-panel" style={{ textAlign: 'left' as const, cursor: 'pointer', color: 'rgba(245,240,232,.55)', fontSize: '.76rem', border: '1px solid rgba(255,255,255,.08)' }}
+                  onClick={() => onPageChange?.('logistics')}>
+                  ⬡ Find GDP-Compliant Logistics Providers →
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -9423,11 +9484,12 @@ function evtIsRelevant(e: CannabisEvent, role: string): boolean {
 }
 
 const EventsPage = React.memo(function EventsPage({
-  country, role,
+  country, role, onPageChange,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [search,     setSearch]     = useState('')
   const [region,     setRegion]     = useState<string>('')
@@ -9741,6 +9803,18 @@ const EventsPage = React.memo(function EventsPage({
             })}
           </div>
 
+          {/* Cross-page navigation */}
+          <div style={{ marginBottom: '18px', borderTop: '1px solid rgba(255,255,255,.06)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', borderRadius: 8, padding: '8px 10px', color: '#10b981', fontSize: '10px', fontWeight: 600, cursor: 'pointer', textAlign: 'left' as const }}
+              onClick={() => onPageChange?.('experts')}>
+              ⊛ Find Verified Experts →
+            </button>
+            <button style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, padding: '8px 10px', color: 'rgba(245,240,232,.45)', fontSize: '10px', cursor: 'pointer', textAlign: 'left' as const }}
+              onClick={() => onPageChange?.('regulatory')}>
+              ◷ Regulatory Watch →
+            </button>
+          </div>
+
           {/* Submit event form */}
           <div id="cc-events-submit">
             <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>SUBMIT AN EVENT</div>
@@ -9926,11 +10000,11 @@ export default function CommandCentre({
       case 'documents':
         return <DocumentsPage country={country} region={region} role={roleLabel} />
       case 'events':
-        return <EventsPage country={country} region={region} role={roleLabel} />
+        return <EventsPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'experts':
-        return <ExpertDirectoryPage country={country} region={region} role={roleLabel} />
+        return <ExpertDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'banking':
-        return <BankingDirectoryPage country={country} region={region} role={roleLabel} />
+        return <BankingDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'prices':
         return <PriceIntelligencePage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'logistics':
@@ -9944,9 +10018,9 @@ export default function CommandCentre({
       case 'insurance':
         return <InsuranceDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'licences':
-        return <LicenceTrackerPage country={country} region={region} role={roleLabel} />
+        return <LicenceTrackerPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'trade-calc':
-        return <LandedCostPage country={country} region={region} role={roleLabel} />
+        return <LandedCostPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       default:
         return null
     }
