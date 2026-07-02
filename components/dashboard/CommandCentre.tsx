@@ -220,22 +220,124 @@ function fmtStatus(v: string | null | undefined, fallback = '—'): string {
   return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+const BRIEFING_ROLE_MODULES: Record<string, Array<{ page: CommandPage; icon: string; label: string; why: string }>> = {
+  'Doctor':      [
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Patient prescription framework & clinical authorizations' },
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Track prescribing and formulary rule changes' },
+    { page: 'experts',        icon: '⊛', label: 'Expert Directory',   why: 'Connect with clinical pharmacologists & peers' },
+  ],
+  'Pharmacist':  [
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Dispensing authorization and pharmacy permit chain' },
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Pharmacy permit renewals and compliance deadlines' },
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Formulary, scheduling, and dispensing rule updates' },
+  ],
+  'Budtender':   [
+    { page: 'education',      icon: '⊞', label: 'Education',          why: 'Product knowledge, terpene profiles, and patient advisory' },
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Retail sales rules and age-verification requirements' },
+    { page: 'marketplace',    icon: '◈', label: 'Marketplace',        why: 'Available SKUs, new listings, and product mix' },
+  ],
+  'Cultivator':  [
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Cultivation licence renewal and compliance tracking' },
+    { page: 'prices',         icon: '⊞', label: 'Price Intelligence', why: 'Wholesale benchmark pricing for your output markets' },
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Production approval and GMP certification pathway' },
+  ],
+  'Geneticist':  [
+    { page: 'genetics',       icon: '◈', label: 'Genetics',           why: 'Cultivar passports, phenotype registry, and research' },
+    { page: 'evidence',       icon: '⊛', label: 'Evidence Sources',   why: 'Peer-reviewed genetics and pharmacology literature' },
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Plant variety protection and IP filing requirements' },
+  ],
+  'Processor':   [
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Processing and extraction licence compliance tracking' },
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Manufacturing authorization and GMP certification' },
+    { page: 'prices',         icon: '⊞', label: 'Price Intelligence', why: 'Distillate and concentrate benchmark pricing' },
+  ],
+  'Lab/QA':      [
+    { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'Testing standards, SOP frameworks, and lab certifications' },
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'ISO 17025 accreditation and operating licence renewals' },
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'COA format requirements and potency testing rule changes' },
+  ],
+  'Importer':    [
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Import permit process and customs clearance framework' },
+    { page: 'trade-calc',     icon: '⊞', label: 'Landed Cost',        why: 'Model corridor economics and total landed cost' },
+    { page: 'banking',        icon: '⊙', label: 'Banking',            why: 'Cross-border payment infrastructure for trade corridors' },
+  ],
+  'Exporter':    [
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Export licence and narcotics certificate requirements' },
+    { page: 'trade-calc',     icon: '⊞', label: 'Landed Cost',        why: 'Benchmark your export pricing against corridor comps' },
+    { page: 'prices',         icon: '◷', label: 'Price Intelligence', why: 'Destination market wholesale reference prices' },
+  ],
+  'Distributor': [
+    { page: 'logistics',      icon: '⬡', label: 'Logistics',          why: 'GDP-certified freight forwarders and cold-chain specialists' },
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Distribution licence renewals and GDP certification' },
+    { page: 'banking',        icon: '⊞', label: 'Banking',            why: 'Treasury and payment rails for multi-market distribution' },
+  ],
+  'Clinic Op.':  [
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Clinical authorization and patient prescription framework' },
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Clinic operating licence and prescribing authority tracking' },
+    { page: 'kyb',            icon: '◫', label: 'KYB Verification',   why: 'Due diligence on suppliers, labs, and clinic partners' },
+  ],
+  'Retail':      [
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Retail operating and cannabis sales licence management' },
+    { page: 'marketplace',    icon: '◈', label: 'Marketplace',        why: 'Available product listings and approved SKUs' },
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Age verification, signage, and retail compliance rules' },
+  ],
+  'Compliance':  [
+    { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'Jurisdiction playbook, SOP frameworks, and audit readiness' },
+    { page: 'kyb',            icon: '◈', label: 'KYB Verification',   why: 'Entity due diligence checklists and verification tracking' },
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'Portfolio-wide licence expiry and renewal management' },
+  ],
+  'Legal':       [
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Legislative reform tracking and pending consultation alerts' },
+    { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'Jurisdiction legal framework and regulatory precedents' },
+    { page: 'kyb',            icon: '◈', label: 'KYB Verification',   why: 'AML and entity verification for client onboarding' },
+  ],
+  'Investor':    [
+    { page: 'marketplace',    icon: '◈', label: 'Marketplace',        why: 'Approved listings, deal flow, and operator landscape' },
+    { page: 'prices',         icon: '⊞', label: 'Price Intelligence', why: 'Wholesale benchmark pricing driving unit economics' },
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Market entry difficulty and timeline risk by jurisdiction' },
+  ],
+  'Regulator':   [
+    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Cross-jurisdictional reform tracking and comparable markets' },
+    { page: 'evidence',       icon: '⊛', label: 'Evidence Sources',   why: 'Scientific evidence base informing regulatory frameworks' },
+    { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'Standards and SOPs across regulated jurisdictions' },
+  ],
+  'Patient Ed.': [
+    { page: 'education',      icon: '⊞', label: 'Education',          why: 'Patient-facing resources, dosing guides, and product info' },
+    { page: 'experts',        icon: '⊛', label: 'Expert Directory',   why: 'Find qualified patient educators and healthcare professionals' },
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Patient access framework for your jurisdiction' },
+  ],
+  'GMP/QA':      [
+    { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'EU-GMP, ICH Q7, and GACP compliance frameworks' },
+    { page: 'licences',       icon: '⊙', label: 'Licence Tracker',    why: 'GMP certification renewals and inspection due dates' },
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'GMP-gated export corridor requirements' },
+  ],
+  'Logistics':   [
+    { page: 'logistics',      icon: '⬡', label: 'Logistics',          why: 'Freight forwarders, customs brokers, and narcotics handlers' },
+    { page: 'trade-calc',     icon: '⊞', label: 'Landed Cost',        why: 'Air freight rates, narcotics surcharges, and corridor costs' },
+    { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Import/export permit chain for each corridor' },
+  ],
+}
+
 const BriefingRoom = React.memo(function BriefingRoom({
   country,
   region,
+  role,
   countryIntel,
   signals,
   marketMetrics = [],
   tradeFlows = [],
   onCountrySelect,
+  onPageChange,
 }: {
   country:          { iso2: string; label: string }
   region:           string
+  role?:            string
   countryIntel?:    CountryIntelProfile | null
   signals:          DashboardSignal[]
   marketMetrics?:   MarketMetric[]
   tradeFlows?:      TradeFlow[]
   onCountrySelect?: (iso2: string) => void
+  onPageChange?:    (page: CommandPage) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
   const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
@@ -401,6 +503,28 @@ const BriefingRoom = React.memo(function BriefingRoom({
           </div>
           <Link href="/dashboard?page=countries" className="cc-right-link">View all jurisdictions →</Link>
         </div>
+
+        {role && (BRIEFING_ROLE_MODULES[role] ?? []).length > 0 && (
+          <div className="cc-right-section" style={{ borderLeft: '2px solid rgba(16,185,129,.35)', paddingLeft: 12 }}>
+            <div className="cc-right-head" style={{ color: '#10b981' }}>PRIORITY MODULES — {role.toUpperCase()}</div>
+            {(BRIEFING_ROLE_MODULES[role] ?? []).map((m, i) => (
+              <div
+                key={m.page}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10, cursor: 'pointer' }}
+                onClick={() => onPageChange?.(m.page)}
+              >
+                <span style={{ fontSize: '.82rem', color: '#10b981', fontWeight: 700, marginTop: 2, flexShrink: 0 }}>{i + 1}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: '.78rem', color: '#f5f0e8', fontWeight: 600 }}>{m.icon} {m.label}</span>
+                  </div>
+                  <div style={{ fontSize: '.7rem', color: 'rgba(245,240,232,.45)', lineHeight: 1.4, marginTop: 2 }}>{m.why}</div>
+                </div>
+                <span style={{ fontSize: '.68rem', color: 'rgba(16,185,129,.6)', flexShrink: 0, marginTop: 3 }}>→</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {recentChanges.length > 0 && (
           <div className="cc-right-section">
@@ -9621,7 +9745,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
