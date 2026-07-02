@@ -3919,12 +3919,13 @@ const WL_SUGGESTED = [
 // ── WatchlistPage ─────────────────────────────────────────────────────────────
 
 const WatchlistPage = React.memo(function WatchlistPage({
-  country, region, role, watchlistData,
+  country, region, role, watchlistData, onPageChange,
 }: {
   country:        { iso2: string; label: string }
   region:         string
   role:           string
   watchlistData?: WatchlistData
+  onPageChange?:  (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<WatchlistTab>('jurisdiction')
   const { items = [], rules = [], notifications = { total_alerts:0, awaiting_review:0, resolved:0, snoozed:0 } } = watchlistData ?? {}
@@ -4069,7 +4070,7 @@ const WatchlistPage = React.memo(function WatchlistPage({
         </div>
 
         <div className="cc-right-section">
-          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <Link href="/education" className="cc-right-link ml-auto">View all →</Link></div>
+          <div className="cc-right-head">RECENT WATCHLIST ACTIVITY <button className="cc-right-link ml-auto" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => onPageChange?.('signals')}>View all →</button></div>
           {recentActivity.length === 0
             ? <p className="cc-right-prose">No recent activity.</p>
             : recentActivity.map(item => (
@@ -4110,6 +4111,17 @@ const WatchlistPage = React.memo(function WatchlistPage({
           {notifications.total_alerts > 0 && (
             <small className="cc-wl-alert-note">{notifications.total_alerts} High Priority</small>
           )}
+        </div>
+
+        <div className="cc-right-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button className="cc-nba-btn" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', color: '#10b981', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => onPageChange?.('signals')}>
+            ◷ Live Signals Feed →
+          </button>
+          <button className="cc-nba-btn" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', color: 'rgba(245,240,232,.55)', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => onPageChange?.('regulatory')}>
+            ◎ Regulatory Watch →
+          </button>
         </div>
       </aside>
     </div>
@@ -4818,11 +4830,13 @@ const GeneticsPage = React.memo(function GeneticsPage({
   cultivarPassports = [],
   serviceProviders = [],
   collaborationProjects = [],
+  onPageChange,
 }: {
   country: { iso2: string; label: string }
   cultivarPassports?: PublicCultivarPassportDTO[]
   serviceProviders?: PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [tab, setTab] = useState<GeneticsTab>('passports')
   const [requestModal, setRequestModal] = useState<{ open: boolean; profileName?: string }>({ open: false })
@@ -4994,6 +5008,17 @@ const GeneticsPage = React.memo(function GeneticsPage({
           <div className="cc-right-head">GENETICS PROGRAMS</div>
           <p className="cc-right-prose">Breeders, seed companies, and tissue-culture laboratories can submit programs for controlled Harbourview visibility.</p>
           <button className="cc-right-link" onClick={() => setProgramModal(true)}>Submit a program →</button>
+        </div>
+
+        <div className="cc-right-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button className="cc-nba-btn" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', color: '#10b981', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => onPageChange?.('evidence')}>
+            ⊞ Evidence Sources & Labs →
+          </button>
+          <button className="cc-nba-btn" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', color: 'rgba(245,240,232,.55)', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => onPageChange?.('regulatory')}>
+            ◷ Regulatory Watch →
+          </button>
         </div>
       </aside>
 
@@ -5490,11 +5515,12 @@ const DOC_FORMAT_COLOR: Record<string, string> = {
 }
 
 const DocumentsPage = React.memo(function DocumentsPage({
-  country, role,
+  country, role, onPageChange,
 }: {
-  country: { iso2: string; label: string }
-  region:  string
-  role:    string
+  country:       { iso2: string; label: string }
+  region:        string
+  role:          string
+  onPageChange?: (page: CommandPage) => void
 }) {
   const [search,      setSearch]      = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
@@ -5642,6 +5668,17 @@ const DocumentsPage = React.memo(function DocumentsPage({
           <p className="cc-right-prose">
             Use the Compliance Intelligence Assistant to draft bespoke compliance narratives, permit application language, or regulatory correspondence for {country.label}.
           </p>
+        </div>
+
+        <div className="cc-right-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button className="cc-nba-btn" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', color: '#10b981', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => onPageChange?.('compliance')}>
+            ◫ Compliance Checklist →
+          </button>
+          <button className="cc-nba-btn" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', color: 'rgba(245,240,232,.55)', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => onPageChange?.('access-pathway')}>
+            ◎ Access Pathway →
+          </button>
         </div>
       </aside>
     </div>
@@ -6761,8 +6798,8 @@ const NOTIF_ROLE_CATEGORIES_MAP: Record<string, NotifCategory[]> = {
 }
 
 const NotificationCentrePage = React.memo(function NotificationCentrePage({
-  country, role,
-}: { country: string; region: string; role: string }) {
+  country, role, onPageChange,
+}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [readIds,       setReadIds]       = useState<Set<string>>(new Set())
   const [filterCat,     setFilterCat]     = useState<NotifCategory | 'all'>('all')
   const [filterSev,     setFilterSev]     = useState<NotifSeverity | 'all'>('all')
@@ -7024,6 +7061,17 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
           <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Customise which jurisdictions, corridors, and categories trigger alerts. Email and Slack delivery available on Pro plans.</div>
           <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
             Configure Alerts
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', borderRadius: 8, padding: '9px 14px', color: '#10b981', fontSize: '.76rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
+            onClick={() => onPageChange?.('regulatory')}>
+            ◷ Regulatory Watch →
+          </button>
+          <button style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, padding: '9px 14px', color: 'rgba(245,240,232,.55)', fontSize: '.76rem', cursor: 'pointer', textAlign: 'left' }}
+            onClick={() => onPageChange?.('watchlist')}>
+            ◎ Manage Watchlist →
           </button>
         </div>
       </div>
@@ -8224,8 +8272,8 @@ const ROLE_SECTORS_MAP: Record<string, JobSector[]> = {
 }
 
 const JobsBoardPage = React.memo(function JobsBoardPage({
-  country, role,
-}: { country: string; region: string; role: string }) {
+  country, role, onPageChange,
+}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [search,        setSearch]        = useState('')
   const [filterSector,  setFilterSector]  = useState<JobSector | 'all'>('all')
   const [filterType,    setFilterType]    = useState<JobType | 'all'>('all')
@@ -8468,6 +8516,17 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
           <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Post a Role</div>
           <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Reach cannabis professionals across 20 role profiles in 191 jurisdictions. Featured listings appear first and are highlighted to relevant roles.</div>
           <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>Post a Job</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', borderRadius: 8, padding: '9px 14px', color: '#10b981', fontSize: '.76rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
+            onClick={() => onPageChange?.('experts')}>
+            ⊛ Find Verified Experts →
+          </button>
+          <button style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, padding: '9px 14px', color: 'rgba(245,240,232,.55)', fontSize: '.76rem', cursor: 'pointer', textAlign: 'left' }}
+            onClick={() => onPageChange?.('events')}>
+            ◷ Industry Events →
+          </button>
         </div>
       </div>
     </div>
@@ -9986,11 +10045,11 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
-        return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
+        return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
       case 'genetics':
-        return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+        return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':
         return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
@@ -9998,7 +10057,7 @@ export default function CommandCentre({
       case 'assistant':
         return <AssistantPage country={country} region={region} role={roleLabel} />
       case 'documents':
-        return <DocumentsPage country={country} region={region} role={roleLabel} />
+        return <DocumentsPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'events':
         return <EventsPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'experts':
@@ -10010,9 +10069,9 @@ export default function CommandCentre({
       case 'logistics':
         return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'jobs':
-        return <JobsBoardPage country={country} region={region} role={roleLabel} />
+        return <JobsBoardPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'notifications':
-        return <NotificationCentrePage country={country} region={region} role={roleLabel} />
+        return <NotificationCentrePage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'kyb':
         return <KybVerificationPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'insurance':
