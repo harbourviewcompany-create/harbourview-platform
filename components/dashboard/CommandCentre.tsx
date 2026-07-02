@@ -1399,7 +1399,7 @@ const RW_TABS = [
 ]
 
 const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
-  country, region, role, signals, watchlistData, countryIntel, sourceCoverage,
+  country, region, role, signals, watchlistData, countryIntel, sourceCoverage, onPageChange,
 }: {
   country:         { iso2: string; label: string }
   region:          string
@@ -1408,6 +1408,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
   watchlistData?:  WatchlistData
   countryIntel?:   CountryIntelProfile | null
   sourceCoverage?: SourceCoverageRow[]
+  onPageChange?:   (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState('recent')
 
@@ -1743,6 +1744,12 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
             </div>
           ))}
           <Link href="/dashboard?page=evidence" className="cc-right-link">Improve coverage →</Link>
+        </div>
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">UPCOMING EVENTS</div>
+          <p className="cc-right-prose">Consultations, hearings, and industry events in {country.label} — stay ahead of regulatory movement before it becomes law.</p>
+          <button className="cc-nba-btn full" style={{marginTop:'8px'}} onClick={() => onPageChange?.('events')}>View Events Calendar →</button>
         </div>
       </aside>
     </div>
@@ -3445,7 +3452,7 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
 // ── AccessPathwayPage ─────────────────────────────────────────────────────────
 
 const AccessPathwayPage = React.memo(function AccessPathwayPage({
-  country, region, role, signals, pathwayData, countryIntel, jurisdictionPlaybook,
+  country, region, role, signals, pathwayData, countryIntel, jurisdictionPlaybook, onPageChange,
 }: {
   country:              { iso2: string; label: string }
   region:               string
@@ -3454,6 +3461,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
   pathwayData?:         PathwayData
   countryIntel?:        CountryIntelProfile | null
   jurisdictionPlaybook?: JurisdictionPlaybook
+  onPageChange?:        (page: CommandPage) => void
 }) {
   const {
     template, steps = [], requirements = [],
@@ -3730,6 +3738,11 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
             </div>
           </div>
         )}
+        <div className="cc-right-section">
+          <div className="cc-right-head">BANKING ACCESS</div>
+          <p className="cc-right-prose">Cannabis-compliant banking is required before you can operate. Find verified financial service providers serving {country.label}.</p>
+          <button className="cc-nba-btn full" style={{marginTop:'8px'}} onClick={() => onPageChange?.('banking')}>Find Banking Partners →</button>
+        </div>
       </aside>
       <QuoteModal open={quoteOpen} onClose={() => setQuoteOpen(false)} />
     </div>
@@ -6977,8 +6990,8 @@ function kybCategoryProgress(items: KybCheckItem[], statuses: Record<string, Kyb
 }
 
 const KybVerificationPage = React.memo(function KybVerificationPage({
-  country, role,
-}: { country: string; region: string; role: string }) {
+  country, role, onPageChange,
+}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [statuses,    setStatuses]    = useState<Record<string, KybStatus>>({})
   const [notes,       setNotes]       = useState<Record<string, string>>({})
   const [filterCat,   setFilterCat]   = useState<KybCategory | 'all'>('all')
@@ -7247,6 +7260,17 @@ const KybVerificationPage = React.memo(function KybVerificationPage({
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#6b7280', display: 'inline-block' }} />
             <span style={{ fontSize: '.75rem', color: '#b0b0c0' }}>Grey dot = Optional but recommended</span>
           </div>
+        </div>
+
+        {/* Expert Directory CTA */}
+        <div style={{ background: 'rgba(16,185,129,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.15)', marginBottom: 8 }}>
+          <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Expert Support</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>
+            {flaggedCount > 0 ? `${flaggedCount} flagged item${flaggedCount > 1 ? 's' : ''} — get expert guidance on unblocking verification.` : 'Complex verification steps? Connect with a verified compliance or legal expert.'}
+          </div>
+          <button onClick={() => onPageChange?.('experts')} style={{ background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.3)', borderRadius: 6, padding: '7px 14px', color: '#10b981', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+            Find Verified Experts →
+          </button>
         </div>
 
         {/* Export CTA */}
@@ -9599,7 +9623,7 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
       case 'evidence':
@@ -9607,7 +9631,7 @@ export default function CommandCentre({
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
       case 'regulatory':
-        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />
+        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} onPageChange={handlePageChange} />
       case 'local-intel':
         return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} />
       case 'signals':
@@ -9641,7 +9665,7 @@ export default function CommandCentre({
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} />
       case 'kyb':
-        return <KybVerificationPage country={country} region={region} role={roleLabel} />
+        return <KybVerificationPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'insurance':
         return <InsuranceDirectoryPage country={country} region={region} role={roleLabel} />
       case 'licences':
