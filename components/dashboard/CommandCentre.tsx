@@ -342,6 +342,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
   const [aiBriefing, setAiBriefing] = useState<string | null>(null)
   const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
+  const [aiBriefingError, setAiBriefingError] = useState(false)
   const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
   const overall  = overallConfidence(confBars)
   const recentChanges = useMemo(() =>
@@ -356,17 +357,29 @@ const BriefingRoom = React.memo(function BriefingRoom({
 
   React.useEffect(() => {
     setAiBriefing(null)
+    setAiBriefingError(false)
     setAiBriefingLoading(true)
+    const intel = countryIntel ? {
+      medical_status:       countryIntel.medical_status,
+      market_access_status: countryIntel.market_access_status,
+      import_status:        countryIntel.import_status,
+      export_status:        countryIntel.export_status,
+      opportunity_score:    countryIntel.opportunity_score,
+      public_summary:       countryIntel.public_summary,
+    } : null
     fetch('/api/ai/briefing', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ country: country.label, role: role ?? '' }),
+      body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
     })
       .then(r => r.json())
-      .then((d: { briefing?: string }) => { if (d.briefing) setAiBriefing(d.briefing) })
-      .catch(() => {})
+      .then((d: { briefing?: string; error?: string }) => {
+        if (d.briefing) setAiBriefing(d.briefing)
+        else setAiBriefingError(true)
+      })
+      .catch(() => setAiBriefingError(true))
       .finally(() => setAiBriefingLoading(false))
-  }, [country.label, role])
+  }, [country.label, role, countryIntel])
 
   return (
     <div className="cc-page cc-briefing">
@@ -456,6 +469,8 @@ const BriefingRoom = React.memo(function BriefingRoom({
             <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.4)', fontStyle: 'italic' }}>Generating briefing…</p>
           ) : aiBriefing ? (
             <p className="cc-right-prose" style={{ lineHeight: 1.6 }}>{aiBriefing}</p>
+          ) : aiBriefingError ? (
+            <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.3)', fontStyle: 'italic' }}>Briefing unavailable — check connection.</p>
           ) : null}
         </div>
 
@@ -1926,7 +1941,7 @@ const SAVED_PRESETS = [
 ]
 
 const SettingsPage = React.memo(function SettingsPage({
-  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange,
+  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange, onPageChange,
 }: {
   country:          { iso2: string; label: string }
   region:           string
@@ -1935,6 +1950,7 @@ const SettingsPage = React.memo(function SettingsPage({
   roleOptions:      SelectOpt[]
   onCountryChange?: (iso2: string) => void
   onRoleChange?:    (role: string) => void
+  onPageChange?:    (page: CommandPage) => void
 }) {
   const [watchlistAlerts, setWatchlistAlerts] = useState(true)
   const [signalsAlerts,   setSignalsAlerts]   = useState(true)
@@ -2164,7 +2180,7 @@ const SettingsPage = React.memo(function SettingsPage({
               <span className={`cc-preset-type ${p.type.toLowerCase()}`}>{p.type}</span>
             </div>
           ))}
-          <Link href="/signals" className="cc-right-link">View all saved views →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('signals')}>View all saved views →</button>
         </div>
 
         <div className="cc-right-section">
@@ -4613,7 +4629,6 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               </div>
             </div>
           ))}
-          <Link href="/dashboard?page=evidence" className="cc-right-link">View all gaps →</Link>
         </div>
 
         {reviewQueue.length > 0 && (
@@ -4656,7 +4671,6 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               <span className="cc-conf-bar-pct">{row.n} ({row.pct}%)</span>
             </div>
           ))}
-          <Link href="/dashboard?page=evidence" className="cc-right-link">View freshness report →</Link>
         </div>
 
         <div className="cc-right-section">
@@ -5428,7 +5442,6 @@ const CountriesDirectoryPage = React.memo(function CountriesDirectoryPage({
         <div className="cc-right-section">
           <div className="cc-right-head">CLICK TO EXPLORE</div>
           <p className="cc-right-prose">Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
-          <Link href="/dashboard?page=countries" className="cc-right-link">Full country directory →</Link>
         </div>
       </aside>
     </div>
@@ -10071,7 +10084,7 @@ export default function CommandCentre({
       case 'watchlist':
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'settings':
-        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} />
+        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={onPageChange} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':

@@ -5,12 +5,31 @@ export const dynamic = 'force-dynamic'
 
 const client = new Anthropic()
 
-const SYSTEM_PROMPT = `You are Harbourview's executive briefing engine. Given a jurisdiction and operator role, produce a 2–3 sentence intelligence summary that a senior professional can act on immediately. Be specific, factual in tone, and forward-looking. Never hedge excessively. Write in present tense. No markdown, no bullet points — prose only.`
+const SYSTEM_PROMPT = `You are Harbourview's executive briefing engine. You receive structured country intelligence data and produce a 2–3 sentence intelligence summary that a senior industry professional can act on immediately.
+
+Rules:
+- Ground every claim in the provided data — do not add regulatory details not present in the data
+- Be specific about status, access, and opportunity where data is available; acknowledge gaps honestly
+- Write in present tense, professional prose — no markdown, no bullet points, no hedging preamble
+- Focus on what is actionable for the stated role`
+
+type IntelSnapshot = {
+  medical_status?:       string | null
+  market_access_status?: string | null
+  import_status?:        string | null
+  export_status?:        string | null
+  opportunity_score?:    number | null
+  public_summary?:       string | null
+}
 
 type Body = {
   country?: unknown
-  role?: unknown
+  role?:    unknown
+  intel?:   unknown
 }
+
+const cache = new Map<string, { text: string; expiresAt: number }>()
+const CACHE_TTL_MS = 5 * 60 * 1000
 
 export async function POST(request: Request) {
   try {
@@ -21,24 +40,47 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as Body
     const country = typeof body.country === 'string' ? body.country.trim() : 'Global'
-    const role = typeof body.role === 'string' ? body.role.trim() : 'Operator'
+    const role    = typeof body.role    === 'string' ? body.role.trim()    : 'Operator'
+    const intel   = (body.intel && typeof body.intel === 'object' && !Array.isArray(body.intel))
+      ? (body.intel as IntelSnapshot)
+      : null
+
+    const cacheKey = `${country}:${role}:${intel?.medical_status ?? ''}:${intel?.market_access_status ?? ''}:${intel?.opportunity_score ?? ''}`
+    const cached = cache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return NextResponse.json({ briefing: cached.text, cached: true })
+    }
+
+    const intelLines: string[] = []
+    if (intel) {
+      if (intel.medical_status)       intelLines.push(`Medical programme status: ${intel.medical_status}`)
+      if (intel.market_access_status) intelLines.push(`Market access status: ${intel.market_access_status}`)
+      if (intel.import_status)        intelLines.push(`Import status: ${intel.import_status}`)
+      if (intel.export_status)        intelLines.push(`Export status: ${intel.export_status}`)
+      if (intel.opportunity_score != null) intelLines.push(`Opportunity score: ${intel.opportunity_score}/100`)
+      if (intel.public_summary)       intelLines.push(`Summary on record: ${intel.public_summary}`)
+    }
+
+    const intelBlock = intelLines.length > 0
+      ? `\n\nKnown data for this jurisdiction:\n${intelLines.join('\n')}`
+      : '\n\nNote: no structured intelligence data is available for this jurisdiction yet.'
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-5',
+      model:      'claude-sonnet-5',
       max_tokens: 200,
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages: [
-        {
-          role: 'user',
-          content: `Jurisdiction: ${country}\nRole: ${role}\n\nWrite a 2–3 sentence executive intelligence briefing for today.`,
-        },
-      ],
+      system:     [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages:   [{
+        role:    'user',
+        content: `Jurisdiction: ${country}\nRole: ${role}${intelBlock}\n\nWrite a 2–3 sentence executive intelligence briefing.`,
+      }],
     })
 
     const text = message.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text)
       .join('')
+
+    cache.set(cacheKey, { text, expiresAt: Date.now() + CACHE_TTL_MS })
 
     return NextResponse.json({ briefing: text })
   } catch (error) {
