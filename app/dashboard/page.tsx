@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { fetchDashboardSignals, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
+import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
@@ -72,7 +72,7 @@ function normalizeRoleParam(raw: string | null): string | null {
 // Every redirected standalone route lands on one of these — keep in sync with
 // the CommandPage union and CommandCentre's NAV_ITEMS_FLAT.
 const VALID_COMMAND_PAGES: readonly CommandPage[] = [
-  'briefing', 'access-pathway', 'marketplace', 'evidence', 'education',
+  'briefing', 'digest', 'access-pathway', 'marketplace', 'evidence', 'education',
   'regulatory', 'local-intel', 'signals', 'watchlist', 'settings',
   'genetics', 'compliance', 'countries',
 ]
@@ -211,8 +211,9 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, , watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage, jurisdictionPlaybook, educationTracks, marketMetrics, tradeFlows, professionals, cannabisOperators, cultivarPassports, serviceProviders, collaborationProjects] = await Promise.all([
+  const [signals, dailyDigest, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, , watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage, jurisdictionPlaybook, educationTracks, marketMetrics, tradeFlows, professionals, cannabisOperators, cultivarPassports, serviceProviders, collaborationProjects] = await Promise.all([
     fetchDashboardSignals(30),
+    fetchDailyDigest(12),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),
@@ -244,6 +245,8 @@ export default async function DashboardPage({
     <DashboardResponsiveShell
       key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
       signals={signals}
+      digestSignals={dailyDigest.signals}
+      digestWindow={dailyDigest.window}
       eduCategories={eduCategories}
       liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
       initialCountryIso2={countryIso2}
