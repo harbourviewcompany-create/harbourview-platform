@@ -42,6 +42,11 @@ export const WatchlistPage = React.memo(function WatchlistPage({
   const [addState, setAddState]     = useState<'idle' | 'saving' | 'saved'>('idle')
   const [localItems, setLocalItems] = useState(watchlistData?.items ?? [])
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [snoozingId, setSnoozingId]   = useState<string | null>(null)
+  const [editingNextActionId, setEditingNextActionId] = useState<string | null>(null)
+  const [nextActionDraft, setNextActionDraft]         = useState('')
+  const [savingNextActionId, setSavingNextActionId]   = useState<string | null>(null)
 
   // Rule builder state
   const [localRules, setLocalRules]   = useState<WatchRule[]>(watchlistData?.rules ?? [])
@@ -70,6 +75,61 @@ export const WatchlistPage = React.memo(function WatchlistPage({
       .limit(1)
       .single()
     return membership?.workspace_id ?? null
+  }
+
+  async function handleResolve(id: string) {
+    if (resolvingId) return
+    setResolvingId(id)
+    const previous = localItems
+    setLocalItems(prev => prev.filter(item => item.id !== id))
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('cc_watchlist_items').update({ watch_status: 'resolved' }).eq('id', id)
+      if (error) throw error
+    } catch {
+      setLocalItems(previous)
+    } finally {
+      setResolvingId(null)
+    }
+  }
+
+  async function handleSnooze(id: string) {
+    if (snoozingId) return
+    setSnoozingId(id)
+    const previous = localItems
+    setLocalItems(prev => prev.filter(item => item.id !== id))
+    try {
+      const supabase = createClient()
+      const snoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { error } = await supabase
+        .from('cc_watchlist_items')
+        .update({ watch_status: 'snoozed', snoozed_until: snoozeUntil })
+        .eq('id', id)
+      if (error) throw error
+    } catch {
+      setLocalItems(previous)
+    } finally {
+      setSnoozingId(null)
+    }
+  }
+
+  function handleStartEditNextAction(id: string, current: string | null) {
+    setEditingNextActionId(id)
+    setNextActionDraft(current ?? '')
+  }
+
+  async function handleSaveNextAction(id: string) {
+    if (savingNextActionId) return
+    setSavingNextActionId(id)
+    const trimmed = nextActionDraft.trim() || null
+    setLocalItems(prev => prev.map(item => item.id === id ? { ...item, next_action: trimmed } : item))
+    setEditingNextActionId(null)
+    try {
+      const supabase = createClient()
+      await supabase.from('cc_watchlist_items').update({ next_action: trimmed }).eq('id', id)
+    } finally {
+      setSavingNextActionId(null)
+    }
   }
 
   async function handleRemove(id: string) {
@@ -250,7 +310,47 @@ export const WatchlistPage = React.memo(function WatchlistPage({
                       {item.latest_change_at && <span className="wl-item-time"> · {timeAgo(item.latest_change_at)}</span>}
                     </div>
                   )}
-                  {item.next_action && <div className="wl-item-next">→ {item.next_action}</div>}
+                  {editingNextActionId === item.id ? (
+                    <div className="wl-item-next-edit">
+                      <input
+                        className="wl-item-next-input"
+                        value={nextActionDraft}
+                        onChange={e => setNextActionDraft(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveNextAction(item.id); if (e.key === 'Escape') setEditingNextActionId(null) }}
+                        autoFocus
+                        placeholder="Next action…"
+                        maxLength={200}
+                      />
+                      <button className="wl-item-next-save" onClick={() => handleSaveNextAction(item.id)} disabled={savingNextActionId === item.id}>
+                        {savingNextActionId === item.id ? '…' : 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="wl-item-next">
+                      {item.next_action ? <>→ {item.next_action}</> : null}
+                      <button className="wl-item-next-edit-btn" onClick={() => handleStartEditNextAction(item.id, item.next_action)} title="Edit next action">
+                        {item.next_action ? '✎' : '+ next action'}
+                      </button>
+                    </div>
+                  )}
+                  <div className="wl-item-actions">
+                    <button
+                      className="wl-item-action-btn wl-item-action-btn--resolve"
+                      onClick={() => handleResolve(item.id)}
+                      disabled={!!resolvingId}
+                      title="Mark as resolved"
+                    >
+                      {resolvingId === item.id ? '…' : '✓ Resolve'}
+                    </button>
+                    <button
+                      className="wl-item-action-btn wl-item-action-btn--snooze"
+                      onClick={() => handleSnooze(item.id)}
+                      disabled={!!snoozingId}
+                      title="Snooze for 7 days"
+                    >
+                      {snoozingId === item.id ? '…' : '◷ Snooze 7d'}
+                    </button>
+                  </div>
                 </div>
                 {typeof item.confidence_pct === 'number' && (
                   <div className="wl-item-conf">{item.confidence_pct}%</div>
@@ -463,7 +563,7 @@ const CSS = `
 .wl-item-sub { font-size:11px;color:rgba(245,240,232,.45); }
 .wl-item-change { font-size:10.5px;color:rgba(245,240,232,.5); }
 .wl-item-time { color:rgba(245,240,232,.3); }
-.wl-item-next { font-size:10.5px;color:#5b9bd5; }
+.wl-item-next-static { font-size:10.5px;color:#5b9bd5; }
 .wl-item-conf { font-size:13px;font-weight:700;color:#d4a84b;flex-shrink:0;padding:4px 8px;border-radius:6px;background:rgba(212,168,75,.08); }
 .wl-item-remove {
   flex-shrink:0;width:22px;height:22px;border-radius:6px;
@@ -474,6 +574,37 @@ const CSS = `
 }
 .wl-item-remove:hover:not(:disabled) { background:rgba(220,80,80,.1);border-color:rgba(220,80,80,.3);color:#e08080; }
 .wl-item-remove:disabled { opacity:.5;cursor:default; }
+
+.wl-item-actions { display:flex;align-items:center;gap:4px;margin-top:5px; }
+.wl-item-action-btn {
+  font-size:9.5px;padding:2px 8px;border-radius:5px;cursor:pointer;font:inherit;
+  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);
+  color:rgba(245,240,232,.45);transition:all .12s;
+}
+.wl-item-action-btn:hover:not(:disabled) { background:rgba(255,255,255,.08);color:#f5f0e8; }
+.wl-item-action-btn--resolve:hover:not(:disabled) { border-color:rgba(76,175,130,.35);background:rgba(76,175,130,.08);color:#4caf82; }
+.wl-item-action-btn--snooze:hover:not(:disabled) { border-color:rgba(91,155,213,.35);background:rgba(91,155,213,.08);color:#5b9bd5; }
+.wl-item-action-btn:disabled { opacity:.4;cursor:default; }
+
+.wl-item-next { display:flex;align-items:center;gap:4px;font-size:10.5px;color:#5b9bd5; }
+.wl-item-next-edit-btn {
+  font-size:9px;padding:1px 5px;border-radius:4px;cursor:pointer;font:inherit;
+  border:1px solid rgba(255,255,255,.08);background:transparent;
+  color:rgba(245,240,232,.25);transition:all .12s;
+}
+.wl-item-next-edit-btn:hover { color:rgba(245,240,232,.6);border-color:rgba(255,255,255,.2); }
+.wl-item-next-edit { display:flex;align-items:center;gap:5px;margin-top:3px; }
+.wl-item-next-input {
+  flex:1;font:inherit;font-size:10.5px;color:#5b9bd5;background:rgba(255,255,255,.04);
+  border:1px solid rgba(91,155,213,.3);border-radius:5px;padding:2px 7px;outline:none;
+}
+.wl-item-next-input:focus { border-color:rgba(91,155,213,.55); }
+.wl-item-next-save {
+  font-size:9.5px;padding:2px 8px;border-radius:5px;cursor:pointer;font:inherit;
+  border:1px solid rgba(76,175,130,.3);background:rgba(76,175,130,.08);color:#4caf82;
+  transition:all .12s;
+}
+.wl-item-next-save:disabled { opacity:.5;cursor:default; }
 
 .wl-empty {
   display:flex;flex-direction:column;align-items:center;
