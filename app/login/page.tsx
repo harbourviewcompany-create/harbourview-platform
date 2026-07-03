@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string; message?: string }>
+  searchParams: Promise<{ error?: string; next?: string; message?: string; mode?: string }>
 }) {
-  const { error, next, message } = await searchParams
+  const { error, next, message, mode } = await searchParams
+  const initialMode = mode === 'signup' ? 'signup' : 'signin'
   return (
     <main className="min-h-screen bg-[#020814] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -21,7 +22,7 @@ export default async function LoginPage({
             Harbourview
           </p>
           <h1 className="text-2xl font-semibold text-[#F5F1E8]">
-            Sign in to your account
+            {initialMode === 'signup' ? 'Create your account' : 'Sign in to your account'}
           </h1>
           <p className="mt-2 text-sm text-[#F5F1E8]/50">
             Regulated cannabis market intelligence and reviewed connections.
@@ -32,6 +33,7 @@ export default async function LoginPage({
           error={error}
           next={next}
           message={message}
+          initialMode={initialMode}
         />
 
         <p className="mt-8 text-center text-xs text-[#F5F1E8]/30">

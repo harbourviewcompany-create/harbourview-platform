@@ -85,7 +85,8 @@ export default async function AccountPage() {
           </h1>
           {!isLoggedIn && (
             <p className="mt-3 text-sm" style={{ color: '#9aa8b6' }}>
-              No active session. <Link href="/admin/login" className="underline" style={{ color: '#d9af63' }}>Sign in</Link> to manage your preferences and subscription.
+              No active session. <Link href="/login" className="underline" style={{ color: '#d9af63' }}>Sign in</Link> or{' '}
+              <Link href="/login?mode=signup" className="underline" style={{ color: '#d9af63' }}>create an account</Link> to manage your preferences and subscription.
             </p>
           )}
         </div>

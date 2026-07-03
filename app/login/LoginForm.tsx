@@ -11,13 +11,15 @@ export default function LoginForm({
   error,
   next,
   message,
+  initialMode = 'signin',
 }: {
   error?: string
   next?: string
   message?: string
+  initialMode?: 'signin' | 'signup'
 }) {
   const router = useRouter()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)

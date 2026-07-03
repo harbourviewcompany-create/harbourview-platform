@@ -3231,7 +3231,14 @@ export default function MobileCommandCentre({
             <h1>{pageTitle}</h1>
           </div>
           <div className="hvm-titlebar-actions">
-            <button type="button" onClick={() => setContextOpen(true)}>Context</button>
+            <button type="button" onClick={() => setContextOpen(true)} aria-label="Switch market">Market</button>
+            {userEmail ? (
+              <a href="/account" className="hvm-titlebar-account" aria-label="Account">
+                {userEmail.slice(0, 2).toUpperCase()}
+              </a>
+            ) : (
+              <a href="/login" className="hvm-titlebar-signin" aria-label="Sign in">Sign In</a>
+            )}
           </div>
         </div>
         {titlebartabs && (
@@ -3280,7 +3287,10 @@ export default function MobileCommandCentre({
                 </form>
               </div>
             ) : (
-              <a href="/login" className="hvm-sheet-signin">Sign in to your account</a>
+              <>
+                <a href="/login" className="hvm-sheet-signin">Sign in to your account</a>
+                <a href="/login?mode=signup" className="hvm-sheet-signin" style={{ marginTop: 8, background: 'rgba(198,165,90,0.12)', borderColor: 'rgba(198,165,90,0.4)', color: '#F0D39A' }}>Create an account</a>
+              </>
             )}
           </div>
         </div>
@@ -3335,6 +3345,30 @@ const MOBILE_CSS = `
   font: 700 13px/1 Inter, system-ui, sans-serif;
   padding: 0 14px;
   cursor: pointer;
+}
+.hvm-titlebar-signin, .hvm-titlebar-account {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 999px;
+  font: 700 13px/1 Inter, system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.hvm-titlebar-signin {
+  padding: 0 14px;
+  border: 1px solid rgba(198,165,90,0.4);
+  background: rgba(198,165,90,0.12);
+  color: #F0D39A;
+}
+.hvm-titlebar-account {
+  width: 44px;
+  padding: 0;
+  border: 1px solid rgba(198,165,90,0.25);
+  background: rgba(198,165,90,0.1);
+  color: #F0D39A;
+  font-size: 11px;
 }
 .hvm-title-kicker {
   display: block;
