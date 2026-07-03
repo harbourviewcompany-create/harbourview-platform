@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     const stream = await client.messages.stream({
       model:      'claude-sonnet-5',
       max_tokens: 1500,
-      system:     SYSTEM_PROMPT,
+      system:     [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages,
     })
 

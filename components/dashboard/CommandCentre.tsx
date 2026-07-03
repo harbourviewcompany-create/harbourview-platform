@@ -340,6 +340,8 @@ const BriefingRoom = React.memo(function BriefingRoom({
   onPageChange?:    (page: CommandPage) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
+  const [aiBriefing, setAiBriefing] = useState<string | null>(null)
+  const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
   const overall  = overallConfidence(confBars)
   const recentChanges = useMemo(() =>
@@ -351,6 +353,20 @@ const BriefingRoom = React.memo(function BriefingRoom({
     })),
     [signals],
   )
+
+  React.useEffect(() => {
+    setAiBriefing(null)
+    setAiBriefingLoading(true)
+    fetch('/api/ai/briefing', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ country: country.label, role: role ?? '' }),
+    })
+      .then(r => r.json())
+      .then((d: { briefing?: string }) => { if (d.briefing) setAiBriefing(d.briefing) })
+      .catch(() => {})
+      .finally(() => setAiBriefingLoading(false))
+  }, [country.label, role])
 
   return (
     <div className="cc-page cc-briefing">
@@ -434,6 +450,15 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Right: Evidence confidence + Watch regions ────────────── */}
       <aside className="cc-briefing-right">
 
+        <div className="cc-right-section" style={{ borderLeft: '2px solid rgba(212,168,75,.35)', paddingLeft: 12 }}>
+          <div className="cc-right-head" style={{ color: '#d4a84b' }}>AI EXECUTIVE BRIEFING</div>
+          {aiBriefingLoading ? (
+            <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.4)', fontStyle: 'italic' }}>Generating briefing…</p>
+          ) : aiBriefing ? (
+            <p className="cc-right-prose" style={{ lineHeight: 1.6 }}>{aiBriefing}</p>
+          ) : null}
+        </div>
+
         <div className="cc-right-section">
           <div className="cc-right-head">EVIDENCE CONFIDENCE <span className="cc-right-info">ⓘ</span></div>
           <div className="cc-confidence-summary">
@@ -497,11 +522,11 @@ const BriefingRoom = React.memo(function BriefingRoom({
                   <strong>{r.label}</strong>
                   <small>{r.status}</small>
                 </div>
-                <a className="cc-watch-region-btn" href="/dashboard?page=signals">View</a>
+                <button className="cc-watch-region-btn" onClick={() => onPageChange?.('signals')}>View</button>
               </div>
             ))}
           </div>
-          <Link href="/dashboard?page=countries" className="cc-right-link">View all jurisdictions →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('countries')}>View all jurisdictions →</button>
         </div>
 
         {role && (BRIEFING_ROLE_MODULES[role] ?? []).length > 0 && (
@@ -541,7 +566,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
                 </div>
               ))}
             </div>
-            <Link href="/signals" className="cc-right-link">View all change activity →</Link>
+            <button className="cc-right-link" onClick={() => onPageChange?.('signals')}>View all change activity →</button>
           </div>
         )}
 
@@ -842,8 +867,8 @@ const SignalsPage = React.memo(function SignalsPage({
                       <span>{s.timeAgo}</span>
                     </div>
                     <div className="cc-sig-acts">
-                      <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
-                      <Link href="/signals" className="cc-sig-watch">↗ Add to watchlist</Link>
+                      <button className="cc-sig-brief" onClick={() => onPageChange?.('signals')}>Open brief</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('watchlist')}>↗ Add to watchlist</button>
                     </div>
                   </div>
                 )
@@ -892,7 +917,7 @@ const SignalsPage = React.memo(function SignalsPage({
               <button className="cc-apply-btn">Apply</button>
             </div>
           ))}
-          <Link href="/signals" className="cc-right-link">Manage saved filters →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('watchlist')}>Manage saved filters →</button>
         </div>
 
         <div className="cc-right-section">
@@ -903,7 +928,7 @@ const SignalsPage = React.memo(function SignalsPage({
               <span className="cc-topic-count">{t.n}</span>
             </div>
           ))}
-          <Link href="/signals" className="cc-right-link">View all topics →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('signals')}>View all topics →</button>
         </div>
 
         <div className="cc-right-section">
@@ -1186,7 +1211,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace/deals" className="cc-right-link">View pipeline →</Link>
+            <button className="cc-right-link" onClick={() => onPageChange?.('marketplace')}>View pipeline →</button>
           </div>
         )}
         <DealRoomsPanel />
@@ -1219,7 +1244,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View all requirements →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('compliance')}>View all requirements →</button>
         </div>
 
         <div className="cc-right-section">
@@ -1233,7 +1258,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <Link href="/compliance" className="cc-right-link">Address gaps →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('compliance')}>Address gaps →</button>
         </div>
 
         <div className="cc-right-section">
@@ -1247,7 +1272,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <Link href="/marketplace" className="cc-right-link">View counterparty profile →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('kyb')}>View counterparty profile →</button>
         </div>
 
         {cannabisOperators.length > 0 && (
@@ -1264,7 +1289,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace" className="cc-right-link">View all operators →</Link>
+            <button className="cc-right-link" onClick={() => onPageChange?.('marketplace')}>View all operators →</button>
           </div>
         )}
       </aside>
@@ -1445,7 +1470,7 @@ const EducationPage = React.memo(function EducationPage({
       {/* ── Right panel ─────────────────────────────────────── */}
       <aside className="cc-two-right">
         <div className="cc-right-section">
-          <div className="cc-right-head">RELATED EVIDENCE <Link href="/education" className="cc-right-link ml-auto">View all →</Link></div>
+          <div className="cc-right-head">RELATED EVIDENCE <button className="cc-right-link ml-auto" onClick={() => onPageChange?.('evidence')}>View all →</button></div>
           {REL_EVIDENCE.map(e => (
             <div key={e.title} className="cc-edu-ev-row">
               <span className="cc-edu-ev-icon">⊟</span>
@@ -1458,11 +1483,11 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
           ))}
-          <Link href="/dashboard?page=evidence" className="cc-right-link">Go to Evidence &amp; Sources →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('evidence')}>Go to Evidence &amp; Sources →</button>
         </div>
 
         <div className="cc-right-section">
-          <div className="cc-right-head">RECENTLY UPDATED MODULES <Link href="/education" className="cc-right-link ml-auto">View all →</Link></div>
+          <div className="cc-right-head">RECENTLY UPDATED MODULES</div>
           {RECENT_UPDATES.map(u => (
             <div key={u.title} className="cc-edu-ev-row">
               <span className="cc-edu-ev-icon">⊟</span>
@@ -1487,7 +1512,6 @@ const EducationPage = React.memo(function EducationPage({
               </div>
             </div>
             <button className="cc-nba-btn full">Continue module →</button>
-            <Link href="/education" className="cc-right-link">View module details →</Link>
           </div>
         )}
 
@@ -1503,7 +1527,7 @@ const EducationPage = React.memo(function EducationPage({
                 </div>
               </div>
             ))}
-            <Link href="/education" className="cc-right-link">Browse all tracks →</Link>
+            <button className="cc-right-link" onClick={() => onPageChange?.('education')}>Browse all tracks →</button>
           </div>
         )}
 
@@ -1747,7 +1771,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
                 ))}
               </div>
             </div>
-            <Link href="/signals" className="cc-right-link">View change brief →</Link>
+            <button className="cc-right-link" onClick={() => onPageChange?.('signals')}>View change brief →</button>
           </div>
 
           <div className="cc-rw-card">
@@ -1821,7 +1845,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
                   <div className="cc-rw-cell"><span className="cc-affects-yes">✓ Yes</span></div>
                   <div className="cc-rw-cell"><span className="cc-source-badge">Official Source</span></div>
                   <div className="cc-rw-cell">
-                    <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
+                    <button className="cc-sig-brief" onClick={() => onPageChange?.('signals')}>Open brief</button>
                   </div>
                 </div>
               )
@@ -1830,7 +1854,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
         </div>
 
         <div className="cc-feed-footer">
-          <Link href="/signals" className="cc-right-link">View all events →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('signals')}>View all events →</button>
         </div>
       </div>
 
@@ -1844,7 +1868,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-trigger-dot ${t.on ? 'on' : ''}`}>●</span>
             </div>
           ))}
-          <Link href="/signals" className="cc-right-link">Manage triggers →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('watchlist')}>Manage triggers →</button>
         </div>
 
         <div className="cc-right-section">
@@ -1856,7 +1880,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-comp-dot ${j.active ? 'active' : ''}`}>●</span>
             </div>
           ))}
-          <Link href="/dashboard?page=countries" className="cc-right-link">View comparisons →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('countries')}>View comparisons →</button>
         </div>
 
         <div className="cc-right-section">
@@ -1867,7 +1891,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span>{q}</span>
             </div>
           ))}
-          <Link href="/intelligence" className="cc-right-link">View all questions →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('local-intel')}>View all questions →</button>
         </div>
 
         <div className="cc-right-section">
@@ -1878,7 +1902,7 @@ const RegulatoryWatchPage = React.memo(function RegulatoryWatchPage({
               <span className={`cc-gap-badge ${g.level}`}>{g.level === 'high' ? 'High Gap' : 'Medium Gap'}</span>
             </div>
           ))}
-          <Link href="/dashboard?page=evidence" className="cc-right-link">Improve coverage →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('evidence')}>Improve coverage →</button>
         </div>
 
         <div className="cc-right-section">
@@ -2375,7 +2399,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               ))}
             </div>
-            <Link href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'10px',display:'inline-block'}}>View full state brief →</Link>
+            <button className="cc-right-link" style={{marginTop:'10px',display:'inline-block'}} onClick={() => onPageChange?.('local-intel')}>View full state brief →</button>
           </div>
 
           {/* Authorities org chart */}
@@ -2421,7 +2445,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
 
             <div className="cc-li-auth-footer">
               <small>Hover or select for details</small>
-              <Link href="/intelligence" className="cc-right-link">Explore authorities →</Link>
+              <button className="cc-right-link" onClick={() => onPageChange?.('local-intel')}>Explore authorities →</button>
             </div>
           </div>
         </div>
@@ -2444,7 +2468,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </span>
               </div>
             ))}
-            <Link href={`/country/${country.iso2.toLowerCase()}/intel`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all municipalities →</Link>
+            <button className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}} onClick={() => onPageChange?.('local-intel')}>View all municipalities →</button>
           </div>
 
           {/* Local Access Constraints */}
@@ -2459,7 +2483,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               </div>
             ))}
-            <Link href="/compliance" className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View constraint detail →</Link>
+            <button className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}} onClick={() => onPageChange?.('compliance')}>View constraint detail →</button>
           </div>
 
           {/* Local Commercial Routes */}
@@ -2474,7 +2498,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 </div>
               </div>
             ))}
-            <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}}>View routing guidance →</Link>
+            <button className="cc-right-link" style={{marginTop:'4px',display:'inline-block'}} onClick={() => onPageChange?.('access-pathway')}>View routing guidance →</button>
           </div>
 
           {/* Evidence Gaps */}
@@ -2486,7 +2510,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
                 <p>{q}</p>
               </div>
             ))}
-            <Link href="/intelligence" className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>Submit intel request →</Link>
+            <button className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}} onClick={() => onPageChange?.('local-intel')}>Submit intel request →</button>
           </div>
         </div>
 
@@ -2506,7 +2530,7 @@ const LocalIntelPage = React.memo(function LocalIntelPage({
               <button className="cc-apply-btn" style={{flexShrink:0}}>View</button>
             </div>
           ))}
-          <Link href="/intelligence" className="cc-right-link">View all authorities →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('local-intel')}>View all authorities →</button>
         </div>
 
         <div className="cc-right-section">
@@ -3706,7 +3730,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                 <p className="cc-right-prose">
                   {currentStep.description ?? `Complete all required evidence for step ${currentStep.step_number} to advance your pathway.`}
                 </p>
-                <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link">View {country.label} requirements →</Link>
+                <button className="cc-right-link" onClick={() => onPageChange?.('compliance')}>View {country.label} requirements →</button>
 
                 <div className="cc-ap-status-card">
                   <div className="cc-ap-section-lbl">CURRENT STATUS</div>
@@ -3752,7 +3776,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                     )
                   })}
                 </div>
-                <Link href={`/compliance/country-pathways/${country.iso2.toLowerCase()}`} className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}}>View all requirements →</Link>
+                <button className="cc-right-link" style={{marginTop:'8px',display:'inline-block'}} onClick={() => onPageChange?.('compliance')}>View all requirements →</button>
               </div>
             </div>
 
@@ -3791,7 +3815,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
               </div>
             )
           })}
-          <Link href="/dashboard?page=evidence" className="cc-right-link">View all documents →</Link>
+          <button className="cc-right-link" onClick={() => onPageChange?.('evidence')}>View all documents →</button>
         </div>
 
         <div className="cc-right-section">
@@ -3812,7 +3836,7 @@ const AccessPathwayPage = React.memo(function AccessPathwayPage({
                 </div>
               </div>
             ))}
-            <Link href="/signals" className="cc-right-link">View all signals →</Link>
+            <button className="cc-right-link" onClick={() => onPageChange?.('signals')}>View all signals →</button>
           </div>
         )}
 
