@@ -150,18 +150,31 @@ export function IdentityRail({ onMarketClick }: Props) {
           <div className="h-7 w-7 animate-pulse rounded-full" style={{ background: 'rgba(198,165,90,0.1)' }} />
         )}
 
-        {/* Avatar button — signed in OR not signed in, same button */}
+        {/* Signed-in: avatar button. Signed-out: labeled Sign In button. */}
         {user !== undefined && (
-          <button
-            type="button"
-            onClick={() => { setMenuOpen(o => !o); setAuthError('') }}
-            aria-label={user ? 'Account menu' : 'Sign in'}
-            aria-expanded={menuOpen}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
-            style={{ background: 'rgba(198,165,90,0.1)', border: '1px solid rgba(198,165,90,0.25)', color: '#F0D39A' }}
-          >
-            {user ? initials : '→'}
-          </button>
+          user ? (
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(o => !o); setAuthError('') }}
+              aria-label="Account menu"
+              aria-expanded={menuOpen}
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[10px] font-bold transition-all hover:opacity-80"
+              style={{ background: 'rgba(198,165,90,0.1)', border: '1px solid rgba(198,165,90,0.25)', color: '#F0D39A' }}
+            >
+              {initials}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(o => !o); setAuthError('') }}
+              aria-label="Sign in"
+              aria-expanded={menuOpen}
+              className="flex h-7 cursor-pointer items-center justify-center rounded-full px-3 text-[10px] font-bold uppercase tracking-[0.08em] transition-all hover:opacity-80"
+              style={{ background: 'rgba(198,165,90,0.1)', border: '1px solid rgba(198,165,90,0.25)', color: '#F0D39A' }}
+            >
+              Sign In
+            </button>
+          )
         )}
 
         {/* Dropdown */}
@@ -235,10 +248,16 @@ export function IdentityRail({ onMarketClick }: Props) {
                       {loading ? 'Signing in…' : 'Sign In'}
                     </button>
                   </form>
-                  <Link href="/login" onClick={() => setMenuOpen(false)}
-                    style={{ display: 'block', marginTop: '10px', textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
-                    Forgot password?
-                  </Link>
+                  <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                    <Link href="/login" onClick={() => setMenuOpen(false)}
+                      style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
+                      Forgot password?
+                    </Link>
+                    <Link href="/login?mode=signup" onClick={() => setMenuOpen(false)}
+                      style={{ fontSize: '10px', color: 'rgba(240,211,154,0.75)', fontWeight: 600 }}>
+                      Create account →
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
