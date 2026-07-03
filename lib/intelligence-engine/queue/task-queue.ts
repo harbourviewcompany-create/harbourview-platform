@@ -24,6 +24,34 @@ interface SourceRegistryRow {
   consecutive_failures: number | null;
 }
 
+// source_registry.crawl_cadence holds either a named cadence label or a raw
+// numeric-hours string (both forms exist live: 'daily'/'weekly'/'monthly'/
+// 'quarterly'/'annual' as well as '12'/'24'/'48'/'72'). Bug history: this
+// used to be hardcoded to 24 in mapRow() below regardless of the source's
+// actual configured cadence, which forced every successfully-crawled source
+// back into the "due" queue every 24h — including the 40% of sources
+// configured weekly/monthly/quarterly/annual. At registry scale (1000+
+// active sources) that manufactured re-crawl demand exceeded real cron
+// throughput, so the "due" queue stayed permanently over-full and newly
+// added sources got crowded out indefinitely, never reaching the front of
+// the ORDER BY next_crawl_at ASC queue. Root-caused 2026-07-02.
+const NAMED_CADENCE_HOURS: Record<string, number> = {
+  daily:     24,
+  weekly:    24 * 7,
+  monthly:   24 * 30,
+  quarterly: 24 * 90,
+  annual:    24 * 365,
+};
+
+export function parseCadenceHours(raw: string | null): number {
+  if (!raw) return 24; // unset — safe default, matches prior fallback behavior
+  const named = NAMED_CADENCE_HOURS[raw.trim().toLowerCase()];
+  if (named !== undefined) return named;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  return 24; // unrecognized format — fall back rather than let a bad value wedge the row
+}
+
 export class DistributedTaskQueue {
   constructor(private supabase: SupabaseClient<any, any, 'api'>) {}
 
@@ -52,7 +80,7 @@ export class DistributedTaskQueue {
       source_name:   row.source_name,
       base_url:      row.source_url,
       adapter_type:  (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
-      cadence_hours: 24,
+      cadence_hours: parseCadenceHours(row.crawl_cadence),
       consecutive_failures: row.consecutive_failures ?? 0,
     };
   }
