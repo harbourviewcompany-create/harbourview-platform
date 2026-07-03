@@ -1395,6 +1395,17 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     trade:      signals.filter(s => classifySignal(s.type) === 'trade').length,
   }), [signals])
 
+  // Signals whose `market` genuinely matches the country being viewed. When a
+  // country has no reviewed signals yet, fetchDashboardSignals() backfills
+  // the feed with recent global signals so the page isn't empty — but the
+  // header must not claim those backfilled rows are "this period" activity
+  // for the country. See AGENTS.md Depth & Competitive Bar rule 2.
+  const countryLabelNorm = country.label?.trim().toLowerCase()
+  const countryMatchCount = useMemo(
+    () => signals.filter(s => s.market?.trim().toLowerCase() === countryLabelNorm).length,
+    [signals, countryLabelNorm],
+  )
+
   const signalTypes = useMemo(() => {
     const types = new Set<string>()
     for (const s of signals) {
@@ -1499,13 +1510,19 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div className={`hvm-live-dot${signals.length > 0 ? ' active' : ''}`} />
+          <div className={`hvm-live-dot${countryMatchCount > 0 ? ' active' : ''}`} />
           <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em' }}>
-            {signals.length > 0 ? 'STREAM ACTIVE' : 'SCANNING'}
+            {countryMatchCount > 0 ? 'STREAM ACTIVE' : 'SCANNING'}
           </span>
         </div>
         <h2>Intelligence</h2>
-        <p>{country.label} · {signals.length} signal{signals.length !== 1 ? 's' : ''} this period</p>
+        {countryMatchCount > 0 ? (
+          <p>{country.label} · {countryMatchCount} signal{countryMatchCount !== 1 ? 's' : ''} this period</p>
+        ) : (
+          <p style={{ color: 'rgba(230,165,51,.85)' }}>
+            ⚠ No reviewed signals for {country.label} yet — showing {signals.length} recent global signal{signals.length !== 1 ? 's' : ''} for context
+          </p>
+        )}
         <div className="hvm-sub-row">
           {subState === 'upgrade' ? (
             <span className="hvm-sub-upgrade">Intel plan required to subscribe</span>
