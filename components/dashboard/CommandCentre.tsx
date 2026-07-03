@@ -359,13 +359,14 @@ const BriefingRoom = React.memo(function BriefingRoom({
     setAiBriefing(null)
     setAiBriefingError(false)
     setAiBriefingLoading(true)
-    const intel = countryIntel ? {
-      medical_status:       countryIntel.medical_status,
-      market_access_status: countryIntel.market_access_status,
-      import_status:        countryIntel.import_status,
-      export_status:        countryIntel.export_status,
-      opportunity_score:    countryIntel.opportunity_score,
-      public_summary:       countryIntel.public_summary,
+    const intelMatches = countryIntel && countryIntel.country_code === country.iso2
+    const intel = intelMatches ? {
+      medical_status:       countryIntel!.medical_status,
+      market_access_status: countryIntel!.market_access_status,
+      import_status:        countryIntel!.import_status,
+      export_status:        countryIntel!.export_status,
+      opportunity_score:    countryIntel!.opportunity_score,
+      public_summary:       countryIntel!.public_summary,
     } : null
     fetch('/api/ai/briefing', {
       method:  'POST',
@@ -379,7 +380,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
       })
       .catch(() => setAiBriefingError(true))
       .finally(() => setAiBriefingLoading(false))
-  }, [country.label, role, countryIntel])
+  }, [country.label, country.iso2, role, countryIntel])
 
   return (
     <div className="cc-page cc-briefing">
