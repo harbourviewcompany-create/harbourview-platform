@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
-import { requireAdminAuth } from '@/lib/admin-auth'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import { createClient } from '@/lib/supabase/server'
 import { publicCountryIntelligenceFixtures } from '@/lib/intelligence/fixtures'
 import { countryOptions } from '@/config/globe/country-role-profiles'
@@ -11,7 +11,9 @@ import { countryOptions } from '@/config/globe/country-role-profiles'
 // Upserts the 6 fixture countries into public.countries
 // Safe to run repeatedly — uses ON CONFLICT (iso_alpha2) DO UPDATE
 export async function POST() {
-  await requireAdminAuth()
+  const authFailure = await requireAdminApiAuth()
+  if (authFailure) return authFailure
+
   const supabase = await createClient()
 
   const ISO3: Record<string, string> = {
