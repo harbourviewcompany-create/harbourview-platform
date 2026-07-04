@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 1 2026 · Claude (Sonnet 4.6)
+> Last updated: Jul 3 2026 · Claude (Sonnet 4.6)
 
 ---
 
@@ -18,7 +18,7 @@
 | **Last migration** | `fix_cron_trigger_auth_headers_v2` — Jul 1 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | None (last merged: #923 HANDOFF.md restructure) |
+| **Open PRs** | None (last merged: #943 watchlist resolve/snooze/next-action) |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | 2 pre-existing errors on main: `@tanstack/react-query` missing dep + Stripe API version |
 
@@ -164,6 +164,26 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 3 2026 — genetics + watchlist follow-up fixes · Claude (Sonnet 4.6)
+
+**PRs merged this session:**
+
+| PR | What |
+|---|---|
+| #942 | feat(genetics): fix marketplace silent bug (wrong enum values in REST filter); cultivar passport creation form + server action |
+| #943 | feat(watchlist): per-item resolve / snooze (7-day) / next_action inline editing |
+
+**Bug fixes shipped this session (branch `claude/harbourview-github-supabase-updates-15vrcr`):**
+
+| Fix | File | Detail |
+|---|---|---|
+| `signals()` invalid enum | `lib/marketplace/geneticsShowcase.ts:116` | `=== 'approved'` → `.includes('approved_public','approved_private_only')` — "Admin approved" badge now shows for correctly-reviewed cultivars |
+| Snoozed watchlist items permanently hidden | `lib/dashboard/dashboardLiveData.ts:555` | `eq('watch_status','active')` → `.or()` that also returns snoozed items past their `snoozed_until` timestamp, auto-reactivating them on next dashboard load |
+
+**No schema changes this session.** All changes are TypeScript/React only.
 
 ---
 

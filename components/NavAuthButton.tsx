@@ -50,12 +50,20 @@ export function NavAuthButton({ mobile = false }: { mobile?: boolean }) {
   if (mobile) {
     if (!user) {
       return (
-        <Link
-          href="/login"
-          className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/82 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
-        >
-          Sign In
-        </Link>
+        <>
+          <Link
+            href="/login"
+            className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/82 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
+          >
+            Sign In
+          </Link>
+          <Link
+            href="/login?mode=signup"
+            className="rounded-sm border border-gold/30 bg-gold/10 px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors hover:border-gold/50 hover:bg-gold/20"
+          >
+            Sign Up
+          </Link>
+        </>
       )
     }
 
@@ -81,12 +89,20 @@ export function NavAuthButton({ mobile = false }: { mobile?: boolean }) {
   // ── Desktop layout ─────────────────────────────────────────────────────────
   if (!user) {
     return (
-      <Link
-        href="/login"
-        className="nav-link-premium whitespace-nowrap text-[10px] xl:text-[11px]"
-      >
-        Sign In
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link
+          href="/login"
+          className="nav-link-premium whitespace-nowrap text-[10px] xl:text-[11px]"
+        >
+          Sign In
+        </Link>
+        <Link
+          href="/login?mode=signup"
+          className="whitespace-nowrap rounded-full border border-gold/30 bg-gold/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gold transition-colors hover:border-gold/50 hover:bg-gold/20 xl:text-[11px]"
+        >
+          Sign Up
+        </Link>
+      </div>
     )
   }
 

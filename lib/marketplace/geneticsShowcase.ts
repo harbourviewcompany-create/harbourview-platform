@@ -113,7 +113,7 @@ function regionFromCode(code: string | null): string {
 function signals(cultivar: CultivarRow): string[] {
   const out: string[] = []
   if (cultivar.claim_status !== 'not_assessed') out.push('Verified claim')
-  if (cultivar.claim_review_status === 'approved')    out.push('Admin approved')
+  if (['approved_public','approved_private_only'].includes(cultivar.claim_review_status)) out.push('Admin approved')
   if (cultivar.cannabis_category === 'cbd_dominant')  out.push('CBD dominant')
   if (cultivar.cannabis_category === 'thc_dominant')  out.push('THC dominant')
   if (cultivar.cannabis_category === 'balanced')      out.push('Balanced')
@@ -190,7 +190,7 @@ export async function getPublicGeneticsProfiles(): Promise<GeneticsShowcaseResul
       '/rest/v1/cultivar_passports?select=id,slug,display_name,public_summary,cultivar_category,cannabis_category,origin_country_code,origin_jurisdiction_label,claim_status,claim_review_status,evidence_score_summary,verification_summary,public_disclaimer,is_public,created_at&is_public=eq.true&order=created_at.asc',
     ),
     fetchAdminSupabaseJson<OpportunityRow[]>(
-      '/rest/v1/cultivar_country_opportunities?select=id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,material_transfer_status,jurisdiction_gate_status,public_note,review_status,created_at&status=eq.approved&review_status=eq.approved&order=created_at.asc',
+      '/rest/v1/cultivar_country_opportunities?select=id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,material_transfer_status,jurisdiction_gate_status,public_note,review_status,created_at&status=in.(open_to_discussion,invite_only)&review_status=in.(approved_public,approved_private_only)&order=created_at.asc',
     ),
   ])
 

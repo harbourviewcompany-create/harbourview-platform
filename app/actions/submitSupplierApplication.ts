@@ -123,12 +123,6 @@ export async function submitSupplierApplication(
     profileSlug = `${baseSlug}-${suffix}`
   }
 
-  // description_public doubles as the only free-text field -- append contact email there
-  // for admin review since we keep the table lean for now.
-  const descriptionWithContact = descriptionPublic
-    ? `${descriptionPublic}\n\n[Application contact: ${email}]`
-    : `[Application contact: ${email}]`
-
   const { error } = await svc.from('supplier_profiles').insert({
     profile_slug: profileSlug,
     company_name: companyName,
@@ -138,7 +132,7 @@ export async function submitSupplierApplication(
     seller_type: sellerType,
     categories,
     regions_served: regionsServed,
-    description_public: descriptionWithContact,
+    description_public: descriptionPublic || null,
     website: websiteUrl || null,
     hq_country: hqCountry || null,
     services_offered: servicesOffered,

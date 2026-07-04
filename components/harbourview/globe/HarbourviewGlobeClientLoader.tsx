@@ -246,6 +246,7 @@ function bindAttribute(
 }
 
 function browserSupportsWebGL() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false
   try {
     const canvas = document.createElement('canvas')
     const context =
@@ -258,6 +259,7 @@ function browserSupportsWebGL() {
 }
 
 function prefersReducedMotion() {
+  if (typeof window === 'undefined') return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
@@ -412,8 +414,8 @@ export function HarbourviewGlobeClientLoader({
     if (featureFlags.globeForceFallback) return 'fallback'
 
     const nav = navigator as Navigator & { deviceMemory?: number; hardwareConcurrency?: number }
-    const canvas = document.createElement('canvas')
-    const gl = canvas.getContext('webgl')
+    const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+    const gl = canvas?.getContext('webgl') ?? null
     const renderer = gl?.getExtension('WEBGL_debug_renderer_info')
     const rendererName = renderer
       ? gl?.getParameter((renderer as { UNMASKED_RENDERER_WEBGL: number }).UNMASKED_RENDERER_WEBGL)

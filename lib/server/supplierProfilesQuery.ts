@@ -3,6 +3,16 @@ import 'server-only'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+function sanitizePublicDescription(desc: string | null): string | null {
+  if (!desc) return desc
+  // Strip any admin annotation that was previously embedded by the server action.
+  return desc.replace(/\n*\[Application contact:[^\]]*\]/g, '').trim() || null
+}
+
+function sanitizeProfile<T extends { description_public: string | null }>(p: T): T {
+  return { ...p, description_public: sanitizePublicDescription(p.description_public) }
+}
+
 export type SupplierProfile = {
   id: string
   profile_slug: string
@@ -54,8 +64,8 @@ export async function getApprovedSupplierProfileById(profileSlug: string): Promi
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
     })
     if (!res.ok) return null
-    const rows = await res.json()
-    return rows[0] ?? null
+    const rows: SupplierProfile[] = await res.json()
+    return rows[0] ? sanitizeProfile(rows[0]) : null
   } catch {
     return null
   }
@@ -77,7 +87,8 @@ export async function getApprovedSupplierProfiles(): Promise<SupplierProfile[]> 
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
     })
     if (!res.ok) return []
-    return res.json()
+    const rows: SupplierProfile[] = await res.json()
+    return rows.map(sanitizeProfile)
   } catch {
     return []
   }

@@ -1400,6 +1400,17 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     trade:      signals.filter(s => classifySignal(s.type) === 'trade').length,
   }), [signals])
 
+  // Signals whose `market` genuinely matches the country being viewed. When a
+  // country has no reviewed signals yet, fetchDashboardSignals() backfills
+  // the feed with recent global signals so the page isn't empty — but the
+  // header must not claim those backfilled rows are "this period" activity
+  // for the country. See AGENTS.md Depth & Competitive Bar rule 2.
+  const countryLabelNorm = country.label?.trim().toLowerCase()
+  const countryMatchCount = useMemo(
+    () => signals.filter(s => s.market?.trim().toLowerCase() === countryLabelNorm).length,
+    [signals, countryLabelNorm],
+  )
+
   const signalTypes = useMemo(() => {
     const types = new Set<string>()
     for (const s of signals) {
@@ -1504,13 +1515,19 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div className={`hvm-live-dot${signals.length > 0 ? ' active' : ''}`} />
+          <div className={`hvm-live-dot${countryMatchCount > 0 ? ' active' : ''}`} />
           <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em' }}>
-            {signals.length > 0 ? 'STREAM ACTIVE' : 'SCANNING'}
+            {countryMatchCount > 0 ? 'STREAM ACTIVE' : 'SCANNING'}
           </span>
         </div>
         <h2>Intelligence</h2>
-        <p>{country.label} · {signals.length} signal{signals.length !== 1 ? 's' : ''} this period</p>
+        {countryMatchCount > 0 ? (
+          <p>{country.label} · {countryMatchCount} signal{countryMatchCount !== 1 ? 's' : ''} this period</p>
+        ) : (
+          <p style={{ color: 'rgba(230,165,51,.85)' }}>
+            ⚠ No reviewed signals for {country.label} yet — showing {signals.length} recent global signal{signals.length !== 1 ? 's' : ''} for context
+          </p>
+        )}
         <div className="hvm-sub-row">
           {subState === 'upgrade' ? (
             <span className="hvm-sub-upgrade">Intel plan required to subscribe</span>
@@ -3366,7 +3383,14 @@ export default function MobileCommandCentre({
             <h1>{pageTitle}</h1>
           </div>
           <div className="hvm-titlebar-actions">
-            <button type="button" onClick={() => setContextOpen(true)}>Context</button>
+            <button type="button" onClick={() => setContextOpen(true)} aria-label="Switch market">Market</button>
+            {userEmail ? (
+              <a href="/account" className="hvm-titlebar-account" aria-label="Account">
+                {userEmail.slice(0, 2).toUpperCase()}
+              </a>
+            ) : (
+              <a href="/login" className="hvm-titlebar-signin" aria-label="Sign in">Sign In</a>
+            )}
           </div>
         </div>
         {titlebartabs && (
@@ -3415,7 +3439,10 @@ export default function MobileCommandCentre({
                 </form>
               </div>
             ) : (
-              <a href="/login" className="hvm-sheet-signin">Sign in to your account</a>
+              <>
+                <a href="/login" className="hvm-sheet-signin">Sign in to your account</a>
+                <a href="/login?mode=signup" className="hvm-sheet-signin" style={{ marginTop: 8, background: 'rgba(198,165,90,0.12)', borderColor: 'rgba(198,165,90,0.4)', color: '#F0D39A' }}>Create an account</a>
+              </>
             )}
           </div>
         </div>
@@ -3470,6 +3497,30 @@ const MOBILE_CSS = `
   font: 700 13px/1 Inter, system-ui, sans-serif;
   padding: 0 14px;
   cursor: pointer;
+}
+.hvm-titlebar-signin, .hvm-titlebar-account {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 999px;
+  font: 700 13px/1 Inter, system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.hvm-titlebar-signin {
+  padding: 0 14px;
+  border: 1px solid rgba(198,165,90,0.4);
+  background: rgba(198,165,90,0.12);
+  color: #F0D39A;
+}
+.hvm-titlebar-account {
+  width: 44px;
+  padding: 0;
+  border: 1px solid rgba(198,165,90,0.25);
+  background: rgba(198,165,90,0.1);
+  color: #F0D39A;
+  font-size: 11px;
 }
 .hvm-title-kicker {
   display: block;
