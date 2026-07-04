@@ -1,1 +1,0 @@
-// Placeholder for DigestPage with optimistic refresh
