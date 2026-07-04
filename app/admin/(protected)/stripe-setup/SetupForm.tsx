@@ -64,8 +64,7 @@ export default function SetupForm() {
         ) : null}
 
         <p className="text-xs text-[#F5F1E8]/40 text-center">
-          Vercel is redeploying now. Payments will be live in ~2 minutes.<br/>
-          You still need to add your webhook secret once it&apos;s set up in Stripe.
+          Vercel is redeploying now. Payments will be live in ~2 minutes.
         </p>
       </div>
     )
@@ -129,8 +128,10 @@ export default function SetupForm() {
           {[
             'Creates Intel Plus product ($149/mo, $1,490/yr)',
             'Creates Operator product ($490/mo, $4,900/yr)',
+            'Creates the webhook endpoint + signing secret',
             'Sets STRIPE_SECRET_KEY in Vercel',
             'Sets all 4 price IDs in Vercel',
+            'Sets STRIPE_WEBHOOK_SECRET in Vercel',
             'Sets NEXT_PUBLIC_APP_URL',
             'Triggers a Vercel redeploy',
           ].map(item => (
@@ -140,8 +141,7 @@ export default function SetupForm() {
           ))}
         </ul>
         <p className="text-[11px] text-[#F5F1E8]/25 pt-1">
-          After setup, add STRIPE_WEBHOOK_SECRET manually from Stripe → Webhooks.<br/>
-          Endpoint: harbourview.network/api/stripe/webhook
+          One click — no manual Stripe Dashboard steps required.
         </p>
       </div>
     </div>
