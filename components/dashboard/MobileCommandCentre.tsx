@@ -3166,7 +3166,9 @@ export default function MobileCommandCentre({
     const params = new URLSearchParams()
     if (iso2 && iso2 !== 'GLOBAL') params.set('country', iso2)
     if (roleVal) params.set('role', roleVal)
-    if (pageVal !== 'briefing') params.set('page', pageVal)
+    // 'briefing' is the default (no param needed); 'signals' is excluded to
+    // prevent the browser restoring a stale "stuck on Intel" URL on next visit.
+    if (pageVal !== 'briefing' && pageVal !== 'signals') params.set('page', pageVal)
     const qs = params.toString()
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
@@ -3239,7 +3241,8 @@ export default function MobileCommandCentre({
 
   return (
     <div className="hvm-app">
-      <style>{MOBILE_CSS}</style>
+      {/* dangerouslySetInnerHTML bypasses React 19 style-tag hoisting */}
+      <style dangerouslySetInnerHTML={{ __html: MOBILE_CSS }} />
 
       <section className="hvm-titlebar">
         <div className="hvm-titlebar-top">

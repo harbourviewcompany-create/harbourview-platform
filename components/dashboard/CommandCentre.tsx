@@ -324,6 +324,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region,
   role,
   countryIntel,
+  intelLoading = false,
   signals,
   marketMetrics = [],
   tradeFlows = [],
@@ -334,6 +335,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region:           string
   role?:            string
   countryIntel?:    CountryIntelProfile | null
+  intelLoading?:    boolean
   signals:          DashboardSignal[]
   marketMetrics?:   MarketMetric[]
   tradeFlows?:      TradeFlow[]
@@ -357,30 +359,34 @@ const BriefingRoom = React.memo(function BriefingRoom({
   )
 
   React.useEffect(() => {
+    const controller = new AbortController()
     setAiBriefing(null)
     setAiBriefingError(false)
     setAiBriefingLoading(true)
-    const intel = countryIntel ? {
-      medical_status:       countryIntel.medical_status,
-      market_access_status: countryIntel.market_access_status,
-      import_status:        countryIntel.import_status,
-      export_status:        countryIntel.export_status,
-      opportunity_score:    countryIntel.opportunity_score,
-      public_summary:       countryIntel.public_summary,
+    const intelMatches = countryIntel && countryIntel.country_code === country.iso2
+    const intel = intelMatches ? {
+      medical_status:       countryIntel!.medical_status,
+      market_access_status: countryIntel!.market_access_status,
+      import_status:        countryIntel!.import_status,
+      export_status:        countryIntel!.export_status,
+      opportunity_score:    countryIntel!.opportunity_score,
+      public_summary:       countryIntel!.public_summary,
     } : null
     fetch('/api/ai/briefing', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
+      signal:  controller.signal,
     })
       .then(r => r.json())
       .then((d: { briefing?: string; error?: string }) => {
         if (d.briefing) setAiBriefing(d.briefing)
         else setAiBriefingError(true)
       })
-      .catch(() => setAiBriefingError(true))
+      .catch(err => { if (err?.name !== 'AbortError') setAiBriefingError(true) })
       .finally(() => setAiBriefingLoading(false))
-  }, [country.label, role, countryIntel])
+    return () => controller.abort()
+  }, [country.label, country.iso2, role, countryIntel])
 
   return (
     <div className="cc-page cc-briefing">
@@ -399,7 +405,17 @@ const BriefingRoom = React.memo(function BriefingRoom({
           <p className="cc-jx-summary">{countryIntel.public_summary}</p>
         )}
 
-        <div className="cc-jx-fields">
+        <div className="cc-jx-fields" style={{position:'relative'}}>
+          {intelLoading && (
+            <div style={{
+              position:'absolute',top:0,right:0,
+              fontSize:'10px',color:'var(--cc-dim)',
+              display:'flex',alignItems:'center',gap:'4px',
+            }}>
+              <span style={{display:'inline-block',width:'6px',height:'6px',borderRadius:'50%',background:'var(--cc-gold)',opacity:.7,animation:'pulse 1.2s ease-in-out infinite'}}/>
+              Refreshing…
+            </div>
+          )}
           {([
             { icon: '◎', label: 'Medical Program', value: fmtStatus(countryIntel?.medical_status,       'No Active Program') },
             { icon: '⊛', label: 'Market Access',   value: fmtStatus(countryIntel?.market_access_status, 'Status Unknown')    },
@@ -4128,6 +4144,57 @@ function freshnessLabel(dateStr: string | null): string {
   return 'Overdue'
 }
 
+// ── SyncEmbeddingsPanel ───────────────────────────────────────────────────────
+
+type SyncState = 'idle' | 'running' | 'done' | 'error'
+
+function SyncEmbeddingsPanel() {
+  const [syncState, setSyncState] = React.useState<SyncState>('idle')
+  const [syncMsg,   setSyncMsg]   = React.useState('')
+
+  async function handleSync() {
+    setSyncState('running')
+    setSyncMsg('')
+    try {
+      const res  = await fetch('/api/admin/backfill-source-embeddings', { method: 'POST' })
+      const data = await res.json() as { embedded?: number; skipped?: number; total?: number; error?: string; message?: string }
+      if (!res.ok) {
+        setSyncState('error')
+        setSyncMsg(data.error ?? `Error ${res.status}`)
+      } else if (data.message) {
+        setSyncState('done')
+        setSyncMsg(data.message)
+      } else {
+        setSyncState('done')
+        setSyncMsg(`${data.embedded ?? 0} embedded · ${data.skipped ?? 0} skipped`)
+      }
+    } catch {
+      setSyncState('error')
+      setSyncMsg('Network error — try again')
+    }
+  }
+
+  return (
+    <div className="cc-right-section" style={{borderTop:'1px solid rgba(255,255,255,.06)',paddingTop:'12px'}}>
+      <div className="cc-right-head">SEARCH INDEX</div>
+      <p className="cc-right-prose">Sync semantic search index so Evidence Sources search uses AI ranking.</p>
+      <button
+        className="cc-nba-btn full"
+        style={{marginTop:'8px',opacity:syncState==='running'?0.6:1,cursor:syncState==='running'?'default':'pointer'}}
+        onClick={handleSync}
+        disabled={syncState === 'running'}
+      >
+        {syncState === 'running' ? '⟳ Syncing…' : syncState === 'done' ? '✓ Sync complete' : 'Sync Embeddings'}
+      </button>
+      {syncMsg && (
+        <small style={{display:'block',marginTop:'6px',color:syncState==='error'?'var(--cc-red)':'var(--cc-dim)'}}>
+          {syncMsg}
+        </small>
+      )}
+    </div>
+  )
+}
+
 // ── EvidenceSourcesPage ───────────────────────────────────────────────────────
 
 const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
@@ -4142,7 +4209,33 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   onPageChange?:  (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [semanticResults, setSemanticResults] = useState<{ source_id: string; similarity: number }[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const { sources = [], orgDocs = [] } = evidenceData ?? {}
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSemanticResults(null)
+      setSearchLoading(false)
+      return
+    }
+    setSearchLoading(true)
+    const timer = setTimeout(() => {
+      fetch('/api/ai/source-search', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ query: searchQuery }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { results?: { source_id: string; similarity: number }[] } | null) => {
+          setSemanticResults(d?.results ?? null)
+          setSearchLoading(false)
+        })
+        .catch(() => { setSemanticResults(null); setSearchLoading(false) })
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Filter sources relevant to selected country
   const countrySources = useMemo(() =>
@@ -4157,10 +4250,29 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   // If no country-specific sources, show all (graceful fallback)
   const displaySources = countrySources.length > 0 ? countrySources : sources
 
+  // Semantic search: rank by similarity; text filter as instant fallback while loading
+  const filteredSources = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return displaySources
+    if (semanticResults) {
+      const scoreMap = new Map<string, number>(semanticResults.map(r => [r.source_id, r.similarity] as [string, number]))
+      return displaySources
+        .filter(s => scoreMap.has(s.id))
+        .sort((a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0))
+    }
+    return displaySources.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.category.toLowerCase().includes(q) ||
+      (s.notes ?? '').toLowerCase().includes(q)
+    )
+  }, [displaySources, searchQuery, semanticResults])
+
   const tabSources = useMemo(() =>
-    displaySources.filter(s => sourceTab(s) === activeTab),
-    [displaySources, activeTab]
+    filteredSources.filter(s => sourceTab(s) === activeTab),
+    [filteredSources, activeTab]
   )
+
+  const renderSources = searchQuery.trim() ? filteredSources : tabSources
 
   // Summary stats
   const verified     = displaySources.filter(s => s.reliability === 'high').length
@@ -4256,10 +4368,38 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
           </div>
         </div>
 
-        {/* ── Tabs ──────────────────────────────────────────── */}
+        {/* ── Source search ─────────────────────────────────── */}
+        <div style={{display:'flex',alignItems:'center',gap:'8px',margin:'12px 0 4px'}}>
+          <div style={{position:'relative',flex:1}}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search evidence sources…"
+              style={{
+                width:'100%',boxSizing:'border-box',
+                background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.1)',
+                borderRadius:'6px',padding:'7px 32px 7px 12px',
+                color:'inherit',fontSize:'13px',outline:'none',
+              }}
+            />
+            {searchLoading && (
+              <span style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',opacity:.5,fontSize:'14px',animation:'spin 1s linear infinite'}}>⟳</span>
+            )}
+            {searchQuery && !searchLoading && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{position:'absolute',right:'8px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--cc-dim)',fontSize:'14px',lineHeight:1,padding:'2px'}}
+              >✕</button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Tabs (hidden while search active) ────────────── */}
+        {!searchQuery.trim() && (
         <div className="cc-mkt-tabs">
           {EV_TABS.map(t => {
-            const cnt = displaySources.filter(s => sourceTab(s) === t.id).length
+            const cnt = filteredSources.filter(s => sourceTab(s) === t.id).length
             return (
               <button key={t.id}
                 className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
@@ -4271,21 +4411,36 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             )
           })}
         </div>
+        )}
 
         {/* ── Source table / Lab Directory ──────────────────── */}
-        {activeTab === 'labs' ? (
+        {!searchQuery.trim() && activeTab === 'labs' ? (
           <LabDirectorySection country={country} />
-        ) : tabSources.length === 0 && orgDocs.length === 0 ? (
+        ) : renderSources.length === 0 && orgDocs.length === 0 ? (
           <div className="cc-empty-state" style={{flex:1}}>
             <span>⊟</span>
-            <p>No {EV_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} sources for {country.label}.</p>
-            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>Sources are added as Harbourview expands coverage for this jurisdiction.</small>
+            {searchQuery.trim()
+              ? <p>No sources matched &ldquo;{searchQuery}&rdquo;.</p>
+              : <p>No {EV_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} sources for {country.label}.</p>
+            }
+            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>
+              {searchQuery.trim()
+                ? 'Try different keywords or clear the search to browse by category.'
+                : 'Sources are added as Harbourview expands coverage for this jurisdiction.'
+              }
+            </small>
           </div>
         ) : (
           <div className="cc-ev-table-wrap">
             {/* Platform sources */}
-            {tabSources.length > 0 && (
+            {renderSources.length > 0 && (
               <>
+                {searchQuery.trim() && semanticResults && (
+                  <div style={{fontSize:'11px',color:'var(--cc-dim)',padding:'6px 0 2px',display:'flex',alignItems:'center',gap:'6px'}}>
+                    <span style={{width:'6px',height:'6px',borderRadius:'50%',background:'var(--cc-gold)',display:'inline-block',flexShrink:0}}/>
+                    Ranked by semantic similarity · {renderSources.length} match{renderSources.length !== 1 ? 'es' : ''}
+                  </div>
+                )}
                 <div className="cc-ev-thead">
                   <span className="cc-mkt-th ev-src-col">SOURCE</span>
                   <span className="cc-mkt-th">SOURCE TYPE</span>
@@ -4295,7 +4450,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
                   <span className="cc-mkt-th">LAST REVIEWED</span>
                   <span className="cc-mkt-th">VISIBILITY</span>
                 </div>
-                {tabSources.map(src => {
+                {renderSources.map(src => {
                   const conf      = confFromReliability(src.reliability)
                   const srcType   = CAT_TO_TYPE[src.category] ?? 'Source'
                   const stepLabel = CAT_TO_STEP[src.category] ?? '—'
@@ -4337,8 +4492,8 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               </>
             )}
 
-            {/* Org-uploaded documents */}
-            {orgDocs.length > 0 && (
+            {/* Org-uploaded documents (hidden during search — search only covers platform sources) */}
+            {!searchQuery.trim() && orgDocs.length > 0 && (
               <>
                 <div className="cc-ev-section-divider">UPLOADED DOCUMENTS ({orgDocs.length})</div>
                 {orgDocs.slice(0,5).map(doc => {
@@ -4375,7 +4530,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
 
         <div className="cc-feed-footer">
           <button className="cc-mkt-filter-btn" style={{marginRight:'auto'}}>↓ Export Evidence Map</button>
-          <span>Showing {tabSources.length} sources</span>
+          <span>Showing {renderSources.length}{searchQuery.trim() ? ` of ${displaySources.length} sources` : ' sources'}</span>
         </div>
       </div>
 
@@ -4471,6 +4626,8 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('experts')}>Find Verified Experts →</button>
           </div>
         )}
+
+        <SyncEmbeddingsPanel />
       </aside>
     </div>
   )
@@ -9767,11 +9924,28 @@ export default function CommandCentre({
     return namePart.charAt(0).toUpperCase() + namePart.slice(1)
   }, [userEmail])
 
-  const [country,      setCountry]     = useState(initialCountry)
-  const [region,       setRegion]      = useState('')
-  const [role,         setRole]        = useState(initialRoleId ?? '')
-  const [activePage,   setActivePage]  = useState<CommandPage>(initialPage ?? 'briefing')
-  const [paletteOpen,  setPaletteOpen] = useState(false)
+  const [country,          setCountry]         = useState(initialCountry)
+  const [region,           setRegion]          = useState('')
+  const [role,             setRole]            = useState(initialRoleId ?? '')
+  const [activePage,       setActivePage]      = useState<CommandPage>(initialPage ?? 'briefing')
+  const [paletteOpen,      setPaletteOpen]     = useState(false)
+  const [liveCountryIntel, setLiveCountryIntel] = useState<CountryIntelProfile | null>(countryIntel ?? null)
+  const [intelLoading,     setIntelLoading]     = useState(false)
+
+  useEffect(() => {
+    if (countryIntel?.country_code === country.iso2) {
+      setLiveCountryIntel(countryIntel ?? null)
+      setIntelLoading(false)
+      return
+    }
+    let cancelled = false
+    setIntelLoading(true)
+    fetch(`/api/country-intel?iso2=${country.iso2}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: CountryIntelProfile | null) => { if (!cancelled) { setLiveCountryIntel(data); setIntelLoading(false) } })
+      .catch(() => { if (!cancelled) { setLiveCountryIntel(null); setIntelLoading(false) } })
+    return () => { cancelled = true }
+  }, [country.iso2, countryIntel])
 
   // ⌘K keyboard shortcut
   useEffect(() => {
@@ -9829,9 +10003,9 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
       case 'evidence':
@@ -9839,9 +10013,9 @@ export default function CommandCentre({
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
       case 'regulatory':
-        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} onPageChange={handlePageChange} />
+        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={liveCountryIntel} sourceCoverage={sourceCoverage} onPageChange={handlePageChange} />
       case 'local-intel':
-        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
+        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={liveCountryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
@@ -9851,7 +10025,7 @@ export default function CommandCentre({
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':
-        return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
+        return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       case 'assistant':

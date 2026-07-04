@@ -5,6 +5,10 @@ export const dynamic = 'force-dynamic'
 
 const client = new Anthropic()
 
+const rateLimit = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT    = 20
+const RATE_WINDOW_MS = 60 * 1000
+
 const SYSTEM_PROMPT = `You are the Harbourview Compliance Intelligence Assistant — a specialist in global cannabis regulatory compliance, market access, and trade law across 191 jurisdictions.
 
 You help cannabis industry professionals — importers, exporters, investors, cultivators, retailers, pharmacists, researchers, and compliance officers — navigate regulatory requirements, market access pathways, and cross-border trade.
@@ -42,6 +46,18 @@ export async function POST(request: Request) {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
     if (!apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
+    }
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const now = Date.now()
+    const rl = rateLimit.get(ip)
+    if (rl && rl.resetAt > now) {
+      if (rl.count >= RATE_LIMIT) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      }
+      rl.count++
+    } else {
+      rateLimit.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
     }
 
     const body = (await request.json()) as Body
