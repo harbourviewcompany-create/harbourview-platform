@@ -1,0 +1,37 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session).
+-- File added to satisfy migration version tracking.
+--
+-- Root cause investigation: signals table was ~55% USA despite source_registry
+-- having reasonable per-country breadth (500+ international sources tagged
+-- across 70+ countries). Two independent causes found and fixed:
+--
+-- 1. hv_extract_signals_from_captured_text() keyword pre-filter regex only
+--    covered EN/FR/ES word forms. Any snapshot whose body text didn't repeat
+--    one of those forms was silently marked processing_status='skipped',
+--    skip_reason='no_keywords_found' -- even from correctly-fetched,
+--    correctly-tagged international sources. Expanded pattern to add:
+--    Polish/Czech (konopie/konopi), Dutch (hennep), Portuguese
+--    (canhamo/maconha), Italian (canapa), and 25 regulator acronyms
+--    (BfArM, MHRA, TGA, SAHPRA, ANVISA, COFEPRIS, INVIMA, OKANA, HALMED,
+--    IMCA, CDSCO, NAFDAC, Infarmed, Swissmedic, ANSM, IGJ, GIF, SUKL, ZVA,
+--    VVKT, ARCSA, ANMAT, etc). Verified live: 21 previously-skipped
+--    snapshots from CH/CZ/PL/SK/IL/BR/UK/AU immediately re-extracted
+--    successfully with candidates found after the fix + backlog reset.
+--
+-- 2. 407 of 1,134 source_registry rows had country/region = NULL despite
+--    many being unambiguously country-specific from source_name (e.g.
+--    "HALMED Croatia Cannabis Authorisations"). 73 backfilled via verified
+--    name-pattern match (69 country-specific + 4 multilateral/Global:
+--    WHO, INCB, Europol, UNODC). 334 rows remain untagged -- next pass
+--    should be a manual/LLM-assisted review rather than further regex
+--    guessing, to avoid false positives.
+--
+-- Also diagnosed but NOT yet fixed (requires a verified-URL-only
+-- remediation pass, tracked separately): international source fetch
+-- success rate is ~30% vs ~68% for USA sources over the trailing 14 days,
+-- dominated by http_404 (dead/unverified URLs at registry seed time),
+-- http_403 (bot/geo blocking), and http_503. This is the largest
+-- remaining lever on international signal volume and should not be
+-- bulk-patched with unverified URLs -- that is how the current dead-link
+-- rate was likely introduced.
+SELECT 1;

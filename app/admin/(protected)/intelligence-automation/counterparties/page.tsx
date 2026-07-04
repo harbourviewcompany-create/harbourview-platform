@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { listIaCounterparties } from '@/lib/intelligence-automation/db';
-import { AddCounterpartyForm, LogInteractionButton, DocStatusSelect } from './CounterpartyActions';
+import { AddCounterpartyForm, LogInteractionButton, DocStatusSelect, DeleteCounterpartyButton, EditCounterpartyButton } from './CounterpartyActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +84,17 @@ export default async function IntelCounterpartiesPage() {
                   <p className="font-semibold text-[#F5F1E8]">{r.interactionCount}</p>
                   <p className="text-[10px] text-[#F5F1E8]/40">{r.introductionCount} intros</p>
                   <LogInteractionButton id={r.id} currentCount={r.interactionCount} />
+                  <EditCounterpartyButton
+                    id={r.id}
+                    name={r.name}
+                    role={r.role}
+                    markets={r.markets}
+                    categories={r.categories}
+                    needsProfile={r.needsProfile}
+                    supplyProfile={r.supplyProfile}
+                    notes={r.notes}
+                  />
+                  <DeleteCounterpartyButton id={r.id} name={r.name} />
                 </td>
                 <td className="p-4">
                   <DocStatusSelect id={r.id} status={r.documentationStatus} />

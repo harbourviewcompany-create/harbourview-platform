@@ -30,42 +30,6 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
   const detail = useListingDetail(listingId)
   const [watchState, setWatchState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [quoteOpen, setQuoteOpen] = useState(false)
-
-  useEffect(() => {
-    if (!listingId) return
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [listingId, onClose])
-
-  useEffect(() => {
-    setWatchState('idle')
-  }, [listingId])
-
-  async function handleWatch(d: ListingDetail) {
-    if (watchState === 'saving' || watchState === 'saved') return
-    setWatchState('saving')
-    try {
-      const res = await fetch('/api/watchlist/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          item_type: 'marketplace_item',
-          title: d.title,
-          subtitle: formatTitle(d.subcategory ?? d.product_type ?? d.category),
-          jurisdiction: d.location_region ?? d.location_country ?? d.region,
-          ref_id: d.id,
-        }),
-      })
-      if (res.status === 401) { window.location.href = '/sign-in'; return }
-      if (!res.ok) throw new Error('watch failed')
-      setWatchState('saved')
-      onWatch?.(d.id)
-    } catch {
-      setWatchState('error')
-    }
-  }
-
   if (!listingId) return null
 
   return (

@@ -3,6 +3,16 @@ import 'server-only'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+function sanitizePublicDescription(desc: string | null): string | null {
+  if (!desc) return desc
+  // Strip any admin annotation that was previously embedded by the server action.
+  return desc.replace(/\n*\[Application contact:[^\]]*\]/g, '').trim() || null
+}
+
+function sanitizeProfile<T extends { description_public: string | null }>(p: T): T {
+  return { ...p, description_public: sanitizePublicDescription(p.description_public) }
+}
+
 export type SupplierProfile = {
   id: string
   profile_slug: string
@@ -40,12 +50,12 @@ export const CATEGORY_LABELS: Record<string, string> = {
   supplier_directory: 'General Supply',
 }
 
-export async function getApprovedSupplierProfileById(id: string): Promise<SupplierProfile | null> {
+export async function getApprovedSupplierProfileById(profileSlug: string): Promise<SupplierProfile | null> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
   try {
     const params = new URLSearchParams({
       select: 'id,profile_slug,company_name,title,seller_type,regions_served,categories,description_public,created_at',
-      id: `eq.${id}`,
+      profile_slug: `eq.${profileSlug}`,
       status: 'eq.approved',
       limit: '1',
     })
@@ -54,8 +64,8 @@ export async function getApprovedSupplierProfileById(id: string): Promise<Suppli
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
     })
     if (!res.ok) return null
-    const rows = await res.json()
-    return rows[0] ?? null
+    const rows: SupplierProfile[] = await res.json()
+    return rows[0] ? sanitizeProfile(rows[0]) : null
   } catch {
     return null
   }
@@ -77,7 +87,8 @@ export async function getApprovedSupplierProfiles(): Promise<SupplierProfile[]> 
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
     })
     if (!res.ok) return []
-    return res.json()
+    const rows: SupplierProfile[] = await res.json()
+    return rows.map(sanitizeProfile)
   } catch {
     return []
   }

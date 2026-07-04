@@ -190,7 +190,7 @@ export async function getPublicGeneticsProfiles(): Promise<GeneticsShowcaseResul
       '/rest/v1/cultivar_passports?select=id,slug,display_name,public_summary,cultivar_category,cannabis_category,origin_country_code,origin_jurisdiction_label,claim_status,claim_review_status,evidence_score_summary,verification_summary,public_disclaimer,is_public,created_at&is_public=eq.true&order=created_at.asc',
     ),
     fetchAdminSupabaseJson<OpportunityRow[]>(
-      '/rest/v1/cultivar_country_opportunities?select=id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,material_transfer_status,jurisdiction_gate_status,public_note,review_status,created_at&status=eq.approved&review_status=eq.approved&order=created_at.asc',
+      '/rest/v1/cultivar_country_opportunities?select=id,cultivar_id,country_code,jurisdiction_label,opportunity_type,status,material_transfer_status,jurisdiction_gate_status,public_note,review_status,created_at&status=in.(open_to_discussion,invite_only)&review_status=in.(approved_public,approved_private_only)&order=created_at.asc',
     ),
   ])
 

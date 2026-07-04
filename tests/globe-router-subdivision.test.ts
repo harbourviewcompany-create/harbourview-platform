@@ -78,6 +78,7 @@ describe('globe router subdivision routing', () => {
     const source = readFileSync('app/market-selection/page.tsx', 'utf8')
 
     expect(source).not.toContain('initialCountry="DE"')
-    expect(source).toContain('initialCountry=""')
+    // initialCountry is always dynamic (derived from URL params), never a literal string
+    expect(source).toContain('initialCountry={')
   })
 })

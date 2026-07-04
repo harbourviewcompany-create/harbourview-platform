@@ -555,3 +555,42 @@ export async function updateIaCounterpartyDocumentationStatus(
     { documentation_status: documentationStatus },
   )
 }
+
+export async function deleteIaCounterparty(
+  counterpartyId: string,
+): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation(
+    `/rest/v1/ia_counterparties?id=eq.${encodeURIComponent(counterpartyId)}`,
+    'DELETE',
+    undefined,
+  )
+}
+
+export type UpdateCounterpartyInput = {
+  name: string
+  role: CounterpartyRole
+  markets: string[]
+  categories: string[]
+  needsProfile?: string
+  supplyProfile?: string
+  notes?: string
+}
+
+export async function updateIaCounterparty(
+  counterpartyId: string,
+  input: UpdateCounterpartyInput,
+): Promise<AdminDataResult<null>> {
+  return fetchAdminSupabaseJsonMutation(
+    `/rest/v1/ia_counterparties?id=eq.${encodeURIComponent(counterpartyId)}`,
+    'PATCH',
+    {
+      name: input.name,
+      role: input.role,
+      markets: input.markets,
+      categories: input.categories,
+      needs_profile: input.needsProfile ?? null,
+      supply_profile: input.supplyProfile ?? null,
+      notes: input.notes ?? null,
+    },
+  )
+}
