@@ -20,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#F5F1E8]/65">Authenticated admin/operator workspace for marketplace review, intelligence automation, and internal workflow.</p>
           <nav className="mt-5 flex flex-wrap gap-2 text-sm">
             <Link href="/admin/hub" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Hub</Link>
+            <Link href="/admin/members" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Members</Link>
             <Link href="/admin/inquiries" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Inquiries</Link>
             <Link href="/admin/listings" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Listings</Link>
             <Link href="/admin/deal-dashboard" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Deal dashboard</Link>
@@ -48,3 +49,4 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </main>
   );
 }
+
