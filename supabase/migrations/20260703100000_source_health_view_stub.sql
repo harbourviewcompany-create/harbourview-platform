@@ -1,0 +1,44 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session).
+-- Built after 4 manual URL-remediation batches (see the prior 4 migration
+-- stubs) surfaced a real problem: findings ("gazettes.africa doesn't cover
+-- Benin", "TGA blocks robots") were only living in git commit messages,
+-- and each new session had to re-derive priority order from scratch across
+-- 1,134 source_registry rows with no ranking.
+--
+-- Two additions:
+--
+-- 1. source_registry.verification_notes (text) + verification_checked_at
+--    (timestamptz). Freeform note from manual investigation: why a source
+--    was fixed, or why it couldn't be and what would actually fix it.
+--    Backfilled for the 15 rows touched across this session's 4 batches.
+--
+-- 2. public.source_registry_health (view, security_invoker=true, granted
+--    to service_role only -- not exposed on the public API surface).
+--    Ranks active sources by consecutive_failures (failures since the
+--    most recent success in the trailing 30 days, or total attempts if
+--    never succeeded in that window), and buckets last_error_message into
+--    a suggested_action:
+--      404/dead path          -> verify_replacement_url
+--      403/forbidden          -> check_robots_or_find_alt_source
+--      dns_blocked            -> investigate_dns_block
+--      cert/TLS errors        -> capture_worker_tls_issue_not_url
+--      abort/timeout          -> check_timeout_or_site_speed
+--      503                    -> check_if_transient_or_persistent
+--    Also flags crawl_gap_flag='not_crawled_30d' for sources the cron
+--    simply isn't reaching at all, a distinct problem from fetch failures.
+--
+-- First real-world test of the view immediately surfaced two clusters that
+-- manual country-by-country investigation had not reached yet:
+--   - 6 Reddit sources (r/CBD, r/delta8, r/cannabusiness, r/trees,
+--     r/weedstocks, r/uktrees) at 0% success, up to 34 consecutive
+--     failures -- almost certainly Reddit's post-2023 anti-scraping
+--     posture blocking all of them at once, not 6 separate problems.
+--   - Several USA tier-1 sources (Hemp Benchmarks RSS, Alabama AMCC,
+--     Massachusetts CCC, Kentucky) also failing -- the aggregate ~68%
+--     USA success rate was masking real gaps underneath it.
+--
+-- Usage for future sessions:
+--   select * from source_registry_health
+--   where verification_checked_at is null
+--   order by consecutive_failures desc, tier asc;
+SELECT 1;
