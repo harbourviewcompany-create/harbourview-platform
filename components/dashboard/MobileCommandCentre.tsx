@@ -3201,12 +3201,26 @@ export default function MobileCommandCentre({
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
   const [activePage, setActivePage] = useState<CommandPage>(() => {
-    const valid = MOBILE_NAV.some(item => item.id === initialPage)
-    return valid ? (initialPage as CommandPage) : 'briefing'
+    if (!initialPage) return 'briefing'
+    if (MOBILE_NAV.some(item => item.id === initialPage)) return initialPage as CommandPage
+    // Map desktop-only pages to their mobile equivalents
+    if (initialPage === 'regulatory' || initialPage === 'watchlist') return 'signals'
+    if (initialPage === 'access-pathway' || initialPage === 'local-intel' || initialPage === 'settings') return 'briefing'
+    if (initialPage === 'evidence') return 'education'
+    return 'briefing'
   })
   const [contextOpen, setContextOpen] = useState(false)
-  const [briefingSub, setBriefingSub] = useState<BriefingSub>('overview')
-  const [signalsSub, setSignalsSub] = useState<SignalSub>('feed')
+  const [briefingSub, setBriefingSub] = useState<BriefingSub>(() => {
+    if (initialPage === 'access-pathway') return 'pathway'
+    if (initialPage === 'local-intel') return 'local-intel'
+    if (initialPage === 'settings') return 'settings'
+    return 'overview'
+  })
+  const [signalsSub, setSignalsSub] = useState<SignalSub>(() => {
+    if (initialPage === 'regulatory') return 'regulatory'
+    if (initialPage === 'watchlist') return 'watchlist'
+    return 'feed'
+  })
 
   const countryOptions = useMemo<SelectOption[]>(() => COUNTRIES.map(c => ({ value: c.iso2, label: c.label })), [])
   const roleOptions = useMemo<SelectOption[]>(() => Object.entries(ROLE_PROFILES).map(([value, profile]) => ({ value, label: profile.label })), [])
