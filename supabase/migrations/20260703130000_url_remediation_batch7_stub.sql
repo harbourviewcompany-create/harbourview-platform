@@ -1,0 +1,14 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 7).
+--
+-- Fixed (2, verified via web_fetch):
+--   OrganiGram RSS -> old organigram.ca/feed/ WordPress feed gone. Company
+--     rebranded to Organigram Global and rebuilt its site on Wix following
+--     the Sanity Group acquisition (announced this session's research as
+--     establishing Organigram as the only pure-play cannabis company with
+--     leadership positions in both Canada and Germany). Wix has no native
+--     RSS; switched adapter from 'rss' to 'html_snapshot' and pointed at
+--     the dedicated Press Releases page.
+--   Colombia Camara de Representantes -- Comision Septima -> old /comision7
+--     slug dead. Verified live and current; this committee was actively
+--     advancing health legislation as of May 2026.
+SELECT 1;

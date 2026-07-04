@@ -113,7 +113,7 @@ function regionFromCode(code: string | null): string {
 function signals(cultivar: CultivarRow): string[] {
   const out: string[] = []
   if (cultivar.claim_status !== 'not_assessed') out.push('Verified claim')
-  if (cultivar.claim_review_status === 'approved')    out.push('Admin approved')
+  if (['approved_public','approved_private_only'].includes(cultivar.claim_review_status)) out.push('Admin approved')
   if (cultivar.cannabis_category === 'cbd_dominant')  out.push('CBD dominant')
   if (cultivar.cannabis_category === 'thc_dominant')  out.push('THC dominant')
   if (cultivar.cannabis_category === 'balanced')      out.push('Balanced')

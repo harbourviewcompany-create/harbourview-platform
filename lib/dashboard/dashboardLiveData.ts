@@ -552,7 +552,7 @@ export async function getWatchlistData(
         .from('cc_watchlist_items')
         .select('id, item_type, ref_id, title, subtitle, tags, jurisdiction, confidence_pct, latest_change_at, latest_change_note, next_action, watch_status, created_at, updated_at')
         .eq('org_id', orgId)
-        .eq('watch_status', 'active')
+        .or('watch_status.eq.active,and(watch_status.eq.snoozed,snoozed_until.lt.' + new Date().toISOString() + ')')
         .order('updated_at', { ascending: false })
         .limit(50),
       supabase

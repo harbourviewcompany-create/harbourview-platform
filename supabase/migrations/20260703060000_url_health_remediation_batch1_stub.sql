@@ -1,0 +1,47 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session).
+-- First batch of the source_registry URL health remediation program
+-- (tracked as the highest-leverage remaining item after the keyword-gate
+-- and country-tagging fixes in 20260703040000).
+--
+-- Diagnostic baseline: international source fetch success ~30% vs ~68%
+-- USA over trailing 14 days, dominated by http_404 (dead/unverified seed
+-- URLs), http_403 (bot/geo blocking), http_503, and TLS handshake errors.
+--
+-- METHOD ESTABLISHED THIS SESSION (for future batches to follow):
+-- 1. Pull tier-1 sources with recent fetch_status='error' from source_snapshots
+-- 2. web_search for the current official URL
+-- 3. web_fetch to CONFIRM it actually resolves before writing to the DB --
+--    do not write a URL on search-snippet confidence alone
+-- 4. If robots.txt disallows automated access (e.g. suin-juriscol.gov.co),
+--    discard it -- it will only become tomorrow's new dead entry
+-- 5. Only 404-class errors are fixable via URL replacement. 403/dns_blocked/
+--    TLS-handshake errors are a capture-worker/infrastructure problem, not
+--    a stale-URL problem, and need separate engineering attention (adapter
+--    type, TLS cipher compat with older gov servers, etc) -- do not treat
+--    them the same as 404s.
+--
+-- This batch (2 verified replacements, 4 confirmed-dead duplicates deactivated):
+--   Colombia MinJusticia Cannabis -> verified live page on minjusticia.gov.co
+--     (old path /cannabis had been retired; correct page is under
+--     /programas-co/Cannabis-con-fines-medicinales-cientificos-industriales)
+--   Brazil ANVISA Cannabis -> verified live noticias-anvisa index (old
+--     /assuntos/cannabis path no longer exists; ANVISA cannabis content
+--     is now published via dated news articles under /noticias-anvisa)
+--   4 duplicate-topic Brazil/Colombia rows pointing at other confirmed-dead
+--     paths deactivated (is_active=false) rather than guessed at further --
+--     each would need its own independent verification pass.
+--
+-- Bonus: while researching correct URLs, surfaced two live regulatory
+-- developments neither previously in signals nor briefings, inserted
+-- directly as manually-sourced, cited signals:
+--   Brazil: ANVISA RDC 1012-1015/2026, replacing RDC 327/2019, effective
+--     ~Aug 2026 (6 months post Feb 3 2026 publication) -- fibromyalgia/
+--     lupus patients added, new administration routes approved.
+--   Colombia: Decreto 1138/2025 ordering INVIMA to issue new medical
+--     cannabis production/prescription rules by ~March 2026, still
+--     pending as of Feb 2026 reporting.
+--
+-- Remaining scope: ~400+ more error-state international sources not yet
+-- triaged. This is a recurring workstream, not a one-session fix -- each
+-- verified batch should follow the method above.
+SELECT 1;

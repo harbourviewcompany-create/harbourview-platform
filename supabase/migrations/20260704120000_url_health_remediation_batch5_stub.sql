@@ -1,0 +1,47 @@
+-- Applied directly to production via Supabase MCP (Jul 4 2026 session, batch 5).
+-- Continuation of 20260703060000 / 070000 / 080000 / 20260704110000.
+--
+-- Correction, not a fix: the "10 Reddit sources failing 403/429" framing
+-- carried into this session did not match the live registry. Checked all 12
+-- reddit.com rows directly: 10 (the r/xxx-pattern ones) are already
+-- is_active=false, and the 2 that remain active (Alabama Cannabis Reddit,
+-- Alaska Cannabis Reddit) show zero failures right now. No write made here --
+-- there was nothing live to fix. Keeping the diagnosis on record for if this
+-- cluster actually breaks again: the capture worker's self-identifying UA
+-- (HarbourviewSourceEngine/2.1) is exactly what Reddit's Cloudflare
+-- fingerprinting is built to catch; spoofing a browser UA to defeat that is
+-- out of bounds for this pipeline the same way robots.txt evasion is, and
+-- wouldn't fully work anyway (fingerprinting isn't UA-string-only). The
+-- legitimate path is Reddit's OAuth API, which requires a developer app
+-- registered under Tyler's own Reddit account -- not something this session
+-- can self-serve.
+--
+-- Confirmed, not re-fixed: source_registry_health's fetch_status handling
+-- (success/extracted/extract_failed all count as fetch_ok, only error
+-- doesn't) is already live in the view definition. Hemp Benchmarks RSS
+-- reads correctly as 0 failures under it. Practical implication: the
+-- original ~30% international success-rate baseline was measured before
+-- this fix existed and is very likely stale-pessimistic; worth re-measuring
+-- once the current worklist is cleared rather than trusting that number
+-- going forward.
+--
+-- 3 fixes (all verified live via direct fetch before writing):
+--
+--   Alabama Cannabis Regulator (AMCC) -- alabamamedicalcannabis.com never
+--   resolved (fetch failed / DNS). Not a domain that ever belonged to the
+--   agency -- a plausible-looking .com guessed at seed time. Real site is
+--   amcc.alabama.gov (WordPress, state-standard agency.alabama.gov
+--   pattern), pointed at /news/.
+--
+--   Kentucky Cannabis Regulator -- kda.ky.gov (Dept. of Agriculture) has no
+--   cannabis mandate; same wrong-agency pattern as Quebec RACJ in batch 4.
+--   Real regulator is the Office of Medical Cannabis under the Cabinet for
+--   Health and Family Services, kymedcan.ky.gov, actively posting
+--   announcements into 2026.
+--
+--   Massachusetts CCC -- mass.gov/cannabis-control-commission 403s; the
+--   mass.gov path moved to /orgs/cannabis-control-commission and mass.gov
+--   itself appears to bot-block regardless of path. CCC runs its own
+--   dedicated site, masscannabiscontrol.com, which fetches cleanly with no
+--   block -- pointed at /news/.
+SELECT 1;

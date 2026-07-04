@@ -1,0 +1,17 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 8).
+--
+-- Deactivated (2), both confirmed NOT fixable via a new URL:
+--   Polish Sejm Komisja Zdrowia -> robots.txt disallowed on the real,
+--     current committee page. Originally suspected as a term-number
+--     staleness issue (URL hardcodes Sejm10.nsf) but that theory didn't
+--     hold -- current term-10 URLs are still valid and indexed elsewhere.
+--     sejm.gov.pl just blocks automated fetching outright. Same class as
+--     Australia TGA/ODC and Chile ISP.
+--   PubMed: Cannabidiol -> not a stale URL, a malformed one from the
+--     start. The stored RSS URL uses a fake placeholder token
+--     (/rss/search/2/) where PubMed requires a real token generated
+--     interactively through their UI -- these links are not constructible
+--     or guessable. Per PubMed's own documentation, automated/frequent
+--     querying should use NCBI E-utilities (esearch.fcgi) instead of RSS.
+--     Real fix requires rebuilding this source on the E-utilities API.
+SELECT 1;
