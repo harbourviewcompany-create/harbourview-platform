@@ -403,11 +403,11 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         const maxBar = Math.max(...bars, 1)
         return (
           <MobileAccordion title={`Evidence confidence · ${avg}% avg`}>
-            <div className="hvm-conf-bar-wrap">
+            <div className="hvm-conf-chart-wrap">
               {bars.map((count, i) => (
                 <div key={i} className="hvm-conf-bar-col">
                   <div className="hvm-conf-bar-track">
-                    <div className="hvm-conf-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
+                    <div className="hvm-conf-chart-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
                   </div>
                   <span>{(i + 1) * 20}%</span>
                 </div>
@@ -4022,7 +4022,7 @@ const MOBILE_CSS = `
   font-size: 28px; font-weight: 700; line-height: 1.1; margin: 4px 0 8px;
 }
 .hvm-conf-bar-wrap {
-  height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
+  position: relative; height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
 }
 .hvm-conf-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
 
@@ -4166,7 +4166,7 @@ const MOBILE_CSS = `
 .hvm-watch-type-card:hover { background: rgba(255,255,255,.06); }
 .hvm-watch-type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
 
-.hvm-conf-bar-wrap {
+.hvm-conf-chart-wrap {
   display: flex; align-items: flex-end; gap: 8px; height: 64px;
 }
 .hvm-conf-bar-col {
@@ -4176,7 +4176,7 @@ const MOBILE_CSS = `
   flex: 1; width: 100%; border-radius: 4px;
   background: rgba(255,255,255,.08); position: relative; overflow: hidden;
 }
-.hvm-conf-bar-fill {
+.hvm-conf-chart-fill {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: linear-gradient(180deg, #d4a84b, rgba(212,168,75,.45));
   border-radius: 4px 4px 0 0; transition: height .3s;
