@@ -1,0 +1,65 @@
+-- Applied directly to production via Supabase MCP (Jul 4 2026 session, batch 4).
+-- Continuation of 20260703060000 / 20260703070000 / 20260703080000. Same verified-only method.
+--
+-- Chile: all 6 tracked sources (MercadoPublico, Diario Oficial, ISP x2, SEA,
+-- Senado Comisión de Salud) checked -- zero active errors found
+-- (consecutive_failures=0, network_status=online across the board). No action
+-- needed; noted rather than skipped so this cluster isn't re-checked
+-- unnecessarily next pass.
+--
+-- Canada: 5 sources in active error state investigated.
+--
+-- Fixed (1, confirmed via direct fetch of the replacement URL):
+--   Cova Software Blog -- old /blog/feed/ path 404s. Site runs on HubSpot,
+--   not WordPress, so no native /feed/ alias exists. Verified live feed at
+--   /blog/rss.xml -- fresh post dated Jul 2 2026 confirms it's actively
+--   maintained, not just reachable.
+--
+-- Deactivated (3), each a distinct new failure class rather than a stale URL:
+--
+--   Lift & Co Canada -- the configured domain (liftco.ca) belongs to an
+--   unrelated Mississauga forklift-equipment rental company, confirmed
+--   directly. The actual intended entity, Lift & Co. Corp. (TSXV:LIFT),
+--   filed for bankruptcy in Nov 2021 (officers resigned "in any capacity"
+--   per contemporary reporting); its real domain, lift.co, has since been
+--   repurposed by an unrelated "Poof Marketplace" venture. No live
+--   successor exists to fix to.
+--
+--   Montreal Gazette Cannabis -- the montrealgazette.com/cannabis/ tag page
+--   no longer exists (zero search-index presence, vs. the identical URL
+--   pattern still live on vancouversun.com as a useful control). Coverage
+--   appears to have consolidated into TheGrowthOp.com, Postmedia's shared
+--   cannabis vertical, already tracked separately in this registry and
+--   healthy. Fixing the URL would just create a duplicate of an existing
+--   tracked source.
+--
+--   Quebec RACJ Cannabis -- verified RACJ's actual statutory mandate
+--   (alcool, courses, jeux -- alcohol, racing, gaming/lottery, combat
+--   sports) has never included cannabis. Quebec cannabis regulation runs
+--   through the Ministère de la Santé et des Services sociaux (legislative)
+--   and the SQDC retail monopoly, the latter already tracked separately in
+--   this registry and healthy. Wrong-agency source from the start, not a
+--   URL that went stale.
+--
+-- Left active, NOT deactivated (1) -- new failure class, distinct from
+-- prior 403/TLS-handshake capture-worker issues:
+--
+--   Toronto Star Cannabis -- HTTP 429 (rate-limited / bot-detected on
+--   thestar.com), not a dead or wrong URL. Same "not a stale-URL problem"
+--   bucket as 403/TLS errors, but specifically needs backoff/retry handling
+--   at the capture-worker level rather than a URL fix or deactivation --
+--   deactivating would permanently lose a legitimate, currently-publishing
+--   source over what is likely an intermittent throttle.
+--
+-- Two new patterns for the failure-class table, beyond 404 / no-coverage /
+-- robots.txt:
+--   - Domain squatted or entity defunct: the configured URL resolves to a
+--     real site, but not the one the source was meant to track (business
+--     folded, or the domain-naming assumption was simply wrong at seed
+--     time). Fix: deactivate -- no URL swap can fix a source built on a
+--     wrong premise.
+--   - Wrong regulator entirely: the source was pointed at a real government
+--     body with a real, working website, but that body has no jurisdiction
+--     over the topic. Fix: deactivate; check whether the correct body is
+--     already tracked before considering adding a new source.
+SELECT 1;
