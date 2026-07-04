@@ -234,10 +234,9 @@ export class IntelligenceOrchestrator {
   }
 
   /**
-   * Persist a snapshot with diff metadata.
-   *
-   * Populates previous_hash + changed so the trg_promote_snapshot trigger and
-   * downstream consumers can skip re-running AI extraction on identical pages.
+   * Persist a snapshot and report whether content changed vs. the prior
+   * capture (used only for run-summary stats — source_snapshots has no
+   * previous_hash/changed columns, so the diff result isn't persisted).
    *
    * The snapshot with processing_status='pending_extraction' IS the queue for
    * the /api/cron/intelligence-extract pipeline — trg_promote_snapshot handles
@@ -267,8 +266,6 @@ export class IntelligenceOrchestrator {
       processing_status: result.status === 'success' ? 'pending_extraction' : 'failed',
       error_message:     result.error_message || null,
       fetch_status:      result.status === 'success' ? 'ok' : 'error',
-      previous_hash:     previousHash,
-      changed:           contentChanged,
     });
 
     if (error) {
