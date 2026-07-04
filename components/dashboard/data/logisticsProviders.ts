@@ -70,7 +70,7 @@ export const LOGISTICS_PROVIDERS: LogisticsProvider[] = [
     id: 'cryoport',
     name: 'Cryoport Systems',
     type: 'cold-chain',
-    specialties: ['cold-chain', 'gdp-compliant', 'pharma-grade', 'air-freight'],
+    specialties: ['gdp-compliant', 'pharma-grade', 'air-freight'],
     countries: ['US', 'CA', 'DE', 'NL', 'GB', 'AU', 'IL'],
     regions: ['Europe', 'Americas', 'Asia-Pacific'],
     description: 'Temperature-controlled logistics specialist using cryogenic and dry-ice systems. Increasingly used for premium craft cannabis flower exports requiring strict humidity and temperature control during long-haul air freight.',

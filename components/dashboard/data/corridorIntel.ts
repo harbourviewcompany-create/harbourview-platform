@@ -43,11 +43,6 @@ export const CORRIDOR_BANKING: Record<string, CorridorBanking> = {
     providers: ['BPI (Banco Português de Investimento)', 'Millennium BCP', 'Caixa Geral de Depósitos', 'Hypovereinsbank (DE)', 'DZ Bank (DE)'],
     fxRisk:    'None — EUR/EUR.',
   },
-  'Denmark→Germany / EU': {
-    summary:   'DKK/EUR corridor. Jyske Bank and Sydbank have pharmaceutical export experience. Some cannabis sensitivity from Danish banks; Nordea Denmark most established for regulated sector. FX exposure modest (DKK closely pegged to EUR).',
-    providers: ['Nordea Denmark', 'Jyske Bank', 'Sydbank', 'Hypovereinsbank (DE)', 'Danske Bank'],
-    fxRisk:    'Low — DKK/EUR. DKK is closely pegged; minimal volatility.',
-  },
   'Australia→Global': {
     summary:   'ANZ and National Australia Bank (NAB) have established cannabis export frameworks for TGA-licensed operators. AUD-to-destination FX via major banks; well-documented and functional for licensed exporters.',
     providers: ['ANZ (cannabis export programme)', 'National Australia Bank (NAB)', 'Westpac (pharmaceutical division)', 'Convera for international FX'],
@@ -625,13 +620,5 @@ export const CORRIDOR_COSTS: Record<string, CorridorCostData> = {
     fxExposure:     'EXTREME — LBP lost >95% vs USD/EUR since 2019. USD cash only',
     gmpAudit:       'GMP audit cost secondary — banking infrastructure the primary constraint',
     notes:          'Banking is the principal cost risk, not logistics. Financial structuring via Cyprus or UAE intermediary adds 5–8% per transaction. All costs in USD cash.',
-  },
-  'Germany→EU Distribution': {
-    permitFee:      '€500–1,200 (Wholesale Distribution Authorisation, one-time)',
-    labCostBatch:   '€400–900 per batch (GDP-compliant testing)',
-    logisticsPerKg: '€12–28 (road freight, intra-EU GDP)',
-    fxExposure:     'None (EUR/EUR)',
-    gmpAudit:       '€8,000–20,000 GDP audit (one-time per warehouse)',
-    notes:          'Lowest per-kg logistics cost in the playbooks. GDP audit one-time per facility.',
   },
 }

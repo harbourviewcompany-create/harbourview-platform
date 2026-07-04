@@ -5982,7 +5982,7 @@ const ExpertDirectoryPage = React.memo(function ExpertDirectoryPage({
                     onClick={() => setCredential(credential === k ? '' : k)}
                     style={{
                       display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,.04)',
+                      padding: '4px 0',
                       background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,.04)',
                       cursor: 'pointer', color: credential === k ? col : 'rgba(245,240,232,.55)',
                     }}
@@ -6082,7 +6082,7 @@ const BANKING_ROLE_TYPES_MAP: Record<string, BankingProvider['type'][]> = {
 
 const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   country, region, role, onPageChange,
-}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+}: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [search,      setSearch]      = useState('')
   const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
   const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
@@ -6274,7 +6274,7 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
         {/* For Your Role card */}
         {role && roleTypes.length > 0 && (() => {
           const roleMatchTotal   = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type)).length
-          const roleMatchCountry = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.countries.includes(country)).length
+          const roleMatchCountry = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.countries.includes(country.iso2)).length
           const roleMatchSpec    = BANKING_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.stance === 'specialized').length
           return (
             <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
@@ -6599,7 +6599,7 @@ const NOTIF_ROLE_CATEGORIES_MAP: Record<string, NotifCategory[]> = {
 
 const NotificationCentrePage = React.memo(function NotificationCentrePage({
   country, role, onPageChange,
-}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+}: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [readIds,       setReadIds]       = useState<Set<string>>(new Set())
   const [filterCat,     setFilterCat]     = useState<NotifCategory | 'all'>('all')
   const [filterSev,     setFilterSev]     = useState<NotifSeverity | 'all'>('all')
@@ -6610,7 +6610,7 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
 
   const allNotifs = useMemo(() => {
     let list = SEED_NOTIFICATIONS.slice()
-    if (country) list = list.filter(n => !n.country || n.country === country || true)
+    if (country) list = list.filter(n => !n.country || n.country === country.iso2 || true)
     return list.sort((a, b) => b.date.localeCompare(a.date))
   }, [country])
 
@@ -7088,7 +7088,7 @@ function kybCategoryProgress(items: KybCheckItem[], statuses: Record<string, Kyb
 
 const KybVerificationPage = React.memo(function KybVerificationPage({
   country, role, onPageChange,
-}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+}: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [statuses,    setStatuses]    = useState<Record<string, KybStatus>>({})
   const [notes,       setNotes]       = useState<Record<string, string>>({})
   const [filterCat,   setFilterCat]   = useState<KybCategory | 'all'>('all')
@@ -7431,7 +7431,7 @@ const PRICE_ROLE_CHANNEL_MAP: Record<string, string> = {
 
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   country, role, onPageChange,
-}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+}: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
   const [filterRegion,   setFilterRegion]   = useState<string>('all')
@@ -7457,15 +7457,15 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
         const aRole = roleProducts.includes(a.product) ? 1 : 0
         const bRole = roleProducts.includes(b.product) ? 1 : 0
         if (bRole - aRole !== 0) return bRole - aRole
-        if (a.country === country && b.country !== country) return -1
-        if (b.country === country && a.country !== country) return  1
+        if (a.country === country.iso2 && b.country !== country.iso2) return -1
+        if (b.country === country.iso2 && a.country !== country.iso2) return  1
         return 0
       })
     } else {
       // default: home country first, then alphabetical
       list.sort((a, b) => {
-        if (a.country === country && b.country !== country) return -1
-        if (b.country === country && a.country !== country) return  1
+        if (a.country === country.iso2 && b.country !== country.iso2) return -1
+        if (b.country === country.iso2 && a.country !== country.iso2) return  1
         return a.country.localeCompare(b.country)
       })
     }
@@ -7625,7 +7625,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
                 <tr key={b.id} className={`pi-tr${compareIds.has(b.id) ? ' selected' : ''}${isRoleRow ? ' role-highlight' : ''}`}>
                   <td className="pi-td">
                     <span className="pi-flag">{flagEmoji(b.country)}</span>{' '}
-                    <span style={{ fontWeight: 600, color: b.country === country ? '#d4a84b' : '#f5f0e8' }}>{b.country}</span>
+                    <span style={{ fontWeight: 600, color: b.country === country.iso2 ? '#d4a84b' : '#f5f0e8' }}>{b.country}</span>
                   </td>
                   <td className="pi-td">
                     {isRoleRow && <span className="pi-role-dot" title={`Relevant for ${role}s`} />}
@@ -7663,7 +7663,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
 
         {/* Role spotlight card */}
         {role && roleProducts.length > 0 && (() => {
-          const roleMarketBenchmarks = PRICE_BENCHMARKS.filter(b => roleProducts.includes(b.product) && b.country === country)
+          const roleMarketBenchmarks = PRICE_BENCHMARKS.filter(b => roleProducts.includes(b.product) && b.country === country.iso2)
           const roleGlobalCount      = PRICE_BENCHMARKS.filter(b => roleProducts.includes(b.product)).length
           const roleChannelLabel     = roleChannel === 'medical-wholesale' ? 'Medical Wholesale' : roleChannel === 'wholesale' ? 'Wholesale' : 'All'
           return (
@@ -7672,7 +7672,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
                 {role} Price Profile
               </div>
               <div style={{ fontSize: '.74rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>
-                Key products for your role in {country || 'your market'} · {roleChannelLabel} channel
+                Key products for your role in {country?.label || 'your market'} · {roleChannelLabel} channel
               </div>
               {roleMarketBenchmarks.length > 0 ? (
                 roleMarketBenchmarks.slice(0, 3).map(b => (
@@ -7683,7 +7683,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
                 ))
               ) : (
                 <div style={{ fontSize: '.76rem', color: '#6b7280', fontStyle: 'italic', marginBottom: 8 }}>
-                  No benchmarks yet for {country}. {roleGlobalCount} global benchmarks available.
+                  No benchmarks yet for {country.label}. {roleGlobalCount} global benchmarks available.
                 </div>
               )}
               <button
@@ -7801,7 +7801,7 @@ const LOGISTICS_ROLE_TYPES_MAP: Record<string, LogisticsType[]> = {
 
 const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
   country, role, onPageChange,
-}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+}: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [search,        setSearch]        = useState('')
   const [filterType,    setFilterType]    = useState<LogisticsType | 'all'>('all')
   const [filterRegion,  setFilterRegion]  = useState<string>('all')
@@ -7957,7 +7957,7 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
         {/* For Your Role card */}
         {role && roleTypes.length > 0 && (() => {
           const roleMatchTotal   = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type)).length
-          const roleMatchCountry = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.countries.includes(country)).length
+          const roleMatchCountry = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.countries.includes(country.iso2)).length
           const roleMatchGdp     = LOGISTICS_PROVIDERS.filter(p => roleTypes.includes(p.type) && p.specialties.includes('gdp-compliant')).length
           return (
             <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
@@ -8073,7 +8073,7 @@ const ROLE_SECTORS_MAP: Record<string, JobSector[]> = {
 
 const JobsBoardPage = React.memo(function JobsBoardPage({
   country, role, onPageChange,
-}: { country: string; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+}: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
   const [search,        setSearch]        = useState('')
   const [filterSector,  setFilterSector]  = useState<JobSector | 'all'>('all')
   const [filterType,    setFilterType]    = useState<JobType | 'all'>('all')
@@ -8103,8 +8103,8 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
       if (bRole && !aRole) return  1
       if (a.featured && !b.featured) return -1
       if (b.featured && !a.featured) return  1
-      if (country && a.country === country && b.country !== country) return -1
-      if (country && b.country === country && a.country !== country) return  1
+      if (country && a.country === country.iso2 && b.country !== country.iso2) return -1
+      if (country && b.country === country.iso2 && a.country !== country.iso2) return  1
       return b.posted.localeCompare(a.posted)
     })
   }, [search, filterSector, filterType, filterCountry, filterRemote, filterMyRole, roleSectors, country])
@@ -8258,7 +8258,7 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
         {/* For Your Role card — shown only when a role is detected */}
         {role && roleSectors.length > 0 && (() => {
           const roleMatchCount = JOB_LISTINGS.filter(j => roleSectors.includes(j.sector)).length
-          const roleMatchCountry = JOB_LISTINGS.filter(j => roleSectors.includes(j.sector) && j.country === country).length
+          const roleMatchCountry = JOB_LISTINGS.filter(j => roleSectors.includes(j.sector) && j.country === country.iso2).length
           return (
             <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
               <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>For {role}s</div>
@@ -9847,7 +9847,7 @@ export default function CommandCentre({
       case 'watchlist':
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
-        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={onPageChange} />
+        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':
