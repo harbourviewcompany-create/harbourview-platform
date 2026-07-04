@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 3 2026 · Claude (Sonnet 4.6)
+> Last updated: Jul 4 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -15,7 +15,7 @@
 | **Migration ledger** | 294 == 294 — reconciled Jul 1. Apply every migration via repo file + MCP; see Protocol below. |
 | **Supabase Preview CI** | ✅ Green (was failing on every push; fixed by reconciling 14 unapplied files Jul 1) |
 | **E2E tests** | Runs (~9 min) but fails — tests have never passed in CI; need triage pass |
-| **Last migration** | `fix_cron_trigger_auth_headers_v2` — Jul 1 2026 |
+| **Last migration** | `get_command_centre_stats` — Jul 4 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
 | **Open PRs** | None (last merged: #943 watchlist resolve/snooze/next-action) |
@@ -121,6 +121,7 @@ Numbered permanently. Do not re-litigate without new information.
 | 6 | Jun 23 | Placeholder comments are landmines | `// Keep other functions as they were` was committed as literal code, silently deleting 3 working functions. Never commit placeholder comments as code. |
 | 7 | Jul 1 | `supplier_profiles` no-seed is **policy**, not preference | Rule violated twice (Jun 23 seed, Jul 1 18-row seed). Table carries `supplier_profiles_no_delete` rule — archive only. Approved suppliers must come through intake → payment (Stripe `subscriptions`) → admin approval. |
 | 8 | Jul 1 | Canonical deploy target is Vercel | Removed: `wrangler.jsonc`, `open-next.config.ts`, `@opennextjs/cloudflare`, `netlify.toml` + ignore script. Kept: `vercel.json`, `wrangler.toml` (intelligence pipeline worker — not app deploy). |
+| 9 | Jul 4 | Every function called via `.rpc(...)` needs an `api.*` wrapper | PostgREST on this project only exposes the `api` schema (`lib/supabase/env.ts`), never `public` — confirmed empty (`information_schema.tables where table_schema='api'` was 100% views, zero functions) before this fix. Any `public`-only function is silently unreachable from every call path (supabase-js `.rpc()`, or a raw `/rest/v1/rpc/<fn>` POST with no `Accept-Profile`/`Content-Profile` override — every call site in this codebase uses the no-override form). A full-repo audit of `.rpc(`/`supabase.rpc(` call sites found **7 real instances**: `enqueue_regulatory_enrichment`, `claim_intelligence_job`, `check_and_increment_llm_rate_limit`, `acquire_crawl_targets`, `promote_all_extracted_snapshots`, `hv_ingest_snapshot_to_staging`, `hv_extract_signals_from_captured_text` (migrations `20260704094737`, `150014`, `151117`). Two of these (`check_and_increment_llm_rate_limit`, `acquire_crawl_targets`) had caller-side fallbacks that swallowed the error and silently degraded to a weaker mode (per-instance in-memory rate limiting; non-atomic select-then-update) — no exception ever surfaced, so this can hide for a long time. The other three (admin Hub panel actions) hard-404'd on click. An 8th call (`get_command_centre_stats`) turned out to be different: the function didn't exist in *any* schema, but the call was already caught-and-discarded with a "may not exist yet" comment — built for real in migration `20260704160603` instead (real `public` function + `api` wrapper, cross-validated against an independently-written reference query on live data, then wired into `lib/dashboard/commandCentreLiveData.ts` as the fast path with the original per-field queries kept as the error fallback). **Convention going forward:** real logic in `public`, thin `security definer` passthrough with matching param names in `api`, `revoke all from public` + `grant execute to service_role` unless the function genuinely needs anon/authenticated access. Check `api` schema reachability before assuming a new `public` function is callable from the app. |
 
 ---
 
@@ -164,6 +165,27 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 4 2026 — migration reconciliation + api-schema RPC audit · Claude (Sonnet 5)
+
+**Migration git reconciliation:** committed 8 Claude-authored regulatory-product-format-matrix migrations (`20260702033107` → `20260702213646`) to `main`, byte-for-byte from the `schema_migrations` ledger (self-verifying md5-chunked transcription — whole-file transcription of long base64 was silently dropping/adding characters in repeated `-- ====` divider runs). Left alone: 8 parallel-agent migrations from that window (their own authors push those) and 4 repo-only orphans never applied to this DB (human call, not agent's).
+
+**Vercel cron wired:** `enqueue_regulatory_enrichment()` — flagged pending in an earlier session — now runs daily (`0 11 * * *`) via new route `app/api/cron/regulatory-enrichment`.
+
+**api-schema RPC audit — see ADR #9 for the full pattern.** Full-repo `.rpc(`/`supabase.rpc(` audit found 7 functions silently unreachable via PostgREST + 1 that never existed at all:
+
+| Migration | What |
+|---|---|
+| `20260704094737_expose_enqueue_regulatory_enrichment` | `api.enqueue_regulatory_enrichment()` wrapper |
+| `20260704150014_expose_claim_intelligence_job` | `api.claim_intelligence_job()` wrapper |
+| `20260704151117_expose_remaining_public_only_rpcs` | 5 more `api.*` wrappers: `check_and_increment_llm_rate_limit`, `acquire_crawl_targets`, `promote_all_extracted_snapshots`, `hv_ingest_snapshot_to_staging`, `hv_extract_signals_from_captured_text` |
+| `20260704160603_get_command_centre_stats` | Real `get_command_centre_stats()` (public + api) — the call site already existed but the function never did; was silently caught-and-discarded. Built for real, cross-validated against an independently-written reference query on live data (exact match, 18/18 fields), wired in as `commandCentreLiveData.ts`'s fast path with the original per-field queries kept as the error fallback |
+
+**Code changed (direct to `main`, no PR — per delegated-execution policy):** `app/api/cron/regulatory-enrichment/route.ts` (new), `vercel.json` (+1 cron), `lib/dashboard/commandCentreLiveData.ts` (RPC fast path + fallback).
+
+**Still open:** `intelligence_jobs` worker wiring (P2 above) — `claim_intelligence_job` is now at least *reachable*, but nothing calls it yet.
 
 ---
 
