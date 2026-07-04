@@ -36,6 +36,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { flagForMarket } from '@/lib/utils/flagEmoji'
 
 // ── DTO: exact columns returned — nothing else ────────────────────────────────
 const SAFE_SELECT = 'id, headline, cat, top_lane, pri, score, country, date, created_at'
@@ -138,7 +139,7 @@ function rowToSignal(s: SignalRow): DashboardSignal {
     confidence:       typeof s.score === 'number' ? s.score : 50,
     commercialImpact: `${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}.`,
     sourceLabel:      'Harbourview Regulatory Watch',
-    flag:             '🌐',
+    flag:             flagForMarket(market),
   }
 }
 
@@ -158,8 +159,11 @@ function isWithin(row: SignalRow, hours: number): boolean {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  const countryParam = (searchParams.get('country') ?? '').trim()
-  const limit        = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '12', 10), 1), 40)
+  const rawCountry   = (searchParams.get('country') ?? '').trim()
+  // Strip PostgREST filter-injection chars before interpolating into .or()
+  const countryParam = rawCountry.replace(/[,()]/g, '')
+  const parsedLimit  = parseInt(searchParams.get('limit') ?? '12', 10)
+  const limit        = Math.min(Math.max(Number.isFinite(parsedLimit) ? parsedLimit : 12, 1), 40)
   const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
 
   try {
@@ -218,7 +222,7 @@ export async function GET(req: NextRequest) {
     const signals = windowed.slice(0, limit).map(rowToSignal)
 
     return NextResponse.json(
-      { signals, window: windowKey, total: count ?? signals.length, source: 'live' },
+      { signals, window: windowKey, total: windowed.length, totalReviewed: count ?? windowed.length, source: 'live' },
       {
         headers: {
           'Cache-Control': 'private, max-age=300, stale-while-revalidate=60',

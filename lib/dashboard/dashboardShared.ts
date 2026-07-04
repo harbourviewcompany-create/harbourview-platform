@@ -18,6 +18,8 @@ export type DashboardSignal = {
   flag?: string          // country flag emoji; optional — not all signal sources supply it
 }
 
+export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
+
 export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {
   doctor_prescriber:          { label: 'Doctor / Prescriber',      short: 'Doctor'      },
   pharmacist:                 { label: 'Pharmacist',               short: 'Pharmacist'  },

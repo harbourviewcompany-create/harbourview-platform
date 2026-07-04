@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 3 2026 · Claude (Sonnet 4.6)
+> Last updated: Jul 4 2026 · Claude (Sonnet 4.6)
 
 ---
 
@@ -18,7 +18,7 @@
 | **Last migration** | `fix_cron_trigger_auth_headers_v2` — Jul 1 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | None (last merged: #943 watchlist resolve/snooze/next-action) |
+| **Open PRs** | #945 (feat/daily-digest) open — fixes in progress on that branch |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | 2 pre-existing errors on main: `@tanstack/react-query` missing dep + Stripe API version |
 
@@ -164,6 +164,34 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 4 2026 — daily-digest fixes + UI optimizations · Claude (Sonnet 4.6)
+
+**Branch:** `feat/daily-digest` (PR #945 open)
+
+**Security / correctness fixes:**
+
+| Fix | File | Detail |
+|---|---|---|
+| `?limit=NaN` returns `[]` | `app/api/dashboard/digest/route.ts:162` | `parseInt` result now guarded with `Number.isFinite` — falls back to 12 |
+| Country filter injection | `app/api/dashboard/digest/route.ts:161` | `countryParam` sanitized (strip `,()`) before PostgREST `.or()` interpolation |
+| Same injection in SSR path | `lib/dashboard/dashboardServerData.ts:330` | Same `countryName.replace(/[,()]/g,'')` fix in `fetchDailyDigest` |
+| Flag hardcoded `'🌐'` | `app/api/dashboard/digest/route.ts:141` | Replaced with `flagForMarket(market)` — eliminates SSR→client hydration mismatch |
+| `total` reports DB count | `app/api/dashboard/digest/route.ts:219` | Now reports `windowed.length` (count in active window); added `totalReviewed` for full DB count |
+| `CommandPage` type drift | `components/dashboard/MobileCommandCentre.tsx:14` | Local 8-member type and local `DigestWindow` removed; both now imported from `CommandCentre` |
+
+**UI performance optimizations:**
+
+| Change | Detail |
+|---|---|
+| `DigestWindow` moved to `dashboardShared.ts` | Single canonical definition; CommandCentre re-exports it |
+| `DigestPage` extracted | Moved from inline in CommandCentre (~175 lines) to `components/dashboard/pages/DigestPage.tsx` |
+| `next/dynamic` lazy-load | CommandCentre uses `dynamic(() => import('./pages/DigestPage'))` — digest chunk only loads on navigate-to-digest |
+| Conditional `fetchDailyDigest` | `app/dashboard/page.tsx` now calls `fetchDailyDigest` only when `urlPage === 'digest'`; passes country name so SSR first-paint is country-filtered |
+
+**No schema changes this session.**
 
 ---
 

@@ -327,7 +327,8 @@ export async function fetchDailyDigest(
       .limit(200)
 
     if (countryName) {
-      query = query.or(`country.ilike.%${countryName}%,country.eq.Global`)
+      const safeCountry = countryName.replace(/[,()]/g, '')
+      query = query.or(`country.ilike.%${safeCountry}%,country.eq.Global`)
     }
 
     const { data, error } = await query
