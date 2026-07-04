@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getAdminAuthCheck } from '@/lib/auth/adminGuard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -25,9 +26,14 @@ export async function POST(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
 
+  // Accept either a static operator secret (for CI/cron) or a live admin session (for browser)
   const authHeader = request.headers.get('authorization') ?? ''
-  if (!secret || authHeader !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const hasSecretAuth = secret && authHeader === `Bearer ${secret}`
+  if (!hasSecretAuth) {
+    const sessionCheck = await getAdminAuthCheck()
+    if (!sessionCheck.ok) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
   if (!openaiKey || !supabaseUrl || !supabaseKey) {
     return NextResponse.json({ error: 'Missing environment variables' }, { status: 503 })

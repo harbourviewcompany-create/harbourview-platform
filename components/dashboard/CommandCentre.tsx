@@ -4381,6 +4381,57 @@ function freshnessLabel(dateStr: string | null): string {
   return 'Overdue'
 }
 
+// ── SyncEmbeddingsPanel ───────────────────────────────────────────────────────
+
+type SyncState = 'idle' | 'running' | 'done' | 'error'
+
+function SyncEmbeddingsPanel() {
+  const [syncState, setSyncState] = React.useState<SyncState>('idle')
+  const [syncMsg,   setSyncMsg]   = React.useState('')
+
+  async function handleSync() {
+    setSyncState('running')
+    setSyncMsg('')
+    try {
+      const res  = await fetch('/api/admin/backfill-source-embeddings', { method: 'POST' })
+      const data = await res.json() as { embedded?: number; skipped?: number; total?: number; error?: string; message?: string }
+      if (!res.ok) {
+        setSyncState('error')
+        setSyncMsg(data.error ?? `Error ${res.status}`)
+      } else if (data.message) {
+        setSyncState('done')
+        setSyncMsg(data.message)
+      } else {
+        setSyncState('done')
+        setSyncMsg(`${data.embedded ?? 0} embedded · ${data.skipped ?? 0} skipped`)
+      }
+    } catch {
+      setSyncState('error')
+      setSyncMsg('Network error — try again')
+    }
+  }
+
+  return (
+    <div className="cc-right-section" style={{borderTop:'1px solid rgba(255,255,255,.06)',paddingTop:'12px'}}>
+      <div className="cc-right-head">SEARCH INDEX</div>
+      <p className="cc-right-prose">Sync semantic search index so Evidence Sources search uses AI ranking.</p>
+      <button
+        className="cc-nba-btn full"
+        style={{marginTop:'8px',opacity:syncState==='running'?0.6:1,cursor:syncState==='running'?'default':'pointer'}}
+        onClick={handleSync}
+        disabled={syncState === 'running'}
+      >
+        {syncState === 'running' ? '⟳ Syncing…' : syncState === 'done' ? '✓ Sync complete' : 'Sync Embeddings'}
+      </button>
+      {syncMsg && (
+        <small style={{display:'block',marginTop:'6px',color:syncState==='error'?'var(--cc-red)':'var(--cc-dim)'}}>
+          {syncMsg}
+        </small>
+      )}
+    </div>
+  )
+}
+
 // ── EvidenceSourcesPage ───────────────────────────────────────────────────────
 
 const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
@@ -4812,6 +4863,8 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             <button className="cc-nba-btn full" style={{ marginTop: '8px' }} onClick={() => onPageChange?.('experts')}>Find Verified Experts →</button>
           </div>
         )}
+
+        <SyncEmbeddingsPanel />
       </aside>
     </div>
   )
