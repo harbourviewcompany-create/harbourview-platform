@@ -269,6 +269,108 @@ export async function fetchDashboardSignals(
   return []
 }
 
+// ── Daily digest ──────────────────────────────────────────────────────────────
+// SSR first-paint for the DigestPage. Same public-safe source as the signals
+// feed (reviewed rows from signals_quality), but ordered strictly by recency
+// and returned alongside the window label the rows actually fall in, so the UI
+// can say "New in the last 24h" vs "Most recent — nothing new in 24h" honestly.
+//
+// The reviewed feed can go quiet for stretches, so this uses a rolling window:
+// 24h → 7d → 30d → most-recent-N. The client route (/api/dashboard/digest)
+// hydrates with the full country-filtered set on mount; this just gives an
+// instant, correctly-labelled first paint.
+
+export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
+
+export type DailyDigest = {
+  signals: DashboardSignal[]
+  window: DigestWindow
+}
+
+type DigestRow = {
+  id: string
+  headline: string
+  cat: string | null
+  top_lane: string | null
+  pri: string | null
+  score: number | null
+  country: string | null
+  date: string | null
+  created_at: string
+}
+
+const DIGEST_WINDOWS: { key: DigestWindow; hours: number }[] = [
+  { key: '24h', hours: 24 },
+  { key: '7d',  hours: 24 * 7 },
+  { key: '30d', hours: 24 * 30 },
+]
+
+function digestRowRecency(r: DigestRow): number {
+  const ref = r.date ?? r.created_at
+  return ref ? new Date(ref).getTime() : 0
+}
+
+export async function fetchDailyDigest(
+  limit = 12,
+  countryName?: string | null,
+): Promise<DailyDigest> {
+  try {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+
+    let query = supabase
+      .from('signals_quality')
+      .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+      .eq('reviewed', true)
+      .order('created_at', { ascending: false })
+      .order('score', { ascending: false })
+      .limit(200)
+
+    if (countryName) {
+      query = query.or(`country.ilike.%${countryName}%,country.eq.Global`)
+    }
+
+    const { data, error } = await query
+    if (error || !data || data.length === 0) return { signals: [], window: 'recent' }
+
+    let rows = data as DigestRow[]
+
+    if (countryName) {
+      const needle = countryName.toLowerCase()
+      const countrySpecific = rows.filter(r => r.country?.toLowerCase().includes(needle))
+      const others          = rows.filter(r => !r.country?.toLowerCase().includes(needle))
+      rows = [...countrySpecific, ...others]
+    }
+
+    const now = Date.now()
+    let windowKey: DigestWindow = 'recent'
+    let windowed: DigestRow[] = []
+    for (const w of DIGEST_WINDOWS) {
+      const cutoff = now - w.hours * 3_600_000
+      const inWindow = rows.filter(r => {
+        const t = digestRowRecency(r)
+        return t >= cutoff && t <= now
+      })
+      if (inWindow.length > 0) {
+        windowKey = w.key
+        windowed = inWindow
+        break
+      }
+    }
+    if (windowed.length === 0) {
+      windowKey = 'recent'
+      windowed = rows
+    }
+
+    return {
+      signals: windowed.slice(0, limit).map(curatedToSignal),
+      window: windowKey,
+    }
+  } catch {
+    return { signals: [], window: 'recent' }
+  }
+}
+
 // ── Role display mapping ──────────────────────────────────────────────────────
 export { ROLE_PROFILES } from './dashboardShared'
 

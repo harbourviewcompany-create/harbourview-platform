@@ -11,7 +11,9 @@ import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/componen
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 
-type CommandPage = 'briefing' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
+type CommandPage = 'briefing' | 'digest' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
+
+type DigestWindow = '24h' | '7d' | '30d' | 'recent'
 
 type PublicServiceProvider = {
   id: string; displayName: string; service_category: string
@@ -26,6 +28,8 @@ type PublicCollaborationProject = {
 
 type Props = {
   signals: DashboardSignal[]
+  digestSignals?: DashboardSignal[]
+  digestWindow?: DigestWindow
   eduCategories: { icon: string; title: string; desc: string }[]
   initialCountryIso2?: string | null
   initialRoleId?: string | null
@@ -72,6 +76,7 @@ const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',    label: 'Briefing',    icon: '◎' },
+  { id: 'digest',      label: 'Digest',      icon: '❑' },
   { id: 'marketplace', label: 'Market',      icon: '⊞' },
   { id: 'signals',     label: 'Intel',       icon: '≋' },
   { id: 'education',   label: 'Education',   icon: '⬡' },
@@ -1641,6 +1646,132 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
   )
 }
 
+const DIGEST_WINDOW_LABEL: Record<DigestWindow, { kicker: string; sub: string }> = {
+  '24h':    { kicker: 'New in 24 hours',  sub: 'Fresh reviewed intel since yesterday.' },
+  '7d':     { kicker: 'This week',        sub: 'Nothing new in 24h — last 7 days.' },
+  '30d':    { kicker: 'This month',       sub: 'Quiet week — last 30 days.' },
+  'recent': { kicker: 'Most recent',      sub: 'Latest reviewed signals.' },
+}
+
+function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals }: { country: CountryOption; roleLabel?: string; digestSignals?: DashboardSignal[]; digestWindow?: DigestWindow; signals: DashboardSignal[] }) {
+  const [liveSignals, setLiveSignals] = useState<DashboardSignal[] | null>(null)
+  const [liveWindow,  setLiveWindow]  = useState<DigestWindow | null>(null)
+  const [liveTotal,   setLiveTotal]   = useState<number | null>(null)
+  const [selected,    setSelected]    = useState<DashboardSignal | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams({ limit: '12' })
+    if (country.label) params.set('country', country.label)
+    fetch(`/api/dashboard/digest?${params.toString()}`)
+      .then(r => r.json())
+      .then((json: { signals?: DashboardSignal[]; window?: DigestWindow; total?: number }) => {
+        if (cancelled) return
+        if (Array.isArray(json.signals)) setLiveSignals(json.signals)
+        if (json.window) setLiveWindow(json.window)
+        if (typeof json.total === 'number') setLiveTotal(json.total)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [country.label])
+
+  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 12)
+  const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
+  const copy = DIGEST_WINDOW_LABEL[effectiveWindow]
+  const isStale = effectiveWindow !== '24h'
+
+  if (selected) {
+    const cat = classifySignal(selected.type)
+    const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
+    const confColor = selected.confidence >= 80 ? '#4caf82' : selected.confidence >= 60 ? '#d4a84b' : '#e05555'
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSelected(null)}>← Daily digest</button>
+        <section className="hvm-hero-card compact" style={{ borderLeft: `3px solid ${catColor}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span className="hvm-sig-cat-chip" style={{ '--chip-color': catColor } as React.CSSProperties}>{cat.toUpperCase()}</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace' }}>{selected.market}</span>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,.3)', marginLeft: 'auto' }}>{selected.timeAgo}</span>
+          </div>
+          <h2 style={{ fontSize: 20 }}>{selected.flag} {selected.title}</h2>
+        </section>
+        <div className="hvm-card">
+          <div className="hvm-kicker">Confidence</div>
+          <div className="hvm-sig-conf-big" style={{ color: confColor }}>{selected.confidence}%</div>
+          <div className="hvm-conf-bar-wrap"><div className="hvm-conf-bar-fill" style={{ width: `${selected.confidence}%`, background: confColor }} /></div>
+        </div>
+        <div className="hvm-card">
+          <div className="hvm-kicker">Commercial impact</div>
+          <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selected.commercialImpact}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="hvm-page-stack">
+      <section className={`hvm-hero-card compact${isStale ? '' : ' hvm-digest-fresh'}`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div className={`hvm-live-dot${isStale ? '' : ' active'}`} />
+          <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em' }}>
+            {copy.kicker.toUpperCase()}
+          </span>
+        </div>
+        <h2>Daily Digest</h2>
+        <p>{country.label}{roleLabel ? ` · ${roleLabel}` : ''} · {copy.sub}</p>
+        <p style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
+          {effectiveSignals.length} signal{effectiveSignals.length !== 1 ? 's' : ''}{liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
+        </p>
+      </section>
+
+      <div className="hvm-list-stack">
+        {effectiveSignals.length > 0 ? effectiveSignals.map((signal, index) => {
+          const cat = classifySignal(signal.type)
+          const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
+          return (
+            <div
+              className="hvm-signal-card hvm-signal-card--tap hvm-signal-card--rich"
+              key={signal.id ?? `${signal.title}-${index}`}
+              style={{ borderLeft: `3px solid ${catColor}` }}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelected(signal)}
+              onKeyDown={e => e.key === 'Enter' && setSelected(signal)}
+            >
+              <div className="hvm-sig-head">
+                <span className="hvm-sig-cat-chip" style={{ '--chip-color': catColor } as React.CSSProperties}>{cat.toUpperCase()}</span>
+                <span className="hvm-sig-market">{signal.market}</span>
+                <span className="hvm-sig-time">{signal.timeAgo}</span>
+              </div>
+              <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+              <div className="hvm-sig-footer">
+                <div className="hvm-sig-conf-bar">
+                  <div className="hvm-sig-conf-fill" style={{
+                    width: `${signal.confidence}%`,
+                    background: signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555',
+                  }} />
+                </div>
+                <span className="hvm-sig-conf-val" style={{
+                  color: signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555',
+                }}>{signal.confidence}%</span>
+                <span className="hvm-tag-chip" style={{ background: signal.tag.bg, borderColor: signal.tag.border, color: signal.tag.color, marginLeft: 4 }}>{signal.tag.label}</span>
+              </div>
+            </div>
+          )
+        }) : (
+          <div className="hvm-monitor-panel">
+            <div className="hvm-live-dot" style={{ margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.7)', textAlign: 'center' }}>
+              No reviewed intelligence yet for {country.label} — automated daily promotion is being wired up.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCoverage, sub }: { country: CountryOption; signals: DashboardSignal[]; watchlistData?: WatchlistData | null; countryIntel?: CountryIntelProfile | null; sourceCoverage?: SourceCoverageRow[]; sub: SignalSub }) {
   const [liveSignals, setLiveSignals] = useState<DashboardSignal[] | null>(null)
   useEffect(() => {
@@ -3112,6 +3243,8 @@ function CountriesMobile({ signals, onCountrySelect }: {
 
 export default function MobileCommandCentre({
   signals,
+  digestSignals,
+  digestWindow,
   eduCategories,
   initialCountryIso2,
   initialRoleId,
@@ -3213,6 +3346,8 @@ export default function MobileCommandCentre({
         )
       case 'marketplace':
         return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} />
+      case 'digest':
+        return <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'signals':
         return <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
       case 'education':
