@@ -31,11 +31,27 @@ type Body = {
 const cache = new Map<string, { text: string; expiresAt: number }>()
 const CACHE_TTL_MS = 5 * 60 * 1000
 
+const rateLimit = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT = 10
+const RATE_WINDOW_MS = 60 * 1000
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
     if (!apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
+    }
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const now = Date.now()
+    const rl = rateLimit.get(ip)
+    if (rl && rl.resetAt > now) {
+      if (rl.count >= RATE_LIMIT) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      }
+      rl.count++
+    } else {
+      rateLimit.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
     }
 
     const body = (await request.json()) as Body

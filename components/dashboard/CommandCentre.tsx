@@ -356,6 +356,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   )
 
   React.useEffect(() => {
+    const controller = new AbortController()
     setAiBriefing(null)
     setAiBriefingError(false)
     setAiBriefingLoading(true)
@@ -372,14 +373,16 @@ const BriefingRoom = React.memo(function BriefingRoom({
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
+      signal:  controller.signal,
     })
       .then(r => r.json())
       .then((d: { briefing?: string; error?: string }) => {
         if (d.briefing) setAiBriefing(d.briefing)
         else setAiBriefingError(true)
       })
-      .catch(() => setAiBriefingError(true))
+      .catch(err => { if (err?.name !== 'AbortError') setAiBriefingError(true) })
       .finally(() => setAiBriefingLoading(false))
+    return () => controller.abort()
   }, [country.label, country.iso2, role, countryIntel])
 
   return (
@@ -10005,11 +10008,25 @@ export default function CommandCentre({
     return namePart.charAt(0).toUpperCase() + namePart.slice(1)
   }, [userEmail])
 
-  const [country,      setCountry]     = useState(initialCountry)
-  const [region,       setRegion]      = useState('')
-  const [role,         setRole]        = useState(initialRoleId ?? '')
-  const [activePage,   setActivePage]  = useState<CommandPage>(initialPage ?? 'briefing')
-  const [paletteOpen,  setPaletteOpen] = useState(false)
+  const [country,          setCountry]         = useState(initialCountry)
+  const [region,           setRegion]          = useState('')
+  const [role,             setRole]            = useState(initialRoleId ?? '')
+  const [activePage,       setActivePage]      = useState<CommandPage>(initialPage ?? 'briefing')
+  const [paletteOpen,      setPaletteOpen]     = useState(false)
+  const [liveCountryIntel, setLiveCountryIntel] = useState<CountryIntelProfile | null>(countryIntel ?? null)
+
+  useEffect(() => {
+    if (countryIntel?.country_code === country.iso2) {
+      setLiveCountryIntel(countryIntel ?? null)
+      return
+    }
+    let cancelled = false
+    fetch(`/api/country-intel?iso2=${country.iso2}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: CountryIntelProfile | null) => { if (!cancelled) setLiveCountryIntel(data) })
+      .catch(() => { if (!cancelled) setLiveCountryIntel(null) })
+    return () => { cancelled = true }
+  }, [country.iso2, countryIntel])
 
   // ⌘K keyboard shortcut
   useEffect(() => {
@@ -10067,9 +10084,9 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'access-pathway':
-        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
+        return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
       case 'evidence':
@@ -10077,9 +10094,9 @@ export default function CommandCentre({
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
       case 'regulatory':
-        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} onPageChange={handlePageChange} />
+        return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={liveCountryIntel} sourceCoverage={sourceCoverage} onPageChange={handlePageChange} />
       case 'local-intel':
-        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={countryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
+        return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={liveCountryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
@@ -10089,7 +10106,7 @@ export default function CommandCentre({
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':
-        return <CompliancePage country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
+        return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       case 'assistant':
