@@ -4383,7 +4383,33 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   onPageChange?:  (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [semanticResults, setSemanticResults] = useState<{ source_id: string; similarity: number }[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const { sources = [], orgDocs = [] } = evidenceData ?? {}
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSemanticResults(null)
+      setSearchLoading(false)
+      return
+    }
+    setSearchLoading(true)
+    const timer = setTimeout(() => {
+      fetch('/api/ai/source-search', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ query: searchQuery }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { results?: { source_id: string; similarity: number }[] } | null) => {
+          setSemanticResults(d?.results ?? null)
+          setSearchLoading(false)
+        })
+        .catch(() => { setSemanticResults(null); setSearchLoading(false) })
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Filter sources relevant to selected country
   const countrySources = useMemo(() =>
@@ -4398,10 +4424,29 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   // If no country-specific sources, show all (graceful fallback)
   const displaySources = countrySources.length > 0 ? countrySources : sources
 
+  // Semantic search: rank by similarity; text filter as instant fallback while loading
+  const filteredSources = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return displaySources
+    if (semanticResults) {
+      const scoreMap = new Map<string, number>(semanticResults.map(r => [r.source_id, r.similarity] as [string, number]))
+      return displaySources
+        .filter(s => scoreMap.has(s.id))
+        .sort((a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0))
+    }
+    return displaySources.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.category.toLowerCase().includes(q) ||
+      (s.notes ?? '').toLowerCase().includes(q)
+    )
+  }, [displaySources, searchQuery, semanticResults])
+
   const tabSources = useMemo(() =>
-    displaySources.filter(s => sourceTab(s) === activeTab),
-    [displaySources, activeTab]
+    filteredSources.filter(s => sourceTab(s) === activeTab),
+    [filteredSources, activeTab]
   )
+
+  const renderSources = searchQuery.trim() ? filteredSources : tabSources
 
   // Summary stats
   const verified     = displaySources.filter(s => s.reliability === 'high').length
@@ -4497,10 +4542,38 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
           </div>
         </div>
 
-        {/* ── Tabs ──────────────────────────────────────────── */}
+        {/* ── Source search ─────────────────────────────────── */}
+        <div style={{display:'flex',alignItems:'center',gap:'8px',margin:'12px 0 4px'}}>
+          <div style={{position:'relative',flex:1}}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search evidence sources…"
+              style={{
+                width:'100%',boxSizing:'border-box',
+                background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.1)',
+                borderRadius:'6px',padding:'7px 32px 7px 12px',
+                color:'inherit',fontSize:'13px',outline:'none',
+              }}
+            />
+            {searchLoading && (
+              <span style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',opacity:.5,fontSize:'14px',animation:'spin 1s linear infinite'}}>⟳</span>
+            )}
+            {searchQuery && !searchLoading && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{position:'absolute',right:'8px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--cc-dim)',fontSize:'14px',lineHeight:1,padding:'2px'}}
+              >✕</button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Tabs (hidden while search active) ────────────── */}
+        {!searchQuery.trim() && (
         <div className="cc-mkt-tabs">
           {EV_TABS.map(t => {
-            const cnt = displaySources.filter(s => sourceTab(s) === t.id).length
+            const cnt = filteredSources.filter(s => sourceTab(s) === t.id).length
             return (
               <button key={t.id}
                 className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
@@ -4512,20 +4585,29 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             )
           })}
         </div>
+        )}
 
         {/* ── Source table / Lab Directory ──────────────────── */}
-        {activeTab === 'labs' ? (
+        {!searchQuery.trim() && activeTab === 'labs' ? (
           <LabDirectorySection country={country} />
-        ) : tabSources.length === 0 && orgDocs.length === 0 ? (
+        ) : renderSources.length === 0 && orgDocs.length === 0 ? (
           <div className="cc-empty-state" style={{flex:1}}>
             <span>⊟</span>
-            <p>No {EV_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} sources for {country.label}.</p>
-            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>Sources are added as Harbourview expands coverage for this jurisdiction.</small>
+            {searchQuery.trim()
+              ? <p>No sources matched &ldquo;{searchQuery}&rdquo;.</p>
+              : <p>No {EV_TABS.find(t=>t.id===activeTab)?.label.toLowerCase()} sources for {country.label}.</p>
+            }
+            <small style={{fontSize:'11px',color:'var(--cc-dim)'}}>
+              {searchQuery.trim()
+                ? 'Try different keywords or clear the search to browse by category.'
+                : 'Sources are added as Harbourview expands coverage for this jurisdiction.'
+              }
+            </small>
           </div>
         ) : (
           <div className="cc-ev-table-wrap">
             {/* Platform sources */}
-            {tabSources.length > 0 && (
+            {renderSources.length > 0 && (
               <>
                 <div className="cc-ev-thead">
                   <span className="cc-mkt-th ev-src-col">SOURCE</span>
@@ -4536,7 +4618,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
                   <span className="cc-mkt-th">LAST REVIEWED</span>
                   <span className="cc-mkt-th">VISIBILITY</span>
                 </div>
-                {tabSources.map(src => {
+                {renderSources.map(src => {
                   const conf      = confFromReliability(src.reliability)
                   const srcType   = CAT_TO_TYPE[src.category] ?? 'Source'
                   const stepLabel = CAT_TO_STEP[src.category] ?? '—'
@@ -4616,7 +4698,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
 
         <div className="cc-feed-footer">
           <button className="cc-mkt-filter-btn" style={{marginRight:'auto'}}>↓ Export Evidence Map</button>
-          <span>Showing {tabSources.length} sources</span>
+          <span>Showing {renderSources.length}{searchQuery.trim() ? ` of ${displaySources.length} sources` : ' sources'}</span>
         </div>
       </div>
 
