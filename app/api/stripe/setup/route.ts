@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 
 const VERCEL_PROJECT_ID = 'prj_Zp8HBDstqAAOCN6W7LAElahsq3qS'
 const VERCEL_TEAM_ID    = 'team_0rK4jTvMLlSufR0ZzX4LCKYi'
@@ -52,6 +53,9 @@ async function setVercelEnv(key: string, value: string, vercelToken: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const authFailure = await requireAdminApiAuth()
+  if (authFailure) return authFailure
+
   try {
     const { stripeKey, vercelToken } = await req.json() as { stripeKey: string; vercelToken: string }
 

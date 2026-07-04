@@ -135,7 +135,7 @@ function rowToSignal(s: SignalRow): DashboardSignal {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  const countryParam = (searchParams.get('country') ?? '').trim()
+  const countryParam = (searchParams.get('country') ?? '').trim().replace(/[,()]/g, '')
   const lane         = (searchParams.get('lane') ?? 'all').toLowerCase()
   const limit        = Math.min(Math.max(parseInt(searchParams.get('limit')  ?? '25', 10), 1), 100)
   const offset       = Math.max(parseInt(searchParams.get('offset') ?? '0', 10), 0)
