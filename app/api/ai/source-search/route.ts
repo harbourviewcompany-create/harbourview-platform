@@ -6,6 +6,24 @@ const rateLimit = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT    = 10
 const RATE_WINDOW_MS = 60 * 1000
 
+// Simple query-result cache — keyed by normalised query string, 5-min TTL, capped at 50 entries
+type CacheEntry = { results: RpcRow[]; expiresAt: number }
+const queryCache = new Map<string, CacheEntry>()
+const CACHE_TTL_MS  = 5 * 60 * 1000
+const CACHE_MAX     = 50
+
+function cacheGet(key: string): RpcRow[] | null {
+  const entry = queryCache.get(key)
+  if (!entry || entry.expiresAt < Date.now()) { queryCache.delete(key); return null }
+  return entry.results
+}
+function cacheSet(key: string, results: RpcRow[]): void {
+  if (queryCache.size >= CACHE_MAX) {
+    queryCache.delete(queryCache.keys().next().value as string)
+  }
+  queryCache.set(key, { results, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
 type Body = {
   query?: unknown
 }
@@ -46,6 +64,10 @@ export async function POST(request: Request) {
     if (!query)             return NextResponse.json({ error: 'Missing query' }, { status: 400 })
     if (query.length > 500) return NextResponse.json({ error: 'Query too long' }, { status: 400 })
 
+    const cacheKey = query.toLowerCase()
+    const cached = cacheGet(cacheKey)
+    if (cached) return NextResponse.json({ results: cached, cached: true })
+
     // Embed with OpenAI text-embedding-3-small (1536-dim, matches ia_source_embeddings)
     const embedRes = await fetch('https://api.openai.com/v1/embeddings', {
       method:  'POST',
@@ -81,6 +103,7 @@ export async function POST(request: Request) {
     }
 
     const results: RpcRow[] = await rpcRes.json()
+    cacheSet(cacheKey, results)
     return NextResponse.json({ results })
   } catch (error) {
     console.error('[source-search route]', error)

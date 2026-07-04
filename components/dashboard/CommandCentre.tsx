@@ -323,6 +323,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region,
   role,
   countryIntel,
+  intelLoading = false,
   signals,
   marketMetrics = [],
   tradeFlows = [],
@@ -333,6 +334,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   region:           string
   role?:            string
   countryIntel?:    CountryIntelProfile | null
+  intelLoading?:    boolean
   signals:          DashboardSignal[]
   marketMetrics?:   MarketMetric[]
   tradeFlows?:      TradeFlow[]
@@ -402,7 +404,17 @@ const BriefingRoom = React.memo(function BriefingRoom({
           <p className="cc-jx-summary">{countryIntel.public_summary}</p>
         )}
 
-        <div className="cc-jx-fields">
+        <div className="cc-jx-fields" style={{position:'relative'}}>
+          {intelLoading && (
+            <div style={{
+              position:'absolute',top:0,right:0,
+              fontSize:'10px',color:'var(--cc-dim)',
+              display:'flex',alignItems:'center',gap:'4px',
+            }}>
+              <span style={{display:'inline-block',width:'6px',height:'6px',borderRadius:'50%',background:'var(--cc-gold)',opacity:.7,animation:'pulse 1.2s ease-in-out infinite'}}/>
+              Refreshing…
+            </div>
+          )}
           {([
             { icon: '◎', label: 'Medical Program', value: fmtStatus(countryIntel?.medical_status,       'No Active Program') },
             { icon: '⊛', label: 'Market Access',   value: fmtStatus(countryIntel?.market_access_status, 'Status Unknown')    },
@@ -4609,6 +4621,12 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             {/* Platform sources */}
             {renderSources.length > 0 && (
               <>
+                {searchQuery.trim() && semanticResults && (
+                  <div style={{fontSize:'11px',color:'var(--cc-dim)',padding:'6px 0 2px',display:'flex',alignItems:'center',gap:'6px'}}>
+                    <span style={{width:'6px',height:'6px',borderRadius:'50%',background:'var(--cc-gold)',display:'inline-block',flexShrink:0}}/>
+                    Ranked by semantic similarity · {renderSources.length} match{renderSources.length !== 1 ? 'es' : ''}
+                  </div>
+                )}
                 <div className="cc-ev-thead">
                   <span className="cc-mkt-th ev-src-col">SOURCE</span>
                   <span className="cc-mkt-th">SOURCE TYPE</span>
@@ -4660,8 +4678,8 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
               </>
             )}
 
-            {/* Org-uploaded documents */}
-            {orgDocs.length > 0 && (
+            {/* Org-uploaded documents (hidden during search — search only covers platform sources) */}
+            {!searchQuery.trim() && orgDocs.length > 0 && (
               <>
                 <div className="cc-ev-section-divider">UPLOADED DOCUMENTS ({orgDocs.length})</div>
                 {orgDocs.slice(0,5).map(doc => {
@@ -10096,17 +10114,20 @@ export default function CommandCentre({
   const [activePage,       setActivePage]      = useState<CommandPage>(initialPage ?? 'briefing')
   const [paletteOpen,      setPaletteOpen]     = useState(false)
   const [liveCountryIntel, setLiveCountryIntel] = useState<CountryIntelProfile | null>(countryIntel ?? null)
+  const [intelLoading,     setIntelLoading]     = useState(false)
 
   useEffect(() => {
     if (countryIntel?.country_code === country.iso2) {
       setLiveCountryIntel(countryIntel ?? null)
+      setIntelLoading(false)
       return
     }
     let cancelled = false
+    setIntelLoading(true)
     fetch(`/api/country-intel?iso2=${country.iso2}`)
       .then(r => r.ok ? r.json() : null)
-      .then((data: CountryIntelProfile | null) => { if (!cancelled) setLiveCountryIntel(data) })
-      .catch(() => { if (!cancelled) setLiveCountryIntel(null) })
+      .then((data: CountryIntelProfile | null) => { if (!cancelled) { setLiveCountryIntel(data); setIntelLoading(false) } })
+      .catch(() => { if (!cancelled) { setLiveCountryIntel(null); setIntelLoading(false) } })
     return () => { cancelled = true }
   }, [country.iso2, countryIntel])
 
@@ -10166,7 +10187,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
