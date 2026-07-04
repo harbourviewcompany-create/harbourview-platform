@@ -318,6 +318,51 @@ export async function fetchDailyDigest(
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
 
+    // ── Editorial edition first ───────────────────────────────────────────────
+    // Published daily_digest (same content as the public /daily page). When an
+    // edition exists it IS the digest; the rolling window below is fallback.
+    const { data: edition } = await supabase
+      .from('daily_digest')
+      .select('digest_date, headlines, generated_at')
+      .eq('status', 'published')
+      .order('digest_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
+
+    if (edition && Array.isArray(edition.headlines) && edition.headlines.length > 0) {
+      let items = (edition.headlines as EditorialHeadline[])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+
+      if (countryName) {
+        const needle = countryName.toLowerCase()
+        const match  = items.filter(h => (h.market ?? '').toLowerCase().includes(needle))
+        const rest   = items.filter(h => !(h.market ?? '').toLowerCase().includes(needle))
+        items = [...match, ...rest]
+      }
+
+      const todayUtc = new Date().toISOString().slice(0, 10)
+      const editorialSignals: DashboardSignal[] = items.slice(0, limit).map((h, i) => ({
+        id:               h.signal_id ?? `digest-${edition.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'regulatory_change',
+        market:           h.market ?? 'Global',
+        tag:              { label: 'REGULATION', color: '#D9A441', bg: 'rgba(217,164,65,0.15)', border: 'rgba(217,164,65,0.35)' },
+        timeAgo:          'Today',
+        confidence:       80,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      'Harbourview Daily',
+        flag:             flagForMarket(h.market ?? 'Global'),
+      }))
+
+      return {
+        signals: editorialSignals,
+        window:  edition.digest_date === todayUtc ? '24h' : 'recent',
+      }
+    }
+
     let query = supabase
       .from('signals_quality')
       .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
