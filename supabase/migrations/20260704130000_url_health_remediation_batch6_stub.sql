@@ -1,0 +1,66 @@
+-- Applied directly to production via Supabase MCP (Jul 4 2026 session, batch 6).
+-- Continuation of 20260703060000 / 070000 / 080000 / 20260704110000 / 120000.
+--
+-- Meta-finding, applies retroactively to batches 1-4: source_registry's own
+-- consecutive_failures/network_status columns are not reliable for finding
+-- the real worklist -- they can sit stale for weeks after a source is
+-- actually fixed, and conversely can miss sources that source_registry_health
+-- (the corrected view, see batch 5) catches. Batch 4's "Chile: all 6 sources
+-- clean" conclusion was WRONG -- it was based on those raw columns. Treat
+-- source_registry_health as canonical going forward, not the raw registry
+-- columns.
+--
+-- Re-checked all 7 previously-touched countries (Colombia, Brazil, Botswana,
+-- Argentina, Australia, Canada, Chile) against source_registry_health:
+--
+-- False positives -- already correctly fixed, just stale (no action taken):
+--   ANMAT Argentina, Brazil ANVISA -- both show the correct post-fix URL in
+--   source_registry_health, but their last recorded crawl attempt predates
+--   the fix by 2+ weeks (crawler hasn't retried since). Not a URL problem.
+--   Worth a separate look at why tier-1 sources go 2+ weeks between crawl
+--   attempts even while active -- may be a cadence/scheduling issue distinct
+--   from URL health.
+--
+-- Deactivated (2), both root-caused to patterns already established:
+--
+--   Botswana Government Gazette -- same gazettes.africa fire/stale-archive
+--   issue already documented for Benin, Burundi, CAR, Chad, Comoros, and
+--   Cameroon in batch 2, just not applied to Botswana at the time. The
+--   country page loads fine but content stops in 2021. Guinea and Ghana use
+--   the same domain and are very likely the same issue -- confirm before
+--   re-investigating from scratch.
+--
+--   Senado Chile — Comisión de Salud -- old URL dead; the modern equivalent
+--   (tramitacion.senado.cl, same committee id) disallows automated access
+--   via robots.txt. Same class as TGA/ODC in batch 3. No write to Supabase
+--   was needed beyond the deactivation itself -- no fixable URL exists.
+--
+-- NOT fixed, and NOT deactivated -- new, more concerning finding:
+--
+--   BC LCRB Cannabis -- the currently configured URL
+--   (www2.gov.bc.ca/gov/content/employment-business/business/liquor-regulation-licensing)
+--   is verified live and correct via direct fetch just now. The capture
+--   worker has nonetheless logged http_404 against it on every attempt for
+--   the last month, including this morning. This is not a stale-URL
+--   problem -- the URL is right. Left as-is (changing it would be wrong)
+--   and flagged for engineering: possible disguised bot-block returning 404
+--   instead of 403 on gov.bc.ca, or a capture-worker redirect-handling bug.
+--   Implication worth sitting with: some other rows currently classified as
+--   "verify_replacement_url" (404) in source_registry_health may be the same
+--   kind of false 404, not genuinely dead links -- that suggested_action
+--   label is a starting hypothesis, not a verified diagnosis.
+--
+-- Not yet investigated, carried forward as the next pass (all confirmed
+-- currently failing in source_registry_health, not touched by batches 1-4):
+--   Congreso Argentina — Comisión de Salud
+--   Senado Federal Brasil — Comissão de Assuntos Sociais
+--   Consejo Nacional de Estupefacientes Colombia
+--   Senado Colombia — Comisión Primera
+--   Cámara de Representantes Colombia — Comisión Séptima
+--   MinJusticia Colombia — Resoluciones Cannabis (possible near-duplicate of
+--     Colombia MinJusticia Cannabis -- same domain, worth checking for
+--     consolidation rather than fixing both independently)
+--   ProColombia — Cannabis Export Intelligence
+--   INVIMA – Colombia (RSS)
+--   Australian Hemp Council (AHC) -- DNS failure, not yet checked
+SELECT 1;
