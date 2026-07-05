@@ -6,6 +6,7 @@ import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../'_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { getCountryMarketSignals } from '@/lib/dashboard/getCountryMarketSignals'
 
 import type { Metadata } from 'next'
 
@@ -20,10 +21,8 @@ export async function generateMetadata({ params }: { params: Promise<{ country: 
   }
 }
 
-
 type Props = { params: Promise<{ country: string }> }
 
-// ── State-derived market data ──────────────────────────────────────────────
 type MarketDerived = {
   model:     { label: string; detail: string }
   imports:   { label: string; detail: string }
@@ -79,6 +78,24 @@ function deriveMarketData(state: DashboardPanelState): MarketDerived {
   return map[state]
 }
 
+const SIGNAL_TYPE_LABEL: Record<string, string> = {
+  regulatory: 'Regulatory', commercial: 'Commercial', legislative: 'Legislative',
+  enforcement: 'Enforcement', market: 'Market', scientific: 'Scientific',
+}
+
+const IMPACT_COLOR: Record<string, string> = {
+  high:   'rgba(239,68,68,0.7)',
+  medium: 'rgba(198,165,90,0.7)',
+  low:    'rgba(100,116,139,0.7)',
+}
+
+function formatReviewDate(dateStr: string | null): string | null {
+  if (!dateStr) return null
+  try {
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(dateStr))
+  } catch { return null }
+}
+
 export default async function MarketPage({ params }: Props) {
   const { country: slug } = await params
   const country = resolveCountryRouteParam(slug)
@@ -89,11 +106,12 @@ export default async function MarketPage({ params }: Props) {
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveMarketData(panel.state)
 
-  // Always fetch live profile — gives us briefing depth + commercial pathway
-  // regardless of whether static registry intel exists for this country.
-  const liveProfile = await getCountryIntelProfile(country.iso2)
+  // Fetch live profile + signals in parallel
+  const [liveProfile, recentSignals] = await Promise.all([
+    getCountryIntelProfile(country.iso2),
+    getCountryMarketSignals(country.iso2),
+  ])
 
-  // Tier 1: static registry (9 countries); Tier 2: live DB briefing; Tier 3: derived from panel state
   let derived: MarketDerived
   if (intel?.market) {
     derived = {
@@ -116,15 +134,21 @@ export default async function MarketPage({ params }: Props) {
       },
     } : baseDerived
   }
+
   const isLocked = panel.state === 'unavailable' || panel.state === 'request-only'
 
-  // Rich content to surface in the Commercial Intelligence section
-  const commercialSummary   = liveProfile?.commercial_pathway_summary ?? null
-  const regulatoryOutlook   = liveProfile?.briefing_regulatory_outlook ?? null
-  const patientAccess       = liveProfile?.briefing_patient_access ?? null
-  const physicianAccess     = liveProfile?.briefing_physician_access ?? null
-  const publicSummary       = liveProfile?.public_summary ?? null
-  const hasCommercialDepth  = !!(commercialSummary || regulatoryOutlook || patientAccess || physicianAccess)
+  // Commercial intelligence fields
+  const commercialSummary  = liveProfile?.commercial_pathway_summary ?? null
+  const regulatoryOutlook  = liveProfile?.briefing_regulatory_outlook ?? null
+  const patientAccess      = liveProfile?.briefing_patient_access ?? null
+  const physicianAccess    = liveProfile?.briefing_physician_access ?? null
+  const publicSummary      = liveProfile?.public_summary ?? null
+  const hasCommercialDepth = !!(commercialSummary || regulatoryOutlook || patientAccess || physicianAccess)
+
+  // Confidence
+  const confidenceScore = liveProfile?.confidence_score ?? null
+  const confidencePct   = confidenceScore !== null ? Math.round(Number(confidenceScore) * 100) : null
+  const lastReviewed    = formatReviewDate(liveProfile?.briefing_last_reviewed ?? null)
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -162,8 +186,6 @@ export default async function MarketPage({ params }: Props) {
             {badge.label}
           </span>
         </div>
-
-        {/* State copy */}
         <div className="border-t px-5 py-3" style={{ borderColor: TONE_BORDER[badge.tone] }}>
           <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.55)' }}>
             {panel.stateCopy.summary}
@@ -174,21 +196,15 @@ export default async function MarketPage({ params }: Props) {
       {/* ── Market framework grid ── */}
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
         {[
-          { icon: '🏭', heading: 'Import framework',    data: derived.imports },
-          { icon: '🏢', heading: 'Operator framework',  data: derived.operators },
+          { icon: '🏭', heading: 'Import framework',   data: derived.imports },
+          { icon: '🏢', heading: 'Operator framework', data: derived.operators },
           { icon: '⚖️', heading: 'Primary regulator',  data: derived.regulator },
-          { icon: '📋', heading: 'Public orientation',  data: { label: 'Published summary', detail: panel.publicSummary } },
+          { icon: '📋', heading: 'Public orientation', data: { label: 'Published summary', detail: panel.publicSummary } },
         ].map(({ icon, heading, data }) => (
-          <div
-            key={heading}
-            className="rounded-2xl p-4"
-            style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
+          <div key={heading} className="rounded-2xl p-4" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="mb-2 flex items-center gap-2">
               <span className="text-base leading-none">{icon}</span>
-              <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
-                {heading}
-              </p>
+              <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>{heading}</p>
             </div>
             <p className="mb-0.5 text-[13px] font-medium text-white">{data.label}</p>
             <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.45)' }}>{data.detail}</p>
@@ -199,9 +215,28 @@ export default async function MarketPage({ params }: Props) {
       {/* ── Commercial Intelligence ── */}
       {hasCommercialDepth && (
         <div className="mb-5 overflow-hidden rounded-2xl" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(198,165,90,0.15)', borderLeft: '4px solid rgba(198,165,90,0.4)' }}>
-          <div className="border-b px-5 py-3" style={{ borderColor: 'rgba(198,165,90,0.1)' }}>
+
+          {/* Header with last-reviewed + confidence */}
+          <div className="flex items-center justify-between gap-4 border-b px-5 py-3" style={{ borderColor: 'rgba(198,165,90,0.1)' }}>
             <p className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'rgba(198,165,90,0.6)' }}>Commercial intelligence · {country.displayName}</p>
+            <div className="flex shrink-0 items-center gap-3">
+              {lastReviewed && (
+                <span className="text-[10px]" style={{ color: 'rgba(243,240,234,0.3)' }}>Reviewed {lastReviewed}</span>
+              )}
+              {confidencePct !== null && (
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1 w-16 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${confidencePct}%`, background: confidencePct >= 75 ? 'rgba(34,197,94,0.7)' : confidencePct >= 55 ? 'rgba(198,165,90,0.7)' : 'rgba(239,68,68,0.7)' }}
+                    />
+                  </div>
+                  <span className="text-[10px] tabular-nums" style={{ color: 'rgba(243,240,234,0.35)' }}>{confidencePct}%</span>
+                </div>
+              )}
+            </div>
           </div>
+
           <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
             {commercialSummary && (
               <div className="px-5 py-4">
@@ -241,12 +276,51 @@ export default async function MarketPage({ params }: Props) {
         </div>
       )}
 
+      {/* ── Recent signals ── */}
+      {recentSignals.length > 0 && (
+        <div className="mb-5 overflow-hidden rounded-2xl" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            <p className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'rgba(243,240,234,0.35)' }}>Recent signals · {country.displayName}</p>
+            <Link href={`${country.dashboardPath}/signals`} className="text-[10px] transition-opacity hover:opacity-70" style={{ color: 'rgba(198,165,90,0.5)' }}>
+              View all →
+            </Link>
+          </div>
+          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+            {recentSignals.map(signal => (
+              <div key={signal.id} className="px-5 py-3.5">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em]"
+                    style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(243,240,234,0.4)' }}
+                  >
+                    {SIGNAL_TYPE_LABEL[signal.type] ?? signal.type}
+                  </span>
+                  {signal.commercial_impact && (
+                    <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: IMPACT_COLOR[signal.commercial_impact] ?? 'rgba(243,240,234,0.4)' }}>
+                      {signal.commercial_impact} impact
+                    </span>
+                  )}
+                  {signal.detected_at && (
+                    <span className="ml-auto text-[9px]" style={{ color: 'rgba(243,240,234,0.25)' }}>
+                      {new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(signal.detected_at))}
+                    </span>
+                  )}
+                </div>
+                <p className="mb-0.5 text-[12px] font-medium leading-snug text-white">{signal.title}</p>
+                {signal.summary && (
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.4)' }}>
+                    {signal.summary.length > 160 ? `${signal.summary.slice(0, 159)}…` : signal.summary}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Locked notice ── */}
       {isLocked && (
-        <div
-          className="mb-5 rounded-2xl p-4 text-center"
-          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.14)' }}
-        >
+        <div className="mb-5 rounded-2xl p-4 text-center" style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.14)' }}>
           <p className="text-sm" style={{ color: 'rgba(248,113,113,0.65)' }}>{panel.stateCopy.emptyState}</p>
         </div>
       )}
@@ -272,7 +346,7 @@ export default async function MarketPage({ params }: Props) {
           className="rounded-xl px-4 py-2.5 text-[12px] transition-all hover:opacity-80"
           style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(243,240,234,0.5)' }}
         >
-          View signals →
+          View all signals →
         </Link>
       </div>
 
