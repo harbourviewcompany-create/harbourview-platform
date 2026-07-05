@@ -7180,7 +7180,7 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
 
   const allNotifs = useMemo(() => {
     let list = SEED_NOTIFICATIONS.slice()
-    if (country) list = list.filter(n => !n.country || n.country === country.iso2 || true)
+    if (country) list = list.filter(n => !n.country || n.country === country.iso2)
     return list.sort((a, b) => b.date.localeCompare(a.date))
   }, [country])
 
