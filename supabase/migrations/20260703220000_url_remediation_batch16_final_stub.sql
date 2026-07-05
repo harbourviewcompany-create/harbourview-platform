@@ -1,0 +1,19 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 16).
+-- This closes out the source_registry_health worklist pulled at the start
+-- of this URL remediation effort.
+--
+-- Analytical Cannabis: DEACTIVATED, not a URL problem. The publication
+-- shut down entirely (confirmed via their own LinkedIn: "we have made the
+-- difficult decision to close down our platform"). Their domain now
+-- redirects to parent Technology Networks, a general life-sciences site
+-- with no cannabis-specific focus. No URL restores this source's original
+-- function.
+--
+-- WCO HS Nomenclature: VERIFIED, no change needed. URL is correct and
+-- current (2022 remains the active edition; 2028 edition not yet in
+-- force). Original connection-reset error appears transient on WCO's
+-- infrastructure -- resolved cleanly via direct fetch with real content.
+-- Noted for future reference: WCO already has a live "HS Nomenclature
+-- 2028 Edition" page in navigation -- worth updating proactively when
+-- that edition takes effect rather than waiting for this to break again.
+SELECT 1;
