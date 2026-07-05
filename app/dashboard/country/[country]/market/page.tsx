@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
-import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
+import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../'_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ country: string }> }): Promise<Metadata> {
   const { country } = await params
-  const displayName = country.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+  const displayName = country.replace(/-/g, ' ').replace(/\\b\\w/g, (c: string) => c.toUpperCase())
   return {
     title: `${displayName} Market Overview | Harbourview`,
     description: `Harbourview ${displayName} market overview dashboard. Country-level market intelligence, pathway context and commercial routing for regulated cannabis.`,
@@ -89,6 +89,10 @@ export default async function MarketPage({ params }: Props) {
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveMarketData(panel.state)
 
+  // Always fetch live profile — gives us briefing depth + commercial pathway
+  // regardless of whether static registry intel exists for this country.
+  const liveProfile = await getCountryIntelProfile(country.iso2)
+
   // Tier 1: static registry (9 countries); Tier 2: live DB briefing; Tier 3: derived from panel state
   let derived: MarketDerived
   if (intel?.market) {
@@ -99,7 +103,6 @@ export default async function MarketPage({ params }: Props) {
       regulator: { label: intel.market.regulatorLabel,  detail: intel.market.regulatorDetail },
     }
   } else {
-    const liveProfile = await getCountryIntelProfile(country.iso2)
     derived = liveProfile?.briefing_program_status ? {
       model:     {
         label:  liveProfile.briefing_program_status,
@@ -114,6 +117,14 @@ export default async function MarketPage({ params }: Props) {
     } : baseDerived
   }
   const isLocked = panel.state === 'unavailable' || panel.state === 'request-only'
+
+  // Rich content to surface in the Commercial Intelligence section
+  const commercialSummary   = liveProfile?.commercial_pathway_summary ?? null
+  const regulatoryOutlook   = liveProfile?.briefing_regulatory_outlook ?? null
+  const patientAccess       = liveProfile?.briefing_patient_access ?? null
+  const physicianAccess     = liveProfile?.briefing_physician_access ?? null
+  const publicSummary       = liveProfile?.public_summary ?? null
+  const hasCommercialDepth  = !!(commercialSummary || regulatoryOutlook || patientAccess || physicianAccess)
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -184,6 +195,51 @@ export default async function MarketPage({ params }: Props) {
           </div>
         ))}
       </div>
+
+      {/* ── Commercial Intelligence ── */}
+      {hasCommercialDepth && (
+        <div className="mb-5 overflow-hidden rounded-2xl" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(198,165,90,0.15)', borderLeft: '4px solid rgba(198,165,90,0.4)' }}>
+          <div className="border-b px-5 py-3" style={{ borderColor: 'rgba(198,165,90,0.1)' }}>
+            <p className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'rgba(198,165,90,0.6)' }}>Commercial intelligence · {country.displayName}</p>
+          </div>
+          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            {commercialSummary && (
+              <div className="px-5 py-4">
+                <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.45)' }}>Commercial pathway</p>
+                <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.75)' }}>{commercialSummary}</p>
+              </div>
+            )}
+            {regulatoryOutlook && (
+              <div className="px-5 py-4">
+                <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.45)' }}>Regulatory outlook</p>
+                <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.75)' }}>{regulatoryOutlook}</p>
+              </div>
+            )}
+            {(patientAccess || physicianAccess) && (
+              <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
+                {patientAccess && (
+                  <div>
+                    <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.45)' }}>Patient access</p>
+                    <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.65)' }}>{patientAccess}</p>
+                  </div>
+                )}
+                {physicianAccess && (
+                  <div>
+                    <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.45)' }}>Physician access</p>
+                    <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.65)' }}>{physicianAccess}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {!commercialSummary && publicSummary && (
+              <div className="px-5 py-4">
+                <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.45)' }}>Market summary</p>
+                <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.75)' }}>{publicSummary}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Locked notice ── */}
       {isLocked && (
