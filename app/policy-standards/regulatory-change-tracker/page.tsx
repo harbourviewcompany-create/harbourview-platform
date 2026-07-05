@@ -135,8 +135,8 @@ export default async function RegulatoryChangeTrackerPage() {
         <footer className="rc-ft">
           <p>Not legal or regulatory advice. Verify all regulatory changes with qualified local counsel.</p>
           <div className="rc-fl">
-            <Link href="/dashboard?page=regulatory">Regulatory Pathways →</Link>
-            <Link href="/dashboard?page=signals">Market Playbooks →</Link>
+            <Link href="/intelligence/regulatory-pathways">Regulatory Pathways →</Link>
+            <Link href="/intelligence/playbooks">Market Playbooks →</Link>
             <Link href="/markets">Market Briefings →</Link>
           </div>
         </footer>
