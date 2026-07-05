@@ -4978,6 +4978,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
   onPageChange?: (page: CommandPage) => void
 }) {
   const [tab, setTab] = useState<GeneticsTab>('passports')
+  const [selectedPassport, setSelectedPassport] = useState<PublicCultivarPassportDTO | null>(null)
   const [requestModal, setRequestModal] = useState<{ open: boolean; profileName?: string }>({ open: false })
   const [programModal, setProgramModal] = useState(false)
 
@@ -4997,7 +4998,113 @@ const GeneticsPage = React.memo(function GeneticsPage({
 
   return (
     <div className="cc-page cc-two-col-page">
-      <div className="cc-two-main">
+      <div className="cc-two-main" style={{ position: 'relative', overflow: 'hidden' }}>
+        {selectedPassport && (
+          <div style={{ position: 'absolute', inset: 0, background: 'var(--cc-page-bg, #0b1929)', zIndex: 10, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
+              <button type="button" onClick={() => setSelectedPassport(null)} style={{ background: 'none', border: 'none', color: 'rgba(212,168,75,.75)', fontSize: 11, fontWeight: 600, letterSpacing: '.1em', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+                ← CULTIVAR PASSPORTS
+              </button>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                <span className="cc-opp-tag">{selectedPassport.cultivarCategory.replace(/_/g, ' ')}</span>
+                {selectedPassport.cannabisCategory && <span className="cc-opp-tag">{selectedPassport.cannabisCategory.replace(/_/g, ' ')}</span>}
+                <span className="cc-opp-tag">{selectedPassport.claimStatus.replace(/_/g, ' ')}</span>
+              </div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cc-text)', marginBottom: 8 }}>⊕ {selectedPassport.displayName}</h2>
+              <p style={{ fontSize: 13, color: 'var(--cc-dim)', lineHeight: 1.7, marginBottom: 0 }}>{selectedPassport.publicSummary}</p>
+            </div>
+            {(selectedPassport.originCountryCode || selectedPassport.breederDisplayName || selectedPassport.aliasesPublic.length > 0) && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
+                <div className="cc-group-label" style={{ marginBottom: 8 }}>ORIGIN &amp; PROVENANCE</div>
+                <div className="cc-jx-fields">
+                  {selectedPassport.originCountryCode && <div className="cc-jx-field"><span className="cc-jx-field-icon">◷</span><div><small>Origin</small><strong>{selectedPassport.originJurisdictionLabel ?? selectedPassport.originCountryCode}</strong></div></div>}
+                  {selectedPassport.breederDisplayName && <div className="cc-jx-field"><span className="cc-jx-field-icon">◧</span><div><small>Breeder</small><strong>{selectedPassport.breederDisplayName}</strong></div></div>}
+                  {selectedPassport.rightsHolderDisplayName && <div className="cc-jx-field"><span className="cc-jx-field-icon">◨</span><div><small>Rights Holder</small><strong>{selectedPassport.rightsHolderDisplayName}</strong></div></div>}
+                </div>
+                {selectedPassport.aliasesPublic.length > 0 && <div style={{ fontSize: 11, color: 'var(--cc-muted)', marginTop: 8 }}>Also known as: {selectedPassport.aliasesPublic.join(', ')}</div>}
+              </div>
+            )}
+            {(selectedPassport.evidenceScoreSummary || selectedPassport.verificationSummary) && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
+                <div className="cc-group-label" style={{ marginBottom: 8 }}>VERIFICATION STATUS</div>
+                {selectedPassport.evidenceScoreSummary && <p style={{ fontSize: 12, color: 'var(--cc-text)', lineHeight: 1.7, marginBottom: 6 }}>{selectedPassport.evidenceScoreSummary}</p>}
+                {selectedPassport.verificationSummary && <p style={{ fontSize: 11, color: 'var(--cc-dim)', lineHeight: 1.7 }}>{selectedPassport.verificationSummary}</p>}
+              </div>
+            )}
+            {selectedPassport.countryOpportunitiesPublic.length > 0 && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
+                <div className="cc-group-label" style={{ marginBottom: 8 }}>COUNTRY OPPORTUNITIES ({selectedPassport.countryOpportunitiesPublic.length})</div>
+                <div className="cc-sig-group">
+                  {selectedPassport.countryOpportunitiesPublic.map((opp, i) => (
+                    <div key={i} className="cc-sig-row">
+                      <div className="cc-sig-dot medium" />
+                      <div className="cc-sig-body">
+                        <strong>{opp.jurisdictionLabel ?? opp.countryCode}</strong>
+                        <small>{opp.opportunityType.replace(/_/g, ' ')} · {opp.status}</small>
+                        {opp.publicNote && <small>{opp.publicNote}</small>}
+                      </div>
+                      <div className="cc-sig-acts">
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                          <span className="cc-opp-tag">MT: {opp.materialTransferStatus.replace(/_/g, ' ')}</span>
+                          <span className="cc-opp-tag">Gate: {opp.jurisdictionGateStatus.replace(/_/g, ' ')}</span>
+                        </div>
+                        <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: selectedPassport.displayName })}>{opp.cta} →</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedPassport.publicEvidenceSummaries.length > 0 && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
+                <div className="cc-group-label" style={{ marginBottom: 8 }}>EVIDENCE SUMMARIES ({selectedPassport.publicEvidenceSummaries.length})</div>
+                <div className="cc-sig-group">
+                  {selectedPassport.publicEvidenceSummaries.map(ev => (
+                    <div key={ev.id} className="cc-sig-row">
+                      <div className="cc-sig-dot low" />
+                      <div className="cc-sig-body">
+                        <strong>{ev.title}</strong>
+                        {ev.publicSummary && <small>{ev.publicSummary}</small>}
+                      </div>
+                      <div className="cc-sig-acts">
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          <span className="cc-opp-tag">{ev.evidenceType.replace(/_/g, ' ')}</span>
+                          {ev.sourceLabel && <span className="cc-opp-tag">{ev.sourceLabel}</span>}
+                          {ev.sourceDate && <span className="cc-opp-tag">{ev.sourceDate}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedPassport.publicCollaborationProjects.length > 0 && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
+                <div className="cc-group-label" style={{ marginBottom: 8 }}>COLLABORATION PROJECTS ({selectedPassport.publicCollaborationProjects.length})</div>
+                <div className="cc-sig-group">
+                  {selectedPassport.publicCollaborationProjects.map(cp => (
+                    <div key={cp.id} className="cc-sig-row">
+                      <div className="cc-sig-dot medium" />
+                      <div className="cc-sig-body">
+                        <strong>⊗ {cp.title}</strong>
+                        <small>{cp.publicSummary}</small>
+                        {cp.evidenceNeeded && <small>Evidence needed: {cp.evidenceNeeded}</small>}
+                      </div>
+                      <div className="cc-sig-acts">
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                          <span className="cc-opp-tag">{cp.projectType.replace(/_/g, ' ')}</span>
+                          <span className="cc-opp-tag">{cp.status}</span>
+                        </div>
+                        <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: selectedPassport.displayName })}>Start collaboration →</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p style={{ fontSize: 10, color: 'var(--cc-dim)', lineHeight: 1.7, padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>{selectedPassport.publicDisclaimer}</p>
+          </div>
+        )}
         <div className="cc-inner-header">
           <h2>Genetics Intelligence</h2>
           <p>Public cultivar passports, verified service providers, and open collaboration projects{isGlobal ? '' : ` relevant to ${country.label}`}. Country-specific opportunities and evidence summaries are available per passport.</p>
@@ -5045,11 +5152,10 @@ const GeneticsPage = React.memo(function GeneticsPage({
                             {opp.publicNote && <span> — {opp.publicNote}</span>}
                           </div>
                         ))}
-                        {countryOpps.length > 0 ? (
-                          <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: p.displayName })}>{countryOpps[0].cta} →</button>
-                        ) : (
-                          <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: p.displayName })}>Request access →</button>
-                        )}
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="cc-sig-brief" style={{ flex: 1 }} onClick={() => setSelectedPassport(p)}>View passport →</button>
+                          {countryOpps.length > 0 && <button className="cc-sig-brief" onClick={() => setRequestModal({ open: true, profileName: p.displayName })}>{countryOpps[0].cta.split(' ')[0]}</button>}
+                        </div>
                       </div>
                     </div>
                   )

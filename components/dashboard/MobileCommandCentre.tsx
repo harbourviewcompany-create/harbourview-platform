@@ -10,6 +10,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { GeneticsRequestModal } from './GeneticsRequestModal'
 
 type CommandPage = 'briefing' | 'digest' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
 
@@ -2651,6 +2652,8 @@ const GENETICS_TABS: { id: GeneticsTabM; label: string }[] = [
 
 function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: { country: CountryOption; cultivarPassports?: PublicCultivarPassportDTO[]; serviceProviders?: PublicServiceProvider[]; collaborationProjects?: PublicCollaborationProject[] }) {
   const [tab, setTab] = useState<GeneticsTabM>('passports')
+  const [selectedPassport, setSelectedPassport] = useState<PublicCultivarPassportDTO | null>(null)
+  const [requestOpen, setRequestOpen] = useState(false)
 
   const isGlobal = country.iso2 === 'GLOBAL'
   const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
@@ -2664,6 +2667,153 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
     ...t,
     count: t.id === 'passports' ? displayPassports.length : t.id === 'services' ? displayProviders.length : displayProjects.length,
   }))
+
+  if (selectedPassport) {
+    const allOpps = selectedPassport.countryOpportunitiesPublic
+    return (
+      <div className="hvm-page-stack">
+        <button type="button" onClick={() => setSelectedPassport(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 16px', background: 'none', border: 'none', color: 'rgba(212,168,75,.8)', fontSize: 12, fontWeight: 600, cursor: 'pointer', letterSpacing: '.06em', marginBottom: 4 }}>
+          ← Cultivar list
+        </button>
+
+        <section className="hvm-hero-card compact">
+          <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>CULTIVAR PASSPORT</div>
+          <h2>⊕ {selectedPassport.displayName}</h2>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{selectedPassport.cultivarCategory.replace(/_/g, ' ')}</span>
+            {selectedPassport.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{selectedPassport.cannabisCategory.replace(/_/g, ' ')}</span>}
+            <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{selectedPassport.claimStatus.replace(/_/g, ' ')}</span>
+          </div>
+          <p style={{ marginTop: 10, lineHeight: 1.6 }}>{selectedPassport.publicSummary}</p>
+        </section>
+
+        {(selectedPassport.originCountryCode || selectedPassport.breederDisplayName || selectedPassport.aliasesPublic.length > 0) && (
+          <div className="hvm-card">
+            <div className="hvm-kicker">ORIGIN &amp; PROVENANCE</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 }}>
+              {selectedPassport.originCountryCode && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Origin</span>
+                  <span>{flagEmoji(selectedPassport.originCountryCode)} {selectedPassport.originJurisdictionLabel ?? selectedPassport.originCountryCode}</span>
+                </div>
+              )}
+              {selectedPassport.breederDisplayName && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Breeder</span>
+                  <span>{selectedPassport.breederDisplayName}</span>
+                </div>
+              )}
+              {selectedPassport.rightsHolderDisplayName && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Rights holder</span>
+                  <span>{selectedPassport.rightsHolderDisplayName}</span>
+                </div>
+              )}
+              {selectedPassport.aliasesPublic.length > 0 && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Aliases</span>
+                  <span>{selectedPassport.aliasesPublic.join(', ')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(selectedPassport.evidenceScoreSummary || selectedPassport.verificationSummary) && (
+          <div className="hvm-card">
+            <div className="hvm-kicker">VERIFICATION STATUS</div>
+            {selectedPassport.evidenceScoreSummary && <p style={{ marginTop: 6, fontSize: 12, color: 'rgba(245,240,232,.75)', lineHeight: 1.6 }}>{selectedPassport.evidenceScoreSummary}</p>}
+            {selectedPassport.verificationSummary && <p style={{ marginTop: 6, fontSize: 12, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>{selectedPassport.verificationSummary}</p>}
+          </div>
+        )}
+
+        {allOpps.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.14em', padding: '4px 16px 6px' }}>COUNTRY OPPORTUNITIES · {allOpps.length}</div>
+            <div className="hvm-list-stack">
+              {allOpps.map((opp, i) => (
+                <div className="hvm-signal-card" key={i}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>{opp.opportunityType.replace(/_/g, ' ')}</span>
+                    <span className="hvm-sig-market">{opp.status}</span>
+                  </div>
+                  <div className="hvm-sig-title">{flagEmoji(opp.countryCode)} {opp.jurisdictionLabel ?? opp.countryCode}</div>
+                  {opp.publicNote && <p className="hvm-signal-impact">{opp.publicNote}</p>}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>MT: {opp.materialTransferStatus.replace(/_/g, ' ')}</span>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>Gate: {opp.jurisdictionGateStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {selectedPassport.publicEvidenceSummaries.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.14em', padding: '4px 16px 6px' }}>EVIDENCE SUMMARIES · {selectedPassport.publicEvidenceSummaries.length}</div>
+            <div className="hvm-list-stack">
+              {selectedPassport.publicEvidenceSummaries.map(ev => (
+                <div className="hvm-signal-card" key={ev.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#5b9bd5' } as React.CSSProperties}>{ev.evidenceType.replace(/_/g, ' ')}</span>
+                    <span className="hvm-sig-market">{ev.claimStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="hvm-sig-title">{ev.title}</div>
+                  {ev.publicSummary && <p className="hvm-signal-impact">{ev.publicSummary}</p>}
+                  {(ev.sourceLabel || ev.sourceDate || ev.jurisdictionLabel) && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      {ev.sourceLabel && <span className="hvm-tag-chip" style={{ background: 'rgba(91,155,213,.12)', borderColor: 'rgba(91,155,213,.3)', color: '#5b9bd5' }}>{ev.sourceLabel}</span>}
+                      {ev.sourceDate && <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>{ev.sourceDate}</span>}
+                      {ev.jurisdictionLabel && <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>{ev.jurisdictionLabel}</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {selectedPassport.publicCollaborationProjects.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.14em', padding: '4px 16px 6px' }}>COLLABORATION PROJECTS · {selectedPassport.publicCollaborationProjects.length}</div>
+            <div className="hvm-list-stack">
+              {selectedPassport.publicCollaborationProjects.map(cp => (
+                <div className="hvm-signal-card" key={cp.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#a78bfa' } as React.CSSProperties}>{cp.projectType.replace(/_/g, ' ')}</span>
+                    <span className="hvm-sig-market">{cp.status}</span>
+                  </div>
+                  <div className="hvm-sig-title">⊗ {cp.title}</div>
+                  <p className="hvm-signal-impact">{cp.publicSummary}</p>
+                  {cp.evidenceNeeded && <div style={{ marginTop: 6, fontSize: 11, color: 'rgba(245,240,232,.5)', lineHeight: 1.5 }}><span style={{ color: 'rgba(245,240,232,.3)' }}>Evidence needed:</span> {cp.evidenceNeeded}</div>}
+                  {(cp.countryCode || cp.jurisdictionLabel) && (
+                    <div style={{ marginTop: 6 }}>
+                      <span className="hvm-tag-chip" style={{ background: 'rgba(167,139,250,.1)', borderColor: 'rgba(167,139,250,.25)', color: '#a78bfa' }}>
+                        {cp.jurisdictionLabel ?? (cp.countryCode ? `${flagEmoji(cp.countryCode)} ${cp.countryCode}` : '')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="hvm-card" style={{ background: 'rgba(212,168,75,.05)', borderColor: 'rgba(212,168,75,.2)' }}>
+          <div className="hvm-kicker">ACCESS &amp; LICENSING</div>
+          <p style={{ marginTop: 6, fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require a Harbourview-reviewed access request.</p>
+          <button type="button" onClick={() => setRequestOpen(true)} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            Request access — {selectedPassport.displayName} →
+          </button>
+        </div>
+
+        <p style={{ fontSize: 11, color: 'rgba(245,240,232,.3)', padding: '0 16px 24px', lineHeight: 1.6 }}>{selectedPassport.publicDisclaimer}</p>
+
+        <GeneticsRequestModal open={requestOpen} profileName={selectedPassport.displayName} onClose={() => setRequestOpen(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="hvm-page-stack">
@@ -2726,9 +2876,9 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
                     </div>
                   ))}
                   {countryOpps.length > 0 ? (
-                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>{countryOpps[0].cta} →</Link>
+                    <button type="button" onClick={() => setSelectedPassport(p)} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{countryOpps[0].cta} →</button>
                   ) : (
-                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
+                    <button type="button" onClick={() => setSelectedPassport(p)} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>View passport →</button>
                   )}
                 </div>
               )
