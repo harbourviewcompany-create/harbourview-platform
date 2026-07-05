@@ -1,0 +1,14 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 14).
+--
+-- Jamaica Official Gazette: old jis.gov.jm/official-gazette/ path dead.
+-- Replaced with laws.moj.gov.jm/library/gazettes (Ministry of Justice's
+-- Laws of Jamaica gazette library), confirmed via direct search-index
+-- snippet showing real gazette content. NOT independently fetch-verified
+-- this round (flagged honestly in verification_notes) -- worth a direct
+-- check next time this row is touched.
+--
+-- Note: Jamaica already has 5 other well-configured cannabis-specific
+-- sources (CLA at both cla.gov.jm and cla.org.jm, licensees list,
+-- procurement/tenders, parliament joint select committee) -- this was
+-- the one broken row in an otherwise healthy cluster.
+SELECT 1;
