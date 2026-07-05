@@ -7944,7 +7944,7 @@ const KybVerificationPage = React.memo(function KybVerificationPage({
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Export Report</div>
           <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10, lineHeight: 1.5 }}>Download a PDF due diligence report for your compliance records or to share with your legal team.</div>
-          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+          <button onClick={() => window.open('/contact', '_blank')} style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
             Export PDF Report
           </button>
         </div>
@@ -8305,7 +8305,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Contribute Pricing Data</div>
           <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Share anonymised transaction data to improve benchmark accuracy for your market.</div>
-          <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+          <button onClick={() => window.open('/intake', '_blank')} style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
             Submit Price Data
           </button>
         </div>
