@@ -215,7 +215,7 @@ export type CountryIntelProfile = {
 }
 
 const _INTEL_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
-const _INTEL_SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const _INTEL_SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
   if (!iso2) return null
