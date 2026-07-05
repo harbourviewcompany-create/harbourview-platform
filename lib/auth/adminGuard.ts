@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers';
+import type { NextRequest } from 'next/server';
 import { forbidden, unauthorized } from 'next/navigation';
 import { hasAdminRole, isAppRole, type AppRole } from './adminRoles';
 import { ADMIN_SESSION_COOKIE_NAME } from './adminLogin';
@@ -26,6 +27,8 @@ type AdminAuthFailureReason =
 type AdminAuthCheck =
   | { ok: true; auth: AdminAuthResult }
   | { ok: false; reason: AdminAuthFailureReason };
+
+type CookieEntry = { name: string; value: string };
 
 // Admin routes allow admin/operator roles; analyst/viewer roles are denied.
 function requireEnv(name: string) {
@@ -97,14 +100,35 @@ function readAccessTokenFromCookieValue(value: string): string | null {
   return null;
 }
 
-async function resolveAccessToken() {
-  const headerToken = extractBearerToken((await headers()).get('authorization'));
+// Resolves the incoming authorization header + cookies either from an explicit
+// NextRequest (route handlers invoked directly, e.g. in unit tests, or edge
+// runtimes without AsyncLocalStorage-based request scoping) or, when no request
+// is provided, from Next's ambient `headers()`/`cookies()` (Server Components,
+// Server Actions, or route handlers relying on the request-scoped context).
+async function getRequestContext(
+  request?: NextRequest,
+): Promise<{ authorization: string | null; cookieEntries: CookieEntry[] }> {
+  if (request) {
+    return {
+      authorization: request.headers.get('authorization'),
+      cookieEntries: request.cookies.getAll(),
+    };
+  }
+
+  const [headerList, cookieStore] = await Promise.all([headers(), cookies()]);
+  return {
+    authorization: headerList.get('authorization'),
+    cookieEntries: cookieStore.getAll(),
+  };
+}
+
+async function resolveAccessToken(request?: NextRequest): Promise<string | null> {
+  const { authorization, cookieEntries } = await getRequestContext(request);
+
+  const headerToken = extractBearerToken(authorization);
   if (headerToken) return headerToken;
 
-  const cookieStore = await cookies();
-  const cookieEntries = cookieStore.getAll();
-  const namedSessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE_NAME);
-
+  const namedSessionCookie = cookieEntries.find((cookie) => cookie.name === ADMIN_SESSION_COOKIE_NAME);
   if (namedSessionCookie) {
     const token = readAccessTokenFromCookieValue(namedSessionCookie.value);
     if (token) return token;
@@ -193,13 +217,13 @@ async function readRolesFromUserRoles(userId: string, accessToken: string): Prom
     : [];
 }
 
-export async function getAdminAuth(): Promise<AdminAuthResult | null> {
-  const result = await getAdminAuthCheck();
+export async function getAdminAuth(request?: NextRequest): Promise<AdminAuthResult | null> {
+  const result = await getAdminAuthCheck(request);
   return result.ok ? result.auth : null;
 }
 
-export async function getAdminAuthCheck(): Promise<AdminAuthCheck> {
-  const accessToken = await resolveAccessToken();
+export async function getAdminAuthCheck(request?: NextRequest): Promise<AdminAuthCheck> {
+  const accessToken = await resolveAccessToken(request);
   if (!accessToken) return { ok: false, reason: 'missing_access_token' };
 
   let user: SupabaseUser | null;
@@ -216,8 +240,8 @@ export async function getAdminAuthCheck(): Promise<AdminAuthCheck> {
   return { ok: true, auth: { user, roles } };
 }
 
-export async function requireAdminAuth() {
-  const result = await getAdminAuthCheck();
+export async function requireAdminAuth(request?: NextRequest) {
+  const result = await getAdminAuthCheck(request);
   if (result.ok) return result.auth;
 
   if (result.reason === 'missing_access_token' || result.reason === 'invalid_access_token') {
@@ -226,4 +250,3 @@ export async function requireAdminAuth() {
 
   forbidden();
 }
-
