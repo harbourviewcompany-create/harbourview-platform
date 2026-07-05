@@ -16,6 +16,7 @@ export type DossierFileRow = {
   country_id: string | null
   storage_bucket: string | null
   file_path: string | null
+  drive_file_id: string | null
   file_size_bytes: number | null
   maturity_score: number | null
   maturity_tier: string | null
@@ -106,7 +107,7 @@ export default function DossiersClient({
         <div className="space-y-3">
           {grouped.map((row) => {
             const file = findFile(row.market, fileRows)
-            const hasFile = !!file?.file_path
+            const hasFile = !!(file?.file_path || file?.drive_file_id)
             return (
               <div key={row.id} className="rounded-xl border border-[#C6A55A]/15 bg-[#0B1A2F] p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">

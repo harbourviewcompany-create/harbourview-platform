@@ -28,7 +28,7 @@ async function getPortfolio(): Promise<{
 
   const [statusRes, fileRes] = await Promise.all([
     fetch(`${url}/rest/v1/dossier_status?select=id,market,region,status,priority,last_updated,notes&order=priority.asc,market.asc`, { headers, cache: 'no-store' }),
-    fetch(`${url}/rest/v1/dossiers?select=id,title,country_id,storage_bucket,file_path,file_size_bytes,maturity_score,maturity_tier,page_count,updated_at`, { headers, cache: 'no-store' }),
+    fetch(`${url}/rest/v1/dossiers?select=id,title,country_id,storage_bucket,file_path,drive_file_id,file_size_bytes,maturity_score,maturity_tier,page_count,updated_at`, { headers, cache: 'no-store' }),
   ])
 
   if (!statusRes.ok) return { statusRows: [], fileRows: [], error: `dossier_status fetch failed: ${statusRes.status}` }

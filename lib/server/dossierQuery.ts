@@ -9,6 +9,7 @@ export type CountryDossier = {
   country_id: string | null
   storage_bucket: string | null
   file_path: string | null
+  drive_file_id: string | null
   file_size_bytes: number | null
   maturity_score: number | null
   maturity_tier: string | null
@@ -19,9 +20,10 @@ export type CountryDossier = {
 /**
  * Fetches the deep-dive v5 market dossier record for a country, if one
  * exists. Returns null if there's no dossier row, or if the row exists but
- * has no file uploaded yet (file_path null) — callers should treat both
- * cases the same way (no dossier to surface), since a fileless row is a
- * tracked-but-not-yet-produced placeholder, not a real asset.
+ * has no file attached yet (neither drive_file_id nor file_path set) —
+ * callers should treat both cases the same way (no dossier to surface),
+ * since a fileless row is a tracked-but-not-yet-produced placeholder, not a
+ * real asset.
  *
  * Distinct from getLatestBriefing() (AI-synthesized weekly signal digest)
  * and getPlaybook() (procedural market-entry steps) — this is the
@@ -31,7 +33,7 @@ export async function getCountryDossier(countryId: string): Promise<CountryDossi
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !countryId) return null
   try {
     const params = new URLSearchParams({
-      select: 'id,title,country_id,storage_bucket,file_path,file_size_bytes,maturity_score,maturity_tier,page_count,updated_at',
+      select: 'id,title,country_id,storage_bucket,file_path,drive_file_id,file_size_bytes,maturity_score,maturity_tier,page_count,updated_at',
       country_id: `eq.${countryId}`,
       limit: '1',
     })
@@ -42,7 +44,7 @@ export async function getCountryDossier(countryId: string): Promise<CountryDossi
     if (!res.ok) return null
     const rows: CountryDossier[] = await res.json()
     const dossier = rows[0]
-    if (!dossier || !dossier.file_path) return null
+    if (!dossier || (!dossier.file_path && !dossier.drive_file_id)) return null
     return dossier
   } catch {
     return null
