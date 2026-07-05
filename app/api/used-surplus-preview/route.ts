@@ -56,7 +56,7 @@ function toSourceDto(entry: ScrapeRunResult) {
 }
 
 export async function GET(request: NextRequest) {
-  const authFailure = await requireAdminApiAuth()
+  const authFailure = await requireAdminApiAuth(request)
   if (authFailure) return authFailure
 
   const searchParams = request.nextUrl.searchParams
