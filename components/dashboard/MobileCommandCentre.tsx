@@ -280,7 +280,7 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
     <>
       <section className="hvm-hero-card">
         <div className="hvm-country-row">
-          <span className="hvm-country-mark">🌐</span>
+          <span className="hvm-country-mark">{flagEmoji(country.iso2)}</span>
           <div>
             <h2>{country.label}</h2>
             <p>{roleLabel}</p>
@@ -335,15 +335,36 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
       )}
 
       {signals.length > 0 && (
-        <MobileAccordion title="Recent intelligence signals">
+        <MobileAccordion title={`Recent intelligence signals (${signals.length})`} defaultOpen>
           <div className="hvm-list-stack">
-            {signals.slice(0, 4).map((signal, index) => (
-              <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
-                <strong>{signal.flag} {signal.title}</strong>
-                <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
-                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+            {signals.slice(0, 4).map((signal, index) => {
+              const cat = signal.type?.toLowerCase().includes('reg') || signal.type?.toLowerCase().includes('policy') ? 'regulatory' :
+                          signal.type?.toLowerCase().includes('market') || signal.type?.toLowerCase().includes('trade') ? 'economic' : 'trade'
+              const catColor = cat === 'regulatory' ? '#5b9bd5' : cat === 'economic' ? '#d4a84b' : '#4caf82'
+              const confColor = signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555'
+              return (
+                <div className="hvm-signal-card hvm-signal-card--rich" key={`${signal.title}-${index}`} style={{ borderLeft: `3px solid ${catColor}` }}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': catColor } as React.CSSProperties}>{cat.toUpperCase()}</span>
+                    <span className="hvm-sig-market">{signal.market}</span>
+                    <span className="hvm-sig-time">{signal.timeAgo}</span>
+                  </div>
+                  <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+                  <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                  <div className="hvm-sig-footer">
+                    <div className="hvm-sig-conf-bar">
+                      <div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} />
+                    </div>
+                    <span className="hvm-sig-conf-val" style={{ color: confColor }}>{signal.confidence}%</span>
+                  </div>
+                </div>
+              )
+            })}
+            {signals.length > 4 && (
+              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+                <span style={{ fontSize: 12, color: '#d4a84b', fontWeight: 600 }}>+{signals.length - 4} more · tap Intel tab for full feed</span>
               </div>
-            ))}
+            )}
           </div>
         </MobileAccordion>
       )}
@@ -403,11 +424,11 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         const maxBar = Math.max(...bars, 1)
         return (
           <MobileAccordion title={`Evidence confidence · ${avg}% avg`}>
-            <div className="hvm-conf-bar-wrap">
+            <div className="hvm-conf-chart-wrap">
               {bars.map((count, i) => (
                 <div key={i} className="hvm-conf-bar-col">
                   <div className="hvm-conf-bar-track">
-                    <div className="hvm-conf-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
+                    <div className="hvm-conf-chart-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
                   </div>
                   <span>{(i + 1) * 20}%</span>
                 </div>
@@ -3144,103 +3165,6 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
   )
 }
 
-// ── Countries Directory Mobile ────────────────────────────────────────────────
-
-function CountriesMobile({ signals, onCountrySelect }: {
-  signals: DashboardSignal[]
-  onCountrySelect?: (iso2: string) => void
-}) {
-  const [search, setSearch] = useState('')
-
-  const signalCountByMarket = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const s of signals) {
-      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
-    }
-    return counts
-  }, [signals])
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return ALL_COUNTRIES
-    const q = search.toLowerCase()
-    return ALL_COUNTRIES.filter(c => c.displayName.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
-  }, [search])
-
-  const byRegion = useMemo(() => {
-    const map = new Map<string, typeof ALL_COUNTRIES>()
-    for (const c of filtered) {
-      const key = c.region ?? 'Other'
-      map.set(key, [...(map.get(key) ?? []), c])
-    }
-    return map
-  }, [filtered])
-
-  return (
-    <div className="hvm-page-stack">
-      <div className="hvm-hero-card compact">
-        <p className="hvm-kicker">Country &amp; Territory Directory</p>
-        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>{ALL_COUNTRIES.length} Countries</strong>
-        <p>All Harbourview jurisdictions. Tap any country to load its intelligence into the dashboard.</p>
-      </div>
-      <input
-        type="text"
-        placeholder="Search countries…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{
-          width:'100%', padding:'12px 14px', borderRadius:12,
-          border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)',
-          color:'rgba(245,240,232,.9)', fontSize:15, fontFamily:'inherit',
-          outline:'none',
-        }}
-      />
-      {filtered.length === 0 ? (
-        <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
-          <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No countries match &ldquo;{search}&rdquo;</p>
-        </div>
-      ) : (
-        [...byRegion.entries()].map(([region, countries]) => (
-          <details key={region} className="hvm-accordion" open={byRegion.size <= 3}>
-            <summary>
-              <span>{region}</span>
-              <span style={{ fontSize:12, fontWeight:400, color:'rgba(245,240,232,.45)' }}>{countries.length}</span>
-            </summary>
-            <div className="hvm-accordion-body">
-              <div className="hvm-list-stack" style={{ gap:8 }}>
-                {countries.map(c => {
-                  const sigCount = signalCountByMarket[c.displayName] ?? 0
-                  return (
-                    <button
-                      key={c.iso2}
-                      type="button"
-                      onClick={() => onCountrySelect?.(c.iso2)}
-                      style={{
-                        display:'flex', alignItems:'center', gap:10,
-                        padding:'10px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,.08)',
-                        background:'rgba(255,255,255,.03)', cursor:'pointer', textAlign:'left', width:'100%',
-                        color:'rgba(245,240,232,.88)', fontFamily:'inherit',
-                      }}
-                    >
-                      <span style={{ fontSize:20, flexShrink:0 }}>{flagEmoji(c.iso2)}</span>
-                      <span style={{ flex:1, minWidth:0 }}>
-                        <span style={{ display:'block', fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.displayName}</span>
-                        <span style={{ display:'block', fontSize:11, color:'rgba(245,240,232,.42)', fontFamily:'monospace' }}>
-                          {c.iso2}{sigCount > 0 ? ` · ${sigCount} signal${sigCount > 1 ? 's' : ''}` : ''}
-                        </span>
-                      </span>
-                      {sigCount > 0 && <span style={{ width:7, height:7, borderRadius:'50%', background:'#d4a84b', flexShrink:0 }} />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </details>
-        ))
-      )}
-    </div>
-  )
-}
-
 export default function MobileCommandCentre({
   signals,
   digestSignals,
@@ -3277,12 +3201,26 @@ export default function MobileCommandCentre({
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
   const [activePage, setActivePage] = useState<CommandPage>(() => {
-    const valid = MOBILE_NAV.some(item => item.id === initialPage)
-    return valid ? (initialPage as CommandPage) : 'briefing'
+    if (!initialPage) return 'briefing'
+    if (MOBILE_NAV.some(item => item.id === initialPage)) return initialPage as CommandPage
+    // Map desktop-only pages to their mobile equivalents
+    if (initialPage === 'regulatory' || initialPage === 'watchlist') return 'signals'
+    if (initialPage === 'access-pathway' || initialPage === 'local-intel' || initialPage === 'settings') return 'briefing'
+    if (initialPage === 'evidence') return 'education'
+    return 'briefing'
   })
   const [contextOpen, setContextOpen] = useState(false)
-  const [briefingSub, setBriefingSub] = useState<BriefingSub>('overview')
-  const [signalsSub, setSignalsSub] = useState<SignalSub>('feed')
+  const [briefingSub, setBriefingSub] = useState<BriefingSub>(() => {
+    if (initialPage === 'access-pathway') return 'pathway'
+    if (initialPage === 'local-intel') return 'local-intel'
+    if (initialPage === 'settings') return 'settings'
+    return 'overview'
+  })
+  const [signalsSub, setSignalsSub] = useState<SignalSub>(() => {
+    if (initialPage === 'regulatory') return 'regulatory'
+    if (initialPage === 'watchlist') return 'watchlist'
+    return 'feed'
+  })
 
   const countryOptions = useMemo<SelectOption[]>(() => COUNTRIES.map(c => ({ value: c.iso2, label: c.label })), [])
   const roleOptions = useMemo<SelectOption[]>(() => Object.entries(ROLE_PROFILES).map(([value, profile]) => ({ value, label: profile.label })), [])
@@ -3368,7 +3306,7 @@ export default function MobileCommandCentre({
       case 'compliance':
         return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'countries':
-        return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
+        return <CountriesDirectoryMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
         return null
     }
@@ -4022,7 +3960,7 @@ const MOBILE_CSS = `
   font-size: 28px; font-weight: 700; line-height: 1.1; margin: 4px 0 8px;
 }
 .hvm-conf-bar-wrap {
-  height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
+  position: relative; height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
 }
 .hvm-conf-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
 
@@ -4166,7 +4104,7 @@ const MOBILE_CSS = `
 .hvm-watch-type-card:hover { background: rgba(255,255,255,.06); }
 .hvm-watch-type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
 
-.hvm-conf-bar-wrap {
+.hvm-conf-chart-wrap {
   display: flex; align-items: flex-end; gap: 8px; height: 64px;
 }
 .hvm-conf-bar-col {
@@ -4176,7 +4114,7 @@ const MOBILE_CSS = `
   flex: 1; width: 100%; border-radius: 4px;
   background: rgba(255,255,255,.08); position: relative; overflow: hidden;
 }
-.hvm-conf-bar-fill {
+.hvm-conf-chart-fill {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: linear-gradient(180deg, #d4a84b, rgba(212,168,75,.45));
   border-radius: 4px 4px 0 0; transition: height .3s;
