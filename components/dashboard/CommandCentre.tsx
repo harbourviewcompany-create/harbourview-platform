@@ -881,6 +881,7 @@ const SignalsPage = React.memo(function SignalsPage({
   const [filterConf,    setFilterConf]    = useState('all')
   const [filterType,    setFilterType]    = useState('all')
   const [currentPage,   setCurrentPage]   = useState(1)
+  const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
   const PAGE_SIZE = 6
 
   // ── Live signal fetch ──────────────────────────────────────────────────────
@@ -1005,7 +1006,68 @@ const SignalsPage = React.memo(function SignalsPage({
   return (
     <div className="cc-page cc-two-col-page">
       {/* ── Main feed ───────────────────────────────────────── */}
-      <div className="cc-two-main">
+      <div className="cc-two-main" style={{ position: 'relative', overflow: 'hidden' }}>
+        {selectedSignal && (() => {
+          const imp = deriveImpact(selectedSignal.confidence)
+          const impColor = selectedSignal.confidence >= 80 ? 'var(--cc-green)' : selectedSignal.confidence >= 65 ? 'var(--cc-amber)' : 'var(--cc-red)'
+          const grp = deriveSignalGroup(selectedSignal.title)
+          return (
+            <div style={{ position: 'absolute', inset: 0, background: 'var(--cc-page-bg, #0b1929)', zIndex: 10, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <button type="button" onClick={() => setSelectedSignal(null)} style={{ alignSelf: 'flex-start', margin: '16px 20px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(212,168,75,.8)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                ← INTELLIGENCE FEED
+              </button>
+              <div style={{ padding: '20px 20px 0' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                  <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--cc-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{grp}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--cc-muted)', marginLeft: 'auto' }}>{selectedSignal.timeAgo}</span>
+                </div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--cc-text)', lineHeight: 1.3, marginBottom: 8 }}>{selectedSignal.title}</h2>
+                {selectedSignal.market && (
+                  <p style={{ fontSize: '11px', color: 'var(--cc-muted)', marginBottom: 16 }}>
+                    {selectedSignal.market}{region ? ` · ${region}` : ''}
+                  </p>
+                )}
+              </div>
+              <div className="cc-jx-fields" style={{ margin: '0 20px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div className="cc-jx-field">
+                  <span className="cc-jx-field-icon">◎</span>
+                  <div><small>Confidence</small><strong style={{ color: impColor }}>{selectedSignal.confidence}%</strong></div>
+                </div>
+                <div className="cc-jx-field">
+                  <span className="cc-jx-field-icon">≋</span>
+                  <div><small>Impact</small><strong>{imp}</strong></div>
+                </div>
+                {selectedSignal.market && (
+                  <div className="cc-jx-field">
+                    <span className="cc-jx-field-icon">◫</span>
+                    <div><small>Jurisdiction</small><strong>{selectedSignal.market}</strong></div>
+                  </div>
+                )}
+                <div className="cc-jx-field">
+                  <span className="cc-jx-field-icon">◷</span>
+                  <div><small>Detected</small><strong>{selectedSignal.timeAgo}</strong></div>
+                </div>
+              </div>
+              {selectedSignal.commercialImpact && (
+                <div style={{ margin: '0 20px 12px', borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderLeft: `3px solid ${impColor}` }}>
+                  <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cc-champagne)', marginBottom: 6 }}>Commercial impact</p>
+                  <p style={{ fontSize: '12px', color: 'rgba(243,240,234,0.75)', lineHeight: 1.55 }}>{selectedSignal.commercialImpact}</p>
+                </div>
+              )}
+              <div style={{ margin: '0 20px 12px', borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cc-champagne)', marginBottom: 6 }}>Why it matters</p>
+                <p style={{ fontSize: '12px', color: 'rgba(243,240,234,0.65)', lineHeight: 1.55 }}>
+                  This signal affects operations in {selectedSignal.market || country.label}{region ? ` · ${region}` : ''}. {imp === 'High' ? 'High-impact signals indicate regulatory or market changes requiring immediate attention.' : imp === 'Medium' ? 'Medium-impact signals warrant monitoring and may influence near-term decisions.' : 'Low-impact signals provide contextual intelligence for strategic planning.'}
+                </p>
+              </div>
+              <div style={{ margin: '0 20px 20px', display: 'flex', gap: 8 }}>
+                <button className="cc-sig-brief" style={{ flex: 1, padding: '8px 0', borderRadius: 10 }} onClick={() => onPageChange?.('watchlist')}>↗ Add to watchlist</button>
+                <button className="cc-sig-brief" style={{ flex: 1, padding: '8px 0', borderRadius: 10 }} onClick={() => setSelectedSignal(null)}>Back to feed</button>
+              </div>
+            </div>
+          )
+        })()}
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
@@ -1080,7 +1142,7 @@ const SignalsPage = React.memo(function SignalsPage({
                       <span>{s.timeAgo}</span>
                     </div>
                     <div className="cc-sig-acts">
-                      <button className="cc-sig-brief" onClick={() => onPageChange?.('signals')}>Open brief</button>
+                      <button className="cc-sig-brief" onClick={() => setSelectedSignal(s)}>Open brief</button>
                       <button className="cc-sig-watch" onClick={() => onPageChange?.('watchlist')}>↗ Add to watchlist</button>
                     </div>
                   </div>
@@ -1582,6 +1644,7 @@ const EducationPage = React.memo(function EducationPage({
   const modules    = useMemo(() => buildLearningPath(eduCategories), [eduCategories])
   const roleDisp   = role ? role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Professional'
   const nextModule = modules.find(m => m.progress < 100 && m.level === 'REQUIRED')
+  const [selectedModule, setSelectedModule] = useState<LearningModule | null>(null)
 
   const REL_EVIDENCE = useMemo(() => {
     if (liveTiles && liveTiles.length > 0) {
@@ -1616,7 +1679,70 @@ const EducationPage = React.memo(function EducationPage({
   return (
     <div className="cc-page cc-two-col-page">
       {/* ── Main ────────────────────────────────────────────── */}
-      <div className="cc-two-main">
+      <div className="cc-two-main" style={{ position: 'relative', overflow: 'hidden' }}>
+        {selectedModule && (
+          <div style={{ position: 'absolute', inset: 0, background: 'var(--cc-page-bg, #0b1929)', zIndex: 10, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <button type="button" onClick={() => setSelectedModule(null)} style={{ alignSelf: 'flex-start', margin: '16px 20px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(212,168,75,.8)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              ← LEARNING PATH
+            </button>
+            <div style={{ padding: '20px 20px 0' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                <span className={`cc-edu-badge ${selectedModule.level.toLowerCase()}`}>{selectedModule.level}</span>
+                <span style={{ fontSize: '28px', lineHeight: 1 }}>{selectedModule.icon}</span>
+              </div>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--cc-text)', lineHeight: 1.3, marginBottom: 8 }}>
+                {selectedModule.num}. {selectedModule.title}
+              </h2>
+              <p style={{ fontSize: '12px', color: 'rgba(243,240,234,0.65)', lineHeight: 1.55, marginBottom: 16 }}>{selectedModule.desc}</p>
+            </div>
+            <div className="cc-jx-fields" style={{ margin: '0 20px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div className="cc-jx-field">
+                <span className="cc-jx-field-icon">◷</span>
+                <div><small>Duration</small><strong>{selectedModule.minutes} min</strong></div>
+              </div>
+              <div className="cc-jx-field">
+                <span className="cc-jx-field-icon">◎</span>
+                <div><small>Progress</small><strong>{selectedModule.progress > 0 ? `${selectedModule.progress}% complete` : 'Not started'}</strong></div>
+              </div>
+              <div className="cc-jx-field">
+                <span className="cc-jx-field-icon">◫</span>
+                <div><small>Jurisdiction</small><strong>{country.label}</strong></div>
+              </div>
+              <div className="cc-jx-field">
+                <span className="cc-jx-field-icon">⊟</span>
+                <div><small>Required for</small><strong>Compliance pathway</strong></div>
+              </div>
+            </div>
+            {selectedModule.progress > 0 && (
+              <div style={{ margin: '0 20px 12px' }}>
+                <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${selectedModule.progress}%`, background: 'var(--cc-green)', borderRadius: 3 }} />
+                </div>
+                <p style={{ fontSize: '10px', color: 'var(--cc-muted)', marginTop: 4 }}>{selectedModule.progress}% complete</p>
+              </div>
+            )}
+            <div style={{ margin: '0 20px 12px', borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--cc-champagne)', marginBottom: 8 }}>What you&apos;ll cover</p>
+              {[
+                'Regulatory framework and legal obligations',
+                'Documentation and recordkeeping requirements',
+                'Compliance checkpoints and audit readiness',
+                'Practical application to your market and role',
+              ].map((topic, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--cc-champagne)', fontSize: '10px', marginTop: 2, flexShrink: 0 }}>◎</span>
+                  <span style={{ fontSize: '12px', color: 'rgba(243,240,234,0.7)', lineHeight: 1.45 }}>{topic}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ margin: '0 20px 20px', display: 'flex', gap: 8 }}>
+              <button className="cc-edu-cta start" style={{ flex: 1 }} onClick={() => setSelectedModule(null)}>
+                {selectedModule.progress > 0 ? 'Continue module' : 'Start module'} →
+              </button>
+              <button className="cc-sig-brief" style={{ padding: '8px 14px', borderRadius: 10 }} onClick={() => setSelectedModule(null)}>Back</button>
+            </div>
+          </div>
+        )}
         <div className="cc-inner-header cc-edu-header-row">
           <span className="cc-edu-hd-icon">📋</span>
           <div>
@@ -1646,7 +1772,7 @@ const EducationPage = React.memo(function EducationPage({
                   : <span className="cc-edu-ns">Not started</span>
                 }
               </div>
-              <button className={`cc-edu-cta ${m.progress>0?'continue':'start'}`}>
+              <button className={`cc-edu-cta ${m.progress>0?'continue':'start'}`} onClick={() => setSelectedModule(m)}>
                 {m.progress>0?'Continue':'Start module'}
               </button>
             </div>
