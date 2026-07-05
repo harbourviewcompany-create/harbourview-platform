@@ -8,6 +8,9 @@ This file defines baseline instructions for all agents and contributors working 
 - **Conflict rule:** The most deeply nested `AGENTS.md` wins for style/process details, while higher-level safety/compliance constraints still apply unless explicitly tightened.
 - **Stricter subdirectory guidance:** Teams should add nested `AGENTS.md` files in sensitive areas (for example data ingestion, auth, billing, analytics, or infra) when stricter controls are needed.
 
+## Claude-Specific Operating Preferences
+Tyler's personal operating preferences for Claude sessions (action-on-reversibility rules, credential handling, the merge/deploy sign-off boundary) live in `CLAUDE.md` at the repo root and apply to any Claude session working in this codebase. Where the two files both speak to process (PR discipline, QA gates, etc.), this file is the more specific and authoritative source for this repository.
+
 ## Coding & Style Expectations
 - Follow existing conventions in touched files; do not introduce a second style system in the same module.
 - Keep changes minimal, composable, and reversible; avoid opportunistic refactors unless requested.
@@ -158,4 +161,3 @@ Related controls:
 - `docs/control/PRODUCTION_RUNTIME_VERIFICATION.md`
 - `docs/control/DEPLOYMENT_RUNBOOK.md`
 - `docs/control/PRODUCTION_PROMOTION_RUNBOOK.md`
-
