@@ -21,6 +21,15 @@ export type EducationTrack = {
   modules: EducationModule[]
 }
 
+export type EducationModuleSection = {
+  id: string
+  module_id: string
+  section_order: number
+  heading: string
+  body: string
+  block_type: string
+}
+
 export const TRACK_LABELS: Record<string, string> = {
   clinical: 'Clinical',
   compliance: 'Compliance & Quality',
@@ -122,6 +131,29 @@ export async function getEducationModuleBySlug(slug: string): Promise<EducationM
     return rows[0] ?? null
   } catch {
     return null
+  }
+}
+
+// Returns the deep-guide body content for a module, ordered for display.
+// education_module_sections holds the ~2,500+ word per-module content
+// (Why This Matters / The Core Framework / How This Plays Out in Practice /
+// etc.) that the detail page previously never fetched.
+export async function getModuleSections(moduleId: string): Promise<EducationModuleSection[]> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  try {
+    const params = new URLSearchParams({
+      select: 'id,module_id,section_order,heading,body,block_type',
+      module_id: `eq.${moduleId}`,
+      order: 'section_order.asc',
+    })
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/education_module_sections?${params}`, {
+      next: { revalidate: 3600 },
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Accept: 'application/json' },
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
   }
 }
 
