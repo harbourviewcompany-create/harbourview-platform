@@ -205,15 +205,34 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     if (user?.id) { userId = user.id; userEmail = user.email ?? null }
   } catch { /* unauthenticated */ }
 
-  // Split into two tiers:
+  // ── Resilient data fetch ──────────────────────────────────────────────────
+  // NOTE: Promise.all was previously used here. A single throw from ANY of
+  // these Supabase calls (e.g. a missing-table schema-cache error, or a
+  // GoTrue rate-limit error) propagated uncaught out of this Server
+  // Component. With no error.tsx in this route tree, that surfaced as
+  // Next.js's bare, unstyled default error page — losing the entire
+  // Harbourview shell for the visitor. Promise.allSettled + per-call
+  // fallbacks means one failing data source degrades that panel only.
+  function settledOr<T>(result: PromiseSettledResult<T>, fallback: T, label: string): T {
+    if (result.status === 'fulfilled') return result.value
+    console.error(`[country-role-dashboard] ${label} failed:`, result.reason)
+    return fallback
+  }
+
   // Tier 1 — critical path (needed for initial paint)
-  const [countryIntelProfile, pathwayData] = await Promise.all([
+  const [countryIntelProfileResult, pathwayDataResult] = await Promise.allSettled([
     getCountryIntelProfile(countryIso2),
     getPublicPathwayTemplate(countryIso2, roleId),
   ])
+  const countryIntelProfile = settledOr(countryIntelProfileResult, null, 'getCountryIntelProfile')
+  const pathwayData = settledOr(pathwayDataResult, undefined, 'getPublicPathwayTemplate')
 
   // Tier 2 — deferred (streamed in after shell renders)
-  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, liveTiles, recentEduModules, watchlistData, evidenceData, sourceCoverage, localIntel] = await Promise.all([
+  const [
+    signalsResult, pipelineResult, wantedListingsResult, wantedCountResult,
+    marketplaceRowsResult, liveTilesResult, recentEduModulesResult,
+    watchlistDataResult, evidenceDataResult, sourceCoverageResult, localIntelResult,
+  ] = await Promise.allSettled([
     fetchDashboardSignals(40, countryName),
     getPipelineCounts(),
     getWantedListings(countryIso2),
@@ -226,6 +245,18 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     getSourceCoverage(countryIso2),
     getLocalIntel(countryIso2),
   ])
+
+  const signals = settledOr(signalsResult, [], 'fetchDashboardSignals')
+  const pipeline = settledOr(pipelineResult, undefined, 'getPipelineCounts')
+  const wantedListings = settledOr(wantedListingsResult, [], 'getWantedListings')
+  const wantedCount = settledOr(wantedCountResult, 0, 'getWantedRequestsCount')
+  const marketplaceRows = settledOr(marketplaceRowsResult, {}, 'getCountryRoleMarketplaceRows')
+  const liveTiles = settledOr(liveTilesResult, [], 'getLiveEduTiles')
+  const recentEduModules = settledOr(recentEduModulesResult, [], 'getRecentEduModules')
+  const watchlistData = settledOr(watchlistDataResult, undefined, 'getWatchlistData')
+  const evidenceData = settledOr(evidenceDataResult, undefined, 'getEvidenceData')
+  const sourceCoverage = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
+  const localIntel = settledOr(localIntelResult, null, 'getLocalIntel')
 
   return (
     <DashboardResponsiveShell
