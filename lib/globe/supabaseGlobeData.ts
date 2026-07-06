@@ -44,7 +44,7 @@ export type GlobeLiveData = {
 }
 
 export async function getGlobeLiveData(): Promise<GlobeLiveData> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
