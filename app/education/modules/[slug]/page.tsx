@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PublicSection, SectionHeader, PublicCtaGroup } from '@/components/PublicUi'
-import { getEducationModuleBySlug, getPublishedEducationModules, getTrackLabelMap, AUDIENCE_LABELS } from '@/lib/server/educationModulesQuery'
+import { getEducationModuleBySlug, getPublishedEducationModules, getTrackLabelMap, getModuleSections, AUDIENCE_LABELS } from '@/lib/server/educationModulesQuery'
 
 export const revalidate = 3600
 
@@ -29,6 +29,7 @@ export default async function EducationModulePage({ params }: { params: Promise<
   ])
   if (!module_) return notFound()
 
+  const sections = await getModuleSections(module_.id)
   const trackLabel = trackLabelMap[module_.track_id] ?? module_.track_id
   const audienceLabels = module_.audience.map((a) => AUDIENCE_LABELS[a] ?? a)
 
@@ -53,10 +54,25 @@ export default async function EducationModulePage({ params }: { params: Promise<
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-[#C6A55A]">Public-safe module</p>
-          <p className="mt-4 text-base leading-8 text-white/75">{module_.description}</p>
-        </div>
+        {sections.length > 0 ? (
+          <div className="mt-8 space-y-6">
+            {sections.map((section) => (
+              <div key={section.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+                <h2 className="text-lg font-semibold text-[#F5F1E8]">{section.heading}</h2>
+                <div className="mt-4 space-y-4">
+                  {section.body.split('\n\n').map((paragraph, i) => (
+                    <p key={i} className="text-base leading-8 text-white/75">{paragraph}</p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#C6A55A]">Public-safe module</p>
+            <p className="mt-4 text-base leading-8 text-white/75">{module_.description}</p>
+          </div>
+        )}
 
         <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.03] p-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Education boundary</p>
