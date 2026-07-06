@@ -38,10 +38,6 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/cron/scrape",
-      "schedule": "0 8 * * *"
-    },
-    {
       "path": "/api/cron/embed-signals",
       "schedule": "0 9 * * *"
     },
