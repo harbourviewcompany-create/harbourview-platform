@@ -89,6 +89,12 @@ export default async function MarketPage({ params }: Props) {
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveMarketData(panel.state)
 
+  // Fetch the live DB intel profile once, up front — used both for the tier-2
+  // fallback below AND for the deep commercial-pathway / regulatory-outlook
+  // content section further down (which was previously never rendered even
+  // though the data layer already returns it).
+  const liveProfile = await getCountryIntelProfile(country.iso2)
+
   // Tier 1: static registry (9 countries); Tier 2: live DB briefing; Tier 3: derived from panel state
   let derived: MarketDerived
   if (intel?.market) {
@@ -99,7 +105,6 @@ export default async function MarketPage({ params }: Props) {
       regulator: { label: intel.market.regulatorLabel,  detail: intel.market.regulatorDetail },
     }
   } else {
-    const liveProfile = await getCountryIntelProfile(country.iso2)
     derived = liveProfile?.briefing_program_status ? {
       model:     {
         label:  liveProfile.briefing_program_status,
@@ -114,6 +119,16 @@ export default async function MarketPage({ params }: Props) {
     } : baseDerived
   }
   const isLocked = panel.state === 'unavailable' || panel.state === 'request-only'
+
+  // Deep intel content — rendered only when real enriched material exists and
+  // the panel isn't access-locked. commercial_pathway_summary is the deep
+  // market-entry briefing; regulatory_outlook and patient/physician access are
+  // structured jurisdiction-briefing fields. All are already fetched above.
+  const pathwaySummary   = !isLocked ? liveProfile?.commercial_pathway_summary ?? null : null
+  const regulatoryOutlook = !isLocked ? liveProfile?.briefing_regulatory_outlook ?? null : null
+  const patientAccess    = !isLocked ? liveProfile?.briefing_patient_access ?? null : null
+  const physicianAccess  = !isLocked ? liveProfile?.briefing_physician_access ?? null : null
+  const hasDeepIntel = Boolean(pathwaySummary || regulatoryOutlook || patientAccess || physicianAccess)
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -185,6 +200,58 @@ export default async function MarketPage({ params }: Props) {
         ))}
       </div>
 
+      {/* ── Deep intel: commercial pathway + regulatory outlook ── */}
+      {hasDeepIntel && (
+        <div className="mb-5 space-y-3">
+          {pathwaySummary && (
+            <div
+              className="rounded-2xl p-5"
+              style={{ background: 'rgba(198,165,90,0.05)', border: '1px solid rgba(198,165,90,0.2)' }}
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-base leading-none">🧭</span>
+                <p className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'rgba(198,165,90,0.75)' }}>
+                  Commercial pathway
+                </p>
+              </div>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.75)' }}>
+                {pathwaySummary}
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {regulatoryOutlook && (
+              <div className="rounded-2xl p-4" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-base leading-none">🔭</span>
+                  <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>Regulatory outlook</p>
+                </div>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.5)' }}>{regulatoryOutlook}</p>
+              </div>
+            )}
+            {patientAccess && (
+              <div className="rounded-2xl p-4" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-base leading-none">🩺</span>
+                  <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>Patient access</p>
+                </div>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.5)' }}>{patientAccess}</p>
+              </div>
+            )}
+            {physicianAccess && (
+              <div className="rounded-2xl p-4" style={{ background: 'rgba(7,15,30,0.7)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-base leading-none">👨‍⚕️</span>
+                  <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>Physician access</p>
+                </div>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.5)' }}>{physicianAccess}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Locked notice ── */}
       {isLocked && (
         <div
@@ -230,3 +297,4 @@ export default async function MarketPage({ params }: Props) {
     </div>
   )
 }
+

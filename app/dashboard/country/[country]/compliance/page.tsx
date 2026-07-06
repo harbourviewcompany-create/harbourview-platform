@@ -166,6 +166,11 @@ export default async function CompliancePage({ params }: Props) {
   const intel       = getCountryIntelligence(country.slug)
   const baseDerived = deriveCompliance(panel.state)
 
+  // Fetch live DB intel profile once, up front — used by the tier-2 fallback
+  // below AND the deep regulatory-activity section further down (previously
+  // fetched only inside the else branch, and its richest fields discarded).
+  const liveProfile = await getCountryIntelProfile(country.iso2)
+
   // Tier 1: static registry (9 countries); Tier 2: live DB briefing; Tier 3: derived from panel state
   let derived: ComplianceDerived
   if (intel?.compliance) {
@@ -177,7 +182,6 @@ export default async function CompliancePage({ params }: Props) {
       requirements: intel.compliance.requirements,
     }
   } else {
-    const liveProfile = await getCountryIntelProfile(country.iso2)
     derived = liveProfile?.briefing_program_status ? {
       headline:     liveProfile.briefing_program_status,
       subline:      liveProfile.briefing_regulatory_outlook?.slice(0, 220) ?? baseDerived.subline,
@@ -188,6 +192,15 @@ export default async function CompliancePage({ params }: Props) {
   }
   const metCount   = derived.requirements.filter((r) => r.status === 'met').length
   const totalCount = derived.requirements.length
+
+  // Deep compliance context — access rules + tracked regulatory changes. Gated
+  // on real content and non-locked panels so empty countries render unchanged.
+  const isLocked = panel.state === 'unavailable' || panel.state === 'request-only'
+  const physicianAccess = !isLocked ? liveProfile?.briefing_physician_access ?? null : null
+  const patientAccess   = !isLocked ? liveProfile?.briefing_patient_access ?? null : null
+  const recentChanges   = !isLocked ? (liveProfile?.recentChanges ?? []).slice(0, 5) : []
+  const hasAccessIntel  = Boolean(physicianAccess || patientAccess)
+  const hasChanges      = recentChanges.length > 0
 
   return (
     <div className="min-h-full p-5 lg:p-7">
@@ -286,6 +299,61 @@ export default async function CompliancePage({ params }: Props) {
         ))}
       </div>
 
+      {/* ── Access rules (physician / patient) ── */}
+      {hasAccessIntel && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-2">
+          {physicianAccess && (
+            <div className="rounded-2xl p-4" style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.1)' }}>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-base leading-none">👨‍⚕️</span>
+                <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>Physician access</p>
+              </div>
+              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.52)' }}>{physicianAccess}</p>
+            </div>
+          )}
+          {patientAccess && (
+            <div className="rounded-2xl p-4" style={{ background: 'rgba(13,32,55,0.65)', border: '1px solid rgba(198,165,90,0.1)' }}>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-base leading-none">🩺</span>
+                <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>Patient access</p>
+              </div>
+              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.52)' }}>{patientAccess}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tracked regulatory changes ── */}
+      {hasChanges && (
+        <div className="mb-5">
+          <h2 className="mb-3 text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
+            Recent regulatory changes
+          </h2>
+          <div className="space-y-2">
+            {recentChanges.map((change) => (
+              <div
+                key={change.id}
+                className="rounded-xl p-3.5"
+                style={{ background: 'rgba(7,15,30,0.65)', border: '1px solid rgba(255,255,255,0.07)' }}
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-medium text-white">{change.field_name.replace(/_/g, ' ')}</p>
+                  <span className="shrink-0 text-[9px]" style={{ color: 'rgba(243,240,234,0.35)' }}>
+                    {new Date(change.changed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                {change.new_value && (
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.5)' }}>{change.new_value}</p>
+                )}
+                {change.source_label && (
+                  <p className="mt-1 text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(198,165,90,0.4)' }}>{change.source_label}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mb-8 flex flex-wrap gap-2.5">
         <Link
@@ -312,3 +380,4 @@ export default async function CompliancePage({ params }: Props) {
     </div>
   )
 }
+

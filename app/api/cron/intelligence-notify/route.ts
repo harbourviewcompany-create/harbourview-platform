@@ -1,24 +1,26 @@
 // app/api/cron/intelligence-notify/route.ts
-// Vercel Cron — sends daily/weekly signal digest emails to active subscribers.
+// Vercel Cron — sends signal digest emails to active subscribers.
 //
-// Pipeline: intelligence-embed (06:00) → intelligence-notify (07:00 UTC)
+// Runs daily at 07:00 UTC (pipeline: intelligence-embed 06:00 → notify 07:00).
+// Serves BOTH daily and weekly subscribers from this one daily run: daily subs
+// are processed every run; weekly subs are processed only when ≥6 days have
+// passed since their last send. (Previously this route filtered to
+// frequency='daily' only, so the weekly subscribers — which is all of them —
+// never received anything.)
 //
 // Per subscriber:
-//   1. Find ia_signals from the lookback window matching subscription filters
-//      that haven't been sent before (not in signal_digest_log)
+//   1. Find signals within the subscriber's cadence window (48h daily / 8d
+//      weekly) matching their filters that haven't been sent before
+//      (not in signal_digest_log)
 //   2. Send digest email via Resend
 //   3. Write sent signal IDs to signal_digest_log
 //   4. Update subscription.last_sent_at
 //
-// Cadence: this cron runs once a day at 07:00 UTC. 'daily' subscribers are
-// due on every run. 'weekly' subscribers are only due once ~6.5+ days have
-// passed since last_sent_at (fixed 2026-07-05: previously hardcoded to
-// frequency='daily' only, so every 'weekly' subscription -- the only
-// frequency choice actually exercised via the subscribe form until now --
-// was silently excluded and never received anything).
-//
 // Idempotent — signal_digest_log UNIQUE(subscription_id, signal_id)
 // prevents double-sending even if the cron fires twice.
+//
+// Cadence/threshold logic lives in lib/signals/digestCadence.ts (extracted
+// for unit testability — see tests/signals/digestCadence.test.ts).
 //
 // Required env vars:
 //   CRON_SECRET
@@ -33,14 +35,17 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { sendSignalDigest, type DigestSignal } from '@/lib/signals/notification'
 import { generateDigestNarrative } from '@/lib/signals/digestNarrative'
-import { isSubscriptionDue, lookbackHoursFor } from '@/lib/signals/digestCadence'
+import {
+  isSubscriptionDue,
+  lookbackHoursFor,
+  subscriberCutoffMs,
+  scaledMinConfidence,
+} from '@/lib/signals/digestCadence'
 
 export const dynamic   = 'force-dynamic'
 export const maxDuration = 300
 
-// Look back 48h so signals from slow extraction runs aren't missed
-const LOOKBACK_HOURS  = 48
-const MAX_PER_EMAIL   = 10 // cap signals per digest
+const MAX_PER_EMAIL = 10 // cap signals per digest
 
 interface Subscription {
   id: string
@@ -86,7 +91,7 @@ export async function GET(request: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? 'https://harbourview.co'
 
-  // ── Fetch active subscriptions (daily + weekly; weekly gated by cadence below) ──
+  // ── Fetch active subscriptions ──────────────────────────────────────────────
   const { data: subs, error: subsErr } = await supabase
     .from('signal_subscriptions')
     .select('id, user_id, email, markets, types, min_confidence, frequency, last_sent_at')
@@ -99,18 +104,25 @@ export async function GET(request: Request) {
   }
 
   const allSubs = (subs as Subscription[] | null) ?? []
-  const subscriptions = allSubs.filter(s => isSubscriptionDue(s))
 
-  console.info(`intelligence_notify_cron: ${subscriptions.length}/${allSubs.length} active subscriptions due (daily + weekly-due-today)`)
+  // Weekly subscribers are only due if it's been ≥6 days since their last send
+  // (or they've never received one). Daily subscribers are always due. This is
+  // what lets a single daily-scheduled cron correctly serve both cadences.
+  const now = Date.now()
+  const subscriptions = allSubs.filter(sub => isSubscriptionDue(sub, now))
+
+  console.info(
+    `intelligence_notify_cron: ${allSubs.length} active subs, ${subscriptions.length} due this run`,
+  )
 
   if (subscriptions.length === 0)
     return NextResponse.json({ ok: true, processed: 0, sent: 0, skipped: 0 })
 
   // ── Fetch candidate signals ─────────────────────────────────────────────────
-  // Window must cover the widest gap among today's due subscribers -- see
-  // lib/signals/digestCadence.ts for why this can't be a flat constant.
-  const lookbackHours = lookbackHoursFor(subscriptions, LOOKBACK_HOURS)
-  const lookbackISO = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString()
+  // Pull the widest window any due subscriber needs (weekly = 8d), then filter
+  // per-subscriber below so daily subscribers still only see their 48h.
+  const lookbackHours = lookbackHoursFor(subscriptions)
+  const lookbackISO = new Date(now - lookbackHours * 60 * 60 * 1000).toISOString()
 
   const { data: allSignals, error: sigErr } = await supabase
     .from('signals_for_digest')
@@ -140,10 +152,17 @@ export async function GET(request: Request) {
 
       const sentIds = new Set((sentRows ?? []).map((r: { signal_id: string }) => r.signal_id))
 
+      // Per-subscriber time window: daily sees 48h, weekly sees the full week.
+      const subCutoff = subscriberCutoffMs(sub, now)
+
+      // Scale the 0–10 stored preference up to the 0–100 signal confidence scale.
+      const minConfidence = scaledMinConfidence(sub.min_confidence)
+
       // Filter signals to this subscription's preferences
       const filtered = signals.filter(s => {
         if (sentIds.has(s.id)) return false
-        if (s.confidence < sub.min_confidence) return false
+        if (new Date(s.detected_at).getTime() < subCutoff) return false
+        if (s.confidence < minConfidence) return false
         if (sub.markets.length > 0 && !sub.markets.includes(s.market)) return false
         if (sub.types.length > 0   && !sub.types.includes(s.type))     return false
         return true
@@ -209,5 +228,6 @@ export async function GET(request: Request) {
   console.info('intelligence_notify_cron: complete', summary)
   return NextResponse.json(summary)
 }
+
 
 
