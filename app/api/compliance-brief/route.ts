@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 
@@ -105,6 +106,11 @@ function buildPrompt(profile: CountryIntelProfile, roleContext?: string): string
 }
 
 export async function POST(request: Request) {
+  // Admin-only: this endpoint invokes the paid Anthropic API to generate briefs.
+  // Leaving it open would allow unauthenticated callers to run up API costs.
+  const authFailure = await requireAdminApiAuth()
+  if (authFailure) return authFailure
+
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
     if (!apiKey) {
