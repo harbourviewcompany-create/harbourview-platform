@@ -372,7 +372,10 @@ export async function fetchDailyDigest(
       .limit(200)
 
     if (countryName) {
-      query = query.or(`country.ilike.%${countryName}%,country.eq.Global`)
+      // Strip PostgREST filter delimiters ( , ( ) ) before interpolating into
+      // the .or() clause, so a crafted country value can't inject conditions.
+      const safeCountry = countryName.replace(/[,()]/g, '')
+      query = query.or(`country.ilike.%${safeCountry}%,country.eq.Global`)
     }
 
     const { data, error } = await query
