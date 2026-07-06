@@ -1,14 +1,21 @@
 // app/api/cron/intelligence-notify/route.ts
-// Vercel Cron — sends daily signal digest emails to active subscribers.
+// Vercel Cron — sends daily/weekly signal digest emails to active subscribers.
 //
 // Pipeline: intelligence-embed (06:00) → intelligence-notify (07:00 UTC)
 //
 // Per subscriber:
-//   1. Find ia_signals from last 24h matching subscription filters
+//   1. Find ia_signals from the lookback window matching subscription filters
 //      that haven't been sent before (not in signal_digest_log)
 //   2. Send digest email via Resend
 //   3. Write sent signal IDs to signal_digest_log
 //   4. Update subscription.last_sent_at
+//
+// Cadence: this cron runs once a day at 07:00 UTC. 'daily' subscribers are
+// due on every run. 'weekly' subscribers are only due once ~6.5+ days have
+// passed since last_sent_at (fixed 2026-07-05: previously hardcoded to
+// frequency='daily' only, so every 'weekly' subscription -- the only
+// frequency choice actually exercised via the subscribe form until now --
+// was silently excluded and never received anything).
 //
 // Idempotent — signal_digest_log UNIQUE(subscription_id, signal_id)
 // prevents double-sending even if the cron fires twice.
@@ -26,6 +33,7 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { sendSignalDigest, type DigestSignal } from '@/lib/signals/notification'
 import { generateDigestNarrative } from '@/lib/signals/digestNarrative'
+import { isSubscriptionDue, lookbackHoursFor } from '@/lib/signals/digestCadence'
 
 export const dynamic   = 'force-dynamic'
 export const maxDuration = 300
@@ -78,26 +86,31 @@ export async function GET(request: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? 'https://harbourview.co'
 
-  // ── Fetch active subscriptions ──────────────────────────────────────────────
+  // ── Fetch active subscriptions (daily + weekly; weekly gated by cadence below) ──
   const { data: subs, error: subsErr } = await supabase
     .from('signal_subscriptions')
     .select('id, user_id, email, markets, types, min_confidence, frequency, last_sent_at')
     .eq('active', true)
-    .eq('frequency', 'daily')
+    .in('frequency', ['daily', 'weekly'])
 
   if (subsErr) {
     console.error('intelligence_notify_cron: subscription fetch error', subsErr.message)
     return NextResponse.json({ ok: false, error: subsErr.message }, { status: 500 })
   }
 
-  const subscriptions = (subs as Subscription[] | null) ?? []
-  console.info(`intelligence_notify_cron: ${subscriptions.length} active daily subscriptions`)
+  const allSubs = (subs as Subscription[] | null) ?? []
+  const subscriptions = allSubs.filter(s => isSubscriptionDue(s))
+
+  console.info(`intelligence_notify_cron: ${subscriptions.length}/${allSubs.length} active subscriptions due (daily + weekly-due-today)`)
 
   if (subscriptions.length === 0)
     return NextResponse.json({ ok: true, processed: 0, sent: 0, skipped: 0 })
 
-  // ── Fetch candidate signals from last LOOKBACK_HOURS ───────────────────────
-  const lookbackISO = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000).toISOString()
+  // ── Fetch candidate signals ─────────────────────────────────────────────────
+  // Window must cover the widest gap among today's due subscribers -- see
+  // lib/signals/digestCadence.ts for why this can't be a flat constant.
+  const lookbackHours = lookbackHoursFor(subscriptions, LOOKBACK_HOURS)
+  const lookbackISO = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString()
 
   const { data: allSignals, error: sigErr } = await supabase
     .from('signals_for_digest')
