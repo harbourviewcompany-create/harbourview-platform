@@ -403,11 +403,11 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         const maxBar = Math.max(...bars, 1)
         return (
           <MobileAccordion title={`Evidence confidence · ${avg}% avg`}>
-            <div className="hvm-conf-bar-wrap">
+            <div className="hvm-hist-bar-wrap">
               {bars.map((count, i) => (
                 <div key={i} className="hvm-conf-bar-col">
                   <div className="hvm-conf-bar-track">
-                    <div className="hvm-conf-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
+                    <div className="hvm-hist-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
                   </div>
                   <span>{(i + 1) * 20}%</span>
                 </div>
@@ -493,7 +493,7 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, ju
               <MobileAccordion key={step.id} title={`${step.step_number}. ${step.title} — ${doneCount}/${reqs.length} met`} defaultOpen={step.step_number === 1}>
                 <div style={{ marginBottom: 10 }}>
                   <div className="hvm-conf-bar-track" style={{ height: 6, borderRadius: 3 }}>
-                    <div className="hvm-conf-bar-fill" style={{ height: '100%', width: `${pct}%`, borderRadius: 3 }} />
+                    <div className="hvm-hist-bar-fill" style={{ height: '100%', width: `${pct}%`, borderRadius: 3 }} />
                   </div>
                 </div>
                 {step.description && (
@@ -4163,7 +4163,7 @@ const MOBILE_CSS = `
 .hvm-watch-type-card:hover { background: rgba(255,255,255,.06); }
 .hvm-watch-type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
 
-.hvm-conf-bar-wrap {
+.hvm-hist-bar-wrap {
   display: flex; align-items: flex-end; gap: 8px; height: 64px;
 }
 .hvm-conf-bar-col {
@@ -4173,7 +4173,7 @@ const MOBILE_CSS = `
   flex: 1; width: 100%; border-radius: 4px;
   background: rgba(255,255,255,.08); position: relative; overflow: hidden;
 }
-.hvm-conf-bar-fill {
+.hvm-hist-bar-fill {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: linear-gradient(180deg, #d4a84b, rgba(212,168,75,.45));
   border-radius: 4px 4px 0 0; transition: height .3s;
