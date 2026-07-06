@@ -9,15 +9,17 @@
 // evidence (lib/genetics/storage.ts).
 
 import { NextResponse } from 'next/server'
-import { requireAdminAuth } from '@/lib/auth/adminGuard'
+import type { NextRequest } from 'next/server'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { streamDriveFile } from '@/lib/google/driveClient'
 import { Readable } from 'node:stream'
 
 const SIGNED_URL_TTL_SECONDS = 120
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireAdminAuth()
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authFailure = await requireAdminApiAuth(request)
+  if (authFailure) return authFailure
   const { id } = await params
 
   const supabase = await createSupabaseServiceClient()
