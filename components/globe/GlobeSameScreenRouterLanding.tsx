@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
-import type { GlobeRouterState } from '@/types/globe-router'
+import { RoleChipSelector } from './RoleChipSelector'
+import type { GlobeRouterState, RoleId } from '@/types/globe-router'
 import dynamic from 'next/dynamic'
 
 const GlobeCanvas = dynamic(() => import('./r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })), {
@@ -131,6 +132,8 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
   )
 }
 
+const ROLE_STORAGE_KEY = 'hv_preferred_role_id'
+
 export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
@@ -138,6 +141,27 @@ export function GlobeSameScreenRouterLanding() {
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
+
+  // Role is remembered for the session (not per-country) so picking it once
+  // applies to every subsequent market entry with zero added taps. Backed by
+  // sessionStorage rather than the reducer since it must survive
+  // COUNTRY_CLEAR/RESET and outlive any single country's transient state.
+  const [preferredRoleId, setPreferredRoleIdState] = useState<RoleId | undefined>(undefined)
+  const [roleSearchQuery, setRoleSearchQuery] = useState('')
+  const [showRolePicker, setShowRolePicker] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = window.sessionStorage.getItem(ROLE_STORAGE_KEY) as RoleId | null
+    if (stored) setPreferredRoleIdState(stored)
+  }, [])
+
+  function setPreferredRoleId(roleId: RoleId) {
+    setPreferredRoleIdState(roleId)
+    if (typeof window !== 'undefined') window.sessionStorage.setItem(ROLE_STORAGE_KEY, roleId)
+    setShowRolePicker(false)
+    setRoleSearchQuery('')
+  }
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
@@ -179,14 +203,28 @@ export function GlobeSameScreenRouterLanding() {
           onHoverCountry={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback'
             ? undefined
             : (countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
-          onSelectCountry={(countryIso2) => dispatch({ type: state.mode === 'multi_market' ? 'MULTI_MARKET_ADD' : 'COUNTRY_SELECT', countryIso2 })}
+          onSelectCountry={(countryIso2) => {
+            if (state.mode === 'multi_market') {
+              dispatch({ type: 'MULTI_MARKET_ADD', countryIso2 })
+              return
+            }
+            // Single-market: skip the market_overview interstitial entirely.
+            // Batched dispatches resolve to one render at step:'routing', so
+            // MarketOverviewSheet never mounts for this path — the briefing
+            // content it showed is redundant with BriefingRoom on the
+            // destination dashboard, which already handles the no-briefing
+            // case inline. See HANDOFF.md "collapse interstitial" entry.
+            dispatch({ type: 'COUNTRY_SELECT', countryIso2 })
+            dispatch({ type: 'MARKET_ENTER', roleId: preferredRoleId })
+          }}
         />
       )}
 
       <CountrySearchOverlay
         onSelectCountry={(countryIso2) => {
           dispatch({ type: 'COUNTRY_SEARCH_SELECT', countryIso2 })
-          setSrAnnouncement(`Country selected: ${getCountryName(countryIso2)}.`)
+          dispatch({ type: 'MARKET_ENTER', roleId: preferredRoleId })
+          setSrAnnouncement(`Entering ${getCountryName(countryIso2)}.`)
         }}
         onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
         onAnnouncement={setSrAnnouncement}
@@ -198,9 +236,46 @@ export function GlobeSameScreenRouterLanding() {
         <MarketOverviewSheet
           countryIso2={state.selectedCountryIso2}
           countryName={allCountryAndProvinceOptionMap[state.selectedCountryIso2]?.name ?? state.selectedCountryIso2}
-          onEnter={() => dispatch({ type: 'MARKET_ENTER' })}
+          onEnter={() => dispatch({ type: 'MARKET_ENTER', roleId: preferredRoleId })}
           onBack={() => dispatch({ type: 'BACK' })}
         />
+      ) : null}
+
+      {/* Session-remembered role chip. Only shown at the country step so it
+          never overlaps MarketOverviewSheet/RouterBottomSheet, which occupy
+          the same bottom-sheet real estate. Setting a role here has zero
+          effect on tap count for country selection itself — it's read by
+          the MARKET_ENTER dispatches above at the moment a country is picked. */}
+      {state.step === 'country' && !showRolePicker ? (
+        <button
+          type="button"
+          onClick={() => setShowRolePicker(true)}
+          className="pointer-events-auto fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-30 flex min-h-11 items-center gap-2 rounded-full border border-[#e0c77f]/40 bg-[#020913]/90 px-4 text-xs font-semibold text-[#f5f1e8] shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl transition hover:border-[#f1dfaa]/70"
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Viewing as</span>
+          <span className="uppercase tracking-[0.03em]">
+            {preferredRoleId ? roleProfileMap[preferredRoleId]?.shortLabel ?? 'Importer' : 'Importer'}
+          </span>
+        </button>
+      ) : null}
+
+      {showRolePicker ? (
+        <RouterBottomSheet
+          eyebrow="Set your role"
+          title="How should we route you?"
+          size="role"
+          onBack={() => {
+            setShowRolePicker(false)
+            setRoleSearchQuery('')
+          }}
+        >
+          <RoleChipSelector
+            searchQuery={roleSearchQuery}
+            selectedRoleId={preferredRoleId}
+            onSearchChange={setRoleSearchQuery}
+            onSelectRole={setPreferredRoleId}
+          />
+        </RouterBottomSheet>
       ) : null}
 
       {state.step === 'fallback' ? (

@@ -333,6 +333,44 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
+  it('batches COUNTRY_SELECT + MARKET_ENTER to skip the market_overview interstitial for single-market selection', () => {
+    // GlobeSameScreenRouterLanding's onSelectCountry dispatches these two
+    // actions together (React batches them into one render) so the
+    // MarketOverviewSheet interstitial never mounts for the primary
+    // single-market flow — selecting a country goes straight to routing.
+    // Reducer still supports market_overview as a standalone step (used by
+    // multi-market and by BACK-from-fallback recovery); this test locks in
+    // the specific two-action sequence the UI relies on to skip it.
+    const afterSelect = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
+    const afterEnter = globeRouterReducer(afterSelect, { type: 'MARKET_ENTER' })
+
+    expect(afterEnter.step).toBe('routing')
+    expect(afterEnter.routeStatus).toBe('resolving')
+    expect(afterEnter.selectedCountryIso2).toBe('DE')
+    expect(afterEnter.selectedRoleId).toBe('importer')
+  })
+
+  it('MARKET_ENTER honors an explicit roleId from the session-remembered role picker', () => {
+    // GlobeSameScreenRouterLanding reads a sessionStorage-backed
+    // preferredRoleId (set once via RoleChipSelector, independent of the
+    // reducer) and passes it into MARKET_ENTER on every country entry —
+    // so a doctor or regulator lands on their correct destination dashboard
+    // instead of always defaulting to importer.
+    const afterSelect = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
+    const afterEnter = globeRouterReducer(afterSelect, { type: 'MARKET_ENTER', roleId: 'doctor_prescriber' })
+
+    expect(afterEnter.step).toBe('routing')
+    expect(afterEnter.selectedRoleId).toBe('doctor_prescriber')
+
+    // A second country selection with the same remembered role — confirms
+    // the "pick once, applies every time" behavior at the reducer level.
+    const secondSelect = globeRouterReducer(afterEnter, { type: 'COUNTRY_SELECT', countryIso2: 'BR' })
+    const secondEnter = globeRouterReducer(secondSelect, { type: 'MARKET_ENTER', roleId: 'doctor_prescriber' })
+    expect(secondEnter.selectedCountryIso2).toBe('BR')
+    expect(secondEnter.selectedRoleId).toBe('doctor_prescriber')
+  })
+
+
   it('returns to the country step on back from market_overview so the camera can fly back to globe', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const afterBack = globeRouterReducer(afterCountry, { type: 'BACK' })

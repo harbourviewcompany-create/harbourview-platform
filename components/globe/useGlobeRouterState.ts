@@ -38,7 +38,11 @@ export function globeRouterReducer(
         ...state,
         step: 'routing',
         routeStatus: 'resolving',
-        selectedRoleId: 'importer',
+        // Honors a caller-supplied role (e.g. the session-remembered role
+        // picker in GlobeSameScreenRouterLanding). Falls back to 'importer'
+        // when no roleId is given, preserving prior behavior for any caller
+        // that dispatches a bare MARKET_ENTER.
+        selectedRoleId: action.roleId ?? 'importer',
       }
     case 'COUNTRY_CLEAR':
       return { ...initialGlobeRouterState }

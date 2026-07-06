@@ -150,7 +150,7 @@ export type GlobeRouterAction =
   | { type: 'MULTI_MARKET_REMOVE'; countryIso2: string }
   | { type: 'MULTI_MARKET_CONFIRM' }
   | { type: 'NOT_SURE_COUNTRY' }
-  | { type: 'MARKET_ENTER' }
+  | { type: 'MARKET_ENTER'; roleId?: RoleId }
   | { type: 'ROLE_SELECT'; roleId: RoleId }
   | { type: 'ROLE_SEARCH_QUERY'; query: string }
   | { type: 'ROLE_SEARCH_SELECT'; roleId: RoleId }
