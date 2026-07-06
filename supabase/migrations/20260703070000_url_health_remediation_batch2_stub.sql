@@ -1,0 +1,30 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 2).
+-- Continuation of 20260703060000. Same verified-only method.
+--
+-- Fixed (2, both confirmed via web_fetch 200 OK):
+--   Botswana gazette: /gazettes/bw/recent -> /gazettes/bw/ (the "recent"
+--     suffix never existed in gazettes.africa's real routing; the country
+--     itself is fully covered there, 907 gazettes on file).
+--   Argentina ANMAT cannabis: old /anmat/consultas path dead -> replaced
+--     with the actual Ministry of Health REPROCANN hub at
+--     argentina.gob.ar/salud/cannabis-medicinal, which is the real,
+--     actively-maintained national program page (REPROCANN registry,
+--     advisory council, patient access rules).
+--
+-- Notable structural finding: gazettes.africa (Laws.Africa/AfricanLII)
+-- suffered a fire that destroyed part of its archive (disclosed on their
+-- own homepage) and its current live country list -- verified directly,
+-- not inferred -- covers only: Algeria, Angola, Botswana, Congo, Eswatini,
+-- Ghana, Kenya, Lesotho, Malawi, Mauritius, Morocco, Mozambique, Namibia,
+-- Nigeria, Rwanda, Senegal, Seychelles, Sierra Leone, Somalia, South
+-- Africa, Tanzania, Uganda, Zambia, Zimbabwe, plus EAC/ECOWAS regional.
+--
+-- Benin, Burundi, Central African Republic, Chad, Comoros, and Cameroon
+-- were never covered by this source. Their source_registry rows are NOT
+-- a stale-URL problem -- deactivated (is_active=false) rather than left
+-- erroring indefinitely with no attribution. Real coverage for Francophone
+-- Central/West Africa needs a different source entirely (each country's
+-- own Journal Officiel where one has a web presence, or an OHADA-adjacent
+-- aggregator) -- tracked as a source-sourcing gap, not a URL fix, for a
+-- future session.
+SELECT 1;

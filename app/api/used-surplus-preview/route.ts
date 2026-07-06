@@ -4,6 +4,7 @@
 // consolidation — audit ref: hv/security-test-gate.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import { getMockUsedSurplusFeed } from '@/lib/scrapers/mock-used-surplus-feed'
 import type { ScrapeRunResult } from '@/lib/scrapers/types'
 
@@ -55,6 +56,9 @@ function toSourceDto(entry: ScrapeRunResult) {
 }
 
 export async function GET(request: NextRequest) {
+  const authFailure = await requireAdminApiAuth(request)
+  if (authFailure) return authFailure
+
   const searchParams = request.nextUrl.searchParams
 
   const parsedStatus = parseStatus(searchParams.get('status'))

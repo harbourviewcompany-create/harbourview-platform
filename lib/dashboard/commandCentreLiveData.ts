@@ -92,26 +92,19 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
   const supabase = await createClient()
 
   const [
-    statsResult,
-    adminCountsResult,
-    sourceHealthResult,
+    statsRpcResult,
     signalsResult,
     agentTasksResult,
     candidatesResult,
   ] = await Promise.all([
-    // Signal + listing aggregate stats
-    Promise.resolve(supabase.rpc('get_command_centre_stats').maybeSingle()).catch(() => ({ data: null, error: null })),
-
-    // Admin dashboard counts view
-    supabase
-      .from('admin_dashboard_counts')
-      .select('pending_listings, pending_buyer_requests, new_inquiries, pending_matches, pending_disclosures')
-      .maybeSingle(),
-
-    // Source health
-    supabase
-      .from('source_registry')
-      .select('is_active, last_checked_at', { count: 'exact', head: false }),
+    // Signal + listing aggregate stats — single round trip via the
+    // get_command_centre_stats() RPC (see migration
+    // 20260704160603_get_command_centre_stats). Falls back to
+    // fetchStatsInline() below if the RPC errors for any reason —
+    // that fallback must stay behaviorally identical to the RPC.
+    Promise.resolve(supabase.rpc('get_command_centre_stats').maybeSingle()).catch(
+      (err) => ({ data: null, error: err instanceof Error ? err : new Error(String(err)) })
+    ),
 
     // Top high-priority signals
     supabase
@@ -138,7 +131,43 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
       .limit(8),
   ])
 
-  // ── Signal counts (inline — avoids needing an RPC if it doesn't exist yet)
+  const stats: CommandCentreStats =
+    !statsRpcResult.error && statsRpcResult.data
+      ? (statsRpcResult.data as CommandCentreStats)
+      : await fetchStatsInline(supabase)
+
+  return {
+    stats,
+    topSignals: (signalsResult.data ?? []) as CommandCentreSignal[],
+    agentTasks: (agentTasksResult.data ?? []) as CommandCentreAgentTask[],
+    marketplaceCandidates: (candidatesResult.data ?? []) as CommandCentreMarketplaceCandidate[],
+  }
+}
+
+// ─── Stats fallback (only runs if get_command_centre_stats() errors) ──────────
+//
+// Recomputes the same fields via individual round-trip queries. This is
+// the original inline implementation, extracted verbatim so a transient
+// RPC failure degrades to "more round trips" instead of a broken
+// dashboard, rather than being deleted outright.
+
+async function fetchStatsInline(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<CommandCentreStats> {
+  const [adminCountsResult, sourceHealthResult] = await Promise.all([
+    // Admin dashboard counts view
+    supabase
+      .from('admin_dashboard_counts')
+      .select('pending_listings, pending_buyer_requests, new_inquiries, pending_matches, pending_disclosures')
+      .maybeSingle(),
+
+    // Source health
+    supabase
+      .from('source_registry')
+      .select('is_active, last_checked_at', { count: 'exact', head: false }),
+  ])
+
+  // ── Signal counts
   const { data: signalCounts } = await supabase
     .from('signals_quality')
     .select('pri', { count: 'exact', head: false })
@@ -206,7 +235,7 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
     pending_disclosures: 0,
   }
 
-  const stats: CommandCentreStats = {
+  return {
     total_signals: totalSignals ?? 0,
     urgent_signals: priCounts['URGENT'] ?? 0,
     high_signals: (priCounts['HIGH'] ?? 0) + (priCounts['high'] ?? 0),
@@ -229,13 +258,6 @@ export async function fetchCommandCentreData(): Promise<CommandCentreData> {
     new_inquiries: adminCounts.new_inquiries ?? 0,
     pending_matches: adminCounts.pending_matches ?? 0,
     pending_disclosures: adminCounts.pending_disclosures ?? 0,
-  }
-
-  return {
-    stats,
-    topSignals: (signalsResult.data ?? []) as CommandCentreSignal[],
-    agentTasks: (agentTasksResult.data ?? []) as CommandCentreAgentTask[],
-    marketplaceCandidates: (candidatesResult.data ?? []) as CommandCentreMarketplaceCandidate[],
   }
 }
 

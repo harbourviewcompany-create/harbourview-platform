@@ -269,6 +269,153 @@ export async function fetchDashboardSignals(
   return []
 }
 
+// ── Daily digest ──────────────────────────────────────────────────────────────
+// SSR first-paint for the DigestPage. Same public-safe source as the signals
+// feed (reviewed rows from signals_quality), but ordered strictly by recency
+// and returned alongside the window label the rows actually fall in, so the UI
+// can say "New in the last 24h" vs "Most recent — nothing new in 24h" honestly.
+//
+// The reviewed feed can go quiet for stretches, so this uses a rolling window:
+// 24h → 7d → 30d → most-recent-N. The client route (/api/dashboard/digest)
+// hydrates with the full country-filtered set on mount; this just gives an
+// instant, correctly-labelled first paint.
+
+export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
+
+export type DailyDigest = {
+  signals: DashboardSignal[]
+  window: DigestWindow
+}
+
+type DigestRow = {
+  id: string
+  headline: string
+  cat: string | null
+  top_lane: string | null
+  pri: string | null
+  score: number | null
+  country: string | null
+  date: string | null
+  created_at: string
+}
+
+const DIGEST_WINDOWS: { key: DigestWindow; hours: number }[] = [
+  { key: '24h', hours: 24 },
+  { key: '7d',  hours: 24 * 7 },
+  { key: '30d', hours: 24 * 30 },
+]
+
+function digestRowRecency(r: DigestRow): number {
+  const ref = r.date ?? r.created_at
+  return ref ? new Date(ref).getTime() : 0
+}
+
+export async function fetchDailyDigest(
+  limit = 12,
+  countryName?: string | null,
+): Promise<DailyDigest> {
+  try {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+
+    // ── Editorial edition first ───────────────────────────────────────────────
+    // Published daily_digest (same content as the public /daily page). When an
+    // edition exists it IS the digest; the rolling window below is fallback.
+    const { data: edition } = await supabase
+      .from('daily_digest')
+      .select('digest_date, headlines, generated_at')
+      .eq('status', 'published')
+      .order('digest_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
+
+    if (edition && Array.isArray(edition.headlines) && edition.headlines.length > 0) {
+      let items = (edition.headlines as EditorialHeadline[])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+
+      if (countryName) {
+        const needle = countryName.toLowerCase()
+        const match  = items.filter(h => (h.market ?? '').toLowerCase().includes(needle))
+        const rest   = items.filter(h => !(h.market ?? '').toLowerCase().includes(needle))
+        items = [...match, ...rest]
+      }
+
+      const todayUtc = new Date().toISOString().slice(0, 10)
+      const editorialSignals: DashboardSignal[] = items.slice(0, limit).map((h, i) => ({
+        id:               h.signal_id ?? `digest-${edition.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'regulatory_change',
+        market:           h.market ?? 'Global',
+        tag:              { label: 'REGULATION', color: '#D9A441', bg: 'rgba(217,164,65,0.15)', border: 'rgba(217,164,65,0.35)' },
+        timeAgo:          'Today',
+        confidence:       80,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      'Harbourview Daily',
+        flag:             flagForMarket(h.market ?? 'Global'),
+      }))
+
+      return {
+        signals: editorialSignals,
+        window:  edition.digest_date === todayUtc ? '24h' : 'recent',
+      }
+    }
+
+    let query = supabase
+      .from('signals_quality')
+      .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+      .eq('reviewed', true)
+      .order('created_at', { ascending: false })
+      .order('score', { ascending: false })
+      .limit(200)
+
+    if (countryName) {
+      query = query.or(`country.ilike.%${countryName}%,country.eq.Global`)
+    }
+
+    const { data, error } = await query
+    if (error || !data || data.length === 0) return { signals: [], window: 'recent' }
+
+    let rows = data as DigestRow[]
+
+    if (countryName) {
+      const needle = countryName.toLowerCase()
+      const countrySpecific = rows.filter(r => r.country?.toLowerCase().includes(needle))
+      const others          = rows.filter(r => !r.country?.toLowerCase().includes(needle))
+      rows = [...countrySpecific, ...others]
+    }
+
+    const now = Date.now()
+    let windowKey: DigestWindow = 'recent'
+    let windowed: DigestRow[] = []
+    for (const w of DIGEST_WINDOWS) {
+      const cutoff = now - w.hours * 3_600_000
+      const inWindow = rows.filter(r => {
+        const t = digestRowRecency(r)
+        return t >= cutoff && t <= now
+      })
+      if (inWindow.length > 0) {
+        windowKey = w.key
+        windowed = inWindow
+        break
+      }
+    }
+    if (windowed.length === 0) {
+      windowKey = 'recent'
+      windowed = rows
+    }
+
+    return {
+      signals: windowed.slice(0, limit).map(curatedToSignal),
+      window: windowKey,
+    }
+  } catch {
+    return { signals: [], window: 'recent' }
+  }
+}
+
 // ── Role display mapping ──────────────────────────────────────────────────────
 export { ROLE_PROFILES } from './dashboardShared'
 

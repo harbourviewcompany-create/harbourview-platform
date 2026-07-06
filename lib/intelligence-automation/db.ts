@@ -195,7 +195,7 @@ function rowToFeedback(r: Row): FeedbackEvent {
 }
 
 // ── DB paths (Supabase REST via service-role) ─────────────────────────────────
-const SOURCES_PATH      = '/rest/v1/ia_sources?select=*&order=name.asc&limit=200'
+const SOURCES_PATH      = '/rest/v1/ia_sources_live?select=*&order=name.asc&limit=200'
 const SIGNALS_PATH      = '/rest/v1/ia_signals?select=*&order=detected_at.desc&limit=200'
 const COUNTERPARTY_PATH = '/rest/v1/ia_counterparties?select=*&order=name.asc&limit=200'
 const SCORING_PATH      = '/rest/v1/ia_scoring_records?select=*&order=routing_priority.desc&limit=200'
@@ -223,6 +223,14 @@ export async function listIaSignals(): Promise<AdminDataResult<AutomationSignal[
   const result = await fetchAdminSupabaseJson<Row[]>(SIGNALS_PATH)
   if (!result.ok || !result.data?.length) return fixtureResult(automationSignals)
   return { ok: true, data: result.data.map(rowToSignal), source: 'db' as const }
+}
+
+export async function getIaSignalById(id: string): Promise<AdminDataResult<AutomationSignal | null>> {
+  const result = await fetchAdminSupabaseJson<Row[]>(
+    `/rest/v1/ia_signals?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
+  )
+  if (!result.ok) return result
+  return { ok: true, data: result.data[0] ? rowToSignal(result.data[0]) : null, source: 'db' as const }
 }
 
 export async function listIaCounterparties(): Promise<AdminDataResult<RelationshipMemoryRecord[]>> {
@@ -594,3 +602,4 @@ export async function updateIaCounterparty(
     },
   )
 }
+

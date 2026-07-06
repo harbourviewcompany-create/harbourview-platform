@@ -1,0 +1,19 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 11).
+--
+-- Fixed (3, all confirmed via web_fetch, all domain-migration cases):
+--   Bulgaria Cannabis Regulator (BDA) -> verified live at bda.bg/en/. Note:
+--     their news section updates infrequently -- real domain, real
+--     content, just a slow-moving source.
+--   Weed Week -> weedweek.news domain is dead (DNS failure). They
+--     consolidated to weedweek.com. Verified live with very current
+--     content (DEA rescheduling hearings, July 2026).
+--   Kansas Cannabis Regulator -> KDA migrated their entire domain from
+--     ksda.gov (DNS failure) to agriculture.ks.gov. Verified live. They
+--     also offer an official GovDelivery email subscription -- a more
+--     durable channel than scraping if this breaks again.
+--
+-- Remaining in this batch, not yet resolved: Cannabis Science Technology
+-- (403), UC Davis Cannabis (404), Analytical Cannabis (403), WCO HS
+-- Nomenclature (connection reset), Jamaica Official Gazette (404),
+-- Nebraska Cannabis Regulator (404), Virginia VDACS Cannabis (404).
+SELECT 1;
