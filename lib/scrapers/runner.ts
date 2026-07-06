@@ -44,7 +44,7 @@ function runId() {
 }
 
 function isPassthrough(normalised: { isPassthrough?: boolean; redactionNote?: string }): boolean {
-+ eû return normalised.isPassthrough === true
+  return normalised.isPassthrough === true
 }
 
 // Races a promise against a hard deadline so one slow call can never consume more
