@@ -19,6 +19,9 @@
 // Idempotent — signal_digest_log UNIQUE(subscription_id, signal_id)
 // prevents double-sending even if the cron fires twice.
 //
+// Cadence/threshold logic lives in lib/signals/digestCadence.ts (extracted
+// for unit testability — see tests/signals/digestCadence.test.ts).
+//
 // Required env vars:
 //   CRON_SECRET
 //   RESEND_API_KEY
@@ -32,23 +35,17 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { sendSignalDigest, type DigestSignal } from '@/lib/signals/notification'
 import { generateDigestNarrative } from '@/lib/signals/digestNarrative'
+import {
+  isSubscriptionDue,
+  lookbackHoursFor,
+  subscriberCutoffMs,
+  scaledMinConfidence,
+} from '@/lib/signals/digestCadence'
 
 export const dynamic   = 'force-dynamic'
 export const maxDuration = 300
 
-// Daily subscribers look back 48h so signals from slow extraction runs aren't
-// missed; weekly subscribers look back 8 days so a 7-day-cadence digest covers
-// the whole week (a flat 48h window would drop 5 of every 7 days for them).
-const LOOKBACK_HOURS_DAILY  = 48
-const LOOKBACK_HOURS_WEEKLY = 8 * 24
-const WEEKLY_MIN_INTERVAL_HOURS = 6 * 24 // only send a weekly digest if ≥6 days since last
-const MAX_PER_EMAIL   = 10 // cap signals per digest
-
-// signal_subscriptions.min_confidence is stored on a 0–10 scale (the signup
-// form's slider), but signals_for_digest.confidence is 0–100. Scale the
-// threshold up so the user's stated minimum is actually honoured instead of
-// silently ignored (7 < 66 always passes otherwise).
-const CONFIDENCE_SCALE = 10
+const MAX_PER_EMAIL = 10 // cap signals per digest
 
 interface Subscription {
   id: string
@@ -112,15 +109,7 @@ export async function GET(request: Request) {
   // (or they've never received one). Daily subscribers are always due. This is
   // what lets a single daily-scheduled cron correctly serve both cadences.
   const now = Date.now()
-  const subscriptions = allSubs.filter(sub => {
-    if (sub.frequency === 'daily') return true
-    if (sub.frequency === 'weekly') {
-      if (!sub.last_sent_at) return true
-      const hoursSince = (now - new Date(sub.last_sent_at).getTime()) / (60 * 60 * 1000)
-      return hoursSince >= WEEKLY_MIN_INTERVAL_HOURS
-    }
-    return false
-  })
+  const subscriptions = allSubs.filter(sub => isSubscriptionDue(sub, now))
 
   console.info(
     `intelligence_notify_cron: ${allSubs.length} active subs, ${subscriptions.length} due this run`,
@@ -132,8 +121,7 @@ export async function GET(request: Request) {
   // ── Fetch candidate signals ─────────────────────────────────────────────────
   // Pull the widest window any due subscriber needs (weekly = 8d), then filter
   // per-subscriber below so daily subscribers still only see their 48h.
-  const anyWeeklyDue = subscriptions.some(s => s.frequency === 'weekly')
-  const lookbackHours = anyWeeklyDue ? LOOKBACK_HOURS_WEEKLY : LOOKBACK_HOURS_DAILY
+  const lookbackHours = lookbackHoursFor(subscriptions)
   const lookbackISO = new Date(now - lookbackHours * 60 * 60 * 1000).toISOString()
 
   const { data: allSignals, error: sigErr } = await supabase
@@ -165,11 +153,10 @@ export async function GET(request: Request) {
       const sentIds = new Set((sentRows ?? []).map((r: { signal_id: string }) => r.signal_id))
 
       // Per-subscriber time window: daily sees 48h, weekly sees the full week.
-      const subLookbackHours = sub.frequency === 'weekly' ? LOOKBACK_HOURS_WEEKLY : LOOKBACK_HOURS_DAILY
-      const subCutoff = now - subLookbackHours * 60 * 60 * 1000
+      const subCutoff = subscriberCutoffMs(sub, now)
 
       // Scale the 0–10 stored preference up to the 0–100 signal confidence scale.
-      const minConfidence = (sub.min_confidence ?? 0) * CONFIDENCE_SCALE
+      const minConfidence = scaledMinConfidence(sub.min_confidence)
 
       // Filter signals to this subscription's preferences
       const filtered = signals.filter(s => {

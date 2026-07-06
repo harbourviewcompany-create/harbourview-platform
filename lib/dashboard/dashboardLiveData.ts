@@ -188,6 +188,7 @@ export type CountryIntelProfile = {
   commercial_pathway_summary: string | null
   review_status: string
   regulatory_tier?: string | null
+  confidence_score?: number | null
   // Extended country status fields — present when fetched from public.countries
   region?: string | null
   market_access_status?: string | null
@@ -242,7 +243,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
         { headers: hdr },
       ),
       fetch(
-        `${_INTEL_SUPABASE_URL}/rest/v1/cc_jurisdiction_briefings?select=program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,last_reviewed_date&country_iso2=eq.${safeIso2}&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1`,
+        `${_INTEL_SUPABASE_URL}/rest/v1/cc_jurisdiction_briefings?select=program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,confidence_score,last_reviewed_date&country_iso2=eq.${safeIso2}&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1`,
         { headers: hdr },
       ),
     ])
@@ -313,6 +314,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_market_dynamics:   jb?.market_dynamics ?? null,
       briefing_regulatory_outlook: jb?.regulatory_outlook ?? null,
       briefing_regulatory_body:    jb?.regulatory_body ?? null,
+      confidence_score:            jb?.confidence_score ?? null,
       briefing_last_reviewed:      jb?.last_reviewed_date ?? null,
       recentChanges,
       calendarEvents,
