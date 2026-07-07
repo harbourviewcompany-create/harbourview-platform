@@ -22,6 +22,7 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     exclude: [...defaultExclude, '.claude/**'],
+    setupFiles: ['./tests/setup.ts'],
   },
   resolve: {
     alias: {

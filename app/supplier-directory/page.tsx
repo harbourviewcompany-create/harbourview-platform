@@ -3,8 +3,9 @@ import Link from 'next/link'
 import { FooterCta, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 import {
   getApprovedSupplierProfiles,
-  SELLER_TYPE_LABELS,
   CATEGORY_LABELS,
+  displaySellerType,
+  displayRegions,
 } from '@/lib/server/supplierProfilesQuery'
 
 export const dynamic = 'force-dynamic'
@@ -73,19 +74,19 @@ export default async function SupplierDirectoryPage() {
           />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {profiles.map((p) => (
-              <Link key={p.id} href={`/supplier-directory/${p.profile_slug}`} className="block transition hover:opacity-90">
+              <Link key={p.id} href={`/supplier-directory/${p.id}`} className="block transition hover:opacity-90">
                 <PublicCard className="p-6">
                   <div className="mb-4 flex items-center justify-between gap-2">
                     <span className="text-[11px] uppercase tracking-[0.18em] text-gold/75">
-                      {SELLER_TYPE_LABELS[p.seller_type] ?? p.seller_type}
+                      {displaySellerType(p)}
                     </span>
-                    <span className="text-[11px] text-white/40">{p.regions_served?.join(', ') ?? '—'}</span>
+                    <span className="text-[11px] text-white/40">{displayRegions(p)}</span>
                   </div>
                   {p.company_name && (
                     <h3 className="mb-2 text-base font-semibold text-[#f4f1eb]">{p.company_name}</h3>
                   )}
-                  {p.description_public && (
-                    <p className="mb-4 text-sm leading-7 text-white/62 line-clamp-3">{p.description_public}</p>
+                  {p.description && (
+                    <p className="mb-4 text-sm leading-7 text-white/62 line-clamp-3">{p.description}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
                     {p.categories?.map((c, i) => (

@@ -5,7 +5,7 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import type { DashboardPanelState } from '@/lib/dashboard/contracts'
 import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
-import { getCountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { getCountryIntelProfile } from '@/lib/dashboard/getCountryIntelProfileCached'
 import { getCountryMarketSignals } from '@/lib/dashboard/getCountryMarketSignals'
 import type { Metadata } from 'next'
 
@@ -18,67 +18,67 @@ export async function generateMetadata({ params }: { params: Promise<{ country: 
 }
 
 type Props = { params: Promise<{ country: string }> }
-type MarketDerived = { model: {label:string;detail:string}; imports: {label:string;detail:string}; operators: {label:string;detail:string}; regulator: {label:string;detail:string} }
+type MarketDerived = { model:{label:string;detail:string}; imports:{label:string;detail:string}; operators:{label:string;detail:string}; regulator:{label:string;detail:string} }
 
 function deriveMarketData(state: DashboardPanelState): MarketDerived {
   const map: Record<DashboardPanelState, MarketDerived> = {
-    live: { model:{label:'Medical + Regulated Adult',detail:'Full medical-access framework with adult-use regulatory provisions in effect.'}, imports:{label:'Active import channels',detail:'Import licences, GMP certification pathways, and narcotics import permit frameworks are operative.'}, operators:{label:'Licensed multi-operator',detail:'Multiple licensed domestic operators; international suppliers are import-eligible under narcotics import permit frameworks.'}, regulator:{label:'National health authority',detail:'National medicines regulator governs product approval, import authorisation, and operator licensing.'} },
-    partial: { model:{label:'Medical access',detail:'Medical-access framework is active with selective prescriber and dispensary routing.'}, imports:{label:'Selective import channels',detail:'Import is permitted under case-by-case narcotics permit; some product categories remain import-blocked.'}, operators:{label:'Restricted operator pool',detail:'Licensed operator pool is limited; some product types require direct manufacturer import authorisation.'}, regulator:{label:'National medicines authority',detail:'Regulated by national medicines regulator with oversight from the health ministry.'} },
-    'static-orientation': { model:{label:'CBD / Limited access',detail:'Only low-THC or CBD-classified products are accessible under the current framework.'}, imports:{label:'CBD-only import pathway',detail:'Import is limited to CBD isolates and broad-spectrum products within legal THC thresholds.'}, operators:{label:'Supplement-track operators',detail:'Products are handled through supplement or nutraceutical operator channels, not narcotics licensing.'}, regulator:{label:'Food & supplement authority',detail:'Products are regulated as food supplements; narcotics authority involvement is limited.'} },
-    'fallback-backed': { model:{label:'Emerging framework',detail:'Legislative or regulatory framework is under active development; orientation data reflects current draft posture.'}, imports:{label:'Undefined import pathway',detail:'No confirmed import framework; channels are expected to emerge as legislation progresses.'}, operators:{label:'Pre-licensing stage',detail:'Operator licensing framework has not been finalised; early-mover engagement is limited to review-gated intake.'}, regulator:{label:'Regulatory authority (TBD)',detail:'Regulatory mandate is expected to be assigned to the national health or medicines authority.'} },
-    'request-only': { model:{label:'Private / request-gated',detail:'Market access is private-route only; all engagement is routed through Harbourview review.'}, imports:{label:'Case-by-case import',detail:'Import may be possible under individual narcotics import permits; requires Harbourview routing review.'}, operators:{label:'Undisclosed operator pool',detail:'Operator relationships and licensing details are not disclosed on the public dashboard; request review for access.'}, regulator:{label:'Restricted regulator access',detail:'Regulatory contact and product pathway data are not available on the public surface.'} },
-    'review-required': { model:{label:'Review-gated access',detail:'Market posture data is available after Harbourview review and routing confirmation.'}, imports:{label:'Review-gated import data',detail:'Import framework details require review before disclosure; consult Harbourview before routing.'}, operators:{label:'Review-gated operator list',detail:'Operator and counterparty data requires review authorisation before access.'}, regulator:{label:'Review-gated regulator info',detail:'Regulator contact and pathway data are held behind review and not available on the public dashboard.'} },
-    unavailable: { model:{label:'Not available',detail:'Market framework data is not available on the public dashboard.'}, imports:{label:'Not available',detail:'Import pathway data is not available.'}, operators:{label:'Not available',detail:'Operator data is not available.'}, regulator:{label:'Not available',detail:'Regulator data is not available.'} },
+    live:{model:{label:'Medical + Regulated Adult',detail:'Full medical-access framework with adult-use regulatory provisions in effect.'},imports:{label:'Active import channels',detail:'Import licences, GMP certification pathways, and narcotics import permit frameworks are operative.'},operators:{label:'Licensed multi-operator',detail:'Multiple licensed domestic operators; international suppliers are import-eligible under narcotics import permit frameworks.'},regulator:{label:'National health authority',detail:'National medicines regulator governs product approval, import authorisation, and operator licensing.'}},
+    partial:{model:{label:'Medical access',detail:'Medical-access framework is active with selective prescriber and dispensary routing.'},imports:{label:'Selective import channels',detail:'Import is permitted under case-by-case narcotics permit; some product categories remain import-blocked.'},operators:{label:'Restricted operator pool',detail:'Licensed operator pool is limited; some product types require direct manufacturer import authorisation.'},regulator:{label:'National medicines authority',detail:'Regulated by national medicines regulator with oversight from the health ministry.'}},
+    'static-orientation':{model:{label:'CBD / Limited access',detail:'Only low-THC or CBD-classified products are accessible under the current framework.'},imports:{label:'CBD-only import pathway',detail:'Import is limited to CBD isolates and broad-spectrum products within legal THC thresholds.'},operators:{label:'Supplement-track operators',detail:'Products are handled through supplement or nutraceutical operator channels, not narcotics licensing.'},regulator:{label:'Food & supplement authority',detail:'Products are regulated as food supplements; narcotics authority involvement is limited.'}},
+    'fallback-backed':{model:{label:'Emerging framework',detail:'Legislative or regulatory framework is under active development; orientation data reflects current draft posture.'},imports:{label:'Undefined import pathway',detail:'No confirmed import framework; channels are expected to emerge as legislation progresses.'},operators:{label:'Pre-licensing stage',detail:'Operator licensing framework has not been finalised; early-mover engagement is limited to review-gated intake.'},regulator:{label:'Regulatory authority (TBD)',detail:'Regulatory mandate is expected to be assigned to the national health or medicines authority.'}},
+    'request-only':{model:{label:'Private / request-gated',detail:'Market access is private-route only; all engagement is routed through Harbourview review.'},imports:{label:'Case-by-case import',detail:'Import may be possible under individual narcotics import permits; requires Harbourview routing review.'},operators:{label:'Undisclosed operator pool',detail:'Operator relationships and licensing details are not disclosed on the public dashboard; request review for access.'},regulator:{label:'Restricted regulator access',detail:'Regulatory contact and product pathway data are not available on the public surface.'}},
+    'review-required':{model:{label:'Review-gated access',detail:'Market posture data is available after Harbourview review and routing confirmation.'},imports:{label:'Review-gated import data',detail:'Import framework details require review before disclosure; consult Harbourview before routing.'},operators:{label:'Review-gated operator list',detail:'Operator and counterparty data requires review authorisation before access.'},regulator:{label:'Review-gated regulator info',detail:'Regulator contact and pathway data are held behind review and not available on the public dashboard.'}},
+    unavailable:{model:{label:'Not available',detail:'Market framework data is not available on the public dashboard.'},imports:{label:'Not available',detail:'Import pathway data is not available.'},operators:{label:'Not available',detail:'Operator data is not available.'},regulator:{label:'Not available',detail:'Regulator data is not available.'}},
   }
   return map[state]
 }
 
-const SIGNAL_TYPE_LABEL: Record<string,string> = { regulatory:'Regulatory', commercial:'Commercial', legislative:'Legislative', enforcement:'Enforcement', market:'Market', scientific:'Scientific' }
-const IMPACT_COLOR: Record<string,string> = { high:'rgba(239,68,68,0.7)', medium:'rgba(198,165,90,0.7)', low:'rgba(100,116,139,0.7)' }
+const SIGNAL_TYPE_LABEL: Record<string,string>={regulatory:'Regulatory',commercial:'Commercial',legislative:'Legislative',enforcement:'Enforcement',market:'Market',scientific:'Scientific'}
+const IMPACT_COLOR: Record<string,string>={high:'rgba(239,68,68,0.7)',medium:'rgba(198,165,90,0.7)',low:'rgba(100,116,139,0.7)'}
 
-function fmtDate(d: string|null): string|null {
-  if (!d) return null
-  try { return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(d)) } catch { return null }
+function fmtDate(d:string|null):string|null{
+  if(!d)return null
+  try{return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(d))}catch{return null}
 }
 
-export default async function MarketPage({ params }: Props) {
-  const { country: slug } = await params
-  const country = resolveCountryRouteParam(slug)
-  if (!country) return notFound()
+export default async function MarketPage({params}:Props){
+  const{country:slug}=await params
+  const country=resolveCountryRouteParam(slug)
+  if(!country)return notFound()
 
-  const panel       = country.panels.market
-  const badge       = getDashboardStatusBadge(panel.state)
-  const intel       = getCountryIntelligence(country.slug)
-  const baseDerived = deriveMarketData(panel.state)
+  const panel=country.panels.market
+  const badge=getDashboardStatusBadge(panel.state)
+  const intel=getCountryIntelligence(country.slug)
+  const baseDerived=deriveMarketData(panel.state)
 
-  const [liveProfile, recentSignals] = await Promise.all([
+  const[liveProfile,recentSignals]=await Promise.all([
     getCountryIntelProfile(country.iso2),
     getCountryMarketSignals(country.iso2),
   ])
 
-  let derived: MarketDerived
-  if (intel?.market) {
-    derived = { model:{label:intel.market.frameworkLabel,detail:intel.market.frameworkDetail}, imports:{label:intel.market.importLabel,detail:intel.market.importDetail}, operators:{label:intel.market.operatorLabel,detail:intel.market.operatorDetail}, regulator:{label:intel.market.regulatorLabel,detail:intel.market.regulatorDetail} }
-  } else {
-    derived = liveProfile?.briefing_program_status ? {
-      model: { label:liveProfile.briefing_program_status, detail:liveProfile.briefing_market_dynamics??baseDerived.model.detail },
-      imports: baseDerived.imports,
-      operators: baseDerived.operators,
-      regulator: { label:liveProfile.briefing_regulatory_body?.split(';')[0]?.split('—')[0]?.trim()??baseDerived.regulator.label, detail:liveProfile.briefing_regulatory_body??baseDerived.regulator.detail },
-    } : baseDerived
+  let derived:MarketDerived
+  if(intel?.market){
+    derived={model:{label:intel.market.frameworkLabel,detail:intel.market.frameworkDetail},imports:{label:intel.market.importLabel,detail:intel.market.importDetail},operators:{label:intel.market.operatorLabel,detail:intel.market.operatorDetail},regulator:{label:intel.market.regulatorLabel,detail:intel.market.regulatorDetail}}
+  }else{
+    derived=liveProfile?.briefing_program_status?{
+      model:{label:liveProfile.briefing_program_status,detail:liveProfile.briefing_market_dynamics??baseDerived.model.detail},
+      imports:baseDerived.imports,
+      operators:baseDerived.operators,
+      regulator:{label:liveProfile.briefing_regulatory_body?.split(';')[0]?.split('—')[0]?.trim()??baseDerived.regulator.label,detail:liveProfile.briefing_regulatory_body??baseDerived.regulator.detail},
+    }:baseDerived
   }
 
-  const isLocked          = panel.state==='unavailable'||panel.state==='request-only'
-  const commercialSummary = liveProfile?.commercial_pathway_summary??null
-  const regulatoryOutlook = liveProfile?.briefing_regulatory_outlook??null
-  const patientAccess     = liveProfile?.briefing_patient_access??null
-  const physicianAccess   = liveProfile?.briefing_physician_access??null
-  const publicSummary     = liveProfile?.public_summary??null
-  const hasCommercial     = !!(commercialSummary||regulatoryOutlook||patientAccess||physicianAccess)
-  const confidencePct     = liveProfile?.confidence_score!=null ? Math.round(Number(liveProfile.confidence_score)*100) : null
-  const lastReviewed      = fmtDate(liveProfile?.briefing_last_reviewed??null)
+  const isLocked=panel.state==='unavailable'||panel.state==='request-only'
+  const commercialSummary=liveProfile?.commercial_pathway_summary??null
+  const regulatoryOutlook=liveProfile?.briefing_regulatory_outlook??null
+  const patientAccess=liveProfile?.briefing_patient_access??null
+  const physicianAccess=liveProfile?.briefing_physician_access??null
+  const publicSummary=liveProfile?.public_summary??null
+  const hasCommercial=!!(commercialSummary||regulatoryOutlook||patientAccess||physicianAccess)
+  const confidencePct=liveProfile?.confidence_score!=null?Math.round(Number(liveProfile.confidence_score)*100):null
+  const lastReviewed=fmtDate(liveProfile?.briefing_last_reviewed??null)
 
-  return (
+  return(
     <div className="min-h-full p-5 lg:p-7">
       <nav className="mb-6 flex items-center gap-2 text-[11px]" aria-label="Breadcrumb">
         <Link href="/dashboard" className="transition-opacity hover:opacity-70" style={{color:'rgba(198,165,90,0.4)'}}>Dashboard</Link>

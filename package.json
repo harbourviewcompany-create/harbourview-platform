@@ -6,7 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
@@ -42,8 +42,9 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.109.1",
+    "@anthropic-ai/sdk": "^0.110.0",
     "@google/genai": "^2.10.0",
+    "@googleapis/drive": "^20.2.0",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
     "@react-three/postprocessing": "^3.0.4",
@@ -51,7 +52,8 @@
     "@supabase/supabase-js": "^2.110.0",
     "@tanstack/react-query": "^5.101.2",
     "class-variance-authority": "^0.7.1",
-    "lucide-react": "^1.22.0",
+    "googleapis-common": "^8.0.2",
+    "lucide-react": "^1.23.0",
     "next": "16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -62,20 +64,20 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "4.3.2",
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.185.0",
     "esbuild": "^0.28.1",
-    "eslint": "^10.6.0",
-    "eslint-config-next": "^15.3.1",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.10",
     "postcss": "^8.5.16",
     "tailwindcss": "^4.3.2",
-    "tsx": "^4.22.5",
+    "tsx": "^4.23.0",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.9",
+    "vitest": "^4.1.10",
     "wrangler": "^4.107.0"
   }
 }
