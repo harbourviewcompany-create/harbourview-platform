@@ -18,7 +18,7 @@
 | **Last migration** | `revoke_public_pseudorole_claim_intelligence_job` — Jul 4 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | None (last merged: #943 watchlist resolve/snooze/next-action) |
+| **Open PRs** | #978 (signals digest pipeline — clean merge, `check-drift` failing, needs rebase check), #949 (daily-digest security fixes — **draft, real merge conflict**, touches `HANDOFF.md` + both CommandCentre files, needs rebase before anything else). Last merged: #977 opportunity_score scale fix (2026-07-07, squash-merged via API after CI review) |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | `npx tsc --noEmit` clean (0 errors) as of `b8de567` (2026-07-07). Prior entry here claimed "2 pre-existing errors (`@tanstack/react-query` missing dep + Stripe API version)" — not reproduced this session; either fixed by an intervening commit or was already stale. Not independently investigated further. |
 
