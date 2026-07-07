@@ -2,8 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
 
-// Only apply no-store headers to routes that serve authenticated or
-// personalised content. Public informational routes must remain CDN-cacheable.
 function applyNoStoreHeaders(response: NextResponse) {
   const NO_STORE = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
   response.headers.set('Cache-Control', NO_STORE)
@@ -16,27 +14,46 @@ function applyNoStoreHeaders(response: NextResponse) {
 }
 
 // ── Subscription tier type ───────────────────────────────────────────────────
-type SubscriptionTier = 'free' | 'starter' | 'professional' | 'enterprise'
+// Canonical tier names — matches user_profiles.tier CHECK constraint
+// and app_metadata.subscription_tier written by the Stripe webhook.
+// Previous names ('starter', 'professional', 'enterprise') are retired.
+type SubscriptionTier = 'free' | 'intel' | 'operator'
+
+const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
 
 // Routes that require a minimum subscription tier beyond free.
-// Key: route prefix, Value: minimum tier required.
 const TIER_GATED_PREFIXES: Record<string, SubscriptionTier> = {
-  '/signals':      'starter',
-  '/intelligence': 'starter',
-  '/genetics':     'professional',
-  '/network':      'starter',
-  '/vault':        'starter',
-  '/opportunities':'starter',
+  '/signals':       'intel',
+  '/intelligence':  'intel',
+  '/genetics':      'operator',
+  '/network':       'intel',
+  '/vault':         'intel',
+  '/opportunities': 'intel',
 }
 
-const TIER_ORDER: SubscriptionTier[] = ['free', 'starter', 'professional', 'enterprise']
-
-function tierMeetsMinimum(actual: SubscriptionTier | undefined, required: SubscriptionTier): boolean {
+function tierMeetsMinimum(
+  actual: SubscriptionTier | string | undefined,
+  required: SubscriptionTier,
+): boolean {
   if (!actual) return false
-  return TIER_ORDER.indexOf(actual) >= TIER_ORDER.indexOf(required)
+  // Normalise any legacy tier names that may still be in existing JWTs
+  const normalised = normaliseTier(actual)
+  return TIER_ORDER.indexOf(normalised) >= TIER_ORDER.indexOf(required)
 }
 
-// Routes that require authentication — middleware actively checks session.
+// Map legacy Stripe tier names → current names so old JWTs still work
+// during the transition period (tokens expire within 1h).
+function normaliseTier(raw: string): SubscriptionTier {
+  switch (raw) {
+    case 'intel':        return 'intel'
+    case 'operator':     return 'operator'
+    case 'professional': return 'operator'   // legacy
+    case 'enterprise':   return 'operator'   // legacy
+    case 'starter':      return 'intel'      // legacy
+    default:             return 'free'
+  }
+}
+
 const PROTECTED_PREFIXES = [
   '/account',
   '/vault',
@@ -61,11 +78,9 @@ const PROTECTED_PREFIXES = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Normalize trailing slash
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 
-  // Legacy redirects — stamp no-store because redirects shouldn't be cached
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
     '/marketplace/wanted-requests': '/marketplace/wanted',
@@ -79,9 +94,8 @@ export async function middleware(request: NextRequest) {
     return applyNoStoreHeaders(NextResponse.redirect(url, 308))
   }
 
-  // Auth guard for protected routes
   const isProtected = PROTECTED_PREFIXES.some(
-    (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
+    (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/'),
   )
 
   if (isProtected) {
@@ -110,7 +124,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, options),
           )
         },
       },
@@ -125,12 +139,15 @@ export async function middleware(request: NextRequest) {
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
-    // ── Subscription tier gate ───────────────────────────────────────────────────
-    // Read tier from JWT app_metadata — zero extra DB round-trip.
-    const tier = (user.app_metadata?.subscription_tier ?? 'free') as SubscriptionTier
+    // ── Subscription tier gate ───────────────────────────────────────────────
+    // Reads subscription_tier from JWT app_metadata — set by Stripe webhook via
+    // supabase.auth.admin.updateUserById(). Zero DB round-trip.
+    // Falls back to 'free' if not present (new signups before first purchase).
+    const rawTier = user.app_metadata?.subscription_tier as string | undefined
+    const tier    = normaliseTier(rawTier ?? 'free')
 
     const matchedTierPrefix = Object.keys(TIER_GATED_PREFIXES).find(
-      (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/')
+      (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/'),
     )
 
     if (matchedTierPrefix) {
@@ -143,12 +160,9 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Protected and authenticated — prevent caching of personalised responses
     return applyNoStoreHeaders(response)
   }
 
-  // Public route — do NOT stamp no-store. Let Next.js ISR / Vercel CDN cache
-  // these responses normally.
   return NextResponse.next()
 }
 
@@ -173,7 +187,6 @@ export const config = {
     '/education/:path*',
     '/marketplace/sell/:path*',
     '/marketplace/my-listings/:path*',
-    // Legacy redirect paths
     '/marketplace/submit-listing',
     '/marketplace/wanted-requests',
     '/commercial-intelligence',
