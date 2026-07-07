@@ -46,6 +46,22 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}w ago`
 }
 
+// See matching comment in app/api/dashboard/digest/route.ts — editorial
+// content spans a much wider age range than same-day trade signals, so it
+// needs its own age label rather than being shown as "Today" regardless of
+// how old the underlying story actually is.
+function publishedLabel(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Recently'
+  try {
+    const d = new Date(dateStr)
+    const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+    if (diffDays < 35) return timeAgo(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  } catch {
+    return 'Recently'
+  }
+}
+
 // ── Map PublicRegulatorySignal → DashboardSignal ──────────────────────────────
 function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
   const tagKey = REG_TYPE_TO_TAG[s.signal_type] ?? 'regulatory_change'
@@ -331,7 +347,7 @@ export async function fetchDailyDigest(
       .maybeSingle()
 
     type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
-    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string }
+    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string }
 
     const hasSignalEdition    = edition && Array.isArray(edition.headlines) && edition.headlines.length > 0
     const hasEditorialEdition = edition && Array.isArray(edition.editorial_headlines) && edition.editorial_headlines.length > 0
@@ -378,7 +394,7 @@ export async function fetchDailyDigest(
         type:             'editorial',
         market:           h.market ?? 'Global',
         tag:              editorialTag,
-        timeAgo:          'Today',
+        timeAgo:          publishedLabel(h.published_at),
         confidence:       0,
         commercialImpact: h.why_it_matters ?? '',
         sourceLabel:      'Global Cannabis News',
