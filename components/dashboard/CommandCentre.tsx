@@ -12,6 +12,7 @@ import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
 
@@ -233,7 +234,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
             { icon: '↓', label: 'Import Status',   value: fmtStatus(countryIntel?.import_status,        'Not Available')     },
             { icon: '↑', label: 'Export Status',   value: fmtStatus(countryIntel?.export_status,        'Not Available')     },
             { icon: '⊙', label: 'Opportunity',     value: countryIntel?.opportunity_score != null
-                ? `${countryIntel.opportunity_score}/100`
+                ? formatOpportunityScore(countryIntel.opportunity_score)
                 : 'Not Scored' },
           ] as { icon: string; label: string; value: string }[]).map(f => (
             <div key={f.label} className="cc-jx-field">
@@ -3661,7 +3662,7 @@ const CompliancePage = React.memo(function CompliancePage({
             <div className="cc-jx-fields">
               <div className="cc-jx-field">
                 <span className="cc-jx-field-icon">◎</span>
-                <div><small>Opportunity score</small><strong>{countryIntel.opportunity_score}/10</strong></div>
+                <div><small>Opportunity score</small><strong>{formatOpportunityScore(countryIntel.opportunity_score)}</strong></div>
               </div>
               {countryIntel.regulatory_tier && (
                 <div className="cc-jx-field">
