@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
-import { createClient } from '@/lib/supabase/server'
+import { getLatestDailyDigest } from '@/lib/harbourview/digest'
+import type { HvDigestHeadlineDto } from '@/lib/harbourview/dto'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 // Force dynamic rendering — page fetches live Supabase data at request time
@@ -24,20 +25,6 @@ export const metadata: Metadata = {
   alternates: { canonical: '/daily' },
 }
 
-type DigestHeadline = {
-  headline: string
-  why_it_matters: string
-  market: string
-  signal_id?: string
-}
-
-type DigestRow = {
-  digest_date: string
-  headlines: DigestHeadline[]
-  markets: string[]
-  generated_at: string
-}
-
 function formatDigestDate(value: string) {
   const parsed = new Date(`${value}T12:00:00Z`)
   if (Number.isNaN(parsed.getTime())) return value
@@ -50,8 +37,8 @@ function formatDigestDate(value: string) {
   })
 }
 
-function groupByMarket(headlines: DigestHeadline[]) {
-  const groups = new Map<string, DigestHeadline[]>()
+function groupByMarket(headlines: HvDigestHeadlineDto[]) {
+  const groups = new Map<string, HvDigestHeadlineDto[]>()
   for (const item of headlines) {
     const market = item.market?.trim() || 'Global'
     const bucket = groups.get(market)
@@ -61,29 +48,9 @@ function groupByMarket(headlines: DigestHeadline[]) {
   return Array.from(groups.entries())
 }
 
-async function getLatestDigest(): Promise<DigestRow | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('daily_digest')
-    .select('digest_date, headlines, markets, generated_at')
-    .eq('status', 'published')
-    .order('digest_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error || !data) return null
-  const headlines = Array.isArray(data.headlines) ? (data.headlines as DigestHeadline[]) : []
-  return {
-    digest_date: data.digest_date,
-    headlines: headlines.filter((h) => typeof h?.headline === 'string' && h.headline.length > 0),
-    markets: Array.isArray(data.markets) ? data.markets : [],
-    generated_at: data.generated_at,
-  }
-}
-
 export default async function DailyDigestPage() {
-  const digest = await getLatestDigest()
-  const grouped = digest ? groupByMarket(digest.headlines) : []
+  const { digest } = await getLatestDailyDigest()
+  const grouped = groupByMarket(digest.headlines)
 
   return (
     <main>
@@ -146,6 +113,12 @@ export default async function DailyDigestPage() {
                         <span className="font-semibold text-gold/80">Why it matters: </span>
                         {item.why_it_matters}
                       </p>
+                      {item.whats_next && (
+                        <p className="mt-4 text-sm leading-7 text-white/48">
+                          <span className="font-semibold text-gold/80">What&apos;s next: </span>
+                          {item.whats_next}
+                        </p>
+                      )}
                     </PublicCard>
                   ))}
                 </div>
