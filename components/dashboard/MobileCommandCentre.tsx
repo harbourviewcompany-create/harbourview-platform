@@ -1681,6 +1681,28 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
   const isStale = effectiveWindow !== '24h'
 
   if (selected) {
+    if (selected.contentType === 'editorial') {
+      return (
+        <div className="hvm-page-stack">
+          <button className="hvm-back-btn" type="button" onClick={() => setSelected(null)}>← Daily digest</button>
+          <section className="hvm-hero-card compact" style={{ borderLeft: '3px solid #B8AF9E' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span className="hvm-tag-chip" style={{ background: selected.tag.bg, borderColor: selected.tag.border, color: selected.tag.color }}>{selected.tag.label}</span>
+              <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace' }}>{selected.market}</span>
+              <span style={{ fontSize: 11, color: 'rgba(245,240,232,.3)', marginLeft: 'auto' }}>{selected.timeAgo}</span>
+            </div>
+            <h2 style={{ fontSize: 20 }}>{selected.flag} {selected.title}</h2>
+          </section>
+          <div className="hvm-card">
+            <div className="hvm-kicker">Why it matters</div>
+            <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selected.commercialImpact}</p>
+          </div>
+          {selected.sourceLabel && (
+            <p style={{ fontSize: 11, color: 'rgba(245,240,232,.35)', textAlign: 'center' }}>{selected.sourceLabel}</p>
+          )}
+        </div>
+      )
+    }
     const cat = classifySignal(selected.type)
     const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
     const confColor = selected.confidence >= 80 ? '#4caf82' : selected.confidence >= 60 ? '#d4a84b' : '#e05555'
@@ -1720,12 +1742,38 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
         <h2>Daily Digest</h2>
         <p>{country.label}{roleLabel ? ` · ${roleLabel}` : ''} · {copy.sub}</p>
         <p style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
-          {effectiveSignals.length} signal{effectiveSignals.length !== 1 ? 's' : ''}{liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
+          {effectiveSignals.length} item{effectiveSignals.length !== 1 ? 's' : ''}{liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
         </p>
       </section>
 
       <div className="hvm-list-stack">
         {effectiveSignals.length > 0 ? effectiveSignals.map((signal, index) => {
+          if (signal.contentType === 'editorial') {
+            return (
+              <div
+                className="hvm-signal-card hvm-signal-card--tap hvm-signal-card--rich"
+                key={signal.id ?? `${signal.title}-${index}`}
+                style={{ borderLeft: '3px solid #B8AF9E' }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(signal)}
+                onKeyDown={e => e.key === 'Enter' && setSelected(signal)}
+              >
+                <div className="hvm-sig-head">
+                  <span className="hvm-tag-chip" style={{ background: signal.tag.bg, borderColor: signal.tag.border, color: signal.tag.color }}>{signal.tag.label}</span>
+                  <span className="hvm-sig-market">{signal.market}</span>
+                  <span className="hvm-sig-time">{signal.timeAgo}</span>
+                </div>
+                <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                {signal.sourceLabel && (
+                  <div className="hvm-sig-footer">
+                    <span style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace' }}>{signal.sourceLabel}</span>
+                  </div>
+                )}
+              </div>
+            )
+          }
           const cat = classifySignal(signal.type)
           const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
           return (

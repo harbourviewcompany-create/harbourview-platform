@@ -16,6 +16,10 @@ export type DashboardSignal = {
   commercialImpact: string
   sourceLabel?: string   // source attribution (regulator name or 'Harbourview Intelligence'); optional — not all signal sources supply it
   flag?: string          // country flag emoji; optional — not all signal sources supply it
+  // 'signal' (default): trade/regulatory intelligence — confidence bar + category chip.
+  // 'editorial': mainstream-media cannabis news/commentary — no confidence score,
+  // no commercial-impact framing, rendered as a plain headline + why-it-matters card.
+  contentType?: 'signal' | 'editorial'
 }
 
 export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: string }>> = {
