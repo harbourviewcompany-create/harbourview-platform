@@ -10,6 +10,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
 
 type CommandPage = 'briefing' | 'digest' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
 
@@ -2964,7 +2965,7 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
 
       {countryIntel ? (
         <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-          <SectionCard label="Opp. score" title={countryIntel.opportunity_score != null ? `${countryIntel.opportunity_score}/10` : '—'} tone={countryIntel.opportunity_score != null && countryIntel.opportunity_score >= 6 ? 'ok' : 'neutral'} />
+          <SectionCard label="Opp. score" title={formatOpportunityScore(countryIntel.opportunity_score)} tone={opportunityScoreTone(countryIntel.opportunity_score)} />
           <SectionCard label="Import" title={countryIntel.import_status ?? '—'} />
           <SectionCard label="Export" title={countryIntel.export_status ?? '—'} />
           <SectionCard label="Medical" title={countryIntel.medical_status ?? '—'} />

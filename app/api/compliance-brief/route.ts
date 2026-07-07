@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -37,7 +38,7 @@ function buildPrompt(profile: CountryIntelProfile, roleContext?: string): string
   lines.push(`- Export: ${profile.export_status ?? '—'}`)
   lines.push(`- Medical Programme: ${profile.medical_status ?? '—'}`)
   lines.push(`- Adult-Use: ${profile.adult_use_status ?? '—'}`)
-  lines.push(`- Opportunity Score: ${profile.opportunity_score != null ? `${profile.opportunity_score}/10` : '—'}`)
+  lines.push(`- Opportunity Score: ${formatOpportunityScore(profile.opportunity_score)}`)
   lines.push(`- Data Completeness: ${profile.data_completeness ?? '—'}`)
   lines.push(``)
 
