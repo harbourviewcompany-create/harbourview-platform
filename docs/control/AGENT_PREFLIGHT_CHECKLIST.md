@@ -44,6 +44,7 @@ Known repeat-offender assumptions to specifically re-verify, not trust from memo
 - `applicationsQuery.ts` exports (`listPendingProfessionals`, `decideProfessionalApplication`, `decideSupplierApplication`) and status value `pending_review` (not `pending`).
 - Any function you plan to call via `.rpc()` — confirm it exists in the `api` schema, not just `public`. PostgREST only exposes `api` on this project.
 - Any table under active "DO NOT TOUCH" rules in `HANDOFF.md` (`supplier_profiles`, `public-assets` bucket RLS).
+- Any new `.hvm-*` class added to `MOBILE_CSS` in `components/dashboard/MobileCommandCentre.tsx` — it's a plain un-scoped `<style>` string (not CSS modules), so a duplicate selector will silently win/lose the cascade instead of erroring. `grep -n "^\.your-class-name {" components/dashboard/MobileCommandCentre.tsx` before adding one. This caused a real production bug (gold-block signal detail, fixed 2026-07-07 — see HANDOFF.md ADR #11).
 
 ## 3. Check for in-flight work on the same area
 
@@ -54,7 +55,9 @@ git branch -r --sort=-committerdate | head -30
 For any branch that looks related to your task:
 - Check last commit date and whether its last CI run passed.
 - If it's >7 days stale with no PR, note it in your session log as likely-abandoned rather than silently ignoring or silently building on top of it.
-- If it's active and overlapping, coordinate before duplicating work (this project has had 3+ same-task collisions between concurrent sessions).
+- If it's active and overlapping, coordinate before duplicating work (this project has had 4+ same-task collisions between concurrent sessions, most recently `main` moving 14 commits mid-task across two separate windows on 2026-07-07 — diff the incoming changes directly before merging, don't trust a clean `git merge` exit code alone).
+
+> **Note on `main` branch protection:** as of 2026-07-07, `enforce_admins` is `false` on this repo's `main` branch protection, and `required_approving_review_count` is `0`. This means a direct push (or a merge commit) to `main` with an admin-scoped token will be logged as "Bypassed rule violations" but **not blocked**. Do not treat the existence of branch-protection rules as evidence that a workflow step (PR, review, linear history) actually happened — verify what was actually done, same as any other claim in this checklist. See `HANDOFF.md` ADR #12.
 
 ## 4. Check current CI/deploy health before assuming a red check is your fault
 
