@@ -213,7 +213,7 @@ export default async function DashboardPage({
 
   const [signals, dailyDigest, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, , watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage, jurisdictionPlaybook, educationTracks, marketMetrics, tradeFlows, professionals, cannabisOperators, cultivarPassports, serviceProviders, collaborationProjects] = await Promise.all([
     fetchDashboardSignals(30),
-    fetchDailyDigest(12),
+    fetchDailyDigest(20),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),

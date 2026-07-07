@@ -1661,7 +1661,7 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
 
   useEffect(() => {
     let cancelled = false
-    const params = new URLSearchParams({ limit: '12' })
+    const params = new URLSearchParams({ limit: '20' })
     if (country.label) params.set('country', country.label)
     fetch(`/api/dashboard/digest?${params.toString()}`)
       .then(r => r.json())
@@ -1675,7 +1675,7 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
     return () => { cancelled = true }
   }, [country.label])
 
-  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 12)
+  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 20)
   const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
   const copy = DIGEST_WINDOW_LABEL[effectiveWindow]
   const isStale = effectiveWindow !== '24h'

@@ -166,6 +166,7 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
     commercialImpact: priToCommercial(s.pri, laneKey, market),
     sourceLabel:      'Harbourview Regulatory Watch',
     flag:             flagForMarket(market),
+    contentType:      'signal',
   }
 }
 
@@ -311,7 +312,7 @@ function digestRowRecency(r: DigestRow): number {
 }
 
 export async function fetchDailyDigest(
-  limit = 12,
+  limit = 20,
   countryName?: string | null,
 ): Promise<DailyDigest> {
   try {
@@ -323,28 +324,40 @@ export async function fetchDailyDigest(
     // edition exists it IS the digest; the rolling window below is fallback.
     const { data: edition } = await supabase
       .from('daily_digest')
-      .select('digest_date, headlines, generated_at')
+      .select('digest_date, headlines, editorial_headlines, generated_at')
       .eq('status', 'published')
       .order('digest_date', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
+    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string }
 
-    if (edition && Array.isArray(edition.headlines) && edition.headlines.length > 0) {
-      let items = (edition.headlines as EditorialHeadline[])
+    const hasSignalEdition    = edition && Array.isArray(edition.headlines) && edition.headlines.length > 0
+    const hasEditorialEdition = edition && Array.isArray(edition.editorial_headlines) && edition.editorial_headlines.length > 0
+
+    if (hasSignalEdition || hasEditorialEdition) {
+      let signalItems = (hasSignalEdition ? edition!.headlines as EditorialHeadline[] : [])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+      let newsItems = (hasEditorialEdition ? edition!.editorial_headlines as NewsHeadline[] : [])
         .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
 
       if (countryName) {
         const needle = countryName.toLowerCase()
-        const match  = items.filter(h => (h.market ?? '').toLowerCase().includes(needle))
-        const rest   = items.filter(h => !(h.market ?? '').toLowerCase().includes(needle))
-        items = [...match, ...rest]
+        const prioritize = <T extends { market?: string }>(items: T[]) => {
+          const match = items.filter(h => (h.market ?? '').toLowerCase().includes(needle))
+          const rest  = items.filter(h => !(h.market ?? '').toLowerCase().includes(needle))
+          return [...match, ...rest]
+        }
+        signalItems = prioritize(signalItems)
+        newsItems   = prioritize(newsItems)
       }
 
-      const todayUtc = new Date().toISOString().slice(0, 10)
-      const editorialSignals: DashboardSignal[] = items.slice(0, limit).map((h, i) => ({
-        id:               h.signal_id ?? `digest-${edition.digest_date}-${i}`,
+      const todayUtc  = new Date().toISOString().slice(0, 10)
+      const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
+
+      const signalSignals: DashboardSignal[] = signalItems.map((h, i) => ({
+        id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
         slug:             undefined,
         title:            h.headline!,
         type:             'regulatory_change',
@@ -355,11 +368,27 @@ export async function fetchDailyDigest(
         commercialImpact: h.why_it_matters ?? '',
         sourceLabel:      'Harbourview Daily',
         flag:             flagForMarket(h.market ?? 'Global'),
+        contentType:      'signal',
+      }))
+
+      const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
+        id:               h.item_id ?? `editorial-${edition!.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'editorial',
+        market:           h.market ?? 'Global',
+        tag:              editorialTag,
+        timeAgo:          'Today',
+        confidence:       0,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      'Global Cannabis News',
+        flag:             flagForMarket(h.market ?? 'Global'),
+        contentType:      'editorial',
       }))
 
       return {
-        signals: editorialSignals,
-        window:  edition.digest_date === todayUtc ? '24h' : 'recent',
+        signals: [...signalSignals, ...newsSignals].slice(0, limit),
+        window:  edition!.digest_date === todayUtc ? '24h' : 'recent',
       }
     }
 

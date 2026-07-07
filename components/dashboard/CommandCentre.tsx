@@ -492,7 +492,7 @@ const DigestPage = React.memo(function DigestPage({
   const [isFetching,  setIsFetching]  = useState(false)
 
   // SSR props → instant paint; effect hydrates the country-filtered live set.
-  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 12)
+  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 20)
   const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
 
   React.useEffect(() => {
@@ -500,7 +500,7 @@ const DigestPage = React.memo(function DigestPage({
     async function run() {
       setIsFetching(true)
       try {
-        const params = new URLSearchParams({ limit: '12' })
+        const params = new URLSearchParams({ limit: '20' })
         if (country.label) params.set('country', country.label)
         const res = await fetch(`/api/dashboard/digest?${params.toString()}`)
         if (!res.ok || cancelled) return

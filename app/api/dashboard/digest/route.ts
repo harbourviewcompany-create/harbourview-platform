@@ -24,7 +24,7 @@
  *
  * Query params:
  *   country — country name (e.g. "Germany"). Optional. Omit or "all" for global.
- *   limit   — max results, capped at 40. Default: 12.
+ *   limit   — max results, capped at 40. Default: 20.
  *
  * Returns:
  *   {
@@ -175,8 +175,8 @@ export async function GET(req: NextRequest) {
   // interpolated into a .or() / .ilike() clause below, to prevent a crafted
   // ?country= value from breaking out of its filter and injecting conditions.
   const countryParam = (searchParams.get('country') ?? '').trim().replace(/[,()]/g, '')
-  const parsedLimit  = parseInt(searchParams.get('limit') ?? '12', 10)
-  const limit        = Math.min(Math.max(Number.isFinite(parsedLimit) ? parsedLimit : 12, 1), 40)
+  const parsedLimit  = parseInt(searchParams.get('limit') ?? '20', 10)
+  const limit        = Math.min(Math.max(Number.isFinite(parsedLimit) ? parsedLimit : 20, 1), 40)
   const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
 
   try {
