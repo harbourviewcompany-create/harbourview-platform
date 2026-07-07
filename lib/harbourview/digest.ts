@@ -43,3 +43,12 @@ export function headlinesForMarket(digest: HvDailyDigestPublicDto, market: strin
   if (matched.length > 0) return matched
   return digest.headlines.filter((h) => h.market.trim().toLowerCase() === 'global')
 }
+
+/** Human-readable digest edition date, falling back to the raw value if it doesn't parse. */
+export function formatDigestDateLabel(digestDate: string): string {
+  const parsed = new Date(`${digestDate}T12:00:00Z`)
+  if (Number.isNaN(parsed.getTime())) return digestDate
+  return parsed.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+  })
+}

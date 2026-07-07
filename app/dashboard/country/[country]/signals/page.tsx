@@ -7,7 +7,7 @@ import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 import { fetchDashboardSignals } from '@/lib/dashboard/dashboardServerData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import { getLatestDailyDigest, headlinesForMarket } from '@/lib/harbourview/digest'
+import { getLatestDailyDigest, headlinesForMarket, formatDigestDateLabel } from '@/lib/harbourview/digest'
 
 export const dynamic = 'force-dynamic'
 
@@ -152,15 +152,15 @@ export default async function SignalsPage({ params }: Props) {
   const baseDerived = deriveSignals(panel.state, country.displayName)
 
   // ── Pull live signals (regulatory feed -> curated signals table -> IA),
-  //    fall back to static registry / derived defaults ─────────────────────
-  const liveSignals = await fetchDashboardSignals(12, country.displayName)
-
-  // ── Harbourview Signals digest: today's editorial headlines for this market ──
-  const { digest: dailyDigest, source: digestSource } = await getLatestDailyDigest()
+  //    fall back to static registry / derived defaults -- and the
+  //    Harbourview Signals digest for this market -- in parallel, since
+  //    neither depends on the other's result ─────────────────────────────
+  const [liveSignals, { digest: dailyDigest, source: digestSource }] = await Promise.all([
+    fetchDashboardSignals(12, country.displayName),
+    getLatestDailyDigest(),
+  ])
   const digestHeadlines = headlinesForMarket(dailyDigest, country.displayName)
-  const digestDateLabel = new Date(`${dailyDigest.digest_date}T12:00:00Z`).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
-  })
+  const digestDateLabel = formatDigestDateLabel(dailyDigest.digest_date)
 
   function liveToFeedSignal(s: DashboardSignal): FeedSignal {
     const tone = s.confidence >= 80 ? 'green' : s.confidence >= 60 ? 'gold' : 'blue'

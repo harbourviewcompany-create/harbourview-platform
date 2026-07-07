@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { getLatestDailyDigest } from '@/lib/harbourview/digest'
+import { getLatestDailyDigest, formatDigestDateLabel } from '@/lib/harbourview/digest'
 import type { HvDigestHeadlineDto } from '@/lib/harbourview/dto'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
@@ -23,18 +23,6 @@ export const metadata: Metadata = {
       'Qualified cannabis regulatory and market signals, distilled into daily headlines with editorial context.',
   },
   alternates: { canonical: '/daily' },
-}
-
-function formatDigestDate(value: string) {
-  const parsed = new Date(`${value}T12:00:00Z`)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
 }
 
 function groupByMarket(headlines: HvDigestHeadlineDto[]) {
@@ -78,7 +66,7 @@ export default async function DailyDigestPage() {
                 </div>
               </div>
               <p className="mt-5 text-xs leading-6 text-white/48">
-                Edition: {formatDigestDate(digest.digest_date)}
+                Edition: {formatDigestDateLabel(digest.digest_date)}
               </p>
             </PublicCard>
           ) : undefined
@@ -97,7 +85,7 @@ export default async function DailyDigestPage() {
 
       {digest && grouped.length > 0 ? (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow={formatDigestDate(digest.digest_date)} title="What moved, and why it matters.">
+          <SectionHeader eyebrow={formatDigestDateLabel(digest.digest_date)} title="What moved, and why it matters.">
             Curated from qualified intelligence signals. Ordered by commercial importance.
           </SectionHeader>
           <div className="space-y-10">
