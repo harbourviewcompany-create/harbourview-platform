@@ -1212,3 +1212,31 @@ export async function getComparisonCountryScores(
   } catch { return [] }
 }
 
+// ── My marketplace submissions (for the Command Centre "My Listings" panel) ─────
+
+export type MySubmission = {
+  id: string
+  title_public_draft: string | null
+  marketplace_category: string | null
+  listing_type: string | null
+  status: string | null
+  created_at: string
+  submission_images: string[] | null
+  country: string | null
+}
+
+export async function getUserMarketplaceSubmissions(userId: string | null): Promise<MySubmission[]> {
+  if (!userId) return []
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('marketplace_candidates')
+      .select('id, title_public_draft, marketplace_category, listing_type, status, created_at, submission_images, country')
+      .eq('submitted_by', userId)
+      .eq('submission_source', 'self_serve')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (error) { console.error('[getUserMarketplaceSubmissions] query error', error.message); return [] }
+    return data ?? []
+  } catch { return [] }
+}

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -224,6 +224,7 @@ export default async function DashboardPage({
     recentEduModulesResult, localIntelResult, sourceCoverageResult, jurisdictionPlaybookResult,
     educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
     cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
+    mySubmissionsResult,
   ] = await Promise.allSettled([
     fetchDashboardSignals(30),
     fetchDailyDigest(20),
@@ -249,6 +250,7 @@ export default async function DashboardPage({
     getPublicCultivarPassports(),
     getPublicServiceProviders(),
     getPublicCollaborationProjects(),
+    getUserMarketplaceSubmissions(userId),
   ])
 
   const signals               = settledOr(signalsResult, [], 'fetchDashboardSignals')
@@ -274,6 +276,7 @@ export default async function DashboardPage({
   const cultivarPassports      = settledOr(cultivarPassportsResult, [], 'getPublicCultivarPassports')
   const serviceProviders       = settledOr(serviceProvidersResult, [], 'getPublicServiceProviders')
   const collaborationProjects  = settledOr(collaborationProjectsResult, [], 'getPublicCollaborationProjects')
+  const mySubmissions          = settledOr(mySubmissionsResult, [], 'getUserMarketplaceSubmissions')
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
@@ -310,6 +313,7 @@ export default async function DashboardPage({
       cultivarPassports={cultivarPassports}
       serviceProviders={serviceProviders}
       collaborationProjects={collaborationProjects}
+      mySubmissions={mySubmissions}
     />
   )
 }

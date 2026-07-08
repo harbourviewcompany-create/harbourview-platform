@@ -51,22 +51,34 @@ const nextConfig = {
   compress: true,
   productionBrowserSourceMaps: false,
 
-  // Marketplace pilot (Command Centre consolidation, phase 1): pure browse/
-  // category routes are fully covered by the existing marketplace panel
-  // inside Command Centre (components/dashboard/CommandCentre.tsx MKT_TABS +
-  // the VIEW_SECTIONS category mapping in app/dashboard/page.tsx — same
-  // source-of-truth mapping used here). 308s so bookmarks/SEO links land in
-  // the shell instead of 404ing.
+  // Marketplace consolidation into Command Centre (/dashboard?page=marketplace).
+  // Phase 1 (pilot): pure browse/category routes, covered by MKT_TABS +
+  // VIEW_SECTIONS (app/dashboard/page.tsx). Phase 2: Submit/Quote/Deal Rooms/
+  // My Listings, now covered by the marketplace panel's action sub-views
+  // (components/dashboard/CommandCentre.tsx MKT_ACTION_TABS + DealRoomsPanel) —
+  // reusing the same form/list components the standalone routes used
+  // (DynamicMarketplaceIntakeForm, QuoteRequestForm, MyListingsClient), just
+  // re-hosted inside the shell instead of on their own page. 308s so
+  // bookmarks/SEO links land in the shell instead of 404ing.
   //
   // Deliberately NOT redirected — no in-shell equivalent exists yet:
-  // /marketplace/sell, /marketplace/sell/consumables, /marketplace/quote,
-  // /marketplace/deals(/new|/[id]), /marketplace/my-listings,
   // /marketplace/consumables/[id] (dedicated request form),
   // /marketplace/listings/[slug] (individual listing detail),
   // /marketplace/genetics/[slug|request-access|submit-program].
+  // /marketplace/deals/[id] specifically: deal room selection is now
+  // client-side panel state, not a URL — a shared/bookmarked link to a
+  // specific room can't be deep-linked into that state, so it lands on the
+  // Deal Rooms list instead of erroring.
   async redirects() {
     return [
       { source: '/marketplace', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/sell', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/sell/consumables', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/quote', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/deals', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/deals/new', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/deals/:id', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/my-listings', destination: '/dashboard?page=marketplace', permanent: true },
       { source: '/marketplace/listings', destination: '/dashboard?page=marketplace', permanent: true },
       { source: '/marketplace/wanted', destination: '/dashboard?page=marketplace', permanent: true },
       { source: '/marketplace/import-demand', destination: '/dashboard?page=marketplace', permanent: true },
