@@ -81,11 +81,7 @@ const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'signals',         label: 'Intel',          icon: '≋' },
   { id: 'education',       label: 'Education',      icon: '⬡' },
   { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
-  { id: 'access-pathway',  label: 'Access Pathway', icon: '➝' },
-  { id: 'local-intel',     label: 'Local Intel',    icon: '◉' },
-  { id: 'compliance',      label: 'Compliance',     icon: '◫' },
   { id: 'countries',       label: 'Countries',      icon: '⊗' },
-  { id: 'settings',        label: 'Settings',       icon: '⚙' },
 ]
 
 
@@ -428,12 +424,22 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
   )
 }
 
-type BriefingSub = 'overview'
+type BriefingSub = 'overview' | 'compliance' | 'local-intel' | 'access-pathway'
 
-function BriefingMobile({ country, roleLabel, countryIntel, signals, marketMetrics, tradeFlows, onOpenSettings }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
+  { id: 'overview',       label: 'Overview' },
+  { id: 'compliance',     label: 'Compliance' },
+  { id: 'local-intel',    label: 'Local Intel' },
+  { id: 'access-pathway', label: 'Access Pathway' },
+]
+
+function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
-      <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />
+      {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
+      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
+      {sub === 'local-intel'    && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
 }
@@ -3322,22 +3328,27 @@ export default function MobileCommandCentre({
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
   // Some valid CommandPage ids (shared with desktop via app/dashboard/page.tsx's
-  // VALID_COMMAND_PAGES) live as sub-tabs on mobile rather than top-level pages.
-  // Without this map, a deep link like ?page=watchlist silently fell back to
-  // 'briefing' instead of resolving to Intel > Watchlist.
-  const SUBTAB_REDIRECT: Partial<Record<string, { page: CommandPage; signalsSub?: SignalSub; educationSub?: EduSub }>> = {
-    watchlist:  { page: 'signals',   signalsSub: 'watchlist' },
-    regulatory: { page: 'signals',   signalsSub: 'regulatory' },
-    evidence:   { page: 'education', educationSub: 'research' },
+  // VALID_COMMAND_PAGES) live as sub-tabs on mobile rather than top-level bottom-nav
+  // pages. Without this map, a deep link like ?page=watchlist or ?page=compliance
+  // would silently fall back to 'briefing' > Overview instead of landing on the
+  // correct tab, and ?page=settings (not in MOBILE_NAV at all) wouldn't resolve.
+  const HIDDEN_PAGE_ROUTES: Partial<Record<string, { page: CommandPage; briefingSub?: BriefingSub; signalsSub?: SignalSub; educationSub?: EduSub }>> = {
+    watchlist:        { page: 'signals',  signalsSub: 'watchlist' },
+    regulatory:       { page: 'signals',  signalsSub: 'regulatory' },
+    evidence:         { page: 'education', educationSub: 'research' },
+    compliance:       { page: 'briefing', briefingSub: 'compliance' },
+    'local-intel':    { page: 'briefing', briefingSub: 'local-intel' },
+    'access-pathway': { page: 'briefing', briefingSub: 'access-pathway' },
+    settings:         { page: 'settings' },
   }
-  const redirected = initialPage ? SUBTAB_REDIRECT[initialPage] : undefined
+  const redirected = initialPage ? HIDDEN_PAGE_ROUTES[initialPage] : undefined
   const [activePage, setActivePage] = useState<CommandPage>(() => {
     if (redirected) return redirected.page
     const valid = MOBILE_NAV.some(item => item.id === initialPage)
     return valid ? (initialPage as CommandPage) : 'briefing'
   })
   const [contextOpen, setContextOpen] = useState(false)
-  const [briefingSub] = useState<BriefingSub>('overview')
+  const [briefingSub, setBriefingSub] = useState<BriefingSub>(redirected?.briefingSub ?? 'overview')
   const [signalsSub, setSignalsSub] = useState<SignalSub>(redirected?.signalsSub ?? 'feed')
   const educationInitialSub = redirected?.educationSub ?? 'modules'
 
@@ -3380,6 +3391,7 @@ export default function MobileCommandCentre({
   }
 
   const titlebartabs = (() => {
+    if (activePage === 'briefing') return { tabs: BRIEF_TABS, activeId: briefingSub, onSelect: (id: string) => setBriefingSub(id as BriefingSub) }
     if (activePage === 'signals')  return { tabs: SIGNALS_TABS, activeId: signalsSub, onSelect: (id: string) => setSignalsSub(id as SignalSub) }
     return null
   })()
@@ -3420,12 +3432,6 @@ export default function MobileCommandCentre({
         )
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
-      case 'access-pathway':
-        return <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />
-      case 'local-intel':
-        return <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />
-      case 'compliance':
-        return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'settings':
         return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} />
       case 'countries':
@@ -3447,6 +3453,13 @@ export default function MobileCommandCentre({
           </div>
           <div className="hvm-titlebar-actions">
             <button type="button" onClick={() => setContextOpen(true)} aria-label="Switch market">Market</button>
+            <button
+              type="button"
+              className="hvm-titlebar-settings"
+              aria-label="Settings"
+              aria-current={activePage === 'settings' ? 'page' : undefined}
+              onClick={() => handlePageChange('settings')}
+            >⚙</button>
             {userEmail ? (
               <a href="/account" className="hvm-titlebar-account" aria-label="Account">
                 {userEmail.slice(0, 2).toUpperCase()}
@@ -3584,6 +3597,25 @@ const MOBILE_CSS = `
   background: rgba(198,165,90,0.1);
   color: #F0D39A;
   font-size: 11px;
+}
+.hvm-titlebar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.72);
+  font-size: 16px;
+  cursor: pointer;
+}
+.hvm-titlebar-settings[aria-current="page"] {
+  border-color: rgba(198,165,90,0.5);
+  background: rgba(198,165,90,0.14);
+  color: #F0D39A;
 }
 .hvm-title-kicker {
   display: block;
