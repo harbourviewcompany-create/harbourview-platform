@@ -121,7 +121,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: 'Prescribers',
+    label: 'Market Access',
     items: [
       { id: 'access-pathway', label: 'Access Pathway',   icon: '⬡' },
       { id: 'regulatory',     label: 'Regulatory Watch', icon: '◷' },
