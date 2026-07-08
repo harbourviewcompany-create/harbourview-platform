@@ -76,6 +76,25 @@ export type HvEducationResourcePublicDto = {
   updated_at: string;
 };
 
+// A single card in the daily_digest.headlines jsonb array. No raw ia_signals
+// row (source_id, source_name, internal notes, confidence, etc.) is exposed
+// -- only what the editor function (run_daily_digest) itself already wrote
+// for public consumption.
+export type HvDigestHeadlineDto = {
+  headline: string;
+  why_it_matters: string;
+  market: string;
+  whats_next: string | null;
+  signal_id: string | null;
+};
+
+export type HvDailyDigestPublicDto = {
+  digest_date: string;
+  generated_at: string;
+  markets: string[];
+  headlines: HvDigestHeadlineDto[];
+};
+
 // ── Serializers ────────────────────────────────────────────────────────────
 // Each function picks only the public fields from an internal record, preventing
 // accidental exposure of private or passport-level data.
@@ -112,4 +131,26 @@ export function toHvClaimEvidencePublicDto(src: AnyRecord): HvClaimEvidencePubli
 
 export function toHvEducationResourcePublicDto(src: AnyRecord): HvEducationResourcePublicDto {
   return pick(src, ['id', 'title', 'resource_type', 'jurisdiction_id', 'country_code', 'summary_public', 'url', 'updated_at'])
+}
+
+export function toHvDigestHeadlineDto(src: AnyRecord): HvDigestHeadlineDto {
+  return {
+    headline: typeof src.headline === 'string' ? src.headline : '',
+    why_it_matters: typeof src.why_it_matters === 'string' ? src.why_it_matters : '',
+    market: typeof src.market === 'string' && src.market.trim() ? src.market : 'Global',
+    whats_next: typeof src.whats_next === 'string' && src.whats_next.trim() ? src.whats_next : null,
+    signal_id: typeof src.signal_id === 'string' ? src.signal_id : null,
+  }
+}
+
+export function toHvDailyDigestPublicDto(src: AnyRecord): HvDailyDigestPublicDto {
+  const rawHeadlines = Array.isArray(src.headlines) ? (src.headlines as AnyRecord[]) : []
+  return {
+    digest_date: typeof src.digest_date === 'string' ? src.digest_date : '',
+    generated_at: typeof src.generated_at === 'string' ? src.generated_at : '',
+    markets: Array.isArray(src.markets) ? (src.markets as string[]) : [],
+    headlines: rawHeadlines
+      .map(toHvDigestHeadlineDto)
+      .filter((h) => h.headline.length > 0),
+  }
 }
