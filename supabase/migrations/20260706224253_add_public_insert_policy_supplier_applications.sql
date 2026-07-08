@@ -1,4 +1,4 @@
--- Repair stub: migration 20260708112000 (enable_realtime_globe_tables) was applied directly to the
+-- Repair stub: migration 20260706224253 (add_public_insert_policy_supplier_applications) was applied directly to the
 -- remote database and has no corresponding local file. This stub reconciles
 -- the local migration directory with the remote
 -- supabase_migrations.schema_migrations table. The schema changes from this
