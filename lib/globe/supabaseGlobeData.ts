@@ -12,7 +12,7 @@
  * - There is no `realtime_metrics` table. If telemetry is wanted, that's a
  *   separate migration + decision, not assumed here.
  */
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import { resolveCountryToIso2 } from './countryAlias'
 
 export type GlobeCountryMarker = {
@@ -44,7 +44,7 @@ export type GlobeLiveData = {
 }
 
 export async function getGlobeLiveData(): Promise<GlobeLiveData> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
