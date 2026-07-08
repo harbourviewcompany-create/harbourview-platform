@@ -67,7 +67,7 @@ export async function getWantedListings(countryIso2?: string | null): Promise<Wa
     const buildQuery = (country?: string | null) => {
       let q = supabase
         .from('listings')
-        .select('id, title, summary, location_country, location_region, created_at')
+        .select('id, title, description, location_country, created_at')
         .eq('marketplace_section', 'wanted_requests')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -506,7 +506,7 @@ export async function getOrgPathwayProgress(
       .select('workspace_id')
       .eq('user_id', userId)
       .limit(1)
-      .single()
+      .maybeSingle()
     const orgId = membership?.workspace_id
     if (!orgId) return empty
 
@@ -516,7 +516,7 @@ export async function getOrgPathwayProgress(
       .select('id, name, total_steps')
       .eq('country_iso2', countryIso2.toUpperCase())
       .eq('role_id', roleId)
-      .single()
+      .maybeSingle()
     if (!template) return empty
 
     // Steps
@@ -609,7 +609,7 @@ export async function getWatchlistData(
       .select('workspace_id')
       .eq('user_id', userId)
       .limit(1)
-      .single()
+      .maybeSingle()
     const orgId = membership?.workspace_id
     if (!orgId) return empty
 
@@ -755,7 +755,7 @@ export async function getPublicPathwayTemplate(
       .select('id, name, total_steps')
       .eq('country_iso2', countryIso2.toUpperCase())
       .eq('role_id', roleId)
-      .single()
+      .maybeSingle()
 
     if (!template) return getGenericFallbackPathway(supabase, countryIso2, roleId)
 
