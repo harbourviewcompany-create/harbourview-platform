@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -1210,9 +1210,16 @@ const MODULE_TOPICS: Record<string, { topics: string[]; action: string }> = {
   },
 }
 
-function getModuleContent(title: string): { topics: string[]; action: string } {
+function getModuleContent(
+  title: string,
+  overlays?: CountryEducationOverlay[],
+): { topics: string[]; action: string; isVerified: boolean } {
+  const overlay = overlays?.find(o => title.toLowerCase().includes(o.moduleKey.toLowerCase()))
+  if (overlay && overlay.topics.length > 0) {
+    return { topics: overlay.topics, action: overlay.actionLabel, isVerified: true }
+  }
   const key = Object.keys(MODULE_TOPICS).find(k => title.toLowerCase().includes(k.toLowerCase()))
-  if (key) return MODULE_TOPICS[key]
+  if (key) return { ...MODULE_TOPICS[key], isVerified: false }
   return {
     topics: [
       `Review the regulatory and licence requirements applicable to ${title} in your selected jurisdiction`,
@@ -1222,6 +1229,7 @@ function getModuleContent(title: string): { topics: string[]; action: string } {
       `Submit a priority content request via the Harbourview intake flow to receive curated guidance for this module and jurisdiction`,
     ],
     action: `Request ${title} briefing`,
+    isVerified: false,
   }
 }
 
@@ -1232,7 +1240,7 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
   { id: 'research', label: 'Research' },
 ]
 
-function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, professionals = [] }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[] }) {
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, countryEducationOverlays, professionals = [] }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; countryEducationOverlays?: CountryEducationOverlay[]; professionals?: HvProfessional[] }) {
   const [sub, setSub] = useState<EduSub>('modules')
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
@@ -1247,7 +1255,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
         ]
 
   if (selectedModule) {
-    const { topics, action } = getModuleContent(selectedModule.title)
+    const { topics, action, isVerified } = getModuleContent(selectedModule.title, countryEducationOverlays)
     const isGap = selectedModule.title.toLowerCase().includes('evidence gap') || selectedModule.title.toLowerCase().includes('gap review')
     return (
       <div className="hvm-page-stack">
@@ -1257,6 +1265,11 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10 }}>{isGap ? '📋' : selectedModule.icon}</div>
           <h2>{isGap ? 'Pathway in review' : selectedModule.title}</h2>
           <p>{isGap ? `Harbourview is building verified intelligence for ${country.label} · ${roleLabel}. Interim guidance is available below.` : selectedModule.desc}</p>
+          {!isVerified && !isGap && (
+            <div className="hvm-kicker" style={{ color: 'rgba(198,165,90,.6)', marginTop: 8 }}>
+              General guidance — not yet verified for {country.label}
+            </div>
+          )}
         </section>
         <div className="hvm-list-stack">
           {topics.map((topic, i) => (
@@ -1266,7 +1279,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             </div>
           ))}
         </div>
-        <a href="/intake" className="hvm-cta-card">
+        <a href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>

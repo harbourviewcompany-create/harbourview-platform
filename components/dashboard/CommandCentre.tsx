@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -68,6 +68,7 @@ type Props = {
   digestSignals?:   DashboardSignal[]
   digestWindow?:    DigestWindow
   eduCategories:    { icon: string; title: string; desc: string }[]
+  countryEducationOverlays?: CountryEducationOverlay[]
   initialCountryIso2?: string | null
   initialRoleId?:   string | null
   initialPage?:     CommandPage | null
@@ -3836,6 +3837,7 @@ export default function CommandCentre({
   digestSignals,
   digestWindow,
   eduCategories,
+  countryEducationOverlays,
   initialCountryIso2,
   initialRoleId,
   initialPage,

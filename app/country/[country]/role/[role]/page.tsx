@@ -7,7 +7,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -232,6 +232,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     signalsResult, pipelineResult, wantedListingsResult, wantedCountResult,
     marketplaceRowsResult, liveTilesResult, recentEduModulesResult,
     watchlistDataResult, evidenceDataResult, sourceCoverageResult, localIntelResult,
+    countryEducationOverlaysResult,
   ] = await Promise.allSettled([
     fetchDashboardSignals(40, countryName),
     getPipelineCounts(),
@@ -244,6 +245,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     getEvidenceData(userId, countryIso2),
     getSourceCoverage(countryIso2),
     getLocalIntel(countryIso2),
+    getCountryEducationOverlays(countryIso2, roleId),
   ])
 
   const signals = settledOr(signalsResult, [], 'fetchDashboardSignals')
@@ -257,12 +259,14 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
   const evidenceData = settledOr(evidenceDataResult, undefined, 'getEvidenceData')
   const sourceCoverage = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
   const localIntel = settledOr(localIntelResult, null, 'getLocalIntel')
+  const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
 
   return (
     <DashboardResponsiveShell
       key={`${countryIso2}-${roleId ?? dashboard.role.slug}`}
       signals={signals}
       eduCategories={eduCategories}
+      countryEducationOverlays={countryEducationOverlays}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}
