@@ -12,10 +12,18 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 const COUNTRY_FLAGS: Record<string, string> = {
-  DE: '🇩🇪', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', NL: '🇳🇱',
-  PT: '🇵🇹', TH: '🇹🇭', IL: '🇮🇱', CO: '🇨🇴', ZA: '🇿🇦',
-  MT: '🇲🇹', LU: '🇱🇺', CZ: '🇨🇿', NZ: '🇳🇿', MX: '🇲🇽',
-  BR: '🇧🇷', CH: '🇨🇭', FR: '🇫🇷', ES: '🇪🇸', PL: '🇵🇱',
+  DE: 'ð©ðª', GB: 'ð¬ð§', AU: 'ð¦ðº', CA: 'ð¨ð¦', NL: 'ð³ð±',
+  PT: 'ðµð¹', TH: 'ð¹ð­', IL: 'ð®ð±', CO: 'ð¨ð´', ZA: 'ð¿ð¦',
+  MT: 'ð²ð¹', LU: 'ð±ðº', CZ: 'ð¨ð¿', NZ: 'ð³ð¿', MX: 'ð²ð½',
+  BR: 'ð§ð·', CH: 'ð¨ð­', FR: 'ð«ð·', ES: 'ðªð¸', PL: 'ðµð±',
+  AE: '🇦🇪', AG: '🇦🇬', AR: '🇦🇷', AT: '🇦🇹', BA: '🇧🇦', BB: '🇧🇧', BE: '🇧🇪',
+  CL: '🇨🇱', CR: '🇨🇷', DK: '🇩🇰', DM: '🇩🇲', DO: '🇩🇴', EC: '🇪🇨', EE: '🇪🇪',
+  FI: '🇫🇮', GD: '🇬🇩', GH: '🇬🇭', GR: '🇬🇷', GY: '🇬🇾', HR: '🇭🇷', HU: '🇭🇺',
+  IE: '🇮🇪', IS: '🇮🇸', JM: '🇯🇲', JP: '🇯🇵', KN: '🇰🇳', KR: '🇰🇷', LB: '🇱🇧',
+  LC: '🇱🇨', LI: '🇱🇮', LT: '🇱🇹', LV: '🇱🇻', MK: '🇲🇰', MU: '🇲🇺', NO: '🇳🇴',
+  PA: '🇵🇦', PE: '🇵🇪', PH: '🇵🇭', PR: '🇵🇷', RO: '🇷🇴', RS: '🇷🇸', SC: '🇸🇨',
+  SE: '🇸🇪', SG: '🇸🇬', SI: '🇸🇮', SK: '🇸🇰', TR: '🇹🇷', TT: '🇹🇹', UA: '🇺🇦',
+  US: '🇺🇸', UY: '🇺🇾', VC: '🇻🇨',
 }
 
 export default async function LicensingPathwaysPage() {
@@ -28,7 +36,7 @@ export default async function LicensingPathwaysPage() {
           eyebrow: 'Intelligence / Licensing',
           title: 'Licensing pathway context for regulated cannabis market access.',
           description:
-            'Harbourview licensing pathway intelligence orients operators around licence categories, authorisation requirements, pathway questions and jurisdiction-specific review needs — without providing legal advice, confirming eligibility or publishing private route analysis.',
+            'Harbourview licensing pathway intelligence orients operators around licence categories, authorisation requirements, pathway questions and jurisdiction-specific review needs â without providing legal advice, confirming eligibility or publishing private route analysis.',
           requestLabel: 'Request Licensing Pathway Intelligence',
           reviewItems: [
             'Cultivation licence categories: an orientation to cultivation authorisation types, GACP certificate requirements, output volume controls and export eligibility distinctions across priority source markets.',
@@ -40,7 +48,7 @@ export default async function LicensingPathwaysPage() {
           ],
           boundaryItems: [
             'Pathway summaries are orientation-level only. They do not confirm licence eligibility, authorisation scope, route viability or legal sufficiency for any specific operator or transaction.',
-            'Specific licensing questions involving products, batches, counterparties, contracts or active regulatory submissions are routed through private intake — not this public surface.',
+            'Specific licensing questions involving products, batches, counterparties, contracts or active regulatory submissions are routed through private intake â not this public surface.',
             'Harbourview does not provide legal advice. Operators should verify licensing requirements with qualified local legal advisors and the relevant competent authority.',
           ],
         }}
@@ -49,19 +57,19 @@ export default async function LicensingPathwaysPage() {
       {playbooks.length > 0 && (
         <PublicSection tone="panel">
           <SectionHeader
-            eyebrow={`Live jurisdiction data — ${playbooks.length} markets`}
+            eyebrow={`Live jurisdiction data â ${playbooks.length} markets`}
             title="Browse licence pathways by jurisdiction"
             action={
               <Link
                 href="/intelligence/playbooks"
                 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold/72 hover:text-gold"
               >
-                All playbooks →
+                All playbooks â
               </Link>
             }
           >
             The licence categories above apply differently in every market. These are Harbourview&apos;s reviewed,
-            jurisdiction-specific licence sequences — named regulators, step counts and typical timelines — not
+            jurisdiction-specific licence sequences â named regulators, step counts and typical timelines â not
             generic category descriptions.
           </SectionHeader>
 
@@ -70,10 +78,10 @@ export default async function LicensingPathwaysPage() {
               <PublicLinkCard
                 key={pb.country_iso2}
                 href={`/intelligence/playbooks/${pb.country_iso2.toLowerCase()}`}
-                eyebrow={`${COUNTRY_FLAGS[pb.country_iso2] ?? '🌐'} ${pb.country_iso2} · ${DIFFICULTY_LABEL[pb.difficulty]}`}
+                eyebrow={`${COUNTRY_FLAGS[pb.country_iso2] ?? 'ð'} ${pb.country_iso2} Â· ${DIFFICULTY_LABEL[pb.difficulty]}`}
                 title={pb.country_name}
               >
-                {pb.typical_timeline_months} month typical timeline · {pb.steps.length} licensing steps ·{' '}
+                {pb.typical_timeline_months} month typical timeline Â· {pb.steps.length} licensing steps Â·{' '}
                 {pb.key_regulators.length} regulator{pb.key_regulators.length === 1 ? '' : 's'} mapped
               </PublicLinkCard>
             ))}
