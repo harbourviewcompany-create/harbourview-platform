@@ -13,6 +13,10 @@ export interface GlobeExtrusionConfig {
   simplifyTolerance?: number
 }
 
+// Rings above this point count are never simplified, regardless of the
+// requested tolerance - see fix(globe): stop simplifying dense rings.
+const RING_SIMPLIFY_MAX_POINTS = 400
+
 const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   radius: 2.35,
   plateLift: 0.024,
@@ -325,8 +329,8 @@ function _createCountryBufferGeometryInner(
 
   for (const { outer: rawOuter, holes: rawHoles } of polygons) {
     const tolerance = cfg.simplifyTolerance ?? 0
-    const outer = tolerance > 0 ? douglasPeucker(rawOuter, tolerance) : rawOuter
-    const holes = tolerance > 0 ? rawHoles.map((h) => douglasPeucker(h, tolerance)) : rawHoles
+    const outer = tolerance > 0 && rawOuter.length <= RING_SIMPLIFY_MAX_POINTS ? douglasPeucker(rawOuter, tolerance) : rawOuter
+    const holes = tolerance > 0 ? rawHoles.map((h) => (h.length <= RING_SIMPLIFY_MAX_POINTS ? douglasPeucker(h, tolerance) : h)) : rawHoles
     const isTinyCountry = cfg.tinyCountryIso2.includes(country.iso2)
     const isTinySinglePolygonCountry = country.polygons.length === 1 && calculatePlanarArea(outer) < cfg.minimumAreaDeg2
     const isTiny = isTinyCountry || isTinySinglePolygonCountry

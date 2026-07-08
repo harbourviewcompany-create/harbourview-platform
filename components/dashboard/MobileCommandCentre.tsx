@@ -7,12 +7,11 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, W
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
-import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
 
-type CommandPage = 'briefing' | 'digest' | 'marketplace' | 'signals' | 'education' | 'genetics' | 'compliance' | 'countries'
 
 type DigestWindow = '24h' | '7d' | '30d' | 'recent'
 
@@ -76,14 +75,13 @@ type MobileMarketCard = {
 const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
-  { id: 'briefing',    label: 'Briefing',    icon: '◎' },
-  { id: 'digest',      label: 'Digest',      icon: '❑' },
-  { id: 'marketplace', label: 'Market',      icon: '⊞' },
-  { id: 'signals',     label: 'Intel',       icon: '≋' },
-  { id: 'education',   label: 'Education',   icon: '⬡' },
-  { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
-  { id: 'compliance',  label: 'Compliance',  icon: '◫' },
-  { id: 'countries',   label: 'Countries',   icon: '⊗' },
+  { id: 'briefing',        label: 'Briefing',       icon: '◎' },
+  { id: 'digest',          label: 'Digest',         icon: '❑' },
+  { id: 'marketplace',     label: 'Market',         icon: '⊞' },
+  { id: 'signals',         label: 'Intel',          icon: '≋' },
+  { id: 'education',       label: 'Education',      icon: '⬡' },
+  { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
+  { id: 'countries',       label: 'Countries',      icon: '⊗' },
 ]
 
 
@@ -426,24 +424,22 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
   )
 }
 
-type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'compliance' | 'settings'
+type BriefingSub = 'overview' | 'compliance' | 'local-intel' | 'access-pathway'
 
 const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
-  { id: 'overview',    label: 'Overview' },
-  { id: 'pathway',     label: 'Pathway' },
-  { id: 'local-intel', label: 'Local Intel' },
-  { id: 'compliance',  label: 'Compliance' },
-  { id: 'settings',    label: 'Settings' },
+  { id: 'overview',       label: 'Overview' },
+  { id: 'compliance',     label: 'Compliance' },
+  { id: 'local-intel',    label: 'Local Intel' },
+  { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, marketMetrics, tradeFlows, jurisdictionPlaybook, onCountryChange, onRoleChange, onOpenSettings, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
-      {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
-      {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
-      {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
-      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
-      {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
+      {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
+      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
+      {sub === 'local-intel'    && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
 }
@@ -1232,8 +1228,8 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
   { id: 'research', label: 'Research' },
 ]
 
-function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, professionals = [] }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[] }) {
-  const [sub, setSub] = useState<EduSub>('modules')
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, professionals = [], initialSub = 'modules' }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[]; initialSub?: EduSub }) {
+  const [sub, setSub] = useState<EduSub>(initialSub)
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
   const tiles: EduModule[] = liveTiles && liveTiles.length > 0
@@ -1780,7 +1776,13 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
                   <span className="hvm-sig-time">{signal.timeAgo}</span>
                 </div>
                 <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                <p className="hvm-signal-impact" style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 4,
+                  WebkitBoxOrient: 'vertical' as const,
+                  overflow: 'hidden',
+                }}>{signal.commercialImpact}</p>
+                <span style={{ fontSize: 11, color: '#B8AF9E', fontWeight: 600 }}>Read more →</span>
                 {signal.sourceLabel && (
                   <div className="hvm-sig-footer">
                     <span style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace' }}>{signal.sourceLabel}</span>
@@ -3339,13 +3341,30 @@ export default function MobileCommandCentre({
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
+  // Some valid CommandPage ids (shared with desktop via app/dashboard/page.tsx's
+  // VALID_COMMAND_PAGES) live as sub-tabs on mobile rather than top-level bottom-nav
+  // pages. Without this map, a deep link like ?page=watchlist or ?page=compliance
+  // would silently fall back to 'briefing' > Overview instead of landing on the
+  // correct tab, and ?page=settings (not in MOBILE_NAV at all) wouldn't resolve.
+  const HIDDEN_PAGE_ROUTES: Partial<Record<string, { page: CommandPage; briefingSub?: BriefingSub; signalsSub?: SignalSub; educationSub?: EduSub }>> = {
+    watchlist:        { page: 'signals',  signalsSub: 'watchlist' },
+    regulatory:       { page: 'signals',  signalsSub: 'regulatory' },
+    evidence:         { page: 'education', educationSub: 'research' },
+    compliance:       { page: 'briefing', briefingSub: 'compliance' },
+    'local-intel':    { page: 'briefing', briefingSub: 'local-intel' },
+    'access-pathway': { page: 'briefing', briefingSub: 'access-pathway' },
+    settings:         { page: 'settings' },
+  }
+  const redirected = initialPage ? HIDDEN_PAGE_ROUTES[initialPage] : undefined
   const [activePage, setActivePage] = useState<CommandPage>(() => {
+    if (redirected) return redirected.page
     const valid = MOBILE_NAV.some(item => item.id === initialPage)
     return valid ? (initialPage as CommandPage) : 'briefing'
   })
   const [contextOpen, setContextOpen] = useState(false)
-  const [briefingSub, setBriefingSub] = useState<BriefingSub>('overview')
-  const [signalsSub, setSignalsSub] = useState<SignalSub>('feed')
+  const [briefingSub, setBriefingSub] = useState<BriefingSub>(redirected?.briefingSub ?? 'overview')
+  const [signalsSub, setSignalsSub] = useState<SignalSub>(redirected?.signalsSub ?? 'feed')
+  const educationInitialSub = redirected?.educationSub ?? 'modules'
 
   const countryOptions = useMemo<SelectOption[]>(() => COUNTRIES.map(c => ({ value: c.iso2, label: c.label })), [])
   const roleOptions = useMemo<SelectOption[]>(() => Object.entries(ROLE_PROFILES).map(([value, profile]) => ({ value, label: profile.label })), [])
@@ -3403,7 +3422,7 @@ export default function MobileCommandCentre({
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
             jurisdictionPlaybook={jurisdictionPlaybook}
             onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
-            onOpenSettings={() => setBriefingSub('settings')}
+            onOpenSettings={() => handlePageChange('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
         )
@@ -3422,12 +3441,13 @@ export default function MobileCommandCentre({
             educationTracks={educationTracks}
             evidenceData={evidenceData} sourceCoverage={sourceCoverage}
             professionals={professionals}
+            initialSub={educationInitialSub}
           />
         )
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
-      case 'compliance':
-        return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
+      case 'settings':
+        return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} />
       case 'countries':
         return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
@@ -3447,6 +3467,13 @@ export default function MobileCommandCentre({
           </div>
           <div className="hvm-titlebar-actions">
             <button type="button" onClick={() => setContextOpen(true)} aria-label="Switch market">Market</button>
+            <button
+              type="button"
+              className="hvm-titlebar-settings"
+              aria-label="Settings"
+              aria-current={activePage === 'settings' ? 'page' : undefined}
+              onClick={() => handlePageChange('settings')}
+            >⚙</button>
             {userEmail ? (
               <a href="/account" className="hvm-titlebar-account" aria-label="Account">
                 {userEmail.slice(0, 2).toUpperCase()}
@@ -3584,6 +3611,25 @@ const MOBILE_CSS = `
   background: rgba(198,165,90,0.1);
   color: #F0D39A;
   font-size: 11px;
+}
+.hvm-titlebar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.72);
+  font-size: 16px;
+  cursor: pointer;
+}
+.hvm-titlebar-settings[aria-current="page"] {
+  border-color: rgba(198,165,90,0.5);
+  background: rgba(198,165,90,0.14);
+  color: #F0D39A;
 }
 .hvm-title-kicker {
   display: block;

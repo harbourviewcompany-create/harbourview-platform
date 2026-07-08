@@ -29,19 +29,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // Marketplace pilot (Command Centre consolidation, phase 1): browse/
+    // category items folded into the Command Centre marketplace panel
+    // (see next.config.mjs redirects). Only the two flows with no in-shell
+    // equivalent yet stay as standalone routes.
     label: 'Exchange',
     items: [
-      { label: 'Exchange Home', href: '/marketplace' },
-      { label: 'Reviewed Listings', href: '/marketplace/listings' },
-      { label: 'Deal Rooms', href: '/marketplace/deals' },
-      { label: 'Wanted Requests', href: '/marketplace/wanted' },
+      { label: 'Marketplace', href: '/dashboard?page=marketplace' },
       { label: 'Sell or Export', href: '/marketplace/sell' },
-      { label: 'Import Demand', href: '/marketplace/import-demand' },
-      { label: 'Export-Ready Products', href: '/marketplace/export-ready' },
-      { label: 'Services & Equipment', href: '/marketplace/services' },
-      { label: 'Consumables', href: '/marketplace/consumables' },
-      { label: 'Genetics', href: '/marketplace/genetics' },
-      { label: 'Distressed Assets', href: '/marketplace/distressed-businesses' },
+      { label: 'Deal Rooms', href: '/marketplace/deals' },
     ],
   },
   {
@@ -72,7 +68,7 @@ const navLinks: NavItem[] = [
 ]
 
 const mobileNavLinks: NavItem[] = [
-  { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Marketplace', href: '/dashboard?page=marketplace' },
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Intelligence', href: '/intelligence' },
   { label: 'Markets', href: '/markets' },

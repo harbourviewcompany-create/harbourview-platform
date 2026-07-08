@@ -50,6 +50,45 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
+
+  // Marketplace pilot (Command Centre consolidation, phase 1): pure browse/
+  // category routes are fully covered by the existing marketplace panel
+  // inside Command Centre (components/dashboard/CommandCentre.tsx MKT_TABS +
+  // the VIEW_SECTIONS category mapping in app/dashboard/page.tsx — same
+  // source-of-truth mapping used here). 308s so bookmarks/SEO links land in
+  // the shell instead of 404ing.
+  //
+  // Deliberately NOT redirected — no in-shell equivalent exists yet:
+  // /marketplace/sell, /marketplace/sell/consumables, /marketplace/quote,
+  // /marketplace/deals(/new|/[id]), /marketplace/my-listings,
+  // /marketplace/consumables/[id] (dedicated request form),
+  // /marketplace/listings/[slug] (individual listing detail),
+  // /marketplace/genetics/[slug|request-access|submit-program].
+  async redirects() {
+    return [
+      { source: '/marketplace', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/listings', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/wanted', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/import-demand', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/export-ready', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/services', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/consumables', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/distressed-businesses', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/distressed-inventory', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/business-opportunities', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/qualified-access', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/cannabis-inventory', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/cultivation-equipment', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/processing-equipment', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/used-surplus', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/labs-testing', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/logistics', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/packaging', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/new-products', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/professional-services', destination: '/dashboard?page=marketplace', permanent: true },
+      { source: '/marketplace/genetics', destination: '/dashboard?page=genetics', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

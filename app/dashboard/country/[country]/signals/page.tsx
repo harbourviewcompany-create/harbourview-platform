@@ -7,6 +7,7 @@ import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 import { fetchDashboardSignals } from '@/lib/dashboard/dashboardServerData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { getLatestDailyDigest, headlinesForMarket, formatDigestDateLabel } from '@/lib/harbourview/digest'
 
 export const dynamic = 'force-dynamic'
 
@@ -151,8 +152,15 @@ export default async function SignalsPage({ params }: Props) {
   const baseDerived = deriveSignals(panel.state, country.displayName)
 
   // ── Pull live signals (regulatory feed -> curated signals table -> IA),
-  //    fall back to static registry / derived defaults ─────────────────────
-  const liveSignals = await fetchDashboardSignals(12, country.displayName)
+  //    fall back to static registry / derived defaults -- and the
+  //    Harbourview Signals digest for this market -- in parallel, since
+  //    neither depends on the other's result ─────────────────────────────
+  const [liveSignals, { digest: dailyDigest, source: digestSource }] = await Promise.all([
+    fetchDashboardSignals(12, country.displayName),
+    getLatestDailyDigest(),
+  ])
+  const digestHeadlines = headlinesForMarket(dailyDigest, country.displayName)
+  const digestDateLabel = formatDigestDateLabel(dailyDigest.digest_date)
 
   function liveToFeedSignal(s: DashboardSignal): FeedSignal {
     const tone = s.confidence >= 80 ? 'green' : s.confidence >= 60 ? 'gold' : 'blue'
@@ -238,6 +246,49 @@ export default async function SignalsPage({ params }: Props) {
           </div>
         )}
       </div>
+
+      {/* ── Harbourview Signals digest ── */}
+      {digestHeadlines.length > 0 && (
+        <div className="mb-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
+              Harbourview Signals
+            </h2>
+            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {digestDateLabel}{digestSource === 'fixture' ? ' · preparing' : ''}
+            </span>
+          </div>
+          <div className="flex flex-col gap-3">
+            {digestHeadlines.map((item, i) => (
+              <div
+                key={item.signal_id ?? `${country.slug}-digest-${i}`}
+                className="rounded-2xl p-4"
+                style={{ background: 'rgba(11,26,47,0.85)', border: '1px solid rgba(198,165,90,0.16)' }}
+              >
+                <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[8px] uppercase tracking-[0.12em]"
+                    style={{ background: 'rgba(198,165,90,0.12)', color: '#C6A55A' }}
+                  >
+                    {item.market}
+                  </span>
+                </div>
+                <p className="text-[13px] font-medium leading-snug text-white">{item.headline}</p>
+                <p className="mt-2 text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.58)' }}>
+                  <span className="font-semibold" style={{ color: 'rgba(198,165,90,0.85)' }}>Why it matters: </span>
+                  {item.why_it_matters}
+                </p>
+                {item.whats_next && (
+                  <p className="mt-2 text-[12px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.44)' }}>
+                    <span className="font-semibold" style={{ color: 'rgba(198,165,90,0.7)' }}>What&apos;s next: </span>
+                    {item.whats_next}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Signal categories ── */}
       {derived.categories.length > 0 && (
