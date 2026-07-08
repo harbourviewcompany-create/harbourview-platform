@@ -13,6 +13,8 @@ import { CountryBorderLayer } from './CountryBorderLayer'
 import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
+import { DataVizLayer } from './DataVizLayer'
+import { useGlobe } from '../GlobeProvider'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 
 // Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
@@ -89,6 +91,7 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const { liveData } = useGlobe()
   const isCountryState = routerStep === 'country' || !selectedCountryIso2
   const distanceLimits = isCountryState
     ? GLOBE_CAMERA_CONFIG.distanceByState.country
@@ -178,6 +181,7 @@ export function GlobeCanvas({
               onHoverCountry={handleHoverCountry}
               onSelectCountry={onSelectCountry}
             />
+            <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
             {/* Border strokes render after polygon plates so U.S. subdivisions remain legible on mobile. */}
             <CountryBorderLayer />
             {/* Hover label — floats above the plate centroid while hovering */}
