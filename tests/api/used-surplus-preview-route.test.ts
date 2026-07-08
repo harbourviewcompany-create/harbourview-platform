@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+
+vi.mock('@/lib/auth/adminApiAuth', () => ({
+  requireAdminApiAuth: vi.fn().mockResolvedValue(null),
+}))
+
 import { GET } from '../../app/api/used-surplus-preview/route'
 
 async function callRoute(query = '') {
