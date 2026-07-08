@@ -159,8 +159,8 @@ export function GlobeCanvas({
         <Suspense fallback={null}>
           {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
           <Stars
-            radius={18}
-            depth={6}
+            radius={30}
+            depth={10}
             count={3500}
             factor={1.2}
             saturation={0}
