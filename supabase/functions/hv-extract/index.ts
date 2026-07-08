@@ -24,6 +24,7 @@ type Snapshot = {
   signal_candidates: Record<string, unknown> | null;
   raw_html_hash: string | null; language_detected: string | null;
   source_type?: string | null; source_country?: string | null; source_region?: string | null;
+  published_at?: string | null;
 };
 
 type ExtractionResult = {
@@ -215,7 +216,7 @@ Deno.serve(async (req: Request) => {
 
   let query = supabase
     .from("source_snapshots")
-    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,source_registry(source_type,source_name,country,region)")
+    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,published_at,source_registry(source_type,source_name,country,region)")
     .eq("fetch_status", "success")
     .not("captured_text", "is", null)
     .order("created_at", { ascending: true })
@@ -272,6 +273,13 @@ Deno.serve(async (req: Request) => {
             language: editorial.language ?? snapshot.language_detected ?? "en",
             tone: editorial.tone,
             stage: "qualified",
+            // The 7-day recency policy (only surface editorial content from
+            // the last week, prioritizing emerging markets) depends on this
+            // being the article's actual date, not extraction time. Falls
+            // back to now() only if the feed genuinely didn't supply one —
+            // better than leaving it null and having the item silently
+            // excluded from every recency-filtered query downstream.
+            published_at: snapshot.published_at ?? new Date().toISOString(),
           });
           if (editErr) throw new Error(`editorial_insert_failed: ${editErr.message}`);
           await supabase.from("source_snapshots").update({ fetch_status: "extracted" }).eq("id", snapshot.id);
