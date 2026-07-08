@@ -1766,7 +1766,13 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
                   <span className="hvm-sig-time">{signal.timeAgo}</span>
                 </div>
                 <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                <p className="hvm-signal-impact" style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 4,
+                  WebkitBoxOrient: 'vertical' as const,
+                  overflow: 'hidden',
+                }}>{signal.commercialImpact}</p>
+                <span style={{ fontSize: 11, color: '#B8AF9E', fontWeight: 600 }}>Read more →</span>
                 {signal.sourceLabel && (
                   <div className="hvm-sig-footer">
                     <span style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace' }}>{signal.sourceLabel}</span>
