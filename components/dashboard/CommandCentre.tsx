@@ -14,7 +14,7 @@ import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
-const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage), { ssr: false })
+const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

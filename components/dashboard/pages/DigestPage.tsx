@@ -71,11 +71,11 @@ export const DigestPage = React.memo(function DigestPage({
         if (country.label) params.set('country', country.label)
         const res = await fetch(`/api/dashboard/digest?${params.toString()}`)
         if (!res.ok || cancelled) return
-        const json = await res.json() as { signals: DashboardSignal[]; window: DigestWindow; total: number; source: string }
+        const json = await res.json() as { signals: DashboardSignal[]; window: DigestWindow; total: number; totalReviewed: number; source: string }
         if (!cancelled && Array.isArray(json.signals)) {
           setLiveSignals(json.signals)
           setLiveWindow(json.window)
-          setLiveTotal(json.total)
+          setLiveTotal(json.totalReviewed)
         }
       } catch {
         /* keep SSR props on failure — silent degradation */
