@@ -945,7 +945,7 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
   )
 }
 
-type EduModule = { icon: string; title: string; desc: string; slug?: string }
+type EduModule = { icon: string; title: string; desc: string; slug?: string; sections?: { heading: string; body: string }[] }
 
 const MODULE_TOPICS: Record<string, { topics: string[]; action: string }> = {
   'Dispensing Controls': {
@@ -1247,7 +1247,10 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
         ]
 
   if (selectedModule) {
-    const { topics, action } = getModuleContent(selectedModule.title)
+    const hasRealSections = (selectedModule.sections?.length ?? 0) > 0
+    const { topics, action } = hasRealSections
+      ? { topics: [], action: `Request ${selectedModule.title} briefing` }
+      : getModuleContent(selectedModule.title)
     const isGap = selectedModule.title.toLowerCase().includes('evidence gap') || selectedModule.title.toLowerCase().includes('gap review')
     return (
       <div className="hvm-page-stack">
@@ -1258,14 +1261,25 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           <h2>{isGap ? 'Pathway in review' : selectedModule.title}</h2>
           <p>{isGap ? `Harbourview is building verified intelligence for ${country.label} · ${roleLabel}. Interim guidance is available below.` : selectedModule.desc}</p>
         </section>
-        <div className="hvm-list-stack">
-          {topics.map((topic, i) => (
-            <div className="hvm-card" key={i}>
-              <div className="hvm-kicker">{isGap ? `Step ${i + 1}` : `Topic ${i + 1}`}</div>
-              <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55 }}>{topic}</p>
-            </div>
-          ))}
-        </div>
+        {hasRealSections ? (
+          <div className="hvm-list-stack">
+            {selectedModule.sections!.map((section, i) => (
+              <div className="hvm-card" key={i}>
+                <div className="hvm-kicker">{section.heading}</div>
+                <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{section.body}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {topics.map((topic, i) => (
+              <div className="hvm-card" key={i}>
+                <div className="hvm-kicker">{isGap ? `Step ${i + 1}` : `Topic ${i + 1}`}</div>
+                <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55 }}>{topic}</p>
+              </div>
+            ))}
+          </div>
+        )}
         <a href="/intake" className="hvm-cta-card">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>

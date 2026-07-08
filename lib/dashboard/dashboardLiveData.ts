@@ -94,6 +94,7 @@ export type LiveEduTile = {
   title: string
   desc: string
   slug: string
+  sections?: { heading: string; body: string }[]
 }
 
 const AUDIENCE_ICON: Record<string, string> = {
@@ -110,14 +111,14 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     // Push role filtering to the DB rather than over-fetching 3x and slicing
     // in memory. Try role-specific modules first; fall back to 'general'
     // audience if nothing matches so the tile section is never empty.
-    let modules: Array<{ slug: string; title: string; description: string | null; audience: string[]; sensitivity: string; track_id: string }> | null = null
+    let modules: Array<{ id: string; slug: string; title: string; description: string | null; audience: string[]; sensitivity: string; track_id: string }> | null = null
     let error: unknown = null
 
     if (roleId) {
       // Postgres array overlap: contains(audience, ARRAY[roleId])
       const res = await supabase
         .from('education_modules')
-        .select('slug, title, description, audience, sensitivity, track_id')
+        .select('id, slug, title, description, audience, sensitivity, track_id')
         .eq('publication_state', 'published')
         .contains('audience', [roleId])
         .limit(limit)
@@ -129,7 +130,7 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     if (!modules || modules.length === 0) {
       const res = await supabase
         .from('education_modules')
-        .select('slug, title, description, audience, sensitivity, track_id')
+        .select('id, slug, title, description, audience, sensitivity, track_id')
         .eq('publication_state', 'published')
         .contains('audience', ['general'])
         .limit(limit)
@@ -142,6 +143,24 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     // No in-memory scoring needed — DB already filtered by role
     const scored = modules
 
+    // One bounded query for real body content across all resolved modules,
+    // instead of the client falling back to generic templated text per topic
+    // (getModuleContent() in MobileCommandCentre.tsx) when a tile is opened.
+    const moduleIds = scored.map((m) => m.id)
+    const sectionsByModule = new Map<string, { heading: string; body: string; order: number }[]>()
+    if (moduleIds.length > 0) {
+      const { data: sectionRows } = await supabase
+        .from('education_module_sections')
+        .select('module_id, heading, body, section_order')
+        .in('module_id', moduleIds)
+        .order('section_order', { ascending: true })
+      for (const row of sectionRows ?? []) {
+        const list = sectionsByModule.get(row.module_id) ?? []
+        list.push({ heading: row.heading, body: row.body, order: row.section_order })
+        sectionsByModule.set(row.module_id, list)
+      }
+    }
+
     const truncateDescription = (description?: string | null): string => {
       const normalized = description?.trim().replace(/\s+/g, ' ') || 'Education module'
       return normalized.length > 120 ? `${normalized.slice(0, 119)}…` : normalized
@@ -152,6 +171,9 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
       title: m.title,
       desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : truncateDescription(m.description),
       slug: m.slug,
+      sections: (sectionsByModule.get(m.id) ?? [])
+        .sort((a, b) => a.order - b.order)
+        .map(({ heading, body }) => ({ heading, body })),
     }))
   } catch { return [] }
 }
@@ -217,6 +239,48 @@ export type CountryIntelProfile = {
 
 const _INTEL_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const _INTEL_SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+export type JurisdictionEvidenceStatus = {
+  verified: boolean
+  lastVerifiedAt: string | null
+  confidenceLabel: string | null
+}
+
+// Real, differentiated evidence signal for country-role-resolver.ts's evidenceVerified
+// field. Backed by jurisdiction_playbooks.status: 'published' rows are editorially
+// reviewed pathway guides with real steps/regulators/pitfalls; 'draft' rows (167 of
+// 203 as of 2026-07-08) are not yet reviewed and must not be presented as verified.
+// Deliberately NOT using cc_jurisdiction_briefings.confidence_score here — verified
+// live (2026-07-08) to be a uniform 0.72 across all 203 country rows, i.e. a seeded
+// default, not a real per-country signal.
+export async function getJurisdictionEvidenceStatus(iso2: string | null): Promise<JurisdictionEvidenceStatus> {
+  const fallback: JurisdictionEvidenceStatus = { verified: false, lastVerifiedAt: null, confidenceLabel: null }
+  if (!iso2) return fallback
+  const safeIso2 = iso2.trim().toUpperCase().replace(/[^A-Z]/g, '')
+  if (safeIso2.length < 2) return fallback
+  if (!_INTEL_SUPABASE_URL || !_INTEL_SUPABASE_KEY) return fallback
+
+  try {
+    const res = await fetch(
+      `${_INTEL_SUPABASE_URL}/rest/v1/jurisdiction_playbooks?select=status,last_verified_at,confidence_label&country_iso2=eq.${safeIso2}&status=eq.published&limit=1`,
+      {
+        headers: {
+          apikey: _INTEL_SUPABASE_KEY,
+          Authorization: `Bearer ${_INTEL_SUPABASE_KEY}`,
+          Accept: 'application/json',
+        },
+        next: { revalidate: 3600 },
+      },
+    )
+    if (!res.ok) return fallback
+    const rows: { status: string; last_verified_at: string | null; confidence_label: string | null }[] = await res.json()
+    const row = rows[0]
+    if (!row) return fallback
+    return { verified: true, lastVerifiedAt: row.last_verified_at, confidenceLabel: row.confidence_label }
+  } catch {
+    return fallback
+  }
+}
 
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
   if (!iso2) return null
