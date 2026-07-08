@@ -618,7 +618,18 @@ export async function getEvidenceData(
     const supabase = await createClient()
 
     // Platform sources — filter by country market when provided.
-    // ia_sources.markets is a text[] so we use overlaps operator.
+    // ia_sources.markets is a text[] of display names (not ISO2), so resolve
+    // countryIso2 -> country_name first, same pattern as getGenericFallbackPathway.
+    let countryName: string | null = null
+    if (countryIso2) {
+      const { data: c } = await supabase
+        .from('countries')
+        .select('country_name')
+        .eq('iso_alpha2', countryIso2.toUpperCase())
+        .single()
+      countryName = c?.country_name ?? null
+    }
+
     const sourcesQuery = supabase
       .from('ia_sources')
       .select('id, name, category, markets, reliability, last_checked, status, notes')
@@ -626,9 +637,11 @@ export async function getEvidenceData(
       .order('last_checked', { ascending: false })
       .limit(50)
 
-    // Resolve country name for market filter (markets stores display names not ISO2)
-    // Fall back to all sources when country unknown — page handles empty state per tab.
-    const { data: sources } = await sourcesQuery
+    // Fall back to all sources only when country is unknown — page handles
+    // empty state per tab when a real country filter returns zero rows.
+    const { data: sources } = countryName
+      ? await sourcesQuery.overlaps('markets', [countryName])
+      : await sourcesQuery
 
     // Org evidence documents
     let orgDocs: OrgEvidenceDoc[] = []
@@ -1122,3 +1135,4 @@ export async function getComparisonCountryScores(
     }))
   } catch { return [] }
 }
+
