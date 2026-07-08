@@ -211,7 +211,20 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, dailyDigest, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, , watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage, jurisdictionPlaybook, educationTracks, marketMetrics, tradeFlows, professionals, cannabisOperators, cultivarPassports, serviceProviders, collaborationProjects] = await Promise.all([
+  function settledOr<T>(result: PromiseSettledResult<T>, fallback: T, label: string): T {
+    if (result.status === 'fulfilled') return result.value
+    console.error(`[dashboard] ${label} failed:`, result.reason)
+    return fallback
+  }
+
+  const [
+    signalsResult, dailyDigestResult, wantedCountResult, marketplaceRowsResult,
+    pipelineResult, wantedListingsResult, countryIntelResult, liveEduTilesResult,
+    pathwayDataResult, , watchlistDataResult, evidenceDataResult,
+    recentEduModulesResult, localIntelResult, sourceCoverageResult, jurisdictionPlaybookResult,
+    educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
+    cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
+  ] = await Promise.allSettled([
     fetchDashboardSignals(30),
     fetchDailyDigest(20),
     getWantedRequestsCount(),
@@ -237,6 +250,30 @@ export default async function DashboardPage({
     getPublicServiceProviders(),
     getPublicCollaborationProjects(),
   ])
+
+  const signals               = settledOr(signalsResult, [], 'fetchDashboardSignals')
+  const dailyDigest            = settledOr(dailyDigestResult, { signals: [], window: undefined } as Awaited<ReturnType<typeof fetchDailyDigest>>, 'fetchDailyDigest')
+  const wantedCount            = settledOr(wantedCountResult, 0, 'getWantedRequestsCount')
+  const marketplaceRows        = settledOr(marketplaceRowsResult, {}, 'getDashboardMarketplaceRows')
+  const pipeline               = settledOr(pipelineResult, undefined, 'getPipelineCounts')
+  const wantedListings         = settledOr(wantedListingsResult, [], 'getWantedListings')
+  const countryIntel           = settledOr(countryIntelResult, null, 'getCountryIntelProfile')
+  const liveEduTiles           = settledOr(liveEduTilesResult, [], 'getLiveEduTiles')
+  const pathwayData            = settledOr(pathwayDataResult, undefined, 'getOrgPathwayProgress')
+  const watchlistData          = settledOr(watchlistDataResult, undefined, 'getWatchlistData')
+  const evidenceData           = settledOr(evidenceDataResult, undefined, 'getEvidenceData')
+  const recentEduModules       = settledOr(recentEduModulesResult, [], 'getRecentEduModules')
+  const localIntel             = settledOr(localIntelResult, null, 'getLocalIntel')
+  const sourceCoverage         = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
+  const jurisdictionPlaybook   = settledOr(jurisdictionPlaybookResult, null, 'getJurisdictionPlaybook')
+  const educationTracks        = settledOr(educationTracksResult, [], 'getEducationTracks')
+  const marketMetrics          = settledOr(marketMetricsResult, undefined, 'getMarketMetrics')
+  const tradeFlows             = settledOr(tradeFlowsResult, undefined, 'getTradeFlows')
+  const professionals          = settledOr(professionalsResult, undefined, 'getProfessionals')
+  const cannabisOperators      = settledOr(cannabisOperatorsResult, undefined, 'getCannabisOperators')
+  const cultivarPassports      = settledOr(cultivarPassportsResult, [], 'getPublicCultivarPassports')
+  const serviceProviders       = settledOr(serviceProvidersResult, [], 'getPublicServiceProviders')
+  const collaborationProjects  = settledOr(collaborationProjectsResult, [], 'getPublicCollaborationProjects')
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
