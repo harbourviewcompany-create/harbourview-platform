@@ -13,6 +13,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
+import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
@@ -1334,7 +1335,7 @@ const PATHWAY_STEPS = [
 // ── EducationPage ──────────────────────────────────────────────────────────────
 
 const EducationPage = React.memo(function EducationPage({
-  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData, educationTracks = [], onPageChange,
+  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData, educationTracks = [], countryEducationOverlays, onPageChange,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -1345,11 +1346,20 @@ const EducationPage = React.memo(function EducationPage({
   signals?:          DashboardSignal[]
   pathwayData?:      PathwayData
   educationTracks?:  EducationTrack[]
+  countryEducationOverlays?: CountryEducationOverlay[]
   onPageChange?:     (page: CommandPage) => void
 }) {
   const modules    = useMemo(() => buildLearningPath(eduCategories), [eduCategories])
   const roleDisp   = role ? role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Professional'
   const nextModule = modules.find(m => m.progress < 100 && m.level === 'REQUIRED')
+  const [expandedModule, setExpandedModule] = useState<number | null>(null)
+  // Same source of truth as the mobile Education tab (lib/dashboard/educationModuleContent.ts)
+  // so country-specific verified guidance and the "not yet verified" fallback labeling
+  // match exactly between desktop and mobile instead of drifting.
+  const moduleContent = useMemo(
+    () => new Map(modules.map(m => [m.num, getModuleContent(m.title, countryEducationOverlays)])),
+    [modules, countryEducationOverlays],
+  )
 
   const REL_EVIDENCE = useMemo(() => {
     if (liveTiles && liveTiles.length > 0) {
@@ -1396,16 +1406,44 @@ const EducationPage = React.memo(function EducationPage({
         <div className="cc-section-label">LEARNING MODULES</div>
 
         <div className="cc-edu-modules">
-          {modules.map(m => (
+          {modules.map(m => {
+            const content = moduleContent.get(m.num)
+            const isExpanded = expandedModule === m.num
+            return (
             <div key={m.num} className="cc-edu-row">
               <div className="cc-edu-row-icon"><span>{m.icon}</span></div>
               <div className="cc-edu-row-body">
                 <div className="cc-edu-row-title">
                   <strong>{m.num}. {m.title}</strong>
                   <span className={`cc-edu-badge ${m.level.toLowerCase()}`}>{m.level}</span>
+                  {content?.isVerified && (
+                    <span className="cc-edu-badge" style={{ background: 'rgba(76,175,130,.12)', color: 'var(--cc-green)', border: '1px solid rgba(76,175,130,.25)' }}>
+                      Verified for {country.label}
+                    </span>
+                  )}
                 </div>
                 <p>{m.desc}</p>
+                {content && !content.isVerified && (
+                  <small style={{ color: 'rgba(212,168,75,.6)', display: 'block', marginTop: 2 }}>
+                    General guidance — not yet verified for {country.label}
+                  </small>
+                )}
                 <small className="cc-edu-time">◷ {m.minutes} min</small>
+                {content && (
+                  <button
+                    type="button"
+                    className="cc-right-link"
+                    style={{ marginTop: 6, display: 'inline-block' }}
+                    onClick={() => setExpandedModule(isExpanded ? null : m.num)}
+                  >
+                    {isExpanded ? 'Hide topics ↑' : 'View topics →'}
+                  </button>
+                )}
+                {isExpanded && content && (
+                  <ul style={{ margin: '8px 0 0', paddingLeft: 18, color: 'rgba(245,240,232,.75)', fontSize: 13, lineHeight: 1.6 }}>
+                    {content.topics.map((topic, i) => <li key={i}>{topic}</li>)}
+                  </ul>
+                )}
               </div>
               <div className="cc-edu-row-prog">
                 {m.progress > 0
@@ -1418,7 +1456,8 @@ const EducationPage = React.memo(function EducationPage({
                 {m.progress>0?'Continue':'Start module'}
               </button>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className="cc-edu-pathway-wrap">
@@ -4019,7 +4058,7 @@ export default function CommandCentre({
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
       case 'education':
-        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
+        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} countryEducationOverlays={countryEducationOverlays} onPageChange={handlePageChange} />
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />
       case 'local-intel':
