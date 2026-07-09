@@ -46,6 +46,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false }, { status: 200 })
     }
 
+    const normalizedViewportWidth =
+      typeof viewportWidth === 'number' && Number.isFinite(viewportWidth) ? Math.round(viewportWidth) : null
+
     const supabase = await createClient()
     const { error } = await supabase.from('client_error_reports').insert({
       boundary,
@@ -54,7 +57,13 @@ export async function POST(request: Request) {
       message: message.slice(0, MAX_MESSAGE_LENGTH),
       stack: typeof stack === 'string' ? stack.slice(0, MAX_STACK_LENGTH) : null,
       user_agent: request.headers.get('user-agent')?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
-      viewport_width: typeof viewportWidth === 'number' && Number.isFinite(viewportWidth) ? Math.round(viewportWidth) : null,
+      // RLS requires 1..20000 (see 20260710160000_client_error_reports.sql) — a
+      // value outside that range would fail the WITH CHECK and drop the whole
+      // insert, not just this optional field.
+      viewport_width:
+        normalizedViewportWidth !== null && normalizedViewportWidth > 0 && normalizedViewportWidth <= 20000
+          ? normalizedViewportWidth
+          : null,
       extra: extra && typeof extra === 'object' ? extra : null,
     })
     if (error) {

@@ -15,5 +15,11 @@ export function reportClientError(boundary: 'country_role' | 'global', error: Er
     viewportWidth: window.innerWidth,
   })
   const sent = navigator.sendBeacon?.('/api/client-errors', new Blob([payload], { type: 'application/json' }))
-  if (!sent) fetch('/api/client-errors', { method: 'POST', body: payload, keepalive: true }).catch(() => {})
+  if (!sent)
+    fetch('/api/client-errors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {})
 }
