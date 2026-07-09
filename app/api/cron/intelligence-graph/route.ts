@@ -151,7 +151,7 @@ export async function GET(request: Request) {
   if (logRows.length > 0) {
     const { error: logErr } = await supabase
       .from('ia_signal_graph_log')
-      .upsert(logRows, { onConflict: 'signal_id', ignoreDuplicates: true }) // ignore already-logged
+      .upsert(logRows, { onConflict: 'signal_id', ignoreDuplicates: true })
     if (logErr) {
       console.warn('intelligence_graph_cron: log insert error:', logErr.message)
     }
