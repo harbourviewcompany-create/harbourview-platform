@@ -9,6 +9,12 @@
 -- rejected. This also meant the user_id = auth.uid() anti-spoofing check
 -- was bypassed via the view. security_invoker = true makes the view
 -- evaluate RLS as the actual invoking role, closing both holes.
+--
+-- 20260710160000 now sets this option directly in its own CREATE OR REPLACE
+-- VIEW statement, so on a fresh apply this ALTER is redundant (a no-op re-
+-- assertion of an already-true option). Left in place — deleting it would
+-- misrepresent what actually happened on the shared project this session:
+-- this file is the real order of discovery, and re-running it is harmless.
 
 alter view api.client_error_reports set (security_invoker = true);
 

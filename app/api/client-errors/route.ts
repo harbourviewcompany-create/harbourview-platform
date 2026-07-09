@@ -11,9 +11,11 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 export const dynamic = 'force-dynamic'
 
+const ROUTE_ID = '/api/client-errors'
 const MAX_MESSAGE_LENGTH = 2000
 const MAX_STACK_LENGTH = 4000
 const MAX_ROUTE_LENGTH = 500
@@ -21,6 +23,14 @@ const MAX_DIGEST_LENGTH = 200
 const MAX_USER_AGENT_LENGTH = 500
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request)
+  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  if (!ipLimit.allowed) {
+    // Still 200, not 429: a rate-limited beacon is exactly the kind of
+    // failure this route must never surface back to the caller.
+    return NextResponse.json({ ok: false }, { status: 200 })
+  }
+
   try {
     const body: unknown = await request.json()
     if (!body || typeof body !== 'object') {
@@ -37,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient()
-    await supabase.from('client_error_reports').insert({
+    const { error } = await supabase.from('client_error_reports').insert({
       boundary,
       route: typeof route === 'string' ? route.slice(0, MAX_ROUTE_LENGTH) : null,
       digest: typeof digest === 'string' ? digest.slice(0, MAX_DIGEST_LENGTH) : null,
@@ -47,6 +57,11 @@ export async function POST(request: Request) {
       viewport_width: typeof viewportWidth === 'number' && Number.isFinite(viewportWidth) ? Math.round(viewportWidth) : null,
       extra: extra && typeof extra === 'object' ? extra : null,
     })
+    if (error) {
+      // Ingestion failure on the one route whose job is making failures
+      // visible — log it, but still never surface it to the caller.
+      console.error('[client-errors] insert failed', error.message)
+    }
   } catch {
     // Best-effort telemetry. A broken reporter must never surface its own
     // failure to the visitor or the calling boundary.

@@ -57,8 +57,16 @@ create index if not exists client_error_reports_created_at_idx
 -- simple single-table view so Postgres's auto-updatable-view mechanism
 -- handles INSERT (and the underlying table's default/RLS) transparently.
 
-create or replace view api.client_error_reports as
-select * from public.client_error_reports;
+-- security_invoker = true is required here, not left to a follow-up ALTER:
+-- Postgres views default to security_invoker = false, which runs permission
+-- and RLS checks as the view OWNER (table owner, RLS-exempt) rather than the
+-- calling role — silently letting inserts bypass every check above. Also,
+-- CREATE OR REPLACE VIEW resets any omitted WITH (...) option back to that
+-- default, so this must be repeated on every future replace of this view,
+-- not set once and assumed to stick.
+create or replace view api.client_error_reports
+with (security_invoker = true)
+as select * from public.client_error_reports;
 
 grant insert on api.client_error_reports to anon, authenticated;
 

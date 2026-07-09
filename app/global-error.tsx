@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { reportClientError } from '@/lib/errorReporting'
 import './globals.css'
 
 export default function GlobalError({
@@ -12,16 +13,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error('[HarbourviewGlobalError]', error)
-    const payload = JSON.stringify({
-      boundary: 'global',
-      route: window.location.pathname,
-      digest: error.digest,
-      message: error.message,
-      stack: error.stack?.slice(0, 4000),
-      viewportWidth: window.innerWidth,
-    })
-    const sent = navigator.sendBeacon?.('/api/client-errors', new Blob([payload], { type: 'application/json' }))
-    if (!sent) fetch('/api/client-errors', { method: 'POST', body: payload, keepalive: true }).catch(() => {})
+    reportClientError('global', error)
   }, [error])
 
   return (
