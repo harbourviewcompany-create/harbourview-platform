@@ -15,6 +15,7 @@
  *   { signals: DashboardSignal[], total: number, source: "live" | "error" }
  *
  * Security:
+ *   - Auth-gated: requires an authenticated Supabase session (401 if not signed in).
  *   - DTO: only safe public columns — never exposes summary, source_url,
  *     analyst_notes, in_network, company, query_pack, or action.
  *   - Filters to reviewed=true rows only (public-safe subset of the table).
@@ -142,6 +143,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
 
     // When a country is requested, fetch country-specific signals first.
     // If they don't fill the requested limit, supplement with Global signals
