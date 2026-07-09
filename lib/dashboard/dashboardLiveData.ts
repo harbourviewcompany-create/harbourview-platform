@@ -977,6 +977,52 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
   }
 }
 
+// ── Country-specific education overlay ────────────────────────────────────
+export type CountryEducationOverlay = {
+  moduleKey:    string
+  topics:       string[]
+  actionLabel:  string
+  reviewStatus: string
+}
+
+export async function getCountryEducationOverlays(
+  countryIso2: string | null,
+  roleId:      string | null,
+): Promise<CountryEducationOverlay[]> {
+  if (!countryIso2) return []
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('country_education_overlay')
+      .select('module_key, topics, action_label, review_status, role_id')
+      .eq('country_iso2', countryIso2.toUpperCase())
+      .in('review_status', [
+        'verified_primary_source', 'verified_professional_body',
+        'verified_peer_reviewed', 'verified_secondary_source',
+      ])
+
+    if (error || !data) return []
+
+    const byModule = new Map<string, CountryEducationOverlay>()
+    for (const row of data) {
+      const matchesRole = !row.role_id || row.role_id === roleId
+      if (!matchesRole) continue
+      const existing = byModule.get(row.module_key)
+      if (!existing || row.role_id) {
+        byModule.set(row.module_key, {
+          moduleKey:    row.module_key,
+          topics:       Array.isArray(row.topics) ? row.topics : [],
+          actionLabel:  row.action_label,
+          reviewStatus: row.review_status,
+        })
+      }
+    }
+    return Array.from(byModule.values())
+  } catch {
+    return []
+  }
+}
+
 // ── New: jurisdiction playbooks ───────────────────────────────────────────────────────────────
 export type JurisdictionPlaybook = {
   country_iso2:           string
