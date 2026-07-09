@@ -161,7 +161,7 @@ create or replace view api.watchlist_collections as
 grant select on api.watchlist_collections to anon, authenticated;
 
 create or replace view api.watchlist_collection_signals as
-  select * from regulatory_signals.public_watchlist_collection_signals.
+  select * from regulatory_signals.public_watchlist_collection_signals;
 grant select on api.watchlist_collection_signals to anon, authenticated;
 
 notify pgrst, 'reload schema';
