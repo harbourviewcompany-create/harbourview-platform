@@ -252,7 +252,7 @@ export default async function DashboardPage({
   ])
 
   const signals               = settledOr(signalsResult, [], 'fetchDashboardSignals')
-  const dailyDigest            = settledOr(dailyDigestResult, { signals: [], window: undefined } as Awaited<ReturnType<typeof fetchDailyDigest>>, 'fetchDailyDigest')
+  const dailyDigest            = settledOr(dailyDigestResult, { signals: [], window: 'recent' }, 'fetchDailyDigest')
   const wantedCount            = settledOr(wantedCountResult, 0, 'getWantedRequestsCount')
   const marketplaceRows        = settledOr(marketplaceRowsResult, {}, 'getDashboardMarketplaceRows')
   const pipeline               = settledOr(pipelineResult, undefined, 'getPipelineCounts')
