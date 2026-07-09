@@ -15,6 +15,7 @@ import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
+import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { DealRoomsPanel } from './pages/DealRoomsPanel'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
 import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
@@ -258,15 +259,17 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
       <div className="cc-briefing-globe">
         <div className="cc-globe-wrap">
-          <GlobeCanvas
-            className="absolute inset-0 w-full h-full"
-            selectedCountryIso2={country.iso2}
-            selectedCountryIso2s={[country.iso2]}
-            focusedCountryIso2={focusedIso2}
-            activeLayerId="country_select"
-            onHoverCountry={setFocusedIso2}
-            onSelectCountry={onCountrySelect}
-          />
+          <GlobeProvider>
+            <GlobeCanvas
+              className="absolute inset-0 w-full h-full"
+              selectedCountryIso2={country.iso2}
+              selectedCountryIso2s={[country.iso2]}
+              focusedCountryIso2={focusedIso2}
+              activeLayerId="country_select"
+              onHoverCountry={setFocusedIso2}
+              onSelectCountry={onCountrySelect}
+            />
+          </GlobeProvider>
           <div className="cc-globe-label">
             {country.label}
             {region && <span> · {region}</span>}
