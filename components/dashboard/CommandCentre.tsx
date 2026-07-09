@@ -572,14 +572,22 @@ const DigestPage = React.memo(function DigestPage({
       {/* Lead item */}
       {topSignal && (
         <div className="cc-digest-lead">
-          <div className="cc-digest-lead-tag">Lead signal · {topSignal.confidence}% confidence</div>
+          <div className="cc-digest-lead-tag">
+            {topSignal.contentType === 'editorial' ? 'Featured this week' : `Lead signal · ${topSignal.confidence}% confidence`}
+          </div>
           <strong>{topSignal.title}</strong>
           <p>{topSignal.commercialImpact}</p>
           <div className="cc-digest-lead-meta">
             <span>{topSignal.market || country.label}</span>
             <span>·</span>
             <span>{topSignal.timeAgo}</span>
-            <Link href={topSignal.slug ? `/signals/${topSignal.slug}` : '/signals'} className="cc-digest-lead-link">Open brief →</Link>
+            {topSignal.contentType === 'editorial'
+              ? (topSignal.sourceUrl && (
+                  <a href={topSignal.sourceUrl} target="_blank" rel="noopener noreferrer" className="cc-digest-lead-link">
+                    Read at {topSignal.sourceLabel ?? 'source'} →
+                  </a>
+                ))
+              : <Link href={topSignal.slug ? `/signals/${topSignal.slug}` : '/signals'} className="cc-digest-lead-link">Open brief →</Link>}
           </div>
         </div>
       )}
@@ -593,6 +601,26 @@ const DigestPage = React.memo(function DigestPage({
           </div>
         ) : (
           effectiveSignals.map((s, i) => {
+            if (s.contentType === 'editorial') {
+              return (
+                <div key={s.id ?? i} className="cc-sig-row" style={{ gridTemplateColumns: '12px 1fr 160px' }}>
+                  <span className="cc-sig-dot" style={{ background: '#B8AF9E' }} />
+                  <div className="cc-sig-body">
+                    <strong>{s.title}</strong>
+                    <small>{s.market ? `${s.market} · ` : ''}{s.timeAgo}{s.sourceLabel ? ` · ${s.sourceLabel}` : ''}</small>
+                    <span style={{
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
+                      overflow: 'hidden', fontSize: 11, color: 'var(--cc-muted)', lineHeight: 1.5, marginTop: 4,
+                    }}>{s.commercialImpact}</span>
+                  </div>
+                  <div className="cc-sig-acts">
+                    {s.sourceUrl && (
+                      <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="cc-sig-brief">Read source</a>
+                    )}
+                  </div>
+                </div>
+              )
+            }
             const imp  = deriveImpact(s.confidence)
             const circ = 87.96
             return (

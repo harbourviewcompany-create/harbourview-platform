@@ -1699,7 +1699,9 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
             <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selected.commercialImpact}</p>
           </div>
           {selected.sourceLabel && (
-            <p style={{ fontSize: 11, color: 'rgba(245,240,232,.35)', textAlign: 'center' }}>{selected.sourceLabel}</p>
+            selected.sourceUrl
+              ? <a href={selected.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: 11, color: '#B8AF9E', textAlign: 'center', textDecoration: 'underline' }}>Read the original at {selected.sourceLabel} →</a>
+              : <p style={{ fontSize: 11, color: 'rgba(245,240,232,.35)', textAlign: 'center' }}>{selected.sourceLabel}</p>
           )}
         </div>
       )

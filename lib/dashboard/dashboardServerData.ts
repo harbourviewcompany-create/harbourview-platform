@@ -347,7 +347,7 @@ export async function fetchDailyDigest(
       .maybeSingle()
 
     type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
-    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string }
+    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string; source_url?: string; outlet_name?: string }
 
     const hasSignalEdition    = edition && Array.isArray(edition.headlines) && edition.headlines.length > 0
     const hasEditorialEdition = edition && Array.isArray(edition.editorial_headlines) && edition.editorial_headlines.length > 0
@@ -397,7 +397,8 @@ export async function fetchDailyDigest(
         timeAgo:          publishedLabel(h.published_at),
         confidence:       0,
         commercialImpact: h.why_it_matters ?? '',
-        sourceLabel:      'Global Cannabis News',
+        sourceLabel:      h.outlet_name ?? 'Global Cannabis News',
+        sourceUrl:        h.source_url,
         flag:             flagForMarket(h.market ?? 'Global'),
         contentType:      'editorial',
       }))
