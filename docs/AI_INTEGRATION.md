@@ -40,13 +40,22 @@ The HarbourView Platform leverages Artificial Intelligence (AI) as a core intell
 3. **Phase 3: Advanced & Scale** — Agentic workflows, advanced personalization, continuous retraining.
 
 ## Success Metrics & Risks
+
+### Success Metrics
 | Category | Key Metrics |
 |----------|-------------|
-| Engagement | Inquiry conversion, user NPS |
-| Efficiency | Time saved in workflows, automation rate |
+| Engagement | Inquiry conversion rate, user NPS |
+| Efficiency | Time saved in workflows, automation coverage |
 | Accuracy | Signal precision, hallucination rate |
-| Performance | Latency, cost per operation |
+| Performance | Latency < 500ms, cost per operation |
 
-**Risks & Mitigations**: Cost overruns (budget alerts), security incidents (proxies + audits), model drift (retraining pipelines).
+### Risks & Mitigations
+| Risk | Likelihood | Impact | Specific Mitigations | Owner |
+|------|------------|--------|----------------------|-------|
+| High inference / operational costs | Medium | High | Aggressive Redis caching, open-source model preference, budget alerts in observability stack, token usage monitoring per feature, fallback to rule-based logic. | AI Tech Lead |
+| Prompt injection / output manipulation | Medium | High | Input sanitization, guardrail libraries, secure proxy layer for all LLM calls, mandatory human-in-the-loop for compliance & promotions. | Security Team |
+| Data privacy / regulatory non-compliance | Low | Critical | Enforce RLS + DTO patterns in Supabase, data residency controls, ethical scraping policies, quarterly compliance audits, PII anonymization. | Compliance Officer |
+| Model drift / degrading accuracy | Medium | High | Scheduled retraining pipelines, continuous eval frameworks (e.g. DeepEval), A/B testing, non-AI fallback paths. | AI Tech Lead |
+| Performance degradation on globe visualization | Medium | Medium | Lazy loading of AI features, memoization & throttling, dedicated inference workers, CDN for static embeddings. | Frontend Lead |
 
 This AI integration positions HarbourView as a differentiated, intelligent platform that combines human expertise with machine-scale insights.
