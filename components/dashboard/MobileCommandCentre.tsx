@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay } from '@/lib/dashboard/dashboardLiveData'
@@ -3118,17 +3118,47 @@ export default function MobileCommandCentre({
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
 
+  // The URL is the source of truth for the CURRENT session, but for a signed-in
+  // user we also persist role/country to user_dashboard_preferences so the next
+  // fresh session (new tab, reopened app, no query params) restores it instead
+  // of silently reverting to no role at all. This API already existed and works
+  // — UniversalDashboard.tsx (a separate, unrelated dashboard component) was the
+  // only caller; the actual Command Centre never wired into it.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    if (!userEmail) return
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [userEmail])
+
+  const persistDashboardPreferences = (next: { country_iso2?: string; role_id?: string }) => {
+    if (!userEmail) return
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        country_iso2: next.country_iso2 ?? country.iso2,
+        role_id: next.role_id ?? role,
+        heatmap_layer: heatmapLayerRef.current,
+      }),
+    }).catch(() => undefined)
+  }
+
   const handleCountryChange = (iso2: string) => {
     const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
     if (nextCountry) {
       setCountry(nextCountry)
       applyContext(iso2, role, activePage)
+      persistDashboardPreferences({ country_iso2: iso2 })
     }
   }
 
   const handleRoleChange = (roleVal: string) => {
     setRole(roleVal)
     applyContext(country.iso2, roleVal, activePage)
+    persistDashboardPreferences({ role_id: roleVal })
   }
 
   const handlePageChange = (pageVal: CommandPage) => {

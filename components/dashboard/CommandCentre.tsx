@@ -4053,18 +4053,45 @@ export default function CommandCentre({
     router.replace(qs ? `/dashboard?${qs}` : '/dashboard', { scroll: false })
   }, [router])
 
+  // Persist role/country for signed-in users, same fix as MobileCommandCentre —
+  // this API already existed and works, only UniversalDashboard.tsx (a separate,
+  // unrelated dashboard component) was ever calling it.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    if (!userEmail) return
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [userEmail])
+
+  const persistDashboardPreferences = useCallback((next: { country_iso2?: string; role_id?: string }) => {
+    if (!userEmail) return
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        country_iso2: next.country_iso2 ?? country.iso2,
+        role_id: next.role_id ?? role,
+        heatmap_layer: heatmapLayerRef.current,
+      }),
+    }).catch(() => undefined)
+  }, [userEmail, country.iso2, role])
+
   const handleCountryChange = useCallback((iso2: string) => {
     const found = COUNTRIES.find(c => c.iso2 === iso2)
     if (!found) return
     setCountry(found)
     setRegion('')
     syncUrl({ countryIso2: iso2, roleId: role, page: activePage })
-  }, [role, activePage, syncUrl])
+    persistDashboardPreferences({ country_iso2: iso2 })
+  }, [role, activePage, syncUrl, persistDashboardPreferences])
 
   const handleRoleChange = useCallback((roleId: string) => {
     setRole(roleId)
     syncUrl({ countryIso2: country.iso2, roleId, page: activePage })
-  }, [country.iso2, activePage, syncUrl])
+    persistDashboardPreferences({ role_id: roleId })
+  }, [country.iso2, activePage, syncUrl, persistDashboardPreferences])
 
   const handlePageChange = useCallback((page: CommandPage) => {
     setActivePage(page)
