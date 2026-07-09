@@ -24,7 +24,8 @@ import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
-export type MarketRow = [string, string, string, string, string, string, string, string]
+// Trailing 2 slots (RATING, REVIEW_COUNT) are pre-formatted strings, empty when unrated.
+export type MarketRow = [string, string, string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
 export type CommandPage =
@@ -956,7 +957,7 @@ const MKT_TABS: { id: MarketView; label: string }[] = [
 ]
 
 // MarketRow tuple field indices
-const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7 } as const
+const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7, RATING:8, REVIEW_COUNT:9 } as const
 
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
@@ -993,8 +994,25 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return 'cannabis'
   })
   const [search,    setSearch]    = useState('')
+  const [regionFilter, setRegionFilter] = useState('all')
+  const [sortBy, setSortBy] = useState<'featured' | 'rating'>('featured')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [subView, setSubView] = useState<MarketSubView>('browse')
+
+  const changeTab = (id: MarketView) => {
+    setActiveTab(id)
+    setRegionFilter('all')
+  }
+
+  const regionOptions = useMemo(() => {
+    const base: MarketRow[] = activeTab === 'wanted' && wantedListings?.length
+      ? wantedListings.map(w => [
+          w.title, w.summary ?? '', w.location_country ?? country.iso2,
+          'Wanted Demand', 'Verified', 'Direct', '72', w.id, '', '',
+        ] as MarketRow)
+      : (marketplaceRows?.[activeTab as MarketView] ?? [])
+    return Array.from(new Set(base.map(row => row[MR.JURISDICTION]).filter(Boolean))).sort()
+  }, [activeTab, marketplaceRows, wantedListings, country])
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
@@ -1008,14 +1026,25 @@ const MarketplacePage = React.memo(function MarketplacePage({
         'Direct',
         '72',
         w.id,
+        '',
+        '',
       ] as MarketRow)
+    }
+    if (regionFilter !== 'all') {
+      r = r.filter(row => row[MR.JURISDICTION] === regionFilter)
     }
     if (search.trim()) {
       const lq = search.toLowerCase()
       r = r.filter(row => row[MR.TITLE].toLowerCase().includes(lq) || row[MR.DESC].toLowerCase().includes(lq))
     }
+    if (sortBy === 'rating') {
+      r = [...r].sort((a, b) => {
+        const ratingDiff = (Number(b[MR.RATING]) || 0) - (Number(a[MR.RATING]) || 0)
+        return ratingDiff !== 0 ? ratingDiff : (Number(b[MR.REVIEW_COUNT]) || 0) - (Number(a[MR.REVIEW_COUNT]) || 0)
+      })
+    }
     return r
-  }, [activeTab, marketplaceRows, wantedListings, search, country])
+  }, [activeTab, marketplaceRows, wantedListings, search, regionFilter, sortBy, country])
 
   const ACCESS_REQS = useMemo(() => {
     const step1 = pathwayData?.steps.find(s => s.step_number === 1)
@@ -1114,7 +1143,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             return (
               <button key={t.id}
                 className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => changeTab(t.id)}
               >
                 {t.label}
                 {cnt > 0 ? <span className="cc-tab-badge">{cnt}</span> : null}
@@ -1128,7 +1157,14 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <span>⌕</span>
             <input className="cc-mkt-search" placeholder="Search listings…" value={search} onChange={e=>setSearch(e.target.value)} />
           </div>
-          <button className="cc-mkt-filter-btn">≡ Filters</button>
+          <select className="cc-mkt-select" value={regionFilter} onChange={e=>setRegionFilter(e.target.value)} aria-label="Filter by jurisdiction">
+            <option value="all">All regions</option>
+            {regionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="cc-mkt-select" value={sortBy} onChange={e=>setSortBy(e.target.value as 'featured' | 'rating')} aria-label="Sort listings">
+            <option value="featured">Featured first</option>
+            <option value="rating">Top rated</option>
+          </select>
         </div>
 
         {rows.length > 0 ? (
@@ -1137,6 +1173,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               <div className="cc-mkt-thead">
                 <span className="cc-mkt-th opp-col">OPPORTUNITY</span>
                 <span className="cc-mkt-th">CATEGORY</span>
+                <span className="cc-mkt-th">RATING</span>
                 <span className="cc-mkt-th">JURISDICTION</span>
                 <span className="cc-mkt-th">VERIFICATION</span>
                 <span className="cc-mkt-th">ACCESS ROUTE</span>
@@ -1146,6 +1183,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
               {rows.slice(0,10).map((row, i) => {
                 const conf = parseInt(row[MR.CONFIDENCE])||72
                 const ok   = row[MR.VERIFICATION]?.toLowerCase()==='verified'
+                const rating = Number(row[MR.RATING]) || 0
+                const reviewCount = Number(row[MR.REVIEW_COUNT]) || 0
                 return (
                   <div key={row[MR.ID]||String(i)} className="cc-mkt-row">
                     <div className="cc-mkt-cell opp-col">
@@ -1157,6 +1196,11 @@ const MarketplacePage = React.memo(function MarketplacePage({
                       </div>
                     </div>
                     <div className="cc-mkt-cell">{row[MR.CATEGORY]||'—'}</div>
+                    <div className="cc-mkt-cell">
+                      {rating > 0 && reviewCount > 0
+                        ? <span className="cc-mkt-rating"><span className="cc-mkt-star">★</span>{rating.toFixed(1)} <span className="cc-mkt-rating-count">({reviewCount})</span></span>
+                        : <span className="cc-mkt-rating cc-mkt-rating-empty">—</span>}
+                    </div>
                     <div className="cc-mkt-cell cc-juris-cell">
                       <span>{row[MR.JURISDICTION]||country.iso2}</span>
                       {ok && <span className="cc-export-tag">Export-Ready</span>}

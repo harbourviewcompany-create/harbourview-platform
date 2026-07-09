@@ -129,6 +129,11 @@ function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
 
   const category = [l.category, l.subcategory].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' · ')
 
+  // average_rating/review_count aren't guaranteed to arrive as JSON numbers
+  // (confirmed serialized as a string in some Postgres/PostgREST paths).
+  const averageRating = Number(l.average_rating) || 0
+  const reviewCount = Number(l.review_count) || 0
+
   return [view, [
     l.title,
     l.description || `${l.category} listing`,
@@ -138,6 +143,8 @@ function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
     accessRoute,
     String(confidence),
     l.id,
+    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
+    reviewCount > 0 ? String(reviewCount) : '',
   ]]
 }
 

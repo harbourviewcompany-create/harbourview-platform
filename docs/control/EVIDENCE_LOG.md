@@ -373,3 +373,31 @@ Expected Pass 1 evidence:
 **Files changed this session:** `supabase/migrations/20260709010000_expose_ratings_on_public_listings_view.sql` (rewritten to match live schema), `app/marketplace/listings/page.tsx`, `components/marketplace/SearchFilters.tsx` (new), `lib/server/listingsQuery.ts`, `lib/marketplace/formOptions.ts`, `docs/control/DATABASE_CONTROL.md`, this entry.
 
 **Rollback:** DB — see `DATABASE_CONTROL.md` rollback SQL (applies to both migrations now that they're live). Code — revert the relevant commits on `claude/pr-1000-review-pmm1up`; all additive, nothing existing was removed.
+
+## 2026-07-09 (update 2) — Wired search/filter/rating into the live CommandCentre marketplace panel
+
+**At Tyler's explicit instruction**, extended the same functionality into the actual live UI (`components/dashboard/CommandCentre.tsx`'s inline `MarketplacePage`, and its mobile counterpart in `MobileCommandCentre.tsx`), since the standalone page from the prior entry is unreachable in production.
+
+**Data plumbing:** `MarketRow` (a positional string tuple, `components/dashboard/CommandCentre.tsx`) extended from 8 to 10 elements — `RATING` and `REVIEW_COUNT`, pre-formatted strings, empty when unrated. Updated all three places that construct a `MarketRow` literal:
+- `app/dashboard/page.tsx`'s `mapListingToDashboardRow()` — real ratings from `PublicListing.average_rating`/`review_count`, coerced with `Number()` (confirmed non-numeric-safe serialization from the earlier entry).
+- `components/dashboard/CommandCentre.tsx`'s inline wanted-listing row builder — padded with `''`/`''` (wanted demand has no ratings).
+- `app/country/[country]/role/[role]/page.tsx`'s `mapListingToRow()` — a second, separate live route (the per-country/role dashboard) that also builds `MarketRow` from the same `PublicListing` data; wired real ratings through here too rather than padding, since it's live production code, not dead.
+
+**Compile-time fallout from widening the tuple:** `components/dashboard/pages/MarketplacePage.tsx` (the confirmed-dead, unimported duplicate found in the prior research pass) had a hardcoded local 8-string-tuple type for its `ListingCard` prop and failed to typecheck against the new 10-element `MarketRow`. Fixed by importing and using the real `MarketRow` type instead of a hand-duplicated tuple literal — a 2-line fix, not a rewrite of the dead file. Left the file otherwise untouched (still unimported, still not the live component).
+
+**UI added to the live desktop panel (`CommandCentre.tsx`):**
+- Non-functional "≡ Filters" button replaced with two real `<select>`s: jurisdiction/region (options built from unique `JURISDICTION` values present in the active tab's rows) and sort (`Featured first` / `Top rated`, the latter sorting client-side by rating then review count).
+- Category filtering: already existed as the `MKT_TABS` tab strip (cannabis/equipment/consumables/new-products/services/opportunities/wanted) — left as-is rather than duplicating it as a second dropdown.
+- Existing free-text search (title/description) — unchanged, already functional.
+- New RATING column in the listings table (`★ 4.8 (23)` or `—`), added between CATEGORY and JURISDICTION; extended `.cc-mkt-thead`/`.cc-mkt-row` grid-template-columns from 7 to 8 tracks in `CommandCentre.css` and added `.cc-mkt-select`/`.cc-mkt-rating*` rules matching the existing gold-accent visual language. Confirmed no `@media` breakpoint duplicates these grid rules elsewhere.
+- Switching tabs now resets the region filter (`changeTab()` helper) so a jurisdiction chosen in one category tab can't silently zero out results in another.
+
+**UI added to the live mobile panel (`MobileCommandCentre.tsx`):** rating badge in each market card (`★ 4.8 (23)`), and a "Sort by top rated" toggle button (mobile's existing UI is lighter-weight than desktop — one toggle rather than two selects — but functionally equivalent). `MobileMarketCard` type and `normalizeMarketRow()` extended to carry `rating`/`reviewCount` as numbers (mobile does its own formatting at render time, unlike the desktop table which stores pre-formatted strings in the tuple).
+
+**QA (all passed):** `npx tsc --noEmit` (0 errors, full project), `npm run lint` (0 errors, 127 warnings — identical count to the pre-existing baseline, confirmed none are in touched files), `npm run test` (all suites, 57 tests), `npm run build` (clean, all routes compiled including `/dashboard` and `/country/[country]/role/[role]`).
+
+**Not verified this session:** could not visually confirm rendering in a browser — `npm run dev` + curling `/dashboard?page=marketplace` redirects to `/login` because `NEXT_PUBLIC_SUPABASE_URL`/auth env vars aren't present in this sandbox (same limitation noted in the prior white-screen defect entry from 2026-07-07). The route did compile without error under `npm run build`'s static analysis, which exercises the same component tree, but that is not equivalent to an authenticated click-through. Recommend a manual pass once deployed to a preview environment with real Supabase env vars: enter `/dashboard?page=marketplace` for a country/role with at least one rated listing, confirm the rating column/badge renders, the region select and "Top rated" sort actually reorder results, and the mobile breakpoint's sort toggle and card rating badge render correctly.
+
+**Files changed this update:** `components/dashboard/CommandCentre.tsx`, `components/dashboard/CommandCentre.css`, `components/dashboard/MobileCommandCentre.tsx`, `components/dashboard/pages/MarketplacePage.tsx` (2-line type fix only), `app/dashboard/page.tsx`, `app/country/[country]/role/[role]/page.tsx`, this entry.
+
+**Rollback:** Code-only, no new migrations. Revert the relevant commit(s) on `claude/pr-1000-review-pmm1up`; all changes are additive (new tuple slots appended at the end, new UI elements added, no existing behavior removed) so a revert carries no data risk.

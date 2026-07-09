@@ -135,6 +135,9 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
     : 0
   const confidence = rawScore > 0 ? String(rawScore) : isVerified ? '78' : '62'
 
+  const averageRating = Number(listing.average_rating) || 0
+  const reviewCount = Number(listing.review_count) || 0
+
   return [
     listing.title,
     safeText(listing.description, `${categoryLabel} listing${regionLabel ? ' — ' + regionLabel : ''}.`),
@@ -144,6 +147,10 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
     isVerified ? 'Licensed Direct' : 'Mediated',
     confidence,
     listing.id,
+    // Numeric columns arrive as strings from some Postgres/PostgREST paths
+    // (confirmed for average_rating) — store pre-formatted, empty when unrated.
+    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
+    reviewCount > 0 ? String(reviewCount) : '',
   ]
 }
 
