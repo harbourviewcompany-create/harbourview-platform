@@ -78,7 +78,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request)
-  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  const ipLimit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
   if (!ipLimit.allowed) {
     logListingSubmissionDiagnostic('LISTING_SUBMISSION_RATE_LIMITED', { ip, retryAfterSeconds: ipLimit.retryAfterSeconds })
     return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, ipLimit.retryAfterSeconds)
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
 
     const message = validation.message
 
-    const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
+    const identityLimit = await enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
     if (!identityLimit.allowed) {
       logListingSubmissionDiagnostic('LISTING_SUBMISSION_RATE_LIMITED', { ip, retryAfterSeconds: identityLimit.retryAfterSeconds, hasEmail: true })
       return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, identityLimit.retryAfterSeconds)
