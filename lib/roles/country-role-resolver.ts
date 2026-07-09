@@ -29,16 +29,12 @@ export function getCountryRoleHref(countrySlug: string, roleSlug: string) {
   return `/country/${countrySlug}/role/${roleSlug}`
 }
 
-export function resolveCountryRoleDashboard(countrySlug: string, roleSlug: string, visibility: PermissionTier = 'public_guest'): ResolvedCountryRoleDashboard | null {
+export function resolveCountryRoleDashboard(countrySlug: string, roleSlug: string, visibility: PermissionTier = 'public_guest', evidenceVerified: boolean = false): ResolvedCountryRoleDashboard | null {
   const country = getCountryBySlug(countrySlug)
   const role = roleProfileMap[roleSlug]
   if (!country || !role) return null
   if (role.family === adminOnlyRoleFamily && visibility !== 'harbourview_admin') return null
 
-  // No country-role pathway is marked verified until evidence-backed status exists.
-  // Static role routing may be available, but verified evidence must come from a
-  // reviewed source/evidence layer instead of a hardcoded country list.
-  const evidenceVerified = false
   const moduleOrder = resolveRoleModuleOrder(role)
   const actions: ActionKey[] = [role.primaryCta, ...evidenceGapActionKeys]
   return {

@@ -71,4 +71,6 @@ Public claim evidence and education-resource DTO rows require:
 
 ## TypeScript Allowlist Module
 
-The application allowlist is defined in `lib/harbourview/dto/allowlists.ts`. Public DTO types are defined in `lib/harbourview/dto/public.ts`; private operator DTO types are defined separately in `lib/harbourview/dto/private.ts`.
+`lib/harbourview/dto/allowlists.ts` defines a table-scoped field allowlist (`assertPublicDtoAllowlist`, `assertNoForbiddenFields`), but as of 2026-07 it is exercised only by its own unit test (`lib/harbourview/dto/__tests__/serializers.test.ts`) — no production route calls it. Public DTO types are defined in `lib/harbourview/dto/public.ts`; private operator DTO types are defined separately in `lib/harbourview/dto/private.ts`.
+
+**The runtime guard actually enforcing this contract in production** is `assertPublicSafe()` in `lib/intelligence-os/publicSafety.ts` — a recursive forbidden-field/pattern scan called from public projection functions repo-wide (e.g. `lib/marketplace/publicProjection.ts:61`, `lib/intelligence-os/projections.ts`, `lib/signals/safety.ts`). Its forbidden-field list is maintained independently of `HV_FORBIDDEN_PUBLIC_DTO_FIELDS` above and should be kept in sync when adding a new private field name.

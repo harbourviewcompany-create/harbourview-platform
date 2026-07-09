@@ -7,7 +7,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays, getJurisdictionEvidenceStatus } from '@/lib/dashboard/dashboardLiveData'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -180,12 +180,20 @@ function buildEvidenceGapModule(message?: string) {
 
 export default async function CountryRoleCommandCenterPage({ params }: Props) {
   const { country: countrySlug, role: roleSlug } = await params
-  const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest')
-  if (!dashboard) {
+  const preDashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest')
+  if (!preDashboard) {
     const safeHref = getSafeCountryRoleRedirect(countrySlug, roleSlug)
     if (safeHref !== `/country/${countrySlug}/role/${roleSlug}`) return redirect(safeHref)
     return notFound()
   }
+
+  // Real evidence signal (jurisdiction_playbooks.status === 'published'), replacing
+  // the previous permanent hardcoded false. See lib/dashboard/dashboardLiveData.ts
+  // getJurisdictionEvidenceStatus for why cc_jurisdiction_briefings.confidence_score
+  // was deliberately not used (verified live to be a non-differentiated 0.72 default
+  // across all 203 countries).
+  const evidenceStatus = await getJurisdictionEvidenceStatus(preDashboard.country.countryIso2)
+  const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest', evidenceStatus.verified)!
 
   const countryIso2 = dashboard.country.countryIso2
   const roleId = resolveDashboardRoleId(dashboard.role.slug)

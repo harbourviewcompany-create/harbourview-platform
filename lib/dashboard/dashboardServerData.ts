@@ -338,13 +338,17 @@ export async function fetchDailyDigest(
     // ── Editorial edition first ───────────────────────────────────────────────
     // Published daily_digest (same content as the public /daily page). When an
     // edition exists it IS the digest; the rolling window below is fallback.
-    const { data: edition } = await supabase
+    const { data: edition, error: editionError } = await supabase
       .from('daily_digest')
       .select('digest_date, headlines, editorial_headlines, generated_at')
       .eq('status', 'published')
       .order('digest_date', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    if (editionError) {
+      console.error('[fetchDailyDigest] daily_digest edition query failed:', editionError.message)
+    }
 
     type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
     type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string }
@@ -459,7 +463,8 @@ export async function fetchDailyDigest(
       signals: windowed.slice(0, limit).map(curatedToSignal),
       window: windowKey,
     }
-  } catch {
+  } catch (err) {
+    console.error('[fetchDailyDigest] unexpected error:', err)
     return { signals: [], window: 'recent' }
   }
 }

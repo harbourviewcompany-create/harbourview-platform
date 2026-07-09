@@ -10,12 +10,13 @@
  * - Per-instance color now reflects `opportunityScore` + local signal count,
  *   using `instanceColor`, instead of a flat material color.
  *
- * NOT YET VERIFIED: the lat/lng → xyz conversion below (phi/theta, radius
- * 1.02) is carried over from the pasted handoff. I have not read
- * `OceanSphere.tsx` / `CountryPolygonMeshLayer.tsx` to confirm this matches
- * the sphere radius and rotation convention already used elsewhere in the
- * globe. Cross-check against those before relying on marker placement being
- * aligned with the country polygon layer.
+ * VERIFIED 2026-07-07: cross-checked against OceanSphere.tsx (ocean radius
+ * 2.35) and polygon-buffer-geometry.ts (DEFAULT_CONFIG.radius 2.35, plate
+ * top = radius + plateLift + extrusionHeight). The phi/theta projection
+ * formula below already matched projectRingVertices() exactly - the only
+ * bug was the marker radius (a leftover unit-sphere assumption of 1.02).
+ * Now uses the same plate-surface radius as the country polygons, plus a
+ * small lift so markers read as floating just above the plates.
  */
 'use client'
 
@@ -29,14 +30,18 @@ import {
   MeshPhongMaterial,
 } from 'three'
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
+import { PLATE_LIFT, IDLE_EXTRUSION } from '@/lib/globe/globe-plate-config'
 
 type DataVizLayerProps = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
 }
 
-const GLOBE_RADIUS = 1.0
-const MARKER_ALTITUDE = 1.02 // fraction of radius — carried over, unverified, see header note
+// Plate-surface radius: matches CountryPolygonMeshLayer's idle extrusion
+// top (ocean radius 2.35 + PLATE_LIFT + IDLE_EXTRUSION), plus a small lift
+// so markers read as floating just above the country plates.
+const GLOBE_SURFACE_RADIUS = 2.35 + PLATE_LIFT + IDLE_EXTRUSION
+const MARKER_LIFT = 0.01
 
 function latLngToVector3(lat: number, lng: number, radius: number) {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -73,7 +78,7 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
     countries.forEach((country, i) => {
       if (i >= count) return // guard if array grew since last mesh recreation
 
-      const { x, y, z } = latLngToVector3(country.lat, country.lng, GLOBE_RADIUS * MARKER_ALTITUDE)
+      const { x, y, z } = latLngToVector3(country.lat, country.lng, GLOBE_SURFACE_RADIUS + MARKER_LIFT)
       dummy.position.set(x, y, z)
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)

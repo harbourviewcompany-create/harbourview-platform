@@ -18,6 +18,7 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
+import { GlobeProvider } from './GlobeProvider'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -162,6 +163,7 @@ export function GlobeSameScreenRouterLanding() {
   }, [dispatch, router, state])
 
   return (
+    <GlobeProvider>
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
       {fallbackReason ? (
         <PremiumStaticGlobeFallback reason={fallbackReason} />
@@ -252,6 +254,7 @@ export function GlobeSameScreenRouterLanding() {
         </RouterBottomSheet>
       ) : null}
     </main>
+    </GlobeProvider>
   )
 }
 
