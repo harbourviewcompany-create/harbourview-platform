@@ -333,3 +333,23 @@ Expected Pass 1 evidence:
 **Not verified this session:** No browser/visual confirmation that either fix resolves the reported symptom in production — no live render environment available from this session. Recommend a manual click-through (enter a country market; open a signal card in Intel) once the Vercel deploy for `635a073`+ is live. Migration-drift check and full test-suite (`npm run test:*`) not run — out of scope for this diff (no schema/migration changes).
 
 **Rollback:** Revert commits `ef61a79`, `fb17309` (or their content in `635a073` if squashed). Both changes are additive/defensive (error boundaries, allSettled fallbacks, a CSS class rename) — no existing working behavior was removed, so rollback carries no data or schema risk.
+
+## 2026-07-09 — PR #1000 marketplace ratings migration: review + fixes
+
+**Summary:** Reviewed PR #1000 (`feat(marketplace): Phase 1 - Enhanced listings with filters/search, ratings schema, category support`) via `mcp__github__pull_request_read`. The PR's actual diff is a single migration file, 27 lines (`supabase/migrations/20260709000000_add_ratings_to_listings.sql`) — the PR description's claimed `SearchFilters` component, server-side search/filter UI, and `ListingCard` rating display are not present in the diff (`changedFiles: 1`). Flagged as an open discrepancy for the PR author.
+
+**Migration defects found and fixed on branch `claude/pr-1000-review-pmm1up`:**
+1. Trigger `trigger_ratings_updated` had no column/`WHEN` scoping — fired on every `listings` UPDATE, not just rating changes, making `ratings_updated_at` meaningless as a "last rated" signal. Fixed: scoped to `BEFORE UPDATE OF average_rating, review_count` plus an `IS DISTINCT FROM` guard.
+2. Trigger function `update_ratings_timestamp()` did not pin `search_path`, reintroducing the exact class of finding this repo already patched once in `20260501000002_set_marketplace_inquiries_updated_at_search_path.sql`. Fixed: added `SET search_path = public`.
+3. `CREATE TRIGGER` had no `IF NOT EXISTS`/`DROP IF EXISTS` guard, unlike every other statement in the file — would fail on re-run. Fixed: added `DROP TRIGGER IF EXISTS` first.
+4. The `-- RLS: Public read, admin/service write` comment implied policy work that wasn't actually present (it's a `COMMENT ON COLUMN`, not a policy). Replaced with an accurate note that no new policy is needed because listings RLS is row-level, not column-scoped.
+
+**Correction to initial review:** originally flagged the public/private DTO allowlist doc as needing an update for the new rating columns. On checking `hv_public.marketplace_listings_public`'s definition (`supabase/migrations/20260606090200_hv_integration_indexes_views.sql`), that view selects from `hv_marketplace.listings` — a distinct table from `public.listings`, which is what this PR actually alters. The allowlist doc doesn't apply here; instead, the new rating columns currently have **no path to the public marketplace DTO at all**. If the PR's stated goal (ratings visible on public listing cards) is real, that's a separate, unresolved architecture question — not something invented/fixed in this session.
+
+**Files changed this session:** `supabase/migrations/20260709000000_add_ratings_to_listings.sql` (new, corrected version), `docs/control/DATABASE_CONTROL.md`, `docs/control/EVIDENCE_LOG.md` (this entry).
+
+**RLS verified live:** queried `pg_policies` on project `zvxdgdkukjrrwamdpqrg` for `tablename = 'listings'` (read-only, via `mcp__Supabase__execute_sql`). Confirmed 4 policies, all row-level (`qual`/`with_check` conditioned on `status`, `public_visibility`, and an `admin`/`operator` role check via `user_roles`) — none column-scoped. No `UPDATE` policy exists for `anon` or `authenticated` at all, meaning rating writes can only happen via service-role/RPC, consistent with the original PR's "admin/service write" comment. This confirms new columns inherit existing access rules with no new policy required.
+
+**Not verified this session:** Migration not applied to any Supabase project (no local Docker/Supabase available; `apply_migration` against the live project was intentionally not run — that's a production schema change requiring separate sign-off). No `get_advisors` run. `npm run typecheck`/`build` not applicable (SQL-only diff, no application code touched).
+
+**Rollback:** This is a fresh file on a review branch, not yet merged or applied anywhere — no rollback needed unless/until it's applied to a live database (see rollback SQL in `DATABASE_CONTROL.md`'s 2026-07-09 entry).

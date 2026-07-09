@@ -98,6 +98,19 @@ Database changes require static route/action review, migration review, RLS revie
 
 Database work is complete only when environment, SQL/migrations, RLS impact, public/private exposure, tests and production approval status are all recorded.
 
+## 2026-07-09 — PR #1000 marketplace ratings migration (review fixes)
+
+- **Environment:** local workspace review only; migration not applied to any Supabase project (local, preview, or production) from this session.
+- **Migration:** `supabase/migrations/20260709000000_add_ratings_to_listings.sql`.
+- **Tables affected:** `public.listings` — adds `average_rating numeric(3,2)`, `review_count integer`, `ratings_updated_at timestamptz`, both with CHECK constraints.
+- **RLS impact:** none added or changed. Listings RLS is row-level, not column-enumerated, so the new columns inherit existing policies. Not independently re-verified against live policies this session — flagged for a `get_advisors` pass before deploy.
+- **Functions/triggers:** `update_ratings_timestamp()` trigger function, now scoped to `BEFORE UPDATE OF average_rating, review_count` with an `IS DISTINCT FROM` guard (original PR version fired on every listing update, corrupting `ratings_updated_at` as a "last rated" signal). Function now pins `SET search_path = public`, matching the precedent set in `20260501000002_set_marketplace_inquiries_updated_at_search_path.sql`. Trigger creation is now idempotent (`DROP TRIGGER IF EXISTS` before `CREATE TRIGGER`), consistent with the `IF NOT EXISTS` idiom used elsewhere in the file.
+- **Public API routes affected:** none directly. Note: `hv_public.marketplace_listings_public` (the public marketplace DTO view) reads from `hv_marketplace.listings`, a separate table from `public.listings`. These new rating columns have no path to that public view as written — if PR #1000's stated goal of surfacing ratings on public listing cards is real, a follow-up decision is needed on how `public.listings` ratings reach the public surface (new view, sync job, or DTO addition). Not resolved in this session — left as an open item for the PR author/Tyler.
+- **Backward compatibility:** additive only; no existing column, table, or constraint is altered or dropped.
+- **Rollback/forward-fix path:** `ALTER TABLE listings DROP COLUMN IF EXISTS average_rating, review_count, ratings_updated_at; DROP TRIGGER IF EXISTS trigger_ratings_updated ON listings; DROP FUNCTION IF EXISTS update_ratings_timestamp(); DROP INDEX IF EXISTS idx_listings_avg_rating, idx_listings_review_count;` — safe pre-deploy; if already deployed, confirm no dependent reads before dropping.
+- **Required tests:** not run this session (no local Supabase/Docker available in this environment). `mcp__Supabase__get_advisors` should be run against the target project after migration apply, before this is considered production-ready.
+- **Human approval status:** pending — this is a corrected version of the PR #1000 migration pushed to a review branch, not applied to any Supabase project. Requires sign-off before `apply_migration` or merge to a deploying branch.
+
 ## 2026-06-07 — Cannabis Data Contract v1.0 P0/P1 Foundation
 
 - **Environment:** local workspace only; no production Supabase push was attempted.
