@@ -76,15 +76,27 @@ export async function getWantedListings(countryIso2?: string | null): Promise<Wa
       return q
     }
 
+    // listings has no summary/location_region columns (real column is
+    // description, no geo-region breakdown) - map onto the WantedListing
+    // shape so callers keep the same field names/types.
+    const toWantedListing = (row: { id: string; title: string; description: string | null; location_country: string | null; created_at: string }): WantedListing => ({
+      id: row.id,
+      title: row.title,
+      summary: row.description,
+      location_country: row.location_country,
+      location_region: null,
+      created_at: row.created_at,
+    })
+
     if (countryIso2) {
       const { data: countryData, error: countryErr } = await buildQuery(countryIso2)
-      if (!countryErr && countryData && countryData.length > 0) return countryData
+      if (!countryErr && countryData && countryData.length > 0) return countryData.map(toWantedListing)
     }
 
     // Global fallback
     const { data, error } = await buildQuery()
     if (error || !data) return []
-    return data
+    return data.map(toWantedListing)
   } catch { return [] }
 }
 
