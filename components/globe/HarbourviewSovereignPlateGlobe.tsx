@@ -43,10 +43,10 @@ export function HarbourviewSovereignPlateGlobe({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(16,58,95,0.72),transparent_42%),radial-gradient(circle_at_56%_48%,rgba(198,165,90,0.12),transparent_58%),linear-gradient(180deg,#020814_0%,#01050d_100%)]" />
 
       <div
-        className="absolute left-1/2 top-[46%] h-[112svh] w-[112svh] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#c6a55a]/18 bg-[radial-gradient(circle_at_32%_24%,rgba(255,255,255,0.16),transparent_22%),radial-gradient(circle_at_42%_42%,rgba(12,45,76,0.94)_0%,rgba(2,12,24,0.98)_58%,rgba(0,0,0,0.98)_100%)] shadow-[inset_-42px_-54px_110px_rgba(0,0,0,0.82),inset_18px_22px_70px_rgba(65,107,139,0.22),0_34px_120px_rgba(0,0,0,0.82)] sm:h-[980px] sm:w-[980px]"
+        className="absolute left-1/2 top-[46%] h-[112svh] w-[112svh] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#c6a55a]/18 bg-[radial-gradient(circle_at_32%_24%,rgba(255,255,255,0.16),transparent_22%),radial-gradient(circle_at_42%_42%,rgba(12,45,76,0.94)_0%,rgba(2,12,24,0.98)_58%,rgba(0,0,0,0.98)_100%)] shadow-[inset_-32px_-40px_80px_rgba(0,0,0,0.65),inset_12px_16px_50px_rgba(65,107,139,0.18),0_34px_120px_rgba(0,0,0,0.82)] sm:h-[980px] sm:w-[980px]"
         data-active-layer={activeLayerId}
       >
-        <div className="absolute inset-[7%] rounded-full border border-[#c6a55a]/8 bg-[radial-gradient(circle_at_48%_50%,rgba(3,13,25,0.18),transparent_62%)]" />
+        <div className="absolute inset-[7%] rounded-full border border-[#c6a55a]/8 bg-[radial-gradient(circle_at_48%_50%,rgba(3,13,25,0.12),transparent_68%)]" />
         <div className="absolute inset-[14%] rounded-full border border-[#c6a55a]/6" />
 
         {globePlateSpots.map((spot) => {

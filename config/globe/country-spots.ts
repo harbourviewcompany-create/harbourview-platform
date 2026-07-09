@@ -9,6 +9,7 @@ export const globePlateSpots: GlobePlateSpot[] = [
   { iso2: 'NL', x: 57, y: 35, scale: 0.62 },
   { iso2: 'DE', x: 61, y: 40, scale: 0.9 },
   { iso2: 'PT', x: 51, y: 49, scale: 0.66 },
+  { iso2: 'RU', x: 72, y: 32, scale: 2.85 }, // Large plate for Russia to cover the black hole
   { iso2: 'IL', x: 68, y: 55, scale: 0.62 },
   { iso2: 'ZA', x: 64, y: 86, scale: 0.84 },
   { iso2: 'AU', x: 82, y: 76, scale: 1.06 },
