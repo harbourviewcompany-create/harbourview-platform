@@ -29,18 +29,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    // Marketplace pilot (Command Centre consolidation, phase 1): browse/
-    // category items folded into the Command Centre marketplace panel
-    // (see next.config.mjs redirects). Only the two flows with no in-shell
-    // equivalent yet stay as standalone routes.
-    label: 'Exchange',
-    items: [
-      { label: 'Marketplace', href: '/dashboard?page=marketplace' },
-      { label: 'Sell or Export', href: '/marketplace/sell' },
-      { label: 'Deal Rooms', href: '/marketplace/deals' },
-    ],
-  },
-  {
     label: 'Intelligence',
     items: [
       { label: 'Intelligence Home', href: '/intelligence' },
@@ -62,6 +50,10 @@ const navGroups: NavGroup[] = [
 ]
 
 const navLinks: NavItem[] = [
+  // Marketplace consolidation into Command Centre: Browse, Submit, Quote,
+  // Deal Rooms and My Listings are all sub-views of the marketplace panel
+  // now — one direct link in, not a dropdown of standalone routes.
+  { label: 'Marketplace', href: '/dashboard?page=marketplace' },
   { label: 'Education', href: '/education' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },

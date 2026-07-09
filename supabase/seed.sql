@@ -1,452 +1,209 @@
 -- SEED: development only, not for production
 -- =============================================================================
--- Harbourview Signal Engine V1 — Development Seed Data
--- All names, URLs, and identifiers are fictional and for local dev only.
--- Wrap in transaction so all-or-nothing on failure.
+-- Harbourview Intelligence Pipeline — Development Seed Data (v2)
+--
+-- Replaces the previous supabase/seed.sql, which targeted a schema
+-- (source_documents, entities, signal_candidates, model_prompt_versions,
+-- signal_conversions, etc.) that no longer exists in this project -- 9 of
+-- its 13 target tables were missing entirely and the other 4 had
+-- drastically different columns. That file could never have run
+-- successfully; this one is verified against the live schema.
+--
+-- Covers the real, currently-active ia_* intelligence pipeline: sources ->
+-- signals -> embeddings -> counterparties -> evidence/scoring -> agent
+-- tasks -> relationship graph -> feedback events. All names, IDs, and
+-- content are fictional and for local dev only.
+--
+-- Idempotent: every INSERT uses ON CONFLICT (id) DO NOTHING against these
+-- fixed dev IDs, so `supabase db reset` is safe to run repeatedly.
+--
+-- Intentionally NOT included: seeding auth.users directly via SQL. Supabase
+-- Auth (GoTrue) requires a matching auth.identities row and a real password
+-- hash per user; a raw INSERT INTO auth.users skips both, producing rows
+-- that exist but can never actually log in. If dev auth users are needed,
+-- create them with the Supabase Admin API (supabase.auth.admin.createUser())
+-- in a separate script -- not as SQL in this file.
+--
+-- Embeddings: real dev/mock vectors (not zero-vectors) generated inline via
+-- random() so similarity-search UI has something non-degenerate to show;
+-- dimensions match the live columns exactly (ia_source_embeddings: 1536,
+-- ia_signal_embeddings: 1024) -- confirmed via pg_attribute before writing
+-- this file, not assumed.
 -- =============================================================================
 
 BEGIN;
 
 -- ---------------------------------------------------------------------------
--- Fixed UUIDs for predictable cross-table references in dev
+-- ia_sources (3 rows)
 -- ---------------------------------------------------------------------------
--- source_documents
-DO $$ BEGIN
-  INSERT INTO source_documents (
-    id, source_url, source_title, source_domain,
-    source_access_type, source_permission_status, source_date,
-    raw_text, cleaned_text, raw_text_retention_status,
-    language_code, checksum, source_credibility_score
-  ) VALUES
-  (
-    '00000000-0001-0001-0001-000000000001',
-    'https://dev-source-001.example/article/cannabis-equipment-liquidation',
-    'Dev: Extraction Equipment Liquidation Notice (fictitious)',
-    'dev-source-001.example',
-    'public_web', 'uncertain', '2026-04-01',
-    'Acme Cannabis GmbH (Dev) announces surplus CO₂ extraction units available for immediate sale.',
-    'Acme Cannabis GmbH (Dev) announces surplus CO₂ extraction units available for immediate sale.',
-    'retained', 'en',
-    'devchecksum001aaaabbbbccccdddd',
-    0.6200
-  ),
-  (
-    '00000000-0001-0001-0001-000000000002',
-    'https://dev-source-002.example/press/new-lp-germany',
-    'Dev: New Licensed Producer — Germany (fictitious)',
-    'dev-source-002.example',
-    'public_web', 'allowed', '2026-04-10',
-    'Fictitious GmbH Pharma GmbH has received GMP certification for cannabis flower production.',
-    'Fictitious GmbH Pharma GmbH has received GMP certification for cannabis flower production.',
-    'retained', 'de',
-    'devchecksum002eeeeffff00001111',
-    0.7500
-  ),
-  (
-    '00000000-0001-0001-0001-000000000003',
-    null,
-    'Dev: Manual Admin Entry — Packaging Surplus (fictitious)',
-    null,
-    'manual_admin_entry', 'allowed', '2026-04-15',
-    'Internal note: Dev operator XYZ Corp has 500,000 child-resistant pouches to offload.',
-    'Dev operator XYZ Corp has 500,000 child-resistant pouches to offload.',
-    'retained', 'en',
-    'devchecksum003222233334444',
-    0.8000
-  );
-END $$;
+INSERT INTO ia_sources (
+  id, name, category, markets, reliability, last_checked, next_check,
+  signal_yield, status, notes
+) VALUES
+  ('dev-src-001', 'Dev: BfArM Import Bulletin (fictitious)', 'regulatory',
+   ARRAY['Germany'], 'high', now() - interval '2 days', now() + interval '5 days',
+   12, 'active', 'Dev seed source -- fictitious regulatory bulletin feed.'),
+  ('dev-src-002', 'Dev: EU Cannabis Trade Digest (fictitious)', 'trade_press',
+   ARRAY['Germany', 'Denmark', 'Netherlands'], 'medium', now() - interval '1 day', now() + interval '6 days',
+   7, 'active', 'Dev seed source -- fictitious trade-press aggregator.'),
+  ('dev-src-003', 'Dev: Manual Admin Entry (fictitious)', 'manual',
+   ARRAY['United Kingdom'], 'medium', now() - interval '10 days', null,
+   2, 'paused', 'Dev seed source -- manual entries, not actively polled.')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- source_chunks (8 rows — 3 from doc-1, 3 from doc-2, 2 from doc-3)
+-- ia_source_embeddings (2 rows) -- vector(1536), confirmed dimension
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO source_chunks (
-    id, source_document_id, chunk_index, chunk_text, token_estimate
-  ) VALUES
-  ('00000000-0002-0001-0001-000000000001', '00000000-0001-0001-0001-000000000001', 0,
-   'Acme Cannabis GmbH (Dev) announces surplus CO₂ extraction units.', 12),
-  ('00000000-0002-0001-0001-000000000002', '00000000-0001-0001-0001-000000000001', 1,
-   'Equipment includes three 10L systems. All units tested and certified.', 14),
-  ('00000000-0002-0001-0001-000000000003', '00000000-0001-0001-0001-000000000001', 2,
-   'Available for immediate sale. Contact via Harbourview platform.', 12),
-  ('00000000-0002-0001-0001-000000000004', '00000000-0001-0001-0001-000000000002', 0,
-   'Fictitious GmbH Pharma GmbH has received GMP certification.', 11),
-  ('00000000-0002-0001-0001-000000000005', '00000000-0001-0001-0001-000000000002', 1,
-   'Production capacity: 500kg dried flower per annum. EU-GMP compliant.', 13),
-  ('00000000-0002-0001-0001-000000000006', '00000000-0001-0001-0001-000000000002', 2,
-   'Available for licensed import partners in UK and EU markets.', 12),
-  ('00000000-0002-0001-0001-000000000007', '00000000-0001-0001-0001-000000000003', 0,
-   'Dev operator XYZ Corp has 500,000 child-resistant pouches to offload.', 13),
-  ('00000000-0002-0001-0001-000000000008', '00000000-0001-0001-0001-000000000003', 1,
-   'Various sizes. Minimum order 10,000 units. POA.', 9);
-END $$;
+INSERT INTO ia_source_embeddings (source_id, embedding, model)
+VALUES
+  ('dev-src-001', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1536))::vector(1536), 'text-embedding-3-small'),
+  ('dev-src-002', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1536))::vector(1536), 'text-embedding-3-small')
+ON CONFLICT (source_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- entities (2 rows — referenced by signal_entity_mentions)
+-- ia_signals (4 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO entities (id, entity_type, name, domain, country, region, verification_status)
-  VALUES
-  (
-    '00000000-0003-0001-0001-000000000001',
-    'operator', 'Acme Cannabis GmbH (Dev)', 'acme-dev.example',
-    'DE', 'Bavaria', 'unverified'
-  ),
-  (
-    '00000000-0003-0001-0001-000000000002',
-    'operator', 'Dev Operator XYZ Corp', 'xyz-dev.example',
-    'US', 'Colorado', 'unverified'
-  );
-END $$;
+INSERT INTO ia_signals (
+  id, title, type, stage, source_id, source_name, market, category,
+  confidence, commercial_impact, summary, detected_at
+) VALUES
+  ('dev-sig-001', 'Dev: BfArM raises medical cannabis import ceiling (fictitious)',
+   'regulatory_change', 'qualified', 'dev-src-001', 'Dev: BfArM Import Bulletin (fictitious)',
+   'Germany', 'regulatory', 88, 'high',
+   'Fictitious dev signal: import quota raised in response to sustained demand growth.',
+   now() - interval '3 days'),
+  ('dev-sig-002', 'Dev: New EU-GMP cultivator licensed (fictitious)',
+   'market_entry', 'new', 'dev-src-002', 'Dev: EU Cannabis Trade Digest (fictitious)',
+   'Denmark', 'supply', 72, 'medium',
+   'Fictitious dev signal: additional EU-GMP cultivation capacity coming online.',
+   now() - interval '1 day'),
+  ('dev-sig-003', 'Dev: Telemedicine prescribing under regulatory review (fictitious)',
+   'regulatory_change', 'qualified', 'dev-src-001', 'Dev: BfArM Import Bulletin (fictitious)',
+   'Germany', 'regulatory', 65, 'high',
+   'Fictitious dev signal: proposed tightening of telemedicine prescribing pathway.',
+   now() - interval '5 days'),
+  ('dev-sig-004', 'Dev: Duplicate-flagged pricing update (fictitious)',
+   'price_update', 'needs_review', 'dev-src-003', 'Dev: Manual Admin Entry (fictitious)',
+   'United Kingdom', 'pricing', 41, 'low',
+   'Fictitious dev signal: low-confidence manual entry pending dedup review.',
+   now() - interval '10 days')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- model_prompt_versions (3 rows)
+-- ia_signal_embeddings (3 rows) -- vector(1024), confirmed dimension
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO model_prompt_versions (id, task_name, version, prompt_or_query, labels, active)
-  VALUES
-  (
-    '00000000-0004-0001-0001-000000000001',
-    'signal_classification', 'v0.1-dev',
-    'Classify the following text as a cannabis industry commercial signal. Return JSON with signal_type and marketplace_category.',
-    '{"stage": "dev", "model": "mock"}', false
-  ),
-  (
-    '00000000-0004-0001-0001-000000000002',
-    'jurisdiction_extraction', 'v0.1-dev',
-    'Extract jurisdiction (country, region, city) from the following text. Return JSON.',
-    '{"stage": "dev", "model": "mock"}', false
-  ),
-  (
-    '00000000-0004-0001-0001-000000000003',
-    'entity_recognition', 'v0.1-dev',
-    'Identify company or operator names in the following text. Return JSON array.',
-    '{"stage": "dev", "model": "mock"}', false
-  );
-END $$;
+INSERT INTO ia_signal_embeddings (signal_id, embedding, model)
+VALUES
+  ('dev-sig-001', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1024))::vector(1024), 'bge-m3'),
+  ('dev-sig-002', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1024))::vector(1024), 'bge-m3'),
+  ('dev-sig-003', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1024))::vector(1024), 'bge-m3')
+ON CONFLICT (signal_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- signal_duplicate_groups (2 rows — created before signal_candidates)
--- canonical_signal_candidate_id left null here, updated after candidates inserted
+-- ia_counterparties (2 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_duplicate_groups (id, duplicate_reason, similarity_score)
-  VALUES
-  (
-    '00000000-0005-0001-0001-000000000001',
-    'dev: near-duplicate extraction equipment listings from same source domain', 0.9200
-  ),
-  (
-    '00000000-0005-0001-0001-000000000002',
-    'dev: same packaging surplus signal observed in two manual entries', 0.8800
-  );
-END $$;
+INSERT INTO ia_counterparties (
+  id, name, role, markets, categories, needs_profile, supply_profile,
+  interaction_count, last_interaction, introduction_count, documentation_status, notes
+) VALUES
+  ('dev-cp-001', 'Dev: Fictitious Pharma GmbH', 'supplier',
+   ARRAY['Germany'], ARRAY['medical_cannabis', 'eu_gmp'],
+   null, 'EU-GMP dried flower, 500kg/year capacity (fictitious dev entry)',
+   4, now() - interval '7 days', 1, 'complete',
+   'Dev seed counterparty -- fictitious EU-GMP licensed producer.'),
+  ('dev-cp-002', 'Dev: Fictitious Nordic Buyers Ltd', 'buyer',
+   ARRAY['Denmark', 'Sweden'], ARRAY['medical_cannabis'],
+   'Seeking EU-GMP dried flower, ongoing monthly volume', null,
+   2, now() - interval '20 days', 0, 'partial',
+   'Dev seed counterparty -- fictitious Nordic buyer group.')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- signal_candidates (6 rows)
+-- ia_evidence_vault (2 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_candidates (
-    id, source_document_id, source_chunk_id, duplicate_group_id,
-    signal_type, marketplace_category,
-    title, summary,
-    inferred_company_name, inferred_location, inferred_product_type,
-    jurisdiction_country, jurisdiction_region, jurisdiction_confidence, jurisdiction_source,
-    model_confidence_score, source_credibility_score, final_signal_score,
-    score_breakdown, status
-  ) VALUES
-  -- 1: extraction equipment liquidation
-  (
-    '00000000-0006-0001-0001-000000000001',
-    '00000000-0001-0001-0001-000000000001',
-    '00000000-0002-0001-0001-000000000001',
-    '00000000-0005-0001-0001-000000000001',
-    'used_equipment', 'used_surplus',
-    'Dev: CO₂ Extraction Units Surplus — Acme Cannabis GmbH',
-    'Three 10L CO₂ extraction systems available for immediate sale from licensed German operator (fictitious dev data).',
-    'Acme Cannabis GmbH (Dev)', 'Bavaria, Germany', 'CO₂ extraction systems',
-    'DE', 'Bavaria', 0.8500, 'model_inference',
-    0.7800, 0.6200, 0.7200,
-    '{"model_confidence": 0.78, "source_credibility": 0.62, "category_fit": 0.80}',
-    'needs_review'
-  ),
-  -- 2: near-duplicate of candidate 1 (same dup group)
-  (
-    '00000000-0006-0001-0001-000000000002',
-    '00000000-0001-0001-0001-000000000001',
-    '00000000-0002-0001-0001-000000000002',
-    '00000000-0005-0001-0001-000000000001',
-    'used_equipment', 'used_surplus',
-    'Dev: Extraction Equipment Sale — duplicate signal (dev)',
-    'Duplicate of signal 001 — same source, different chunk. Marked for dedup review (fictitious).',
-    'Acme Cannabis GmbH (Dev)', 'Germany', 'extraction equipment',
-    'DE', null, 0.6000, 'model_inference',
-    0.5500, 0.6200, 0.5800,
-    '{"model_confidence": 0.55, "source_credibility": 0.62, "novelty": 0.10}',
-    'duplicate'
-  ),
-  -- 3: German LP GMP flower (approved)
-  (
-    '00000000-0006-0001-0001-000000000003',
-    '00000000-0001-0001-0001-000000000002',
-    '00000000-0002-0001-0001-000000000004',
-    null,
-    'cannabis_inventory', 'cannabis_inventory',
-    'Dev: EU-GMP Dried Flower — Fictitious GmbH Pharma (Dev)',
-    'GMP-certified licensed producer in Germany offering dried flower for licensed EU/UK import partners (fictitious).',
-    'Fictitious GmbH Pharma GmbH', 'Germany', 'GMP dried flower',
-    'DE', null, 0.9200, 'model_inference',
-    0.9000, 0.7500, 0.8600,
-    '{"model_confidence": 0.90, "source_credibility": 0.75, "commercial_actionability": 0.85}',
-    'approved'
-  ),
-  -- 4: packaging surplus (needs source check)
-  (
-    '00000000-0006-0001-0001-000000000004',
-    '00000000-0001-0001-0001-000000000003',
-    '00000000-0002-0001-0001-000000000007',
-    '00000000-0005-0001-0001-000000000002',
-    'packaging_supply', 'used_surplus',
-    'Dev: Child-Resistant Pouch Surplus — XYZ Corp (Dev)',
-    '500,000 CR pouches for offload. Various sizes. Manual admin entry (fictitious dev).',
-    'Dev Operator XYZ Corp', 'Colorado, USA', 'child-resistant pouches',
-    'US', 'Colorado', 0.9500, 'operator_verification',
-    0.8500, 0.8000, 0.8300,
-    '{"model_confidence": 0.85, "source_credibility": 0.80, "category_fit": 0.82}',
-    'needs_source_check'
-  ),
-  -- 5: regulatory signal (rejected — not actionable)
-  (
-    '00000000-0006-0001-0001-000000000005',
-    '00000000-0001-0001-0001-000000000002',
-    '00000000-0002-0001-0001-000000000005',
-    null,
-    'regulatory_signal', 'policy_regulatory_signal',
-    'Dev: EU GMP Compliance Update Notice (Dev)',
-    'Generic EU GMP update reference — insufficient commercial detail. Rejected (dev data).',
-    null, 'EU', 'regulatory update',
-    null, null, 0.4000, 'model_inference',
-    0.3500, 0.7500, 0.2800,
-    '{"model_confidence": 0.35, "commercial_actionability": 0.10}',
-    'rejected'
-  ),
-  -- 6: priority review
-  (
-    '00000000-0006-0001-0001-000000000006',
-    '00000000-0001-0001-0001-000000000003',
-    '00000000-0002-0001-0001-000000000008',
-    null,
-    'seller_listing', 'used_surplus',
-    'Dev: High-Priority Packaging Opportunity (Dev)',
-    'Large volume packaging surplus with confirmed operator — elevated for priority review (fictitious).',
-    'Dev Operator XYZ Corp', 'Colorado, USA', 'packaging',
-    'US', 'Colorado', 0.9500, 'operator_verification',
-    0.9200, 0.8000, 0.9100,
-    '{"model_confidence": 0.92, "source_credibility": 0.80, "commercial_actionability": 0.95}',
-    'priority_review'
-  );
-END $$;
-
--- Update canonical_signal_candidate_id now that candidates exist
-UPDATE signal_duplicate_groups
-SET canonical_signal_candidate_id = '00000000-0006-0001-0001-000000000001'
-WHERE id = '00000000-0005-0001-0001-000000000001';
-
-UPDATE signal_duplicate_groups
-SET canonical_signal_candidate_id = '00000000-0006-0001-0001-000000000004'
-WHERE id = '00000000-0005-0001-0001-000000000002';
+INSERT INTO ia_evidence_vault (
+  id, title, type, linked_counterparty_id, linked_counterparty_name,
+  linked_market, review_status, tags, notes, added_at
+) VALUES
+  ('dev-ev-001', 'Dev: GMP certificate excerpt (fictitious)', 'document',
+   'dev-cp-001', 'Dev: Fictitious Pharma GmbH', 'Germany', 'reviewed',
+   ARRAY['gmp', 'certification'], 'Dev seed evidence -- fictitious certificate reference.',
+   now() - interval '6 days'),
+  ('dev-ev-002', 'Dev: Buyer intake call notes (fictitious)', 'note',
+   'dev-cp-002', 'Dev: Fictitious Nordic Buyers Ltd', 'Denmark', 'pending',
+   ARRAY['intake', 'buyer'], 'Dev seed evidence -- fictitious call summary.',
+   now() - interval '18 days')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- signal_evidence (8 rows)
+-- ia_scoring_records (2 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_evidence (
-    id, signal_candidate_id, source_document_id, source_chunk_id,
-    evidence_type, evidence_claim_type, evidence_text, source_url, confidence_score
-  ) VALUES
-  ('00000000-0007-0001-0001-000000000001', '00000000-0006-0001-0001-000000000001',
-   '00000000-0001-0001-0001-000000000001', '00000000-0002-0001-0001-000000000001',
-   'listing_text', 'source_statement',
-   'Acme Cannabis GmbH (Dev) announces surplus CO₂ extraction units.',
-   'https://dev-source-001.example/article/cannabis-equipment-liquidation', 0.8500),
-
-  ('00000000-0007-0001-0001-000000000002', '00000000-0006-0001-0001-000000000001',
-   '00000000-0001-0001-0001-000000000001', '00000000-0002-0001-0001-000000000002',
-   'specification_detail', 'source_statement',
-   'Equipment includes three 10L systems. All units tested and certified.',
-   'https://dev-source-001.example/article/cannabis-equipment-liquidation', 0.8200),
-
-  ('00000000-0007-0001-0001-000000000003', '00000000-0006-0001-0001-000000000001',
-   null, null,
-   'jurisdiction_inference', 'model_inference',
-   'Jurisdiction inferred as Bavaria, Germany based on company name and domain. (Dev mock output)',
-   null, 0.7800),
-
-  ('00000000-0007-0001-0001-000000000004', '00000000-0006-0001-0001-000000000003',
-   '00000000-0001-0001-0001-000000000002', '00000000-0002-0001-0001-000000000004',
-   'licence_claim', 'source_statement',
-   'Fictitious GmbH Pharma GmbH has received GMP certification.',
-   'https://dev-source-002.example/press/new-lp-germany', 0.9000),
-
-  ('00000000-0007-0001-0001-000000000005', '00000000-0006-0001-0001-000000000003',
-   '00000000-0001-0001-0001-000000000002', '00000000-0002-0001-0001-000000000005',
-   'capacity_detail', 'source_statement',
-   'Production capacity: 500kg dried flower per annum. EU-GMP compliant.',
-   'https://dev-source-002.example/press/new-lp-germany', 0.8900),
-
-  ('00000000-0007-0001-0001-000000000006', '00000000-0006-0001-0001-000000000004',
-   '00000000-0001-0001-0001-000000000003', '00000000-0002-0001-0001-000000000007',
-   'supply_claim', 'operator_verification',
-   'Dev operator XYZ Corp has 500,000 child-resistant pouches to offload.',
-   null, 0.8500),
-
-  ('00000000-0007-0001-0001-000000000007', '00000000-0006-0001-0001-000000000006',
-   '00000000-0001-0001-0001-000000000003', '00000000-0002-0001-0001-000000000008',
-   'pricing_detail', 'source_statement',
-   'Various sizes. Minimum order 10,000 units. POA.',
-   null, 0.7500),
-
-  ('00000000-0007-0001-0001-000000000008', '00000000-0006-0001-0001-000000000005',
-   '00000000-0001-0001-0001-000000000002', '00000000-0002-0001-0001-000000000006',
-   'regulatory_reference', 'source_statement',
-   'Available for licensed import partners in UK and EU markets.',
-   'https://dev-source-002.example/press/new-lp-germany', 0.6000);
-END $$;
+INSERT INTO ia_scoring_records (
+  id, counterparty_id, counterparty_name, counterparty_role,
+  fit_score, readiness_score, trust_score,
+  routing_priority, follow_up_priority, introduction_priority,
+  market_access_relevance, scored_at, score_drivers
+) VALUES
+  ('dev-sc-001', 'dev-cp-001', 'Dev: Fictitious Pharma GmbH', 'supplier',
+   88, 82, 75, 'high', 'soon', 'high',
+   ARRAY['Germany', 'Denmark'], now() - interval '5 days',
+   ARRAY['eu_gmp_certified', 'active_capacity', 'responsive']),
+  ('dev-sc-002', 'dev-cp-002', 'Dev: Fictitious Nordic Buyers Ltd', 'buyer',
+   64, 55, 60, 'medium', 'urgent', 'medium',
+   ARRAY['Denmark', 'Sweden'], now() - interval '15 days',
+   ARRAY['clear_demand_signal', 'documentation_incomplete'])
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- signal_risk_flags (3 rows)
+-- ia_agent_tasks (2 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_risk_flags (id, signal_candidate_id, flag, severity, reason)
-  VALUES
-  (
-    '00000000-0008-0001-0001-000000000001',
-    '00000000-0006-0001-0001-000000000002',
-    'duplicate', 'high',
-    'Dev: Near-duplicate of candidate 001 — same source domain and chunk window.'
-  ),
-  (
-    '00000000-0008-0001-0001-000000000002',
-    '00000000-0006-0001-0001-000000000005',
-    'insufficient_evidence', 'medium',
-    'Dev: Regulatory signal with no actionable commercial detail.'
-  ),
-  (
-    '00000000-0008-0001-0001-000000000003',
-    '00000000-0006-0001-0001-000000000001',
-    'unverified_licence_claim', 'low',
-    'Dev: Operator licence status not independently confirmed.'
-  );
-END $$;
+INSERT INTO ia_agent_tasks (
+  id, queue, title, object_type, object_label, priority,
+  suggested_action, rationale, status, agent_label, next_action, notes
+) VALUES
+  ('dev-task-001', 'review', 'Dev: Review fictitious GMP evidence', 'evidence',
+   'Dev: GMP certificate excerpt (fictitious)', 'high',
+   'verify_document', 'Dev seed task -- new evidence pending review.',
+   'pending', 'intake-agent', 'Route to compliance reviewer',
+   'Dev seed agent task.'),
+  ('dev-task-002', 'dedup', 'Dev: Resolve duplicate pricing signal', 'signal',
+   'Dev: Duplicate-flagged pricing update (fictitious)', 'low',
+   'merge_or_reject', 'Dev seed task -- low-confidence manual signal needs triage.',
+   'pending', 'dedup-agent', 'Compare against existing UK pricing signals',
+   'Dev seed agent task.')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- model_call_logs (2 rows)
+-- ia_graph_entities (3 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO model_call_logs (
-    id, provider, model_name, model_task, prompt_version_id,
-    input_hash, input_excerpt, output_json, latency_ms, token_or_unit_count, status
-  ) VALUES
-  (
-    '00000000-0009-0001-0001-000000000001',
-    'mock', 'dev-mock-classifier', 'signal_classification',
-    '00000000-0004-0001-0001-000000000001',
-    'devhash001aabbcc', 'Acme Cannabis GmbH (Dev) announces surplus CO₂...',
-    '{"signal_type": "used_equipment", "marketplace_category": "used_surplus", "confidence": 0.78}',
-    142, 48, 'mock'
-  ),
-  (
-    '00000000-0009-0001-0001-000000000002',
-    'mock', 'dev-mock-ner', 'entity_recognition',
-    '00000000-0004-0001-0001-000000000003',
-    'devhash002ddeeff', 'Fictitious GmbH Pharma GmbH has received GMP...',
-    '{"entities": [{"name": "Fictitious GmbH Pharma GmbH", "type": "operator"}]}',
-    98, 32, 'mock'
-  );
-END $$;
+INSERT INTO ia_graph_entities (
+  id, type, label, market, category, connection_count, signal_count, last_activity
+) VALUES
+  ('dev-ent-001', 'counterparty', 'Dev: Fictitious Pharma GmbH', 'Germany', 'medical_cannabis', 2, 2, now() - interval '3 days'),
+  ('dev-ent-002', 'counterparty', 'Dev: Fictitious Nordic Buyers Ltd', 'Denmark', 'medical_cannabis', 1, 1, now() - interval '15 days'),
+  ('dev-ent-003', 'source', 'Dev: BfArM Import Bulletin (fictitious)', 'Germany', 'regulatory', 2, 2, now() - interval '3 days')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- signal_jobs (2 rows)
+-- ia_graph_edges (2 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_jobs (
-    id, job_type, target_type, target_id, status, attempts,
-    scheduled_at, completed_at, metadata
-  ) VALUES
-  (
-    '00000000-0010-0001-0001-000000000001',
-    'embed_chunk', 'source_chunk',
-    '00000000-0002-0001-0001-000000000001',
-    'completed', 1,
-    now() - interval '1 hour', now() - interval '59 minutes',
-    '{"model": "mock-embed-384", "dev": true}'
-  ),
-  (
-    '00000000-0010-0001-0001-000000000002',
-    'classify_signal', 'signal_candidate',
-    '00000000-0006-0001-0001-000000000004',
-    'queued', 0,
-    now() + interval '5 minutes', null,
-    '{"priority": "normal", "dev": true}'
-  );
-END $$;
+INSERT INTO ia_graph_edges (id, type, from_label, to_label, strength, evidenced)
+VALUES
+  ('dev-edge-001', 'supplies_to', 'Dev: Fictitious Pharma GmbH', 'Dev: Fictitious Nordic Buyers Ltd', 'medium', false),
+  ('dev-edge-002', 'sourced_from', 'Dev: BfArM Import Bulletin (fictitious)', 'Dev: Fictitious Pharma GmbH', 'strong', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- signal_entity_mentions (2 rows)
+-- ia_feedback_events (2 rows)
 -- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_entity_mentions (
-    id, signal_candidate_id, entity_id, mentioned_name, mention_role, confidence_score
-  ) VALUES
-  (
-    '00000000-0011-0001-0001-000000000001',
-    '00000000-0006-0001-0001-000000000001',
-    '00000000-0003-0001-0001-000000000001',
-    'Acme Cannabis GmbH (Dev)', 'seller', 0.8500
-  ),
-  (
-    '00000000-0011-0001-0001-000000000002',
-    '00000000-0006-0001-0001-000000000004',
-    '00000000-0003-0001-0001-000000000002',
-    'Dev Operator XYZ Corp', 'seller', 0.9200
-  );
-END $$;
-
--- ---------------------------------------------------------------------------
--- signal_conversions (1 row)
--- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_conversions (
-    id, signal_candidate_id, conversion_type,
-    converted_record_id, converted_record_table, conversion_notes
-  ) VALUES
-  (
-    '00000000-0012-0001-0001-000000000001',
-    '00000000-0006-0001-0001-000000000003',
-    'marketplace_listing',
-    null, 'marketplace_listings',
-    'Dev: Approved German LP signal queued for manual listing creation (fictitious). cannabis_inventory type maps to marketplace_listing.'
-  );
-END $$;
-
--- ---------------------------------------------------------------------------
--- signal_processing_errors (1 row)
--- ---------------------------------------------------------------------------
-DO $$ BEGIN
-  INSERT INTO signal_processing_errors (
-    id, signal_job_id, source_document_id, signal_candidate_id,
-    error_code, error_message, error_context, resolved
-  ) VALUES
-  (
-    '00000000-0013-0001-0001-000000000001',
-    '00000000-0010-0001-0001-000000000001',
-    '00000000-0001-0001-0001-000000000001',
-    null,
-    'EMBED_DIM_MISMATCH',
-    'Dev: Mock embedding returned 768 dimensions; table expects 384.',
-    '{"expected_dim": 384, "received_dim": 768, "dev": true}',
-    false
-  );
-END $$;
+INSERT INTO ia_feedback_events (
+  id, outcome_type, counterparty_name, market, category,
+  score_impact, routing_impact, notes, logged_at
+) VALUES
+  ('dev-fb-001', 'introduction_accepted', 'Dev: Fictitious Pharma GmbH', 'Germany', 'medical_cannabis',
+   'positive', 'increase_priority', 'Dev seed feedback -- fictitious accepted introduction.', now() - interval '4 days'),
+  ('dev-fb-002', 'documentation_incomplete', 'Dev: Fictitious Nordic Buyers Ltd', 'Denmark', 'medical_cannabis',
+   'negative', 'flag_for_followup', 'Dev seed feedback -- fictitious incomplete documentation flag.', now() - interval '14 days')
+ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

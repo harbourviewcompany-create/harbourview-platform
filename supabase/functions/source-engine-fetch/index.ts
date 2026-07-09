@@ -27,6 +27,22 @@ const THIN_TEXT_THRESHOLD = 400;
 const MAX_ENRICH_PER_SOURCE = 6;
 const ENRICH_TIMEOUT_MS = 8000;
 
+// news.google.com/rss/articles/... links are an obfuscated Google redirect,
+// not the publisher URL -- fetching them server-side reliably returns 403
+// (confirmed empirically, not a transient issue). Every enrichment attempt
+// against this host burns up to ENRICH_TIMEOUT_MS for a guaranteed failure,
+// which at MAX_ENRICH_PER_SOURCE=6 can cost ~48s of a source's crawl budget
+// for nothing. Skip it outright and rely on the RSS title/description stub.
+const ENRICHMENT_BLOCKED_HOSTS = ["news.google.com"];
+
+function isEnrichmentBlocked(url: string): boolean {
+  try {
+    return ENRICHMENT_BLOCKED_HOSTS.includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 // PostgREST on this project only exposes the `api` schema (not `public`).
 // Without db.schema set, this client defaulted to `public`, which is not
 // exposed, causing every query below to fail with PGRST106 and the function
@@ -229,7 +245,8 @@ Deno.serve(async (req: Request) => {
           isFeed &&
           candidate.captured_text.length < THIN_TEXT_THRESHOLD &&
           candidate.captured_url !== finalUrl &&
-          sourceEnriched < MAX_ENRICH_PER_SOURCE
+          sourceEnriched < MAX_ENRICH_PER_SOURCE &&
+          !isEnrichmentBlocked(candidate.captured_url)
         ) {
           sourceEnriched++;
           const richer = await tryEnrichThinText(candidate.captured_url, candidate.captured_text.length);

@@ -49,7 +49,7 @@
     "@react-three/fiber": "^9.0.0",
     "@react-three/postprocessing": "^3.0.4",
     "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.110.0",
+    "@supabase/supabase-js": "^2.110.1",
     "@tanstack/react-query": "^5.101.2",
     "class-variance-authority": "^0.7.1",
     "googleapis-common": "^8.0.2",
@@ -78,6 +78,6 @@
     "tsx": "^4.23.0",
     "typescript": "^5.4.5",
     "vitest": "^4.1.10",
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.108.0"
   }
 }

@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -15,6 +15,11 @@ import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
+import { GlobeProvider } from '@/components/globe/GlobeProvider'
+import { DealRoomsPanel } from './pages/DealRoomsPanel'
+import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
+import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
+import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,6 +98,7 @@ type Props = {
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
+  mySubmissions?:       MySubmission[]
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -121,7 +127,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: 'Prescribers',
+    label: 'Market Access',
     items: [
       { id: 'access-pathway', label: 'Access Pathway',   icon: '⬡' },
       { id: 'regulatory',     label: 'Regulatory Watch', icon: '◷' },
@@ -253,15 +259,17 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
       <div className="cc-briefing-globe">
         <div className="cc-globe-wrap">
-          <GlobeCanvas
-            className="absolute inset-0 w-full h-full"
-            selectedCountryIso2={country.iso2}
-            selectedCountryIso2s={[country.iso2]}
-            focusedCountryIso2={focusedIso2}
-            activeLayerId="country_select"
-            onHoverCountry={setFocusedIso2}
-            onSelectCountry={onCountrySelect}
-          />
+          <GlobeProvider>
+            <GlobeCanvas
+              className="absolute inset-0 w-full h-full"
+              selectedCountryIso2={country.iso2}
+              selectedCountryIso2s={[country.iso2]}
+              focusedCountryIso2={focusedIso2}
+              activeLayerId="country_select"
+              onHoverCountry={setFocusedIso2}
+              onSelectCountry={onCountrySelect}
+            />
+          </GlobeProvider>
           <div className="cc-globe-label">
             {country.label}
             {region && <span> · {region}</span>}
@@ -980,8 +988,17 @@ const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS
 
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
+type MarketSubView = 'browse' | 'submit' | 'quote' | 'deals' | 'my-listings'
+
+const MKT_ACTION_TABS: { id: MarketSubView; label: string }[] = [
+  { id: 'submit',      label: 'Submit Listing' },
+  { id: 'quote',       label: 'Request Quote' },
+  { id: 'deals',       label: 'Deal Rooms' },
+  { id: 'my-listings', label: 'My Listings' },
+]
+
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange, mySubmissions = [], userEmail,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -993,6 +1010,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
   cannabisOperators?: CannabisOperator[]
   pipeline?:         PipelineCounts
   onPageChange?:     (page: CommandPage) => void
+  mySubmissions?:    MySubmission[]
+  userEmail?:        string | null
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => {
     for (const t of MKT_TABS) {
@@ -1003,6 +1022,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   })
   const [search,    setSearch]    = useState('')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
+  const [subView, setSubView] = useState<MarketSubView>('browse')
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
@@ -1083,6 +1103,39 @@ const MarketplacePage = React.memo(function MarketplacePage({
           <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview&apos;s market access team.</p>
         </div>
 
+        <div className="cc-mkt-actions-bar">
+          <button
+            className={`cc-mkt-action-btn${subView==='browse'?' active':''}`}
+            onClick={() => setSubView('browse')}
+          >
+            Browse
+          </button>
+          {MKT_ACTION_TABS.map(t => (
+            <button key={t.id}
+              className={`cc-mkt-action-btn${subView===t.id?' active':''}`}
+              onClick={() => setSubView(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {subView === 'submit' ? (
+          <div className="cc-mkt-subview">
+            <DynamicMarketplaceIntakeForm />
+          </div>
+        ) : subView === 'quote' ? (
+          <div className="cc-mkt-subview">
+            <QuoteRequestForm />
+          </div>
+        ) : subView === 'deals' ? (
+          <DealRoomsPanel />
+        ) : subView === 'my-listings' ? (
+          <div className="cc-mkt-subview">
+            <MyListingsClient submissions={mySubmissions} userEmail={userEmail ?? ''} />
+          </div>
+        ) : (
+        <>
         <div className="cc-mkt-tabs">
           {MKT_TABS.map(t => {
             const cnt = t.id === 'wanted' ? (wantedListings?.length ?? wantedCount ?? 0) : (marketplaceRows?.[t.id] ?? []).length
@@ -1177,6 +1230,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
             </p>
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* ── Right panel ─────────────────────────────────────── */}
@@ -1199,7 +1254,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace" className="cc-right-link">View pipeline →</Link>
+            <button className="cc-right-link" onClick={() => setSubView('browse')}>View pipeline →</button>
           </div>
         )}
         <div className="cc-right-section">
@@ -1241,7 +1296,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <Link href="/marketplace" className="cc-right-link">View counterparty profile →</Link>
+          <button className="cc-right-link" onClick={() => setSubView('browse')}>View counterparty profile →</button>
         </div>
 
         {cannabisOperators.length > 0 && (
@@ -1258,7 +1313,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace" className="cc-right-link">View all operators →</Link>
+            <button className="cc-right-link" onClick={() => setSubView('browse')}>View all operators →</button>
           </div>
         )}
       </aside>
@@ -3889,6 +3944,7 @@ export default function CommandCentre({
   cultivarPassports = [],
   serviceProviders = [],
   collaborationProjects = [],
+  mySubmissions = [],
 }: Props) {
   const router = useRouter()
 
@@ -3985,7 +4041,7 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
       case 'education':
