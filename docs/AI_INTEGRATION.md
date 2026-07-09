@@ -15,19 +15,38 @@ The HarbourView Platform leverages Artificial Intelligence (AI) as a core intell
   - Embeddings & Vector Search: BGE-M3 or equivalent via Hugging Face / Supabase pgvector.
   - Orchestration: LangChain, LlamaIndex, or custom workers with BullMQ / Redis queues.
   - Scraping & Data Ingestion: Headless browsers + cron scheduling with ethical rate limiting and caching.
-  - Generative Capabilities: Optional integration with Grok, OpenAI, or open-source LLMs for content generation.
-- **Frontend Integration**: React hooks and server components for real-time AI results, integrated with the globe component for interactive visualizations.
-- **Observability & Governance**: Comprehensive logging, metrics, error tracking, and A/B testing. All AI outputs are auditable and subject to human-in-the-loop review.
+  - Generative Capabilities: Optional integration with Grok, OpenAI, or open-source LLMs for content generation (promotions, summaries, reports).
+- **Frontend Integration**: React hooks and server components for real-time AI results, integrated with the globe component for interactive visualizations. Performance optimizations (lazy loading, memoization) to maintain smooth 3D rendering.
+- **Observability & Governance**: Comprehensive logging, metrics, error tracking, A/B testing, and human-in-the-loop review for high-stakes decisions.
+
+## Cost Management & Economics
+- Monitor inference costs, implement caching layers, and prefer cost-effective models (open-source where viable).
+- Set budgets and alerts via observability tools.
+- Evaluate RAG vs. fine-tuning trade-offs for proprietary data.
+
+## Data Strategy
+- Ethical scraping with respect for robots.txt and terms of service.
+- RAG-focused approach with vector stores for most use cases.
+- Strict PII handling and data residency compliance.
+
+## Testing, Evaluation & Security
+- Prompt testing, hallucination detection, and regression suites.
+- Defenses against prompt injection and output sanitization.
+- Regular bias audits and compliance with financial/regulatory standards.
 
 ## Phased Roadmap
-1. **Phase 1: Foundation** (In Progress) — Strengthen existing cron jobs, embeddings pipeline, and signal engine.
-2. **Phase 2: Pilots & Expansion** — Intelligent inquiry handling, automated deal room summaries, predictive analytics.
-3. **Phase 3: Advanced & Scale** — Agentic AI for multi-step workflows, advanced personalization.
+1. **Phase 1: Foundation** (In Progress) — Existing cron jobs, embeddings, signal engine.
+2. **Phase 2: Pilots & Expansion** — Inquiry handling, deal room summaries, globe enhancements.
+3. **Phase 3: Advanced & Scale** — Agentic workflows, advanced personalization, continuous retraining.
 
-## Key Considerations & Risk Mitigation
-- **Security & Compliance**: Strict data privacy, RLS enforcement, secure proxies for external AI calls.
-- **Performance & Cost**: Caching, batch processing, monitoring.
-- **Ethics**: Bias audits, transparency, human oversight.
-- **Success Metrics**: Engagement lift, workflow efficiency, signal accuracy, latency, NPS.
+## Success Metrics & Risks
+| Category | Key Metrics |
+|----------|-------------|
+| Engagement | Inquiry conversion, user NPS |
+| Efficiency | Time saved in workflows, automation rate |
+| Accuracy | Signal precision, hallucination rate |
+| Performance | Latency, cost per operation |
+
+**Risks & Mitigations**: Cost overruns (budget alerts), security incidents (proxies + audits), model drift (retraining pipelines).
 
 This AI integration positions HarbourView as a differentiated, intelligent platform that combines human expertise with machine-scale insights.
