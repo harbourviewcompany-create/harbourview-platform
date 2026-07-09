@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
-import { getPublicListings, type PublicListing } from '@/lib/server/listingsQuery'
+import { getPublicListings, getPublicListingsFiltered, type PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
+import { SearchFilters } from '@/components/marketplace/SearchFilters'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -78,6 +79,17 @@ function getStringSpec(listing: PublicListing, key: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function ListingRating({ listing }: { listing: PublicListing }) {
+  if (!listing.review_count || listing.review_count <= 0 || !listing.average_rating) return null
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-white/54">
+      <span className="text-gold">★</span>
+      {listing.average_rating.toFixed(1)}
+      <span className="text-white/34">({listing.review_count})</span>
+    </span>
+  )
+}
+
 function ListingGridCard({ listing }: { listing: PublicListing }) {
   const href = getPublicListingHref(listing, listing.category || 'listing')
   const ctaLabel = getStringSpec(listing, 'cta_label') ?? (listing.slug ? 'View reviewed listing' : 'Request Harbourview review')
@@ -96,9 +108,10 @@ function ListingGridCard({ listing }: { listing: PublicListing }) {
       ) : null}
       <h3 className="mb-3 text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h3>
       <p className="flex-1 text-sm leading-7 text-white/58">{listing.description}</p>
-      {region ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">{region}</span>
+      {region || listing.review_count ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {region ? <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/44">{region}</span> : null}
+          <ListingRating listing={listing} />
         </div>
       ) : null}
       <Link href={href} className="btn-marketplace mt-6 justify-center text-center text-sm">
@@ -108,8 +121,22 @@ function ListingGridCard({ listing }: { listing: PublicListing }) {
   )
 }
 
-export default async function MarketplaceListingsPage() {
-  const listings = await getPublicListings()
+export default async function MarketplaceListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string; region?: string; sort?: string }>
+}) {
+  const params = await searchParams
+  const isFiltered = Boolean(params.q || (params.category && params.category !== 'all') || (params.region && params.region !== 'all') || (params.sort && params.sort !== 'featured'))
+  const allListings = await getPublicListings(60)
+  const listings = isFiltered
+    ? await getPublicListingsFiltered({
+        category: params.category,
+        region: params.region,
+        search: params.q,
+        sort: params.sort,
+      })
+    : allListings
 
   return (
     <>
@@ -132,6 +159,7 @@ export default async function MarketplaceListingsPage() {
 
       <PublicSection tone="dark">
         <SectionHeader eyebrow="Current reviewed listings" title="Approved public summaries across marketplace categories." />
+        <SearchFilters totalCount={allListings.length} filteredCount={listings.length} />
         {listings.length === 0 ? (
           <PublicCard className="p-7">
             <p className="text-sm leading-7 text-white/62">
