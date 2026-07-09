@@ -24,7 +24,10 @@ export type PublicListing = {
   is_featured: boolean
   high_level_specs: Record<string, unknown>
   created_at: string
-  average_rating: number | null
+  // PostgREST/Postgres numeric serialization for average_rating isn't
+  // guaranteed to be a JSON number (confirmed returned as a string on this
+  // project) — callers must coerce with Number() before arithmetic.
+  average_rating: number | string | null
   review_count: number | null
 }
 

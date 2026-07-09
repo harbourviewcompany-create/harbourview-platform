@@ -80,12 +80,17 @@ function getStringSpec(listing: PublicListing, key: string) {
 }
 
 function ListingRating({ listing }: { listing: PublicListing }) {
-  if (!listing.review_count || listing.review_count <= 0 || !listing.average_rating) return null
+  // average_rating/review_count are numeric/integer columns; coerce defensively
+  // since some Postgres/PostgREST paths serialize `numeric` as a JSON string
+  // (confirmed for average_rating when queried directly against this project).
+  const reviewCount = Number(listing.review_count)
+  const averageRating = Number(listing.average_rating)
+  if (!reviewCount || reviewCount <= 0 || !averageRating) return null
   return (
     <span className="inline-flex items-center gap-1 text-[11px] text-white/54">
       <span className="text-gold">★</span>
-      {listing.average_rating.toFixed(1)}
-      <span className="text-white/34">({listing.review_count})</span>
+      {averageRating.toFixed(1)}
+      <span className="text-white/34">({reviewCount})</span>
     </span>
   )
 }

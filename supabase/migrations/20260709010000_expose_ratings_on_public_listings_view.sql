@@ -2,9 +2,15 @@
 -- through the actual public read path: app/marketplace/listings/page.tsx (via
 -- lib/server/listingsQuery.ts) queries public.marketplace_public_listings_v1
 -- directly over the Supabase REST API, not hv_public.marketplace_listings_public
--- (a separate, unrelated view over hv_marketplace.listings). Appending the two
--- new columns at the end keeps this an additive, backward-compatible change
--- for any other consumer of this view.
+-- (a separate, unrelated view over hv_marketplace.listings).
+--
+-- NOTE: the live view (confirmed via pg_get_viewdef against project
+-- zvxdgdkukjrrwamdpqrg) had already drifted from the definition checked in at
+-- 20260601000000_marketplace_supply_engine.sql -- public.listings has no
+-- subcategory, location_region, summary/public_summary or expires_at columns
+-- in production, unlike what that migration file assumes. This migration
+-- reproduces the *actual live* view definition verbatim, appending only the
+-- two new rating columns at the end, rather than the stale one from that file.
 
 create or replace view public.marketplace_public_listings_v1
 with (security_invoker = true)
@@ -13,29 +19,26 @@ select
   id,
   slug,
   title,
-  coalesce(public_summary, summary, description) as description,
-  category,
-  subcategory,
-  coalesce(marketplace_section, category) as marketplace_section,
+  description,
+  category::text as category,
+  NULL::text as subcategory,
+  coalesce(marketplace_section, category::text) as marketplace_section,
   product_type,
-  coalesce(region, location_region, location_country, 'global') as region,
+  region::text as region,
   condition,
   location_country,
-  location_region,
+  NULL::text as location_region,
   price_amount,
-  price_currency,
-  price_display,
-  coalesce(seller_type, 'controlled_review') as seller_type,
+  coalesce(price_currency, 'USD'::text) as price_currency,
+  case
+    when price_amount is not null then concat(coalesce(price_currency, 'USD'::text), ' ', price_amount::text)
+    else NULL::text
+  end as price_display,
+  coalesce(seller_type::text, 'controlled_review'::text) as seller_type,
   is_featured,
   high_level_specs,
   created_at,
   average_rating,
   review_count
-from public.listings
-where status in ('approved', 'published')
-  and public_visibility = true
-  and archived_at is null
-  and (expires_at is null or expires_at > now());
-
-revoke all on public.marketplace_public_listings_v1 from anon, authenticated;
-grant select on public.marketplace_public_listings_v1 to anon, authenticated;
+from listings l
+where status = 'approved'::listing_status and public_visibility = true and archived_at is null;

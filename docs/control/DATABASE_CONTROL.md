@@ -109,7 +109,18 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - **Backward compatibility:** additive only; no existing column, table, or constraint is altered or dropped.
 - **Rollback/forward-fix path:** `ALTER TABLE listings DROP COLUMN IF EXISTS average_rating, review_count, ratings_updated_at; DROP TRIGGER IF EXISTS trigger_ratings_updated ON listings; DROP FUNCTION IF EXISTS update_ratings_timestamp(); DROP INDEX IF EXISTS idx_listings_avg_rating, idx_listings_review_count;` — safe pre-deploy; if already deployed, confirm no dependent reads before dropping.
 - **Required tests:** not run this session (no local Supabase/Docker available in this environment). `mcp__Supabase__get_advisors` should be run against the target project after migration apply, before this is considered production-ready.
-- **Human approval status:** pending — this is a corrected version of the PR #1000 migration pushed to a review branch, not applied to any Supabase project. Requires sign-off before `apply_migration` or merge to a deploying branch.
+- **Human approval status:** ~~pending~~ **applied to production** 2026-07-09 at Tyler's explicit instruction — see update below.
+
+## 2026-07-09 (update) — PR #1000 ratings migration applied to Supabase; live view drift found
+
+- **Environment:** production — project `zvxdgdkukjrrwamdpqrg`, applied directly via `mcp__Supabase__apply_migration` (no staging/preview branch exists for this project; `list_branches` showed only `main` itself plus two unrelated, inactive preview branches for other PRs).
+- **Migrations applied (in order):**
+  1. `add_ratings_to_listings` — the corrected `20260709000000_add_ratings_to_listings.sql` from the entry above (scoped trigger, `search_path` pin, idempotent trigger creation). Applied successfully.
+  2. `expose_ratings_on_public_listings_view` — new `supabase/migrations/20260709010000_expose_ratings_on_public_listings_view.sql`, adding `average_rating`/`review_count` to `public.marketplace_public_listings_v1` (the view `lib/server/listingsQuery.ts` actually queries over REST — distinct from the unrelated `hv_public.marketplace_listings_public`/`hv_marketplace.listings` pair).
+- **Schema drift found:** the first attempt at migration 2 (copied from `20260601000000_marketplace_supply_engine.sql`'s view definition) failed — `ERROR 42703: column "public_summary" does not exist`. Queried live `information_schema.columns` and `pg_get_viewdef` directly: production `public.listings` has no `subcategory`, `location_region`, `summary`/`public_summary`, or `expires_at` columns, and `status` only ever filters on `'approved'` (not `'approved','published'`) — all of which the migration-file history assumes. The live view had already diverged from its own source migration file at some prior point not captured in `supabase/migrations/`. Rebuilt migration 2 from the actual live `pg_get_viewdef` output, appending only the two new columns, and re-applied successfully. Updated the checked-in migration file to match what's actually live rather than the stale assumption.
+- **Verification:** re-queried `information_schema.columns` on `marketplace_public_listings_v1` post-apply — confirms `average_rating`/`review_count` are now present alongside the original 19 columns, nothing dropped.
+- **Flag for Tyler:** the migrations-directory-vs-live-schema drift on `public.listings`/`marketplace_public_listings_v1` is a pre-existing gap, not something this session introduced or fully audited — worth a dedicated schema-diff pass (`supabase db diff` against `main`, or equivalent) at some point, since it means other checked-in migrations may not accurately reflect what a fresh environment would need either.
+- **Not run:** `mcp__Supabase__get_advisors` — should still be run as a follow-up to confirm the new trigger function's `search_path` pin satisfies the linter and nothing else regressed.
 
 ## 2026-06-07 — Cannabis Data Contract v1.0 P0/P1 Foundation
 
