@@ -46,23 +46,23 @@ async function getLatestBriefings(): Promise<Briefing[]> {
 }
 
 const FLAGS: Record<string, string> = {
-  DE: 'Ã°ÂÂÂ©Ã°ÂÂÂª', GB: 'Ã°ÂÂÂ¬Ã°ÂÂÂ§', AU: 'Ã°ÂÂÂ¦Ã°ÂÂÂº', CA: 'Ã°ÂÂÂ¨Ã°ÂÂÂ¦', NL: 'Ã°ÂÂÂ³Ã°ÂÂÂ±',
-  PT: 'Ã°ÂÂÂµÃ°ÂÂÂ¹', TH: 'Ã°ÂÂÂ¹Ã°ÂÂÂ­', IL: 'Ã°ÂÂÂ®Ã°ÂÂÂ±', CO: 'Ã°ÂÂÂ¨Ã°ÂÂÂ´', ZA: 'Ã°ÂÂÂ¿Ã°ÂÂÂ¦',
-  MT: 'Ã°ÂÂÂ²Ã°ÂÂÂ¹', LU: 'Ã°ÂÂÂ±Ã°ÂÂÂº', CZ: 'Ã°ÂÂÂ¨Ã°ÂÂÂ¿', NZ: 'Ã°ÂÂÂ³Ã°ÂÂÂ¿', MX: 'Ã°ÂÂÂ²Ã°ÂÂÂ½',
-  BR: 'Ã°ÂÂÂ§Ã°ÂÂÂ·', CH: 'Ã°ÂÂÂ¨Ã°ÂÂÂ­', FR: 'Ã°ÂÂÂ«Ã°ÂÂÂ·', ES: 'Ã°ÂÂÂªÃ°ÂÂÂ¸', PL: 'Ã°ÂÂÂµÃ°ÂÂÂ±',
-  AE: 'ð¦ðª', AG: 'ð¦ð¬', AR: 'ð¦ð·', AT: 'ð¦ð¹', BA: 'ð§ð¦', BB: 'ð§ð§', BE: 'ð§ðª',
-  CL: 'ð¨ð±', CR: 'ð¨ð·', DK: 'ð©ð°', DM: 'ð©ð²', DO: 'ð©ð´', EC: 'ðªð¨', EE: 'ðªðª',
-  FI: 'ð«ð®', GD: 'ð¬ð©', GH: 'ð¬ð­', GR: 'ð¬ð·', GY: 'ð¬ð¾', HR: 'ð­ð·', HU: 'ð­ðº',
-  IE: 'ð®ðª', IS: 'ð®ð¸', JM: 'ð¯ð²', JP: 'ð¯ðµ', KN: 'ð°ð³', KR: 'ð°ð·', LB: 'ð±ð§',
-  LC: 'ð±ð¨', LI: 'ð±ð®', LT: 'ð±ð¹', LV: 'ð±ð»', MK: 'ð²ð°', MU: 'ð²ðº', NO: 'ð³ð´',
-  PA: 'ðµð¦', PE: 'ðµðª', PH: 'ðµð­', PR: 'ðµð·', RO: 'ð·ð´', RS: 'ð·ð¸', SC: 'ð¸ð¨',
-  SE: 'ð¸ðª', SG: 'ð¸ð¬', SI: 'ð¸ð®', SK: 'ð¸ð°', TR: 'ð¹ð·', TT: 'ð¹ð¹', UA: 'ðºð¦',
-  US: 'ðºð¸', UY: 'ðºð¾', VC: 'ð»ð¨',
+  DE: 'ÃÂ°ÃÂÃÂÃÂ©ÃÂ°ÃÂÃÂÃÂª', GB: 'ÃÂ°ÃÂÃÂÃÂ¬ÃÂ°ÃÂÃÂÃÂ§', AU: 'ÃÂ°ÃÂÃÂÃÂ¦ÃÂ°ÃÂÃÂÃÂº', CA: 'ÃÂ°ÃÂÃÂÃÂ¨ÃÂ°ÃÂÃÂÃÂ¦', NL: 'ÃÂ°ÃÂÃÂÃÂ³ÃÂ°ÃÂÃÂÃÂ±',
+  PT: 'ÃÂ°ÃÂÃÂÃÂµÃÂ°ÃÂÃÂÃÂ¹', TH: 'ÃÂ°ÃÂÃÂÃÂ¹ÃÂ°ÃÂÃÂÃÂ­', IL: 'ÃÂ°ÃÂÃÂÃÂ®ÃÂ°ÃÂÃÂÃÂ±', CO: 'ÃÂ°ÃÂÃÂÃÂ¨ÃÂ°ÃÂÃÂÃÂ´', ZA: 'ÃÂ°ÃÂÃÂÃÂ¿ÃÂ°ÃÂÃÂÃÂ¦',
+  MT: 'ÃÂ°ÃÂÃÂÃÂ²ÃÂ°ÃÂÃÂÃÂ¹', LU: 'ÃÂ°ÃÂÃÂÃÂ±ÃÂ°ÃÂÃÂÃÂº', CZ: 'ÃÂ°ÃÂÃÂÃÂ¨ÃÂ°ÃÂÃÂÃÂ¿', NZ: 'ÃÂ°ÃÂÃÂÃÂ³ÃÂ°ÃÂÃÂÃÂ¿', MX: 'ÃÂ°ÃÂÃÂÃÂ²ÃÂ°ÃÂÃÂÃÂ½',
+  BR: 'ÃÂ°ÃÂÃÂÃÂ§ÃÂ°ÃÂÃÂÃÂ·', CH: 'ÃÂ°ÃÂÃÂÃÂ¨ÃÂ°ÃÂÃÂÃÂ­', FR: 'ÃÂ°ÃÂÃÂÃÂ«ÃÂ°ÃÂÃÂÃÂ·', ES: 'ÃÂ°ÃÂÃÂÃÂªÃÂ°ÃÂÃÂÃÂ¸', PL: 'ÃÂ°ÃÂÃÂÃÂµÃÂ°ÃÂÃÂÃÂ±',
+  AE: 'Ã°ÂÂÂ¦Ã°ÂÂÂª', AG: 'Ã°ÂÂÂ¦Ã°ÂÂÂ¬', AR: 'Ã°ÂÂÂ¦Ã°ÂÂÂ·', AT: 'Ã°ÂÂÂ¦Ã°ÂÂÂ¹', BA: 'Ã°ÂÂÂ§Ã°ÂÂÂ¦', BB: 'Ã°ÂÂÂ§Ã°ÂÂÂ§', BE: 'Ã°ÂÂÂ§Ã°ÂÂÂª',
+  CL: 'Ã°ÂÂÂ¨Ã°ÂÂÂ±', CR: 'Ã°ÂÂÂ¨Ã°ÂÂÂ·', DK: 'Ã°ÂÂÂ©Ã°ÂÂÂ°', DM: 'Ã°ÂÂÂ©Ã°ÂÂÂ²', DO: 'Ã°ÂÂÂ©Ã°ÂÂÂ´', EC: 'Ã°ÂÂÂªÃ°ÂÂÂ¨', EE: 'Ã°ÂÂÂªÃ°ÂÂÂª',
+  FI: 'Ã°ÂÂÂ«Ã°ÂÂÂ®', GD: 'Ã°ÂÂÂ¬Ã°ÂÂÂ©', GH: 'Ã°ÂÂÂ¬Ã°ÂÂÂ­', GR: 'Ã°ÂÂÂ¬Ã°ÂÂÂ·', GY: 'Ã°ÂÂÂ¬Ã°ÂÂÂ¾', HR: 'Ã°ÂÂÂ­Ã°ÂÂÂ·', HU: 'Ã°ÂÂÂ­Ã°ÂÂÂº',
+  IE: 'Ã°ÂÂÂ®Ã°ÂÂÂª', IS: 'Ã°ÂÂÂ®Ã°ÂÂÂ¸', JM: 'Ã°ÂÂÂ¯Ã°ÂÂÂ²', JP: 'Ã°ÂÂÂ¯Ã°ÂÂÂµ', KN: 'Ã°ÂÂÂ°Ã°ÂÂÂ³', KR: 'Ã°ÂÂÂ°Ã°ÂÂÂ·', LB: 'Ã°ÂÂÂ±Ã°ÂÂÂ§',
+  LC: 'Ã°ÂÂÂ±Ã°ÂÂÂ¨', LI: 'Ã°ÂÂÂ±Ã°ÂÂÂ®', LT: 'Ã°ÂÂÂ±Ã°ÂÂÂ¹', LV: 'Ã°ÂÂÂ±Ã°ÂÂÂ»', MK: 'Ã°ÂÂÂ²Ã°ÂÂÂ°', MU: 'Ã°ÂÂÂ²Ã°ÂÂÂº', NO: 'Ã°ÂÂÂ³Ã°ÂÂÂ´',
+  PA: 'Ã°ÂÂÂµÃ°ÂÂÂ¦', PE: 'Ã°ÂÂÂµÃ°ÂÂÂª', PH: 'Ã°ÂÂÂµÃ°ÂÂÂ­', PR: 'Ã°ÂÂÂµÃ°ÂÂÂ·', RO: 'Ã°ÂÂÂ·Ã°ÂÂÂ´', RS: 'Ã°ÂÂÂ·Ã°ÂÂÂ¸', SC: 'Ã°ÂÂÂ¸Ã°ÂÂÂ¨',
+  SE: 'Ã°ÂÂÂ¸Ã°ÂÂÂª', SG: 'Ã°ÂÂÂ¸Ã°ÂÂÂ¬', SI: 'Ã°ÂÂÂ¸Ã°ÂÂÂ®', SK: 'Ã°ÂÂÂ¸Ã°ÂÂÂ°', TR: 'Ã°ÂÂÂ¹Ã°ÂÂÂ·', TT: 'Ã°ÂÂÂ¹Ã°ÂÂÂ¹', UA: 'Ã°ÂÂÂºÃ°ÂÂÂ¦',
+  US: 'Ã°ÂÂÂºÃ°ÂÂÂ¸', UY: 'Ã°ÂÂÂºÃ°ÂÂÂ¾', VC: 'Ã°ÂÂÂ»Ã°ÂÂÂ¨',
 }
 
 const LEGAL_LABEL: Record<string, string> = {
   medical_only: 'Medical only', adult_use: 'Adult-use', decrim: 'Decriminalised',
-  illegal: 'Prohibited', mixed: 'Mixed', transitional: 'Transitional', unknown: 'Ã¢ÂÂ',
+  illegal: 'Prohibited', mixed: 'Mixed', transitional: 'Transitional', unknown: 'ÃÂ¢ÃÂÃÂ',
 }
 
 const MATURITY_COLOR: Record<string, string> = {
@@ -75,7 +75,7 @@ const ACCESS_MODELS = [
   { label: 'Medical prescription', markets: ['DE','GB','AU','CA','NL','PT','IL','ZA','MT','CZ','PL','AG','AR','BA','BB','CL','CR','DK','EC','GR','JM','JP','KR','LI','LT','LV','MK','NO','PE','RO','RS','SE','SI','SK','TR','UA','US','VC'], note: 'Prescription-only or authorised prescriber model.' },
   { label: 'Special access / named patient', markets: ['GB','AU','NZ','CH','FR'], note: 'Unlicensed import with per-patient or per-batch authorisation.' },
   { label: 'Adult-use regulated', markets: ['CA','TH','LU','DE','UY','MT'], note: 'Non-medical adult purchase permitted within licensed retail framework.' },
-  { label: 'Research / clinical trial', markets: ['GB','AU','CA','DE','NL','IL'], note: 'Ethics-approved research or CTA/IND-equivalent framework.' },
+  { label: 'Research / clinical trial', markets: ['GB','AU','CA','DE','NL','IL','US'], note: 'Ethics-approved research or CTA/IND-equivalent framework.' },
   { label: 'Industrial hemp / CBD', markets: ['DE','NL','FR','ES','PL','CZ','IT'], note: 'EU certified hemp variety, <0.3% THC; CBD Novel Food status varies.' },
   { label: 'Pharmaceutical MA pathway', markets: ['GB','DE','NL','AU'], note: 'Full market authorisation for a specific named cannabis medicine.' },
 ]
@@ -100,7 +100,7 @@ export default async function RegulatoryPathwaysPage() {
 
         <nav className="rp-nav">
           <Link href="/intelligence" className="rp-link">Intelligence</Link>
-          <span className="rp-sep">Ã¢ÂÂº</span>
+          <span className="rp-sep">ÃÂ¢ÃÂÃÂº</span>
           <span className="rp-cur">Regulatory Pathways</span>
         </nav>
 
@@ -132,7 +132,7 @@ export default async function RegulatoryPathwaysPage() {
                         href={`/intelligence/playbooks/${iso2.toLowerCase()}`}
                         className="rp-model-chip"
                       >
-                        {FLAGS[iso2] ?? 'Ã°ÂÂÂ'} {iso2}
+                        {FLAGS[iso2] ?? 'ÃÂ°ÃÂÃÂÃÂ'} {iso2}
                       </Link>
                     )
                   })}
@@ -163,8 +163,8 @@ export default async function RegulatoryPathwaysPage() {
                           style={{ borderColor: `${color}30`, color: 'rgba(245,240,232,.65)' }}
                           title={b.headline}
                         >
-                          {FLAGS[b.country_iso2] ?? 'Ã°ÂÂÂ'} {b.country_name ?? b.country_iso2}
-                          <span className="rp-fw-mat" style={{ color }}>ÃÂ· {b.market_maturity}</span>
+                          {FLAGS[b.country_iso2] ?? 'ÃÂ°ÃÂÃÂÃÂ'} {b.country_name ?? b.country_iso2}
+                          <span className="rp-fw-mat" style={{ color }}>ÃÂÃÂ· {b.market_maturity}</span>
                         </Link>
                       )
                     })}
@@ -182,16 +182,16 @@ export default async function RegulatoryPathwaysPage() {
         {playbooks.length > 0 && (
           <section className="rp-section">
             <h2 className="rp-section-title">Jurisdiction Licensing Sequences</h2>
-            <p className="rp-section-sub">Step-by-step licensing sequences for {playbooks.length} priority markets Ã¢ÂÂ named regulators, pathway steps, and typical timelines.</p>
+            <p className="rp-section-sub">Step-by-step licensing sequences for {playbooks.length} priority markets ÃÂ¢ÃÂÃÂ named regulators, pathway steps, and typical timelines.</p>
             <div className="rp-playbooks">
               {playbooks.map(pb => (
                 <Link key={pb.country_iso2} href={`/intelligence/playbooks/${pb.country_iso2.toLowerCase()}`} className="rp-pb">
-                  <span className="rp-pb-flag">{FLAGS[pb.country_iso2] ?? 'Ã°ÂÂÂ'}</span>
+                  <span className="rp-pb-flag">{FLAGS[pb.country_iso2] ?? 'ÃÂ°ÃÂÃÂÃÂ'}</span>
                   <div className="rp-pb-meta">
                     <span className="rp-pb-name">{pb.country_name}</span>
-                    <span className="rp-pb-detail">{pb.steps.length} steps ÃÂ· {pb.typical_timeline_months}mo ÃÂ· {pb.key_regulators.length} regulator{pb.key_regulators.length !== 1 ? 's' : ''}</span>
+                    <span className="rp-pb-detail">{pb.steps.length} steps ÃÂÃÂ· {pb.typical_timeline_months}mo ÃÂÃÂ· {pb.key_regulators.length} regulator{pb.key_regulators.length !== 1 ? 's' : ''}</span>
                   </div>
-                  <span className="rp-pb-arr">Ã¢ÂÂ</span>
+                  <span className="rp-pb-arr">ÃÂ¢ÃÂÃÂ</span>
                 </Link>
               ))}
             </div>
@@ -203,11 +203,11 @@ export default async function RegulatoryPathwaysPage() {
           <h2 className="rp-cta-title">Specific pathway questions go through private intake</h2>
           <p className="rp-cta-body">
             Questions involving named products, active submissions, licence applications, or specific
-            regulatory engagements are handled through Harbourview&apos;s confidential intake Ã¢ÂÂ not this
+            regulatory engagements are handled through Harbourview&apos;s confidential intake ÃÂ¢ÃÂÃÂ not this
             public surface. Harbourview does not provide legal advice.
           </p>
           <div className="rp-cta-actions">
-            <Link href="/intake" className="rp-gold">Start Confidential Intake Ã¢ÂÂ</Link>
+            <Link href="/intake" className="rp-gold">Start Confidential Intake ÃÂ¢ÃÂÃÂ</Link>
             <Link href="/intelligence/licensing-pathways" className="rp-ghost">Licensing Pathways</Link>
           </div>
         </section>
@@ -215,9 +215,9 @@ export default async function RegulatoryPathwaysPage() {
         <footer className="rp-footnote">
           <p>Regulatory pathway summaries are orientation-level only. They do not confirm eligibility, authorisation scope or route viability. Verify requirements with qualified local legal advisors and the relevant competent authority.</p>
           <div className="rp-f-links">
-            <Link href="/intelligence/playbooks">Market Playbooks Ã¢ÂÂ</Link>
-            <Link href="/intelligence/licensing-pathways">Licensing Pathways Ã¢ÂÂ</Link>
-            <Link href="/markets">Market Briefings Ã¢ÂÂ</Link>
+            <Link href="/intelligence/playbooks">Market Playbooks ÃÂ¢ÃÂÃÂ</Link>
+            <Link href="/intelligence/licensing-pathways">Licensing Pathways ÃÂ¢ÃÂÃÂ</Link>
+            <Link href="/markets">Market Briefings ÃÂ¢ÃÂÃÂ</Link>
           </div>
         </footer>
       </div>
