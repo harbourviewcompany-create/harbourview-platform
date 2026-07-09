@@ -27,8 +27,8 @@
 -- Embeddings: real dev/mock vectors (not zero-vectors) generated inline via
 -- random() so similarity-search UI has something non-degenerate to show;
 -- dimensions match the live columns exactly (ia_source_embeddings: 1536,
--- ia_signal_embeddings: 1024) -- confirmed via pg_attribute before writing
--- this file, not assumed.
+-- ia_signal_embeddings: 768/text-embedding-004 as of the
+-- switch_embeddings_768_dim migration) -- confirmed via pg_attribute.
 -- =============================================================================
 
 BEGIN;
@@ -90,13 +90,14 @@ INSERT INTO ia_signals (
 ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- ia_signal_embeddings (3 rows) -- vector(1024), confirmed dimension
+-- ia_signal_embeddings (3 rows) -- vector(768), text-embedding-004.
+-- Matches migration switch_embeddings_768_dim, applied live 2026-07-09.
 -- ---------------------------------------------------------------------------
 INSERT INTO ia_signal_embeddings (signal_id, embedding, model)
 VALUES
-  ('dev-sig-001', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1024))::vector(1024), 'bge-m3'),
-  ('dev-sig-002', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1024))::vector(1024), 'bge-m3'),
-  ('dev-sig-003', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 1024))::vector(1024), 'bge-m3')
+  ('dev-sig-001', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 768))::vector(768), 'text-embedding-004'),
+  ('dev-sig-002', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 768))::vector(768), 'text-embedding-004'),
+  ('dev-sig-003', (SELECT array_agg(round((random() - 0.5)::numeric, 5)) FROM generate_series(1, 768))::vector(768), 'text-embedding-004')
 ON CONFLICT (signal_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
