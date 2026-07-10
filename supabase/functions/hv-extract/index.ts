@@ -7,7 +7,16 @@ const ANTHROPIC_API_KEY  = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const OPENAI_API_KEY     = Deno.env.get("OPENAI_API_KEY") ?? "";
 const DEV_BYPASS_SECRET  = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? "";
 const CRON_CALLER_HEADER = "x-harbourview-cron-caller";
-const EXPECTED_CRON_CALLER = "pg_cron_hv_extract";
+// hv_trigger_extract() (the pg_cron-invoked SQL wrapper) was updated at some
+// point to send a real vault-backed shared secret instead of a hardcoded
+// literal — checked 2026-07-10 after finding live 403s on every 30-min
+// cycle (net._http_response showed {"ok":false,"error":"forbidden"} on
+// every hv-extract-every-30min invocation). Accepting both so this doesn't
+// silently break again if either side changes independently.
+const EXPECTED_CRON_CALLERS = new Set([
+  "pg_cron_hv_extract",
+  "79cf9af4da7fd08d06c010239443d100081ee43e10dfe93fab4f7471b765f81c",
+]);
 const HV_WORKSPACE_ID   = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
 // PostgREST on this project only exposes the `api` schema (not `public`).
@@ -24,7 +33,7 @@ type Snapshot = {
   signal_candidates: Record<string, unknown> | null;
   raw_html_hash: string | null; language_detected: string | null;
   source_type?: string | null; source_country?: string | null; source_region?: string | null;
-  published_at?: string | null;
+  captured_at?: string | null;
 };
 
 type ExtractionResult = {
@@ -65,7 +74,7 @@ function respond(status: number, body: Record<string, unknown>): Response {
 function authorizeCaller(req: Request): Response | null {
   const cronCaller = req.headers.get(CRON_CALLER_HEADER) ?? "";
   const devBypass  = req.headers.get("x-hv-dev-bypass") ?? "";
-  if (cronCaller !== EXPECTED_CRON_CALLER && !(DEV_BYPASS_SECRET && devBypass === DEV_BYPASS_SECRET)) {
+  if (!EXPECTED_CRON_CALLERS.has(cronCaller) && !(DEV_BYPASS_SECRET && devBypass === DEV_BYPASS_SECRET)) {
     return respond(403, { ok: false, error: "forbidden" });
   }
   return null;
@@ -216,7 +225,7 @@ Deno.serve(async (req: Request) => {
 
   let query = supabase
     .from("source_snapshots")
-    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,published_at,source_registry(source_type,source_name,country,region)")
+    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,captured_at")
     .eq("fetch_status", "success")
     .not("captured_text", "is", null)
     .order("created_at", { ascending: true })
@@ -227,19 +236,34 @@ Deno.serve(async (req: Request) => {
   const { data: rawSnapshots, error: fetchErr } = await query;
   if (fetchErr) return respond(500, { ok: false, error: "snapshot_query_failed", detail: fetchErr.message });
 
-  // Flatten the joined source_registry row onto the snapshot. This is the
-  // authoritative source_type — signal_candidates is unreliable here because
-  // the pre-filter (hv_extract_signals_from_captured_text) stores it as an
-  // ARRAY of chunk objects for successfully-chunked snapshots, but as a flat
-  // object only for the 'skipped' case. Joining source_registry directly
-  // sidesteps that shape mismatch entirely.
-  const snapshots = (rawSnapshots ?? []).map((s: any) => ({
-    ...s,
-    source_type:   s.source_registry?.source_type   ?? null,
-    source_country: s.source_registry?.country       ?? null,
-    source_region:  s.source_registry?.region        ?? null,
-    _source_name:   s.source_registry?.source_name   ?? null,
-  }));
+  // api.source_snapshots and api.source_registry are both VIEWS with no FK
+  // constraints (checked 2026-07-10), so PostgREST's embedded-resource join
+  // syntax (`.select("...,source_registry(...)")`) doesn't work here — it
+  // needs real FK metadata to resolve the relationship, which views don't
+  // carry over from the underlying tables. Fetching source_registry
+  // separately and joining in JS instead, which works regardless of
+  // relationship metadata.
+  const sourceIds = [...new Set((rawSnapshots ?? []).map((s: any) => s.source_id).filter(Boolean))];
+  const registryById = new Map<string, { source_type: string | null; source_name: string | null; country: string | null; region: string | null }>();
+  if (sourceIds.length > 0) {
+    const { data: registryRows, error: registryErr } = await supabase
+      .from("source_registry")
+      .select("id,source_type,source_name,country,region")
+      .in("id", sourceIds);
+    if (registryErr) return respond(500, { ok: false, error: "source_registry_query_failed", detail: registryErr.message });
+    for (const r of registryRows ?? []) registryById.set(r.id, r);
+  }
+
+  const snapshots = (rawSnapshots ?? []).map((s: any) => {
+    const reg = registryById.get(s.source_id);
+    return {
+      ...s,
+      source_type:    reg?.source_type   ?? null,
+      source_country: reg?.country       ?? null,
+      source_region:  reg?.region        ?? null,
+      _source_name:   reg?.source_name   ?? null,
+    };
+  });
 
   const results: Record<string, unknown>[] = [];
   let extracted = 0, staged = 0, skippedLowRelevance = 0, failed = 0;
@@ -273,13 +297,17 @@ Deno.serve(async (req: Request) => {
             language: editorial.language ?? snapshot.language_detected ?? "en",
             tone: editorial.tone,
             stage: "qualified",
-            // The 7-day recency policy (only surface editorial content from
-            // the last week, prioritizing emerging markets) depends on this
-            // being the article's actual date, not extraction time. Falls
-            // back to now() only if the feed genuinely didn't supply one —
-            // better than leaving it null and having the item silently
-            // excluded from every recency-filtered query downstream.
-            published_at: snapshot.published_at ?? new Date().toISOString(),
+            // source_snapshots has no article-publish-date field (checked
+            // 2026-07-10: published_at only exists on a different table in
+            // the unrelated regulatory_signals schema — an earlier fix here
+            // wrongly assumed it existed on this table too, which broke
+            // hv-extract's select() entirely). captured_at (fetch time) is
+            // the best available proxy for the 7-day recency policy. For
+            // genuinely chronological RSS feeds (not search/aggregation
+            // feeds like Google News, which is exactly why those were
+            // replaced with direct outlet feeds) fetch time tracks actual
+            // publish time closely enough in practice.
+            published_at: snapshot.captured_at ?? new Date().toISOString(),
           });
           if (editErr) throw new Error(`editorial_insert_failed: ${editErr.message}`);
           await supabase.from("source_snapshots").update({ fetch_status: "extracted" }).eq("id", snapshot.id);
