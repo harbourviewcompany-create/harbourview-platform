@@ -14,6 +14,7 @@ export type RegulatoryTier =
   | 'legal_commercial_access'
   | 'medical_limited_trade'
   | 'domestic_only'
+  | 'cbd_hemp_only'
   | 'prohibited'
 
 /**
@@ -44,12 +45,14 @@ const TIER_PALETTES: Record<GlobeTierPalette, Record<RegulatoryTier, TierPlate>>
     legal_commercial_access: { plate: '#d4ad3a', emissive: '#9a7c12', emissiveIntensity: 0.26, border: '#f1dfaa' },
     medical_limited_trade:   { plate: '#a8873f', emissive: '#6d5820', emissiveIntensity: 0.18, border: '#c8ab6a' },
     domestic_only:           { plate: '#6d5c30', emissive: '#3f3416', emissiveIntensity: 0.12, border: '#8b7550' },
+    cbd_hemp_only:           { plate: '#4a5340', emissive: '#26301c', emissiveIntensity: 0.09, border: '#6f7a55' },
     prohibited:              { plate: '#28303a', emissive: '#141a22', emissiveIntensity: 0.05, border: '#4b525c' },
   },
   spectrum: {
     legal_commercial_access: { plate: '#3fb96b', emissive: '#166534', emissiveIntensity: 0.24, border: '#8ff0b4' },
     medical_limited_trade:   { plate: '#e0b93c', emissive: '#8a6b12', emissiveIntensity: 0.20, border: '#f7e39a' },
     domestic_only:           { plate: '#e08340', emissive: '#8a4416', emissiveIntensity: 0.16, border: '#f7bd8f' },
+    cbd_hemp_only:           { plate: '#4ba89a', emissive: '#166b5e', emissiveIntensity: 0.16, border: '#93e0d3' },
     prohibited:              { plate: '#c0453f', emissive: '#6d1a17', emissiveIntensity: 0.10, border: '#f09a95' },
   },
 }

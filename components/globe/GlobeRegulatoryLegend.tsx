@@ -15,6 +15,7 @@ const TIER_ORDER: RegulatoryTier[] = [
   'legal_commercial_access',
   'medical_limited_trade',
   'domestic_only',
+  'cbd_hemp_only',
   'prohibited',
 ]
 
@@ -31,6 +32,10 @@ const TIER_LABELS: Record<RegulatoryTier, { label: string; hint: string }> = {
     label: 'Domestic only',
     hint: 'Legal internally; no lawful cross-border commercial route',
   },
+  cbd_hemp_only: {
+    label: 'Hemp / CBD only',
+    hint: 'Cannabis prohibited; licensed hemp or CBD trade permitted',
+  },
   prohibited: {
     label: 'Prohibited',
     hint: 'No lawful commercial pathway',
@@ -44,12 +49,14 @@ const SWATCHES: Record<GlobeTierPalette, Record<RegulatoryTier, string>> = {
     legal_commercial_access: '#d4ad3a',
     medical_limited_trade: '#a8873f',
     domestic_only: '#6d5c30',
+    cbd_hemp_only: '#4a5340',
     prohibited: '#28303a',
   },
   spectrum: {
     legal_commercial_access: '#3fb96b',
     medical_limited_trade: '#e0b93c',
     domestic_only: '#e08340',
+    cbd_hemp_only: '#4ba89a',
     prohibited: '#c0453f',
   },
 }
