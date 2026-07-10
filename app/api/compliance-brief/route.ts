@@ -3,6 +3,7 @@ import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -111,6 +112,22 @@ export async function POST(request: Request) {
   // Leaving it open would allow unauthenticated callers to run up API costs.
   const authFailure = await requireAdminApiAuth()
   if (authFailure) return authFailure
+
+  // Defense-in-depth: even admin-only, rate limit so a compromised admin
+  // session or a runaway UI loop can't silently rack up Anthropic spend.
+  const ip = getClientIp(request)
+  const rl = enforceRateLimit({
+    route: '/api/compliance-brief',
+    ip,
+    limit: 5,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+    )
+  }
 
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
