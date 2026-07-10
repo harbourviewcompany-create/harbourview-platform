@@ -1,6 +1,16 @@
 # Harbourview Market Entry OS — North Star
 
+**Version 1.1** · 2026-07-10 · supersedes v1.0
+
 Status key: ✅ Built · 🟡 Partial · ⬜ Not Started · ⚠️ Open Decision (not a build item — needs a call)
+
+---
+
+## Executive Summary
+
+This is a build-status audit of the Market Entry OS concept — turning Harbourview's existing intelligence into a one-click, per-corridor execution plan — scored against what's actually shipped today. Of the 20 layers, the intelligence-gathering side (Corridor Intelligence, Regulatory Matrix, Market Intelligence, Live Intelligence) is furthest along, because it rides on dossier and crawler infrastructure already in production. The execution side (Workflow Engine, Documentation Engine, Cost Calculator, Timeline Engine) — the layers that would actually make this "one-click" instead of "one more report" — hasn't been started.
+
+Three decisions block that execution work and should be resolved before any new schema is written: how much counterparty detail the public DTO can show (conflicts with the shipped HAR-99/101 decision), what the business model actually is, and whether a low readiness score just prints a to-do list or triggers a warm intro from the network. Recommended path: lock those three decisions, then build one corridor (Canada → Germany) end-to-end starting with the Workflow Engine, before generalizing.
 
 ---
 
@@ -53,19 +63,61 @@ Status key: ✅ Built · 🟡 Partial · ⬜ Not Started · ⚠️ Open Decision
 ### Bigger picture
 | Item | Status | Notes |
 |---|---|---|
-| Business model | ⬜ | Zero mention of monetization (subscription / per-report / take-rate / lead-gen). This should decide build order, not follow it. |
+| Business model | ⚠️ | Zero mention of monetization (subscription / per-report / take-rate / lead-gen). Reclassified from ⬜ — this is a decision, not a build item, and it should decide build order, not follow it. |
 | Network integration | ⚠️ | Undecided whether a low readiness score just outputs a to-do list, or triggers an actual intro from the 6,000-contact network. Different product, different moat. |
 | Horizontal expansion (pharma, psychedelics, biologics) | ⚠️ | Explicitly flagged in the doc's closing section. Worth deciding on purpose — this dilutes cannabis-specific depth if done by drift instead of decision. |
 
 ---
 
+## Value Framework (illustrative — needs real pilot data)
+
+No corridor has run through this system end-to-end yet, so this is a structure to populate from the Canada → Germany pilot, not a measured result.
+
+| Value driver | What it replaces | How to measure |
+|---|---|---|
+| Research time | Manual regulatory/license/customs lookup per corridor — the same work that produced the Denmark, France, and Germany dossiers by hand | Analyst-hours per corridor, before vs. after Workflow Engine |
+| Time-to-market | The doc's own example cites an 83-day predicted approval timeline with no validation loop (see Content gaps, above) | Predicted vs. actual days, once Timeline Engine (16) has real cases to check against |
+| Compliance risk avoided | Missed license/certification steps caught late in the process | Count of corridor plans that surface a blocking requirement before shipment vs. after |
+| Deal velocity | Marketplace inquiries that stall on missing buyer-side or counterparty context | Time from inquiry to deal-room open, before vs. after Company/Commercial Intelligence layers mature |
+
+Once the pilot corridor runs, replace this table with real before/after numbers — that's the metric to put in front of investors, not a modeled estimate.
+
+### Layer 9 (Workflow Engine) — how it fits together
+
+```mermaid
+graph TD
+    A["Corridor pair (origin, destination)"] --> C{"Workflow Engine (9)"}
+    B["Product classification (3)"] --> C
+    D["Regulatory Matrix (2)"] --> C
+    E["Required Licenses (4)"] --> C
+    F["Required Certifications (5)"] --> C
+    G["Customs Intelligence (7)"] --> C
+    C --> H["Dependency graph: ordered steps + critical path"]
+    H --> I["Documentation Engine (6): per-step checklist"]
+    H --> J["Cost Calculator (15): landed cost"]
+    H --> K["Timeline Engine (16): predicted days"]
+    H --> L["Readiness Score (20): company/shipment level"]
+```
+
+---
+
 ## Recommended Build Order
 
-1. **Pick one corridor** (Canada → Germany — already has the deepest dossier) and build the full stack end-to-end for it before generalizing.
-2. **Workflow Engine (9)** first among the ⬜ layers — it's the mechanic that makes everything else feel like "one-click" instead of a report.
-3. **Documentation Engine (6)** next — checklist generation is a bounded, high-value slice.
-4. Resolve the two ⚠️ items that change architecture before writing schema: **CounterpartyStub disclosure tier** and **business model**. Both affect what Layers 10/11 are even allowed to show.
-5. Cost Calculator (15) and Timeline Engine (16) last among near-term work — they depend on data the workflow engine will surface anyway.
+1. **Resolve the three open decisions before any schema work** — they change what Layers 9/10/11/20 are even allowed to build:
+   - **CounterpartyStub disclosure tier** — Layers 10/11 want rich company/buyer detail per corridor; HAR-99/101 shipped keeping counterparties out of the public DTO. Needs an explicit tier decision.
+   - **Business model / monetization** — subscription, per-report, take-rate, or lead-gen changes what the Readiness Score and Workflow Engine outputs need to look like.
+   - **Network integration** — whether a low readiness score prints a to-do list or triggers a warm intro from the 6,000-contact network. Different product, different moat.
+2. **Pick one corridor** (Canada → Germany — Germany already has the deepest dossier) and build the full stack end-to-end for it before generalizing.
+3. **Workflow Engine (9)** first among the ⬜ layers — it's the mechanic that makes everything else feel like "one-click" instead of a report.
+4. **Documentation Engine (6)** next — checklist generation is a bounded, high-value slice.
+5. **Cost Calculator (15)** and **Timeline Engine (16)** last among near-term work — they depend on data the workflow engine will surface anyway.
+
+---
+
+## Change Log
+
+- **v1.1** (2026-07-10): Added executive summary. Added Value Framework section with Layer 9 workflow diagram. Reclassified Business Model from ⬜ to ⚠️ (it's a decision, not a build item). Reordered Recommended Build Order to resolve the three open decisions before any corridor/schema work.
+- **v1.0** (2026-07-10): Initial 20-layer audit.
 
 ---
 
