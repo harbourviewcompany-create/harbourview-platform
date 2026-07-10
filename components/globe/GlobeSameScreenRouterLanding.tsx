@@ -17,6 +17,7 @@ import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
+import { RoleChipSelector } from './RoleChipSelector'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import { GlobeProvider } from './GlobeProvider'
 
@@ -203,6 +204,23 @@ export function GlobeSameScreenRouterLanding() {
           onEnter={() => dispatch({ type: 'MARKET_ENTER' })}
           onBack={() => dispatch({ type: 'BACK' })}
         />
+      ) : null}
+
+      {state.step === 'role' ? (
+        <RouterBottomSheet
+          eyebrow={state.selectedCountryIso2 ? getCountryName(state.selectedCountryIso2) : undefined}
+          title="What best describes your role?"
+          size="role"
+          onBack={() => dispatch({ type: 'BACK' })}
+        >
+          <RoleChipSelector
+            countryIso2={state.selectedCountryIso2}
+            searchQuery={state.roleSearchQuery}
+            selectedRoleId={state.selectedRoleId}
+            onSearchChange={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
+            onSelectRole={(roleId) => dispatch({ type: 'ROLE_SELECT', roleId })}
+          />
+        </RouterBottomSheet>
       ) : null}
 
       {state.step === 'fallback' ? (

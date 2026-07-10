@@ -36,9 +36,7 @@ export function globeRouterReducer(
     case 'MARKET_ENTER':
       return {
         ...state,
-        step: 'routing',
-        routeStatus: 'resolving',
-        selectedRoleId: 'importer',
+        step: 'role',
       }
     case 'COUNTRY_CLEAR':
       return { ...initialGlobeRouterState }
