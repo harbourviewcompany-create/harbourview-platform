@@ -14,6 +14,7 @@ import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
+import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
@@ -4085,6 +4086,20 @@ export default function CommandCentre({
   )
   const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
+  // Per-role sidebar ordering: promote modules relevant to this role within each
+  // nav section, without hiding anything. 'briefing' always stays first (it's the
+  // default landing page). Items with no per-role signal keep their original order.
+  const navRank = useMemo(() => getRoleNavRank(role), [role])
+  const orderedNavSections = useMemo<NavSection[]>(() => NAV_SECTIONS.map(section => ({
+    ...section,
+    items: [...section.items].sort((a, b) => {
+      if (a.id === 'briefing') return -1
+      if (b.id === 'briefing') return 1
+      return (navRank[a.id] ?? Infinity) - (navRank[b.id] ?? Infinity)
+    }),
+  })), [navRank])
+  const orderedNavFlat = useMemo(() => orderedNavSections.flatMap(s => s.items), [orderedNavSections])
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   // Shared URL-sync helper — keeps country/role/page in the query string so any
   // Command Centre view can be deep-linked from a redirect or a shared link.
@@ -4242,7 +4257,7 @@ export default function CommandCentre({
       {/* ── Sidebar ───────────────────────────────────────────────── */}
       <nav className="cc-sidebar" aria-label="Command centre navigation">
         <div className="cc-sidebar-nav">
-          {NAV_SECTIONS.map((section, si) => (
+          {orderedNavSections.map((section, si) => (
             <div key={si} className="cc-nav-section">
               {section.label && (
                 <div className="cc-nav-section-header" aria-hidden="true">
@@ -4281,7 +4296,7 @@ export default function CommandCentre({
 
       {/* ── Mobile nav ────────────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
-        {NAV_ITEMS_FLAT.map(item => (
+        {orderedNavFlat.map(item => (
           <button
             key={item.id}
             className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}
