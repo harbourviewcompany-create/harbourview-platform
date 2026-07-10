@@ -113,7 +113,7 @@ async function readSupabaseError(response: Response): Promise<SupabaseErrorBody>
 export async function POST(request: Request) {
   const requestId = getRequestId(request);
   const ip = getClientIp(request);
-  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 });
+  const ipLimit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 });
   if (!ipLimit.allowed) {
     logCaptureDiagnostic('CAPTURE_RATE_LIMITED', requestId, { ip, retryAfterSeconds: ipLimit.retryAfterSeconds });
     return json('error', 'Too many requests. Please try again shortly.', 429, ipLimit.retryAfterSeconds);
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
     inquiry_type: inquiryType,
     message,
   } = parsed.data;
-  const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: contactEmail, limit: 8, windowMs: 60_000 });
+  const identityLimit = await enforceRateLimit({ route: ROUTE_ID, ip, identity: contactEmail, limit: 8, windowMs: 60_000 });
   if (!identityLimit.allowed) {
     logCaptureDiagnostic('CAPTURE_RATE_LIMITED', requestId, {
       submittedFieldKeys,

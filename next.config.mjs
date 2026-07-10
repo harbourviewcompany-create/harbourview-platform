@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 
 const securityHeaders = [
@@ -145,4 +147,22 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry: wraps the config to auto-instrument, upload source maps on build
+// (when SENTRY_AUTH_TOKEN is present), and inject the tunnel route. No-ops
+// harmlessly in environments without Sentry env vars configured.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Only upload source maps / print Sentry CLI output when an auth token is
+  // actually configured — keeps local/dev builds silent and fast.
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+
+  // Route browser → Sentry ingest traffic through our own domain to reduce
+  // the chance of ad-blockers dropping error reports.
+  tunnelRoute: '/monitoring',
+
+  disableLogger: true,
+  automaticVercelMonitors: true,
+});
