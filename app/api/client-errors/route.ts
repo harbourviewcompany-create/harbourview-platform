@@ -24,7 +24,7 @@ const MAX_USER_AGENT_LENGTH = 500
 
 export async function POST(request: Request) {
   const ip = getClientIp(request)
-  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  const ipLimit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
   if (!ipLimit.allowed) {
     // Still 200, not 429: a rate-limited beacon is exactly the kind of
     // failure this route must never surface back to the caller.
