@@ -1113,7 +1113,7 @@ export async function getMarketMetrics(iso2: string | null): Promise<MarketMetri
       .limit(20)
     return (data ?? []).map(r => ({
       metric_name:  r.metric_name,
-      metric_value: r.metric_value,
+      metric_value: Number(r.metric_value),
       metric_unit:  r.metric_unit,
       period_label: r.period_end ? r.period_end.slice(0, 7) : null,
       data_type:    r.data_type,
