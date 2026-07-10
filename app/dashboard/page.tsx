@@ -6,6 +6,7 @@ import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollabo
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { RoleId } from '@/types/globe-router'
@@ -234,7 +235,7 @@ export default async function DashboardPage({
     mySubmissionsResult,
   ] = await Promise.allSettled([
     fetchDashboardSignals(30),
-    fetchDailyDigest(20),
+    urlPage === 'digest' ? fetchDailyDigest(20, ALL_COUNTRIES.find(c => c.iso2 === countryIso2)?.displayName) : Promise.resolve({ signals: [], window: 'recent' as const }),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),

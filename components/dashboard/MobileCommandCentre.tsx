@@ -7,14 +7,12 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, W
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
-import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import type { DashboardMarketplaceRows, MarketRow, MarketView, CommandPage, DigestWindow } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 
-
-type DigestWindow = '24h' | '7d' | '30d' | 'recent'
 
 type PublicServiceProvider = {
   id: string; displayName: string; service_category: string

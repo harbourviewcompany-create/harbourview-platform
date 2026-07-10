@@ -18,7 +18,7 @@
 | **Last migration** | `revoke_public_pseudorole_claim_intelligence_job` — Jul 4 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | #978 (signals digest pipeline — clean merge, `check-drift` failing, needs rebase check), #949 (daily-digest security fixes — **draft, real merge conflict**, touches `HANDOFF.md` + both CommandCentre files, needs rebase before anything else). Last merged: #977 opportunity_score scale fix (2026-07-07, squash-merged via API after CI review) |
+| **Open PRs** | #978 (signals digest pipeline — clean merge, `check-drift` failing, needs rebase check). #949 (daily-digest security fixes) merged 2026-07-10 — conflicts with #990/#1013/#1003 resolved during merge. |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | `npx tsc --noEmit` clean (0 errors) as of `b8de567` (2026-07-07). Prior entry here claimed "2 pre-existing errors (`@tanstack/react-query` missing dep + Stripe API version)" — not reproduced this session; either fixed by an intervening commit or was already stale. Not independently investigated further. |
 
@@ -203,6 +203,34 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 
 ---
 
+### Session: Jul 4 2026 — daily-digest fixes + UI optimizations · Claude (Sonnet 4.6)
+
+**Branch:** `feat/daily-digest` (PR #949, merged 2026-07-10)
+
+**Security / correctness fixes:**
+
+| Fix | File | Detail |
+|---|---|---|
+| `?limit=NaN` returns `[]` | `app/api/dashboard/digest/route.ts:162` | `parseInt` result now guarded with `Number.isFinite` — falls back to 12 |
+| Country filter injection | `app/api/dashboard/digest/route.ts:161` | `countryParam` sanitized (strip `,()`) before PostgREST `.or()` interpolation |
+| Same injection in SSR path | `lib/dashboard/dashboardServerData.ts:330` | Same `countryName.replace(/[,()]/g,'')` fix in `fetchDailyDigest` |
+| Flag hardcoded `'🌐'` | `app/api/dashboard/digest/route.ts:141` | Replaced with `flagForMarket(market)` — eliminates SSR→client hydration mismatch |
+| `total` reports DB count | `app/api/dashboard/digest/route.ts:219` | Now reports `windowed.length` (count in active window); added `totalReviewed` for full DB count |
+| `CommandPage` type drift | `components/dashboard/MobileCommandCentre.tsx:14` | Local 8-member type and local `DigestWindow` removed; both now imported from `CommandCentre` |
+
+**UI performance optimizations:**
+
+| Change | Detail |
+|---|---|
+| `DigestWindow` moved to `dashboardShared.ts` | Single canonical definition; CommandCentre re-exports it |
+| `DigestPage` extracted | Moved from inline in CommandCentre (~175 lines) to `components/dashboard/pages/DigestPage.tsx` |
+| `next/dynamic` lazy-load | CommandCentre uses `dynamic(() => import('./pages/DigestPage'))` — digest chunk only loads on navigate-to-digest |
+| Conditional `fetchDailyDigest` | `app/dashboard/page.tsx` now calls `fetchDailyDigest` only when `urlPage === 'digest'`; passes country name so SSR first-paint is country-filtered |
+
+**No schema changes this session.** Merged into `main` 2026-07-10 alongside #990/#1013/#1015/#1003/#996 in the same session; conflicts in `CommandCentre.tsx`, `MobileCommandCentre.tsx`, `dashboardServerData.ts`, and the digest route (all textual adjacency with those other PRs' edits, no logical overlap) resolved by hand — see that merge commit.
+
+---
+
 ### Session: Jul 9 2026 — nav IA restructure + country-funnel investigation · Claude (Sonnet 5)
 
 **Prompted by Tyler:** platform doesn't make international-market-access value obvious fast enough to a new visitor; asked for an IA/nav review.
@@ -255,6 +283,7 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 **Still open:** `intelligence_jobs` worker wiring (P2 above) — `claim_intelligence_job` is now at least *reachable*, but nothing calls it yet.
 
 **Post-commit audit ("is anything missing" check):** Vercel deployment for every commit this session shows `state: READY, target: production` — no build/TypeScript errors. Re-ran the `.rpc(` audit (including a check for dynamic/non-literal call sites) — nothing missed, no new call sites from other agents. Supabase security + performance advisors show nothing new from this session's functions. Found and fixed one real gap: `revoke all ... from public` in the ADR #9 migrations didn't fully lock down 3 of the 8 functions — see ADR #10. Could not verify: whether the new cron has actually fired yet, or that `CRON_SECRET` is set in Vercel — `get_runtime_logs`/`get_runtime_errors` returned "No approval received" on every attempt this session; no tool available to list env var names either. Worth a manual check in the Vercel dashboard.
+
 
 ---
 

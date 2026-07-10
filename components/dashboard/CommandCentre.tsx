@@ -6,7 +6,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
-import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -17,6 +17,7 @@ import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
+const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { DealRoomsPanel } from './pages/DealRoomsPanel'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
@@ -46,7 +47,7 @@ export type CommandPage =
   | 'compliance'
   | 'countries'
 
-export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
+export type { DigestWindow }
 
 type PublicServiceProvider = {
   id: string
@@ -474,209 +475,6 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
   'REGULATORY', 'MARKET ACCESS', 'SUPPLY CHAIN',
   'TESTING & COMPLIANCE', 'EXPORT / BUYER MOVEMENT', 'EVIDENCE UPDATES',
 ]
-
-// ── DigestPage ───────────────────────────────────────────────────────────────
-// Daily landing surface. Shows the freshest reviewed intelligence with an
-// honest window label. Hydrates from /api/dashboard/digest on mount; SSR props
-// give instant first paint. Purely a display layer over the reviewed feed —
-// when the raw→reviewed auto-promotion lands, this fills with 24h content
-// automatically with no change here.
-
-const DIGEST_WINDOW_COPY: Record<DigestWindow, { kicker: string; sub: string }> = {
-  '24h':    { kicker: 'New in the last 24 hours',  sub: 'Fresh reviewed intelligence since yesterday.' },
-  '7d':     { kicker: 'This week',                 sub: 'Nothing new in 24h — showing the last 7 days.' },
-  '30d':    { kicker: 'This month',                sub: 'Quiet week — showing the last 30 days of reviewed intel.' },
-  'recent': { kicker: 'Most recent',               sub: 'No new intel in the recent window — showing the latest reviewed signals.' },
-}
-
-const DigestPage = React.memo(function DigestPage({
-  country, region, role, digestSignals, digestWindow, signals,
-}: {
-  country: { iso2: string; label: string }
-  region:  string
-  role:    string
-  digestSignals?: DashboardSignal[]
-  digestWindow?:  DigestWindow
-  signals: DashboardSignal[]
-}) {
-  const [liveSignals, setLiveSignals] = useState<DashboardSignal[] | null>(null)
-  const [liveWindow,  setLiveWindow]  = useState<DigestWindow | null>(null)
-  const [liveTotal,   setLiveTotal]   = useState<number | null>(null)
-  const [isFetching,  setIsFetching]  = useState(false)
-
-  // SSR props → instant paint; effect hydrates the country-filtered live set.
-  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 20)
-  const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
-
-  React.useEffect(() => {
-    let cancelled = false
-    async function run() {
-      setIsFetching(true)
-      try {
-        const params = new URLSearchParams({ limit: '20' })
-        if (country.label) params.set('country', country.label)
-        const res = await fetch(`/api/dashboard/digest?${params.toString()}`)
-        if (!res.ok || cancelled) return
-        const json = await res.json() as { signals: DashboardSignal[]; window: DigestWindow; total: number; source: string }
-        if (!cancelled && Array.isArray(json.signals)) {
-          setLiveSignals(json.signals)
-          setLiveWindow(json.window)
-          setLiveTotal(json.total)
-        }
-      } catch {
-        /* keep SSR props on failure — silent degradation */
-      } finally {
-        if (!cancelled) setIsFetching(false)
-      }
-    }
-    run()
-    return () => { cancelled = true }
-  }, [country.label])
-
-  const copy = DIGEST_WINDOW_COPY[effectiveWindow]
-  const isStale = effectiveWindow !== '24h'
-
-  // Category rollup for the summary strip.
-  const rollup = useMemo(() => {
-    const map: Partial<Record<SignalGroup, number>> = {}
-    effectiveSignals.forEach(s => {
-      const g = deriveSignalGroup(s.title)
-      map[g] = (map[g] ?? 0) + 1
-    })
-    return SIG_GROUP_ORDER.filter(g => map[g]).map(g => ({ group: g, n: map[g]! }))
-  }, [effectiveSignals])
-
-  const topSignal = useMemo(
-    () => [...effectiveSignals].sort((a, b) => b.confidence - a.confidence)[0] ?? null,
-    [effectiveSignals],
-  )
-
-  return (
-    <div className="cc-page">
-      <div className="cc-inner-header">
-        <h2>Daily Digest — {country.label}{region ? ` · ${region}` : ''}{role ? ` · ${role}` : ''}</h2>
-        <p>Your once-a-day read on the freshest reviewed intelligence for the resolved jurisdiction. {copy.sub}</p>
-      </div>
-
-      {/* Window banner */}
-      <div className={`cc-digest-banner${isStale ? ' stale' : ''}`}>
-        <span className={`cc-digest-live-dot${isStale ? '' : ' active'}`} aria-hidden="true" />
-        <div className="cc-digest-banner-body">
-          <strong>{copy.kicker}</strong>
-          <small>
-            {effectiveSignals.length} signal{effectiveSignals.length !== 1 ? 's' : ''}
-            {liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
-            {isFetching ? ' · refreshing…' : ''}
-          </small>
-        </div>
-        {rollup.length > 0 && (
-          <div className="cc-digest-rollup">
-            {rollup.map(r => (
-              <span key={r.group} className="cc-digest-rollup-chip">
-                <span aria-hidden="true">{SIG_GROUP_ICONS[r.group]}</span>
-                {r.n} {r.group.toLowerCase()}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Lead item */}
-      {topSignal && (
-        <div className="cc-digest-lead">
-          <div className="cc-digest-lead-tag">
-            {topSignal.contentType === 'editorial' ? 'Featured this week' : `Lead signal · ${topSignal.confidence}% confidence`}
-          </div>
-          <strong>{topSignal.title}</strong>
-          <p>{topSignal.commercialImpact}</p>
-          <div className="cc-digest-lead-meta">
-            <span>{topSignal.market || country.label}</span>
-            <span>·</span>
-            <span>{topSignal.timeAgo}</span>
-            {topSignal.contentType === 'editorial'
-              ? (topSignal.sourceUrl && (
-                  <a href={topSignal.sourceUrl} target="_blank" rel="noopener noreferrer" className="cc-digest-lead-link">
-                    Read at {topSignal.sourceLabel ?? 'source'} →
-                  </a>
-                ))
-              : <Link href={topSignal.slug ? `/signals/${topSignal.slug}` : '/signals'} className="cc-digest-lead-link">Open brief →</Link>}
-          </div>
-        </div>
-      )}
-
-      {/* Recency list */}
-      <div className="cc-sig-feed">
-        {effectiveSignals.length === 0 ? (
-          <div className="cc-empty-state">
-            No reviewed intelligence available yet. Automated promotion of fresh signals is being wired up —
-            new items will appear here daily once it goes live.
-          </div>
-        ) : (
-          effectiveSignals.map((s, i) => {
-            if (s.contentType === 'editorial') {
-              return (
-                <div key={s.id ?? i} className="cc-sig-row" style={{ gridTemplateColumns: '12px 1fr 160px' }}>
-                  <span className="cc-sig-dot" style={{ background: '#B8AF9E' }} />
-                  <div className="cc-sig-body">
-                    <strong>{s.title}</strong>
-                    <small>{s.market ? `${s.market} · ` : ''}{s.timeAgo}{s.sourceLabel ? ` · ${s.sourceLabel}` : ''}</small>
-                    <span style={{
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
-                      overflow: 'hidden', fontSize: 11, color: 'var(--cc-muted)', lineHeight: 1.5, marginTop: 4,
-                    }}>{s.commercialImpact}</span>
-                  </div>
-                  <div className="cc-sig-acts">
-                    {s.sourceUrl && (
-                      <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="cc-sig-brief">Read source</a>
-                    )}
-                  </div>
-                </div>
-              )
-            }
-            const imp  = deriveImpact(s.confidence)
-            const circ = 87.96
-            return (
-              <div key={s.id ?? i} className="cc-sig-row">
-                <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
-                <div className="cc-sig-body">
-                  <strong>{s.title}</strong>
-                  <small>{s.market ? `${s.market} · ` : ''}{s.timeAgo}</small>
-                </div>
-                <div className="cc-sig-why">
-                  <em>Why it matters</em>
-                  <span>Affects operations in {s.market || country.label}</span>
-                </div>
-                <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
-                <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
-                  <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4"/>
-                  <circle cx="18" cy="18" r="14" fill="none"
-                    stroke={s.confidence>=80?'var(--cc-green)':s.confidence>=65?'var(--cc-amber)':'var(--cc-red)'}
-                    strokeWidth="4"
-                    strokeDasharray={`${circ*s.confidence/100} ${circ}`}
-                    strokeLinecap="round" transform="rotate(-90 18 18)"
-                  />
-                  <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
-                </svg>
-                <div className="cc-sig-acts">
-                  <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
-                </div>
-              </div>
-            )
-          })
-        )}
-      </div>
-
-      <div className="cc-feed-footer">
-        <span>Digest window: {copy.kicker.toLowerCase()} · {effectiveSignals.length} shown</span>
-        <span className="cc-auto-refresh">
-          {isFetching
-            ? <><span className="cc-refresh-dot" style={{ background: 'var(--cc-amber)' }}/>Refreshing…</>
-            : <><span className="cc-refresh-dot"/>Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>}
-        </span>
-      </div>
-    </div>
-  )
-})
 
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
@@ -4164,7 +3962,7 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} />
       case 'digest':
-        return <DigestPage country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
+        return <DigestPageLazy country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':

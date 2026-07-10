@@ -347,7 +347,7 @@ export async function GET(req: NextRequest) {
     const signals = windowed.slice(0, limit).map(rowToSignal)
 
     return NextResponse.json(
-      { signals, window: windowKey, total: count ?? signals.length, source: 'live' },
+      { signals, window: windowKey, total: windowed.length, totalReviewed: count ?? windowed.length, source: 'live' },
       {
         headers: {
           'Cache-Control': 'private, max-age=300, stale-while-revalidate=60',
