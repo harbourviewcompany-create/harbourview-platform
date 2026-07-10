@@ -17,6 +17,7 @@ import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
+import { RoleSelectSheet } from './RoleSelectSheet'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import { GlobeProvider } from './GlobeProvider'
 
@@ -205,6 +206,34 @@ export function GlobeSameScreenRouterLanding() {
         />
       ) : null}
 
+      {/* Role selection — sits between the country brief and the dashboard.
+          The state machine has always supported this step; until now nothing
+          rendered it, so MARKET_ENTER skipped straight to routing. */}
+      {state.step === 'role' ? (
+        <RoleSelectSheet
+          countryIso2={state.selectedCountryIso2}
+          countryIso2s={state.selectedCountryIso2s}
+          countryName={
+            state.selectedCountryIso2
+              ? allCountryAndProvinceOptionMap[state.selectedCountryIso2]?.name ?? state.selectedCountryIso2
+              : 'your selected markets'
+          }
+          mode={state.mode}
+          searchQuery={state.roleSearchQuery}
+          onSearchQuery={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
+          onSelectRole={(roleId) => {
+            dispatch({ type: 'ROLE_SELECT', roleId })
+            setSrAnnouncement(`Role selected: ${roleProfileMap[roleId]?.label ?? roleId}.`)
+          }}
+          onSearchSelectRole={(roleId) => {
+            dispatch({ type: 'ROLE_SEARCH_SELECT', roleId })
+            setSrAnnouncement(`Role selected: ${roleProfileMap[roleId]?.label ?? roleId}.`)
+          }}
+          onNotSure={() => dispatch({ type: 'NOT_SURE_ROLE' })}
+          onBack={() => dispatch({ type: 'BACK' })}
+        />
+      ) : null}
+
       {state.step === 'fallback' ? (
         <RouterBottomSheet
           eyebrow="Path not public yet"
@@ -257,4 +286,3 @@ export function GlobeSameScreenRouterLanding() {
     </GlobeProvider>
   )
 }
-
