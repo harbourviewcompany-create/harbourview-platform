@@ -3,10 +3,10 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
   getApprovedSupplierProfileById,
-  SELLER_TYPE_LABELS,
   CATEGORY_LABELS,
+  displaySellerType,
+  displayRegions,
 } from '@/lib/server/supplierProfilesQuery'
-import { REGION_LABELS } from '@/lib/dashboard/countryRegions'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   return {
     title: `${supplier.company_name ?? 'Supplier'} | Supplier Directory | Harbourview`,
-    description: supplier.description_public?.slice(0, 160) ?? undefined,
+    description: supplier.description?.slice(0, 160) ?? undefined,
   }
 }
 
@@ -31,6 +31,9 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
   if (!supplier) {
     return notFound()
   }
+
+  const website = supplier.capabilities?.website
+  const title = supplier.capabilities?.title
 
   return (
     <main style={{ minHeight: '100vh', background: '#050c18', color: '#f5f0e8' }}>
@@ -46,9 +49,10 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
                 REVIEWED PROFILE
               </div>
               <h1 className="text-4xl font-serif tracking-tight">{supplier.company_name ?? 'Supplier'}</h1>
+              {title && <p className="mt-1 text-sm text-white/50">{title}</p>}
             </div>
             <div className="text-right text-sm text-white/50">
-              <div>{supplier.regions_served?.join(', ') ?? '—'}</div>
+              <div>{displayRegions(supplier)}</div>
             </div>
           </div>
 
@@ -56,7 +60,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
             <div className="md:col-span-2 space-y-8">
               <div>
                 <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">ABOUT</h3>
-                <p className="text-[15px] leading-relaxed whitespace-pre-line text-white/90">{supplier.description_public ?? ''}</p>
+                <p className="text-[15px] leading-relaxed whitespace-pre-line text-white/90">{supplier.description}</p>
               </div>
 
               {supplier.categories.length > 0 && (
@@ -71,18 +75,36 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
                   </div>
                 </div>
               )}
+
+              {supplier.capabilities?.services_offered && supplier.capabilities.services_offered.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">SERVICES OFFERED</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {supplier.capabilities.services_offered.map((s) => (
+                      <span key={s} className="px-3 py-1 text-sm bg-white/5 rounded-full">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">BUSINESS TYPE</h3>
-                <div className="text-lg">{SELLER_TYPE_LABELS[supplier.seller_type] ?? supplier.seller_type}</div>
+                <div className="text-lg">{displaySellerType(supplier)}</div>
               </div>
 
               <div>
                 <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">REGIONS SERVED</h3>
-                <div className="text-lg">{supplier.regions_served?.join(', ') ?? '—'}</div>
+                <div className="text-lg">{displayRegions(supplier)}</div>
               </div>
+
+              {website && (
+                <div>
+                  <h3 className="text-sm font-semibold tracking-[0.5px] text-white/60 mb-3">WEBSITE</h3>
+                  <div className="text-sm text-white/70 break-all">{website}</div>
+                </div>
+              )}
             </div>
           </div>
 

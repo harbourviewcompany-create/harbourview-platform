@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -135,6 +135,9 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
     : 0
   const confidence = rawScore > 0 ? String(rawScore) : isVerified ? '78' : '62'
 
+  const averageRating = Number(listing.average_rating) || 0
+  const reviewCount = Number(listing.review_count) || 0
+
   return [
     listing.title,
     safeText(listing.description, `${categoryLabel} listing${regionLabel ? ' — ' + regionLabel : ''}.`),
@@ -144,6 +147,10 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
     isVerified ? 'Licensed Direct' : 'Mediated',
     confidence,
     listing.id,
+    // Numeric columns arrive as strings from some Postgres/PostgREST paths
+    // (confirmed for average_rating) — store pre-formatted, empty when unrated.
+    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
+    reviewCount > 0 ? String(reviewCount) : '',
   ]
 }
 
@@ -211,9 +218,23 @@ export default async function DashboardPage({
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId      = urlRole    ?? storedRoleId
 
-  const [signals, dailyDigest, wantedCount, marketplaceRows, pipeline, wantedListings, countryIntel, liveEduTiles, pathwayData, , watchlistData, evidenceData, recentEduModules, localIntel, sourceCoverage, jurisdictionPlaybook, educationTracks, marketMetrics, tradeFlows, professionals, cannabisOperators, cultivarPassports, serviceProviders, collaborationProjects] = await Promise.all([
+  function settledOr<T>(result: PromiseSettledResult<T>, fallback: T, label: string): T {
+    if (result.status === 'fulfilled') return result.value
+    console.error(`[dashboard] ${label} failed:`, result.reason)
+    return fallback
+  }
+
+  const [
+    signalsResult, dailyDigestResult, wantedCountResult, marketplaceRowsResult,
+    pipelineResult, wantedListingsResult, countryIntelResult, liveEduTilesResult,
+    pathwayDataResult, , watchlistDataResult, evidenceDataResult,
+    recentEduModulesResult, localIntelResult, sourceCoverageResult, jurisdictionPlaybookResult,
+    educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
+    cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
+    mySubmissionsResult,
+  ] = await Promise.allSettled([
     fetchDashboardSignals(30),
-    fetchDailyDigest(12),
+    fetchDailyDigest(20),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),
@@ -236,7 +257,33 @@ export default async function DashboardPage({
     getPublicCultivarPassports(),
     getPublicServiceProviders(),
     getPublicCollaborationProjects(),
+    getUserMarketplaceSubmissions(userId),
   ])
+
+  const signals               = settledOr(signalsResult, [], 'fetchDashboardSignals')
+  const dailyDigest            = settledOr(dailyDigestResult, { signals: [], window: 'recent' }, 'fetchDailyDigest')
+  const wantedCount            = settledOr(wantedCountResult, 0, 'getWantedRequestsCount')
+  const marketplaceRows        = settledOr(marketplaceRowsResult, {}, 'getDashboardMarketplaceRows')
+  const pipeline               = settledOr(pipelineResult, undefined, 'getPipelineCounts')
+  const wantedListings         = settledOr(wantedListingsResult, [], 'getWantedListings')
+  const countryIntel           = settledOr(countryIntelResult, null, 'getCountryIntelProfile')
+  const liveEduTiles           = settledOr(liveEduTilesResult, [], 'getLiveEduTiles')
+  const pathwayData            = settledOr(pathwayDataResult, undefined, 'getOrgPathwayProgress')
+  const watchlistData          = settledOr(watchlistDataResult, undefined, 'getWatchlistData')
+  const evidenceData           = settledOr(evidenceDataResult, undefined, 'getEvidenceData')
+  const recentEduModules       = settledOr(recentEduModulesResult, [], 'getRecentEduModules')
+  const localIntel             = settledOr(localIntelResult, null, 'getLocalIntel')
+  const sourceCoverage         = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
+  const jurisdictionPlaybook   = settledOr(jurisdictionPlaybookResult, null, 'getJurisdictionPlaybook')
+  const educationTracks        = settledOr(educationTracksResult, [], 'getEducationTracks')
+  const marketMetrics          = settledOr(marketMetricsResult, undefined, 'getMarketMetrics')
+  const tradeFlows             = settledOr(tradeFlowsResult, undefined, 'getTradeFlows')
+  const professionals          = settledOr(professionalsResult, undefined, 'getProfessionals')
+  const cannabisOperators      = settledOr(cannabisOperatorsResult, undefined, 'getCannabisOperators')
+  const cultivarPassports      = settledOr(cultivarPassportsResult, [], 'getPublicCultivarPassports')
+  const serviceProviders       = settledOr(serviceProvidersResult, [], 'getPublicServiceProviders')
+  const collaborationProjects  = settledOr(collaborationProjectsResult, [], 'getPublicCollaborationProjects')
+  const mySubmissions          = settledOr(mySubmissionsResult, [], 'getUserMarketplaceSubmissions')
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
@@ -273,6 +320,7 @@ export default async function DashboardPage({
       cultivarPassports={cultivarPassports}
       serviceProviders={serviceProviders}
       collaborationProjects={collaborationProjects}
+      mySubmissions={mySubmissions}
     />
   )
 }

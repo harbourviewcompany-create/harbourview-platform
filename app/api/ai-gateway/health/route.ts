@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth';
-
 import { getUnifiedAiGatewayHealth } from '@/lib/env/unifiedAiGatewayEnv';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const authFailure = await requireAdminApiAuth()
-  if (authFailure) return authFailure
+  // Admin-only: the detailed health payload exposes gateway configuration,
+  // limits, and issue diagnostics that shouldn't be publicly enumerable.
+  const authFailure = await requireAdminApiAuth();
+  if (authFailure) return authFailure;
 
   const health = getUnifiedAiGatewayHealth();
 

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -38,7 +40,7 @@ function buildPrompt(profile: CountryIntelProfile, roleContext?: string): string
   lines.push(`- Export: ${profile.export_status ?? '—'}`)
   lines.push(`- Medical Programme: ${profile.medical_status ?? '—'}`)
   lines.push(`- Adult-Use: ${profile.adult_use_status ?? '—'}`)
-  lines.push(`- Opportunity Score: ${profile.opportunity_score != null ? `${profile.opportunity_score}/10` : '—'}`)
+  lines.push(`- Opportunity Score: ${formatOpportunityScore(profile.opportunity_score)}`)
   lines.push(`- Data Completeness: ${profile.data_completeness ?? '—'}`)
   lines.push(``)
 
@@ -107,6 +109,11 @@ function buildPrompt(profile: CountryIntelProfile, roleContext?: string): string
 }
 
 export async function POST(request: Request) {
+  // Admin-only: this endpoint invokes the paid Anthropic API to generate briefs.
+  // Leaving it open would allow unauthenticated callers to run up API costs.
+  const authFailure = await requireAdminApiAuth()
+  if (authFailure) return authFailure
+
   try {
     // Auth: must be a signed-in user
     const supabase = await createClient()

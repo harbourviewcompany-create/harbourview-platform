@@ -86,14 +86,14 @@ export default async function PendingApplicationsPage() {
                     <span className="ml-2 text-xs capitalize text-[#C6A55A]/80">{s.seller_type.replace(/_/g, ' ')}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-[#F5F1E8]/45">
-                    {s.contact_name ?? 'No contact name'}{s.email ? ` · ${s.email}` : ''}{s.hq_country ? ` · HQ: ${s.hq_country}` : ''} · Serves: {s.regions_served?.join(', ') ?? '—'}
+                    {s.contact_name ?? 'No contact name'}{s.contact_email ? ` · ${s.contact_email}` : ''}{s.capabilities?.hq_country ? ` · HQ: ${s.capabilities.hq_country}` : ''} · Serves: {s.capabilities?.regions_served?.join(', ') ?? s.region}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {s.categories.map((c: string) => (
                       <span key={c} className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] text-[#F5F1E8]/55">{c.replace(/_/g, ' ')}</span>
                     ))}
                   </div>
-                  <p className="mt-2 max-w-xl text-xs leading-5 text-[#F5F1E8]/55">{s.description_public ?? ''}</p>
+                  <p className="mt-2 max-w-xl text-xs leading-5 text-[#F5F1E8]/55">{s.description}</p>
                   <p className="mt-2 text-[10px] text-[#F5F1E8]/30">Submitted {fmt(s.created_at)}</p>
                 </div>
                 <DecisionButtons kind="suppliers" id={s.id} />

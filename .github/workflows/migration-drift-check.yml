@@ -1,0 +1,131 @@
+name: Migration Drift Check
+
+# Catches the exact failure mode in HANDOFF.md's "MIGRATION DRIFT PROTOCOL":
+# migrations applied via Supabase MCP / dashboard without a matching .sql file
+# committed to supabase/migrations/ in the same session. Runs on every PR/push
+# to main AND on a schedule, so drift is caught same-day, not 4 days later.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 * * * *"   # hourly — drift can be introduced outside of PRs (direct MCP calls)
+  workflow_dispatch: {}
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: List migrations registered in prod ledger
+        id: remote
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_ID"
+          # Machine-readable list of migrations the remote DB believes are applied
+          supabase migration list --linked --json > remote_migrations.json
+          cat remote_migrations.json
+
+      - name: List migrations committed to repo
+        id: local
+        run: |
+          ls supabase/migrations/*.sql 2>/dev/null \
+            | xargs -n1 basename \
+            | sed -E 's/^([0-9]+)_.*/\1/' \
+            | sort > local_migrations.txt
+          cat local_migrations.txt
+
+      - name: Compare remote ledger vs repo files
+        run: |
+          python3 - <<'PY'
+          import json, sys
+
+          with open("remote_migrations.json") as f:
+              remote = json.load(f)
+          remote_versions = sorted(str(m["version"]) for m in remote)
+
+          with open("local_migrations.txt") as f:
+              local_versions = sorted(l.strip() for l in f if l.strip())
+
+          remote_set, local_set = set(remote_versions), set(local_versions)
+
+          applied_not_committed = remote_set - local_set
+          committed_not_applied = local_set - remote_set
+
+          drift = False
+
+          if applied_not_committed:
+              drift = True
+              print("::error::Migrations applied to prod but NOT committed to supabase/migrations/:")
+              for v in sorted(applied_not_committed):
+                  print(f"  - {v}")
+              print("These were likely applied via Supabase MCP/dashboard without the paired .sql commit. "
+                    "See HANDOFF.md > MIGRATION DRIFT PROTOCOL.")
+
+          if committed_not_applied:
+              # Not necessarily an error (could be a pending PR migration) — warn only.
+              print("::warning::Migrations committed to repo but not yet applied to prod:")
+              for v in sorted(committed_not_applied):
+                  print(f"  - {v}")
+
+          if drift:
+              sys.exit(1)
+
+          print(f"OK — {len(remote_set)} remote migrations, all committed to repo.")
+          PY
+
+      - name: Post summary if drift detected
+        if: failure()
+        run: |
+          echo "## ⚠️ Migration drift detected" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "One or more migrations exist in the live database but have no matching file in \`supabase/migrations/\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "This blocks the next real migration and requires a manual reconciliation pass (see \`HANDOFF.md\`)." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Do not apply new migrations until this is reconciled.**" >> "$GITHUB_STEP_SUMMARY"
+
+  # Optional companion check: block the specific "placeholder comment as code" landmine
+  # called out in HANDOFF.md ADR-style notes (e.g. `// Keep other functions as they were`
+  # committed as literal code, silently deleting working functions).
+  check-placeholder-landmines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Grep for known placeholder-comment landmines
+        run: |
+          # Only scan CODE for these landmines. Markdown/docs (HANDOFF.md, the
+          # preflight checklist, ADR notes) legitimately quote these phrases when
+          # DESCRIBING the incidents, and must not trip the check.
+          PATTERNS=(
+            "Keep other functions as they were"
+            "rest of the file unchanged"
+            "\.\.\. rest stays the same"
+            "// TODO: implement"
+            "placeholder, do not ship"
+          )
+          FOUND=0
+          for p in "${PATTERNS[@]}"; do
+            if grep -rIn \
+                 --exclude-dir=node_modules --exclude-dir=.git \
+                 --exclude-dir=.next --exclude-dir=docs \
+                 --include='*.ts' --include='*.tsx' \
+                 --include='*.js' --include='*.jsx' \
+                 --include='*.sql' --include='*.mjs' --include='*.cjs' \
+                 -- "$p" .; then
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq 1 ]; then
+            echo "::error::Found placeholder-comment code landmines. These have previously caused silent deletion of working functions. Replace with real implementations before merging."
+            exit 1
+          fi

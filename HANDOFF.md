@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 3 2026 · Claude (Sonnet 4.6)
+> Last updated: Jul 9 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -15,12 +15,12 @@
 | **Migration ledger** | 294 == 294 — reconciled Jul 1. Apply every migration via repo file + MCP; see Protocol below. |
 | **Supabase Preview CI** | ✅ Green (was failing on every push; fixed by reconciling 14 unapplied files Jul 1) |
 | **E2E tests** | Runs (~9 min) but fails — tests have never passed in CI; need triage pass |
-| **Last migration** | `fix_cron_trigger_auth_headers_v2` — Jul 1 2026 |
+| **Last migration** | `revoke_public_pseudorole_claim_intelligence_job` — Jul 4 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | None (last merged: #943 watchlist resolve/snooze/next-action) |
+| **Open PRs** | #978 (signals digest pipeline — clean merge, `check-drift` failing, needs rebase check), #949 (daily-digest security fixes — **draft, real merge conflict**, touches `HANDOFF.md` + both CommandCentre files, needs rebase before anything else). Last merged: #977 opportunity_score scale fix (2026-07-07, squash-merged via API after CI review) |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
-| **TypeScript** | 2 pre-existing errors on main: `@tanstack/react-query` missing dep + Stripe API version |
+| **TypeScript** | `npx tsc --noEmit` clean (0 errors) as of `b8de567` (2026-07-07). Prior entry here claimed "2 pre-existing errors (`@tanstack/react-query` missing dep + Stripe API version)" — not reproduced this session; either fixed by an intervening commit or was already stale. Not independently investigated further. |
 
 ---
 
@@ -73,6 +73,7 @@ These fail on every PR regardless of content. They failed on #922 (merged Jul 1)
 | **Auth leaked password protection** | Disabled in Supabase Auth dashboard. One-click fix at dashboard.supabase.com → Auth → Security. |
 | **Public bucket listing decision** | `public-assets` allows clients to list all files. Restrict or keep — Tyler's call. |
 | **v2 worker host** | Code + `Dockerfile.worker` are ready. Needs a persistent host. Cheapest confirmed options: Fly.io ~$2/mo, Railway $5/mo. Vercel cannot run it (not serverless-compatible). |
+| **`main` branch protection allows admin bypass** | Confirmed via `GET /repos/.../branches/main/protection` (2026-07-07): `enforce_admins.enabled: false` and `required_approving_review_count: 0`. Both this session's pushes to `main` (a direct push, then a merge commit) were logged by GitHub as "Bypassed rule violations" rather than blocked. Any admin-scoped token — including agent session PATs — can currently push straight to `main`, including merge commits, with zero review. Tyler's call whether to flip `enforce_admins: true`; tradeoff is slower even for legitimate hotfixes (a human would need to open/merge every PR). |
 
 ### P1 — Agent-actionable, user-visible
 
@@ -82,6 +83,7 @@ These fail on every PR regardless of content. They failed on #922 (merged Jul 1)
 | **Phase 0: Watchlist rule builder UI** | Rule configuration interface | #801 |
 | **Phase 0: Genetics catalog** | Basic search + detail pages | #801 |
 | **Phase 0: Admin pending review polish** | UX pass on pending applications queue | #801 |
+| **Label the country-page funnel tiers in UI** | Four route trees form an unlabeled funnel: identity directory (`/countries/[slug]`) → public intelligence brief (`/intelligence/country/[country]`) → evidence-gated role preview (`/country/[country]/role/[role]`) → authenticated console (`/dashboard/country/[country]`). Nothing in the UI tells a visitor which stage they're on, what unlocks the next one, or why — which undercuts "immediately see the value" for a new visitor evaluating international market access. Needs a content/UX pass across all four templates. Not a routing change — see ADR #14 for why the routes themselves should stay as-is. | — |
 
 ### P2 — Agent-actionable, infrastructure/security
 
@@ -121,6 +123,12 @@ Numbered permanently. Do not re-litigate without new information.
 | 6 | Jun 23 | Placeholder comments are landmines | `// Keep other functions as they were` was committed as literal code, silently deleting 3 working functions. Never commit placeholder comments as code. |
 | 7 | Jul 1 | `supplier_profiles` no-seed is **policy**, not preference | Rule violated twice (Jun 23 seed, Jul 1 18-row seed). Table carries `supplier_profiles_no_delete` rule — archive only. Approved suppliers must come through intake → payment (Stripe `subscriptions`) → admin approval. |
 | 8 | Jul 1 | Canonical deploy target is Vercel | Removed: `wrangler.jsonc`, `open-next.config.ts`, `@opennextjs/cloudflare`, `netlify.toml` + ignore script. Kept: `vercel.json`, `wrangler.toml` (intelligence pipeline worker — not app deploy). |
+| 9 | Jul 4 | Every function called via `.rpc(...)` needs an `api.*` wrapper | PostgREST on this project only exposes the `api` schema (`lib/supabase/env.ts`), never `public` — confirmed empty (`information_schema.tables where table_schema='api'` was 100% views, zero functions) before this fix. Any `public`-only function is silently unreachable from every call path (supabase-js `.rpc()`, or a raw `/rest/v1/rpc/<fn>` POST with no `Accept-Profile`/`Content-Profile` override — every call site in this codebase uses the no-override form). A full-repo audit of `.rpc(`/`supabase.rpc(` call sites found **7 real instances**: `enqueue_regulatory_enrichment`, `claim_intelligence_job`, `check_and_increment_llm_rate_limit`, `acquire_crawl_targets`, `promote_all_extracted_snapshots`, `hv_ingest_snapshot_to_staging`, `hv_extract_signals_from_captured_text` (migrations `20260704094737`, `150014`, `151117`). Two of these (`check_and_increment_llm_rate_limit`, `acquire_crawl_targets`) had caller-side fallbacks that swallowed the error and silently degraded to a weaker mode (per-instance in-memory rate limiting; non-atomic select-then-update) — no exception ever surfaced, so this can hide for a long time. The other three (admin Hub panel actions) hard-404'd on click. An 8th call (`get_command_centre_stats`) turned out to be different: the function didn't exist in *any* schema, but the call was already caught-and-discarded with a "may not exist yet" comment — built for real in migration `20260704160603` instead (real `public` function + `api` wrapper, cross-validated against an independently-written reference query on live data, then wired into `lib/dashboard/commandCentreLiveData.ts` as the fast path with the original per-field queries kept as the error fallback). **Convention going forward:** real logic in `public`, thin `security definer` passthrough with matching param names in `api`, `revoke all from public` + `grant execute to service_role` unless the function genuinely needs anon/authenticated access. Check `api` schema reachability before assuming a new `public` function is callable from the app. |
+| 10 | Jul 4 | `revoke all on function ... from public` doesn't mean what it looks like it means | Found via `has_function_privilege`/`pg_proc.proacl` audit of the 8 functions from ADR #9, right after committing them — `get_command_centre_stats` and `enqueue_regulatory_enrichment` still had `anon`+`authenticated` EXECUTE despite an explicit `revoke all ... from public` in their migrations. Cause: this project has a default-privileges rule on the `public` schema (`pg_default_acl`, object type `f`, set by `postgres`/`supabase_admin`) that grants EXECUTE to `anon`+`authenticated`+`service_role` **directly, by name** on every new function created in `public` — independent of, and not touched by, `revoke ... from public` (which only strips the separate PUBLIC *pseudo-role* grant). `claim_intelligence_job` failed differently again: it had an explicit legacy grant to the PUBLIC pseudo-role itself (`proacl` showed `=X/postgres`), which conversely isn't touched by revoking from the *named* roles `anon`/`authenticated`. Net effect: closing this required both forms — `revoke execute ... from anon, authenticated` (named roles) AND `revoke all ... from public` (pseudo-role) — checked per-function via `proacl`, not assumed. Fixed in migrations `20260704171636`/`171735`. None of this was ever REST-reachable (PostgREST only exposes `api`, which has no equivalent default-ACL rule), but would have become live exposure the moment `public` was ever added to Data API's exposed schemas. **When locking down a new `security definer` function to `service_role`, verify the actual `pg_proc.proacl` afterward — don't trust that one `revoke` statement closed both grant paths.** |
+| 11 | Jul 7 | `MobileCommandCentre.tsx`'s inline `MOBILE_CSS` string is un-scoped plain CSS — duplicate class names silently collide | Caused a production bug: `.hvm-conf-bar-wrap`/`.hvm-conf-bar-fill` were each declared twice for two unrelated widgets (a thin signal-detail confidence bar vs. a vertical histogram fill needing `position: absolute`). Neither TypeScript nor lint catches this — it's a plain string rendered via `<style>{MOBILE_CSS}</style>`, not CSS modules or styled-jsx, so there's no build-time scoping or duplicate-selector warning. The later-declared rule won the cascade for conflicting properties, leaking `position: absolute; inset: 0`-style rules onto an unrelated, unpositioned element, which rendered as a near-full-viewport solid color block. **Before adding any new `.hvm-*` class to `MOBILE_CSS`, grep the file for that exact selector first** — a duplicate will not fail any check in this repo's current tooling. |
+| 12 | Jul 7 | `main` branch protection does not apply to admin-scoped tokens | `GET /repos/.../branches/main/protection` shows `enforce_admins.enabled: false` and `required_approving_review_count: 0`. Confirmed live: two pushes this session (one direct push, one merge commit) were let through with a "Bypassed rule violations" log message rather than rejected. This is a repo setting, not a code fix — see P0 items above. Recorded as a decision-pending item, not yet a decision: whether to tighten is explicitly Tyler's call given the tradeoff against solo-operator/agent execution speed. |
+| 13 | Jul 7 | Expansion Dossier Generator is a separate artifact from `dossiers`/`dossier_status`, linked not merged | The existing `dossiers` system (wired to real UI in PR #962) is confidential, manually-curated, human-authored 16-section files served via Google Drive/Supabase Storage, gated behind `/contact` — a qualified-counterparty deliverable. The Expansion product spec's dossier generator is a fundamentally different artifact: dynamically computed from `expansion_readiness_scores` + evidence, meant to be produced on-demand and exported directly to the requesting client. Same word ("dossier"), two different generation mechanisms, two different confidentiality models, two different consumers — folding the new one into the existing `dossiers` table would recreate the same ambiguity already flagged for `hv_passports` vs. the new readiness index (see PR #970). **Decision:** new table `expansion_generated_dossiers`, distinct from `dossiers`. It stores its own generated content (pulled live from `expansion_readiness_scores`, `expansion_readiness_score_evidence`, `expansion_hard_blockers`, `jurisdiction_briefings`, `jurisdiction_playbooks`), has an optional nullable `curated_dossier_id` FK to `dossiers` for when a real human-authored deep dossier already exists for that country. When present, the generated dossier's UI should surface a "Full Market Dossier Available" upsell pointing at it — reusing the exact CTA pattern already built in PR #962's country page — rather than duplicating or racing to replace that content. No changes to `dossiers`/`dossier_status` schema or ownership required. See migration `create_expansion_generated_dossiers.sql`. |
+| 14 | Jul 9 | Country routes are a tiered funnel, not duplicates — do not consolidate/redirect without instruction | A file-tree read alone makes `/countries/[slug]`, `/intelligence/country/[country]`, `/country/[country]/role/[role]`, `/dashboard/country/[country]`, and `/education/country/[country]` look like 5x duplicated "country" pages. Tracing the actual resolvers and call sites shows otherwise: `/countries/[slug]` is a thin public identity-only directory; `/intelligence/country/[country]` is the real public intelligence brief (confirmed via code search — linked from `/markets`, `/intelligence/country-briefs`, playbooks, `UniversalDashboard.tsx`); `/country/[country]/role/[role]` is the actual globe-router destination, a public evidence-gated role preview (confirmed via `getCountryRoleHref()` in `lib/roles/country-role-resolver.ts`); `/dashboard/country/[country]` is the authenticated operator console, live and referenced in 13 places including `CommandCentre.tsx`, `capabilityRegistry.ts`, and `dashboardLiveData.ts`. Four of the five are sequential funnel stages (identity → brief → role preview → authenticated console); only `/education/country/[country]` is genuinely separate content. **None of these routes should be deleted, merged, or redirected without deeper confirmation with Tyler** — `/dashboard/country/[country]` alone has enough live references that removing it would break the authenticated product. The actual problem is that the funnel is invisible in the UI — see P1 "Label the country-page funnel tiers" above. |
 
 ---
 
@@ -164,6 +172,61 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 9 2026 — nav IA restructure + country-funnel investigation · Claude (Sonnet 5)
+
+**Prompted by Tyler:** platform doesn't make international-market-access value obvious fast enough to a new visitor; asked for an IA/nav review.
+
+**Nav restructure (commit `cd27800`, direct to `main`):** `components/Nav.tsx` had 2 dropdown groups — Platform (8 items) and Intelligence (14 flat items, no sub-grouping). A 14-item flat dropdown was hiding the product behind a wall of links before anyone could evaluate it. Split into 4 intent-based groups: Platform (4 items: dashboard, network, professionals, institutional partnerships), Country Intelligence (6: briefs, market briefings, playbooks, regulatory/licensing pathways, logistics), Market Signals (3: signals, watchlists, counterparty intelligence), Compliance & Trust (6: policy, assessments, source engine/methodology, trust & governance, access states). Confirmed via `lib/institutional/content.ts` → `footerGroups` before cutting anything from primary nav that Platform Map, Trust & Governance, and Reviewed Connections remain reachable via footer — nothing orphaned. No route or business-logic changes; mobile nav updated to match.
+
+**Country-route investigation (see ADR #14) — no code changes, findings only:** Initial file-tree read looked like 5x duplicated "country" route trees (`/countries/[slug]`, `/intelligence/country/[country]`, `/country/[country]/role/[role]`, `/dashboard/country/[country]`, `/education/country/[country]`) — the kind of thing a fast pass might recommend consolidating via redirects. Traced the actual resolvers and code-search references instead of assuming: 4 of the 5 are a real, live, tiered funnel (public identity → public intelligence brief → evidence-gated role preview → authenticated console), not duplication. `/dashboard/country/[country]` alone has 13 live references (`CommandCentre.tsx`, `capabilityRegistry.ts`, `dashboardLiveData.ts`, tests); `/country/[country]/role/[role]` is confirmed as the actual globe-router destination via `getCountryRoleHref()`. Did not touch any of these routes. The real, larger problem — the funnel has no labeling in the UI, so a visitor can't tell which stage they're on — is scoped as a new P1 item, not implemented this session.
+
+**Not done:** The funnel-labeling UX pass itself (P1 item added to OPEN ITEMS above). Scoping only.
+
+---
+
+### Session: Jul 7 2026 — country/role white-screen + signal-detail gold-block · Claude (Sonnet 5)
+
+**Reported by Tyler via screenshots, both root-caused and fixed:**
+
+1. **White-screen fallback on country-entry** (`/country/[country]/role/[role]`) — no `error.tsx` anywhere in `app/country/[country]/*`, no `app/global-error.tsx` in the repo at all, and the route's two `Promise.all` blocks (~13 Supabase calls) had zero error handling. One rejected call (schema-cache misses on `signals_quality`/`genetics_service_providers`, confirmed live elsewhere) threw uncaught → Next's unbranded default error page instead of the app shell. Fixed: `Promise.all` → `Promise.allSettled` with typed per-call fallbacks; added `app/country/[country]/error.tsx` (branded, covers `role/[role]` + `state/[state]` — neither has its own) and `app/global-error.tsx` (imports `globals.css` directly, required since it bypasses the root layout).
+2. **Gold-block signal detail view** (Intel tab) — `.hvm-conf-bar-wrap`/`.hvm-conf-bar-fill` declared twice in `MobileCommandCentre.tsx`'s un-scoped `MOBILE_CSS` string, for two unrelated widgets. Cascade let a `position: absolute; inset 0`-style rule leak onto the signal-detail confidence bar, which broke out to the nearest positioned ancestor with a defined height → near-full-viewport gold block. Fixed by renaming the colliding (histogram) variant to `.hvm-hist-bar-*`. See ADR #11.
+
+**Concurrent-session collision, resolved live:** `main` moved 8 commits mid-task (another session editing the same file, non-overlapping function), then 6 more before this handoff update. Diffed both windows directly before merging/fast-forwarding — no real conflict either time, confirmed by reading the diffs, not by trusting a clean `git merge` exit code alone.
+
+**Branch protection finding:** `enforce_admins: false` + `required_approving_review_count: 0` on `main` — see ADR #12 and new P0 item above. Both of this session's pushes bypassed "PR required" / "no merge commits" rules; GitHub let them through with a warning.
+
+**Verification:** `npx tsc --noEmit` — 0 errors (post-fix and post-merge, both runs). `npx eslint` on all 4 touched/new files — 0 errors, 14 pre-existing warnings unrelated to this diff. Full detail + exact commands in `docs/control/EVIDENCE_LOG.md` → "Country/role white-screen defect + MOBILE_CSS class-collision defect (2026-07-07)".
+
+**Not done:** No browser/visual confirmation of either fix — no live render environment available this session. Manual click-through recommended once the `635a073`+ deploy is live. No migration/schema work this session, so migration-drift and test-suite gates were out of scope.
+
+**Commits:** `ef61a79`, `fb17309`, `635a073` (merge — see branch-protection finding).
+
+---
+
+### Session: Jul 4 2026 — migration reconciliation + api-schema RPC audit · Claude (Sonnet 5)
+
+**Migration git reconciliation:** committed 8 Claude-authored regulatory-product-format-matrix migrations (`20260702033107` → `20260702213646`) to `main`, byte-for-byte from the `schema_migrations` ledger (self-verifying md5-chunked transcription — whole-file transcription of long base64 was silently dropping/adding characters in repeated `-- ====` divider runs). Left alone: 8 parallel-agent migrations from that window (their own authors push those) and 4 repo-only orphans never applied to this DB (human call, not agent's).
+
+**Vercel cron wired:** `enqueue_regulatory_enrichment()` — flagged pending in an earlier session — now runs daily (`0 11 * * *`) via new route `app/api/cron/regulatory-enrichment`.
+
+**api-schema RPC audit — see ADR #9 for the full pattern.** Full-repo `.rpc(`/`supabase.rpc(` audit found 7 functions silently unreachable via PostgREST + 1 that never existed at all:
+
+| Migration | What |
+|---|---|
+| `20260704094737_expose_enqueue_regulatory_enrichment` | `api.enqueue_regulatory_enrichment()` wrapper |
+| `20260704150014_expose_claim_intelligence_job` | `api.claim_intelligence_job()` wrapper |
+| `20260704151117_expose_remaining_public_only_rpcs` | 5 more `api.*` wrappers: `check_and_increment_llm_rate_limit`, `acquire_crawl_targets`, `promote_all_extracted_snapshots`, `hv_ingest_snapshot_to_staging`, `hv_extract_signals_from_captured_text` |
+| `20260704160603_get_command_centre_stats` | Real `get_command_centre_stats()` (public + api) — the call site already existed but the function never did; was silently caught-and-discarded. Built for real, cross-validated against an independently-written reference query on live data (exact match, 18/18 fields), wired in as `commandCentreLiveData.ts`'s fast path with the original per-field queries kept as the error fallback |
+| `20260704171636_close_public_schema_default_acl_leak`, `20260704171735_revoke_public_pseudorole_claim_intelligence_job` | Post-audit fix — see ADR #10 |
+
+**Code changed (direct to `main`, no PR — per delegated-execution policy):** `app/api/cron/regulatory-enrichment/route.ts` (new), `vercel.json` (+1 cron), `lib/dashboard/commandCentreLiveData.ts` (RPC fast path + fallback).
+
+**Still open:** `intelligence_jobs` worker wiring (P2 above) — `claim_intelligence_job` is now at least *reachable*, but nothing calls it yet.
+
+**Post-commit audit ("is anything missing" check):** Vercel deployment for every commit this session shows `state: READY, target: production` — no build/TypeScript errors. Re-ran the `.rpc(` audit (including a check for dynamic/non-literal call sites) — nothing missed, no new call sites from other agents. Supabase security + performance advisors show nothing new from this session's functions. Found and fixed one real gap: `revoke all ... from public` in the ADR #9 migrations didn't fully lock down 3 of the 8 functions — see ADR #10. Could not verify: whether the new cron has actually fired yet, or that `CRON_SECRET` is set in Vercel — `get_runtime_logs`/`get_runtime_errors` returned "No approval received" on every attempt this session; no tool available to list env var names either. Worth a manual check in the Vercel dashboard.
 
 ---
 

@@ -23,7 +23,13 @@ const INTER_SOURCE_DELAY_MS = 800 // polite delay between site fetches
 // persist a response. Stop pulling new sources once we're within this budget so the
 // run always returns a normal (partial) summary; per-source cadence state already
 // persisted this tick means skipped sources are simply picked up on the next run.
-const TIME_BUDGET_MS = 260_000
+const TIME_BUDGET_MS = 240_000
+
+// Hard ceiling on a single source's fetch+AI work. Without this, one slow site or
+// slow AI response can blow straight through the remaining budget on its own —
+// the loop-level budget check only guards against starting a *new* source, it does
+// nothing to bound one already in flight.
+const SOURCE_TIMEOUT_MS = 15_000
 
 // Exponential backoff cap: after 5 consecutive failures a source is retried
 // only after 32× its normal cadence (e.g. a 24h source backs off to ~32 days).
@@ -39,6 +45,19 @@ function runId() {
 
 function isPassthrough(normalised: { isPassthrough?: boolean; redactionNote?: string }): boolean {
   return normalised.isPassthrough === true
+}
+
+// Races a promise against a hard deadline so one slow call can never consume more
+// than SOURCE_TIMEOUT_MS of run budget. Does not cancel the underlying call — it
+// simply stops waiting on it, which is sufficient here since the caller only cares
+// about bounding wall time, not the leaked in-flight request.
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ])
 }
 
 export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
@@ -92,15 +111,98 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
 
     const t0 = Date.now()
 
-    // Fetch
-    const url = source.searchUrl ?? source.url
-    const fetchResult = await fetchSourceHtml(url)
+    try {
+      // Fetch — bounded so a hung/slow site can't consume the run's remaining budget.
+      const url = source.searchUrl ?? source.url
+      const fetchResult = await withTimeout(fetchSourceHtml(url), SOURCE_TIMEOUT_MS, 'fetchSourceHtml')
 
-    if (!fetchResult.ok) {
-      const error = fetchResult.error
+      if (!fetchResult.ok) {
+        const error = fetchResult.error
+        sourceResults.push({
+          source,
+          status: fetchResult.status === 429 ? 'rate_limited' : 'failed',
+          candidatesFound: 0,
+          candidatesInserted: 0,
+          candidatesSkipped: 0,
+          durationMs: Date.now() - t0,
+          error,
+        })
+        totalFailed++
+        await persistSourceState(source.id, source.cadenceHours, false, prevFailures, error)
+        await sleep(INTER_SOURCE_DELAY_MS)
+        continue
+      }
+
+      // Parse — dispatches to rss-feed, html-table, or html-card parser
+      const rawItems = parseSource(fetchResult.html!, source).slice(0, MAX_ITEMS_PER_SOURCE)
+
+      // Deduplicate
+      const { fresh, duplicateCount } = deduplicateItems(rawItems, existingFingerprints)
+
+      if (fresh.length === 0) {
+        sourceResults.push({
+          source,
+          status: 'ok',
+          candidatesFound: rawItems.length,
+          candidatesInserted: 0,
+          candidatesSkipped: duplicateCount,
+          durationMs: Date.now() - t0,
+        })
+        await persistSourceState(source.id, source.cadenceHours, true, prevFailures)
+        await sleep(INTER_SOURCE_DELAY_MS)
+        continue
+      }
+
+      // Normalise via AI (with automatic passthrough fallback if key is missing/invalid)
+      // — also bounded, for the same reason as the fetch above.
+      const normalisedItems = await withTimeout(normaliseWithAI(fresh), SOURCE_TIMEOUT_MS, 'normaliseWithAI')
+
+      // Pair raw + normalised, then apply confidence filtering:
+      // - Passthrough items (AI unavailable): always keep — they land as needs_review
+      // - Genuine AI results: require confidence >= 0.4 to filter out weak extractions
+      const pairs = fresh
+        .slice(0, normalisedItems.length)
+        .map((raw, i) => ({ raw, normalised: normalisedItems[i] }))
+        .filter(({ normalised }) =>
+          isPassthrough(normalised)
+            ? true
+            : normalised.confidence >= 0.4,
+        )
+
+      // Ingest
+      const { inserted, errors } = await insertCandidates(pairs)
+      const runSuccess = !(errors > 0 && inserted === 0)
+
       sourceResults.push({
         source,
-        status: fetchResult.status === 429 ? 'rate_limited' : 'failed',
+        status: runSuccess ? 'ok' : 'failed',
+        candidatesFound: rawItems.length,
+        candidatesInserted: inserted,
+        candidatesSkipped: duplicateCount + (fresh.length - pairs.length),
+        durationMs: Date.now() - t0,
+        error: errors > 0 ? `${errors} insert error(s)` : undefined,
+      })
+
+      totalInserted += inserted
+      totalSkipped += duplicateCount
+      if (!runSuccess) totalFailed++
+
+      await persistSourceState(
+        source.id,
+        source.cadenceHours,
+        runSuccess,
+        prevFailures,
+        runSuccess ? undefined : `${errors} insert error(s)`,
+      )
+    } catch (err) {
+      // Any failure in fetch/parse/AI/ingest for this source — including a
+      // withTimeout rejection — is contained here. Without this catch, one bad
+      // source throws out of the loop entirely and the whole run 500s, discarding
+      // every source already processed this tick.
+      const error = err instanceof Error ? err.message : String(err)
+      sourceResults.push({
+        source,
+        status: 'failed',
         candidatesFound: 0,
         candidatesInserted: 0,
         candidatesSkipped: 0,
@@ -109,70 +211,7 @@ export async function runScrapeEngine(): Promise<ScrapeRunSummary> {
       })
       totalFailed++
       await persistSourceState(source.id, source.cadenceHours, false, prevFailures, error)
-      await sleep(INTER_SOURCE_DELAY_MS)
-      continue
     }
-
-    // Parse — dispatches to rss-feed, html-table, or html-card parser
-    const rawItems = parseSource(fetchResult.html!, source).slice(0, MAX_ITEMS_PER_SOURCE)
-
-    // Deduplicate
-    const { fresh, duplicateCount } = deduplicateItems(rawItems, existingFingerprints)
-
-    if (fresh.length === 0) {
-      sourceResults.push({
-        source,
-        status: 'ok',
-        candidatesFound: rawItems.length,
-        candidatesInserted: 0,
-        candidatesSkipped: duplicateCount,
-        durationMs: Date.now() - t0,
-      })
-      await persistSourceState(source.id, source.cadenceHours, true, prevFailures)
-      await sleep(INTER_SOURCE_DELAY_MS)
-      continue
-    }
-
-    // Normalise via AI (with automatic passthrough fallback if key is missing/invalid)
-    const normalisedItems = await normaliseWithAI(fresh)
-
-    // Pair raw + normalised, then apply confidence filtering:
-    // - Passthrough items (AI unavailable): always keep — they land as needs_review
-    // - Genuine AI results: require confidence >= 0.4 to filter out weak extractions
-    const pairs = fresh
-      .slice(0, normalisedItems.length)
-      .map((raw, i) => ({ raw, normalised: normalisedItems[i] }))
-      .filter(({ normalised }) =>
-        isPassthrough(normalised)
-          ? true
-          : normalised.confidence >= 0.4,
-      )
-
-    // Ingest
-    const { inserted, errors } = await insertCandidates(pairs)
-    const runSuccess = !(errors > 0 && inserted === 0)
-
-    sourceResults.push({
-      source,
-      status: runSuccess ? 'ok' : 'failed',
-      candidatesFound: rawItems.length,
-      candidatesInserted: inserted,
-      candidatesSkipped: duplicateCount + (fresh.length - pairs.length),
-      durationMs: Date.now() - t0,
-      error: errors > 0 ? `${errors} insert error(s)` : undefined,
-    })
-
-    totalInserted += inserted
-    totalSkipped += duplicateCount
-    if (!runSuccess) totalFailed++
-
-    await persistSourceState(
-      source.id,
-      source.cadenceHours,
-      runSuccess,
-      prevFailures,
-      runSuccess ? undefined : `${errors} insert error(s)`,
-    )
 
     await sleep(INTER_SOURCE_DELAY_MS)
   }

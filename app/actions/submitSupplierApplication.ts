@@ -3,7 +3,12 @@
 // Server action for the Supplier Directory application form.
 // Writes a pending_review row to supplier_profiles — admin reviews and flips
 // status='approved' before it appears publicly in the supplier directory.
-// Mirrors submitProfessionalApplication.ts exactly in structure and security patterns.
+//
+// NOTE: supplier_profiles has a narrower live schema than hv_professionals
+// (single `region` enum, DB-level `seller_type` enum, `marketplace_category[]`
+// categories, no profile_slug/title/website/hq_country/services_offered
+// columns). Richer form input that doesn't map to a real column is preserved
+// in the `capabilities` jsonb column instead of being dropped.
 
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
@@ -14,9 +19,84 @@ export type SupplierApplicationState = {
 }
 
 const ALLOWED_SELLER_TYPES = new Set([
-  'cultivator', 'processor', 'distributor', 'equipment', 
+  'cultivator', 'processor', 'distributor', 'equipment',
   'genetics', 'lab_testing', 'packaging', 'services', 'other'
 ])
+
+// Form business type -> live `seller_type` enum (licensed_producer | distributor |
+// wholesaler | retailer | investor | other). The granular value the user picked
+// is kept verbatim in capabilities.business_type for accurate display.
+const SELLER_TYPE_DB_MAP: Record<string, string> = {
+  cultivator: 'licensed_producer',
+  processor: 'licensed_producer',
+  distributor: 'distributor',
+  equipment: 'other',
+  genetics: 'licensed_producer',
+  lab_testing: 'other',
+  packaging: 'other',
+  services: 'other',
+  other: 'other',
+}
+
+// ISO2 -> live `region` enum (north_america | europe | asia_pacific |
+// latin_america | middle_east_africa | global). Coarse on purpose — the full
+// country list the supplier entered is preserved in capabilities.regions_served.
+const REGION_BY_COUNTRY: Record<string, string> = {
+  US: 'north_america', CA: 'north_america', MX: 'north_america',
+  GB: 'europe', DE: 'europe', FR: 'europe', NL: 'europe', PT: 'europe', ES: 'europe',
+  IT: 'europe', CH: 'europe', PL: 'europe', CZ: 'europe', GR: 'europe', DK: 'europe',
+  AT: 'europe', BE: 'europe', SE: 'europe', NO: 'europe', FI: 'europe', IE: 'europe',
+  RO: 'europe', HR: 'europe', UA: 'europe',
+  AU: 'asia_pacific', NZ: 'asia_pacific', JP: 'asia_pacific', KR: 'asia_pacific',
+  CN: 'asia_pacific', TH: 'asia_pacific', IN: 'asia_pacific', PH: 'asia_pacific',
+  BR: 'latin_america', AR: 'latin_america', CO: 'latin_america', CL: 'latin_america',
+  PE: 'latin_america', UY: 'latin_america', JM: 'latin_america', TT: 'latin_america',
+  ZA: 'middle_east_africa', IL: 'middle_east_africa', AE: 'middle_east_africa',
+  MA: 'middle_east_africa', LB: 'middle_east_africa',
+}
+
+// Live `marketplace_category` enum values relevant to supplier-directory listings.
+const DB_CATEGORIES = new Set([
+  'new_products', 'used_surplus', 'cannabis_inventory', 'wanted_requests', 'services',
+  'business_opportunities', 'supplier_directory', 'cultivation_equipment', 'export_ready',
+  'import_demand', 'consumables', 'distressed_inventory', 'distressed_businesses', 'genetics',
+  'professional_services', 'labs_testing', 'logistics', 'packaging', 'processing_equipment',
+])
+
+// Freeform keyword -> nearest valid category, for the free-text category field.
+const CATEGORY_KEYWORDS: Array<[string, string]> = [
+  ['equipment', 'cultivation_equipment'],
+  ['packaging', 'packaging'],
+  ['genetic', 'genetics'],
+  ['logistic', 'logistics'],
+  ['test', 'labs_testing'],
+  ['lab', 'labs_testing'],
+  ['consult', 'professional_services'],
+  ['service', 'professional_services'],
+  ['consumable', 'consumables'],
+  ['process', 'processing_equipment'],
+]
+
+function mapCategories(raw: string[]): string[] {
+  const mapped = new Set<string>()
+  for (const entry of raw) {
+    const key = entry.toLowerCase().trim()
+    if (DB_CATEGORIES.has(key)) {
+      mapped.add(key)
+      continue
+    }
+    for (const [keyword, category] of CATEGORY_KEYWORDS) {
+      if (key.includes(keyword)) mapped.add(category)
+    }
+  }
+  mapped.add('supplier_directory')
+  return Array.from(mapped)
+}
+
+function mapRegion(countries: string[]): string {
+  const regions = new Set(countries.map((c) => REGION_BY_COUNTRY[c] ?? 'global'))
+  return regions.size === 1 ? [...regions][0] : 'global'
+}
 
 const MAX_FIELD_LEN = 200
 const MAX_DESCRIPTION_LEN = 1500
@@ -30,15 +110,6 @@ function readMultiField(formData: FormData, key: string): string[] {
   const raw = readField(formData, key)
   if (!raw) return []
   return raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 12)
-}
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80)
 }
 
 function isValidEmail(email: string): boolean {
@@ -84,6 +155,10 @@ export async function submitSupplierApplication(
     return { status: 'error', message: 'Please select a valid business type.' }
   }
 
+  if (!descriptionPublic) {
+    return { status: 'error', message: 'Please provide a public company description.' }
+  }
+
   if (descriptionPublic.length > MAX_DESCRIPTION_LEN) {
     return { status: 'error', message: `Description must be under ${MAX_DESCRIPTION_LEN} characters.` }
   }
@@ -108,34 +183,22 @@ export async function submitSupplierApplication(
 
   const svc = createClient(url, serviceKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
 
-  const baseSlug = slugify(companyName) || `supplier-${Date.now()}`
-  let profileSlug = baseSlug
-  let suffix = 1
-  // Ensure slug uniqueness
-  while (suffix < 6) {
-    const { data: existing } = await svc
-      .from('supplier_profiles')
-      .select('id')
-      .eq('profile_slug', profileSlug)
-      .maybeSingle()
-    if (!existing) break
-    suffix += 1
-    profileSlug = `${baseSlug}-${suffix}`
-  }
-
   const { error } = await svc.from('supplier_profiles').insert({
-    profile_slug: profileSlug,
     company_name: companyName,
     contact_name: contactName || null,
-    email,
-    title: title || null,
-    seller_type: sellerType,
-    categories,
-    regions_served: regionsServed,
-    description_public: descriptionPublic || null,
-    website: websiteUrl || null,
-    hq_country: hqCountry || null,
-    services_offered: servicesOffered,
+    contact_email: email,
+    seller_type: SELLER_TYPE_DB_MAP[sellerType] ?? 'other',
+    region: mapRegion(regionsServed),
+    categories: mapCategories(categories),
+    description: descriptionPublic,
+    capabilities: {
+      business_type: sellerType,
+      title: title || null,
+      website: websiteUrl || null,
+      hq_country: hqCountry || null,
+      services_offered: servicesOffered,
+      regions_served: regionsServed,
+    },
     status: 'pending_review',
   })
 

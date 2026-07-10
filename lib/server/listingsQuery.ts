@@ -24,10 +24,20 @@ export type PublicListing = {
   is_featured: boolean
   high_level_specs: Record<string, unknown>
   created_at: string
+  // PostgREST/Postgres numeric serialization for average_rating isn't
+  // guaranteed to be a JSON number (confirmed returned as a string on this
+  // project) — callers must coerce with Number() before arithmetic.
+  average_rating: number | string | null
+  review_count: number | null
 }
 
 const SELECT_COLS =
-  'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at'
+  'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at,average_rating,review_count'
+
+const SORT_ORDERS: Record<string, string> = {
+  featured: 'is_featured.desc,created_at.desc',
+  rating: 'average_rating.desc.nullslast,review_count.desc,created_at.desc',
+}
 
 // Public listing pages are read-heavy and change only when an admin publishes.
 // Revalidate every 5 minutes — eliminates the direct DB hit for the vast
@@ -54,10 +64,10 @@ async function queryListings(params: URLSearchParams): Promise<PublicListing[]> 
   }
 }
 
-function baseParams(limit = 12): URLSearchParams {
+function baseParams(limit = 12, sort = 'featured'): URLSearchParams {
   return new URLSearchParams({
     select: SELECT_COLS,
-    order: 'is_featured.desc,created_at.desc',
+    order: SORT_ORDERS[sort] ?? SORT_ORDERS.featured,
     limit: String(limit),
   })
 }
@@ -130,16 +140,22 @@ export type ListingFilters = {
   region?: string
   productType?: string
   search?: string
+  sort?: string
 }
 
-export async function getPublicListingsByCategoryFiltered(
-  category: string,
-  filters: ListingFilters = {},
+/**
+ * General-purpose filtered listings fetch used by the main /marketplace/listings
+ * page. Category is optional here (unlike getPublicListingsByCategoryFiltered)
+ * since that page spans every category at once.
+ */
+export async function getPublicListingsFiltered(
+  filters: ListingFilters & { category?: string } = {},
   limit = 60,
 ): Promise<PublicListing[]> {
-  const p = baseParams(limit)
-  const normalized = category.replace(/-/g, '_')
-  p.set('category', `eq.${normalized}`)
+  const p = baseParams(limit, filters.sort)
+  if (filters.category && filters.category !== 'all') {
+    p.set('category', `eq.${filters.category.replace(/-/g, '_')}`)
+  }
   if (filters.region && filters.region !== 'all') {
     p.set('region', `eq.${filters.region}`)
   }
@@ -156,4 +172,12 @@ export async function getPublicListingsByCategoryFiltered(
     )
   }
   return rows
+}
+
+export async function getPublicListingsByCategoryFiltered(
+  category: string,
+  filters: ListingFilters = {},
+  limit = 60,
+): Promise<PublicListing[]> {
+  return getPublicListingsFiltered({ ...filters, category }, limit)
 }

@@ -92,6 +92,94 @@ const exportMarketPrimaryRoleIds: RoleId[] = [
   'not_sure',
 ]
 
+// ── 30-country expansion (2026-07-09) — 6 shared role archetypes, same
+// pattern as exportMarketPrimaryRoleIds above: one curated list per market
+// shape rather than one per country. See HANDOFF.md session log for sourcing
+// (cc_jurisdiction_briefings program_status + commercial priority).
+
+// Tier 1 — EU medical-pharma markets with active import/export trade.
+const euMedicalPharmaPrimaryRoleIds: RoleId[] = [
+  'importer',
+  'exporter',
+  'gmp_quality',
+  'distributor_wholesaler',
+  'pharmacist',
+  'doctor_prescriber',
+  'lab_qa',
+  'regulatory_compliance',
+  'investor_operator',
+  'not_sure',
+]
+
+// Tier 2 — smaller/named-patient-only medical programs. Compliance and legal
+// lead over commercial roles since import/export volume is lower here.
+const limitedMedicalPrimaryRoleIds: RoleId[] = [
+  'doctor_prescriber',
+  'pharmacist',
+  'regulatory_compliance',
+  'legal_advisory',
+  'importer',
+  'exporter',
+  'gmp_quality',
+  'investor_operator',
+  'not_sure',
+]
+
+// Tier 3 — EU adult-use reform pioneers (personal cultivation legal,
+// commercial licensing still forming). Investor/regulatory interest leads.
+const euAdultUsePioneerPrimaryRoleIds: RoleId[] = [
+  'regulatory_compliance',
+  'legal_advisory',
+  'cultivator_producer',
+  'investor_operator',
+  'government_regulator',
+  'doctor_prescriber',
+  'importer',
+  'exporter',
+  'not_sure',
+]
+
+// Tier 4 — export-production powerhouses. Same shape as Colombia/Uruguay
+// (exportMarketPrimaryRoleIds) but production-first rather than trade-first.
+const exportProductionPrimaryRoleIds: RoleId[] = [
+  'cultivator_producer',
+  'exporter',
+  'gmp_quality',
+  'lab_qa',
+  'geneticist_breeder',
+  'distributor_wholesaler',
+  'regulatory_compliance',
+  'investor_operator',
+  'not_sure',
+]
+
+// Tier 5 — United States. Federal prohibition blocks legal cross-border
+// trade, so no importer/exporter — this is a domestic-only role shape.
+const usDomesticPrimaryRoleIds: RoleId[] = [
+  'cultivator_producer',
+  'retail_operator',
+  'processor_extractor',
+  'distributor_wholesaler',
+  'regulatory_compliance',
+  'legal_advisory',
+  'investor_operator',
+  'lab_qa',
+  'not_sure',
+]
+
+// Tier 6 — Mexico. Medical legal, adult-use pending full regulation —
+// regulatory-watch posture.
+const mexicoPrimaryRoleIds: RoleId[] = [
+  'regulatory_compliance',
+  'legal_advisory',
+  'cultivator_producer',
+  'investor_operator',
+  'distributor_wholesaler',
+  'doctor_prescriber',
+  'government_regulator',
+  'not_sure',
+]
+
 export const defaultCountryRoleProfile: CountryRoleProfile = {
   countryIso2: 'GLOBAL',
   countryName: 'Global default',
@@ -170,6 +258,77 @@ export const countryRoleProfiles: CountryRoleProfile[] = [
     searchableRoleIds: allRoleIds,
     notes: 'Export-market profile prioritizes cross-border, quality, logistics and review pathways.',
   })),
+
+  // Tier 1 — EU medical-pharma, active import/export
+  ...['GR', 'FR', 'ES', 'IT', 'CZ', 'PL', 'CH', 'AT', 'DK', 'IE', 'HR', 'CY', 'NO'].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'medical' as const,
+    primaryRoleIds: euMedicalPharmaPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !euMedicalPharmaPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'EU medical-pharma profile prioritizes import, export, quality, distribution and pharmacy pathways.',
+  })),
+
+  // Tier 2 — smaller/limited medical programs
+  ...['BE', 'SE', 'FI', 'RO', 'BG', 'SI', 'SK', 'IS'].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'medical' as const,
+    primaryRoleIds: limitedMedicalPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !limitedMedicalPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'Limited-medical profile prioritizes clinical, pharmacy, compliance and legal pathways over commercial trade volume.',
+  })),
+
+  // Tier 3 — EU adult-use reform pioneers
+  ...['MT', 'LU'].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'adult_use' as const,
+    primaryRoleIds: euAdultUsePioneerPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !euAdultUsePioneerPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'Adult-use pioneer profile prioritizes compliance, legal and investor pathways while commercial licensing structures are still forming.',
+  })),
+
+  // Tier 4 — export-production powerhouses
+  ...['MA', 'MK', 'LS', 'ZW', 'JM'].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'export' as const,
+    primaryRoleIds: exportProductionPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !exportProductionPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'Export-production profile prioritizes cultivation, genetics, quality and export pathways.',
+  })),
+
+  // Tier 5 — United States: federal prohibition blocks legal cross-border
+  // trade, so this is a domestic-only role shape (no importer/exporter).
+  // Previously had no curated profile at all despite being in
+  // curatedCountryOrder — silently fell back to the generic default, which
+  // wrongly surfaced importer/exporter as primary roles for a market where
+  // neither is legally reachable federally.
+  {
+    countryIso2: 'US',
+    countryName: countryOptionMap['US']?.name ?? 'United States',
+    marketModel: 'mixed',
+    primaryRoleIds: usDomesticPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !usDomesticPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'US profile is domestic-only — federal Schedule I status blocks legal import/export; state programs vary.',
+  },
+
+  // Tier 6 — Mexico: medical legal, adult-use pending full regulation.
+  {
+    countryIso2: 'MX',
+    countryName: countryOptionMap['MX']?.name ?? 'Mexico',
+    marketModel: 'medical',
+    primaryRoleIds: mexicoPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !mexicoPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'Regulatory-watch posture while adult-use framework moves toward full regulation.',
+  },
 ]
 
 export const countryRoleProfileMap = Object.fromEntries(

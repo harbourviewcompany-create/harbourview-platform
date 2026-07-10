@@ -93,6 +93,9 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
                     { label: 'Jurisdiction', value: location },
                     { label: 'Verification', value: isVerified ? 'Verified' : 'Pending Review' },
                     { label: 'Price',        value: price ?? 'On request' },
+                    ...(Number(d.average_rating) > 0 && Number(d.review_count) > 0
+                      ? [{ label: 'Rating', value: `★ ${Number(d.average_rating).toFixed(1)} (${Number(d.review_count)})` }]
+                      : []),
                   ].map(({ label, value }) => value && (
                     <div key={label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
                       <p className="mb-1 text-[9px] uppercase tracking-[0.1em]" style={{ color: 'var(--hv-champagne-400)' }}>{label}</p>
