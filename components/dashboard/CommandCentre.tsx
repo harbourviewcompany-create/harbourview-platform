@@ -14,6 +14,7 @@ import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
+import { buildPreferencesPatchBody } from '@/lib/dashboard/preferencesPersistence'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
@@ -4062,24 +4063,28 @@ export default function CommandCentre({
     if (!userEmail) return
     fetch('/api/dashboard/preferences')
       .then(r => r.json())
-      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
-      .catch(() => { heatmapLayerRef.current = 'none' })
-      .finally(() => { preferencesLoadedRef.current = true })
+      .then(d => {
+        heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none'
+        preferencesLoadedRef.current = true
+      })
+      // Deliberately do NOT flip preferencesLoadedRef here: if the initial GET
+      // fails we still don't know the user's real saved heatmap_layer, so
+      // persistDashboardPreferences should keep no-op'ing rather than risk
+      // sending 'none' once a later change triggers a PATCH.
+      .catch(() => undefined)
   }, [userEmail])
 
   const persistDashboardPreferences = useCallback((next: { country_iso2?: string; role_id?: string }) => {
-    // Don't persist until the initial GET above has resolved — otherwise heatmapLayerRef
-    // is still stuck at its 'none' initial value and this PATCH would clobber whatever
-    // heatmap_layer the user actually has saved (table default is 'marketplace_activity').
-    if (!userEmail || !preferencesLoadedRef.current) return
+    const body = buildPreferencesPatchBody(
+      { userEmail, preferencesLoaded: preferencesLoadedRef.current, heatmapLayer: heatmapLayerRef.current },
+      next,
+      { country_iso2: country.iso2, role_id: role },
+    )
+    if (!body) return
     void fetch('/api/dashboard/preferences', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        country_iso2: next.country_iso2 ?? country.iso2,
-        role_id: next.role_id ?? role,
-        heatmap_layer: heatmapLayerRef.current,
-      }),
+      body: JSON.stringify(body),
     }).catch(() => undefined)
   }, [userEmail, country.iso2, role])
 
