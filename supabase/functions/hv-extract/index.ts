@@ -273,8 +273,57 @@ Deno.serve(async (req: Request) => {
     try {
       // ── Editorial path: mainstream media, no commercial signal scoring ──────
       if (isMainstreamMediaSnapshot(snapshot)) {
-        const editorial = await extractEditorial(snapshot);
+        // Real fallback: try Anthropic, and only on actual failure (not just
+        // "if the key happens to be absent") retry with OpenAI. The prior
+        // version's extractEditorial() picked a provider once based purely
+        // on which key was configured and never retried — so with
+        // ANTHROPIC_API_KEY present but billing-dead, it never reached the
+        // OpenAI code path at all despite OPENAI_API_KEY being available and
+        // working (confirmed live: Codex's separate run_signal_extraction()
+        // successfully falls back to OpenAI for the trade-signal pipeline;
+        // this brings the editorial pipeline up to the same standard).
+        let editorial: EditorialResult | null = null;
+        let extractionError: string | null = null;
+
+        if (ANTHROPIC_API_KEY) {
+          try { editorial = await extractEditorialAnthropic(snapshot); }
+          catch (e) { extractionError = e instanceof Error ? e.message : String(e); }
+        }
+        if (!editorial && OPENAI_API_KEY) {
+          try { editorial = await extractEditorialOpenAI(snapshot); extractionError = null; }
+          catch (e) { extractionError = extractionError ? `${extractionError} | openai: ${e instanceof Error ? e.message : String(e)}` : (e instanceof Error ? e.message : String(e)); }
+        }
         extracted++;
+
+        // Both providers failed (or neither configured): rather than losing
+        // the item entirely behind a source_snapshots.error_message no one
+        // routinely checks, land it in a visible manual-review bucket —
+        // editorial_items with stage='needs_review', carrying the raw
+        // headline/URL/text so a human can write it up directly instead of
+        // having to dig it out of the extraction failure logs.
+        if (!editorial) {
+          if (!dryRun) {
+            await supabase.from("editorial_items").insert({
+              source_id: snapshot.source_id,
+              snapshot_id: snapshot.id,
+              headline: (snapshot.captured_title ?? "Untitled — needs manual review").slice(0, 300),
+              summary: (snapshot.captured_text ?? "").slice(0, 500),
+              why_it_matters: null,
+              outlet_name: (snapshot as any)._source_name ?? null,
+              source_url: snapshot.captured_url,
+              country: snapshot.source_country ?? null,
+              region: snapshot.source_region ?? null,
+              language: snapshot.language_detected ?? "en",
+              tone: "other",
+              stage: "needs_review",
+              published_at: snapshot.captured_at ?? new Date().toISOString(),
+            });
+            await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: (extractionError ?? "no_llm_provider_available").slice(0, 500) }).eq("id", snapshot.id);
+          }
+          failed++;
+          results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "editorial", reason: extractionError ?? "no_llm_provider_available" });
+          continue;
+        }
 
         if (!editorial.is_cannabis_relevant || !editorial.headline) {
           skippedLowRelevance++;
@@ -319,8 +368,56 @@ Deno.serve(async (req: Request) => {
       }
 
       // ── Trade-signal path: everything else (trade/regulator/industry news) ──
-      const extraction = await extractSignal(snapshot);
+      // Same real-fallback fix as the editorial path above: try Anthropic,
+      // and only on actual failure retry with OpenAI, instead of picking a
+      // provider once based purely on which key is configured.
+      let extraction: ExtractionResult | null = null;
+      let extractionError: string | null = null;
+
+      if (ANTHROPIC_API_KEY) {
+        try { extraction = await extractAnthropic(snapshot); }
+        catch (e) { extractionError = e instanceof Error ? e.message : String(e); }
+      }
+      if (!extraction && OPENAI_API_KEY) {
+        try { extraction = await extractOpenAI(snapshot); extractionError = null; }
+        catch (e) { extractionError = extractionError ? `${extractionError} | openai: ${e instanceof Error ? e.message : String(e)}` : (e instanceof Error ? e.message : String(e)); }
+      }
       extracted++;
+
+      // Both providers failed: stage a manual-review stub in
+      // hv_import_staging (its existing pending/reviewed_by/review_note
+      // workflow already serves as the review bucket for this pipeline)
+      // instead of letting the item disappear into a source_snapshots
+      // error_message that nothing routinely surfaces.
+      if (!extraction) {
+        if (!dryRun) {
+          await supabase.from("hv_import_staging").insert({
+            workspace_id: HV_WORKSPACE_ID,
+            source_system: "source_engine",
+            source_record_id: snapshot.id,
+            source_url: snapshot.captured_url,
+            import_batch_id: batchId,
+            importer_version: `hv-extract@1.3.0+needs_review`,
+            transform_version: "none",
+            raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: extractionError },
+            raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
+            normalized_payload: { needs_review: true, reason: extractionError ?? "no_llm_provider_available" },
+            normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
+            proposed_object_class: "source_document",
+            proposed_classification: "public",
+            proposed_title: (snapshot.captured_title ?? "Untitled — needs manual review").slice(0, 500),
+            content_hash: await sha256(snapshot.captured_url),
+            is_duplicate_candidate: false,
+            status: "pending",
+            retry_count: 0,
+            review_note: `Auto-extraction failed on both configured providers: ${(extractionError ?? "unknown").slice(0, 300)}`,
+          });
+          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: (extractionError ?? "no_llm_provider_available").slice(0, 500) }).eq("id", snapshot.id);
+        }
+        failed++;
+        results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "signal", reason: extractionError ?? "no_llm_provider_available" });
+        continue;
+      }
 
       if (extraction.signal_type === "none" || extraction.relevance_score < minRelevance) {
         skippedLowRelevance++;
@@ -376,5 +473,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.1.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.4.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
