@@ -390,7 +390,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_market_dynamics:   jb?.market_dynamics ?? null,
       briefing_regulatory_outlook: jb?.regulatory_outlook ?? null,
       briefing_regulatory_body:    jb?.regulatory_body ?? null,
-      confidence_score:            jb?.confidence_score ?? null,
+      confidence_score:            jb?.confidence_score != null ? Number(jb.confidence_score) : null, // NOTE: verified 2026-07-08 to be a uniform 0.72 seed value across all 203 countries -- not a real per-country signal, see getJurisdictionEvidenceStatus comment above
       briefing_last_reviewed:      jb?.last_reviewed_date ?? null,
       recentChanges,
       calendarEvents,
