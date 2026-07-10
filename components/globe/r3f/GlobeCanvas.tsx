@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
@@ -16,6 +16,8 @@ import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './Camera
 import { DataVizLayer } from './DataVizLayer'
 import { useGlobe } from '../GlobeProvider'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
+import type { GlobeTierPalette, RegulatoryTier } from '@/lib/globe/globe-materials'
+import { featureFlags } from '@/lib/harbourview/feature-flags'
 
 // Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
 // OrbitControls does not call state.invalidate() internally, so without this
@@ -77,6 +79,7 @@ export function GlobeCanvas({
   activeLayerId,
   routerStep,
   subNationalIso2s = [],
+  tierPalette = 'metal',
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -87,11 +90,24 @@ export function GlobeCanvas({
   activeLayerId: GlobeLayerId
   routerStep?: GlobeRouterStep
   subNationalIso2s?: string[]
+  tierPalette?: GlobeTierPalette
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const { liveData } = useGlobe()
+
+  // iso2 → reviewed tier. Undefined when the flag is off, which makes
+  // CountryPolygonMeshLayer skip tier colouring entirely rather than render a
+  // map of nulls. Countries with a null tier are simply absent from the map.
+  const tierByIso2 = useMemo(() => {
+    if (!featureFlags.globeRegulatoryTiers) return undefined
+    const map: Record<string, RegulatoryTier> = {}
+    for (const country of liveData.countries) {
+      if (country.regulatoryTier) map[country.iso2] = country.regulatoryTier
+    }
+    return map
+  }, [liveData.countries])
   const isCountryState = routerStep === 'country' || !selectedCountryIso2
   const distanceLimits = isCountryState
     ? GLOBE_CAMERA_CONFIG.distanceByState.country
@@ -178,6 +194,8 @@ export function GlobeCanvas({
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={focusedCountryIso2}
               activeLayerId={activeLayerId}
+              tierByIso2={tierByIso2}
+              tierPalette={tierPalette}
               onHoverCountry={handleHoverCountry}
               onSelectCountry={onSelectCountry}
             />

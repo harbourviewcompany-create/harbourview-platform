@@ -18,6 +18,8 @@ import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
 import { RoleSelectSheet } from './RoleSelectSheet'
+import { GlobeRegulatoryLegend } from './GlobeRegulatoryLegend'
+import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import { GlobeProvider } from './GlobeProvider'
 
@@ -137,6 +139,7 @@ export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
+  const [tierPalette, setTierPalette] = useState<GlobeTierPalette>('metal')
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
@@ -179,6 +182,7 @@ export function GlobeSameScreenRouterLanding() {
           focusedCountryIso2={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback' ? undefined : state.focusedCountryIso2}
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
+          tierPalette={tierPalette}
           onHoverCountry={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback'
             ? undefined
             : (countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
@@ -196,6 +200,12 @@ export function GlobeSameScreenRouterLanding() {
       />
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
+
+      {/* Legend is gated on the same flag as the colouring itself. A colour
+          scale on a map of law with no key is worse than no colour at all. */}
+      {featureFlags.globeRegulatoryTiers && !fallbackReason && state.step === 'country' ? (
+        <GlobeRegulatoryLegend palette={tierPalette} onPaletteChange={setTierPalette} />
+      ) : null}
 
       {state.step === 'market_overview' && state.selectedCountryIso2 ? (
         <MarketOverviewSheet
@@ -286,3 +296,4 @@ export function GlobeSameScreenRouterLanding() {
     </GlobeProvider>
   )
 }
+

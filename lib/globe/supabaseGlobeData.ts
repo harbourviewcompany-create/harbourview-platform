@@ -14,6 +14,7 @@
  */
 import { createClient } from '@/lib/supabase/client'
 import { resolveCountryToIso2 } from './countryAlias'
+import type { RegulatoryTier } from './globe-materials'
 
 export type GlobeCountryMarker = {
   iso2: string
@@ -22,7 +23,16 @@ export type GlobeCountryMarker = {
   lng: number
   opportunityScore: number | null
   signalsStatus: string | null
+  /**
+   * Legacy, unsourced. Retained because other code reads it. Do NOT use it to
+   * colour the globe: it grades the UK (lawful Schedule 2 medical market) the
+   * same as Saudi Arabia (prohibited, death penalty), and `import_status` /
+   * `export_status` claim the US actively imports and exports. Use
+   * `regulatoryTier` instead.
+   */
   marketAccessStatus: string | null
+  /** Reviewed tier from countries.regulatory_tier. null = unreviewed → renders neutral. */
+  regulatoryTier: RegulatoryTier | null
 }
 
 export type GlobeSignal = {
@@ -49,7 +59,7 @@ export async function getGlobeLiveData(): Promise<GlobeLiveData> {
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
     .select(
-      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status'
+      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, regulatory_tier'
     )
     .not('lat', 'is', null)
     .not('lng', 'is', null)
@@ -67,6 +77,7 @@ export async function getGlobeLiveData(): Promise<GlobeLiveData> {
     opportunityScore: c.opportunity_score,
     signalsStatus: c.signals_status,
     marketAccessStatus: c.market_access_status,
+    regulatoryTier: (c.regulatory_tier as RegulatoryTier | null) ?? null,
   }))
 
   const iso2ByName = new Map(
