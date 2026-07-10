@@ -84,6 +84,17 @@ export const LISTING_CATEGORIES: SelectOption[] = [
   { value: 'distressed_businesses',label: 'Distressed Businesses'             },
 ]
 
+// Filter variant: prepend "All categories" for the listings filter bar
+export const FILTER_LISTING_CATEGORIES: SelectOption[] = [
+  { value: 'all', label: 'All categories' },
+  ...LISTING_CATEGORIES,
+]
+
+export const LISTING_SORT_OPTIONS: SelectOption[] = [
+  { value: 'featured', label: 'Featured first' },
+  { value: 'rating', label: 'Top rated' },
+]
+
 export const LISTING_SELLER_TYPES: SelectOption[] = [
   { value: 'licensed_producer', label: 'Licensed Producer' },
   { value: 'distributor',       label: 'Distributor'       },

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import type { PipelineCounts, WantedListing } from '@/lib/dashboard/dashboardLiveData'
-import type { DashboardMarketplaceRows, MarketView } from '@/components/dashboard/CommandCentre'
+import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 
 export interface MarketplacePageProps {
   country:        { iso2: string; label: string }
@@ -46,7 +46,7 @@ function TrustBar({ trust }: { trust: string }) {
 }
 
 // MarketRow = [specClass, typeLabel, title, description, tags, trust, action, price]
-function ListingCard({ row, idx }: { row: [string,string,string,string,string,string,string,string]; idx: number }) {
+function ListingCard({ row, idx }: { row: MarketRow; idx: number }) {
   const [specClass, typeLabel, title, description, tags, trust, action, price] = row
   const tagList = tags.split('|').filter(Boolean).slice(0, 3)
   const isWanted = specClass === 'wanted' || action?.toLowerCase().includes('demand')
