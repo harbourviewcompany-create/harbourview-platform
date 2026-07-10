@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect } from 'react'
+import { reportClientError } from '@/lib/errorReporting'
 
 export default function CountryRouteError({
   error,
@@ -12,6 +13,7 @@ export default function CountryRouteError({
 }) {
   useEffect(() => {
     console.error('[HarbourviewCountryRoute]', error)
+    reportClientError('country_role', error)
   }, [error])
 
   return (
