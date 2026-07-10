@@ -198,6 +198,7 @@ Known table groups:
 | Admin/server workflow | `matches`, `disclosure_requests`, `status_history`, `internal_admin_notes`, `audit_events` | Intended server-only/admin-only workflow tables |
 | Authorization | `user_roles` | Harbourview role model anchor |
 | Source/intelligence intake | `source_registry`, `source_snapshots`, `marketplace_candidates`, `candidate_review_events` | Evidence/source watching and candidate review foundation |
+| Country/role education overlay | `country_education_overlay` | Country + role-specific education modules (`country_iso2`, `role_id`, `module_key`), gated by the `lib/education/types.ts` review-status vocabulary; public read only for `verified_*` statuses (RLS). Table already live on this project (applied via PR #984); its own `CREATE TABLE` migration was missing from `main`/this branch and has been added back in `supabase/migrations/20260710140000_country_education_overlay.sql` as part of this fix. Seed rows (4, DE/MX/US) added in `supabase/seed.sql`, currently `review_pending` pending compliance/legal review — not yet publicly visible. **Coordinate with PR #984 before merge** to avoid double-applying the table/policy against the live project. |
 | Experimental/local lead capture | `wurx_ottawa_leads` | Needs classification and policy hardening |
 
 Known cleanup items:
