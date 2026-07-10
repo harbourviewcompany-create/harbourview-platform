@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 
 const VERCEL_PROJECT_ID = 'prj_Zp8HBDstqAAOCN6W7LAElahsq3qS'
 const VERCEL_TEAM_ID    = 'team_0rK4jTvMLlSufR0ZzX4LCKYi'
@@ -52,6 +53,11 @@ async function setVercelEnv(key: string, value: string, vercelToken: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Admin-only: this endpoint creates Stripe products and writes secrets to the
+  // production Vercel environment. It must never be callable unauthenticated.
+  const authFailure = await requireAdminApiAuth(req)
+  if (authFailure) return authFailure
+
   try {
     const { stripeKey, vercelToken } = await req.json() as { stripeKey: string; vercelToken: string }
 
@@ -115,6 +121,42 @@ export async function POST(req: NextRequest) {
     results['STRIPE_PRICE_OPERATOR_MONTHLY'] = operatorMonthly.id
     results['STRIPE_PRICE_OPERATOR_ANNUAL']  = operatorAnnual.id
 
+    // ── Webhook endpoint — the last manual step, now automated ────────────────
+    // Previously required going into the Stripe Dashboard by hand to create
+    // this and copy the signing secret. Stripe only returns `secret` at
+    // creation time, so this has to happen here, in the same request.
+    const appUrl = 'https://harbourview.network'
+    let webhookSecret: string | null = null
+    try {
+      const webhookParams = new URLSearchParams()
+      webhookParams.append('url', `${appUrl}/api/stripe/webhook`)
+      webhookParams.append('enabled_events[]', 'checkout.session.completed')
+      webhookParams.append('enabled_events[]', 'customer.subscription.created')
+      webhookParams.append('enabled_events[]', 'customer.subscription.updated')
+      webhookParams.append('enabled_events[]', 'customer.subscription.deleted')
+      webhookParams.append('description', 'Harbourview subscription sync (created via /admin/stripe-setup)')
+
+      const webhookRes = await fetch('https://api.stripe.com/v1/webhook_endpoints', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${stripeKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: webhookParams.toString(),
+      })
+      const webhookData = await webhookRes.json()
+      if (!webhookRes.ok) throw new Error(webhookData.error?.message ?? JSON.stringify(webhookData))
+
+      webhookSecret = webhookData.secret ?? null
+      if (webhookSecret) {
+        results['STRIPE_WEBHOOK_SECRET'] = `${webhookSecret.slice(0, 11)}… (set in Vercel)`
+      } else {
+        errors.push('Webhook endpoint created but no secret returned — check Stripe Dashboard → Webhooks manually.')
+      }
+    } catch (e) {
+      errors.push(`Webhook endpoint creation failed: ${e instanceof Error ? e.message : 'unknown error'}. Create it manually in Stripe → Webhooks pointing at ${appUrl}/api/stripe/webhook, selecting checkout.session.completed + customer.subscription.created/updated/deleted, then add the signing secret as STRIPE_WEBHOOK_SECRET in Vercel.`)
+    }
+
     // ── Set all env vars in Vercel ────────────────────────────────────────────
     const envVars: Record<string, string> = {
       STRIPE_SECRET_KEY:              stripeKey,
@@ -122,7 +164,8 @@ export async function POST(req: NextRequest) {
       STRIPE_PRICE_INTEL_ANNUAL:      intelAnnual.id,
       STRIPE_PRICE_OPERATOR_MONTHLY:  operatorMonthly.id,
       STRIPE_PRICE_OPERATOR_ANNUAL:   operatorAnnual.id,
-      NEXT_PUBLIC_APP_URL:            'https://harbourview.network',
+      NEXT_PUBLIC_APP_URL:            appUrl,
+      ...(webhookSecret ? { STRIPE_WEBHOOK_SECRET: webhookSecret } : {}),
     }
 
     for (const [key, value] of Object.entries(envVars)) {

@@ -1,0 +1,60 @@
+-- Applied directly to production via Supabase MCP (Jul 4 2026 session, batch 7).
+-- Continuation of 20260703060000 / 070000 / 080000 / 20260704110000 / 120000 / 130000.
+-- Closes out the Colombia cluster (6 sources) plus Brazil and Argentina's
+-- remaining committee sources, carried forward from batch 6.
+--
+-- Fixed (5, all verified live via direct fetch):
+--
+--   Senado Colombia — Comisión Primera -- old /comision/primera-comision path
+--   dead; site restructured to /comisiones/constitucionales/comision-primera.
+--
+--   Cámara de Representantes Colombia — Comisión Séptima -- old /comision7
+--   path dead; current URL verified, 41 current representatives listed.
+--
+--   ProColombia — Cannabis Export Intelligence -- old /en/opportunities/
+--   healthcare/cannabis sector page gone, site restructured. No cannabis-
+--   exclusive page currently exists; pointed at the English press room
+--   (verified live, dated into Feb 2026), which periodically covers
+--   cannabis export news per past coverage. Broader than ideal but real.
+--
+--   INVIMA – Colombia (RSS) -- old invima.gov.co/rss.xml never resolved.
+--   Site is Odoo-based; native press-room feed found and verified at
+--   /blog/sala-de-prensa-13/feed, extremely active (posts into Jul 2 2026).
+--
+--   Senado Federal Brasil — Comissão de Assuntos Sociais -- old www25
+--   subdomain path 403s, retired. Replaced with the Senado Notícias tag
+--   page for CAS, verified live and current through Jul 3 2026.
+--
+--   Congreso Argentina — Comisión de Salud -- old /verCom/54 path dead;
+--   site renumbered to /info/78. Verified live, meetings logged through
+--   Apr 29 2026, current membership listed.
+--
+-- Deactivated (3):
+--
+--   Consejo Nacional de Estupefacientes Colombia — Meeting Minutes -- old
+--   path dead, and no equivalent structured "minutes" page exists on the
+--   current site; CNE activity is only published as scattered press
+--   releases. Redundant with Colombia MinJusticia Cannabis.
+--
+--   MinJusticia Colombia — Resoluciones Cannabis -- pointed at the generic
+--   ministry Noticias/ landing page (all topics, not cannabis-specific),
+--   duplicative of and worse-scoped than Colombia MinJusticia Cannabis.
+--
+--   Colombia MinJusticia Cannabis (duplicate row, Noticias/cannabis/feed) --
+--   there are two source_registry rows with this exact same name. This one
+--   404s consistently, most recently the day before this batch. The other
+--   (programas-co/Cannabis-con-fines-medicinales-cientificos-industriales)
+--   is verified live and correct. Deactivated the broken duplicate rather
+--   than hunting for a third URL for a source with a working sibling.
+--
+-- Correction to a batch 6 finding: Colombia MinJusticia Cannabis (the
+-- surviving programas-co row) was flagged in batch 6 as sharing BC LCRB
+-- Cannabis's "correct URL but capture-worker still 404s" anomaly. That was
+-- a mis-read caused by filtering snapshot history on source_name instead of
+-- id -- with two identically-named rows, the query silently combined both
+-- histories. An id-scoped check shows the crawler has simply never
+-- attempted this row's actual URL yet (all recorded attempts belong to the
+-- other, now-deactivated row). No capture-worker anomaly here; retracting
+-- that part of batch 6. The BC LCRB Cannabis finding itself is unaffected
+-- and still stands as a real, unresolved anomaly.
+SELECT 1;

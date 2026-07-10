@@ -3,17 +3,28 @@
  *
  * Daily digest endpoint for the CommandCentre DigestPage.
  *
- * Surfaces the most recent reviewed intelligence from the `signals_quality`
- * view (the public-safe projection of `signals`). Because the reviewed feed
- * can go quiet for stretches, this endpoint uses a ROLLING WINDOW: it tries
+ * Two content types are merged into one feed, distinguished by `contentType`:
+ *   - 'signal'    — trade/regulatory intelligence, curated by run_daily_digest()
+ *                   from ia_signals. Rendered with a confidence score + category chip.
+ *   - 'editorial' — mainstream-media cannabis news, curated by run_editorial_digest()
+ *                   from editorial_items (sources tagged source_type='mainstream_media'
+ *                   in source_registry). No confidence score, no commercial framing —
+ *                   rendered as a plain headline + why-it-matters card.
+ *
+ * When today's `daily_digest` row has neither headlines nor editorial_headlines
+ * populated yet (e.g. early in the day, or on a quiet news day), this endpoint
+ * falls back to a ROLLING WINDOW over the raw `signals_quality` view: it tries
  * the last 24h first, then widens to 7d, then 30d, then falls back to the N
- * most-recent reviewed rows regardless of age. The window that actually
- * produced the returned rows is reported back so the UI can label it honestly
- * ("New in the last 24h" vs "Most recent — nothing new in 24h").
+ * most-recent reviewed rows regardless of age. That fallback path only ever
+ * produces 'signal' content type — there is no raw-editorial equivalent, since
+ * editorial_items should always be curated through run_editorial_digest() before
+ * reaching the UI. The window that actually produced the returned rows is
+ * reported back so the UI can label it honestly ("New in the last 24h" vs
+ * "Most recent — nothing new in 24h").
  *
  * Query params:
  *   country — country name (e.g. "Germany"). Optional. Omit or "all" for global.
- *   limit   — max results, capped at 40. Default: 12.
+ *   limit   — max results, capped at 40. Default: 20.
  *
  * Returns:
  *   {
@@ -105,6 +116,24 @@ function timeAgo(dateStr: string | null | undefined): string {
   }
 }
 
+// Editorial content spans a wide age range (breaking-today alongside
+// notable-but-older stories), unlike same-day trade signals. Showing "3w
+// ago" or worse "104w ago" for a two-year-old piece is both misleading (it
+// wasn't curated today's digest because it's fresh) and ugly. Past ~5 weeks,
+// fall back to an absolute "Mon YYYY" so the card is honest about its age
+// without pretending to be a relative-time app.
+function publishedLabel(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Recently'
+  try {
+    const d = new Date(dateStr)
+    const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+    if (diffDays < 35) return timeAgo(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  } catch {
+    return 'Recently'
+  }
+}
+
 type SignalRow = {
   id: string
   headline: string
@@ -140,6 +169,7 @@ function rowToSignal(s: SignalRow): DashboardSignal {
     commercialImpact: `${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}.`,
     sourceLabel:      'Harbourview Regulatory Watch',
     flag:             flagForMarket(market),
+    contentType:      'signal',
   }
 }
 
@@ -159,15 +189,110 @@ function isWithin(row: SignalRow, hours: number): boolean {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  const rawCountry   = (searchParams.get('country') ?? '').trim()
-  // Strip PostgREST filter-injection chars before interpolating into .or()
-  const countryParam = rawCountry.replace(/[,()]/g, '')
-  const parsedLimit  = parseInt(searchParams.get('limit') ?? '12', 10)
-  const limit        = Math.min(Math.max(Number.isFinite(parsedLimit) ? parsedLimit : 12, 1), 40)
+  // Strip PostgREST filter delimiters ( , ( ) ) before this value is
+  // interpolated into a .or() / .ilike() clause below, to prevent a crafted
+  // ?country= value from breaking out of its filter and injecting conditions.
+  const countryParam = (searchParams.get('country') ?? '').trim().replace(/[,()]/g, '')
+  const parsedLimit  = parseInt(searchParams.get('limit') ?? '20', 10)
+  const limit        = Math.min(Math.max(Number.isFinite(parsedLimit) ? parsedLimit : 20, 1), 40)
   const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
 
   try {
     const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // ── 0. Editorial edition first ────────────────────────────────────────────
+    // The published daily_digest (same content as the public /daily page):
+    // curated headlines with an editorial "why it matters" line, generated by
+    // the run_daily_digest() pipeline. When an edition exists it IS the digest;
+    // the signals_quality rolling window below remains as fallback only.
+    const { data: edition, error: editionError } = await supabase
+      .from('daily_digest')
+      .select('digest_date, headlines, editorial_headlines, generated_at')
+      .eq('status', 'published')
+      .order('digest_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (editionError) {
+      console.error('[/api/dashboard/digest] daily_digest edition query failed:', editionError.message)
+    }
+
+    type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
+    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string; source_url?: string; outlet_name?: string }
+
+    const hasSignalEdition    = edition && Array.isArray(edition.headlines) && edition.headlines.length > 0
+    const hasEditorialEdition = edition && Array.isArray(edition.editorial_headlines) && edition.editorial_headlines.length > 0
+
+    if (hasSignalEdition || hasEditorialEdition) {
+      let signalItems = (hasSignalEdition ? edition!.headlines as EditorialHeadline[] : [])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+      let newsItems = (hasEditorialEdition ? edition!.editorial_headlines as NewsHeadline[] : [])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+
+      // Country-priority: matching market first, everything else after —
+      // same spirit as the signals feed (never blank on a country filter).
+      if (isCountryFiltered) {
+        const needle = countryParam.toLowerCase()
+        const prioritize = <T extends { market?: string }>(items: T[]) => {
+          const match = items.filter(h => (h.market ?? '').toLowerCase().includes(needle))
+          const rest  = items.filter(h => !(h.market ?? '').toLowerCase().includes(needle))
+          return [...match, ...rest]
+        }
+        signalItems = prioritize(signalItems)
+        newsItems   = prioritize(newsItems)
+      }
+
+      const todayUtc  = new Date().toISOString().slice(0, 10)
+      const windowKey = edition!.digest_date === todayUtc ? '24h' as const : 'recent' as const
+      const tag       = SIGNAL_TAG_MAP.regulatory_change
+      const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
+
+      const signalSignals: DashboardSignal[] = signalItems.slice(0, limit).map((h, i) => ({
+        id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'regulatory_change',
+        market:           h.market ?? 'Global',
+        tag,
+        timeAgo:          timeAgo(edition!.generated_at),
+        confidence:       80,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      'Harbourview Daily',
+        flag:             flagForMarket(h.market ?? 'Global'),
+        contentType:      'signal',
+      }))
+
+      // Editorial items are interleaved after signal items (or lead, if no
+      // signal edition exists yet) — no confidence score, distinct tag.
+      const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
+        id:               h.item_id ?? `editorial-${edition!.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'editorial',
+        market:           h.market ?? 'Global',
+        tag:              editorialTag,
+        timeAgo:          publishedLabel(h.published_at),
+        confidence:       0,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      h.outlet_name ?? 'Global Cannabis News',
+        sourceUrl:        h.source_url,
+        flag:             flagForMarket(h.market ?? 'Global'),
+        contentType:      'editorial',
+      }))
+
+      const signals = [...signalSignals, ...newsSignals].slice(0, limit)
+      const total = signalItems.length + newsItems.length
+
+      return NextResponse.json(
+        { signals, window: windowKey, total, source: 'live' },
+        { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } },
+      )
+    }
 
     let query = supabase
       .from('signals_quality')

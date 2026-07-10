@@ -67,7 +67,7 @@ export async function getWantedListings(countryIso2?: string | null): Promise<Wa
     const buildQuery = (country?: string | null) => {
       let q = supabase
         .from('listings')
-        .select('id, title, summary, location_country, location_region, created_at')
+        .select('id, title, description, location_country, created_at')
         .eq('marketplace_section', 'wanted_requests')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -76,15 +76,27 @@ export async function getWantedListings(countryIso2?: string | null): Promise<Wa
       return q
     }
 
+    // listings has no summary/location_region columns (real column is
+    // description, no geo-region breakdown) - map onto the WantedListing
+    // shape so callers keep the same field names/types.
+    const toWantedListing = (row: { id: string; title: string; description: string | null; location_country: string | null; created_at: string }): WantedListing => ({
+      id: row.id,
+      title: row.title,
+      summary: row.description,
+      location_country: row.location_country,
+      location_region: null,
+      created_at: row.created_at,
+    })
+
     if (countryIso2) {
       const { data: countryData, error: countryErr } = await buildQuery(countryIso2)
-      if (!countryErr && countryData && countryData.length > 0) return countryData
+      if (!countryErr && countryData && countryData.length > 0) return countryData.map(toWantedListing)
     }
 
     // Global fallback
     const { data, error } = await buildQuery()
     if (error || !data) return []
-    return data
+    return data.map(toWantedListing)
   } catch { return [] }
 }
 
@@ -94,6 +106,7 @@ export type LiveEduTile = {
   title: string
   desc: string
   slug: string
+  sections?: { heading: string; body: string }[]
 }
 
 const AUDIENCE_ICON: Record<string, string> = {
@@ -110,14 +123,14 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     // Push role filtering to the DB rather than over-fetching 3x and slicing
     // in memory. Try role-specific modules first; fall back to 'general'
     // audience if nothing matches so the tile section is never empty.
-    let modules: Array<{ slug: string; title: string; description: string | null; audience: string[]; sensitivity: string; track_id: string }> | null = null
+    let modules: Array<{ id: string; slug: string; title: string; description: string | null; audience: string[]; sensitivity: string; track_id: string }> | null = null
     let error: unknown = null
 
     if (roleId) {
       // Postgres array overlap: contains(audience, ARRAY[roleId])
       const res = await supabase
         .from('education_modules')
-        .select('slug, title, description, audience, sensitivity, track_id')
+        .select('id, slug, title, description, audience, sensitivity, track_id')
         .eq('publication_state', 'published')
         .contains('audience', [roleId])
         .limit(limit)
@@ -129,7 +142,7 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     if (!modules || modules.length === 0) {
       const res = await supabase
         .from('education_modules')
-        .select('slug, title, description, audience, sensitivity, track_id')
+        .select('id, slug, title, description, audience, sensitivity, track_id')
         .eq('publication_state', 'published')
         .contains('audience', ['general'])
         .limit(limit)
@@ -142,6 +155,24 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
     // No in-memory scoring needed — DB already filtered by role
     const scored = modules
 
+    // One bounded query for real body content across all resolved modules,
+    // instead of the client falling back to generic templated text per topic
+    // (getModuleContent() in MobileCommandCentre.tsx) when a tile is opened.
+    const moduleIds = scored.map((m) => m.id)
+    const sectionsByModule = new Map<string, { heading: string; body: string; order: number }[]>()
+    if (moduleIds.length > 0) {
+      const { data: sectionRows } = await supabase
+        .from('education_module_sections')
+        .select('module_id, heading, body, section_order')
+        .in('module_id', moduleIds)
+        .order('section_order', { ascending: true })
+      for (const row of sectionRows ?? []) {
+        const list = sectionsByModule.get(row.module_id) ?? []
+        list.push({ heading: row.heading, body: row.body, order: row.section_order })
+        sectionsByModule.set(row.module_id, list)
+      }
+    }
+
     const truncateDescription = (description?: string | null): string => {
       const normalized = description?.trim().replace(/\s+/g, ' ') || 'Education module'
       return normalized.length > 120 ? `${normalized.slice(0, 119)}…` : normalized
@@ -152,6 +183,9 @@ export async function getLiveEduTiles(roleId?: string | null, limit = 6): Promis
       title: m.title,
       desc: m.sensitivity === 'controlled' ? 'Controlled topic — professional access' : truncateDescription(m.description),
       slug: m.slug,
+      sections: (sectionsByModule.get(m.id) ?? [])
+        .sort((a, b) => a.order - b.order)
+        .map(({ heading, body }) => ({ heading, body })),
     }))
   } catch { return [] }
 }
@@ -188,6 +222,7 @@ export type CountryIntelProfile = {
   commercial_pathway_summary: string | null
   review_status: string
   regulatory_tier?: string | null
+  confidence_score?: number | null
   // Extended country status fields — present when fetched from public.countries
   region?: string | null
   market_access_status?: string | null
@@ -215,7 +250,49 @@ export type CountryIntelProfile = {
 }
 
 const _INTEL_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
-const _INTEL_SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const _INTEL_SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+export type JurisdictionEvidenceStatus = {
+  verified: boolean
+  lastVerifiedAt: string | null
+  confidenceLabel: string | null
+}
+
+// Real, differentiated evidence signal for country-role-resolver.ts's evidenceVerified
+// field. Backed by jurisdiction_playbooks.status: 'published' rows are editorially
+// reviewed pathway guides with real steps/regulators/pitfalls; 'draft' rows (167 of
+// 203 as of 2026-07-08) are not yet reviewed and must not be presented as verified.
+// Deliberately NOT using cc_jurisdiction_briefings.confidence_score here — verified
+// live (2026-07-08) to be a uniform 0.72 across all 203 country rows, i.e. a seeded
+// default, not a real per-country signal.
+export async function getJurisdictionEvidenceStatus(iso2: string | null): Promise<JurisdictionEvidenceStatus> {
+  const fallback: JurisdictionEvidenceStatus = { verified: false, lastVerifiedAt: null, confidenceLabel: null }
+  if (!iso2) return fallback
+  const safeIso2 = iso2.trim().toUpperCase().replace(/[^A-Z]/g, '')
+  if (safeIso2.length < 2) return fallback
+  if (!_INTEL_SUPABASE_URL || !_INTEL_SUPABASE_KEY) return fallback
+
+  try {
+    const res = await fetch(
+      `${_INTEL_SUPABASE_URL}/rest/v1/jurisdiction_playbooks?select=status,last_verified_at,confidence_label&country_iso2=eq.${safeIso2}&status=eq.published&limit=1`,
+      {
+        headers: {
+          apikey: _INTEL_SUPABASE_KEY,
+          Authorization: `Bearer ${_INTEL_SUPABASE_KEY}`,
+          Accept: 'application/json',
+        },
+        next: { revalidate: 3600 },
+      },
+    )
+    if (!res.ok) return fallback
+    const rows: { status: string; last_verified_at: string | null; confidence_label: string | null }[] = await res.json()
+    const row = rows[0]
+    if (!row) return fallback
+    return { verified: true, lastVerifiedAt: row.last_verified_at, confidenceLabel: row.confidence_label }
+  } catch {
+    return fallback
+  }
+}
 
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
   if (!iso2) return null
@@ -242,7 +319,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
         { headers: hdr },
       ),
       fetch(
-        `${_INTEL_SUPABASE_URL}/rest/v1/cc_jurisdiction_briefings?select=program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,last_reviewed_date&country_iso2=eq.${safeIso2}&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1`,
+        `${_INTEL_SUPABASE_URL}/rest/v1/cc_jurisdiction_briefings?select=program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,confidence_score,last_reviewed_date&country_iso2=eq.${safeIso2}&jurisdiction_type=eq.country&order=last_reviewed_date.desc&limit=1`,
         { headers: hdr },
       ),
     ])
@@ -313,6 +390,7 @@ export async function getCountryIntelProfile(iso2: string | null): Promise<Count
       briefing_market_dynamics:   jb?.market_dynamics ?? null,
       briefing_regulatory_outlook: jb?.regulatory_outlook ?? null,
       briefing_regulatory_body:    jb?.regulatory_body ?? null,
+      confidence_score:            jb?.confidence_score ?? null,
       briefing_last_reviewed:      jb?.last_reviewed_date ?? null,
       recentChanges,
       calendarEvents,
@@ -440,7 +518,7 @@ export async function getOrgPathwayProgress(
       .select('workspace_id')
       .eq('user_id', userId)
       .limit(1)
-      .single()
+      .maybeSingle()
     const orgId = membership?.workspace_id
     if (!orgId) return empty
 
@@ -450,7 +528,7 @@ export async function getOrgPathwayProgress(
       .select('id, name, total_steps')
       .eq('country_iso2', countryIso2.toUpperCase())
       .eq('role_id', roleId)
-      .single()
+      .maybeSingle()
     if (!template) return empty
 
     // Steps
@@ -543,7 +621,7 @@ export async function getWatchlistData(
       .select('workspace_id')
       .eq('user_id', userId)
       .limit(1)
-      .single()
+      .maybeSingle()
     const orgId = membership?.workspace_id
     if (!orgId) return empty
 
@@ -616,7 +694,18 @@ export async function getEvidenceData(
     const supabase = await createClient()
 
     // Platform sources — filter by country market when provided.
-    // ia_sources.markets is a text[] so we use overlaps operator.
+    // ia_sources.markets is a text[] of display names (not ISO2), so resolve
+    // countryIso2 -> country_name first, same pattern as getGenericFallbackPathway.
+    let countryName: string | null = null
+    if (countryIso2) {
+      const { data: c } = await supabase
+        .from('countries')
+        .select('country_name')
+        .eq('iso_alpha2', countryIso2.toUpperCase())
+        .single()
+      countryName = c?.country_name ?? null
+    }
+
     const sourcesQuery = supabase
       .from('ia_sources')
       .select('id, name, category, markets, reliability, last_checked, status, notes')
@@ -624,9 +713,11 @@ export async function getEvidenceData(
       .order('last_checked', { ascending: false })
       .limit(50)
 
-    // Resolve country name for market filter (markets stores display names not ISO2)
-    // Fall back to all sources when country unknown — page handles empty state per tab.
-    const { data: sources } = await sourcesQuery
+    // Fall back to all sources only when country is unknown — page handles
+    // empty state per tab when a real country filter returns zero rows.
+    const { data: sources } = countryName
+      ? await sourcesQuery.overlaps('markets', [countryName])
+      : await sourcesQuery
 
     // Org evidence documents
     let orgDocs: OrgEvidenceDoc[] = []
@@ -676,7 +767,7 @@ export async function getPublicPathwayTemplate(
       .select('id, name, total_steps')
       .eq('country_iso2', countryIso2.toUpperCase())
       .eq('role_id', roleId)
-      .single()
+      .maybeSingle()
 
     if (!template) return getGenericFallbackPathway(supabase, countryIso2, roleId)
 
@@ -886,6 +977,52 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
   }
 }
 
+// ── Country-specific education overlay ────────────────────────────────────
+export type CountryEducationOverlay = {
+  moduleKey:    string
+  topics:       string[]
+  actionLabel:  string
+  reviewStatus: string
+}
+
+export async function getCountryEducationOverlays(
+  countryIso2: string | null,
+  roleId:      string | null,
+): Promise<CountryEducationOverlay[]> {
+  if (!countryIso2) return []
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('country_education_overlay')
+      .select('module_key, topics, action_label, review_status, role_id')
+      .eq('country_iso2', countryIso2.toUpperCase())
+      .in('review_status', [
+        'verified_primary_source', 'verified_professional_body',
+        'verified_peer_reviewed', 'verified_secondary_source',
+      ])
+
+    if (error || !data) return []
+
+    const byModule = new Map<string, CountryEducationOverlay>()
+    for (const row of data) {
+      const matchesRole = !row.role_id || row.role_id === roleId
+      if (!matchesRole) continue
+      const existing = byModule.get(row.module_key)
+      if (!existing || row.role_id) {
+        byModule.set(row.module_key, {
+          moduleKey:    row.module_key,
+          topics:       Array.isArray(row.topics) ? row.topics : [],
+          actionLabel:  row.action_label,
+          reviewStatus: row.review_status,
+        })
+      }
+    }
+    return Array.from(byModule.values())
+  } catch {
+    return []
+  }
+}
+
 // ── New: jurisdiction playbooks ───────────────────────────────────────────────────────────────
 export type JurisdictionPlaybook = {
   country_iso2:           string
@@ -976,7 +1113,7 @@ export async function getMarketMetrics(iso2: string | null): Promise<MarketMetri
       .limit(20)
     return (data ?? []).map(r => ({
       metric_name:  r.metric_name,
-      metric_value: r.metric_value,
+      metric_value: Number(r.metric_value),
       metric_unit:  r.metric_unit,
       period_label: r.period_end ? r.period_end.slice(0, 7) : null,
       data_type:    r.data_type,
@@ -1118,5 +1255,34 @@ export async function getComparisonCountryScores(
       market_access_status: r.market_access_status,
       data_completeness:   r.data_completeness,
     }))
+  } catch { return [] }
+}
+
+// ── My marketplace submissions (for the Command Centre "My Listings" panel) ─────
+
+export type MySubmission = {
+  id: string
+  title_public_draft: string | null
+  marketplace_category: string | null
+  listing_type: string | null
+  status: string | null
+  created_at: string
+  submission_images: string[] | null
+  country: string | null
+}
+
+export async function getUserMarketplaceSubmissions(userId: string | null): Promise<MySubmission[]> {
+  if (!userId) return []
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('marketplace_candidates')
+      .select('id, title_public_draft, marketplace_category, listing_type, status, created_at, submission_images, country')
+      .eq('submitted_by', userId)
+      .eq('submission_source', 'self_serve')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (error) { console.error('[getUserMarketplaceSubmissions] query error', error.message); return [] }
+    return data ?? []
   } catch { return [] }
 }

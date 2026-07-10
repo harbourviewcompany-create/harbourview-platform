@@ -1,0 +1,15 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 17).
+--
+-- UNODC Drug Policy News -> old specific sub-path dead. Replaced with the
+-- main UNODC homepage (unodc.org), verified live and very current (World
+-- Drug Report 2026 coverage as of late June 2026). More durable long-term
+-- source than a specific dated article path.
+--
+-- 14 more items remain in this fresh worklist pull: Indiana, South
+-- Dakota, Texas DSHS, Johns Hopkins Cannabis (dead domain), California
+-- Cannabis Open Data, Colorado MED (403), Uruguay IRCCA (TLS error, likely
+-- worker-side per the CIHR pattern from earlier), EU TARIC, ASA Americans
+-- for Safe Access (timeout), Vicente Sederberg Blog (429), Netherlands
+-- Customs, UCLA Cannabis Research (dead domain), Colorado Cannabis Open
+-- Data (403), Newfoundland NLC (mistagged as USA -- actually Canadian).
+SELECT 1;

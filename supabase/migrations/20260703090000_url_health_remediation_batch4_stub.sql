@@ -1,0 +1,22 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 4).
+-- Continuation of the URL health remediation program. Same verified-only method.
+--
+-- Fixed (3, all confirmed via web_fetch):
+--   BC LCRB Cannabis (Canada) -> old URL had /cannabis appended to a path
+--     that no longer exists; replaced with the current liquor-and-cannabis
+--     regulation hub.
+--   Senado Chile Comision de Salud -> old /comisiones/comision-de-salud
+--     slug retired; Senado now uses numeric IDs (/comisiones/195).
+--   CIHR Canada (Research in Substance Use) -> the specific old page
+--     (51090.html) was gone but the domain itself is current and healthy;
+--     replaced with the live equivalent page (50927.html). NOTE: original
+--     error was a TLS UnknownIssuer cert error, not a 404 -- if this
+--     recurs on the capture worker even with the corrected URL, that
+--     confirms the problem is the worker's cert trust store, not the URL,
+--     and needs separate engineering attention.
+--
+-- Deactivated (2): ISP Chile (both rows). The registry had them on the
+-- wrong domain (ispch.cl) but even the correct current domain
+-- (ispch.gob.cl, verified) disallows automated access via robots.txt.
+-- Same failure class as Australia's TGA/ODC from batch 3.
+SELECT 1;

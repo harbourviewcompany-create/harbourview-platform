@@ -5,21 +5,30 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
+import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
+import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
+import { GlobeProvider } from '@/components/globe/GlobeProvider'
+import { DealRoomsPanel } from './pages/DealRoomsPanel'
+import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
+import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
+import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
-export type MarketRow = [string, string, string, string, string, string, string, string]
+// Trailing 2 slots (RATING, REVIEW_COUNT) are pre-formatted strings, empty when unrated.
+export type MarketRow = [string, string, string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
 export type CommandPage =
@@ -68,6 +77,7 @@ type Props = {
   digestSignals?:   DashboardSignal[]
   digestWindow?:    DigestWindow
   eduCategories:    { icon: string; title: string; desc: string }[]
+  countryEducationOverlays?: CountryEducationOverlay[]
   initialCountryIso2?: string | null
   initialRoleId?:   string | null
   initialPage?:     CommandPage | null
@@ -93,6 +103,7 @@ type Props = {
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
+  mySubmissions?:       MySubmission[]
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -121,7 +132,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: 'Prescribers',
+    label: 'Market Access',
     items: [
       { id: 'access-pathway', label: 'Access Pathway',   icon: '⬡' },
       { id: 'regulatory',     label: 'Regulatory Watch', icon: '◷' },
@@ -234,7 +245,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
             { icon: '↓', label: 'Import Status',   value: fmtStatus(countryIntel?.import_status,        'Not Available')     },
             { icon: '↑', label: 'Export Status',   value: fmtStatus(countryIntel?.export_status,        'Not Available')     },
             { icon: '⊙', label: 'Opportunity',     value: countryIntel?.opportunity_score != null
-                ? `${countryIntel.opportunity_score}/100`
+                ? formatOpportunityScore(countryIntel.opportunity_score)
                 : 'Not Scored' },
           ] as { icon: string; label: string; value: string }[]).map(f => (
             <div key={f.label} className="cc-jx-field">
@@ -253,15 +264,17 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Centre: Globe ─────────────────────────────────────────── */}
       <div className="cc-briefing-globe">
         <div className="cc-globe-wrap">
-          <GlobeCanvas
-            className="absolute inset-0 w-full h-full"
-            selectedCountryIso2={country.iso2}
-            selectedCountryIso2s={[country.iso2]}
-            focusedCountryIso2={focusedIso2}
-            activeLayerId="country_select"
-            onHoverCountry={setFocusedIso2}
-            onSelectCountry={onCountrySelect}
-          />
+          <GlobeProvider>
+            <GlobeCanvas
+              className="absolute inset-0 w-full h-full"
+              selectedCountryIso2={country.iso2}
+              selectedCountryIso2s={[country.iso2]}
+              focusedCountryIso2={focusedIso2}
+              activeLayerId="country_select"
+              onHoverCountry={setFocusedIso2}
+              onSelectCountry={onCountrySelect}
+            />
+          </GlobeProvider>
           <div className="cc-globe-label">
             {country.label}
             {region && <span> · {region}</span>}
@@ -773,12 +786,21 @@ const MKT_TABS: { id: MarketView; label: string }[] = [
 ]
 
 // MarketRow tuple field indices
-const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7 } as const
+const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7, RATING:8, REVIEW_COUNT:9 } as const
 
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
+type MarketSubView = 'browse' | 'submit' | 'quote' | 'deals' | 'my-listings'
+
+const MKT_ACTION_TABS: { id: MarketSubView; label: string }[] = [
+  { id: 'submit',      label: 'Submit Listing' },
+  { id: 'quote',       label: 'Request Quote' },
+  { id: 'deals',       label: 'Deal Rooms' },
+  { id: 'my-listings', label: 'My Listings' },
+]
+
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange, mySubmissions = [], userEmail,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -790,6 +812,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
   cannabisOperators?: CannabisOperator[]
   pipeline?:         PipelineCounts
   onPageChange?:     (page: CommandPage) => void
+  mySubmissions?:    MySubmission[]
+  userEmail?:        string | null
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => {
     for (const t of MKT_TABS) {
@@ -799,7 +823,25 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return 'cannabis'
   })
   const [search,    setSearch]    = useState('')
+  const [regionFilter, setRegionFilter] = useState('all')
+  const [sortBy, setSortBy] = useState<'featured' | 'rating'>('featured')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
+  const [subView, setSubView] = useState<MarketSubView>('browse')
+
+  const changeTab = (id: MarketView) => {
+    setActiveTab(id)
+    setRegionFilter('all')
+  }
+
+  const regionOptions = useMemo(() => {
+    const base: MarketRow[] = activeTab === 'wanted' && wantedListings?.length
+      ? wantedListings.map(w => [
+          w.title, w.summary ?? '', w.location_country ?? country.iso2,
+          'Wanted Demand', 'Verified', 'Direct', '72', w.id, '', '',
+        ] as MarketRow)
+      : (marketplaceRows?.[activeTab as MarketView] ?? [])
+    return Array.from(new Set(base.map(row => row[MR.JURISDICTION]).filter(Boolean))).sort()
+  }, [activeTab, marketplaceRows, wantedListings, country])
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
@@ -813,14 +855,25 @@ const MarketplacePage = React.memo(function MarketplacePage({
         'Direct',
         '72',
         w.id,
+        '',
+        '',
       ] as MarketRow)
+    }
+    if (regionFilter !== 'all') {
+      r = r.filter(row => row[MR.JURISDICTION] === regionFilter)
     }
     if (search.trim()) {
       const lq = search.toLowerCase()
       r = r.filter(row => row[MR.TITLE].toLowerCase().includes(lq) || row[MR.DESC].toLowerCase().includes(lq))
     }
+    if (sortBy === 'rating') {
+      r = [...r].sort((a, b) => {
+        const ratingDiff = (Number(b[MR.RATING]) || 0) - (Number(a[MR.RATING]) || 0)
+        return ratingDiff !== 0 ? ratingDiff : (Number(b[MR.REVIEW_COUNT]) || 0) - (Number(a[MR.REVIEW_COUNT]) || 0)
+      })
+    }
     return r
-  }, [activeTab, marketplaceRows, wantedListings, search, country])
+  }, [activeTab, marketplaceRows, wantedListings, search, regionFilter, sortBy, country])
 
   const ACCESS_REQS = useMemo(() => {
     const step1 = pathwayData?.steps.find(s => s.step_number === 1)
@@ -880,13 +933,46 @@ const MarketplacePage = React.memo(function MarketplacePage({
           <p>Mediated market access to export-ready and compliance-gated opportunities. Requests are reviewed by Harbourview&apos;s market access team.</p>
         </div>
 
+        <div className="cc-mkt-actions-bar">
+          <button
+            className={`cc-mkt-action-btn${subView==='browse'?' active':''}`}
+            onClick={() => setSubView('browse')}
+          >
+            Browse
+          </button>
+          {MKT_ACTION_TABS.map(t => (
+            <button key={t.id}
+              className={`cc-mkt-action-btn${subView===t.id?' active':''}`}
+              onClick={() => setSubView(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {subView === 'submit' ? (
+          <div className="cc-mkt-subview">
+            <DynamicMarketplaceIntakeForm />
+          </div>
+        ) : subView === 'quote' ? (
+          <div className="cc-mkt-subview">
+            <QuoteRequestForm />
+          </div>
+        ) : subView === 'deals' ? (
+          <DealRoomsPanel />
+        ) : subView === 'my-listings' ? (
+          <div className="cc-mkt-subview">
+            <MyListingsClient submissions={mySubmissions} userEmail={userEmail ?? ''} />
+          </div>
+        ) : (
+        <>
         <div className="cc-mkt-tabs">
           {MKT_TABS.map(t => {
             const cnt = t.id === 'wanted' ? (wantedListings?.length ?? wantedCount ?? 0) : (marketplaceRows?.[t.id] ?? []).length
             return (
               <button key={t.id}
                 className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => changeTab(t.id)}
               >
                 {t.label}
                 {cnt > 0 ? <span className="cc-tab-badge">{cnt}</span> : null}
@@ -900,7 +986,14 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <span>⌕</span>
             <input className="cc-mkt-search" placeholder="Search listings…" value={search} onChange={e=>setSearch(e.target.value)} />
           </div>
-          <button className="cc-mkt-filter-btn">≡ Filters</button>
+          <select className="cc-mkt-select" value={regionFilter} onChange={e=>setRegionFilter(e.target.value)} aria-label="Filter by jurisdiction">
+            <option value="all">All regions</option>
+            {regionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="cc-mkt-select" value={sortBy} onChange={e=>setSortBy(e.target.value as 'featured' | 'rating')} aria-label="Sort listings">
+            <option value="featured">Featured first</option>
+            <option value="rating">Top rated</option>
+          </select>
         </div>
 
         {rows.length > 0 ? (
@@ -909,6 +1002,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               <div className="cc-mkt-thead">
                 <span className="cc-mkt-th opp-col">OPPORTUNITY</span>
                 <span className="cc-mkt-th">CATEGORY</span>
+                <span className="cc-mkt-th">RATING</span>
                 <span className="cc-mkt-th">JURISDICTION</span>
                 <span className="cc-mkt-th">VERIFICATION</span>
                 <span className="cc-mkt-th">ACCESS ROUTE</span>
@@ -918,6 +1012,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
               {rows.slice(0,10).map((row, i) => {
                 const conf = parseInt(row[MR.CONFIDENCE])||72
                 const ok   = row[MR.VERIFICATION]?.toLowerCase()==='verified'
+                const rating = Number(row[MR.RATING]) || 0
+                const reviewCount = Number(row[MR.REVIEW_COUNT]) || 0
                 return (
                   <div key={row[MR.ID]||String(i)} className="cc-mkt-row">
                     <div className="cc-mkt-cell opp-col">
@@ -929,6 +1025,11 @@ const MarketplacePage = React.memo(function MarketplacePage({
                       </div>
                     </div>
                     <div className="cc-mkt-cell">{row[MR.CATEGORY]||'—'}</div>
+                    <div className="cc-mkt-cell">
+                      {rating > 0 && reviewCount > 0
+                        ? <span className="cc-mkt-rating"><span className="cc-mkt-star">★</span>{rating.toFixed(1)} <span className="cc-mkt-rating-count">({reviewCount})</span></span>
+                        : <span className="cc-mkt-rating cc-mkt-rating-empty">—</span>}
+                    </div>
                     <div className="cc-mkt-cell cc-juris-cell">
                       <span>{row[MR.JURISDICTION]||country.iso2}</span>
                       {ok && <span className="cc-export-tag">Export-Ready</span>}
@@ -974,6 +1075,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
             </p>
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* ── Right panel ─────────────────────────────────────── */}
@@ -996,7 +1099,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace" className="cc-right-link">View pipeline →</Link>
+            <button className="cc-right-link" onClick={() => setSubView('browse')}>View pipeline →</button>
           </div>
         )}
         <div className="cc-right-section">
@@ -1038,7 +1141,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               </div>
             </div>
           ))}
-          <Link href="/marketplace" className="cc-right-link">View counterparty profile →</Link>
+          <button className="cc-right-link" onClick={() => setSubView('browse')}>View counterparty profile →</button>
         </div>
 
         {cannabisOperators.length > 0 && (
@@ -1055,7 +1158,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
                 </div>
               </div>
             ))}
-            <Link href="/marketplace" className="cc-right-link">View all operators →</Link>
+            <button className="cc-right-link" onClick={() => setSubView('browse')}>View all operators →</button>
           </div>
         )}
       </aside>
@@ -1103,7 +1206,7 @@ const PATHWAY_STEPS = [
 // ── EducationPage ──────────────────────────────────────────────────────────────
 
 const EducationPage = React.memo(function EducationPage({
-  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData, educationTracks = [], onPageChange,
+  country, region, role, eduCategories, liveTiles, recentEduModules, signals, pathwayData, educationTracks = [], countryEducationOverlays, onPageChange,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -1114,11 +1217,20 @@ const EducationPage = React.memo(function EducationPage({
   signals?:          DashboardSignal[]
   pathwayData?:      PathwayData
   educationTracks?:  EducationTrack[]
+  countryEducationOverlays?: CountryEducationOverlay[]
   onPageChange?:     (page: CommandPage) => void
 }) {
   const modules    = useMemo(() => buildLearningPath(eduCategories), [eduCategories])
   const roleDisp   = role ? role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Professional'
   const nextModule = modules.find(m => m.progress < 100 && m.level === 'REQUIRED')
+  const [expandedModule, setExpandedModule] = useState<number | null>(null)
+  // Same source of truth as the mobile Education tab (lib/dashboard/educationModuleContent.ts)
+  // so country-specific verified guidance and the "not yet verified" fallback labeling
+  // match exactly between desktop and mobile instead of drifting.
+  const moduleContent = useMemo(
+    () => new Map(modules.map(m => [m.num, getModuleContent(m.title, countryEducationOverlays)])),
+    [modules, countryEducationOverlays],
+  )
 
   const REL_EVIDENCE = useMemo(() => {
     if (liveTiles && liveTiles.length > 0) {
@@ -1165,16 +1277,44 @@ const EducationPage = React.memo(function EducationPage({
         <div className="cc-section-label">LEARNING MODULES</div>
 
         <div className="cc-edu-modules">
-          {modules.map(m => (
+          {modules.map(m => {
+            const content = moduleContent.get(m.num)
+            const isExpanded = expandedModule === m.num
+            return (
             <div key={m.num} className="cc-edu-row">
               <div className="cc-edu-row-icon"><span>{m.icon}</span></div>
               <div className="cc-edu-row-body">
                 <div className="cc-edu-row-title">
                   <strong>{m.num}. {m.title}</strong>
                   <span className={`cc-edu-badge ${m.level.toLowerCase()}`}>{m.level}</span>
+                  {content?.isVerified && (
+                    <span className="cc-edu-badge" style={{ background: 'rgba(76,175,130,.12)', color: 'var(--cc-green)', border: '1px solid rgba(76,175,130,.25)' }}>
+                      Verified for {country.label}
+                    </span>
+                  )}
                 </div>
                 <p>{m.desc}</p>
+                {content && !content.isVerified && (
+                  <small style={{ color: 'rgba(212,168,75,.6)', display: 'block', marginTop: 2 }}>
+                    General guidance — not yet verified for {country.label}
+                  </small>
+                )}
                 <small className="cc-edu-time">◷ {m.minutes} min</small>
+                {content && (
+                  <button
+                    type="button"
+                    className="cc-right-link"
+                    style={{ marginTop: 6, display: 'inline-block' }}
+                    onClick={() => setExpandedModule(isExpanded ? null : m.num)}
+                  >
+                    {isExpanded ? 'Hide topics ↑' : 'View topics →'}
+                  </button>
+                )}
+                {isExpanded && content && (
+                  <ul style={{ margin: '8px 0 0', paddingLeft: 18, color: 'rgba(245,240,232,.75)', fontSize: 13, lineHeight: 1.6 }}>
+                    {content.topics.map((topic, i) => <li key={i}>{topic}</li>)}
+                  </ul>
+                )}
               </div>
               <div className="cc-edu-row-prog">
                 {m.progress > 0
@@ -1187,7 +1327,8 @@ const EducationPage = React.memo(function EducationPage({
                 {m.progress>0?'Continue':'Start module'}
               </button>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className="cc-edu-pathway-wrap">
@@ -3487,7 +3628,7 @@ const CompliancePage = React.memo(function CompliancePage({
             <div className="cc-jx-fields">
               <div className="cc-jx-field">
                 <span className="cc-jx-field-icon">◎</span>
-                <div><small>Opportunity score</small><strong>{countryIntel.opportunity_score}/10</strong></div>
+                <div><small>Opportunity score</small><strong>{formatOpportunityScore(countryIntel.opportunity_score)}</strong></div>
               </div>
               {countryIntel.regulatory_tier && (
                 <div className="cc-jx-field">
@@ -3661,6 +3802,7 @@ export default function CommandCentre({
   digestSignals,
   digestWindow,
   eduCategories,
+  countryEducationOverlays,
   initialCountryIso2,
   initialRoleId,
   initialPage,
@@ -3686,6 +3828,7 @@ export default function CommandCentre({
   cultivarPassports = [],
   serviceProviders = [],
   collaborationProjects = [],
+  mySubmissions = [],
 }: Props) {
   const router = useRouter()
 
@@ -3741,6 +3884,20 @@ export default function CommandCentre({
   )
   const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
+  // Per-role sidebar ordering: promote modules relevant to this role within each
+  // nav section, without hiding anything. 'briefing' always stays first (it's the
+  // default landing page). Items with no per-role signal keep their original order.
+  const navRank = useMemo(() => getRoleNavRank(role), [role])
+  const orderedNavSections = useMemo<NavSection[]>(() => NAV_SECTIONS.map(section => ({
+    ...section,
+    items: [...section.items].sort((a, b) => {
+      if (a.id === 'briefing') return -1
+      if (b.id === 'briefing') return 1
+      return (navRank[a.id] ?? Infinity) - (navRank[b.id] ?? Infinity)
+    }),
+  })), [navRank])
+  const orderedNavFlat = useMemo(() => orderedNavSections.flatMap(s => s.items), [orderedNavSections])
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   // Shared URL-sync helper — keeps country/role/page in the query string so any
   // Command Centre view can be deep-linked from a redirect or a shared link.
@@ -3753,18 +3910,45 @@ export default function CommandCentre({
     router.replace(qs ? `/dashboard?${qs}` : '/dashboard', { scroll: false })
   }, [router])
 
+  // Persist role/country for signed-in users, same fix as MobileCommandCentre —
+  // this API already existed and works, only UniversalDashboard.tsx (a separate,
+  // unrelated dashboard component) was ever calling it.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    if (!userEmail) return
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [userEmail])
+
+  const persistDashboardPreferences = useCallback((next: { country_iso2?: string; role_id?: string }) => {
+    if (!userEmail) return
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        country_iso2: next.country_iso2 ?? country.iso2,
+        role_id: next.role_id ?? role,
+        heatmap_layer: heatmapLayerRef.current,
+      }),
+    }).catch(() => undefined)
+  }, [userEmail, country.iso2, role])
+
   const handleCountryChange = useCallback((iso2: string) => {
     const found = COUNTRIES.find(c => c.iso2 === iso2)
     if (!found) return
     setCountry(found)
     setRegion('')
     syncUrl({ countryIso2: iso2, roleId: role, page: activePage })
-  }, [role, activePage, syncUrl])
+    persistDashboardPreferences({ country_iso2: iso2 })
+  }, [role, activePage, syncUrl, persistDashboardPreferences])
 
   const handleRoleChange = useCallback((roleId: string) => {
     setRole(roleId)
     syncUrl({ countryIso2: country.iso2, roleId, page: activePage })
-  }, [country.iso2, activePage, syncUrl])
+    persistDashboardPreferences({ role_id: roleId })
+  }, [country.iso2, activePage, syncUrl, persistDashboardPreferences])
 
   const handlePageChange = useCallback((page: CommandPage) => {
     setActivePage(page)
@@ -3782,11 +3966,11 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} />
       case 'education':
-        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} onPageChange={handlePageChange} />
+        return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} countryEducationOverlays={countryEducationOverlays} onPageChange={handlePageChange} />
       case 'regulatory':
         return <RegulatoryWatchPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />
       case 'local-intel':
@@ -3871,7 +4055,7 @@ export default function CommandCentre({
       {/* ── Sidebar ───────────────────────────────────────────────── */}
       <nav className="cc-sidebar" aria-label="Command centre navigation">
         <div className="cc-sidebar-nav">
-          {NAV_SECTIONS.map((section, si) => (
+          {orderedNavSections.map((section, si) => (
             <div key={si} className="cc-nav-section">
               {section.label && (
                 <div className="cc-nav-section-header" aria-hidden="true">
@@ -3910,7 +4094,7 @@ export default function CommandCentre({
 
       {/* ── Mobile nav ────────────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
-        {NAV_ITEMS_FLAT.map(item => (
+        {orderedNavFlat.map(item => (
           <button
             key={item.id}
             className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}

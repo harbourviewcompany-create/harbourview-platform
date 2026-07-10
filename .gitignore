@@ -39,3 +39,4 @@ tmp-test-*.bin
 
 !.env.example
 .claude/worktrees/
+.sentryclirc

@@ -23,6 +23,8 @@ export type ListingDetail = {
   is_featured: boolean
   high_level_specs: Record<string, unknown>
   created_at: string
+  average_rating: number | null
+  review_count: number | null
 }
 
 type DetailState =
@@ -32,7 +34,7 @@ type DetailState =
   | { status: 'error' }
 
 const SELECT_COLS =
-  'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at'
+  'id,slug,title,description,category,subcategory,marketplace_section,product_type,region,condition,location_country,location_region,price_amount,price_currency,price_display,seller_type,is_featured,high_level_specs,created_at,average_rating,review_count'
 
 const cache = new Map<string, ListingDetail>()
 

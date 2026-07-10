@@ -13,6 +13,10 @@ export interface GlobeExtrusionConfig {
   simplifyTolerance?: number
 }
 
+// Rings above this point count are never simplified, regardless of the
+// requested tolerance - see fix(globe): stop simplifying dense rings.
+const RING_SIMPLIFY_MAX_POINTS = 400
+
 const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   radius: 2.35,
   plateLift: 0.024,
@@ -256,8 +260,6 @@ function ensureWinding(pts: [number, number][], clockwise: boolean): [number, nu
 }
 
 function normalizePolygonTopology(country: HarbourviewCountryGeometry): NormalizedPolygon[] {
-  const countryReferenceLon = countryMinimumCircularSpanReferenceLongitude(country)
-
   return country.polygons
     .map((polygon) => {
       const outerRing = polygon.rings.find((r) => r.kind === 'outer')
@@ -266,10 +268,20 @@ function normalizePolygonTopology(country: HarbourviewCountryGeometry): Normaliz
       const rawOuter = normalizeRing(outerRing.points)
       if (rawOuter.length < 3) return null
 
-      const outer = ensureWinding(normalizeLongitudesAround(rawOuter, countryReferenceLon), false)
+      // Reference longitude computed per-polygon, not per-country. A single
+      // multi-part country (e.g. Russia's 72 disjoint pieces spanning nearly
+      // the whole globe) can have a country-wide reference that's correct for
+      // dateline-straddling pieces but wrong for a mainland ring that doesn't
+      // itself need any antimeridian wrap - applying a mismatched reference
+      // silently splits points on either side of a threshold longitude by a
+      // full 360deg within a SINGLE ring, producing a self-intersecting
+      // polygon that earcut then mistriangulates into a void.
+      const polygonReferenceLon = minimumCircularSpanReferenceLongitude(rawOuter)
+
+      const outer = ensureWinding(normalizeLongitudesAround(rawOuter, polygonReferenceLon), false)
       const holes = polygon.rings
         .filter((r) => r.kind === 'hole')
-        .map((r) => normalizeLongitudesAround(normalizeRing(r.points), countryReferenceLon))
+        .map((r) => normalizeLongitudesAround(normalizeRing(r.points), polygonReferenceLon))
         .map((r) => ensureWinding(r, true))
         .filter((r) => r.length >= 3)
       return { outer, holes }
@@ -325,8 +337,8 @@ function _createCountryBufferGeometryInner(
 
   for (const { outer: rawOuter, holes: rawHoles } of polygons) {
     const tolerance = cfg.simplifyTolerance ?? 0
-    const outer = tolerance > 0 ? douglasPeucker(rawOuter, tolerance) : rawOuter
-    const holes = tolerance > 0 ? rawHoles.map((h) => douglasPeucker(h, tolerance)) : rawHoles
+    const outer = tolerance > 0 && rawOuter.length <= RING_SIMPLIFY_MAX_POINTS ? douglasPeucker(rawOuter, tolerance) : rawOuter
+    const holes = tolerance > 0 ? rawHoles.map((h) => (h.length <= RING_SIMPLIFY_MAX_POINTS ? douglasPeucker(h, tolerance) : h)) : rawHoles
     const isTinyCountry = cfg.tinyCountryIso2.includes(country.iso2)
     const isTinySinglePolygonCountry = country.polygons.length === 1 && calculatePlanarArea(outer) < cfg.minimumAreaDeg2
     const isTiny = isTinyCountry || isTinySinglePolygonCountry

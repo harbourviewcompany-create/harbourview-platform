@@ -1,15 +1,18 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView, CommandPage, DigestWindow } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
+import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
+
 
 type PublicServiceProvider = {
   id: string; displayName: string; service_category: string
@@ -42,6 +45,7 @@ type Props = {
   liveTiles?:           LiveEduTile[]
   recentEduModules?:    RecentEduModule[]
   sourceCoverage?:      SourceCoverageRow[]
+  countryEducationOverlays?: CountryEducationOverlay[]
   jurisdictionPlaybook?: JurisdictionPlaybook
   educationTracks?:     EducationTrack[]
   marketMetrics?:       MarketMetric[]
@@ -66,19 +70,20 @@ type MobileMarketCard = {
   jurisdiction: string
   status: string
   action: string
+  rating: number
+  reviewCount: number
 }
 
 const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
-  { id: 'briefing',    label: 'Briefing',    icon: '◎' },
-  { id: 'digest',      label: 'Digest',      icon: '❑' },
-  { id: 'marketplace', label: 'Market',      icon: '⊞' },
-  { id: 'signals',     label: 'Intel',       icon: '≋' },
-  { id: 'education',   label: 'Education',   icon: '⬡' },
-  { id: 'genetics',    label: 'Genetics',    icon: '⊕' },
-  { id: 'compliance',  label: 'Compliance',  icon: '◫' },
-  { id: 'countries',   label: 'Countries',   icon: '⊗' },
+  { id: 'briefing',        label: 'Briefing',       icon: '◎' },
+  { id: 'digest',          label: 'Digest',         icon: '❑' },
+  { id: 'marketplace',     label: 'Market',         icon: '⊞' },
+  { id: 'signals',         label: 'Intel',          icon: '≋' },
+  { id: 'education',       label: 'Education',      icon: '⬡' },
+  { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
+  { id: 'countries',       label: 'Countries',      icon: '⊗' },
 ]
 
 
@@ -183,6 +188,8 @@ function normalizeMarketRow(row: MarketRow, index: number, country: CountryOptio
       jurisdiction: country.label,
       status: fieldValue(row[7], 'Listed'),
       action: fieldValue(row[6], 'Request mediated access'),
+      rating: 0,
+      reviewCount: 0,
     }
   }
 
@@ -194,6 +201,8 @@ function normalizeMarketRow(row: MarketRow, index: number, country: CountryOptio
     jurisdiction: fieldValue(row[2], country.label),
     status: fieldValue(row[4], 'Pending review'),
     action: fieldValue(row[5], 'Request mediated access'),
+    rating: Number(row[8]) || 0,
+    reviewCount: Number(row[9]) || 0,
   }
 }
 
@@ -399,11 +408,11 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         const maxBar = Math.max(...bars, 1)
         return (
           <MobileAccordion title={`Evidence confidence · ${avg}% avg`}>
-            <div className="hvm-conf-bar-wrap">
+            <div className="hvm-hist-bar-wrap">
               {bars.map((count, i) => (
                 <div key={i} className="hvm-conf-bar-col">
                   <div className="hvm-conf-bar-track">
-                    <div className="hvm-conf-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
+                    <div className="hvm-hist-bar-fill" style={{ height: `${Math.round((count / maxBar) * 100)}%` }} />
                   </div>
                   <span>{(i + 1) * 20}%</span>
                 </div>
@@ -421,24 +430,22 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
   )
 }
 
-type BriefingSub = 'overview' | 'pathway' | 'local-intel' | 'compliance' | 'settings'
+type BriefingSub = 'overview' | 'compliance' | 'local-intel' | 'access-pathway'
 
 const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
-  { id: 'overview',    label: 'Overview' },
-  { id: 'pathway',     label: 'Pathway' },
-  { id: 'local-intel', label: 'Local Intel' },
-  { id: 'compliance',  label: 'Compliance' },
-  { id: 'settings',    label: 'Settings' },
+  { id: 'overview',       label: 'Overview' },
+  { id: 'compliance',     label: 'Compliance' },
+  { id: 'local-intel',    label: 'Local Intel' },
+  { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, roleLabel, roleId, countryIntel, signals, pathwayData, localIntel, countryOptions, roleOptions, marketMetrics, tradeFlows, jurisdictionPlaybook, onCountryChange, onRoleChange, onOpenSettings, sub, userEmail }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
-      {sub === 'overview'    && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
-      {sub === 'pathway'     && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
-      {sub === 'local-intel' && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
-      {sub === 'compliance'  && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
-      {sub === 'settings'    && <SettingsMobile country={country} role={roleId} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={onCountryChange} onRoleChange={onRoleChange} userEmail={userEmail} />}
+      {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
+      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
+      {sub === 'local-intel'    && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
 }
@@ -489,7 +496,7 @@ function AccessPathwayMobile({ country, roleLabel, countryIntel, pathwayData, ju
               <MobileAccordion key={step.id} title={`${step.step_number}. ${step.title} — ${doneCount}/${reqs.length} met`} defaultOpen={step.step_number === 1}>
                 <div style={{ marginBottom: 10 }}>
                   <div className="hvm-conf-bar-track" style={{ height: 6, borderRadius: 3 }}>
-                    <div className="hvm-conf-bar-fill" style={{ height: '100%', width: `${pct}%`, borderRadius: 3 }} />
+                    <div className="hvm-hist-bar-fill" style={{ height: '100%', width: `${pct}%`, borderRadius: 3 }} />
                   </div>
                 </div>
                 {step.description && (
@@ -575,6 +582,7 @@ function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: W
 function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
+  const [sortByRating, setSortByRating] = useState(false)
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
 
   const cards = useMemo<MobileMarketCard[]>(() => {
@@ -587,6 +595,8 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         jurisdiction: wanted.location_country ?? country.label,
         status: 'Public request review',
         action: 'Respond through Harbourview',
+        rating: 0,
+        reviewCount: 0,
       }))
     }
 
@@ -595,9 +605,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
 
   const filteredCards = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return cards
-    return cards.filter(card => [card.title, card.description, card.category, card.jurisdiction].join(' ').toLowerCase().includes(q))
-  }, [cards, search])
+    let list = q
+      ? cards.filter(card => [card.title, card.description, card.category, card.jurisdiction].join(' ').toLowerCase().includes(q))
+      : cards
+    if (sortByRating) {
+      list = [...list].sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+    }
+    return list
+  }, [cards, search, sortByRating])
 
   if (selectedCard) {
     return (
@@ -644,6 +659,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search public marketplace summaries…" />
       </label>
 
+      <button
+        type="button"
+        className={`hvm-sort-toggle${sortByRating ? ' active' : ''}`}
+        onClick={() => setSortByRating(v => !v)}
+      >
+        {sortByRating ? '★ Sorted by top rated' : 'Sort by top rated'}
+      </button>
+
       <div className="hvm-market-list">
         {filteredCards.length > 0 ? filteredCards.slice(0, 12).map(card => (
           <article
@@ -662,6 +685,9 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
             <p>{card.description}</p>
             <div className="hvm-market-meta">
               <span>{card.jurisdiction}</span>
+              {card.rating > 0 && card.reviewCount > 0 ? (
+                <span className="hvm-market-rating">★ {card.rating.toFixed(1)} ({card.reviewCount})</span>
+              ) : null}
               <strong>{card.action}</strong>
             </div>
           </article>
@@ -940,285 +966,7 @@ function EvidenceMobile({ country, roleLabel, countryIntel, evidenceData, source
   )
 }
 
-type EduModule = { icon: string; title: string; desc: string; slug?: string }
-
-const MODULE_TOPICS: Record<string, { topics: string[]; action: string }> = {
-  'Dispensing Controls': {
-    topics: [
-      'Prescription validation and controlled-substance handling protocols',
-      'Drug interaction screening and contraindication review',
-      'Patient consultation and informed-consent requirements',
-      'Good Pharmacy Practice standards and audit readiness',
-      'Record-keeping, pharmacovigilance and adverse-event reporting',
-    ],
-    action: 'Review dispensing SOP',
-  },
-  'Compliance & Reg.': {
-    topics: [
-      'National regulatory authority requirements and licence conditions',
-      'Authorization classes, permit types and renewal obligations',
-      'Inspection readiness: documentation, SOPs and audit trail',
-      'Continuing competency and professional obligations',
-      'Enforcement exposure and voluntary disclosure procedures',
-    ],
-    action: 'Check compliance calendar',
-  },
-  'Country Rules': {
-    topics: [
-      'Medical cannabis programme status and legislative framework',
-      'Permitted indications, formulations and quantity limits',
-      'Import and export regime, INCB permits and customs controls',
-      'Licence classes, authorization pathways and regulator contact',
-      'Jurisdiction-specific restrictions and upcoming regulatory changes',
-    ],
-    action: 'View regulatory brief',
-  },
-  'Documentation': {
-    topics: [
-      'Certificate of Analysis (COA) interpretation and verification',
-      'Product dossier structure and GMP certificate requirements',
-      'Supplier verification, counterparty checks and due diligence',
-      'Traceability record structure and chain-of-custody obligations',
-      'Submission templates, format standards and filing deadlines',
-    ],
-    action: 'Access document templates',
-  },
-  'Export Regulations': {
-    topics: [
-      'Export licence classes, permit applications and processing times',
-      'INCB notification requirements and Article 12 obligations',
-      'Destination-country import permit mechanics and equivalence rules',
-      'EU-GMP certification, phytosanitary and customs documentation',
-      'Controlled shipment packaging, labelling and transit procedures',
-    ],
-    action: 'Review export pathway',
-  },
-  'Import Frameworks': {
-    topics: [
-      'Import licence requirements, quota allocation and application process',
-      'Controlled substance INCB permits and national quota management',
-      'Distributor authorization, pharmacy participation and custody rules',
-      'Customs procedures, inspection requirements and duty classification',
-      'Country-specific quantity limits, formulation restrictions and labelling',
-    ],
-    action: 'Review import pathway',
-  },
-  'Market Access': {
-    topics: [
-      'Commercial market entry pathways and access restrictions by role',
-      'Mediated access protocols and counterparty disclosure controls',
-      'Regulatory approval timeline and milestone mapping',
-      'Market size, competitor landscape and pricing intelligence',
-      'Strategic positioning and risk classification for selected role',
-    ],
-    action: 'Request market brief',
-  },
-  'Trade & Access': {
-    topics: [
-      'International trade framework and applicable bilateral treaties',
-      'Counterparty verification and commercial due diligence requirements',
-      'Partner and distributor identification and qualification process',
-      'Harbourview-mediated access workflow and contact-release controls',
-      'Risk classification and commercial review decision matrix',
-    ],
-    action: 'View trade pathway',
-  },
-  'GMP Standards': {
-    topics: [
-      'Good Manufacturing Practice framework (EU-GMP, GACP, GDP)',
-      'Facility authorization, site master file and inspection requirements',
-      'Quality management system: SOPs, deviations and CAPA process',
-      'Batch release, product testing obligations and stability studies',
-      'Supplier qualification, approved vendor list and audit procedures',
-    ],
-    action: 'Review GMP checklist',
-  },
-  'Prescribing Pathways': {
-    topics: [
-      'Clinical authorization requirements and prescriber eligibility criteria',
-      'Patient eligibility, approved indications and diagnosis documentation',
-      'Prescription format, quantity limits, duration and renewal rules',
-      'Informed consent, monitoring requirements and follow-up obligations',
-      'Adverse event recording, PSUR submissions and reporting timelines',
-    ],
-    action: 'Review prescribing SOP',
-  },
-  'Clinical Evidence': {
-    topics: [
-      'Current randomized controlled trial landscape and evidence base',
-      'Meta-analyses and systematic review summaries by indication',
-      'Cannabinoid pharmacology, mechanisms of action and receptor profile',
-      'Efficacy and safety data stratified by formulation and population',
-      'Evidence quality classification and regulatory acceptance criteria',
-    ],
-    action: 'View evidence library',
-  },
-  'Pharmacology': {
-    topics: [
-      'Endocannabinoid system, receptor pharmacology (CB1, CB2, TRPV1)',
-      'Cannabinoid profiles: THC, CBD, CBG, CBN and minor cannabinoids',
-      'Drug-drug interaction risk assessment and CYP450 pathway effects',
-      'Pharmacokinetics, bioavailability and onset by formulation route',
-      'Special population considerations: elderly, paediatric, renal/hepatic',
-    ],
-    action: 'Review pharmacology module',
-  },
-  'Logistics & Customs': {
-    topics: [
-      'Controlled substance shipping requirements, sealing and labelling',
-      'Customs documentation, import/export permits and HS codes',
-      'Cold chain, temperature monitoring and GDP requirements',
-      'Carrier selection, route risk assessment and insurance requirements',
-      'Delay, seizure and loss-of-shipment protocols and notifications',
-    ],
-    action: 'Review logistics checklist',
-  },
-  'Trade & Cross-Border': {
-    topics: [
-      'Cross-border shipment permit framework: INCB and national requirements',
-      'Harmonized tariff codes and controlled substance customs classification',
-      'Phytosanitary certificate, fumigation and plant import restrictions',
-      'Insurance, Incoterms 2020 and liability allocation by trade route',
-      'Destination-country controlled substance import documentation matrix',
-    ],
-    action: 'View cross-border guide',
-  },
-  'Cultivation Standards': {
-    topics: [
-      'Good Agricultural and Collection Practice (GACP) requirements',
-      'Harvest and post-harvest handling, drying and storage protocols',
-      'Permitted genetics, THC/CBD limits and variety registration obligations',
-      'Water, soil, integrated pest management and contamination controls',
-      'Chain-of-custody from harvest to processor and traceability records',
-    ],
-    action: 'Review cultivation standards',
-  },
-  'Lab & Testing Protocols': {
-    topics: [
-      'Certificate of Analysis scope, required analytes and acceptance criteria',
-      'ISO 17025 and GLP accreditation standards for cannabis laboratories',
-      'Contaminant panels: pesticides, heavy metals, mycotoxins and residual solvents',
-      'Potency testing methods: HPLC, GC, and validated reference standards',
-      'Shelf-life studies, stability testing and re-test interval requirements',
-    ],
-    action: 'Review testing protocols',
-  },
-  'Investment & Operations': {
-    topics: [
-      'Capital requirements: licence acquisition, build-out and working capital',
-      'M&A, asset transfer and regulatory change-of-ownership procedures',
-      'Operational setup: facility compliance, staffing and SOPs',
-      'Revenue modelling, unit economics and market-entry payback timeline',
-      'Risk matrix: regulatory, market, currency and execution exposures',
-    ],
-    action: 'View investment framework',
-  },
-  'Regulatory Compliance': {
-    topics: [
-      'Compliance programme design: policies, procedures and controls',
-      'Regulatory change monitoring and impact assessment process',
-      'Internal audit, gap analysis and remediation planning',
-      'Regulator engagement, licence renewals and condition management',
-      'Training, competency verification and culture of compliance',
-    ],
-    action: 'Review compliance framework',
-  },
-  'Evidence gap review': {
-    topics: [
-      'This country-role pathway requires additional evidence before full verification',
-      'Harbourview is reviewing regulatory, market and licence-class data for this route',
-      'Interim guidance is available through the mediated intake process',
-      'Submit pathway verification requests via the intake workflow for priority review',
-      'Evidence gaps are addressed as source review and regulatory data are confirmed',
-    ],
-    action: 'Submit pathway review request',
-  },
-  'Export Readiness': {
-    topics: [
-      'Verify your distributor or producer licence explicitly authorises export and controlled-substance cross-border transfer in your jurisdiction',
-      'Secure an INCB Article 12 export permit and confirm the destination country has issued the corresponding import permit before any shipment',
-      'Prepare the full export documentation packet: EU-GMP or equivalent certificate, batch COA, product specification, customs invoice, and packing list',
-      'Confirm destination-country product registration status, permitted THC/CBD concentration limits, and approved formulation types before committing to supply',
-      'Understand controlled-substance labelling requirements for international transit: language, quantity declarations, and INCB permit reference number placement',
-    ],
-    action: 'Begin export licence application',
-  },
-  'Buyer Pathway': {
-    topics: [
-      'Confirm your wholesale distributor or importer authorisation covers controlled-substance import under national pharmaceutical or cannabis law',
-      'Submit the import permit application to your national competent authority with quota allocation request, product specification, and source-country export permit reference',
-      'Select an EU-GMP or equivalent certified supply partner and verify their current GMP certificate scope, batch COA, and product registration status',
-      'Establish compliant goods-receipt procedures: physical inspection, quarantine hold, QP batch release sign-off, temperature records, and receipting documentation',
-      'Define re-supply cadence, minimum order volumes, contract terms, and mediated-access pricing structure within regulatory and commercial frameworks',
-    ],
-    action: 'Start import permit application',
-  },
-  'GDP Logistics': {
-    topics: [
-      'GDP Directive 2013/C 343/01 obligations for wholesale distribution of medicinal cannabis — storage, transport, and documentation requirements',
-      'Cold chain qualification: temperature mapping studies, validated storage areas, continuous monitoring systems, and alarm response procedures',
-      'Transport SOP requirements: carrier qualification, vehicle validation, chain-of-custody documentation, and delivery verification records',
-      'Controlled-substance shipment packaging integrity, labelling standards, INCB permit reference placement, and transit documentation matrix',
-      'Return goods policy, product recall logistics procedures, stock reconciliation, and competent authority notification timelines',
-    ],
-    action: 'Download GDP logistics checklist',
-  },
-  'GMP Compliance': {
-    topics: [
-      'EU-GMP Chapter 3 (premises and equipment) and GDP Directive 2013/C 343/01 obligations for wholesale medicinal cannabis distribution',
-      'Written SOPs for receipt, quarantine, storage, dispatch, return, and recall of controlled products — all with temperature-controlled audit trail',
-      'Qualified Person (QP) responsibilities: batch release sign-off, deviation and OOS management, CAPA documentation, and annual product review',
-      'Product recall and withdrawal procedures: tier-1 field alert timelines, stock reconciliation, pharmacy/hospital notification chain, and competent authority reporting',
-      'Internal audit programme: annual GDP self-inspection, supplier qualification visits, approved vendor list maintenance, and audit response tracking',
-    ],
-    action: 'Download GDP compliance checklist',
-  },
-  'Wholesale Distribution': {
-    topics: [
-      'Wholesale dealer authorisation scope: permitted product categories, storage conditions, and approved customer classes under national law',
-      'GDP-compliant receiving and dispatch: purchase order matching, delivery verification, serialisation and traceability record creation',
-      'Cold-chain maintenance: validated storage areas, temperature monitoring systems, alarm response procedures, and mapping qualification records',
-      'Controlled-substance security requirements: physical access controls, inventory reconciliation frequency, and loss or theft reporting obligations',
-      'Customer due-diligence: verifying pharmacy, hospital, or downstream licence status before each supply transaction',
-    ],
-    action: 'Review wholesale licence conditions',
-  },
-  'Cannabis Law': {
-    topics: [
-      'National legislative framework governing medical cannabis: enabling act, ministerial regulations, and competent authority designation',
-      'Controlled substance scheduling: which cannabinoids are scheduled, applicable quantity thresholds, and derogation or reclassification history',
-      'Licence class hierarchy: cultivation, production, processing, wholesale, retail, import, export, and research authorisations',
-      'Enforcement landscape: recent inspection findings, penalty structures, suspension and revocation precedents, and voluntary disclosure provisions',
-      'Upcoming regulatory changes: bills in progress, consultation periods, and anticipated impact on current licence conditions and operational procedures',
-    ],
-    action: 'View regulatory brief',
-  },
-  'Regulatory Framework': {
-    topics: [
-      'Current status of the national medical cannabis programme: legal basis, authorised use cases, and permitted product categories',
-      'Competent authority structure: which agency issues licences, inspects premises, approves products, and handles import/export permits',
-      'Licence application requirements: eligibility criteria, supporting documents, facility standards, and indicative processing timelines',
-      'Good practice standards: applicable GMP, GDP, GACP, and GSP guidelines and how they interact with national cannabis-specific regulations',
-      'Annual compliance obligations: licence renewal, reporting requirements, adverse event notifications, and record retention periods',
-    ],
-    action: 'Access regulatory brief',
-  },
-}
-
-function getModuleContent(title: string): { topics: string[]; action: string } {
-  const key = Object.keys(MODULE_TOPICS).find(k => title.toLowerCase().includes(k.toLowerCase()))
-  if (key) return MODULE_TOPICS[key]
-  return {
-    topics: [
-      `Review the regulatory and licence requirements applicable to ${title} in your selected jurisdiction`,
-      `Identify the permit classes, authority contacts, and application timelines relevant to ${title}`,
-      `Prepare the documentation and evidence package — COA, GMP certificates, product specifications — required for compliance in this area`,
-      `Understand competent authority inspection scope, enforcement exposure, and voluntary disclosure procedures for ${title}`,
-      `Submit a priority content request via the Harbourview intake flow to receive curated guidance for this module and jurisdiction`,
-    ],
-    action: `Request ${title} briefing`,
-  }
-}
+type EduModule = { icon: string; title: string; desc: string; slug?: string; sections?: { heading: string; body: string }[] }
 
 type EduSub = 'modules' | 'research'
 
@@ -1227,8 +975,8 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
   { id: 'research', label: 'Research' },
 ]
 
-function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, professionals = [] }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; professionals?: HvProfessional[] }) {
-  const [sub, setSub] = useState<EduSub>('modules')
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, countryEducationOverlays, professionals = [], initialSub = 'modules' }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; countryEducationOverlays?: CountryEducationOverlay[]; professionals?: HvProfessional[]; initialSub?: EduSub }) {
+  const [sub, setSub] = useState<EduSub>(initialSub)
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
   const tiles: EduModule[] = liveTiles && liveTiles.length > 0
@@ -1242,7 +990,10 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
         ]
 
   if (selectedModule) {
-    const { topics, action } = getModuleContent(selectedModule.title)
+    const hasRealSections = (selectedModule.sections?.length ?? 0) > 0
+    const { topics, action, isVerified } = hasRealSections
+      ? { topics: [], action: `Request ${selectedModule.title} briefing`, isVerified: true }
+      : getModuleContent(selectedModule.title, countryEducationOverlays)
     const isGap = selectedModule.title.toLowerCase().includes('evidence gap') || selectedModule.title.toLowerCase().includes('gap review')
     return (
       <div className="hvm-page-stack">
@@ -1252,16 +1003,32 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 10 }}>{isGap ? '📋' : selectedModule.icon}</div>
           <h2>{isGap ? 'Pathway in review' : selectedModule.title}</h2>
           <p>{isGap ? `Harbourview is building verified intelligence for ${country.label} · ${roleLabel}. Interim guidance is available below.` : selectedModule.desc}</p>
-        </section>
-        <div className="hvm-list-stack">
-          {topics.map((topic, i) => (
-            <div className="hvm-card" key={i}>
-              <div className="hvm-kicker">{isGap ? `Step ${i + 1}` : `Topic ${i + 1}`}</div>
-              <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55 }}>{topic}</p>
+          {!isVerified && !isGap && (
+            <div className="hvm-kicker" style={{ color: 'rgba(198,165,90,.6)', marginTop: 8 }}>
+              General guidance — not yet verified for {country.label}
             </div>
-          ))}
-        </div>
-        <a href="/intake" className="hvm-cta-card">
+          )}
+        </section>
+        {hasRealSections ? (
+          <div className="hvm-list-stack">
+            {selectedModule.sections!.map((section, i) => (
+              <div className="hvm-card" key={i}>
+                <div className="hvm-kicker">{section.heading}</div>
+                <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{section.body}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="hvm-list-stack">
+            {topics.map((topic, i) => (
+              <div className="hvm-card" key={i}>
+                <div className="hvm-kicker">{isGap ? `Step ${i + 1}` : `Topic ${i + 1}`}</div>
+                <p style={{ margin: '4px 0 0', color: 'rgba(245,240,232,.85)', fontSize: 15, lineHeight: 1.55 }}>{topic}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <a href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>
@@ -1657,7 +1424,7 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
 
   useEffect(() => {
     let cancelled = false
-    const params = new URLSearchParams({ limit: '12' })
+    const params = new URLSearchParams({ limit: '20' })
     if (country.label) params.set('country', country.label)
     fetch(`/api/dashboard/digest?${params.toString()}`)
       .then(r => r.json())
@@ -1671,12 +1438,36 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
     return () => { cancelled = true }
   }, [country.label])
 
-  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 12)
+  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 20)
   const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
   const copy = DIGEST_WINDOW_LABEL[effectiveWindow]
   const isStale = effectiveWindow !== '24h'
 
   if (selected) {
+    if (selected.contentType === 'editorial') {
+      return (
+        <div className="hvm-page-stack">
+          <button className="hvm-back-btn" type="button" onClick={() => setSelected(null)}>← Daily digest</button>
+          <section className="hvm-hero-card compact" style={{ borderLeft: '3px solid #B8AF9E' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span className="hvm-tag-chip" style={{ background: selected.tag.bg, borderColor: selected.tag.border, color: selected.tag.color }}>{selected.tag.label}</span>
+              <span style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace' }}>{selected.market}</span>
+              <span style={{ fontSize: 11, color: 'rgba(245,240,232,.3)', marginLeft: 'auto' }}>{selected.timeAgo}</span>
+            </div>
+            <h2 style={{ fontSize: 20 }}>{selected.flag} {selected.title}</h2>
+          </section>
+          <div className="hvm-card">
+            <div className="hvm-kicker">Why it matters</div>
+            <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selected.commercialImpact}</p>
+          </div>
+          {selected.sourceLabel && (
+            selected.sourceUrl
+              ? <a href={selected.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: 11, color: '#B8AF9E', textAlign: 'center', textDecoration: 'underline' }}>Read the original at {selected.sourceLabel} →</a>
+              : <p style={{ fontSize: 11, color: 'rgba(245,240,232,.35)', textAlign: 'center' }}>{selected.sourceLabel}</p>
+          )}
+        </div>
+      )
+    }
     const cat = classifySignal(selected.type)
     const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
     const confColor = selected.confidence >= 80 ? '#4caf82' : selected.confidence >= 60 ? '#d4a84b' : '#e05555'
@@ -1716,12 +1507,44 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
         <h2>Daily Digest</h2>
         <p>{country.label}{roleLabel ? ` · ${roleLabel}` : ''} · {copy.sub}</p>
         <p style={{ fontSize: 11, color: 'rgba(245,240,232,.4)', fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
-          {effectiveSignals.length} signal{effectiveSignals.length !== 1 ? 's' : ''}{liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
+          {effectiveSignals.length} item{effectiveSignals.length !== 1 ? 's' : ''}{liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
         </p>
       </section>
 
       <div className="hvm-list-stack">
         {effectiveSignals.length > 0 ? effectiveSignals.map((signal, index) => {
+          if (signal.contentType === 'editorial') {
+            return (
+              <div
+                className="hvm-signal-card hvm-signal-card--tap hvm-signal-card--rich"
+                key={signal.id ?? `${signal.title}-${index}`}
+                style={{ borderLeft: '3px solid #B8AF9E' }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(signal)}
+                onKeyDown={e => e.key === 'Enter' && setSelected(signal)}
+              >
+                <div className="hvm-sig-head">
+                  <span className="hvm-tag-chip" style={{ background: signal.tag.bg, borderColor: signal.tag.border, color: signal.tag.color }}>{signal.tag.label}</span>
+                  <span className="hvm-sig-market">{signal.market}</span>
+                  <span className="hvm-sig-time">{signal.timeAgo}</span>
+                </div>
+                <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+                <p className="hvm-signal-impact" style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 4,
+                  WebkitBoxOrient: 'vertical' as const,
+                  overflow: 'hidden',
+                }}>{signal.commercialImpact}</p>
+                <span style={{ fontSize: 11, color: '#B8AF9E', fontWeight: 600 }}>Read more →</span>
+                {signal.sourceLabel && (
+                  <div className="hvm-sig-footer">
+                    <span style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace' }}>{signal.sourceLabel}</span>
+                  </div>
+                )}
+              </div>
+            )
+          }
           const cat = classifySignal(signal.type)
           const catColor = SIG_CATS.find(c => c.id === cat)?.color ?? '#d4a84b'
           return (
@@ -2912,7 +2735,7 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
 
       {countryIntel ? (
         <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-          <SectionCard label="Opp. score" title={countryIntel.opportunity_score != null ? `${countryIntel.opportunity_score}/10` : '—'} tone={countryIntel.opportunity_score != null && countryIntel.opportunity_score >= 6 ? 'ok' : 'neutral'} />
+          <SectionCard label="Opp. score" title={formatOpportunityScore(countryIntel.opportunity_score)} tone={opportunityScoreTone(countryIntel.opportunity_score)} />
           <SectionCard label="Import" title={countryIntel.import_status ?? '—'} />
           <SectionCard label="Export" title={countryIntel.export_status ?? '—'} />
           <SectionCard label="Medical" title={countryIntel.medical_status ?? '—'} />
@@ -3256,6 +3079,7 @@ export default function MobileCommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  countryEducationOverlays,
   jurisdictionPlaybook,
   educationTracks = [],
   marketMetrics = [],
@@ -3272,13 +3096,30 @@ export default function MobileCommandCentre({
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
   const [country, setCountry] = useState<CountryOption>(initialCountry)
   const [role, setRole] = useState(initialRoleId ?? '')
+  // Some valid CommandPage ids (shared with desktop via app/dashboard/page.tsx's
+  // VALID_COMMAND_PAGES) live as sub-tabs on mobile rather than top-level bottom-nav
+  // pages. Without this map, a deep link like ?page=watchlist or ?page=compliance
+  // would silently fall back to 'briefing' > Overview instead of landing on the
+  // correct tab, and ?page=settings (not in MOBILE_NAV at all) wouldn't resolve.
+  const HIDDEN_PAGE_ROUTES: Partial<Record<string, { page: CommandPage; briefingSub?: BriefingSub; signalsSub?: SignalSub; educationSub?: EduSub }>> = {
+    watchlist:        { page: 'signals',  signalsSub: 'watchlist' },
+    regulatory:       { page: 'signals',  signalsSub: 'regulatory' },
+    evidence:         { page: 'education', educationSub: 'research' },
+    compliance:       { page: 'briefing', briefingSub: 'compliance' },
+    'local-intel':    { page: 'briefing', briefingSub: 'local-intel' },
+    'access-pathway': { page: 'briefing', briefingSub: 'access-pathway' },
+    settings:         { page: 'settings' },
+  }
+  const redirected = initialPage ? HIDDEN_PAGE_ROUTES[initialPage] : undefined
   const [activePage, setActivePage] = useState<CommandPage>(() => {
+    if (redirected) return redirected.page
     const valid = MOBILE_NAV.some(item => item.id === initialPage)
     return valid ? (initialPage as CommandPage) : 'briefing'
   })
   const [contextOpen, setContextOpen] = useState(false)
-  const [briefingSub, setBriefingSub] = useState<BriefingSub>('overview')
-  const [signalsSub, setSignalsSub] = useState<SignalSub>('feed')
+  const [briefingSub, setBriefingSub] = useState<BriefingSub>(redirected?.briefingSub ?? 'overview')
+  const [signalsSub, setSignalsSub] = useState<SignalSub>(redirected?.signalsSub ?? 'feed')
+  const educationInitialSub = redirected?.educationSub ?? 'modules'
 
   const countryOptions = useMemo<SelectOption[]>(() => COUNTRIES.map(c => ({ value: c.iso2, label: c.label })), [])
   const roleOptions = useMemo<SelectOption[]>(() => Object.entries(ROLE_PROFILES).map(([value, profile]) => ({ value, label: profile.label })), [])
@@ -3300,17 +3141,47 @@ export default function MobileCommandCentre({
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
 
+  // The URL is the source of truth for the CURRENT session, but for a signed-in
+  // user we also persist role/country to user_dashboard_preferences so the next
+  // fresh session (new tab, reopened app, no query params) restores it instead
+  // of silently reverting to no role at all. This API already existed and works
+  // — UniversalDashboard.tsx (a separate, unrelated dashboard component) was the
+  // only caller; the actual Command Centre never wired into it.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    if (!userEmail) return
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [userEmail])
+
+  const persistDashboardPreferences = (next: { country_iso2?: string; role_id?: string }) => {
+    if (!userEmail) return
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        country_iso2: next.country_iso2 ?? country.iso2,
+        role_id: next.role_id ?? role,
+        heatmap_layer: heatmapLayerRef.current,
+      }),
+    }).catch(() => undefined)
+  }
+
   const handleCountryChange = (iso2: string) => {
     const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
     if (nextCountry) {
       setCountry(nextCountry)
       applyContext(iso2, role, activePage)
+      persistDashboardPreferences({ country_iso2: iso2 })
     }
   }
 
   const handleRoleChange = (roleVal: string) => {
     setRole(roleVal)
     applyContext(country.iso2, roleVal, activePage)
+    persistDashboardPreferences({ role_id: roleVal })
   }
 
   const handlePageChange = (pageVal: CommandPage) => {
@@ -3336,7 +3207,7 @@ export default function MobileCommandCentre({
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
             jurisdictionPlaybook={jurisdictionPlaybook}
             onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
-            onOpenSettings={() => setBriefingSub('settings')}
+            onOpenSettings={() => handlePageChange('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
         )
@@ -3354,13 +3225,15 @@ export default function MobileCommandCentre({
             recentEduModules={recentEduModules}
             educationTracks={educationTracks}
             evidenceData={evidenceData} sourceCoverage={sourceCoverage}
+            countryEducationOverlays={countryEducationOverlays}
             professionals={professionals}
+            initialSub={educationInitialSub}
           />
         )
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
-      case 'compliance':
-        return <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
+      case 'settings':
+        return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} />
       case 'countries':
         return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
@@ -3380,6 +3253,13 @@ export default function MobileCommandCentre({
           </div>
           <div className="hvm-titlebar-actions">
             <button type="button" onClick={() => setContextOpen(true)} aria-label="Switch market">Market</button>
+            <button
+              type="button"
+              className="hvm-titlebar-settings"
+              aria-label="Settings"
+              aria-current={activePage === 'settings' ? 'page' : undefined}
+              onClick={() => handlePageChange('settings')}
+            >⚙</button>
             {userEmail ? (
               <a href="/account" className="hvm-titlebar-account" aria-label="Account">
                 {userEmail.slice(0, 2).toUpperCase()}
@@ -3517,6 +3397,25 @@ const MOBILE_CSS = `
   background: rgba(198,165,90,0.1);
   color: #F0D39A;
   font-size: 11px;
+}
+.hvm-titlebar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.72);
+  font-size: 16px;
+  cursor: pointer;
+}
+.hvm-titlebar-settings[aria-current="page"] {
+  border-color: rgba(198,165,90,0.5);
+  background: rgba(198,165,90,0.14);
+  color: #F0D39A;
 }
 .hvm-title-kicker {
   display: block;
@@ -3731,6 +3630,18 @@ const MOBILE_CSS = `
 }
 .hvm-market-card-top span, .hvm-market-meta strong { color: #d4a84b; }
 .hvm-market-meta { margin: 12px 0 0; align-items: flex-start; }
+.hvm-market-rating { color: rgba(245,240,232,.7); font-size: 11px; white-space: nowrap; }
+.hvm-sort-toggle {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  color: rgba(245,240,232,.62);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 7px 14px; cursor: pointer; margin: -4px 0 4px;
+}
+.hvm-sort-toggle.active { border-color: rgba(212,168,75,.4); color: #d4a84b; background: rgba(212,168,75,.08); }
 .hvm-empty-card { padding: 16px; }
 .hvm-empty-card p { margin: 8px 0 0; color: rgba(245,240,232,.58); line-height: 1.45; }
 .hvm-empty-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
@@ -4159,7 +4070,7 @@ const MOBILE_CSS = `
 .hvm-watch-type-card:hover { background: rgba(255,255,255,.06); }
 .hvm-watch-type-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
 
-.hvm-conf-bar-wrap {
+.hvm-hist-bar-wrap {
   display: flex; align-items: flex-end; gap: 8px; height: 64px;
 }
 .hvm-conf-bar-col {
@@ -4169,7 +4080,7 @@ const MOBILE_CSS = `
   flex: 1; width: 100%; border-radius: 4px;
   background: rgba(255,255,255,.08); position: relative; overflow: hidden;
 }
-.hvm-conf-bar-fill {
+.hvm-hist-bar-fill {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: linear-gradient(180deg, #d4a84b, rgba(212,168,75,.45));
   border-radius: 4px 4px 0 0; transition: height .3s;

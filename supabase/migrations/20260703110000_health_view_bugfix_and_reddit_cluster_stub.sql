@@ -1,0 +1,30 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, final batch).
+--
+-- 1. BUG FIX in source_registry_health (from 20260703100000): the view only
+--    counted fetch_status='success' as a successful fetch. Real data has 4
+--    values (success, extracted, extract_failed, error). Verified directly:
+--    'extracted' (1379 rows) and 'extract_failed' (10 rows) both have real
+--    captured_text in the large majority of cases -- the HTTP fetch worked;
+--    only 'error' means it didn't. Without this fix, sources whose recent
+--    snapshots happened to be in 'extracted' state were wrongly flagged as
+--    failing. Caught via Hemp Benchmarks RSS showing as a false positive
+--    (10 "consecutive failures" -> actually 100% success once fixed).
+--    Also added a 429/rate-limit bucket to suggested_action.
+--
+-- 2. Reddit cluster resolved (10 sources: r/Marijuana, r/HempFlower,
+--    r/cannabusiness, r/trees, r/delta8, r/CBD, r/CanadianCannabis,
+--    r/uktrees, r/microgrowery, r/weedstocks). All failing 403/429 on the
+--    same www.reddit.com/r/X/.rss pattern -- one root cause: Reddit's bot
+--    detection catching the capture worker's honest User-Agent
+--    (HarbourviewSourceEngine/2.1) via Cloudflare fingerprinting, not
+--    fixable by URL change. Deliberately did NOT spoof a browser
+--    User-Agent to evade detection -- consistent with the same principle
+--    applied to Australia TGA/ODC and Chile ISP earlier this session.
+--    Deactivated with the real fix documented: register a Reddit API app
+--    (requires Tyler's account) and use OAuth2 + oauth.reddit.com.
+--
+-- 3. Alabama AMCC, Kentucky, and Massachusetts CCC verified independently
+--    this session and found already correctly fixed -- consistent with
+--    Claude Code working the same source_registry_health worklist in
+--    parallel. Notes backfilled rather than re-doing the work.
+SELECT 1;

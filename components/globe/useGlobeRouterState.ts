@@ -34,11 +34,20 @@ export function globeRouterReducer(
         inlineNotice: undefined,
       }
     case 'MARKET_ENTER':
+      // Advance to role selection. This previously jumped straight to
+      // `step: 'routing'` with `selectedRoleId: 'importer'` hardcoded, which
+      // silently routed EVERY visitor — doctors, regulators, investors,
+      // cultivators — into the importer role's destination. The reducer already
+      // had working ROLE_SELECT / ROLE_SEARCH_SELECT / NOT_SURE_ROLE cases and a
+      // BACK transition out of `step: 'role'`; the step was simply never
+      // reachable because nothing dispatched into it.
       return {
         ...state,
-        step: 'routing',
-        routeStatus: 'resolving',
-        selectedRoleId: 'importer',
+        step: 'role',
+        routeStatus: 'idle',
+        selectedRoleId: undefined,
+        selectedIntentId: undefined,
+        roleSearchQuery: '',
       }
     case 'COUNTRY_CLEAR':
       return { ...initialGlobeRouterState }

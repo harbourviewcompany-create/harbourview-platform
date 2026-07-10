@@ -9,6 +9,7 @@ import { getDashboardStatusBadge } from '@/lib/dashboard/statusBadges'
 import { dashboardSections } from '@/lib/dashboard/countries'
 import { getLatestBriefing } from '@/lib/intelligence/jurisdictionSynthesis'
 import { getPlaybook, DIFFICULTY_LABEL } from '@/lib/intelligence/jurisdictionPlaybooks'
+import { getCountryDossier, formatFileSize } from '@/lib/server/dossierQuery'
 
 const MATURITY_COLORS: Record<string, string> = {
   emerging:    'text-amber-400',
@@ -73,6 +74,7 @@ export default async function CountryIntelligenceDrilldownPage({
   const briefingIso2 = liveCountry?.iso_alpha2 ?? resolvedForBriefing?.iso2 ?? null
   const briefing = briefingIso2 ? await getLatestBriefing(briefingIso2) : null
   const playbook = briefingIso2 ? await getPlaybook(briefingIso2) : null
+  const dossier = liveCountry ? await getCountryDossier(liveCountry.id) : null
 
   if (liveCountry) {
     const statusColor = STATUS_COLORS[liveCountry.market_access_status] ?? STATUS_COLORS.unknown
@@ -264,6 +266,39 @@ export default async function CountryIntelligenceDrilldownPage({
               <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
                 <span className="font-mono text-[9px] text-white/20">Updated {playbook.last_reviewed} · Orientation-level only</span>
                 <Link href="/intelligence/playbooks" className="text-[10px] text-[#c6a55a] hover:opacity-70">All playbooks →</Link>
+              </div>
+            </section>
+          )}
+
+          {dossier && (
+            <section className="mt-6 rounded-2xl border border-[#c6a55a]/25 bg-gradient-to-br from-[#0d1a2f] to-[#07101f] p-6">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#c6a55a]/80">
+                  Full Market Dossier Available
+                </p>
+                {dossier.maturity_score !== null && (
+                  <span className="flex-shrink-0 rounded-full border border-[#c6a55a]/40 bg-[#c6a55a]/10 px-3 py-1 text-[10px] font-semibold text-[#c6a55a]">
+                    Maturity Score {dossier.maturity_score}/25{dossier.maturity_tier ? ` · ${dossier.maturity_tier}` : ''}
+                  </span>
+                )}
+              </div>
+              <p className="mt-3 text-sm leading-7 text-white/60">
+                A full Harbourview v5 market intelligence dossier exists for {liveCountry.country_name} — regulatory
+                history and structure, medical and adult-use channel analysis, trade flows, competitive landscape,
+                and market access strategy across {dossier.page_count ? `${dossier.page_count} pages` : '16 sections'}.
+                This brief above is orientation-level only; the full dossier is shared directly with qualified counterparties.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center rounded-sm border border-[#c6a55a]/50 bg-[#c6a55a]/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#c6a55a] transition-colors hover:border-[#c6a55a]/80 hover:bg-[#c6a55a]/25"
+                >
+                  Request the Full Dossier
+                </Link>
+                <span className="font-mono text-[9px] text-white/25">
+                  Updated {new Date(dossier.updated_at).toLocaleDateString('en-CA')}
+                  {dossier.file_size_bytes ? ` · ${formatFileSize(dossier.file_size_bytes)}` : ''}
+                </span>
               </div>
             </section>
           )}

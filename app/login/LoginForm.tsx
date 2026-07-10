@@ -1,11 +1,38 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const inputCls =
   'w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#F5F1E8] placeholder-[#F5F1E8]/25 outline-none transition-colors focus:border-[#C6A55A]/50 focus:bg-white/[0.06]'
+
+const SIGNUP_BENEFITS = [
+  'Weekly signal summaries',
+  'Marketplace browse',
+  'Country access overview',
+  'Education hub access',
+]
+
+function friendlyAuthError(message: string) {
+  const lower = message.toLowerCase()
+  if (lower.includes('already registered') || lower.includes('already exists')) {
+    return 'An account already exists for this email. Try signing in instead.'
+  }
+  if (lower.includes('invalid login credentials')) {
+    return 'That email or password was not recognized.'
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'Confirm your email before signing in — check your inbox for the confirmation link.'
+  }
+  if (lower.includes('password should be at least') || lower.includes('at least 8')) {
+    return 'Password must be at least 8 characters.'
+  }
+  if (lower.includes('rate limit')) {
+    return 'Too many attempts. Please wait a moment and try again.'
+  }
+  return message
+}
 
 export default function LoginForm({
   error,
@@ -23,6 +50,7 @@ export default function LoginForm({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [signupComplete, setSignupComplete] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(
     error
       ? { type: 'error', text: error === 'auth_callback_failed' ? 'Authentication failed. Please try again.' : decodeURIComponent(error) }
@@ -30,6 +58,10 @@ export default function LoginForm({
       ? { type: 'success', text: decodeURIComponent(message) }
       : null
   )
+
+  const passwordLongEnough = password.length >= 8
+  const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), [email])
+  const canSubmit = emailValid && (mode === 'signin' ? password.length > 0 : passwordLongEnough)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -42,7 +74,7 @@ export default function LoginForm({
       if (mode === 'signin') {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password })
         if (err) {
-          setFeedback({ type: 'error', text: err.message })
+          setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
         } else {
           router.push(next ?? '/dashboard')
           router.refresh()
@@ -54,9 +86,9 @@ export default function LoginForm({
           options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
         })
         if (err) {
-          setFeedback({ type: 'error', text: err.message })
+          setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
         } else {
-          setFeedback({ type: 'success', text: 'Check your email to confirm your account.' })
+          setSignupComplete(true)
         }
       }
     } catch (err) {
@@ -64,6 +96,56 @@ export default function LoginForm({
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleResendConfirmation() {
+    setLoading(true)
+    const supabase = createClient()
+    const { error: err } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
+    })
+    setLoading(false)
+    setFeedback(err
+      ? { type: 'error', text: friendlyAuthError(err.message) }
+      : { type: 'success', text: 'Confirmation email resent.' }
+    )
+  }
+
+  if (signupComplete) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-[#07111F] p-8 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#C6A55A]/30 bg-[#C6A55A]/10 text-xl text-[#C6A55A]">
+          ✓
+        </div>
+        <h2 className="text-lg font-semibold text-[#F5F1E8]">Check your inbox</h2>
+        <p className="mt-2 text-sm leading-6 text-[#F5F1E8]/50">
+          We sent a confirmation link to <span className="text-[#F5F1E8]/80">{email}</span>. Follow it to activate your account and sign in.
+        </p>
+
+        {feedback && (
+          <div
+            className={`mt-5 rounded-xl px-4 py-3 text-left text-sm ${
+              feedback.type === 'error'
+                ? 'border border-red-500/20 bg-red-900/20 text-red-300'
+                : 'border border-emerald-500/20 bg-emerald-900/20 text-emerald-300'
+            }`}
+          >
+            {feedback.text}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleResendConfirmation}
+          disabled={loading}
+          className="mt-5 text-xs font-medium text-[#C6A55A]/70 transition-colors hover:text-[#C6A55A] disabled:opacity-50"
+        >
+          {loading ? 'Resending…' : "Didn't get it? Resend confirmation email"}
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -85,6 +167,16 @@ export default function LoginForm({
           </button>
         ))}
       </div>
+
+      {mode === 'signup' && (
+        <ul className="mb-5 grid grid-cols-2 gap-x-3 gap-y-1.5">
+          {SIGNUP_BENEFITS.map((b) => (
+            <li key={b} className="flex items-start gap-1.5 text-xs text-[#F5F1E8]/45">
+              <span className="mt-0.5 text-[#C6A55A]/70">✓</span>{b}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {feedback && (
         <div
@@ -128,11 +220,16 @@ export default function LoginForm({
             minLength={8}
             className={inputCls}
           />
+          {mode === 'signup' && password.length > 0 && (
+            <p className={`mt-1.5 text-xs ${passwordLongEnough ? 'text-emerald-400/70' : 'text-[#F5F1E8]/35'}`}>
+              {passwordLongEnough ? '✓ Meets minimum length' : `${8 - password.length} more character${8 - password.length === 1 ? '' : 's'} needed`}
+            </p>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !canSubmit}
           className="mt-2 w-full rounded-xl bg-[#C6A55A] py-3 text-sm font-semibold text-[#07111F] transition-colors hover:bg-[#d4b468] disabled:opacity-50"
         >
           {loading
@@ -154,7 +251,7 @@ export default function LoginForm({
               })
               setLoading(false)
               setFeedback(err
-                ? { type: 'error', text: err.message }
+                ? { type: 'error', text: friendlyAuthError(err.message) }
                 : { type: 'success', text: 'Password reset email sent.' }
               )
             }}

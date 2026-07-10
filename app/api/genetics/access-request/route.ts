@@ -38,7 +38,7 @@ function json(ok: boolean, message: string, status = 200) {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const limit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 });
+  const limit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 });
   if (!limit.allowed) {
     return json(false, 'Too many requests.', 429);
   }

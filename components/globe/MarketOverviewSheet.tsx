@@ -39,101 +39,7 @@ function BriefingSection({ label, text }: { label: string; text: string }) {
   )
 }
 
-// ── Confidence ring ────────────────────────────────────────────────────────────
-// Rendered only when confidence_score is a number. Gracefully absent when NULL.
-
-const RING_R = 18
-const RING_CIRC = 2 * Math.PI * RING_R
-
-function scoreColor(score: number): string {
-  if (score >= 80) return '#6daa45'  // green — high confidence
-  if (score >= 55) return '#c6a55a'  // gold  — moderate
-  return '#a13544'                    // red   — low
-}
-
-function ConfidenceRing({ score, categories }: {
-  score: number
-  categories: JurisdictionBriefing['confidence_categories']
-}) {
-  const dash = (score / 100) * RING_CIRC
-  const gap  = RING_CIRC - dash
-  const color = scoreColor(score)
-
-  return (
-    <div className="grid gap-3">
-      {/* Overall ring + label */}
-      <div className="flex items-center gap-4">
-        <svg width="48" height="48" viewBox="0 0 48 48" aria-label={`Confidence score ${score}%`}>
-          {/* Track */}
-          <circle
-            cx="24" cy="24" r={RING_R}
-            fill="none"
-            stroke="rgba(255,255,255,0.08)"
-            strokeWidth="4"
-          />
-          {/* Arc */}
-          <circle
-            cx="24" cy="24" r={RING_R}
-            fill="none"
-            stroke={color}
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray={`${dash} ${gap}`}
-            strokeDashoffset={RING_CIRC * 0.25}  /* start at 12 o'clock */
-            style={{ transition: 'stroke-dasharray 0.6s ease' }}
-          />
-          <text
-            x="24" y="28"
-            textAnchor="middle"
-            fontSize="11"
-            fontWeight="600"
-            fill={color}
-          >
-            {Math.round(score)}
-          </text>
-        </svg>
-        <div className="grid gap-0.5">
-          <span className="text-xs font-semibold text-[#f5f1e8]/80">Data Confidence</span>
-          <span className="text-[10px] uppercase tracking-widest text-[#d8be76]/50">
-            {score >= 80 ? 'High' : score >= 55 ? 'Moderate' : 'Low'}
-          </span>
-        </div>
-      </div>
-
-      {/* Per-category bars — only when categories are present */}
-      {categories && categories.length > 0 && (
-        <div className="grid gap-2">
-          {categories.map((cat) => (
-            <div key={cat.label} className="grid gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-[0.15em] text-[#d8be76]/60">
-                  {cat.label}
-                </span>
-                <span className="text-[10px] text-[#f5f1e8]/50">
-                  {cat.pct != null ? `${cat.pct}%` : '—'}
-                </span>
-              </div>
-              <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/8">
-                {cat.pct != null && (
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${cat.pct}%`,
-                      background: scoreColor(cat.pct),
-                      transition: 'width 0.5s ease',
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── Main component ──────────────────────────────────────────────────────────
 
 export function MarketOverviewSheet({
   countryIso2,
@@ -157,7 +63,7 @@ export function MarketOverviewSheet({
     }
 
     // Throw on a real PostgREST/transport error so it surfaces as the retryable
-    // error state. A clean empty result (`[]`) returns null → genuine "no briefing".
+    // error state. A clean empty result (`[]`) returns null — genuine "no briefing".
     function firstOrThrow(
       result: { data: JurisdictionBriefing[] | null; error: { message: string } | null },
       label: string,
@@ -306,17 +212,6 @@ export function MarketOverviewSheet({
           )}
           {briefing.regulatory_body && (
             <BriefingSection label="Regulatory Body"    text={briefing.regulatory_body} />
-          )}
-
-          {/* Confidence — only when scored */}
-          {briefing.confidence_score != null && (
-            <>
-              <div className="h-px bg-[#c6a55a]/14" />
-              <ConfidenceRing
-                score={briefing.confidence_score}
-                categories={briefing.confidence_categories}
-              />
-            </>
           )}
 
           {/* Last reviewed */}

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { formatOpportunityScore, opportunityScoreFraction, opportunityScoreOutOfTen } from '@/lib/dashboard/opportunityScore'
 
 export interface LocalIntelPageProps {
   country:      { iso2: string; label: string }
@@ -80,23 +81,28 @@ export const LocalIntelPage = React.memo(function LocalIntelPage({
                       <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="8" />
                       <circle
                         cx="40" cy="40" r="32" fill="none"
-                        stroke={countryIntel.opportunity_score >= 7 ? '#4caf82' : countryIntel.opportunity_score >= 4 ? '#d4a84b' : '#e05555'}
+                        stroke={countryIntel.opportunity_score >= 70 ? '#4caf82' : countryIntel.opportunity_score >= 40 ? '#d4a84b' : '#e05555'}
                         strokeWidth="8"
-                        strokeDasharray={`${2 * Math.PI * 32 * countryIntel.opportunity_score / 10} ${2 * Math.PI * 32}`}
+                        strokeDasharray={`${2 * Math.PI * 32 * opportunityScoreFraction(countryIntel.opportunity_score)} ${2 * Math.PI * 32}`}
                         strokeLinecap="round"
                         transform="rotate(-90 40 40)"
                       />
                     </svg>
                     <div className="li-ring-centre">
-                      <strong>{countryIntel.opportunity_score}</strong>
-                      <small>/ 10</small>
+                      <strong>{Math.round(countryIntel.opportunity_score)}</strong>
+                      <small>/ 100</small>
                     </div>
                   </div>
                   <div className="li-score-bars">
+                    {/* NOTE: Trade Activity / Regulatory are derived offsets from the single
+                        opportunity_score, not independent metrics — there is no separate
+                        trade-activity or regulatory sub-score in the data model yet. Kept as
+                        a visual breakdown for now (scaled correctly to /10), but this should
+                        be replaced with real per-dimension scores or removed. */}
                     {[
-                      { label: 'Market Access',  value: countryIntel.opportunity_score },
-                      { label: 'Trade Activity', value: Math.max(1, countryIntel.opportunity_score - 1) },
-                      { label: 'Regulatory',     value: Math.max(1, countryIntel.opportunity_score - 2) },
+                      { label: 'Market Access',  value: opportunityScoreOutOfTen(countryIntel.opportunity_score) },
+                      { label: 'Trade Activity', value: Math.max(1, opportunityScoreOutOfTen(countryIntel.opportunity_score) - 1) },
+                      { label: 'Regulatory',     value: Math.max(1, opportunityScoreOutOfTen(countryIntel.opportunity_score) - 2) },
                     ].map(b => <OpportunityBar key={b.label} {...b} />)}
                   </div>
                 </div>

@@ -7,7 +7,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays, getJurisdictionEvidenceStatus } from '@/lib/dashboard/dashboardLiveData'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -129,6 +129,11 @@ function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
 
   const category = [l.category, l.subcategory].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' · ')
 
+  // average_rating/review_count aren't guaranteed to arrive as JSON numbers
+  // (confirmed serialized as a string in some Postgres/PostgREST paths).
+  const averageRating = Number(l.average_rating) || 0
+  const reviewCount = Number(l.review_count) || 0
+
   return [view, [
     l.title,
     l.description || `${l.category} listing`,
@@ -138,6 +143,8 @@ function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
     accessRoute,
     String(confidence),
     l.id,
+    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
+    reviewCount > 0 ? String(reviewCount) : '',
   ]]
 }
 
@@ -180,12 +187,20 @@ function buildEvidenceGapModule(message?: string) {
 
 export default async function CountryRoleCommandCenterPage({ params }: Props) {
   const { country: countrySlug, role: roleSlug } = await params
-  const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest')
-  if (!dashboard) {
+  const preDashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest')
+  if (!preDashboard) {
     const safeHref = getSafeCountryRoleRedirect(countrySlug, roleSlug)
     if (safeHref !== `/country/${countrySlug}/role/${roleSlug}`) return redirect(safeHref)
     return notFound()
   }
+
+  // Real evidence signal (jurisdiction_playbooks.status === 'published'), replacing
+  // the previous permanent hardcoded false. See lib/dashboard/dashboardLiveData.ts
+  // getJurisdictionEvidenceStatus for why cc_jurisdiction_briefings.confidence_score
+  // was deliberately not used (verified live to be a non-differentiated 0.72 default
+  // across all 203 countries).
+  const evidenceStatus = await getJurisdictionEvidenceStatus(preDashboard.country.countryIso2)
+  const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest', evidenceStatus.verified)!
 
   const countryIso2 = dashboard.country.countryIso2
   const roleId = resolveDashboardRoleId(dashboard.role.slug)
@@ -205,15 +220,35 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     if (user?.id) { userId = user.id; userEmail = user.email ?? null }
   } catch { /* unauthenticated */ }
 
-  // Split into two tiers:
+  // ── Resilient data fetch ──────────────────────────────────────────────────
+  // NOTE: Promise.all was previously used here. A single throw from ANY of
+  // these Supabase calls (e.g. a missing-table schema-cache error, or a
+  // GoTrue rate-limit error) propagated uncaught out of this Server
+  // Component. With no error.tsx in this route tree, that surfaced as
+  // Next.js's bare, unstyled default error page — losing the entire
+  // Harbourview shell for the visitor. Promise.allSettled + per-call
+  // fallbacks means one failing data source degrades that panel only.
+  function settledOr<T>(result: PromiseSettledResult<T>, fallback: T, label: string): T {
+    if (result.status === 'fulfilled') return result.value
+    console.error(`[country-role-dashboard] ${label} failed:`, result.reason)
+    return fallback
+  }
+
   // Tier 1 — critical path (needed for initial paint)
-  const [countryIntelProfile, pathwayData] = await Promise.all([
+  const [countryIntelProfileResult, pathwayDataResult] = await Promise.allSettled([
     getCountryIntelProfile(countryIso2),
     getPublicPathwayTemplate(countryIso2, roleId),
   ])
+  const countryIntelProfile = settledOr(countryIntelProfileResult, null, 'getCountryIntelProfile')
+  const pathwayData = settledOr(pathwayDataResult, undefined, 'getPublicPathwayTemplate')
 
   // Tier 2 — deferred (streamed in after shell renders)
-  const [signals, pipeline, wantedListings, wantedCount, marketplaceRows, liveTiles, recentEduModules, watchlistData, evidenceData, sourceCoverage, localIntel] = await Promise.all([
+  const [
+    signalsResult, pipelineResult, wantedListingsResult, wantedCountResult,
+    marketplaceRowsResult, liveTilesResult, recentEduModulesResult,
+    watchlistDataResult, evidenceDataResult, sourceCoverageResult, localIntelResult,
+    countryEducationOverlaysResult,
+  ] = await Promise.allSettled([
     fetchDashboardSignals(40, countryName),
     getPipelineCounts(),
     getWantedListings(countryIso2),
@@ -225,13 +260,28 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
     getEvidenceData(userId, countryIso2),
     getSourceCoverage(countryIso2),
     getLocalIntel(countryIso2),
+    getCountryEducationOverlays(countryIso2, roleId),
   ])
+
+  const signals = settledOr(signalsResult, [], 'fetchDashboardSignals')
+  const pipeline = settledOr(pipelineResult, undefined, 'getPipelineCounts')
+  const wantedListings = settledOr(wantedListingsResult, [], 'getWantedListings')
+  const wantedCount = settledOr(wantedCountResult, 0, 'getWantedRequestsCount')
+  const marketplaceRows = settledOr(marketplaceRowsResult, {}, 'getCountryRoleMarketplaceRows')
+  const liveTiles = settledOr(liveTilesResult, [], 'getLiveEduTiles')
+  const recentEduModules = settledOr(recentEduModulesResult, [], 'getRecentEduModules')
+  const watchlistData = settledOr(watchlistDataResult, undefined, 'getWatchlistData')
+  const evidenceData = settledOr(evidenceDataResult, undefined, 'getEvidenceData')
+  const sourceCoverage = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
+  const localIntel = settledOr(localIntelResult, null, 'getLocalIntel')
+  const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
 
   return (
     <DashboardResponsiveShell
       key={`${countryIso2}-${roleId ?? dashboard.role.slug}`}
       signals={signals}
       eduCategories={eduCategories}
+      countryEducationOverlays={countryEducationOverlays}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
       wantedCount={wantedCount}

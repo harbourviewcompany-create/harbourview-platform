@@ -46,6 +46,22 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}w ago`
 }
 
+// See matching comment in app/api/dashboard/digest/route.ts — editorial
+// content spans a much wider age range than same-day trade signals, so it
+// needs its own age label rather than being shown as "Today" regardless of
+// how old the underlying story actually is.
+function publishedLabel(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Recently'
+  try {
+    const d = new Date(dateStr)
+    const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+    if (diffDays < 35) return timeAgo(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  } catch {
+    return 'Recently'
+  }
+}
+
 // ── Map PublicRegulatorySignal → DashboardSignal ──────────────────────────────
 function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
   const tagKey = REG_TYPE_TO_TAG[s.signal_type] ?? 'regulatory_change'
@@ -166,6 +182,7 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
     commercialImpact: priToCommercial(s.pri, laneKey, market),
     sourceLabel:      'Harbourview Regulatory Watch',
     flag:             flagForMarket(market),
+    contentType:      'signal',
   }
 }
 
@@ -311,12 +328,90 @@ function digestRowRecency(r: DigestRow): number {
 }
 
 export async function fetchDailyDigest(
-  limit = 12,
+  limit = 20,
   countryName?: string | null,
 ): Promise<DailyDigest> {
   try {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
+
+    // ── Editorial edition first ───────────────────────────────────────────────
+    // Published daily_digest (same content as the public /daily page). When an
+    // edition exists it IS the digest; the rolling window below is fallback.
+    const { data: edition, error: editionError } = await supabase
+      .from('daily_digest')
+      .select('digest_date, headlines, editorial_headlines, generated_at')
+      .eq('status', 'published')
+      .order('digest_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (editionError) {
+      console.error('[fetchDailyDigest] daily_digest edition query failed:', editionError.message)
+    }
+
+    type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
+    type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string; source_url?: string; outlet_name?: string }
+
+    const hasSignalEdition    = edition && Array.isArray(edition.headlines) && edition.headlines.length > 0
+    const hasEditorialEdition = edition && Array.isArray(edition.editorial_headlines) && edition.editorial_headlines.length > 0
+
+    if (hasSignalEdition || hasEditorialEdition) {
+      let signalItems = (hasSignalEdition ? edition!.headlines as EditorialHeadline[] : [])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+      let newsItems = (hasEditorialEdition ? edition!.editorial_headlines as NewsHeadline[] : [])
+        .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
+
+      if (countryName) {
+        const needle = countryName.toLowerCase()
+        const prioritize = <T extends { market?: string }>(items: T[]) => {
+          const match = items.filter(h => (h.market ?? '').toLowerCase().includes(needle))
+          const rest  = items.filter(h => !(h.market ?? '').toLowerCase().includes(needle))
+          return [...match, ...rest]
+        }
+        signalItems = prioritize(signalItems)
+        newsItems   = prioritize(newsItems)
+      }
+
+      const todayUtc  = new Date().toISOString().slice(0, 10)
+      const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
+
+      const signalSignals: DashboardSignal[] = signalItems.map((h, i) => ({
+        id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'regulatory_change',
+        market:           h.market ?? 'Global',
+        tag:              { label: 'REGULATION', color: '#D9A441', bg: 'rgba(217,164,65,0.15)', border: 'rgba(217,164,65,0.35)' },
+        timeAgo:          'Today',
+        confidence:       80,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      'Harbourview Daily',
+        flag:             flagForMarket(h.market ?? 'Global'),
+        contentType:      'signal',
+      }))
+
+      const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
+        id:               h.item_id ?? `editorial-${edition!.digest_date}-${i}`,
+        slug:             undefined,
+        title:            h.headline!,
+        type:             'editorial',
+        market:           h.market ?? 'Global',
+        tag:              editorialTag,
+        timeAgo:          publishedLabel(h.published_at),
+        confidence:       0,
+        commercialImpact: h.why_it_matters ?? '',
+        sourceLabel:      h.outlet_name ?? 'Global Cannabis News',
+        sourceUrl:        h.source_url,
+        flag:             flagForMarket(h.market ?? 'Global'),
+        contentType:      'editorial',
+      }))
+
+      return {
+        signals: [...signalSignals, ...newsSignals].slice(0, limit),
+        window:  edition!.digest_date === todayUtc ? '24h' : 'recent',
+      }
+    }
 
     let query = supabase
       .from('signals_quality')
@@ -327,6 +422,8 @@ export async function fetchDailyDigest(
       .limit(200)
 
     if (countryName) {
+      // Strip PostgREST filter delimiters ( , ( ) ) before interpolating into
+      // the .or() clause, so a crafted country value can't inject conditions.
       const safeCountry = countryName.replace(/[,()]/g, '')
       query = query.or(`country.ilike.%${safeCountry}%,country.eq.Global`)
     }
@@ -367,7 +464,8 @@ export async function fetchDailyDigest(
       signals: windowed.slice(0, limit).map(curatedToSignal),
       window: windowKey,
     }
-  } catch {
+  } catch (err) {
+    console.error('[fetchDailyDigest] unexpected error:', err)
     return { signals: [], window: 'recent' }
   }
 }

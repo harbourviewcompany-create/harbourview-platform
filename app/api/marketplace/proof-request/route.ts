@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+
+const ROUTE_ID = '/api/marketplace/proof-request'
 
 /**
  * POST /api/marketplace/proof-request
@@ -9,6 +12,15 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request)
+    const ipLimit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) } },
+      )
+    }
+
     const body = await request.json()
     const {
       listing_id,

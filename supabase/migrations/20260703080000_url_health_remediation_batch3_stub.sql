@@ -1,0 +1,26 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 3).
+-- Continuation of 20260703060000 / 20260703070000. Same verified-only method.
+--
+-- New problem class discovered this batch: robots.txt-disallowed regulator
+-- domains. Australia's TWO actual cannabis regulators -- TGA (Therapeutic
+-- Goods Administration) and ODC (Office of Drug Control) -- both disallow
+-- automated access outright, confirmed directly via fetch attempts on
+-- their real, correct, current cannabis-specific pages. This is NOT a
+-- stale-URL problem (the pages exist and are current) and NOT fixable by
+-- finding a different URL on the same domain. It explains the odd HTTP/2
+-- stream-error signatures seen in source_snapshots for these two sources
+-- (bot detection manifesting as a protocol error rather than a clean 403).
+--
+-- Fixed (1): Australia Border Force -- old target was a single specific
+--   2021 press release that had gone dead. ABF's own domain is NOT
+--   robots-blocked (verified) and has a live, continuously-updated
+--   newsroom index at newsroom.border.gov.au -- swapped to that instead
+--   of another single dated article, for durability.
+--
+-- Deactivated (2), with reason documented rather than left silently
+-- erroring: TGA Cannabis, NHMRC Cannabis Research. Both on
+-- robots-disallowed domains. Real fix requires either an official
+-- RSS/API endpoint (if TGA/ODC publish one -- not yet checked) or
+-- secondary trade-press coverage of their announcements as a proxy
+-- source, tracked separately.
+SELECT 1;

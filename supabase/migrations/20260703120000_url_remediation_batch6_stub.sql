@@ -1,0 +1,20 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 6).
+--
+-- Fixed (2, verified via web_fetch):
+--   Arizona Cannabis Laws NORML -> old /arizona-marijuana-laws/ slug
+--     retired when NORML restructured state pages into separate
+--     legalization/medical-laws/penalties sub-pages. Pointed at the main
+--     legalization status page.
+--   Seychelles Official Gazette -> old assembly.sc/downloads path was the
+--     wrong domain entirely. Replaced with gazette.sc, the actual
+--     dedicated national gazette site (Drupal-based, weekly publication,
+--     verified current as of the week of Jun 29 2026).
+--
+-- Deactivated (2), reason documented rather than guessed at:
+--   Guinea gazette -> same finding as the earlier Benin/Burundi/CAR/Chad/
+--     Comoros/Cameroon cluster. gazettes.africa's own live country index
+--     does not include Guinea. Not a stale URL, needs a different source.
+--   UN Comtrade cannabis trade flows -> 401 Unauthorized, not 404. Their
+--     API now requires a subscription key (comtradeplus.un.org). Needs
+--     Tyler to register for API credentials, not a URL fix.
+SELECT 1;

@@ -1,15 +1,23 @@
 /**
  * Stripe webhook handler.
- * Handles: customer.subscription.created, updated, deleted
- * Syncs subscription state → supabase stripe_subscriptions_user_profiles
- * Updates user app_metadata.subscription_tier via Supabase Admin API
- * so the JWT carries the tier on next token refresh.
+ *
+ * FIXED 2026-07-04: aligned tier names with user_profiles CHECK constraint.
+ * FIXED 2026-07-07: sync app_metadata.subscription_tier to JWT via
+ *   supabase.auth.admin.updateUserById() after every tier change so that
+ *   middleware can read the tier from the JWT without a DB round-trip.
+ *   Without this, middleware always saw 'free' and blocked paid users from
+ *   /signals, /intelligence, /vault etc. even after successful checkout.
+ *
+ * Handles: checkout.session.completed, customer.subscription.created,
+ * customer.subscription.updated, customer.subscription.deleted.
+ * Idempotent via stripe_webhook_events.
  */
 import 'server-only'
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe, tierFromPriceId } from '@/lib/billing/stripe'
 import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
+import { stripe, tierFromPriceId } from '@/lib/stripe/server'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -17,62 +25,137 @@ function getSupabaseAdmin() {
   if (!url || !key) {
     throw new Error('[harbourview:webhook] NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing.')
   }
-  // stripe_subscriptions_user_profiles has no generated DB types — use any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createClient<any>(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
+  })
 }
 
-async function syncSubscription(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  subscription: Stripe.Subscription
-) {
-  const customerId  = subscription.customer as string
-  const priceId     = subscription.items.data[0]?.price?.id ?? null
-  const tier        = tierFromPriceId(priceId)
-  const status      = subscription.status
-  // current_period_end moved to SubscriptionItem in Stripe API v2024-06-20+
-  const currentPeriodEnd = new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000).toISOString()
+type Admin = ReturnType<typeof getSupabaseAdmin>
 
-  // 1. Find user by stripe_customer_id
-  const { data: profile, error: profileError } = await supabase
-    .from('stripe_subscriptions_user_profiles')
-    .select('user_id')
+async function alreadyProcessed(supabase: Admin, eventId: string): Promise<boolean> {
+  const { data } = await supabase.from('stripe_webhook_events').select('id').eq('id', eventId).maybeSingle()
+  return Boolean(data)
+}
+
+async function markProcessed(supabase: Admin, event: Stripe.Event) {
+  await supabase.from('stripe_webhook_events').insert({
+    id: event.id,
+    type: event.type,
+    processed_at: new Date().toISOString(),
+  })
+}
+
+async function findUserIdByCustomer(supabase: Admin, customerId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('id')
     .eq('stripe_customer_id', customerId)
     .maybeSingle()
+  return data?.id ?? null
+}
 
+/**
+ * Sync subscription_tier into JWT app_metadata so middleware can read it
+ * from the token without a DB round-trip on every request.
+ * Uses the Supabase Admin Auth API — service-role only.
+ * Next user login / token refresh will carry the new value.
+ */
+async function syncAppMetadataTier(
+  supabase: Admin,
+  userId: string,
+  tier: 'free' | 'intel' | 'operator',
+): Promise<void> {
+  const { error } = await supabase.auth.admin.updateUserById(userId, {
+    app_metadata: { subscription_tier: tier },
+  })
+  if (error) {
+    // Non-fatal — user_profiles.tier is the source of truth for RLS.
+    // Middleware will fall back to 'free' until the next token refresh.
+    console.error('[harbourview:webhook] app_metadata sync failed', error.message, { userId, tier })
+  }
+}
+
+async function syncSubscription(supabase: Admin, subscription: Stripe.Subscription) {
+  const customerId = subscription.customer as string
+  const priceId    = subscription.items.data[0]?.price?.id ?? null
+  const derivedTier   = priceId ? tierFromPriceId(priceId) : null
+  const isLive        = subscription.status === 'active' || subscription.status === 'trialing'
+  const effectiveTier: 'free' | 'intel' | 'operator' =
+    isLive && derivedTier ? derivedTier : 'free'
+
+  const item        = subscription.items.data[0]
+  const periodStart = item?.current_period_start
+    ? new Date(item.current_period_start * 1000).toISOString() : null
+  const periodEnd   = item?.current_period_end
+    ? new Date(item.current_period_end * 1000).toISOString() : null
+
+  const userId = await findUserIdByCustomer(supabase, customerId)
+  if (!userId) {
+    console.error('[harbourview:webhook] no user_profiles row for stripe_customer_id', customerId)
+    return
+  }
+
+  if (derivedTier) {
+    const { error: subError } = await supabase.from('subscriptions').upsert(
+      {
+        id: subscription.id,
+        user_id: userId,
+        stripe_customer_id: customerId,
+        status: subscription.status,
+        tier: derivedTier,
+        price_id: priceId,
+        current_period_start: periodStart,
+        current_period_end: periodEnd,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        canceled_at: subscription.canceled_at
+          ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    )
+    if (subError) console.error('[harbourview:webhook] subscriptions upsert failed', subError)
+  } else {
+    console.error('[harbourview:webhook] price_id did not map to a known tier', priceId)
+  }
+
+  // 1. Update user_profiles.tier — what RLS policies check
+  const { error: profileError } = await supabase
+    .from('user_profiles')
+    .update({ tier: effectiveTier, updated_at: new Date().toISOString() })
+    .eq('id', userId)
   if (profileError) {
-    console.error('[harbourview:webhook] profile lookup failed', profileError)
-    return
+    console.error('[harbourview:webhook] user_profiles tier update failed', profileError)
   }
 
-  // 2. Upsert subscription record
-  const { error: upsertError } = await supabase
-    .from('stripe_subscriptions_user_profiles')
-    .upsert({
-      stripe_customer_id:    customerId,
-      stripe_subscription_id: subscription.id,
-      stripe_price_id:       priceId,
-      subscription_tier:     tier,
-      subscription_status:   status,
-      current_period_end:    currentPeriodEnd,
-      updated_at:            new Date().toISOString(),
-    }, { onConflict: 'stripe_customer_id' })
+  // 2. Sync to JWT app_metadata — what middleware reads from the token
+  await syncAppMetadataTier(supabase, userId, effectiveTier)
+}
 
-  if (upsertError) {
-    console.error('[harbourview:webhook] upsert failed', upsertError)
-    return
-  }
+async function handleCancellation(supabase: Admin, subscription: Stripe.Subscription) {
+  const customerId = subscription.customer as string
+  const userId = await findUserIdByCustomer(supabase, customerId)
 
-  // 3. Sync tier into auth.users app_metadata so JWT carries it
-  const userId = profile?.user_id
-  if (userId) {
-    const effectiveTier = status === 'active' || status === 'trialing' ? tier : 'free'
-    const { error: metaError } = await supabase.auth.admin.updateUserById(userId, {
-      app_metadata: { subscription_tier: effectiveTier },
+  await supabase
+    .from('subscriptions')
+    .update({
+      status: 'canceled',
+      canceled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
-    if (metaError) {
-      console.error('[harbourview:webhook] app_metadata update failed', metaError)
-    }
+    .eq('id', subscription.id)
+
+  if (userId) {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ tier: 'free', updated_at: new Date().toISOString() })
+      .eq('id', userId)
+    if (error) console.error('[harbourview:webhook] cancellation profile update failed', error)
+
+    // Downgrade app_metadata so middleware blocks access immediately on next request
+    await syncAppMetadataTier(supabase, userId, 'free')
+  } else {
+    console.error('[harbourview:webhook] cancellation: no user_profiles row for customer', customerId)
   }
 }
 
@@ -95,45 +178,36 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin()
 
+  if (await alreadyProcessed(supabase, event.id)) {
+    return NextResponse.json({ received: true, deduped: true })
+  }
+
   try {
     switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        if (session.subscription) {
+          const subscriptionId =
+            typeof session.subscription === 'string'
+              ? session.subscription
+              : session.subscription.id
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          await syncSubscription(supabase, subscription)
+        }
+        break
+      }
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
         await syncSubscription(supabase, event.data.object as Stripe.Subscription)
         break
-
-      case 'customer.subscription.deleted': {
-        const sub        = event.data.object as Stripe.Subscription
-        const customerId = sub.customer as string
-
-        await supabase
-          .from('stripe_subscriptions_user_profiles')
-          .update({
-            subscription_status: 'canceled',
-            subscription_tier:   'free',
-            updated_at:          new Date().toISOString(),
-          })
-          .eq('stripe_customer_id', customerId)
-
-        // Downgrade user JWT tier
-        const { data: profile } = await supabase
-          .from('stripe_subscriptions_user_profiles')
-          .select('user_id')
-          .eq('stripe_customer_id', customerId)
-          .maybeSingle()
-
-        if (profile?.user_id) {
-          await supabase.auth.admin.updateUserById(profile.user_id, {
-            app_metadata: { subscription_tier: 'free' },
-          })
-        }
+      case 'customer.subscription.deleted':
+        await handleCancellation(supabase, event.data.object as Stripe.Subscription)
         break
-      }
-
       default:
-        // Acknowledge but ignore unhandled event types
         break
     }
+
+    await markProcessed(supabase, event)
   } catch (err) {
     console.error('[harbourview:webhook] handler error', err)
     return NextResponse.json({ error: 'Webhook handler failed.' }, { status: 500 })

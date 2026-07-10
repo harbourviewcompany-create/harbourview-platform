@@ -10,6 +10,7 @@ on:
 
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+  SUPABASE_DB_URL: "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
 
 jobs:
   migrate:
@@ -31,8 +32,24 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      - name: Repair migration drift
+        run: |
+          DB_URL="postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+          # Mark any migrations applied directly to DB as applied in CLI history
+          while IFS= read -r version; do
+            supabase migration repair --status applied "$version" --db-url "$DB_URL" 2>/dev/null || true
+          done < <(
+            supabase migration list --db-url "$DB_URL" 2>/dev/null |
+            grep "^\s*[0-9]\{14\}\s*│\s*✔\s*│\s*✗" |
+            awk '{print $1}' || true
+          )
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
       - name: Push migrations
-        run: supabase db push
+        run: |
+          supabase db push --db-url "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
