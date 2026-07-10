@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-
 import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth';
 import { getUnifiedAiGatewayHealth } from '@/lib/env/unifiedAiGatewayEnv';
 

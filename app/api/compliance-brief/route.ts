@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
+import { createClient } from '@/lib/supabase/server'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 
 export const dynamic = 'force-dynamic'
@@ -113,6 +115,29 @@ export async function POST(request: Request) {
   if (authFailure) return authFailure
 
   try {
+    // Auth: must be a signed-in user
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Rate limit: 5 briefs per minute per IP (protects Anthropic API spend)
+    const ip = getClientIp(request)
+    const rl = enforceRateLimit({
+      route: '/api/compliance-brief',
+      ip,
+      identity: user.id,
+      limit: 5,
+      windowMs: 60_000,
+    })
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+      )
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
     if (!apiKey) {
       return NextResponse.json({ error: 'Compliance brief service not configured' }, { status: 503 })
