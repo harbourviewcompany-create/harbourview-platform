@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
     // Rate limit: 5 briefs per minute per IP (protects Anthropic API spend)
     const ip = getClientIp(request)
-    const rl = enforceRateLimit({
+    const rl = await enforceRateLimit({
       route: '/api/compliance-brief',
       ip,
       identity: user.id,
