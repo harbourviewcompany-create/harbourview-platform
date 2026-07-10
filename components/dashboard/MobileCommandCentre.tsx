@@ -3125,16 +3125,21 @@ export default function MobileCommandCentre({
   // — UniversalDashboard.tsx (a separate, unrelated dashboard component) was the
   // only caller; the actual Command Centre never wired into it.
   const heatmapLayerRef = useRef<string>('none')
+  const preferencesLoadedRef = useRef(false)
   useEffect(() => {
     if (!userEmail) return
     fetch('/api/dashboard/preferences')
       .then(r => r.json())
       .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
       .catch(() => { heatmapLayerRef.current = 'none' })
+      .finally(() => { preferencesLoadedRef.current = true })
   }, [userEmail])
 
   const persistDashboardPreferences = (next: { country_iso2?: string; role_id?: string }) => {
-    if (!userEmail) return
+    // Don't persist until the initial GET above has resolved — otherwise heatmapLayerRef
+    // is still stuck at its 'none' initial value and this PATCH would clobber whatever
+    // heatmap_layer the user actually has saved (table default is 'marketplace_activity').
+    if (!userEmail || !preferencesLoadedRef.current) return
     void fetch('/api/dashboard/preferences', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
