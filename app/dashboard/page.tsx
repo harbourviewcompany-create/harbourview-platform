@@ -6,6 +6,7 @@ import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollabo
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { getListingsBySections } from '@/lib/server/listingsQuery'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import type { RoleId } from '@/types/globe-router'
@@ -135,6 +136,9 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
     : 0
   const confidence = rawScore > 0 ? String(rawScore) : isVerified ? '78' : '62'
 
+  const averageRating = Number(listing.average_rating) || 0
+  const reviewCount = Number(listing.review_count) || 0
+
   return [
     listing.title,
     safeText(listing.description, `${categoryLabel} listing${regionLabel ? ' — ' + regionLabel : ''}.`),
@@ -144,6 +148,10 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
     isVerified ? 'Licensed Direct' : 'Mediated',
     confidence,
     listing.id,
+    // Numeric columns arrive as strings from some Postgres/PostgREST paths
+    // (confirmed for average_rating) — store pre-formatted, empty when unrated.
+    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
+    reviewCount > 0 ? String(reviewCount) : '',
   ]
 }
 
@@ -227,7 +235,7 @@ export default async function DashboardPage({
     mySubmissionsResult,
   ] = await Promise.allSettled([
     fetchDashboardSignals(30),
-    fetchDailyDigest(20),
+    urlPage === 'digest' ? fetchDailyDigest(20, ALL_COUNTRIES.find(c => c.iso2 === countryIso2)?.displayName) : Promise.resolve({ signals: [], window: 'recent' as const }),
     getWantedRequestsCount(),
     getDashboardMarketplaceRows(countryIso2),
     getPipelineCounts(),

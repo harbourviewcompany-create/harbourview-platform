@@ -86,6 +86,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
             opportunity_score: number | null
             signals_status: string | null
             market_access_status: string | null
+            regulatory_tier: string | null
           }
           if (payload.eventType === 'DELETE' || !updated?.iso_alpha2) return prev
 
@@ -97,6 +98,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
             opportunityScore: updated.opportunity_score,
             signalsStatus: updated.signals_status,
             marketAccessStatus: updated.market_access_status,
+            regulatoryTier: (updated.regulatory_tier as GlobeCountryMarker['regulatoryTier']) ?? null,
           }
 
           const withoutOld = prev.countries.filter((c) => c.iso2 !== marker.iso2)

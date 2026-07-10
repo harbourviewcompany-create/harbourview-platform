@@ -1,20 +1,18 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
-import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import type { DashboardMarketplaceRows, MarketRow, MarketView, CommandPage, DigestWindow } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 
-
-type DigestWindow = '24h' | '7d' | '30d' | 'recent'
 
 type PublicServiceProvider = {
   id: string; displayName: string; service_category: string
@@ -72,6 +70,8 @@ type MobileMarketCard = {
   jurisdiction: string
   status: string
   action: string
+  rating: number
+  reviewCount: number
 }
 
 const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
@@ -188,6 +188,8 @@ function normalizeMarketRow(row: MarketRow, index: number, country: CountryOptio
       jurisdiction: country.label,
       status: fieldValue(row[7], 'Listed'),
       action: fieldValue(row[6], 'Request mediated access'),
+      rating: 0,
+      reviewCount: 0,
     }
   }
 
@@ -199,6 +201,8 @@ function normalizeMarketRow(row: MarketRow, index: number, country: CountryOptio
     jurisdiction: fieldValue(row[2], country.label),
     status: fieldValue(row[4], 'Pending review'),
     action: fieldValue(row[5], 'Request mediated access'),
+    rating: Number(row[8]) || 0,
+    reviewCount: Number(row[9]) || 0,
   }
 }
 
@@ -578,6 +582,7 @@ function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: W
 function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
+  const [sortByRating, setSortByRating] = useState(false)
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
 
   const cards = useMemo<MobileMarketCard[]>(() => {
@@ -590,6 +595,8 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         jurisdiction: wanted.location_country ?? country.label,
         status: 'Public request review',
         action: 'Respond through Harbourview',
+        rating: 0,
+        reviewCount: 0,
       }))
     }
 
@@ -598,9 +605,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
 
   const filteredCards = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return cards
-    return cards.filter(card => [card.title, card.description, card.category, card.jurisdiction].join(' ').toLowerCase().includes(q))
-  }, [cards, search])
+    let list = q
+      ? cards.filter(card => [card.title, card.description, card.category, card.jurisdiction].join(' ').toLowerCase().includes(q))
+      : cards
+    if (sortByRating) {
+      list = [...list].sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+    }
+    return list
+  }, [cards, search, sortByRating])
 
   if (selectedCard) {
     return (
@@ -647,6 +659,14 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
         <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search public marketplace summaries…" />
       </label>
 
+      <button
+        type="button"
+        className={`hvm-sort-toggle${sortByRating ? ' active' : ''}`}
+        onClick={() => setSortByRating(v => !v)}
+      >
+        {sortByRating ? '★ Sorted by top rated' : 'Sort by top rated'}
+      </button>
+
       <div className="hvm-market-list">
         {filteredCards.length > 0 ? filteredCards.slice(0, 12).map(card => (
           <article
@@ -665,6 +685,9 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
             <p>{card.description}</p>
             <div className="hvm-market-meta">
               <span>{card.jurisdiction}</span>
+              {card.rating > 0 && card.reviewCount > 0 ? (
+                <span className="hvm-market-rating">★ {card.rating.toFixed(1)} ({card.reviewCount})</span>
+              ) : null}
               <strong>{card.action}</strong>
             </div>
           </article>
@@ -3118,17 +3141,47 @@ export default function MobileCommandCentre({
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
 
+  // The URL is the source of truth for the CURRENT session, but for a signed-in
+  // user we also persist role/country to user_dashboard_preferences so the next
+  // fresh session (new tab, reopened app, no query params) restores it instead
+  // of silently reverting to no role at all. This API already existed and works
+  // — UniversalDashboard.tsx (a separate, unrelated dashboard component) was the
+  // only caller; the actual Command Centre never wired into it.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    if (!userEmail) return
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [userEmail])
+
+  const persistDashboardPreferences = (next: { country_iso2?: string; role_id?: string }) => {
+    if (!userEmail) return
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        country_iso2: next.country_iso2 ?? country.iso2,
+        role_id: next.role_id ?? role,
+        heatmap_layer: heatmapLayerRef.current,
+      }),
+    }).catch(() => undefined)
+  }
+
   const handleCountryChange = (iso2: string) => {
     const nextCountry = COUNTRIES.find(c => c.iso2 === iso2)
     if (nextCountry) {
       setCountry(nextCountry)
       applyContext(iso2, role, activePage)
+      persistDashboardPreferences({ country_iso2: iso2 })
     }
   }
 
   const handleRoleChange = (roleVal: string) => {
     setRole(roleVal)
     applyContext(country.iso2, roleVal, activePage)
+    persistDashboardPreferences({ role_id: roleVal })
   }
 
   const handlePageChange = (pageVal: CommandPage) => {
@@ -3577,6 +3630,18 @@ const MOBILE_CSS = `
 }
 .hvm-market-card-top span, .hvm-market-meta strong { color: #d4a84b; }
 .hvm-market-meta { margin: 12px 0 0; align-items: flex-start; }
+.hvm-market-rating { color: rgba(245,240,232,.7); font-size: 11px; white-space: nowrap; }
+.hvm-sort-toggle {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  color: rgba(245,240,232,.62);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 7px 14px; cursor: pointer; margin: -4px 0 4px;
+}
+.hvm-sort-toggle.active { border-color: rgba(212,168,75,.4); color: #d4a84b; background: rgba(212,168,75,.08); }
 .hvm-empty-card { padding: 16px; }
 .hvm-empty-card p { margin: 8px 0 0; color: rgba(245,240,232,.58); line-height: 1.45; }
 .hvm-empty-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }

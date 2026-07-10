@@ -333,3 +333,71 @@ Expected Pass 1 evidence:
 **Not verified this session:** No browser/visual confirmation that either fix resolves the reported symptom in production — no live render environment available from this session. Recommend a manual click-through (enter a country market; open a signal card in Intel) once the Vercel deploy for `635a073`+ is live. Migration-drift check and full test-suite (`npm run test:*`) not run — out of scope for this diff (no schema/migration changes).
 
 **Rollback:** Revert commits `ef61a79`, `fb17309` (or their content in `635a073` if squashed). Both changes are additive/defensive (error boundaries, allSettled fallbacks, a CSS class rename) — no existing working behavior was removed, so rollback carries no data or schema risk.
+
+## 2026-07-09 — PR #1000 marketplace ratings migration: review + fixes
+
+**Summary:** Reviewed PR #1000 (`feat(marketplace): Phase 1 - Enhanced listings with filters/search, ratings schema, category support`) via `mcp__github__pull_request_read`. The PR's actual diff is a single migration file, 27 lines (`supabase/migrations/20260709000000_add_ratings_to_listings.sql`) — the PR description's claimed `SearchFilters` component, server-side search/filter UI, and `ListingCard` rating display are not present in the diff (`changedFiles: 1`). Flagged as an open discrepancy for the PR author.
+
+**Migration defects found and fixed on branch `claude/pr-1000-review-pmm1up`:**
+1. Trigger `trigger_ratings_updated` had no column/`WHEN` scoping — fired on every `listings` UPDATE, not just rating changes, making `ratings_updated_at` meaningless as a "last rated" signal. Fixed: scoped to `BEFORE UPDATE OF average_rating, review_count` plus an `IS DISTINCT FROM` guard.
+2. Trigger function `update_ratings_timestamp()` did not pin `search_path`, reintroducing the exact class of finding this repo already patched once in `20260501000002_set_marketplace_inquiries_updated_at_search_path.sql`. Fixed: added `SET search_path = public`.
+3. `CREATE TRIGGER` had no `IF NOT EXISTS`/`DROP IF EXISTS` guard, unlike every other statement in the file — would fail on re-run. Fixed: added `DROP TRIGGER IF EXISTS` first.
+4. The `-- RLS: Public read, admin/service write` comment implied policy work that wasn't actually present (it's a `COMMENT ON COLUMN`, not a policy). Replaced with an accurate note that no new policy is needed because listings RLS is row-level, not column-scoped.
+
+**Correction to initial review:** originally flagged the public/private DTO allowlist doc as needing an update for the new rating columns. On checking `hv_public.marketplace_listings_public`'s definition (`supabase/migrations/20260606090200_hv_integration_indexes_views.sql`), that view selects from `hv_marketplace.listings` — a distinct table from `public.listings`, which is what this PR actually alters. The allowlist doc doesn't apply here; instead, the new rating columns currently have **no path to the public marketplace DTO at all**. If the PR's stated goal (ratings visible on public listing cards) is real, that's a separate, unresolved architecture question — not something invented/fixed in this session.
+
+**Files changed this session:** `supabase/migrations/20260709000000_add_ratings_to_listings.sql` (new, corrected version), `docs/control/DATABASE_CONTROL.md`, `docs/control/EVIDENCE_LOG.md` (this entry).
+
+**RLS verified live:** queried `pg_policies` on project `zvxdgdkukjrrwamdpqrg` for `tablename = 'listings'` (read-only, via `mcp__Supabase__execute_sql`). Confirmed 4 policies, all row-level (`qual`/`with_check` conditioned on `status`, `public_visibility`, and an `admin`/`operator` role check via `user_roles`) — none column-scoped. No `UPDATE` policy exists for `anon` or `authenticated` at all, meaning rating writes can only happen via service-role/RPC, consistent with the original PR's "admin/service write" comment. This confirms new columns inherit existing access rules with no new policy required.
+
+**Not verified this session:** Migration not applied to any Supabase project (no local Docker/Supabase available; `apply_migration` against the live project was intentionally not run — that's a production schema change requiring separate sign-off). No `get_advisors` run. `npm run typecheck`/`build` not applicable (SQL-only diff, no application code touched).
+
+**Rollback:** This is a fresh file on a review branch, not yet merged or applied anywhere — no rollback needed unless/until it's applied to a live database (see rollback SQL in `DATABASE_CONTROL.md`'s 2026-07-09 entry).
+
+## 2026-07-09 (update) — Migration applied; UI implemented; found the standalone listings page is dead code
+
+**At Tyler's explicit instruction**, applied both ratings migrations to production (project `zvxdgdkukjrrwamdpqrg`) and implemented the UI the PR #1000 description claimed but never shipped.
+
+**Correction to the entry above:** the "no path to the public marketplace DTO at all" finding was wrong in one respect — I'd checked the wrong view (`hv_public.marketplace_listings_public`, over `hv_marketplace.listings`). The real public read path for `app/marketplace/listings` is `public.marketplace_public_listings_v1` (over `public.listings`, via `lib/server/listingsQuery.ts`), confirmed via `pg_get_viewdef`. Added a second migration (`20260709010000_expose_ratings_on_public_listings_view.sql`) to surface `average_rating`/`review_count` there.
+
+**Schema drift found applying it:** the first version of that view migration (copied from the checked-in `20260601000000_marketplace_supply_engine.sql`) failed against production — `public.listings` has no `subcategory`, `location_region`, `summary`/`public_summary`, or `expires_at` columns live, contradicting what that migration file assumes. Rebuilt the view migration from the actual live `pg_get_viewdef` output. Full detail in `docs/control/DATABASE_CONTROL.md`'s matching 2026-07-09 update entry.
+
+**UI implemented (`app/marketplace/listings/page.tsx` and supporting files):** `components/marketplace/SearchFilters.tsx` (new client component: search + category + region + sort, mirrors the existing `ConsumablesFilterBar` pattern), `getPublicListingsFiltered()` added to `lib/server/listingsQuery.ts` (category-optional variant of the existing per-category filter function, plus a `rating` sort order using the new indexes), a rating badge on `ListingGridCard`, and `formOptions.ts` additions (`FILTER_LISTING_CATEGORIES`, `LISTING_SORT_OPTIONS`).
+
+**Commands run (all passed):** `npm install` (node_modules wasn't present in this session's environment), `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors, pre-existing warning count unchanged, none in touched files), `npm run test` (all suites passed, including `public-dom-forbidden-strings`), `npm run build` (clean). `mcp__Supabase__get_advisors` (security) run post-migration: 3 pre-existing warnings (extension placement ×2, leaked-password-protection), none related to this change — confirms the `search_path`-pinned trigger function doesn't trip the linter.
+
+**Bigger finding — the page I built the UI on is unreachable in production:** `next.config.ts` permanently redirects (308) `/marketplace/listings` and nearly every other `/marketplace/*` route to `/dashboard?page=marketplace` (comment: "Marketplace consolidation into Command Centre"). Confirmed live by running `npm run dev` and curling the route. The actual UI users hit is an inline `MarketplacePage` component inside `components/dashboard/CommandCentre.tsx` (~line 972-1300+), fed by `getListingsBySections()` → `mapListingToDashboardRow()` in `app/dashboard/page.tsx`, which drops the rating fields entirely and renders a plain table (no category/region filter UI, a non-functional "≡ Filters" button, no URL-synced filter state, no rating column). A second, similarly-named `components/dashboard/pages/MarketplacePage.tsx` exists but is dead/unimported — do not confuse the two.
+
+**Not done this session, flagged to Tyler rather than assumed:** wiring the equivalent search/filter/rating UI into the live `CommandCentre.tsx` panel. That's a materially bigger and higher-blast-radius change than the isolated page I already touched — it's a large shared component driving all 20 role-profile dashboards, not a standalone route. Held for explicit direction before touching it.
+
+**Files changed this session:** `supabase/migrations/20260709010000_expose_ratings_on_public_listings_view.sql` (rewritten to match live schema), `app/marketplace/listings/page.tsx`, `components/marketplace/SearchFilters.tsx` (new), `lib/server/listingsQuery.ts`, `lib/marketplace/formOptions.ts`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** DB — see `DATABASE_CONTROL.md` rollback SQL (applies to both migrations now that they're live). Code — revert the relevant commits on `claude/pr-1000-review-pmm1up`; all additive, nothing existing was removed.
+
+## 2026-07-09 (update 2) — Wired search/filter/rating into the live CommandCentre marketplace panel
+
+**At Tyler's explicit instruction**, extended the same functionality into the actual live UI (`components/dashboard/CommandCentre.tsx`'s inline `MarketplacePage`, and its mobile counterpart in `MobileCommandCentre.tsx`), since the standalone page from the prior entry is unreachable in production.
+
+**Data plumbing:** `MarketRow` (a positional string tuple, `components/dashboard/CommandCentre.tsx`) extended from 8 to 10 elements — `RATING` and `REVIEW_COUNT`, pre-formatted strings, empty when unrated. Updated all three places that construct a `MarketRow` literal:
+- `app/dashboard/page.tsx`'s `mapListingToDashboardRow()` — real ratings from `PublicListing.average_rating`/`review_count`, coerced with `Number()` (confirmed non-numeric-safe serialization from the earlier entry).
+- `components/dashboard/CommandCentre.tsx`'s inline wanted-listing row builder — padded with `''`/`''` (wanted demand has no ratings).
+- `app/country/[country]/role/[role]/page.tsx`'s `mapListingToRow()` — a second, separate live route (the per-country/role dashboard) that also builds `MarketRow` from the same `PublicListing` data; wired real ratings through here too rather than padding, since it's live production code, not dead.
+
+**Compile-time fallout from widening the tuple:** `components/dashboard/pages/MarketplacePage.tsx` (the confirmed-dead, unimported duplicate found in the prior research pass) had a hardcoded local 8-string-tuple type for its `ListingCard` prop and failed to typecheck against the new 10-element `MarketRow`. Fixed by importing and using the real `MarketRow` type instead of a hand-duplicated tuple literal — a 2-line fix, not a rewrite of the dead file. Left the file otherwise untouched (still unimported, still not the live component).
+
+**UI added to the live desktop panel (`CommandCentre.tsx`):**
+- Non-functional "≡ Filters" button replaced with two real `<select>`s: jurisdiction/region (options built from unique `JURISDICTION` values present in the active tab's rows) and sort (`Featured first` / `Top rated`, the latter sorting client-side by rating then review count).
+- Category filtering: already existed as the `MKT_TABS` tab strip (cannabis/equipment/consumables/new-products/services/opportunities/wanted) — left as-is rather than duplicating it as a second dropdown.
+- Existing free-text search (title/description) — unchanged, already functional.
+- New RATING column in the listings table (`★ 4.8 (23)` or `—`), added between CATEGORY and JURISDICTION; extended `.cc-mkt-thead`/`.cc-mkt-row` grid-template-columns from 7 to 8 tracks in `CommandCentre.css` and added `.cc-mkt-select`/`.cc-mkt-rating*` rules matching the existing gold-accent visual language. Confirmed no `@media` breakpoint duplicates these grid rules elsewhere.
+- Switching tabs now resets the region filter (`changeTab()` helper) so a jurisdiction chosen in one category tab can't silently zero out results in another.
+
+**UI added to the live mobile panel (`MobileCommandCentre.tsx`):** rating badge in each market card (`★ 4.8 (23)`), and a "Sort by top rated" toggle button (mobile's existing UI is lighter-weight than desktop — one toggle rather than two selects — but functionally equivalent). `MobileMarketCard` type and `normalizeMarketRow()` extended to carry `rating`/`reviewCount` as numbers (mobile does its own formatting at render time, unlike the desktop table which stores pre-formatted strings in the tuple).
+
+**QA (all passed):** `npx tsc --noEmit` (0 errors, full project), `npm run lint` (0 errors, 127 warnings — identical count to the pre-existing baseline, confirmed none are in touched files), `npm run test` (all suites, 57 tests), `npm run build` (clean, all routes compiled including `/dashboard` and `/country/[country]/role/[role]`).
+
+**Not verified this session:** could not visually confirm rendering in a browser — `npm run dev` + curling `/dashboard?page=marketplace` redirects to `/login` because `NEXT_PUBLIC_SUPABASE_URL`/auth env vars aren't present in this sandbox (same limitation noted in the prior white-screen defect entry from 2026-07-07). The route did compile without error under `npm run build`'s static analysis, which exercises the same component tree, but that is not equivalent to an authenticated click-through. Recommend a manual pass once deployed to a preview environment with real Supabase env vars: enter `/dashboard?page=marketplace` for a country/role with at least one rated listing, confirm the rating column/badge renders, the region select and "Top rated" sort actually reorder results, and the mobile breakpoint's sort toggle and card rating badge render correctly.
+
+**Files changed this update:** `components/dashboard/CommandCentre.tsx`, `components/dashboard/CommandCentre.css`, `components/dashboard/MobileCommandCentre.tsx`, `components/dashboard/pages/MarketplacePage.tsx` (2-line type fix only), `app/dashboard/page.tsx`, `app/country/[country]/role/[role]/page.tsx`, this entry.
+
+**Rollback:** Code-only, no new migrations. Revert the relevant commit(s) on `claude/pr-1000-review-pmm1up`; all changes are additive (new tuple slots appended at the end, new UI elements added, no existing behavior removed) so a revert carries no data risk.

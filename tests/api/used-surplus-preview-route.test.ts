@@ -13,6 +13,7 @@ const mockAuth = vi.fn<(request?: NextRequest) => Promise<NextResponse | null>>(
 vi.mock('@/lib/auth/adminApiAuth', () => ({
   requireAdminApiAuth: (request?: NextRequest) => mockAuth(request),
 }))
+}))
 
 import { GET } from '../../app/api/used-surplus-preview/route'
 

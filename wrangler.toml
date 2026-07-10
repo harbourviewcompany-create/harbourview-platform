@@ -2,7 +2,7 @@
 # Deploy: wrangler deploy
 # Local dev: wrangler dev
 
-name = "harbourview-intelligence"
+name = "harbourview-platform"
 # scripts/engine/start-worker.ts is the Node.js daemon entrypoint (infinite
 # poll loop) for a persistent host (Docker/ECS/Cloud Run/Fly/Railway) --
 # incompatible with this platform, which has no persistent process.
@@ -36,10 +36,16 @@ INTELLIGENCE_WORKER_ID      = "cf-worker-01"
 # wrangler secret put ANTHROPIC_API_KEY
 # wrangler secret put GOOGLE_GENAI_API_KEY
 
-# ── KV namespace for rate limiting ────────────────────────────────────────────
-[[kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id      = "__replace_with_your_kv_namespace_id__"
+# NOTE: a [[kv_namespaces]] binding for RATE_LIMIT_KV previously lived here,
+# pointing at a placeholder id ("__replace_with_your_kv_namespace_id__") that
+# was never swapped for a real namespace. Nothing in cloudflare-worker.ts
+# reads env.RATE_LIMIT_KV — it was declared but never used — and the
+# placeholder id is what was failing "Workers Builds: harbourview-platform"
+# on every PR. Removed rather than faked, since fabricating an id here would
+# just move the failure from build-time to first-request-time. If KV-backed
+# rate limiting is needed for this worker later, create a real namespace via
+# `wrangler kv namespace create RATE_LIMIT_KV` and re-add the binding with
+# its actual id — don't restore the placeholder.
 
 # ── Observability ─────────────────────────────────────────────────────────────
 [observability]

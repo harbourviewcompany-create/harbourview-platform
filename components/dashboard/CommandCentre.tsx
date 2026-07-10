@@ -6,7 +6,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
-import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -14,8 +14,10 @@ import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
+import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
 import { WatchlistPage } from './pages/WatchlistPage'
+const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { DealRoomsPanel } from './pages/DealRoomsPanel'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
@@ -25,7 +27,8 @@ import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
-export type MarketRow = [string, string, string, string, string, string, string, string]
+// Trailing 2 slots (RATING, REVIEW_COUNT) are pre-formatted strings, empty when unrated.
+export type MarketRow = [string, string, string, string, string, string, string, string, string, string]
 export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
 
 export type CommandPage =
@@ -44,7 +47,7 @@ export type CommandPage =
   | 'compliance'
   | 'countries'
 
-export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
+export type { DigestWindow }
 
 type PublicServiceProvider = {
   id: string
@@ -473,209 +476,6 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
   'TESTING & COMPLIANCE', 'EXPORT / BUYER MOVEMENT', 'EVIDENCE UPDATES',
 ]
 
-// ── DigestPage ───────────────────────────────────────────────────────────────
-// Daily landing surface. Shows the freshest reviewed intelligence with an
-// honest window label. Hydrates from /api/dashboard/digest on mount; SSR props
-// give instant first paint. Purely a display layer over the reviewed feed —
-// when the raw→reviewed auto-promotion lands, this fills with 24h content
-// automatically with no change here.
-
-const DIGEST_WINDOW_COPY: Record<DigestWindow, { kicker: string; sub: string }> = {
-  '24h':    { kicker: 'New in the last 24 hours',  sub: 'Fresh reviewed intelligence since yesterday.' },
-  '7d':     { kicker: 'This week',                 sub: 'Nothing new in 24h — showing the last 7 days.' },
-  '30d':    { kicker: 'This month',                sub: 'Quiet week — showing the last 30 days of reviewed intel.' },
-  'recent': { kicker: 'Most recent',               sub: 'No new intel in the recent window — showing the latest reviewed signals.' },
-}
-
-const DigestPage = React.memo(function DigestPage({
-  country, region, role, digestSignals, digestWindow, signals,
-}: {
-  country: { iso2: string; label: string }
-  region:  string
-  role:    string
-  digestSignals?: DashboardSignal[]
-  digestWindow?:  DigestWindow
-  signals: DashboardSignal[]
-}) {
-  const [liveSignals, setLiveSignals] = useState<DashboardSignal[] | null>(null)
-  const [liveWindow,  setLiveWindow]  = useState<DigestWindow | null>(null)
-  const [liveTotal,   setLiveTotal]   = useState<number | null>(null)
-  const [isFetching,  setIsFetching]  = useState(false)
-
-  // SSR props → instant paint; effect hydrates the country-filtered live set.
-  const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 20)
-  const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
-
-  React.useEffect(() => {
-    let cancelled = false
-    async function run() {
-      setIsFetching(true)
-      try {
-        const params = new URLSearchParams({ limit: '20' })
-        if (country.label) params.set('country', country.label)
-        const res = await fetch(`/api/dashboard/digest?${params.toString()}`)
-        if (!res.ok || cancelled) return
-        const json = await res.json() as { signals: DashboardSignal[]; window: DigestWindow; total: number; source: string }
-        if (!cancelled && Array.isArray(json.signals)) {
-          setLiveSignals(json.signals)
-          setLiveWindow(json.window)
-          setLiveTotal(json.total)
-        }
-      } catch {
-        /* keep SSR props on failure — silent degradation */
-      } finally {
-        if (!cancelled) setIsFetching(false)
-      }
-    }
-    run()
-    return () => { cancelled = true }
-  }, [country.label])
-
-  const copy = DIGEST_WINDOW_COPY[effectiveWindow]
-  const isStale = effectiveWindow !== '24h'
-
-  // Category rollup for the summary strip.
-  const rollup = useMemo(() => {
-    const map: Partial<Record<SignalGroup, number>> = {}
-    effectiveSignals.forEach(s => {
-      const g = deriveSignalGroup(s.title)
-      map[g] = (map[g] ?? 0) + 1
-    })
-    return SIG_GROUP_ORDER.filter(g => map[g]).map(g => ({ group: g, n: map[g]! }))
-  }, [effectiveSignals])
-
-  const topSignal = useMemo(
-    () => [...effectiveSignals].sort((a, b) => b.confidence - a.confidence)[0] ?? null,
-    [effectiveSignals],
-  )
-
-  return (
-    <div className="cc-page">
-      <div className="cc-inner-header">
-        <h2>Daily Digest — {country.label}{region ? ` · ${region}` : ''}{role ? ` · ${role}` : ''}</h2>
-        <p>Your once-a-day read on the freshest reviewed intelligence for the resolved jurisdiction. {copy.sub}</p>
-      </div>
-
-      {/* Window banner */}
-      <div className={`cc-digest-banner${isStale ? ' stale' : ''}`}>
-        <span className={`cc-digest-live-dot${isStale ? '' : ' active'}`} aria-hidden="true" />
-        <div className="cc-digest-banner-body">
-          <strong>{copy.kicker}</strong>
-          <small>
-            {effectiveSignals.length} signal{effectiveSignals.length !== 1 ? 's' : ''}
-            {liveTotal !== null ? ` · ${liveTotal} reviewed in feed` : ''}
-            {isFetching ? ' · refreshing…' : ''}
-          </small>
-        </div>
-        {rollup.length > 0 && (
-          <div className="cc-digest-rollup">
-            {rollup.map(r => (
-              <span key={r.group} className="cc-digest-rollup-chip">
-                <span aria-hidden="true">{SIG_GROUP_ICONS[r.group]}</span>
-                {r.n} {r.group.toLowerCase()}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Lead item */}
-      {topSignal && (
-        <div className="cc-digest-lead">
-          <div className="cc-digest-lead-tag">
-            {topSignal.contentType === 'editorial' ? 'Featured this week' : `Lead signal · ${topSignal.confidence}% confidence`}
-          </div>
-          <strong>{topSignal.title}</strong>
-          <p>{topSignal.commercialImpact}</p>
-          <div className="cc-digest-lead-meta">
-            <span>{topSignal.market || country.label}</span>
-            <span>·</span>
-            <span>{topSignal.timeAgo}</span>
-            {topSignal.contentType === 'editorial'
-              ? (topSignal.sourceUrl && (
-                  <a href={topSignal.sourceUrl} target="_blank" rel="noopener noreferrer" className="cc-digest-lead-link">
-                    Read at {topSignal.sourceLabel ?? 'source'} →
-                  </a>
-                ))
-              : <Link href={topSignal.slug ? `/signals/${topSignal.slug}` : '/signals'} className="cc-digest-lead-link">Open brief →</Link>}
-          </div>
-        </div>
-      )}
-
-      {/* Recency list */}
-      <div className="cc-sig-feed">
-        {effectiveSignals.length === 0 ? (
-          <div className="cc-empty-state">
-            No reviewed intelligence available yet. Automated promotion of fresh signals is being wired up —
-            new items will appear here daily once it goes live.
-          </div>
-        ) : (
-          effectiveSignals.map((s, i) => {
-            if (s.contentType === 'editorial') {
-              return (
-                <div key={s.id ?? i} className="cc-sig-row" style={{ gridTemplateColumns: '12px 1fr 160px' }}>
-                  <span className="cc-sig-dot" style={{ background: '#B8AF9E' }} />
-                  <div className="cc-sig-body">
-                    <strong>{s.title}</strong>
-                    <small>{s.market ? `${s.market} · ` : ''}{s.timeAgo}{s.sourceLabel ? ` · ${s.sourceLabel}` : ''}</small>
-                    <span style={{
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
-                      overflow: 'hidden', fontSize: 11, color: 'var(--cc-muted)', lineHeight: 1.5, marginTop: 4,
-                    }}>{s.commercialImpact}</span>
-                  </div>
-                  <div className="cc-sig-acts">
-                    {s.sourceUrl && (
-                      <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="cc-sig-brief">Read source</a>
-                    )}
-                  </div>
-                </div>
-              )
-            }
-            const imp  = deriveImpact(s.confidence)
-            const circ = 87.96
-            return (
-              <div key={s.id ?? i} className="cc-sig-row">
-                <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
-                <div className="cc-sig-body">
-                  <strong>{s.title}</strong>
-                  <small>{s.market ? `${s.market} · ` : ''}{s.timeAgo}</small>
-                </div>
-                <div className="cc-sig-why">
-                  <em>Why it matters</em>
-                  <span>Affects operations in {s.market || country.label}</span>
-                </div>
-                <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
-                <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
-                  <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4"/>
-                  <circle cx="18" cy="18" r="14" fill="none"
-                    stroke={s.confidence>=80?'var(--cc-green)':s.confidence>=65?'var(--cc-amber)':'var(--cc-red)'}
-                    strokeWidth="4"
-                    strokeDasharray={`${circ*s.confidence/100} ${circ}`}
-                    strokeLinecap="round" transform="rotate(-90 18 18)"
-                  />
-                  <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
-                </svg>
-                <div className="cc-sig-acts">
-                  <Link href={s.slug ? `/signals/${s.slug}` : '/signals'} className="cc-sig-brief">Open brief</Link>
-                </div>
-              </div>
-            )
-          })
-        )}
-      </div>
-
-      <div className="cc-feed-footer">
-        <span>Digest window: {copy.kicker.toLowerCase()} · {effectiveSignals.length} shown</span>
-        <span className="cc-auto-refresh">
-          {isFetching
-            ? <><span className="cc-refresh-dot" style={{ background: 'var(--cc-amber)' }}/>Refreshing…</>
-            : <><span className="cc-refresh-dot"/>Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>}
-        </span>
-      </div>
-    </div>
-  )
-})
-
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
 const SignalsPage = React.memo(function SignalsPage({
@@ -986,7 +786,7 @@ const MKT_TABS: { id: MarketView; label: string }[] = [
 ]
 
 // MarketRow tuple field indices
-const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7 } as const
+const MR = { TITLE:0, DESC:1, JURISDICTION:2, CATEGORY:3, VERIFICATION:4, ACCESS_ROUTE:5, CONFIDENCE:6, ID:7, RATING:8, REVIEW_COUNT:9 } as const
 
 // ── MarketplacePage ────────────────────────────────────────────────────────────
 
@@ -1023,8 +823,25 @@ const MarketplacePage = React.memo(function MarketplacePage({
     return 'cannabis'
   })
   const [search,    setSearch]    = useState('')
+  const [regionFilter, setRegionFilter] = useState('all')
+  const [sortBy, setSortBy] = useState<'featured' | 'rating'>('featured')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [subView, setSubView] = useState<MarketSubView>('browse')
+
+  const changeTab = (id: MarketView) => {
+    setActiveTab(id)
+    setRegionFilter('all')
+  }
+
+  const regionOptions = useMemo(() => {
+    const base: MarketRow[] = activeTab === 'wanted' && wantedListings?.length
+      ? wantedListings.map(w => [
+          w.title, w.summary ?? '', w.location_country ?? country.iso2,
+          'Wanted Demand', 'Verified', 'Direct', '72', w.id, '', '',
+        ] as MarketRow)
+      : (marketplaceRows?.[activeTab as MarketView] ?? [])
+    return Array.from(new Set(base.map(row => row[MR.JURISDICTION]).filter(Boolean))).sort()
+  }, [activeTab, marketplaceRows, wantedListings, country])
 
   const rows = useMemo<MarketRow[]>(() => {
     let r: MarketRow[] = marketplaceRows?.[activeTab as MarketView] ?? []
@@ -1038,14 +855,25 @@ const MarketplacePage = React.memo(function MarketplacePage({
         'Direct',
         '72',
         w.id,
+        '',
+        '',
       ] as MarketRow)
+    }
+    if (regionFilter !== 'all') {
+      r = r.filter(row => row[MR.JURISDICTION] === regionFilter)
     }
     if (search.trim()) {
       const lq = search.toLowerCase()
       r = r.filter(row => row[MR.TITLE].toLowerCase().includes(lq) || row[MR.DESC].toLowerCase().includes(lq))
     }
+    if (sortBy === 'rating') {
+      r = [...r].sort((a, b) => {
+        const ratingDiff = (Number(b[MR.RATING]) || 0) - (Number(a[MR.RATING]) || 0)
+        return ratingDiff !== 0 ? ratingDiff : (Number(b[MR.REVIEW_COUNT]) || 0) - (Number(a[MR.REVIEW_COUNT]) || 0)
+      })
+    }
     return r
-  }, [activeTab, marketplaceRows, wantedListings, search, country])
+  }, [activeTab, marketplaceRows, wantedListings, search, regionFilter, sortBy, country])
 
   const ACCESS_REQS = useMemo(() => {
     const step1 = pathwayData?.steps.find(s => s.step_number === 1)
@@ -1144,7 +972,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             return (
               <button key={t.id}
                 className={`cc-mkt-tab${activeTab===t.id?' active':''}`}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => changeTab(t.id)}
               >
                 {t.label}
                 {cnt > 0 ? <span className="cc-tab-badge">{cnt}</span> : null}
@@ -1158,7 +986,14 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <span>⌕</span>
             <input className="cc-mkt-search" placeholder="Search listings…" value={search} onChange={e=>setSearch(e.target.value)} />
           </div>
-          <button className="cc-mkt-filter-btn">≡ Filters</button>
+          <select className="cc-mkt-select" value={regionFilter} onChange={e=>setRegionFilter(e.target.value)} aria-label="Filter by jurisdiction">
+            <option value="all">All regions</option>
+            {regionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="cc-mkt-select" value={sortBy} onChange={e=>setSortBy(e.target.value as 'featured' | 'rating')} aria-label="Sort listings">
+            <option value="featured">Featured first</option>
+            <option value="rating">Top rated</option>
+          </select>
         </div>
 
         {rows.length > 0 ? (
@@ -1167,6 +1002,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
               <div className="cc-mkt-thead">
                 <span className="cc-mkt-th opp-col">OPPORTUNITY</span>
                 <span className="cc-mkt-th">CATEGORY</span>
+                <span className="cc-mkt-th">RATING</span>
                 <span className="cc-mkt-th">JURISDICTION</span>
                 <span className="cc-mkt-th">VERIFICATION</span>
                 <span className="cc-mkt-th">ACCESS ROUTE</span>
@@ -1176,6 +1012,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
               {rows.slice(0,10).map((row, i) => {
                 const conf = parseInt(row[MR.CONFIDENCE])||72
                 const ok   = row[MR.VERIFICATION]?.toLowerCase()==='verified'
+                const rating = Number(row[MR.RATING]) || 0
+                const reviewCount = Number(row[MR.REVIEW_COUNT]) || 0
                 return (
                   <div key={row[MR.ID]||String(i)} className="cc-mkt-row">
                     <div className="cc-mkt-cell opp-col">
@@ -1187,6 +1025,11 @@ const MarketplacePage = React.memo(function MarketplacePage({
                       </div>
                     </div>
                     <div className="cc-mkt-cell">{row[MR.CATEGORY]||'—'}</div>
+                    <div className="cc-mkt-cell">
+                      {rating > 0 && reviewCount > 0
+                        ? <span className="cc-mkt-rating"><span className="cc-mkt-star">★</span>{rating.toFixed(1)} <span className="cc-mkt-rating-count">({reviewCount})</span></span>
+                        : <span className="cc-mkt-rating cc-mkt-rating-empty">—</span>}
+                    </div>
                     <div className="cc-mkt-cell cc-juris-cell">
                       <span>{row[MR.JURISDICTION]||country.iso2}</span>
                       {ok && <span className="cc-export-tag">Export-Ready</span>}
@@ -4041,6 +3884,20 @@ export default function CommandCentre({
   )
   const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
+  // Per-role sidebar ordering: promote modules relevant to this role within each
+  // nav section, without hiding anything. 'briefing' always stays first (it's the
+  // default landing page). Items with no per-role signal keep their original order.
+  const navRank = useMemo(() => getRoleNavRank(role), [role])
+  const orderedNavSections = useMemo<NavSection[]>(() => NAV_SECTIONS.map(section => ({
+    ...section,
+    items: [...section.items].sort((a, b) => {
+      if (a.id === 'briefing') return -1
+      if (b.id === 'briefing') return 1
+      return (navRank[a.id] ?? Infinity) - (navRank[b.id] ?? Infinity)
+    }),
+  })), [navRank])
+  const orderedNavFlat = useMemo(() => orderedNavSections.flatMap(s => s.items), [orderedNavSections])
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   // Shared URL-sync helper — keeps country/role/page in the query string so any
   // Command Centre view can be deep-linked from a redirect or a shared link.
@@ -4053,18 +3910,45 @@ export default function CommandCentre({
     router.replace(qs ? `/dashboard?${qs}` : '/dashboard', { scroll: false })
   }, [router])
 
+  // Persist role/country for signed-in users, same fix as MobileCommandCentre —
+  // this API already existed and works, only UniversalDashboard.tsx (a separate,
+  // unrelated dashboard component) was ever calling it.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    if (!userEmail) return
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [userEmail])
+
+  const persistDashboardPreferences = useCallback((next: { country_iso2?: string; role_id?: string }) => {
+    if (!userEmail) return
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        country_iso2: next.country_iso2 ?? country.iso2,
+        role_id: next.role_id ?? role,
+        heatmap_layer: heatmapLayerRef.current,
+      }),
+    }).catch(() => undefined)
+  }, [userEmail, country.iso2, role])
+
   const handleCountryChange = useCallback((iso2: string) => {
     const found = COUNTRIES.find(c => c.iso2 === iso2)
     if (!found) return
     setCountry(found)
     setRegion('')
     syncUrl({ countryIso2: iso2, roleId: role, page: activePage })
-  }, [role, activePage, syncUrl])
+    persistDashboardPreferences({ country_iso2: iso2 })
+  }, [role, activePage, syncUrl, persistDashboardPreferences])
 
   const handleRoleChange = useCallback((roleId: string) => {
     setRole(roleId)
     syncUrl({ countryIso2: country.iso2, roleId, page: activePage })
-  }, [country.iso2, activePage, syncUrl])
+    persistDashboardPreferences({ role_id: roleId })
+  }, [country.iso2, activePage, syncUrl, persistDashboardPreferences])
 
   const handlePageChange = useCallback((page: CommandPage) => {
     setActivePage(page)
@@ -4078,7 +3962,7 @@ export default function CommandCentre({
       case 'briefing':
         return <BriefingRoom country={country} region={region} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} />
       case 'digest':
-        return <DigestPage country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
+        return <DigestPageLazy country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />
       case 'marketplace':
@@ -4171,7 +4055,7 @@ export default function CommandCentre({
       {/* ── Sidebar ───────────────────────────────────────────────── */}
       <nav className="cc-sidebar" aria-label="Command centre navigation">
         <div className="cc-sidebar-nav">
-          {NAV_SECTIONS.map((section, si) => (
+          {orderedNavSections.map((section, si) => (
             <div key={si} className="cc-nav-section">
               {section.label && (
                 <div className="cc-nav-section-header" aria-hidden="true">
@@ -4210,7 +4094,7 @@ export default function CommandCentre({
 
       {/* ── Mobile nav ────────────────────────────────────────────── */}
       <nav className="cc-mob-nav" aria-label="Mobile navigation">
-        {NAV_ITEMS_FLAT.map(item => (
+        {orderedNavFlat.map(item => (
           <button
             key={item.id}
             className={`cc-mob-nav-btn${activePage === item.id ? ' active' : ''}`}

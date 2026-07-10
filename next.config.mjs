@@ -1,4 +1,39 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
+
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-DNS-Prefetch-Control', value: 'on' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=63072000; includeSubDomains; preload',
+  },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=()',
+  },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      // Next.js requires unsafe-inline + unsafe-eval for RSC streaming and hydration
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://zvxdgdkukjrrwamdpqrg.supabase.co",
+      // Supabase REST/realtime, Stripe checkout, Vercel preview feedback
+      "connect-src 'self' https://zvxdgdkukjrrwamdpqrg.supabase.co wss://zvxdgdkukjrrwamdpqrg.supabase.co https://api.stripe.com https://vercel.live",
+      "font-src 'self'",
+      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  },
+];
+
 const nextConfig = {
   // Consolidated from the previously dead next.config.ts (2026-07-03): Next
   // 16.2.10 reads only this file when both next.config.mjs and
@@ -69,6 +104,15 @@ const nextConfig = {
   // client-side panel state, not a URL — a shared/bookmarked link to a
   // specific room can't be deep-linked into that state, so it lands on the
   // Deal Rooms list instead of erroring.
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ];
+  },
+
   async redirects() {
     return [
       { source: '/marketplace', destination: '/dashboard?page=marketplace', permanent: true },
@@ -103,4 +147,22 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry: wraps the config to auto-instrument, upload source maps on build
+// (when SENTRY_AUTH_TOKEN is present), and inject the tunnel route. No-ops
+// harmlessly in environments without Sentry env vars configured.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Only upload source maps / print Sentry CLI output when an auth token is
+  // actually configured — keeps local/dev builds silent and fast.
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+
+  // Route browser → Sentry ingest traffic through our own domain to reduce
+  // the chance of ad-blockers dropping error reports.
+  tunnelRoute: '/monitoring',
+
+  disableLogger: true,
+  automaticVercelMonitors: true,
+});

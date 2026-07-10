@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+
+const ROUTE_ID = '/api/watchlist/items'
 
 async function resolveOrg(userId: string) {
   const svc = await createSupabaseServiceClient()
@@ -15,6 +18,20 @@ async function resolveOrg(userId: string) {
 export async function POST(req: NextRequest) {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const rateLimit = await enforceRateLimit({
+    route: ROUTE_ID,
+    ip: getClientIp(req),
+    identity: user.id,
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+    )
+  }
 
   const body = await req.json()
   const { item_type, title, subtitle, jurisdiction, ref_id } = body

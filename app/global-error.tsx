@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { reportClientError } from '@/lib/errorReporting'
 import './globals.css'
 
 export default function GlobalError({
@@ -12,6 +13,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error('[HarbourviewGlobalError]', error)
+    reportClientError('global', error)
   }, [error])
 
   return (

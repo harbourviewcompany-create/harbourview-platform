@@ -119,11 +119,17 @@ create index idx_expansion_scores_country_pillar_computed
 -- 4. Evidence — links a score to the real source rows behind it,
 --    instead of duplicating their content
 -- ============================================================
+-- NOTE: as of this migration, this project has TWO tables named `signals` in
+-- different schemas: `public.signals` (raw pipeline/scoring output, no
+-- review gate, 4700+ rows) and `regulatory_signals.signals` (analyst-
+-- reviewed, publish-gated, 0 rows as of this writing). Evidence rows here
+-- must record which one with an explicit schema-qualified value
+-- ('public.signals'), never the bare, ambiguous 'signals'.
 create table public.expansion_readiness_score_evidence (
   id uuid primary key default gen_random_uuid(),
   score_id uuid not null references public.expansion_readiness_scores(id) on delete cascade,
   evidence_table text not null check (evidence_table in
-    ('signals', 'jurisdiction_briefings', 'jurisdiction_playbooks', 'source_registry')),
+    ('public.signals', 'jurisdiction_briefings', 'jurisdiction_playbooks', 'source_registry')),
   evidence_id uuid not null, -- polymorphic ref, no FK constraint since target table varies
   note text,
   created_at timestamptz not null default now()
@@ -145,7 +151,7 @@ create table public.expansion_hard_blockers (
   severity text not null check (severity in ('hard', 'soft')), -- hard = zero out composite, soft = cap it
   description text not null,
   evidence_table text check (evidence_table in
-    ('signals', 'jurisdiction_briefings', 'jurisdiction_playbooks', 'source_registry')),
+    ('public.signals', 'jurisdiction_briefings', 'jurisdiction_playbooks', 'source_registry')),
   evidence_id uuid,
   active boolean not null default true,
   detected_at timestamptz not null default now(),
@@ -160,7 +166,7 @@ create index idx_expansion_blockers_country_active
 --    the operator profile, EXCLUDING pillars marked 'insufficient' from
 --    the weighted average (re-normalizes remaining weights) rather than
 --    silently treating a missing pillar as a zero or an average.
--- ============================================================
+-- ===========================================================
 create view public.v_expansion_readiness_composite as
 with latest_scores as (
   select distinct on (country_id, pillar_id)

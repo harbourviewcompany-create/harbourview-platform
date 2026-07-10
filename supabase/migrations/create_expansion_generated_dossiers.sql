@@ -56,11 +56,14 @@ create index idx_expansion_generated_dossiers_workspace
 
 -- Evidence trail — same pattern as expansion_readiness_score_evidence,
 -- links the dossier to the real rows it was built from.
+-- Same disambiguation as expansion_readiness_score_evidence: `signals`
+-- exists in both `public` and `regulatory_signals` schemas as of this
+-- migration. Always record 'public.signals' explicitly, never bare 'signals'.
 create table public.expansion_generated_dossier_evidence (
   id uuid primary key default gen_random_uuid(),
   dossier_id uuid not null references public.expansion_generated_dossiers(id) on delete cascade,
   evidence_table text not null check (evidence_table in
-    ('signals', 'jurisdiction_briefings', 'jurisdiction_playbooks',
+    ('public.signals', 'jurisdiction_briefings', 'jurisdiction_playbooks',
      'expansion_readiness_scores', 'expansion_hard_blockers')),
   evidence_id uuid not null,
   note text,

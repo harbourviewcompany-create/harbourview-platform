@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 9 2026 · Claude (Sonnet 5)
+> Last updated: Jul 10 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -18,7 +18,7 @@
 | **Last migration** | `revoke_public_pseudorole_claim_intelligence_job` — Jul 4 2026 |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
 | **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | #978 (signals digest pipeline — clean merge, `check-drift` failing, needs rebase check), #949 (daily-digest security fixes — **draft, real merge conflict**, touches `HANDOFF.md` + both CommandCentre files, needs rebase before anything else). Last merged: #977 opportunity_score scale fix (2026-07-07, squash-merged via API after CI review) |
+| **Open PRs** | #978 (signals digest pipeline — clean merge, `check-drift` failing, needs rebase check). #949 (daily-digest security fixes) merged 2026-07-10 — conflicts with #990/#1013/#1003 resolved during merge. |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | `npx tsc --noEmit` clean (0 errors) as of `b8de567` (2026-07-07). Prior entry here claimed "2 pre-existing errors (`@tanstack/react-query` missing dep + Stripe API version)" — not reproduced this session; either fixed by an intervening commit or was already stale. Not independently investigated further. |
 
@@ -84,6 +84,8 @@ These fail on every PR regardless of content. They failed on #922 (merged Jul 1)
 | **Phase 0: Genetics catalog** | Basic search + detail pages | #801 |
 | **Phase 0: Admin pending review polish** | UX pass on pending applications queue | #801 |
 | **Label the country-page funnel tiers in UI** | Four route trees form an unlabeled funnel: identity directory (`/countries/[slug]`) → public intelligence brief (`/intelligence/country/[country]`) → evidence-gated role preview (`/country/[country]/role/[role]`) → authenticated console (`/dashboard/country/[country]`). Nothing in the UI tells a visitor which stage they're on, what unlocks the next one, or why — which undercuts "immediately see the value" for a new visitor evaluating international market access. Needs a content/UX pass across all four templates. Not a routing change — see ADR #14 for why the routes themselves should stay as-is. | — |
+| **🔴 Find out what reverted the github-bridge auth fix** | The `x-hv-bridge-key` check added 2026-07-06 was silently gone by 2026-07-10; the deployed build (v47) was an older pre-fix version with the check absent entirely. Restored as v48 (see ADR #15). **Root cause unknown.** Most likely an agent session redeploying a stale local copy of `index.ts` over production, since `deploy_edge_function` always overwrites and never warns about clobbering a newer version. Until this is understood, any security fix applied to an edge function can silently disappear. Consider: version-pinning checks in CI, or a scheduled probe that asserts `github-bridge` returns 401 without a key. | — |
+| **🔴 Audit the ~60 `*-fix-push` / `*-temp` / `*-inspect` edge functions** | `list_edge_functions` shows 60+ ACTIVE functions, the majority with `verify_jwt: false`. Names (`rls-fix-push`, `scrape-fix-push`, `globe-client-fix-push`, `dashboard-typeerror-fix-push`, `coverage-queue-migration-push`, `pr-creator-*-temp`, …) strongly imply several also hold or use `GITHUB_PAT` and can write to the repo. Only `github-bridge` was audited on 2026-07-10; the rest are unreviewed. Each is a potential unauthenticated write path to `main` with an admin-scoped classic PAT. Most look like single-use throwaways from past agent sessions and should probably just be deleted. | — |
 
 ### P2 — Agent-actionable, infrastructure/security
 
@@ -129,6 +131,8 @@ Numbered permanently. Do not re-litigate without new information.
 | 12 | Jul 7 | `main` branch protection does not apply to admin-scoped tokens | `GET /repos/.../branches/main/protection` shows `enforce_admins.enabled: false` and `required_approving_review_count: 0`. Confirmed live: two pushes this session (one direct push, one merge commit) were let through with a "Bypassed rule violations" log message rather than rejected. This is a repo setting, not a code fix — see P0 items above. Recorded as a decision-pending item, not yet a decision: whether to tighten is explicitly Tyler's call given the tradeoff against solo-operator/agent execution speed. |
 | 13 | Jul 7 | Expansion Dossier Generator is a separate artifact from `dossiers`/`dossier_status`, linked not merged | The existing `dossiers` system (wired to real UI in PR #962) is confidential, manually-curated, human-authored 16-section files served via Google Drive/Supabase Storage, gated behind `/contact` — a qualified-counterparty deliverable. The Expansion product spec's dossier generator is a fundamentally different artifact: dynamically computed from `expansion_readiness_scores` + evidence, meant to be produced on-demand and exported directly to the requesting client. Same word ("dossier"), two different generation mechanisms, two different confidentiality models, two different consumers — folding the new one into the existing `dossiers` table would recreate the same ambiguity already flagged for `hv_passports` vs. the new readiness index (see PR #970). **Decision:** new table `expansion_generated_dossiers`, distinct from `dossiers`. It stores its own generated content (pulled live from `expansion_readiness_scores`, `expansion_readiness_score_evidence`, `expansion_hard_blockers`, `jurisdiction_briefings`, `jurisdiction_playbooks`), has an optional nullable `curated_dossier_id` FK to `dossiers` for when a real human-authored deep dossier already exists for that country. When present, the generated dossier's UI should surface a "Full Market Dossier Available" upsell pointing at it — reusing the exact CTA pattern already built in PR #962's country page — rather than duplicating or racing to replace that content. No changes to `dossiers`/`dossier_status` schema or ownership required. See migration `create_expansion_generated_dossiers.sql`. |
 | 14 | Jul 9 | Country routes are a tiered funnel, not duplicates — do not consolidate/redirect without instruction | A file-tree read alone makes `/countries/[slug]`, `/intelligence/country/[country]`, `/country/[country]/role/[role]`, `/dashboard/country/[country]`, and `/education/country/[country]` look like 5x duplicated "country" pages. Tracing the actual resolvers and call sites shows otherwise: `/countries/[slug]` is a thin public identity-only directory; `/intelligence/country/[country]` is the real public intelligence brief (confirmed via code search — linked from `/markets`, `/intelligence/country-briefs`, playbooks, `UniversalDashboard.tsx`); `/country/[country]/role/[role]` is the actual globe-router destination, a public evidence-gated role preview (confirmed via `getCountryRoleHref()` in `lib/roles/country-role-resolver.ts`); `/dashboard/country/[country]` is the authenticated operator console, live and referenced in 13 places including `CommandCentre.tsx`, `capabilityRegistry.ts`, and `dashboardLiveData.ts`. Four of the five are sequential funnel stages (identity → brief → role preview → authenticated console); only `/education/country/[country]` is genuinely separate content. **None of these routes should be deleted, merged, or redirected without deeper confirmation with Tyler** — `/dashboard/country/[country]` alone has enough live references that removing it would break the authenticated product. The actual problem is that the funnel is invisible in the UI — see P1 "Label the country-page funnel tiers" above. |
+| 15 | Jul 10 | github-bridge must have TWO independent caller controls; never trust `verify_jwt` alone, never trust the key check alone | On 2026-07-10 the deployed `github-bridge` (v47) was found with **zero caller authentication**: `verify_jwt=false`, no `x-hv-bridge-key` check, wildcard CORS, and a fallback that accepted a caller-supplied `x-github-token`. Because the function holds a server-side **classic** `GITHUB_PAT` with `admin:org`, `admin:enterprise` and `delete_repo`, any anonymous internet caller who knew the URL could `push_file` arbitrary content to any path on any branch. This is the *same* hole the vault secret `hv_github_bridge_caller_secret` was created to close on 2026-07-06 — the fix had been reverted by a later deploy (see P1 item). **Decision:** v48 ships two independent controls, and neither may be removed: (1) `verify_jwt=true` at the gateway; (2) an `x-hv-bridge-key` shared-secret check in the function body. The anon JWT is public (it ships in the browser bundle), so control (1) alone is near-worthless — it only filters drive-by scanners. Control (2) is the real gate. Conversely (2) alone leaves the function reachable by anyone who ever sees the key. Both, always. The `x-github-token` fallback and wildcard CORS were removed. Verified post-deploy from `pg_net`: no-auth → 401 (gateway), JWT-only → 401 (function), JWT+key → 200. Whoever next edits this function: the header comment in `index.ts` documents this; read it before "simplifying" the auth. |
+| 16 | Jul 10 | Secrets in Supabase Vault are used **in place**, never decrypted into an agent's context | Vault holds `GITHUB_PAT` (classic, `admin:org`/`admin:enterprise`/`delete_repo`), `anthropic_api_key`, `openai_api_key`, `gemini_api_key`, and several cron/caller secrets. It is tempting for an agent that needs repo access to just `select decrypted_secret from vault.decrypted_secrets` and use the PAT directly. **Do not.** Doing so prints the plaintext into the conversation transcript and onto the agent's container disk, materially widening exposure for a credential whose scopes far exceed the task — and Tyler's fine-grained PATs are already being revoked frequently by GitHub secret scanning, which is evidence that tokens are leaking somewhere. **Decision / established pattern:** (a) push and read via the `github-bridge` edge function, which holds `GITHUB_PAT` server-side, so the token never transits the agent; (b) call the bridge from Postgres via `net.http_post(...)`, inlining the bridge key as `(select decrypted_secret from vault.decrypted_secrets where name = 'hv_github_bridge_caller_secret')` inside the SQL — the secret is read and used within the same statement and is never returned to the caller; (c) where a secret must be *checked* rather than *used*, expose a `security definer` verifier that returns only a boolean (see `api.hv_bridge_key_matches`), never the secret. Note `pg_net` has no `http_put`/`http_patch`, only GET/POST/DELETE — which is precisely why the GitHub Contents API `PUT` must go through the bridge rather than direct from Postgres. Public repo reads need no credential at all: `raw.githubusercontent.com` is on the container network allowlist. |
 
 ---
 
@@ -172,6 +176,58 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 10 2026 — role-select flow restored + github-bridge auth hole closed · Claude (Sonnet 5)
+
+**Context:** continuation of the Jul 9 IA work. Tyler described the intended globe flow (globe → country brief → Enter Market → **pick role** → command centre) and asked why role selection wasn't happening.
+
+**Root-caused the missing role step.** `MARKET_ENTER` in `useGlobeRouterState.ts` hardcoded `selectedRoleId: 'importer'` and transitioned straight to `step: 'routing'`, so every visitor — regardless of who they were — was routed into the importer destination. The reducer *already* had complete, working `ROLE_SELECT` / `ROLE_SEARCH_SELECT` / `ROLE_SEARCH_QUERY` / `NOT_SURE_ROLE` cases and a `BACK` transition out of `step: 'role'`; the step was simply never reachable because nothing dispatched into it and no component rendered it. This was an accidental regression, distinct from the deliberately-removed `intent` step (which carries an explicit "kept for legacy" comment).
+
+**Built the role-select UI (3 commits + data from prior session).**
+- `ec8000e` — new `components/globe/RoleSelectSheet.tsx`: curated role chips from `getCountryRoleProfile(country).primaryRoleIds` (multi-market uses `getMultiMarketRoleIds()`), plus a search box spanning all `searchableRoleIds` by label/alias — the "curated list + search to find more" pattern Tyler chose. `not_sure` rendered as its own footer escape hatch.
+- `820d94f` — `MARKET_ENTER` now advances to `step: 'role'` instead of hardcoding importer.
+- `54b242a` — render branch for `state.step === 'role'` wired into `GlobeSameScreenRouterLanding.tsx`. Globe canvas already treated `'role'` as a modal-open step (hover suppression, focus guard), so no canvas changes were needed.
+- (Prior session `0c13ec5` added the 30-country curated role data this consumes.)
+
+`Type Check` and `tsc --noEmit` pass on the head commit `54b242a`. `check-drift`, `production-runtime-verification`, both GCP checks, `Workers Builds`, and `Supabase Preview` fail — confirmed already failing on `0c13ec5` before any of today's changes, i.e. the known pre-existing set, not regressions from this work.
+
+**Closed a critical auth hole in `github-bridge` first (before pushing any of the above).** While retrieving a working PAT from the vault (the local token had expired mid-session), found `github-bridge` deployed as v47 with **no caller authentication at all** — `verify_jwt=false`, no key check, wildcard CORS — despite holding an admin-scoped classic `GITHUB_PAT`. Anyone on the internet could have pushed to `main`. This is the same hole a 2026-07-06 vault secret was created to close; it had been reverted by a later deploy. Fix (see ADR #15, #16):
+- New migration `20260710111129_restore_github_bridge_caller_auth` — `api.hv_bridge_key_matches()`, a `service_role`-only `security definer` boolean verifier that digest-compares a candidate against the vault secret. Committed as `aa3b589` for DB↔repo reconciliation.
+- Redeployed `github-bridge` as v48 with `verify_jwt=true` + `x-hv-bridge-key` check (calling the verifier so the function never holds the key), `x-github-token` fallback removed, wildcard CORS removed.
+- Verified from `pg_net`: no-auth → 401, JWT-only → 401, JWT+key → 200.
+- **Did not extract `GITHUB_PAT` into context** — all pushes this session went through the hardened bridge with the bridge key inlined from vault inside each `net.http_post` statement.
+
+**Flagged, not yet done:** (1) root cause of the bridge regression is unknown — something redeployed a stale build over the fix; (2) ~60 other `*-fix-push` / `*-temp` / `*-inspect` edge functions remain ACTIVE and mostly `verify_jwt: false`, unaudited. Both added as 🔴 P1 items above.
+
+---
+
+### Session: Jul 4 2026 — daily-digest fixes + UI optimizations · Claude (Sonnet 4.6)
+
+**Branch:** `feat/daily-digest` (PR #949, merged 2026-07-10)
+
+**Security / correctness fixes:**
+
+| Fix | File | Detail |
+|---|---|---|
+| `?limit=NaN` returns `[]` | `app/api/dashboard/digest/route.ts:162` | `parseInt` result now guarded with `Number.isFinite` — falls back to 12 |
+| Country filter injection | `app/api/dashboard/digest/route.ts:161` | `countryParam` sanitized (strip `,()`) before PostgREST `.or()` interpolation |
+| Same injection in SSR path | `lib/dashboard/dashboardServerData.ts:330` | Same `countryName.replace(/[,()]/g,'')` fix in `fetchDailyDigest` |
+| Flag hardcoded `'🌐'` | `app/api/dashboard/digest/route.ts:141` | Replaced with `flagForMarket(market)` — eliminates SSR→client hydration mismatch |
+| `total` reports DB count | `app/api/dashboard/digest/route.ts:219` | Now reports `windowed.length` (count in active window); added `totalReviewed` for full DB count |
+| `CommandPage` type drift | `components/dashboard/MobileCommandCentre.tsx:14` | Local 8-member type and local `DigestWindow` removed; both now imported from `CommandCentre` |
+
+**UI performance optimizations:**
+
+| Change | Detail |
+|---|---|
+| `DigestWindow` moved to `dashboardShared.ts` | Single canonical definition; CommandCentre re-exports it |
+| `DigestPage` extracted | Moved from inline in CommandCentre (~175 lines) to `components/dashboard/pages/DigestPage.tsx` |
+| `next/dynamic` lazy-load | CommandCentre uses `dynamic(() => import('./pages/DigestPage'))` — digest chunk only loads on navigate-to-digest |
+| Conditional `fetchDailyDigest` | `app/dashboard/page.tsx` now calls `fetchDailyDigest` only when `urlPage === 'digest'`; passes country name so SSR first-paint is country-filtered |
+
+**No schema changes this session.** Merged into `main` 2026-07-10 alongside #990/#1013/#1015/#1003/#996 in the same session; conflicts in `CommandCentre.tsx`, `MobileCommandCentre.tsx`, `dashboardServerData.ts`, and the digest route (all textual adjacency with those other PRs' edits, no logical overlap) resolved by hand — see that merge commit.
 
 ---
 
@@ -227,6 +283,7 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 **Still open:** `intelligence_jobs` worker wiring (P2 above) — `claim_intelligence_job` is now at least *reachable*, but nothing calls it yet.
 
 **Post-commit audit ("is anything missing" check):** Vercel deployment for every commit this session shows `state: READY, target: production` — no build/TypeScript errors. Re-ran the `.rpc(` audit (including a check for dynamic/non-literal call sites) — nothing missed, no new call sites from other agents. Supabase security + performance advisors show nothing new from this session's functions. Found and fixed one real gap: `revoke all ... from public` in the ADR #9 migrations didn't fully lock down 3 of the 8 functions — see ADR #10. Could not verify: whether the new cron has actually fired yet, or that `CRON_SECRET` is set in Vercel — `get_runtime_logs`/`get_runtime_errors` returned "No approval received" on every attempt this session; no tool available to list env var names either. Worth a manual check in the Vercel dashboard.
+
 
 ---
 
