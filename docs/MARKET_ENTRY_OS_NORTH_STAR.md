@@ -1,6 +1,6 @@
 # Harbourview Market Entry OS — North Star
 
-**Version 1.1** · 2026-07-10 · supersedes v1.0
+**Version 1.2** · 2026-07-11 · supersedes v1.1
 
 Status key: ✅ Built · 🟡 Partial · ⬜ Not Started · ⚠️ Open Decision (not a build item — needs a call)
 
@@ -116,9 +116,10 @@ graph TD
 
 ## Change Log
 
+- **v1.2** (2026-07-11): Fact-checked the closing note against live GitHub state — the four sprint PRs are resolved, not open. Replaced with current status.
 - **v1.1** (2026-07-10): Added executive summary. Added Value Framework section with Layer 9 workflow diagram. Reclassified Business Model from ⬜ to ⚠️ (it's a decision, not a build item). Reordered Recommended Build Order to resolve the three open decisions before any corridor/schema work.
 - **v1.0** (2026-07-10): Initial 20-layer audit.
 
 ---
 
-*Four PRs (#921, #934, #962, #985) and the Track 3 Airtable contract are still open from the current sprint. This is a second major build, not a finishing touch — worth sequencing deliberately rather than starting in parallel.*
+*Status check (2026-07-11): the four sprint PRs referenced in earlier drafts are resolved — **#921**, **#934**, and **#985** merged; **#962** was closed unmerged after a `package-lock.json` conflict but its work landed on `main` via a manual rebase (commit `8c3a620`, confirmed as an ancestor of `main`). They're no longer a blocker for Market Entry OS work. Five PRs are open as of this check — **#1021** (marketplace ratings forward-fix), **#1022** (compliance-brief rate limiting), **#1023** (heatmap preferences guard), **#1026** (migration drift reconciliation), and this doc's own **#1024** — separate, newer items worth a status pass on their own terms. Track 3 Airtable contract (HAR-52) wasn't reverified in this pass.*
