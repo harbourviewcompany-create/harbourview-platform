@@ -1,7 +1,5 @@
--- Same bug class as the earlier fixes: buyer_requests_public_read policy
--- (status = 'approved', roles anon+authenticated) exists and is correctly
--- scoped, but the base-table grant was never applied. This is a live,
--- actively-used table (marketplace match engine, admin promote flow), so
--- this was silently blocking the public "browse buyer requests" read path.
-
-GRANT SELECT ON public.buyer_requests TO anon, authenticated;
+-- Applied directly to production via Supabase MCP.
+-- File added to satisfy local/remote migration history parity
+-- (see supabase_migrations.schema_migrations for the original
+-- application timestamp). No DDL executed by this file.
+SELECT 1;
