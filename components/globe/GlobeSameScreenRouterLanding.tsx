@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -144,6 +144,19 @@ export function GlobeSameScreenRouterLanding() {
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
 
+  // Persist the resolved country/role to the signed-in user's account, same
+  // fix as the Command Centre (CommandCentre.tsx / MobileCommandCentre.tsx).
+  // Both /api/dashboard/preferences endpoints already no-op safely (401 GET
+  // returns {preferences: null}, PATCH returns 401) for anonymous visitors,
+  // which is most landing-page traffic, so this is safe to fire unconditionally.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [])
+
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
 
@@ -160,6 +173,20 @@ export function GlobeSameScreenRouterLanding() {
     if (result.status === 'fallback') {
       dispatch({ type: 'ROUTE_MISSING', href: result.href, requestedPath: result.requestedPath })
       return
+    }
+
+    // Single-country mode only — the preferences model is one current
+    // country/role, not the multi-market comparison set.
+    if (state.selectedCountryIso2 && state.selectedRoleId && state.mode !== 'multi_market') {
+      void fetch('/api/dashboard/preferences', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          country_iso2: state.selectedCountryIso2,
+          role_id: state.selectedRoleId,
+          heatmap_layer: heatmapLayerRef.current,
+        }),
+      }).catch(() => undefined)
     }
 
     dispatch({ type: 'ROUTE_RESOLVED', href: result.href })
