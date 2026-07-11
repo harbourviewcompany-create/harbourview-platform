@@ -122,6 +122,29 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - **Flag for Tyler:** the migrations-directory-vs-live-schema drift on `public.listings`/`marketplace_public_listings_v1` is a pre-existing gap, not something this session introduced or fully audited — worth a dedicated schema-diff pass (`supabase db diff` against `main`, or equivalent) at some point, since it means other checked-in migrations may not accurately reflect what a fresh environment would need either.
 - **Not run:** `mcp__Supabase__get_advisors` — should still be run as a follow-up to confirm the new trigger function's `search_path` pin satisfies the linter and nothing else regressed.
 
+## 2026-07-10 — PR #1004 second-review fixes (bigint, CONCURRENTLY, NULL default) — and a process finding
+
+- **Environment:** local workspace only this session. No `mcp__Supabase__apply_migration` / `execute_sql` calls were made against `zvxdgdkukjrrwamdpqrg` — see "Process finding" below for why a production apply needs a separate, explicitly-approved step.
+- **Migration files changed:**
+  1. `supabase/migrations/20260709000000_add_ratings_to_listings.sql` — `review_count` changed from `integer` to `bigint` (overflow risk under real load); `average_rating` no longer defaults to `0.0` (now `NULL`, the correct "no ratings yet" value — see file header for why this is low-risk: every consumer already types/handles these columns as nullable); the two `CREATE INDEX` statements were removed from this file (see #2).
+  2. `supabase/migrations/20260710160000_add_ratings_indexes_concurrently.sql` (new) — recreates `idx_listings_avg_rating` and `idx_listings_review_count` using `CREATE INDEX CONCURRENTLY`, to avoid locking `listings` at migration time. Split into its own file because `CONCURRENTLY` cannot run inside a transaction block and this migration's other statements (`ALTER TABLE`, `CREATE FUNCTION`, `CREATE TRIGGER`) are transactional DDL — matches the existing precedent of `20260622130000_add_missing_fk_indexes_jun22.sql`.
+- **Process finding — read before applying anything:** `mcp__github__pull_request_read` confirms PR #1004 (`claude/pr-1000-review-pmm1up` → `main`) is **already merged and closed** (merged 2026-07-10T11:29:28Z), not open as assumed at the start of this task. `origin/main` already contains the unfixed migration (`integer` `review_count`, non-concurrent indexes, `0.0` default), and per the 2026-07-09 entry above, **that unfixed shape is also already live in production** (`zvxdgdkukjrrwamdpqrg`, applied directly via `apply_migration` at Tyler's instruction on 2026-07-09). Two consequences:
+  1. Editing `20260709000000_add_ratings_to_listings.sql` in place only changes what a *fresh* environment would get from `IF NOT EXISTS`/`ADD COLUMN IF NOT EXISTS` re-runs — it does **not** retroactively fix the already-applied production columns/indexes, since those guards no-op once the objects exist.
+  2. Continuing to push commits to `claude/pr-1000-review-pmm1up` does not feed back into the merged/closed PR #1004 or reach `main` on its own — a fresh PR is required to land this fix and trigger review/CI. Flagged in the session report; opening that follow-up PR is a separate, human-visible action.
+- **Production forward-fix still required (not run this session — needs explicit sign-off):**
+  ```sql
+  ALTER TABLE listings ALTER COLUMN review_count TYPE bigint;
+  ALTER TABLE listings ALTER COLUMN average_rating DROP DEFAULT;
+  DROP INDEX CONCURRENTLY IF EXISTS idx_listings_avg_rating;
+  DROP INDEX CONCURRENTLY IF EXISTS idx_listings_review_count;
+  CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_listings_avg_rating ON listings(average_rating DESC) WHERE average_rating > 0;
+  CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_listings_review_count ON listings(review_count DESC);
+  ```
+  This changes live production schema and is consequential (Rule 1/3c) — do not run without Tyler's explicit go-ahead.
+- **Rollback/forward-fix path (for the checked-in migration files, fresh environments only):** `ALTER TABLE listings DROP COLUMN IF EXISTS average_rating, review_count, ratings_updated_at; DROP TRIGGER IF EXISTS trigger_ratings_updated ON listings; DROP FUNCTION IF EXISTS update_ratings_timestamp(); DROP INDEX IF EXISTS idx_listings_avg_rating, idx_listings_review_count;` (same as the prior entry — additive change, safe to reverse pre-deploy).
+- **Required tests:** `npm run lint` (0 errors, 127 pre-existing warnings, none newly introduced), `npx tsc --noEmit` (0 errors), `npm run test` (all suites green, incl. `test:listing-quality`'s `publicProjection`/`unified-listings-dto` suites), `npm run build` (clean, all routes compiled). Migration dry-run against a real Postgres instance was **not possible this session** — no Docker daemon available in this sandbox (`docker info` fails to reach `/var/run/docker.sock`) and no local Supabase stack — consistent with the same limitation recorded in the 2026-07-09 entry above. SQL was manually verified instead: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction (confirmed against Postgres docs and the existing `20260622130000` precedent file), a `CHECK` constraint automatically passes when the expression evaluates to `NULL` (so removing `average_rating`'s default needed no `CHECK` change), and `bigint` covers the full `int4` range with headroom.
+- **Human approval status:** pending — fix is committed to `claude/pr-1000-review-pmm1up` and pushed, but since that PR is closed/merged, a new PR against `main` is needed for this to actually enter review. The production forward-fix SQL above is a separate, additional approval needed before any live database change.
+
 ## 2026-06-07 — Cannabis Data Contract v1.0 P0/P1 Foundation
 
 - **Environment:** local workspace only; no production Supabase push was attempted.

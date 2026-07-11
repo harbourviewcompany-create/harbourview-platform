@@ -401,3 +401,28 @@ Expected Pass 1 evidence:
 **Files changed this update:** `components/dashboard/CommandCentre.tsx`, `components/dashboard/CommandCentre.css`, `components/dashboard/MobileCommandCentre.tsx`, `components/dashboard/pages/MarketplacePage.tsx` (2-line type fix only), `app/dashboard/page.tsx`, `app/country/[country]/role/[role]/page.tsx`, this entry.
 
 **Rollback:** Code-only, no new migrations. Revert the relevant commit(s) on `claude/pr-1000-review-pmm1up`; all changes are additive (new tuple slots appended at the end, new UI elements added, no existing behavior removed) so a revert carries no data risk.
+
+## 2026-07-10 — PR #1004 second review: bigint/CONCURRENTLY/NULL-default fixes, and PR #1004 found already merged
+
+A fresh review of `supabase/migrations/20260709000000_add_ratings_to_listings.sql` (already merged in PR #1004) found two remaining defects and asked a third to be evaluated:
+
+1. `CREATE INDEX` (no `CONCURRENTLY`) on `listings` risked a table lock at migration time.
+2. `review_count integer` risked overflow under real load.
+3. `average_rating DEFAULT 0.0` — evaluated whether `NULL` is more correct for "no ratings yet."
+
+**Fixes applied, this session:**
+- `review_count` changed to `bigint`.
+- `average_rating`'s `DEFAULT 0.0` removed (now `NULL` by default). Confirmed low-risk: `lib/server/listingsQuery.ts` already types `average_rating: number | string | null` and sorts with `average_rating.desc.nullslast`; `app/marketplace/listings/page.tsx`, `app/dashboard/page.tsx`, and `app/country/[country]/role/[role]/page.tsx` all already coerce with `Number(x) || 0` / `Number(x) > 0`. No app-code changes needed.
+- The two `CREATE INDEX` statements were moved to a new file, `supabase/migrations/20260710160000_add_ratings_indexes_concurrently.sql`, using `CREATE INDEX CONCURRENTLY` — required since `CONCURRENTLY` cannot run inside a transaction block, and this migration's other statements (`ALTER TABLE`/`CREATE FUNCTION`/`CREATE TRIGGER`) are transactional. Matches the existing `20260622130000_add_missing_fk_indexes_jun22.sql` precedent of a dedicated CONCURRENTLY-only file.
+
+**Critical process finding:** `mcp__github__pull_request_read` shows PR #1004 is **already merged and closed** (2026-07-10T11:29:28Z) — it was not open, contrary to the task's premise. `origin/main` and production (`zvxdgdkukjrrwamdpqrg`, applied 2026-07-09 per the entry above) both already have the *unfixed* shape (`integer`, non-concurrent indexes, `0.0` default). This session's fix corrects the checked-in migration files (for fresh environments and as the source of truth going forward) but:
+- does not retroactively change the already-applied production columns/indexes (`IF NOT EXISTS` guards no-op once objects exist) — a separate forward-fix migration against production is required and needs explicit sign-off (SQL recorded in `docs/control/DATABASE_CONTROL.md`'s 2026-07-10 entry);
+- means pushing to `claude/pr-1000-review-pmm1up` does not feed the merged PR — a new PR against `main` is required to actually land this fix.
+
+Both points are flagged in the session report rather than acted on unilaterally, per the reversibility rule (production schema changes and PR-merge activity are consequential).
+
+**QA (all passed):** `npm install` (node_modules wasn't present in this session's environment), `npm run lint` (0 errors, 127 pre-existing warnings, unchanged), `npx tsc --noEmit` (0 errors), `npm run test` (all suites green) plus targeted `npm run test:listing-quality` (`publicProjection`/`unified-listings-dto`, 6 tests), `npm run build` (clean, all routes compiled). Migration dry-run against a live Postgres instance was not possible — no Docker daemon in this sandbox (`docker info` cannot reach `/var/run/docker.sock`) and no local Supabase stack, same limitation as the 2026-07-09 entry above. SQL semantics (CONCURRENTLY-outside-transaction requirement, CHECK-passes-on-NULL, bigint range) were verified by manual review instead.
+
+**Files changed this session:** `supabase/migrations/20260709000000_add_ratings_to_listings.sql`, `supabase/migrations/20260710160000_add_ratings_indexes_concurrently.sql` (new), `docs/control/PROJECT_REGISTRY.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** Additive/type-widening only for the checked-in files; no destructive change. See `DATABASE_CONTROL.md`'s 2026-07-10 entry for the exact rollback and production forward-fix SQL.

@@ -209,6 +209,7 @@ Known cleanup items:
 - Enable leaked password protection if Supabase Auth is used.
 - Document RLS-enabled/no-policy server-only tables as intentional deny-by-default, or add explicit policies if not intentional.
 - Verify live RLS state before any production write path, release claim or schema change.
+- **2026-07-10 — `listings` ratings columns forward-fix pending.** `average_rating`/`review_count`/`ratings_updated_at` (added by `20260709000000_add_ratings_to_listings.sql`, PR #1000/#1004) were already applied directly to this production project on 2026-07-09 with three defects: `review_count` typed `integer` (overflow risk), the two supporting indexes created without `CONCURRENTLY` (table-lock risk), and `average_rating` defaulting to `0.0` instead of `NULL` for "no ratings yet". This session's fix (`supabase/migrations/20260709000000_add_ratings_to_listings.sql` + new `20260710160000_add_ratings_indexes_concurrently.sql`) corrects the checked-in migration files for any fresh environment, but since these objects are already live in production with the old (buggy) shape, the fix does **not** retroactively apply there — a follow-up forward-fix migration (`ALTER TABLE listings ALTER COLUMN review_count TYPE bigint`, `ALTER COLUMN average_rating DROP DEFAULT`, drop + `CREATE INDEX CONCURRENTLY` the two existing indexes) is required against `zvxdgdkukjrrwamdpqrg` and needs explicit production sign-off before running. See `docs/control/DATABASE_CONTROL.md` for full detail.
 
 ### `harbourviewcompany-create's Project` / `fgdrvqqezdiraqyuofte`
 
