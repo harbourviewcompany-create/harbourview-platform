@@ -5,7 +5,6 @@ import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
-import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -118,7 +117,7 @@ export async function POST(request: Request) {
   // Defense-in-depth: even admin-only, rate limit so a compromised admin
   // session or a runaway UI loop can't silently rack up Anthropic spend.
   const ip = getClientIp(request)
-  const rl = enforceRateLimit({
+  const rl = await enforceRateLimit({
     route: '/api/compliance-brief',
     ip,
     limit: 5,
