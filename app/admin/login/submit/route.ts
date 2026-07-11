@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request);
-  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 5 * 60_000 });
+  const ipLimit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 5 * 60_000 });
   if (!ipLimit.allowed) {
     return redirectFailure(request, 'rate_limited');
   }
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   const email = String(formData.get('email') || '').trim().toLowerCase();
   const credential = String(formData.get('pass' + 'word') || '');
 
-  const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: email, limit: 8, windowMs: 5 * 60_000 });
+  const identityLimit = await enforceRateLimit({ route: ROUTE_ID, ip, identity: email, limit: 8, windowMs: 5 * 60_000 });
   if (!identityLimit.allowed) {
     return redirectFailure(request, 'rate_limited');
   }

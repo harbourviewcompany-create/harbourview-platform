@@ -1,0 +1,19 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 15).
+--
+-- Nebraska Cannabis Regulator -> old dhhs.ne.gov/cannabis path dead.
+-- Significant upgrade, not just a URL swap: Nebraska now has an actual
+-- Medical Cannabis Commission (under the Liquor Control Commission),
+-- created by voter Initiatives 437/438 (effective Dec 2024). DHHS retains
+-- some physician-certification authority but per research explicitly
+-- opposes the program and is not the primary regulator. Redirected to
+-- lcc.nebraska.gov/medical-cannabis/overview instead. Active litigation
+-- pending at the NE Supreme Court (Kuehn v. Evnen) as of early 2026 -- a
+-- genuinely live regulatory situation worth tracking closely.
+--
+-- Virginia VDACS Cannabis -> old path dead, replaced with verified
+-- current VDACS industrial hemp page. Note: this entry is specifically
+-- scoped to VDACS/hemp -- Virginia's actual adult-use cannabis regulator
+-- is a separate body, the Cannabis Control Authority (cca.virginia.gov),
+-- not currently represented anywhere in the registry. Worth adding as its
+-- own distinct source for broader Virginia cannabis coverage.
+SELECT 1;

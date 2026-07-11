@@ -4,6 +4,7 @@ import Link from 'next/link'
 import React from 'react'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { formatOpportunityScore, opportunityScoreOutOfTen } from '@/lib/dashboard/opportunityScore'
 
 export interface RegulatoryPageProps {
   country:      { iso2: string; label: string }
@@ -24,7 +25,7 @@ function StatusBadge({ value }: { value?: string | null }) {
 }
 
 function OpportunityMeter({ score }: { score?: number | null }) {
-  const val = score ?? 0
+  const val = opportunityScoreOutOfTen(score)
   const segments = [1,2,3,4,5,6,7,8,9,10]
   return (
     <div className="rp-meter">
@@ -39,7 +40,7 @@ function OpportunityMeter({ score }: { score?: number | null }) {
           }}
         />
       ))}
-      <span className="rp-meter-val">{val}/10</span>
+      <span className="rp-meter-val">{formatOpportunityScore(score)}</span>
     </div>
   )
 }

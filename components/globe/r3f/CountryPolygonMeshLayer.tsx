@@ -30,7 +30,7 @@ function buildGlobeEntries(subNationalIso2s: string[]) {
   ]
 }
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
-import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
+import { resolveCountryMaterialState, type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
@@ -193,6 +193,8 @@ export function CountryPolygonMeshLayer({
   focusedCountryIso2,
   selectedCountryIso2s,
   activeLayerId,
+  tierByIso2,
+  tierPalette = 'metal',
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -201,6 +203,12 @@ export function CountryPolygonMeshLayer({
   focusedCountryIso2?: string
   selectedCountryIso2s: string[]
   activeLayerId: GlobeLayerId
+  /**
+   * iso2 → reviewed regulatory tier. Absent key = unreviewed = neutral plate.
+   * Undefined map entirely = tier colouring disabled (feature flag off).
+   */
+  tierByIso2?: Record<string, RegulatoryTier | null>
+  tierPalette?: GlobeTierPalette
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
@@ -352,7 +360,18 @@ export function CountryPolygonMeshLayer({
           : focusedCountryIso2 === entry.iso2
             ? 'focused'
             : 'idle'
-        const material = resolveCountryMaterialState({ visualState, layerId: activeLayerId })
+        // Sub-national entries carry a hyphenated iso2 ('CA-AB', 'US-CO') plus a
+        // `parentIso2`. A regulatory tier is a national-law claim and we have no
+        // state-level review, so subdivisions inherit the parent's tier. Without
+        // the parentIso2 fallback every province/state would silently miss the
+        // lookup and render neutral.
+        const tierIso2 = (entry as { parentIso2?: string }).parentIso2 ?? entry.iso2
+        const material = resolveCountryMaterialState({
+          visualState,
+          layerId: activeLayerId,
+          regulatoryTier: tierByIso2?.[tierIso2] ?? null,
+          palette: tierPalette,
+        })
 
         return (
           <HoverPulseMesh

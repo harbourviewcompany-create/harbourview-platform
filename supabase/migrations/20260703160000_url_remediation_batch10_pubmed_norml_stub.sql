@@ -1,0 +1,17 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 10).
+--
+-- PubMed cluster completed: found 11 MORE rows sharing the exact same
+-- fake-placeholder-token pattern already diagnosed on "PubMed: Cannabidiol"
+-- (covers cannabinoid receptor, endocannabinoid system, clinical trials,
+-- pain, epilepsy, cancer, anxiety, hemp agriculture, and two broader
+-- clinical/policy feeds). All deactivated with the same real fix path
+-- documented: rebuild on NCBI E-utilities, not a new RSS URL. This is a
+-- 13-source cluster in total now (across this batch and earlier) -- worth
+-- a dedicated follow-up given the real clinical/research value it covers.
+--
+-- NORML cluster: confirmed the fix is NOT uniform across states --
+-- Alabama has no adult-use legalization (unlike Arizona/Alaska, which
+-- both got the /legalization/ page), so used its medical-marijuana-law
+-- page instead, matching its actual legal status. Alaska matched the
+-- Arizona pattern since it also has full adult-use legalization.
+SELECT 1;

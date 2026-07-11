@@ -1,6 +1,26 @@
-import { describe, expect, it } from 'vitest'
-import { NextRequest } from 'next/server'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { NextRequest, NextResponse } from 'next/server'
+
+// The route is admin-guarded via requireAdminApiAuth (security fix 09d2b8ae).
+// requireAdminAuth reads next/headers cookies/session, which aren't available in
+// the vitest node environment, and unauthorized() additionally requires the
+// __NEXT_EXPERIMENTAL_AUTH_INTERRUPTS flag that only next.config.mjs sets at
+// runtime. Rather than reconstruct a full Next request+session context, we mock
+// the auth wrapper: by default it authorizes (so the behavior assertions below
+// exercise the real response shape), and one dedicated test flips it to a 401 to
+// prove the guard is actually wired into the route.
+const mockAuth = vi.fn<(request?: NextRequest) => Promise<NextResponse | null>>()
+vi.mock('@/lib/auth/adminApiAuth', () => ({
+  requireAdminApiAuth: (request?: NextRequest) => mockAuth(request),
+}))
+
 import { GET } from '../../app/api/used-surplus-preview/route'
+
+beforeEach(() => {
+  // Default: authorized (null failure) so behavior tests run as an admin would.
+  mockAuth.mockReset()
+  mockAuth.mockResolvedValue(null)
+})
 
 async function callRoute(query = '') {
   const request = new NextRequest(`http://localhost/api/used-surplus-preview${query}`)
@@ -10,6 +30,17 @@ async function callRoute(query = '') {
 }
 
 describe('GET /api/used-surplus-preview', () => {
+  it('is admin-guarded: returns the auth failure response when unauthenticated', async () => {
+    // Simulate the guard rejecting the request (what requireAdminApiAuth returns
+    // for a missing/invalid admin session in production).
+    mockAuth.mockResolvedValueOnce(NextResponse.json({ error: 'unauthorized' }, { status: 401 }))
+    const { response, body } = await callRoute()
+    expect(response.status).toBe(401)
+    expect(body.error).toBe('unauthorized')
+    // And it must short-circuit before doing any work / leaking data.
+    expect(body.sources).toBeUndefined()
+  })
+
   it('returns default response metadata and bounded truncation defaults', async () => {
     const { response, body } = await callRoute()
     expect(response.status).toBe(200)

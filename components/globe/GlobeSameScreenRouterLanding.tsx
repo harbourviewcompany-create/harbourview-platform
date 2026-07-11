@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -17,7 +17,10 @@ import { useGlobeRouterState } from './useGlobeRouterState'
 import { CountrySearchOverlay } from './CountrySearchOverlay'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
+import { RoleSelectSheet } from './RoleSelectSheet'
+import { GlobeRegulatoryLegend } from './GlobeRegulatoryLegend'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
+import { GlobeProvider } from './GlobeProvider'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -139,6 +142,19 @@ export function GlobeSameScreenRouterLanding() {
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
 
+  // Persist the resolved country/role to the signed-in user's account, same
+  // fix as the Command Centre (CommandCentre.tsx / MobileCommandCentre.tsx).
+  // Both /api/dashboard/preferences endpoints already no-op safely (401 GET
+  // returns {preferences: null}, PATCH returns 401) for anonymous visitors,
+  // which is most landing-page traffic, so this is safe to fire unconditionally.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [])
+
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
 
@@ -157,11 +173,26 @@ export function GlobeSameScreenRouterLanding() {
       return
     }
 
+    // Single-country mode only — the preferences model is one current
+    // country/role, not the multi-market comparison set.
+    if (state.selectedCountryIso2 && state.selectedRoleId && state.mode !== 'multi_market') {
+      void fetch('/api/dashboard/preferences', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          country_iso2: state.selectedCountryIso2,
+          role_id: state.selectedRoleId,
+          heatmap_layer: heatmapLayerRef.current,
+        }),
+      }).catch(() => undefined)
+    }
+
     dispatch({ type: 'ROUTE_RESOLVED', href: result.href })
     router.push(result.href)
   }, [dispatch, router, state])
 
   return (
+    <GlobeProvider>
     <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
       {fallbackReason ? (
         <PremiumStaticGlobeFallback reason={fallbackReason} />
@@ -194,11 +225,45 @@ export function GlobeSameScreenRouterLanding() {
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</p>
 
+      {/* Legend is gated on the same flag as the colouring itself. A colour
+          scale on a map of law with no key is worse than no colour at all. */}
+      {featureFlags.globeRegulatoryTiers && !fallbackReason && state.step === 'country' ? (
+        <GlobeRegulatoryLegend />
+      ) : null}
+
       {state.step === 'market_overview' && state.selectedCountryIso2 ? (
         <MarketOverviewSheet
           countryIso2={state.selectedCountryIso2}
           countryName={allCountryAndProvinceOptionMap[state.selectedCountryIso2]?.name ?? state.selectedCountryIso2}
           onEnter={() => dispatch({ type: 'MARKET_ENTER' })}
+          onBack={() => dispatch({ type: 'BACK' })}
+        />
+      ) : null}
+
+      {/* Role selection — sits between the country brief and the dashboard.
+          The state machine has always supported this step; until now nothing
+          rendered it, so MARKET_ENTER skipped straight to routing. */}
+      {state.step === 'role' ? (
+        <RoleSelectSheet
+          countryIso2={state.selectedCountryIso2}
+          countryIso2s={state.selectedCountryIso2s}
+          countryName={
+            state.selectedCountryIso2
+              ? allCountryAndProvinceOptionMap[state.selectedCountryIso2]?.name ?? state.selectedCountryIso2
+              : 'your selected markets'
+          }
+          mode={state.mode}
+          searchQuery={state.roleSearchQuery}
+          onSearchQuery={(query) => dispatch({ type: 'ROLE_SEARCH_QUERY', query })}
+          onSelectRole={(roleId) => {
+            dispatch({ type: 'ROLE_SELECT', roleId })
+            setSrAnnouncement(`Role selected: ${roleProfileMap[roleId]?.label ?? roleId}.`)
+          }}
+          onSearchSelectRole={(roleId) => {
+            dispatch({ type: 'ROLE_SEARCH_SELECT', roleId })
+            setSrAnnouncement(`Role selected: ${roleProfileMap[roleId]?.label ?? roleId}.`)
+          }}
+          onNotSure={() => dispatch({ type: 'NOT_SURE_ROLE' })}
           onBack={() => dispatch({ type: 'BACK' })}
         />
       ) : null}
@@ -252,6 +317,7 @@ export function GlobeSameScreenRouterLanding() {
         </RouterBottomSheet>
       ) : null}
     </main>
+    </GlobeProvider>
   )
 }
 

@@ -3,6 +3,9 @@ import type { GlobePlateSpot } from '@/types/globe-router'
 export const globePlateSpots: GlobePlateSpot[] = [
   { iso2: 'CA', x: 23, y: 27, scale: 1.25 },
   { iso2: 'US', x: 29, y: 43, scale: 1.2 },
+  { iso2: 'RU', x: 72, y: 32, scale: 2.85 }, // Large plate to fix black hole
+  { iso2: 'CN', x: 78, y: 48, scale: 2.4 },  // China
+  { iso2: 'BR', x: 48, y: 72, scale: 1.9 },  // Brazil
   { iso2: 'CO', x: 40, y: 68, scale: 0.84 },
   { iso2: 'UY', x: 50, y: 82, scale: 0.68 },
   { iso2: 'GB', x: 51, y: 30, scale: 0.72 },

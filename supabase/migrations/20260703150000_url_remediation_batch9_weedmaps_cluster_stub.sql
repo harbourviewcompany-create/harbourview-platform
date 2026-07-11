@@ -1,0 +1,32 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 9).
+--
+-- Fixed (20 sources total, all verified via web_fetch):
+--
+--   Globe Newswire Cannabis -> old /RssFeed/industry/cannabis path used
+--     the wrong URL structure entirely. GlobeNewswire indexes by numeric
+--     industry code + name + feedTitle, not a plain slug. Found the exact
+--     correct feed via their public /rss/list index.
+--
+--   Council of Europe PACE -> migrated entirely from assembly.coe.int
+--     (403 blocked) to pace.coe.int. Verified live with current news.
+--
+--   Weedmaps cluster (18 sources): NOT a bot-blocking issue like Reddit/
+--     TGA -- confirmed the base domain works fine (Weedmaps News and the
+--     general /dispensaries page were already at 100% success). The
+--     specific old pattern /dispensaries/{state} was retired in favor of
+--     /dispensaries/in/united-states/{state}. Verified on Arizona, then
+--     applied the same mechanical string-replace transform to all 17
+--     other US state rows sharing the identical old pattern. Also fixed
+--     WM Technology Investor Relations: wrong subdomain entirely
+--     (investors.weedmaps.com has no DNS record; real site is
+--     ir.weedmaps.com).
+--
+-- Not resolved, flagged rather than guessed: Weedmaps Canada Dispensaries
+--   uses a different URL structure than the US state pattern; needs its
+--   own verification pass. Romania Camera Deputatilor health committee
+--   page: site itself works (confirmed via other pages), but the specific
+--   committee URL keeps 404ing even on variants indexed by search --
+--   likely uses session/legislature-specific query params this site's
+--   PL/SQL-based routing doesn't expose predictably. Left for a future
+--   session rather than force a low-confidence guess.
+SELECT 1;

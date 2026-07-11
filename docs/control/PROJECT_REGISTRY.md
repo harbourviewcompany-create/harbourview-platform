@@ -11,6 +11,16 @@ Change policy: This document is a control register. It is not approval to delete
 | Intake | Server action + form | Complete |
 | Admin | Pending review flow (via applicationsQuery) | Partial — align status to 'pending' if needed |
 
+## Registry catch-up note — 2026-07-07
+
+**Status:** Not a verified update — a scoped flag of what's missing, added while reviewing why the `Enforce registry impact discipline` CI check fails on nearly every current PR (see `HANDOFF.md` session log, Jul 7).
+
+**Why this exists:** the registry above dates to 2026-05-17 and documents only Supplier Directory. Six weeks of `HANDOFF.md` session-log entries (Jun 23 – Jul 7) describe substantial systems with no corresponding registry rows: Command Centre dashboard (`app/dashboard`, `components/dashboard/CommandCentre.tsx`, `components/dashboard/MobileCommandCentre.tsx`), country/role intel routes (`app/country/[country]/role/[role]`), the Digest pipeline (`app/api/dashboard/digest`, `app/daily`, editorial content pipeline), the HF Intelligence Layer (`lib/hf/`), and the intelligence automation layer (`ia_*` tables). Confirmed only that these paths exist on disk (`test -e`) — did not re-verify their production/RLS/deployment state, which is what this registry is actually supposed to certify.
+
+**What this note is NOT:** it is not a GO for any of the systems listed above, and it does not supersede or update the "Current Canonical Decisions," "Confirmed Vercel Production Mapping," or "Supabase Control Notes" sections below — those require live re-verification (current production deployment ID, current Supabase RLS per table, current branch-protection required checks) that wasn't performed this pass. Per this document's own Change policy, that re-verification is a separate approved cleanup task, not something to fold into an unrelated PR review/merge session.
+
+**Recommended next step:** a dedicated registry-reconciliation pass — list every system live in `main` today, add a row per system with actual verified routes/tables/RLS state, and re-run the full Vercel/Supabase verification block (mirroring the rigor of the original 2026-05-17 pass) rather than patching this document incrementally.
+
 ---
 
 This registry is the source-of-truth map for Harbourview-related projects across GitHub, Vercel and Supabase. Every PR, issue, deployment task, Supabase task, Vercel task, cleanup action and agent handoff must name the affected registry row and state whether the registry changes.
@@ -199,6 +209,7 @@ Known cleanup items:
 - Enable leaked password protection if Supabase Auth is used.
 - Document RLS-enabled/no-policy server-only tables as intentional deny-by-default, or add explicit policies if not intentional.
 - Verify live RLS state before any production write path, release claim or schema change.
+- **2026-07-10 — `listings` ratings columns forward-fix pending.** `average_rating`/`review_count`/`ratings_updated_at` (added by `20260709000000_add_ratings_to_listings.sql`, PR #1000/#1004) were already applied directly to this production project on 2026-07-09 with three defects: `review_count` typed `integer` (overflow risk), the two supporting indexes created without `CONCURRENTLY` (table-lock risk), and `average_rating` defaulting to `0.0` instead of `NULL` for "no ratings yet". This session's fix (`supabase/migrations/20260709000000_add_ratings_to_listings.sql` + new `20260710160000_add_ratings_indexes_concurrently.sql`) corrects the checked-in migration files for any fresh environment, but since these objects are already live in production with the old (buggy) shape, the fix does **not** retroactively apply there — a follow-up forward-fix migration (`ALTER TABLE listings ALTER COLUMN review_count TYPE bigint`, `ALTER COLUMN average_rating DROP DEFAULT`, drop + `CREATE INDEX CONCURRENTLY` the two existing indexes) is required against `zvxdgdkukjrrwamdpqrg` and needs explicit production sign-off before running. See `docs/control/DATABASE_CONTROL.md` for full detail.
 
 ### `harbourviewcompany-create's Project` / `fgdrvqqezdiraqyuofte`
 

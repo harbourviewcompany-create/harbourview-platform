@@ -11,6 +11,9 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+
+const ROUTE_ID = '/api/signals/subscribe'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +46,23 @@ export async function POST(request: Request) {
   const user = await authedUser()
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Authenticated + tier-gated already, but still worth a per-user cap since
+  // this writes to the DB — protects against a buggy client retry loop
+  // rather than malicious abuse, which is already gated by auth+tier.
+  const rateLimit = await enforceRateLimit({
+    route: ROUTE_ID,
+    ip: getClientIp(request),
+    identity: user.id,
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+    )
+  }
 
   const svc = serviceClient()
 

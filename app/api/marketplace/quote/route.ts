@@ -125,7 +125,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request)
-  const ipLimit = enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
+  const ipLimit = await enforceRateLimit({ route: ROUTE_ID, ip, limit: 20, windowMs: 60_000 })
   if (!ipLimit.allowed) {
     logQuoteDiagnostic('QUOTE_RATE_LIMITED', { ip, retryAfterSeconds: ipLimit.retryAfterSeconds })
     return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, ipLimit.retryAfterSeconds)
@@ -236,7 +236,7 @@ export async function POST(request: Request) {
       return json('error', withCode('Please keep the quote request under 2,500 characters.', 'QUOTE_VALIDATION_MESSAGE_LENGTH'), 400)
     }
 
-    const identityLimit = enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
+    const identityLimit = await enforceRateLimit({ route: ROUTE_ID, ip, identity: parsed.data.email, limit: 8, windowMs: 60_000 })
     if (!identityLimit.allowed) {
       logQuoteDiagnostic('QUOTE_RATE_LIMITED', { ip, retryAfterSeconds: identityLimit.retryAfterSeconds, hasEmail: true })
       return json('error', withCode('Too many requests. Please try again shortly.', ABUSE_REJECTION_CODE), 429, identityLimit.retryAfterSeconds)
