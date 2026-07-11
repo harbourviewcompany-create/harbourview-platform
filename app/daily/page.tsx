@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 import { getLatestDailyDigest, formatDigestDateLabel } from '@/lib/harbourview/digest'
-import type { HvDigestHeadlineDto } from '@/lib/harbourview/dto'
+import type { HvEditorialHeadlineDto } from '@/lib/harbourview/dto'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 // Force dynamic rendering — page fetches live Supabase data at request time
@@ -25,8 +25,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/daily' },
 }
 
-function groupByMarket(headlines: HvDigestHeadlineDto[]) {
-  const groups = new Map<string, HvDigestHeadlineDto[]>()
+function groupByMarket<T extends { market: string }>(headlines: T[]) {
+  const groups = new Map<string, T[]>()
   for (const item of headlines) {
     const market = item.market?.trim() || 'Global'
     const bucket = groups.get(market)
@@ -39,6 +39,8 @@ function groupByMarket(headlines: HvDigestHeadlineDto[]) {
 export default async function DailyDigestPage() {
   const { digest } = await getLatestDailyDigest()
   const grouped = groupByMarket(digest.headlines)
+  const groupedEditorial = groupByMarket(digest.editorial_headlines)
+  const hasContent = grouped.length > 0 || groupedEditorial.length > 0
 
   return (
     <main>
@@ -57,7 +59,7 @@ export default async function DailyDigestPage() {
               </p>
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="rounded border border-white/10 bg-white/[0.03] p-3">
-                  <p className="text-lg font-semibold text-[#f4f1eb]">{digest.headlines.length}</p>
+                  <p className="text-lg font-semibold text-[#f4f1eb]">{digest.headlines.length + digest.editorial_headlines.length}</p>
                   <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/42">Headlines</p>
                 </div>
                 <div className="rounded border border-white/10 bg-white/[0.03] p-3">
@@ -83,36 +85,72 @@ export default async function DailyDigestPage() {
         </p>
       </PublicHero>
 
-      {digest && grouped.length > 0 ? (
+      {digest && hasContent ? (
         <PublicSection tone="dark">
           <SectionHeader eyebrow={formatDigestDateLabel(digest.digest_date)} title="What moved, and why it matters.">
             Curated from qualified intelligence signals. Ordered by commercial importance.
           </SectionHeader>
-          <div className="space-y-10">
-            {grouped.map(([market, items]) => (
-              <div key={market}>
-                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">{market}</p>
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  {items.map((item, index) => (
-                    <PublicCard key={item.signal_id ?? `${market}-${index}`} className="p-6">
-                      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
-                      <h2 className="mb-4 text-lg font-semibold leading-snug text-[#f4f1eb]">{item.headline}</h2>
-                      <p className="text-sm leading-7 text-white/58">
-                        <span className="font-semibold text-gold/80">Why it matters: </span>
-                        {item.why_it_matters}
-                      </p>
-                      {item.whats_next && (
-                        <p className="mt-4 text-sm leading-7 text-white/48">
-                          <span className="font-semibold text-gold/80">What&apos;s next: </span>
-                          {item.whats_next}
+          {grouped.length > 0 && (
+            <div className="space-y-10">
+              {grouped.map(([market, items]) => (
+                <div key={market}>
+                  <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">{market}</p>
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    {items.map((item, index) => (
+                      <PublicCard key={item.signal_id ?? `${market}-${index}`} className="p-6">
+                        <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+                        <h2 className="mb-4 text-lg font-semibold leading-snug text-[#f4f1eb]">{item.headline}</h2>
+                        <p className="text-sm leading-7 text-white/58">
+                          <span className="font-semibold text-gold/80">Why it matters: </span>
+                          {item.why_it_matters}
                         </p>
-                      )}
-                    </PublicCard>
-                  ))}
+                        {item.whats_next && (
+                          <p className="mt-4 text-sm leading-7 text-white/48">
+                            <span className="font-semibold text-gold/80">What&apos;s next: </span>
+                            {item.whats_next}
+                          </p>
+                        )}
+                      </PublicCard>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {groupedEditorial.length > 0 && (
+            <div className={grouped.length > 0 ? 'mt-14 space-y-10' : 'space-y-10'}>
+              <SectionHeader eyebrow="Global Cannabis News" title="This week, beyond the trade press.">
+                Editorial coverage from mainstream news outlets worldwide, rewritten in Harbourview&apos;s voice —
+                emerging markets first.
+              </SectionHeader>
+              {groupedEditorial.map(([market, items]) => (
+                <div key={market}>
+                  <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: 'rgba(184,175,158,0.72)' }}>{market}</p>
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    {items.map((item: HvEditorialHeadlineDto, index: number) => (
+                      <PublicCard key={item.item_id ?? `${market}-editorial-${index}`} className="p-6">
+                        <div className="mb-5 h-px w-12" style={{ background: 'linear-gradient(to right, #B8AF9E, rgba(184,175,158,0.4))' }} />
+                        <h2 className="mb-4 text-lg font-semibold leading-snug text-[#f4f1eb]">{item.headline}</h2>
+                        <p className="text-sm leading-7 text-white/58">{item.why_it_matters}</p>
+                        {item.source_url && (
+                          <a
+                            href={item.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 inline-block text-sm font-semibold underline"
+                            style={{ color: '#B8AF9E' }}
+                          >
+                            Read at {item.outlet_name ?? 'source'} →
+                          </a>
+                        )}
+                      </PublicCard>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </PublicSection>
       ) : (
         <PublicSection tone="dark">

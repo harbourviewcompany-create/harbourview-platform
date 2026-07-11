@@ -7,7 +7,7 @@ import { TONE_BG, TONE_BORDER, TONE_TEXT } from '../_components'
 import { getCountryIntelligence } from '@/data/harbourview/country-intelligence'
 import { fetchDashboardSignals } from '@/lib/dashboard/dashboardServerData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import { getLatestDailyDigest, headlinesForMarket, formatDigestDateLabel } from '@/lib/harbourview/digest'
+import { getLatestDailyDigest, headlinesForMarket, editorialHeadlinesForMarket, formatDigestDateLabel } from '@/lib/harbourview/digest'
 
 export const dynamic = 'force-dynamic'
 
@@ -160,6 +160,7 @@ export default async function SignalsPage({ params }: Props) {
     getLatestDailyDigest(),
   ])
   const digestHeadlines = headlinesForMarket(dailyDigest, country.displayName)
+  const digestEditorial = editorialHeadlinesForMarket(dailyDigest, country.displayName)
   const digestDateLabel = formatDigestDateLabel(dailyDigest.digest_date)
 
   function liveToFeedSignal(s: DashboardSignal): FeedSignal {
@@ -283,6 +284,56 @@ export default async function SignalsPage({ params }: Props) {
                     <span className="font-semibold" style={{ color: 'rgba(198,165,90,0.7)' }}>What&apos;s next: </span>
                     {item.whats_next}
                   </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Global Cannabis News (editorial, mainstream media) ── */}
+      {digestEditorial.length > 0 && (
+        <div className="mb-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(184,175,158,0.6)' }}>
+              Global Cannabis News
+            </h2>
+            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {digestDateLabel}
+            </span>
+          </div>
+          <div className="flex flex-col gap-3">
+            {digestEditorial.map((item, i) => (
+              <div
+                key={item.item_id ?? `${country.slug}-editorial-${i}`}
+                className="rounded-2xl p-4"
+                style={{ background: 'rgba(11,26,47,0.85)', border: '1px solid rgba(184,175,158,0.14)' }}
+              >
+                <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[8px] uppercase tracking-[0.12em]"
+                    style={{ background: 'rgba(184,175,158,0.1)', color: '#B8AF9E' }}
+                  >
+                    {item.market}
+                  </span>
+                </div>
+                <p className="text-[13px] font-medium leading-snug text-white">{item.headline}</p>
+                <p className="mt-2 text-[12px] leading-relaxed" style={{
+                  color: 'rgba(243,240,234,0.58)',
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+                }}>
+                  {item.why_it_matters}
+                </p>
+                {item.source_url && (
+                  <a
+                    href={item.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-[11px] font-semibold underline"
+                    style={{ color: '#B8AF9E' }}
+                  >
+                    Read at {item.outlet_name ?? 'source'} →
+                  </a>
                 )}
               </div>
             ))}

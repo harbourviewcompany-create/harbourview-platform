@@ -88,11 +88,26 @@ export type HvDigestHeadlineDto = {
   signal_id: string | null;
 };
 
+// A single card in the daily_digest.editorial_headlines jsonb array —
+// mainstream-media editorial content (run_editorial_digest), distinct from
+// the trade-signal headlines above. No raw editorial_items row (internal
+// stage, snapshot_id, etc.) is exposed, only public-safe fields.
+export type HvEditorialHeadlineDto = {
+  headline: string;
+  why_it_matters: string;
+  market: string;
+  item_id: string | null;
+  published_at: string | null;
+  source_url: string | null;
+  outlet_name: string | null;
+};
+
 export type HvDailyDigestPublicDto = {
   digest_date: string;
   generated_at: string;
   markets: string[];
   headlines: HvDigestHeadlineDto[];
+  editorial_headlines: HvEditorialHeadlineDto[];
 };
 
 // ── Serializers ────────────────────────────────────────────────────────────
@@ -143,14 +158,30 @@ export function toHvDigestHeadlineDto(src: AnyRecord): HvDigestHeadlineDto {
   }
 }
 
+export function toHvEditorialHeadlineDto(src: AnyRecord): HvEditorialHeadlineDto {
+  return {
+    headline: typeof src.headline === 'string' ? src.headline : '',
+    why_it_matters: typeof src.why_it_matters === 'string' ? src.why_it_matters : '',
+    market: typeof src.market === 'string' && src.market.trim() ? src.market : 'Global',
+    item_id: typeof src.item_id === 'string' ? src.item_id : null,
+    published_at: typeof src.published_at === 'string' ? src.published_at : null,
+    source_url: typeof src.source_url === 'string' ? src.source_url : null,
+    outlet_name: typeof src.outlet_name === 'string' ? src.outlet_name : null,
+  }
+}
+
 export function toHvDailyDigestPublicDto(src: AnyRecord): HvDailyDigestPublicDto {
   const rawHeadlines = Array.isArray(src.headlines) ? (src.headlines as AnyRecord[]) : []
+  const rawEditorial = Array.isArray(src.editorial_headlines) ? (src.editorial_headlines as AnyRecord[]) : []
   return {
     digest_date: typeof src.digest_date === 'string' ? src.digest_date : '',
     generated_at: typeof src.generated_at === 'string' ? src.generated_at : '',
     markets: Array.isArray(src.markets) ? (src.markets as string[]) : [],
     headlines: rawHeadlines
       .map(toHvDigestHeadlineDto)
+      .filter((h) => h.headline.length > 0),
+    editorial_headlines: rawEditorial
+      .map(toHvEditorialHeadlineDto)
       .filter((h) => h.headline.length > 0),
   }
 }
