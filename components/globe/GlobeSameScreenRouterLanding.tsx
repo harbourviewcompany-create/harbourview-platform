@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -19,7 +19,6 @@ import { RouterBottomSheet } from './RouterBottomSheet'
 import { MarketOverviewSheet } from './MarketOverviewSheet'
 import { RoleSelectSheet } from './RoleSelectSheet'
 import { GlobeRegulatoryLegend } from './GlobeRegulatoryLegend'
-import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import { GlobeProvider } from './GlobeProvider'
 
@@ -139,10 +138,22 @@ export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
-  const [tierPalette, setTierPalette] = useState<GlobeTierPalette>('metal')
   const fallbackHref = buildFallbackIntakeHref(state)
   const fallbackContextItems = getFallbackContextItems(state)
   const fallbackReason = useGlobeFallbackReason()
+
+  // Persist the resolved country/role to the signed-in user's account, same
+  // fix as the Command Centre (CommandCentre.tsx / MobileCommandCentre.tsx).
+  // Both /api/dashboard/preferences endpoints already no-op safely (401 GET
+  // returns {preferences: null}, PATCH returns 401) for anonymous visitors,
+  // which is most landing-page traffic, so this is safe to fire unconditionally.
+  const heatmapLayerRef = useRef<string>('none')
+  useEffect(() => {
+    fetch('/api/dashboard/preferences')
+      .then(r => r.json())
+      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
+      .catch(() => { heatmapLayerRef.current = 'none' })
+  }, [])
 
   useEffect(() => {
     if (state.step !== 'routing' || state.routeStatus !== 'resolving') return
@@ -160,6 +171,20 @@ export function GlobeSameScreenRouterLanding() {
     if (result.status === 'fallback') {
       dispatch({ type: 'ROUTE_MISSING', href: result.href, requestedPath: result.requestedPath })
       return
+    }
+
+    // Single-country mode only — the preferences model is one current
+    // country/role, not the multi-market comparison set.
+    if (state.selectedCountryIso2 && state.selectedRoleId && state.mode !== 'multi_market') {
+      void fetch('/api/dashboard/preferences', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          country_iso2: state.selectedCountryIso2,
+          role_id: state.selectedRoleId,
+          heatmap_layer: heatmapLayerRef.current,
+        }),
+      }).catch(() => undefined)
     }
 
     dispatch({ type: 'ROUTE_RESOLVED', href: result.href })
@@ -182,7 +207,6 @@ export function GlobeSameScreenRouterLanding() {
           focusedCountryIso2={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback' ? undefined : state.focusedCountryIso2}
           activeLayerId={state.activeLayerId ?? 'country_select'}
           routerStep={state.step}
-          tierPalette={tierPalette}
           onHoverCountry={state.step === 'market_overview' || state.step === 'role' || state.step === 'fallback'
             ? undefined
             : (countryIso2) => dispatch({ type: 'COUNTRY_FOCUS', countryIso2 })}
@@ -204,7 +228,7 @@ export function GlobeSameScreenRouterLanding() {
       {/* Legend is gated on the same flag as the colouring itself. A colour
           scale on a map of law with no key is worse than no colour at all. */}
       {featureFlags.globeRegulatoryTiers && !fallbackReason && state.step === 'country' ? (
-        <GlobeRegulatoryLegend palette={tierPalette} onPaletteChange={setTierPalette} />
+        <GlobeRegulatoryLegend />
       ) : null}
 
       {state.step === 'market_overview' && state.selectedCountryIso2 ? (

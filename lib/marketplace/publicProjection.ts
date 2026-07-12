@@ -49,7 +49,7 @@ export function toPublicMarketplaceListing(input: PrivateMarketplaceListing): Pu
     condition: input.condition ?? null,
     location_country: input.location_country ?? null,
     location_region: input.location_region ?? null,
-    price_amount: input.price_amount ?? null,
+    price_amount: input.price_amount != null ? Number(input.price_amount) : null,
     price_currency: input.price_currency || 'USD',
     price_display: input.price_display ?? 'Request qualification',
     seller_type: input.seller_type || 'controlled_review',
