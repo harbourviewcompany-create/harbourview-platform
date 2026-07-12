@@ -4,8 +4,8 @@
 --                         the old, set needs_review=true (the "flag surprising
 --                         change" signal) and log it.
 --   * origin='override' → do NOT change the tier, but update the source hash and
---                        set needs_review=true so someone re-confirms the
---                        human/agent call against the new text.
+--                         set needs_review=true so someone re-confirms the
+--                         human/agent call against the new text.
 -- Every change is written to regulatory_tier_audit.
 
 create or replace function public.sync_regulatory_tier_from_briefing()
