@@ -39,6 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/reports" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Reports</Link>
             <Link href="/admin/governance" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Governance</Link>
             <Link href="/admin/global-expansion" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Global Expansion</Link>
+            <Link href="/admin/regulatory-pathways" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Regulatory Pathways</Link>
             <form action="/admin/logout" method="post">
               <button type="submit" className="rounded-full border border-white/20 px-3 py-1.5 text-[#F5F1E8]/70 transition hover:bg-white/10">Sign out</button>
             </form>
