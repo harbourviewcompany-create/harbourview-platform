@@ -1,0 +1,13 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 22).
+--
+-- Indiana Cannabis Regulator -> old path dead. Replaced with the current
+-- Indiana State Department of Agriculture hemp program page (administered
+-- by the Office of Indiana State Chemist), confirmed via search index as
+-- live with April 2026 content. Not independently fetch-verified this
+-- round due to search-budget cost.
+--
+-- Remaining, not yet addressed: South Dakota, Texas DSHS, California
+-- Cannabis Open Data, EU TARIC, ASA Americans for Safe Access (timeout),
+-- Vicente Sederberg Blog (429), Netherlands Customs, Newfoundland NLC
+-- (mistagged as USA, actually Canadian).
+SELECT 1;
