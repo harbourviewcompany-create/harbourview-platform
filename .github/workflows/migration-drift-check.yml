@@ -32,9 +32,11 @@ jobs:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           supabase link --project-ref "$SUPABASE_PROJECT_ID"
-          # Machine-readable list of migrations the remote DB believes are applied
-          supabase migration list --linked --json > remote_migrations.json
-          cat remote_migrations.json
+          # `supabase migration list` has no --json flag (confirmed against the
+          # current CLI reference: only --db-url/--linked/--local/-p exist).
+          # It prints a box-drawing LOCAL | REMOTE | TIME table -- parse that instead.
+          supabase migration list --linked > remote_migrations.txt
+          cat remote_migrations.txt
 
       - name: List migrations committed to repo
         id: local
@@ -48,19 +50,28 @@ jobs:
       - name: Compare remote ledger vs repo files
         run: |
           python3 - <<'PY'
-          import json, sys
+          import re, sys
 
-          with open("remote_migrations.json") as f:
-              remote = json.load(f)
-          remote_versions = sorted(str(m["version"]) for m in remote)
+          # Parse the REMOTE column out of `supabase migration list`'s box-drawing
+          # table. Row shape: " <local> │ <remote> │ <time> " -- a populated REMOTE
+          # column (14-digit timestamp) means that version is applied to prod.
+          remote_versions = set()
+          with open("remote_migrations.txt") as f:
+              for line in f:
+                  if "│" not in line:
+                      continue
+                  cols = [c.strip() for c in line.split("│")]
+                  if len(cols) < 2:
+                      continue
+                  candidate = cols[1]
+                  if re.fullmatch(r"\d{14}", candidate):
+                      remote_versions.add(candidate)
 
           with open("local_migrations.txt") as f:
-              local_versions = sorted(l.strip() for l in f if l.strip())
+              local_versions = set(l.strip() for l in f if l.strip())
 
-          remote_set, local_set = set(remote_versions), set(local_versions)
-
-          applied_not_committed = remote_set - local_set
-          committed_not_applied = local_set - remote_set
+          applied_not_committed = remote_versions - local_versions
+          committed_not_applied = local_versions - remote_versions
 
           drift = False
 
@@ -81,7 +92,7 @@ jobs:
           if drift:
               sys.exit(1)
 
-          print(f"OK — {len(remote_set)} remote migrations, all committed to repo.")
+          print(f"OK — {len(remote_versions)} remote migrations, all committed to repo.")
           PY
 
       - name: Post summary if drift detected
@@ -94,18 +105,16 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**Do not apply new migrations until this is reconciled.**" >> "$GITHUB_STEP_SUMMARY"
 
-  # Optional companion check: block the specific "placeholder comment as code" landmine
-  # called out in HANDOFF.md ADR-style notes (e.g. `// Keep other functions as they were`
-  # committed as literal code, silently deleting working functions).
+  # Optional companion check: block the specific "placeholder comment as code"
+  # landmine called out in HANDOFF.md ADR-style notes (e.g. `// Keep other
+  # functions as they were` committed as literal code, silently deleting
+  # working functions).
   check-placeholder-landmines:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Grep for known placeholder-comment landmines
         run: |
-          # Only scan CODE for these landmines. Markdown/docs (HANDOFF.md, the
-          # preflight checklist, ADR notes) legitimately quote these phrases when
-          # DESCRIBING the incidents, and must not trip the check.
           PATTERNS=(
             "Keep other functions as they were"
             "rest of the file unchanged"
