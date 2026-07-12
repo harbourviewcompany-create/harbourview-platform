@@ -1,12 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse }  from 'next/server'
+import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+function getDb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } },
+  )
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -14,6 +18,7 @@ export async function GET(request: Request) {
   const credential = searchParams.get('credential') ?? ''
   const q          = searchParams.get('q') ?? ''
 
+  const supabase = getDb()
   let query = supabase
     .from('hv_professionals')
     .select('id,full_name,title,credential_type,specialties,countries,institution,accepts_referrals,consultation_available,bio_public')

@@ -232,9 +232,9 @@ export function ApplicationsList({
                   </p>
                   <p className="mt-0.5 text-xs text-[#F5F1E8]/45">
                     {s.contact_name ?? 'No contact name'}
-                    {s.email ? ` · ${s.email}` : ''}
-                    {s.hq_country ? ` · HQ: ${s.hq_country}` : ''}
-                    {s.regions_served?.length ? ` · Serves: ${s.regions_served.join(', ')}` : ''}
+                    {s.contact_email ? ` · ${s.contact_email}` : ''}
+                    {s.capabilities?.hq_country ? ` · HQ: ${s.capabilities.hq_country}` : ''}
+                    {s.capabilities?.regions_served?.length ? ` · Serves: ${s.capabilities.regions_served.join(', ')}` : ''}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {s.categories.map((c: string) => (
@@ -246,7 +246,7 @@ export function ApplicationsList({
                       </span>
                     ))}
                   </div>
-                  {s.description_public && <BioText text={s.description_public} />}
+                  {s.description && <BioText text={s.description} />}
                   <p className="mt-2 text-[10px] text-[#F5F1E8]/30">Submitted {fmt(s.created_at)}</p>
                 </div>
                 <DecisionZone kind="suppliers" id={s.id} />

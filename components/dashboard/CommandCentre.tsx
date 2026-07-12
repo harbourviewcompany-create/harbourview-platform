@@ -22,7 +22,7 @@ import { GeneticsProgramModal } from './GeneticsProgramModal'
 import { QuoteModal } from './QuoteModal'
 import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
-import { DealRoomsPanel } from './DealRoomsPanel'
+import { DealRoomsPanel as DealRoomsSidebarWidget } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
@@ -1415,7 +1415,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <button className="cc-right-link" onClick={() => setSubView('browse')}>View pipeline →</button>
           </div>
         )}
-        <DealRoomsPanel />
+        <DealRoomsSidebarWidget />
         <div className="cc-right-section">
           <div className="cc-right-head">ROUTED INQUIRY</div>
           <p className="cc-right-prose">Submit a quote or sourcing inquiry for Harbourview to review and route to verified suppliers or export partners.</p>
