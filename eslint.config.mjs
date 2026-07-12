@@ -4,11 +4,17 @@ import nextTypescript from 'eslint-config-next/typescript'
 const eslintConfig = [
   {
     // Separate sub-projects / generated output — not part of the root app lint.
+    // node_modules and .claude use `**/` prefixes since nested copies exist
+    // inside git worktrees (e.g. .claude/worktrees/*/node_modules), which a
+    // root-only glob doesn't reach and which previously caused `eslint .` to
+    // recurse into third-party library code and report thousands of false
+    // positives.
     ignores: [
       'tools/**',
       '.next/**',
-      'node_modules/**',
+      '**/node_modules/**',
       'supabase/functions/**',
+      '.claude/**',
     ],
   },
   ...nextCoreWebVitals,

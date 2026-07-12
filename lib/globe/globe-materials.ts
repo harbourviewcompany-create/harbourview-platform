@@ -40,21 +40,29 @@ interface TierPlate {
   border: string
 }
 
+const TIER_FILL: Record<RegulatoryTier, TierPlate> = {
+  // One palette, maximally separated in BOTH hue and lightness so tiers stay
+  // distinct under the globe's dramatic lighting falloff and for colour-blind
+  // viewers (lightness descends open → closed as a second channel):
+  //   legal        = bright emerald   (unmistakably "go")
+  //   medical      = warm amber        (lighter, distinct from orange)
+  //   domestic     = orange            (clearly separated from amber)
+  //   cbd/hemp     = cyan-teal         (cool, reads as "adjacent, not cannabis")
+  //   prohibited   = desaturated red   (dark, recedes)
+  legal_commercial_access: { plate: '#2fd46f', emissive: '#2fd46f', emissiveIntensity: 0.55, border: '#b6ffce' },
+  medical_limited_trade:   { plate: '#f2c53d', emissive: '#f2c53d', emissiveIntensity: 0.55, border: '#ffe9a3' },
+  domestic_only:           { plate: '#f07d2e', emissive: '#f07d2e', emissiveIntensity: 0.55, border: '#ffc191' },
+  cbd_hemp_only:           { plate: '#2bc2c2', emissive: '#2bc2c2', emissiveIntensity: 0.55, border: '#9ff0f0' },
+  prohibited:              { plate: '#b23b3b', emissive: '#b23b3b', emissiveIntensity: 0.32, border: '#e08a8a' },
+}
+
+// Back-compat: the palette param still exists at call sites and in the toggle,
+// but both options now resolve to the same well-separated fill. The old
+// metal/spectrum split was removed because the metallic variant was
+// structurally illegible on the lit globe (every tier washed to gold).
 const TIER_PALETTES: Record<GlobeTierPalette, Record<RegulatoryTier, TierPlate>> = {
-  metal: {
-    legal_commercial_access: { plate: '#d4ad3a', emissive: '#9a7c12', emissiveIntensity: 0.26, border: '#f1dfaa' },
-    medical_limited_trade:   { plate: '#a8873f', emissive: '#6d5820', emissiveIntensity: 0.18, border: '#c8ab6a' },
-    domestic_only:           { plate: '#6d5c30', emissive: '#3f3416', emissiveIntensity: 0.12, border: '#8b7550' },
-    cbd_hemp_only:           { plate: '#4a5340', emissive: '#26301c', emissiveIntensity: 0.09, border: '#6f7a55' },
-    prohibited:              { plate: '#28303a', emissive: '#141a22', emissiveIntensity: 0.05, border: '#4b525c' },
-  },
-  spectrum: {
-    legal_commercial_access: { plate: '#3fb96b', emissive: '#166534', emissiveIntensity: 0.24, border: '#8ff0b4' },
-    medical_limited_trade:   { plate: '#e0b93c', emissive: '#8a6b12', emissiveIntensity: 0.20, border: '#f7e39a' },
-    domestic_only:           { plate: '#e08340', emissive: '#8a4416', emissiveIntensity: 0.16, border: '#f7bd8f' },
-    cbd_hemp_only:           { plate: '#4ba89a', emissive: '#166b5e', emissiveIntensity: 0.16, border: '#93e0d3' },
-    prohibited:              { plate: '#c0453f', emissive: '#6d1a17', emissiveIntensity: 0.10, border: '#f09a95' },
-  },
+  metal: TIER_FILL,
+  spectrum: TIER_FILL,
 }
 
 export interface GlobeMaterialState {
@@ -131,23 +139,31 @@ export function resolveCountryMaterialState({
   // away, and the legend carries the meaning regardless.
   if (regulatoryTier) {
     const tier = TIER_PALETTES[palette][regulatoryTier]
+    // Tier colouring must WIN over the globe's gold metallic lighting, not tint
+    // through it. Earlier versions kept metalness/clearcoat and a gold emissive,
+    // so every plate was lit by the same gold environment map and the tiers
+    // washed into one indistinguishable gold (confirmed on device). Here the
+    // tier plate becomes an almost-flat, self-lit fill:
+    //   * metalness ~0  → hue is not replaced by the gold env-map reflection
+    //   * clearcoat 0   → no gold specular hotspot on the lit face
+    //   * emissive = the plate hue itself, at high intensity → shadowed faces
+    //     stay ON-COLOUR instead of falling to gold-black, so a country reads
+    //     as its tier from every lighting angle, not just where the sun hits.
+    // The result looks more like a painted data-map than polished metal — which
+    // is the correct tradeoff when the whole point is legibility of the tier.
     base.plateBase = tier.plate
-    base.emissive = tier.emissive
-    base.emissiveIntensity = tier.emissiveIntensity
+    base.emissive = tier.plate
+    base.emissiveIntensity = 0.55
     base.borderColor = tier.border
+    base.metalness = 0.05
+    base.roughness = 0.85
+    base.clearcoat = 0.0
+    base.clearcoatRoughness = 1.0
     if (regulatoryTier === 'prohibited') {
-      // Closed markets should not glint like metal — drop the polish so they
-      // recede rather than competing with reachable markets for attention.
-      base.metalness = 0.35
-      base.roughness = 0.72
-      base.clearcoat = 0.0
+      // Prohibited still recedes: dimmer self-glow so reachable markets carry
+      // the visual weight, but it stays clearly its own colour.
+      base.emissiveIntensity = 0.32
       base.sidewallColor = hvTokens.globe.sidewallDisabled
-    } else if (palette === 'spectrum') {
-      // Saturated pigment reads as paint, not metal. Pull metalness down or the
-      // specular lobe desaturates the hue into a grey glint at grazing angles.
-      base.metalness = 0.28
-      base.roughness = 0.58
-      base.clearcoat = 0.12
     }
   }
 

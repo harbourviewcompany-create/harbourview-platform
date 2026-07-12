@@ -1,9 +1,9 @@
 'use client'
 
-import type { GlobeTierPalette, RegulatoryTier } from '@/lib/globe/globe-materials'
+import type { RegulatoryTier } from '@/lib/globe/globe-materials'
 
 /**
- * Legend for the regulatory-tier globe colouring, plus the palette toggle.
+ * Legend for the regulatory-tier globe colouring.
  *
  * The legend is not decoration — an unlabelled colour scale on a map of *law*
  * is worse than no colour at all, because a viewer will invent their own
@@ -42,57 +42,26 @@ const TIER_LABELS: Record<RegulatoryTier, { label: string; hint: string }> = {
   },
 }
 
-// Swatch colours mirror the plate colours in lib/globe/globe-materials.ts.
-// Kept in sync by hand; they are presentational only and never drive rendering.
-const SWATCHES: Record<GlobeTierPalette, Record<RegulatoryTier, string>> = {
-  metal: {
-    legal_commercial_access: '#d4ad3a',
-    medical_limited_trade: '#a8873f',
-    domestic_only: '#6d5c30',
-    cbd_hemp_only: '#4a5340',
-    prohibited: '#28303a',
-  },
-  spectrum: {
-    legal_commercial_access: '#3fb96b',
-    medical_limited_trade: '#e0b93c',
-    domestic_only: '#e08340',
-    cbd_hemp_only: '#4ba89a',
-    prohibited: '#c0453f',
-  },
+// Swatch colours mirror the plate colours (TIER_FILL) in
+// lib/globe/globe-materials.ts. Kept in sync by hand; presentational only.
+const SWATCHES: Record<RegulatoryTier, string> = {
+  legal_commercial_access: '#2fd46f',
+  medical_limited_trade: '#f2c53d',
+  domestic_only: '#f07d2e',
+  cbd_hemp_only: '#2bc2c2',
+  prohibited: '#b23b3b',
 }
 
-interface Props {
-  palette: GlobeTierPalette
-  onPaletteChange: (palette: GlobeTierPalette) => void
-}
-
-export function GlobeRegulatoryLegend({ palette, onPaletteChange }: Props) {
+export function GlobeRegulatoryLegend() {
   return (
     <aside
       aria-label="Regulatory access legend"
       className="pointer-events-auto absolute bottom-6 left-4 z-20 w-[248px] rounded-xl border border-[#c6a55a]/18 bg-[#020814]/88 p-3.5 backdrop-blur-xl sm:left-6"
     >
-      <div className="mb-2.5 flex items-baseline justify-between gap-2">
+      <div className="mb-2.5">
         <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d8be76]/80">
           Market access
         </h2>
-        <div className="flex items-center gap-0.5 rounded-full border border-[#c6a55a]/18 p-0.5" role="group" aria-label="Colour palette">
-          {(['metal', 'spectrum'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={palette === option}
-              onClick={() => onPaletteChange(option)}
-              className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] transition ${
-                palette === option
-                  ? 'bg-[#c6a55a]/18 text-[#fff8e6]'
-                  : 'text-white/40 hover:text-white/70'
-              }`}
-            >
-              {option === 'metal' ? 'Metal' : 'Colour'}
-            </button>
-          ))}
-        </div>
       </div>
 
       <ul className="grid gap-1.5">
@@ -101,7 +70,7 @@ export function GlobeRegulatoryLegend({ palette, onPaletteChange }: Props) {
             <span
               aria-hidden="true"
               className="mt-[3px] h-3 w-3 shrink-0 rounded-[3px] ring-1 ring-inset ring-white/12"
-              style={{ background: SWATCHES[palette][tier] }}
+              style={{ background: SWATCHES[tier] }}
             />
             <span className="grid gap-0.5">
               <span className="text-[11px] font-medium leading-4 text-[#f5f1e8]/88">
