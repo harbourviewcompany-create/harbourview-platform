@@ -1,0 +1,18 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 20).
+--
+-- Uruguay IRCCA: DEACTIVATED. Confirmed robots.txt disallowed on
+-- ircca.gub.uy directly -- same class as TGA/ODC/ISP Chile/Sejm, not a
+-- URL fix. Original stored error was a TLS UnknownIssuer cert error
+-- rather than a robots message, suggesting the capture worker's TLS
+-- handshake may be failing before it even reaches the robots check --
+-- possibly a genuine cert misconfiguration on Uruguay's government
+-- server, separate from the access block itself. Either way, not
+-- resolvable via a URL change.
+--
+-- Remaining in the current worklist, not yet addressed: Indiana, South
+-- Dakota, Texas DSHS, California Cannabis Open Data, Colorado MED (403),
+-- Colorado Cannabis Open Data (403, same domain as MED -- likely one root
+-- cause), EU TARIC, ASA Americans for Safe Access (timeout), Vicente
+-- Sederberg Blog (429), Netherlands Customs, Newfoundland NLC (mistagged
+-- as USA, actually Canadian).
+SELECT 1;
