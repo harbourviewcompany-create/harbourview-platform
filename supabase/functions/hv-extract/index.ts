@@ -4,22 +4,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL       = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANTHROPIC_API_KEY  = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const GEMINI_API_KEY     = Deno.env.get("GEMINI_API_KEY") ?? "";
 const OPENAI_API_KEY     = Deno.env.get("OPENAI_API_KEY") ?? "";
 const DEV_BYPASS_SECRET  = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? "";
 const CRON_CALLER_HEADER = "x-harbourview-cron-caller";
-// hv_trigger_extract() (the pg_cron-invoked SQL wrapper) was updated at some
-// point to send a real vault-backed shared secret instead of a hardcoded
-// literal — checked 2026-07-10 after finding live 403s on every 30-min
-// cycle (net._http_response showed {"ok":false,"error":"forbidden"} on
-// every hv-extract-every-30min invocation). Accepting both so this doesn't
-// silently break again if either side changes independently.
 const EXPECTED_CRON_CALLERS = new Set([
   "pg_cron_hv_extract",
   "79cf9af4da7fd08d06c010239443d100081ee43e10dfe93fab4f7471b765f81c",
 ]);
 const HV_WORKSPACE_ID   = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
-// PostgREST on this project only exposes the `api` schema (not `public`).
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
   db: { schema: "api" },
@@ -50,20 +44,17 @@ type EditorialResult = {
   country: string | null; language: string | null;
 };
 
-const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object — no prose, no markdown, no explanation, no code fences.
+const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object \u2014 no prose, no markdown, no explanation, no code fences.
 
 Return exactly this structure:
-{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons — max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found — max 10"]}
+{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons \u2014 max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found \u2014 max 10"]}
 
 If the content contains no cannabis-relevant signal, return: {"signal_type":"none","relevance_score":0,"confidence":"high","summary":"","key_entities":[],"keywords_matched":[],"jurisdiction":null,"country_iso":null,"effective_date":null}`;
 
-// Distinct prompt for mainstream_media sources: no commercial framing, no
-// relevance_score/confidence — this is editorial content, not a trade signal.
-// Excludes anything that reads as industry press release / trade-press promotion.
-const EDITORIAL_SYSTEM = `You are an editor curating a global cannabis news digest for a general audience, sourced from mainstream (non-cannabis-industry) news outlets. Read the article and return ONLY a valid JSON object — no prose, no markdown, no code fences.
+const EDITORIAL_SYSTEM = `You are an editor curating a global cannabis news digest for a general audience, sourced from mainstream (non-cannabis-industry) news outlets. Read the article and return ONLY a valid JSON object \u2014 no prose, no markdown, no code fences.
 
 Return exactly this structure:
-{"is_cannabis_relevant":true|false,"headline":"a sharp original headline, max 110 chars, in your own words — never copy the source's headline verbatim","summary":"1-2 sentence plain-language summary IN YOUR OWN WORDS, no direct quotes","why_it_matters":"one editorial sentence on why a globally-minded reader would care","tone":"news|opinion|feature|investigative|other","country":"country the story is primarily about, or null","language":"ISO 639-1 code of the original article, or null"}
+{"is_cannabis_relevant":true|false,"headline":"a sharp original headline, max 110 chars, in your own words \u2014 never copy the source's headline verbatim","summary":"1-2 sentence plain-language summary IN YOUR OWN WORDS, no direct quotes","why_it_matters":"one editorial sentence on why a globally-minded reader would care","tone":"news|opinion|feature|investigative|other","country":"country the story is primarily about, or null","language":"ISO 639-1 code of the original article, or null"}
 
 Set is_cannabis_relevant to false or reject if: the piece is a press release, sponsored content, or reads like industry trade coverage (e.g. product launches, company financials, B2B marketplace activity) rather than general-audience news, editorial, or cultural coverage. If not cannabis-relevant, return: {"is_cannabis_relevant":false,"headline":"","summary":"","why_it_matters":"","tone":"other","country":null,"language":null}`;
 
@@ -91,7 +82,6 @@ function buildUserContent(snapshot: Snapshot): string {
   ].filter(Boolean).join("\n\n");
 }
 
-// ── Extraction via Anthropic (primary) ───────────────────────────────────────
 async function extractAnthropic(snapshot: Snapshot): Promise<ExtractionResult> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -113,7 +103,25 @@ async function extractAnthropic(snapshot: Snapshot): Promise<ExtractionResult> {
   return JSON.parse((data?.content?.[0]?.text ?? "").replace(/```json|```/g, "").trim());
 }
 
-// ── Extraction via OpenAI (fallback when ANTHROPIC_API_KEY absent) ────────────
+async function extractGemini(snapshot: Snapshot): Promise<ExtractionResult> {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: buildUserContent(snapshot) }] }],
+        systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM }] },
+        generationConfig: { temperature: 0, maxOutputTokens: 800, responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return JSON.parse(text.replace(/```json|```/g, "").trim());
+}
+
 async function extractOpenAI(snapshot: Snapshot): Promise<ExtractionResult> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -137,10 +145,20 @@ async function extractOpenAI(snapshot: Snapshot): Promise<ExtractionResult> {
   return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}");
 }
 
-async function extractSignal(snapshot: Snapshot): Promise<ExtractionResult> {
-  if (ANTHROPIC_API_KEY) return extractAnthropic(snapshot);
-  if (OPENAI_API_KEY)    return extractOpenAI(snapshot);
-  throw new Error("no_llm_api_key: set ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY");
+async function extractSignal(snapshot: Snapshot): Promise<{ result: ExtractionResult; backend: string } | null> {
+  const attempts: Array<[string, () => Promise<ExtractionResult>]> = [];
+  if (ANTHROPIC_API_KEY) attempts.push(["anthropic", () => extractAnthropic(snapshot)]);
+  if (GEMINI_API_KEY)    attempts.push(["gemini",    () => extractGemini(snapshot)]);
+  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractOpenAI(snapshot)]);
+
+  const errors: string[] = [];
+  for (const [backend, fn] of attempts) {
+    try { return { result: await fn(), backend }; }
+    catch (e) { errors.push(`${backend}: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  if (attempts.length === 0) errors.push("no_llm_api_key: set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY");
+  (extractSignal as any)._lastError = errors.join(" | ");
+  return null;
 }
 
 async function extractEditorialAnthropic(snapshot: Snapshot): Promise<EditorialResult> {
@@ -158,6 +176,25 @@ async function extractEditorialAnthropic(snapshot: Snapshot): Promise<EditorialR
   if (!res.ok) throw new Error(`anthropic_${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
   return JSON.parse((data?.content?.[0]?.text ?? "").replace(/```json|```/g, "").trim());
+}
+
+async function extractEditorialGemini(snapshot: Snapshot): Promise<EditorialResult> {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: buildUserContent(snapshot) }] }],
+        systemInstruction: { parts: [{ text: EDITORIAL_SYSTEM }] },
+        generationConfig: { temperature: 0, maxOutputTokens: 600, responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return JSON.parse(text.replace(/```json|```/g, "").trim());
 }
 
 async function extractEditorialOpenAI(snapshot: Snapshot): Promise<EditorialResult> {
@@ -180,16 +217,22 @@ async function extractEditorialOpenAI(snapshot: Snapshot): Promise<EditorialResu
   return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}");
 }
 
-async function extractEditorial(snapshot: Snapshot): Promise<EditorialResult> {
-  if (ANTHROPIC_API_KEY) return extractEditorialAnthropic(snapshot);
-  if (OPENAI_API_KEY)    return extractEditorialOpenAI(snapshot);
-  throw new Error("no_llm_api_key: set ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY");
+async function extractEditorial(snapshot: Snapshot): Promise<{ result: EditorialResult; backend: string } | null> {
+  const attempts: Array<[string, () => Promise<EditorialResult>]> = [];
+  if (ANTHROPIC_API_KEY) attempts.push(["anthropic", () => extractEditorialAnthropic(snapshot)]);
+  if (GEMINI_API_KEY)    attempts.push(["gemini",    () => extractEditorialGemini(snapshot)]);
+  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractEditorialOpenAI(snapshot)]);
+
+  const errors: string[] = [];
+  for (const [backend, fn] of attempts) {
+    try { return { result: await fn(), backend }; }
+    catch (e) { errors.push(`${backend}: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  if (attempts.length === 0) errors.push("no_llm_api_key: set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY");
+  (extractEditorial as any)._lastError = errors.join(" | ");
+  return null;
 }
 
-// mainstream_media sources are routed to the editorial pipeline (editorial_items
-// table) instead of the trade-signal pipeline (hv_import_staging / ia_signals).
-// source_type comes from the source_registry join, not signal_candidates —
-// see note above the query in the request handler.
 function isMainstreamMediaSnapshot(snapshot: Snapshot): boolean {
   return snapshot.source_type === "mainstream_media";
 }
@@ -210,7 +253,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (req.method !== "POST")    return respond(405, { ok: false, error: "method_not_allowed" });
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return respond(500, { ok: false, error: "missing_supabase_env" });
-  if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY) return respond(500, { ok: false, error: "no_llm_api_key", detail: "set ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY" });
+  if (!ANTHROPIC_API_KEY && !GEMINI_API_KEY && !OPENAI_API_KEY) return respond(500, { ok: false, error: "no_llm_api_key", detail: "set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY (at least one)" });
 
   const rejection = authorizeCaller(req);
   if (rejection) return rejection;
@@ -221,7 +264,7 @@ Deno.serve(async (req: Request) => {
   const rawLimit    = Number(url.searchParams.get("limit") ?? "10");
   const limit       = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 10, 25));
   const minRelevance = Number(url.searchParams.get("min_relevance") ?? "30");
-  const llmBackend  = ANTHROPIC_API_KEY ? "claude-haiku-4-5" : "gpt-4o-mini";
+  const llmBackend  = ANTHROPIC_API_KEY ? "claude-haiku-4-5" : GEMINI_API_KEY ? "gemini-3.5-flash" : "gpt-4o-mini";
 
   let query = supabase
     .from("source_snapshots")
@@ -236,13 +279,6 @@ Deno.serve(async (req: Request) => {
   const { data: rawSnapshots, error: fetchErr } = await query;
   if (fetchErr) return respond(500, { ok: false, error: "snapshot_query_failed", detail: fetchErr.message });
 
-  // api.source_snapshots and api.source_registry are both VIEWS with no FK
-  // constraints (checked 2026-07-10), so PostgREST's embedded-resource join
-  // syntax (`.select("...,source_registry(...)")`) doesn't work here — it
-  // needs real FK metadata to resolve the relationship, which views don't
-  // carry over from the underlying tables. Fetching source_registry
-  // separately and joining in JS instead, which works regardless of
-  // relationship metadata.
   const sourceIds = [...new Set((rawSnapshots ?? []).map((s: any) => s.source_id).filter(Boolean))];
   const registryById = new Map<string, { source_type: string | null; source_name: string | null; country: string | null; region: string | null }>();
   if (sourceIds.length > 0) {
@@ -271,42 +307,17 @@ Deno.serve(async (req: Request) => {
 
   for (const snapshot of (snapshots ?? []) as Snapshot[]) {
     try {
-      // ── Editorial path: mainstream media, no commercial signal scoring ──────
       if (isMainstreamMediaSnapshot(snapshot)) {
-        // Real fallback: try Anthropic, and only on actual failure (not just
-        // "if the key happens to be absent") retry with OpenAI. The prior
-        // version's extractEditorial() picked a provider once based purely
-        // on which key was configured and never retried — so with
-        // ANTHROPIC_API_KEY present but billing-dead, it never reached the
-        // OpenAI code path at all despite OPENAI_API_KEY being available and
-        // working (confirmed live: Codex's separate run_signal_extraction()
-        // successfully falls back to OpenAI for the trade-signal pipeline;
-        // this brings the editorial pipeline up to the same standard).
-        let editorial: EditorialResult | null = null;
-        let extractionError: string | null = null;
-
-        if (ANTHROPIC_API_KEY) {
-          try { editorial = await extractEditorialAnthropic(snapshot); }
-          catch (e) { extractionError = e instanceof Error ? e.message : String(e); }
-        }
-        if (!editorial && OPENAI_API_KEY) {
-          try { editorial = await extractEditorialOpenAI(snapshot); extractionError = null; }
-          catch (e) { extractionError = extractionError ? `${extractionError} | openai: ${e instanceof Error ? e.message : String(e)}` : (e instanceof Error ? e.message : String(e)); }
-        }
+        const outcome = await extractEditorial(snapshot);
         extracted++;
 
-        // Both providers failed (or neither configured): rather than losing
-        // the item entirely behind a source_snapshots.error_message no one
-        // routinely checks, land it in a visible manual-review bucket —
-        // editorial_items with stage='needs_review', carrying the raw
-        // headline/URL/text so a human can write it up directly instead of
-        // having to dig it out of the extraction failure logs.
-        if (!editorial) {
+        if (!outcome) {
+          const reason = (extractEditorial as any)._lastError ?? "no_llm_provider_available";
           if (!dryRun) {
             await supabase.from("editorial_items").insert({
               source_id: snapshot.source_id,
               snapshot_id: snapshot.id,
-              headline: (snapshot.captured_title ?? "Untitled — needs manual review").slice(0, 300),
+              headline: (snapshot.captured_title ?? "Untitled \u2014 needs manual review").slice(0, 300),
               summary: (snapshot.captured_text ?? "").slice(0, 500),
               why_it_matters: null,
               outlet_name: (snapshot as any)._source_name ?? null,
@@ -318,12 +329,14 @@ Deno.serve(async (req: Request) => {
               stage: "needs_review",
               published_at: snapshot.captured_at ?? new Date().toISOString(),
             });
-            await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: (extractionError ?? "no_llm_provider_available").slice(0, 500) }).eq("id", snapshot.id);
+            await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
           }
           failed++;
-          results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "editorial", reason: extractionError ?? "no_llm_provider_available" });
+          results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "editorial", reason });
           continue;
         }
+
+        const editorial = outcome.result;
 
         if (!editorial.is_cannabis_relevant || !editorial.headline) {
           skippedLowRelevance++;
@@ -346,16 +359,6 @@ Deno.serve(async (req: Request) => {
             language: editorial.language ?? snapshot.language_detected ?? "en",
             tone: editorial.tone,
             stage: "qualified",
-            // source_snapshots has no article-publish-date field (checked
-            // 2026-07-10: published_at only exists on a different table in
-            // the unrelated regulatory_signals schema — an earlier fix here
-            // wrongly assumed it existed on this table too, which broke
-            // hv-extract's select() entirely). captured_at (fetch time) is
-            // the best available proxy for the 7-day recency policy. For
-            // genuinely chronological RSS feeds (not search/aggregation
-            // feeds like Google News, which is exactly why those were
-            // replaced with direct outlet feeds) fetch time tracks actual
-            // publish time closely enough in practice.
             published_at: snapshot.captured_at ?? new Date().toISOString(),
           });
           if (editErr) throw new Error(`editorial_insert_failed: ${editErr.message}`);
@@ -363,33 +366,15 @@ Deno.serve(async (req: Request) => {
           staged++;
         }
 
-        results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", pipeline: "editorial", headline: editorial.headline, country: editorial.country });
+        results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", pipeline: "editorial", headline: editorial.headline, country: editorial.country, backend: outcome.backend });
         continue;
       }
 
-      // ── Trade-signal path: everything else (trade/regulator/industry news) ──
-      // Same real-fallback fix as the editorial path above: try Anthropic,
-      // and only on actual failure retry with OpenAI, instead of picking a
-      // provider once based purely on which key is configured.
-      let extraction: ExtractionResult | null = null;
-      let extractionError: string | null = null;
-
-      if (ANTHROPIC_API_KEY) {
-        try { extraction = await extractAnthropic(snapshot); }
-        catch (e) { extractionError = e instanceof Error ? e.message : String(e); }
-      }
-      if (!extraction && OPENAI_API_KEY) {
-        try { extraction = await extractOpenAI(snapshot); extractionError = null; }
-        catch (e) { extractionError = extractionError ? `${extractionError} | openai: ${e instanceof Error ? e.message : String(e)}` : (e instanceof Error ? e.message : String(e)); }
-      }
+      const outcome = await extractSignal(snapshot);
       extracted++;
 
-      // Both providers failed: stage a manual-review stub in
-      // hv_import_staging (its existing pending/reviewed_by/review_note
-      // workflow already serves as the review bucket for this pipeline)
-      // instead of letting the item disappear into a source_snapshots
-      // error_message that nothing routinely surfaces.
-      if (!extraction) {
+      if (!outcome) {
+        const reason = (extractSignal as any)._lastError ?? "no_llm_provider_available";
         if (!dryRun) {
           await supabase.from("hv_import_staging").insert({
             workspace_id: HV_WORKSPACE_ID,
@@ -397,27 +382,29 @@ Deno.serve(async (req: Request) => {
             source_record_id: snapshot.id,
             source_url: snapshot.captured_url,
             import_batch_id: batchId,
-            importer_version: `hv-extract@1.3.0+needs_review`,
+            importer_version: "hv-extract@1.5.0+needs_review",
             transform_version: "none",
-            raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: extractionError },
+            raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
             raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
-            normalized_payload: { needs_review: true, reason: extractionError ?? "no_llm_provider_available" },
+            normalized_payload: { needs_review: true, reason },
             normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
             proposed_object_class: "source_document",
             proposed_classification: "public",
-            proposed_title: (snapshot.captured_title ?? "Untitled — needs manual review").slice(0, 500),
+            proposed_title: (snapshot.captured_title ?? "Untitled \u2014 needs manual review").slice(0, 500),
             content_hash: await sha256(snapshot.captured_url),
             is_duplicate_candidate: false,
             status: "pending",
             retry_count: 0,
-            review_note: `Auto-extraction failed on both configured providers: ${(extractionError ?? "unknown").slice(0, 300)}`,
+            review_note: `Auto-extraction failed on all configured providers: ${reason.slice(0, 300)}`,
           });
-          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: (extractionError ?? "no_llm_provider_available").slice(0, 500) }).eq("id", snapshot.id);
+          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
         }
         failed++;
-        results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "signal", reason: extractionError ?? "no_llm_provider_available" });
+        results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "signal", reason });
         continue;
       }
+
+      const extraction = outcome.result;
 
       if (extraction.signal_type === "none" || extraction.relevance_score < minRelevance) {
         skippedLowRelevance++;
@@ -441,7 +428,7 @@ Deno.serve(async (req: Request) => {
           source_record_id: snapshot.id,
           source_url: snapshot.captured_url,
           import_batch_id: batchId,
-          importer_version: `hv-extract@1.1.0+${ANTHROPIC_API_KEY ? "anthropic" : "openai"}`,
+          importer_version: `hv-extract@1.5.0+${outcome.backend}`,
           transform_version: llmBackend,
           raw_payload: rawPayload,
           raw_payload_hash: rawPayloadHash,
@@ -463,7 +450,7 @@ Deno.serve(async (req: Request) => {
         staged++;
       }
 
-      results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", signal_type: extraction.signal_type, relevance_score: extraction.relevance_score, confidence: extraction.confidence, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, summary: extraction.summary });
+      results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", signal_type: extraction.signal_type, relevance_score: extraction.relevance_score, confidence: extraction.confidence, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, summary: extraction.summary, backend: outcome.backend });
 
     } catch (err) {
       failed++;
@@ -473,5 +460,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.4.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.5.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
