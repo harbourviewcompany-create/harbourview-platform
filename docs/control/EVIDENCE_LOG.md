@@ -450,6 +450,31 @@ Both points are flagged in the session report rather than acted on unilaterally,
 
 **Rollback:** `DROP FUNCTION public.is_regulatory_tier_admin(); CREATE OR REPLACE FUNCTION api.set_regulatory_tier(...) ... <original body without the guard>; CREATE OR REPLACE FUNCTION api.accept_classifier_tier(...) ... <original body without the guard>;` — reverts to the pre-fix (vulnerable) behavior; only do this if the guard itself causes an unexpected admin-access regression, and fix the guard rather than fully reverting if possible.
 
+---
+
+## 2026-07-13 — Daily Digest stale since 07-07: no LLM fallback, root-caused and fixed same day
+
+**Finding:** User reported the mobile Digest screen showing stale news (Apr/Feb 2026 items) unchanged for a week. Live investigation on `zvxdgdkukjrrwamdpqrg`:
+- `regulatory_signals.signals` and `.public_signals`: 0 rows each — a documented pre-existing note attributed this to `hv-score`, but live inspection of `supabase/functions/hv-score/index.ts` showed it's a pure deterministic rules engine over `hv_import_staging` with no LLM call at all — that attribution was wrong; its own live response (`net._http_response` id 7749) confirmed `signals_considered:0`, unrelated to any provider outage.
+- The actual UI (`app/api/dashboard/digest/route.ts`) reads `daily_digest`, populated by `run_daily_digest()`/`run_editorial_digest()`. Last `published` row with real headlines: **2026-07-07**. Both functions were hardcoded to call Anthropic only (`api.anthropic.com/v1/messages`), no fallback.
+- Live-fired `net.http_get`/`net.http_post` probes at time of investigation confirmed: Anthropic key returns `400 "Your credit balance is too low to access the Anthropic API"` (matches CLAUDE.md's Harbourview-addendum billing note, and was still live, not resolved); OpenAI key returns `200` on `/v1/models`; Gemini key returns `200` on `/v1beta/models` — both fallback keys already present in `vault.decrypted_secrets` and functional.
+- `run_signal_extraction()` already had a proven 3-tier Anthropic→OpenAI→Gemini circuit-breaker (added 2026-07-09, `20260709085504_signal_extraction_fix_gemini_thinking_and_parts.sql`) — confirmed why `ia_signals` kept growing (517 rows) through the outage while the digest did not: the digest functions were simply never ported to that pattern.
+- Two additional latent bugs found and fixed while porting: (1) `run_daily_digest`'s "already ran today" guard checked for *any* `daily_digest` row for the date, but `run_editorial_digest` independently upserts one — if editorial ran first, the trade-signal half silently never ran for that day; (2) a `_digest_jobs` row that received any HTTP response (including a same-provider error) was never marked `collected` except after a multi-hour timeout, so a single failure froze that day's job forever with no retry.
+
+**Fix applied same day, Tyler approved scope (3-tier fallback + manual-review bucket + daily notification email) via explicit go-ahead before any migration was applied:**
+- `run_daily_digest()`, `run_editorial_digest()` ported to the same Anthropic→OpenAI→Gemini circuit-breaker pattern as `run_signal_extraction`, plus the two retry-logic fixes above.
+- New `public.pipeline_manual_review_queue` table (unique on pipeline+reference_date) written to by all three functions when every configured provider is circuit-broken; `run_signal_extraction` previously returned this state silently and now also records it (one-line addition, logic otherwise unchanged).
+- New `app/api/cron/pipeline-manual-review-notify` route (Vercel cron, `0 10 * * *`, added to `vercel.json`) emails any un-notified queue rows via the existing Resend pattern (`lib/pipeline/manualReviewNotification.ts`, mirrors `lib/signals/notification.ts`), idempotent via `notified_at`.
+- Applied via `apply_migration`: `20260713213101_digest_llm_fallback_and_manual_review_queue.sql`, `20260713213743_expose_pipeline_manual_review_queue_via_api.sql`.
+- Four more Anthropic-only, no-fallback functions were found during the search (`run_country_intel_enrichment`, `run_counterparty_enrichment`, `run_education_section_gen`, `run_education_deep_regen`) — intentionally left untouched this pass; flagged to Tyler as a separate follow-up decision, not folded into this fix.
+
+**Verification (same session, live production):**
+- Manually invoked `run_daily_digest()`/`run_editorial_digest()` repeatedly and observed the circuit breaker escalate correctly: attempt 1 tried `anthropic` (failed, `400`, now correctly marked collected instead of freezing), attempt 2 escalated to `openai` and **published successfully** — `daily_digest` row for `2026-07-13`: `status='published'`, 8 headlines, 8 editorial items, real non-garbled content (e.g. `"Trump Reclassifies Medical Marijuana to Schedule III, Easing Regulations"`, `market: "United States of America"`).
+- `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test` all clean on the new TS files (`app/api/cron/pipeline-manual-review-notify/route.ts`, `lib/pipeline/manualReviewNotification.ts`) — `node_modules` was not installed in this session's environment; ran `npm install` first (652 packages, no blocking errors) to make these commands runnable, documented here since that's a deviation from assuming a pre-provisioned environment.
+
+**Files changed:** `supabase/migrations/20260713213101_digest_llm_fallback_and_manual_review_queue.sql`, `supabase/migrations/20260713213743_expose_pipeline_manual_review_queue_via_api.sql`, `app/api/cron/pipeline-manual-review-notify/route.ts`, `lib/pipeline/manualReviewNotification.ts`, `vercel.json`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** See `DATABASE_CONTROL.md`'s 2026-07-13 entry for exact rollback SQL. Forward-fix strongly preferred — reverting re-introduces the exact single-point-of-failure and silent-freeze bugs this fix removes, and the live verification above already proves the forward state is correct.
 
 ---
 
