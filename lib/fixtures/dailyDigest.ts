@@ -17,4 +17,5 @@ export const DAILY_DIGEST_FIXTURE: HvDailyDigestPublicDto = {
       signal_id: null,
     },
   ],
+  editorial_headlines: [],
 }

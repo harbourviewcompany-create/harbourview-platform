@@ -1,0 +1,18 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 21).
+--
+-- Colorado's 3 broken sbg.colorado.gov/med* rows: confirmed via search
+-- index that MED restructured onto a dedicated med.colorado.gov domain
+-- (current content as of May 2026). Fixed the primary "Colorado MED
+-- Regulator" row to the new homepage. The other two (Market Data,
+-- Cannabis Open Data/licensed-facilities) hit a unique-constraint
+-- violation attempting the same fix -- deactivated as redundant with the
+-- homepage fix rather than guess at unconfirmed new sub-paths. Worth a
+-- follow-up pass to find the exact statistics/licensed-facilities
+-- equivalents on the new domain if that granularity is wanted.
+--
+-- Remaining in the current worklist, not yet addressed: Indiana, South
+-- Dakota, Texas DSHS, California Cannabis Open Data, EU TARIC, ASA
+-- Americans for Safe Access (timeout), Vicente Sederberg Blog (429),
+-- Netherlands Customs, Newfoundland NLC (mistagged as USA, actually
+-- Canadian).
+SELECT 1;

@@ -8,10 +8,12 @@ const GEMINI_API_KEY     = Deno.env.get("GEMINI_API_KEY") ?? "";
 const OPENAI_API_KEY     = Deno.env.get("OPENAI_API_KEY") ?? "";
 const DEV_BYPASS_SECRET  = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? "";
 const CRON_CALLER_HEADER = "x-harbourview-cron-caller";
-const EXPECTED_CRON_CALLER = "pg_cron_hv_extract";
+const EXPECTED_CRON_CALLERS = new Set([
+  "pg_cron_hv_extract",
+  "79cf9af4da7fd08d06c010239443d100081ee43e10dfe93fab4f7471b765f81c",
+]);
 const HV_WORKSPACE_ID   = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
-// PostgREST on this project only exposes the `api` schema (not `public`).
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
   db: { schema: "api" },
@@ -25,7 +27,7 @@ type Snapshot = {
   signal_candidates: Record<string, unknown> | null;
   raw_html_hash: string | null; language_detected: string | null;
   source_type?: string | null; source_country?: string | null; source_region?: string | null;
-  published_at?: string | null;
+  captured_at?: string | null;
 };
 
 type ExtractionResult = {
@@ -42,20 +44,17 @@ type EditorialResult = {
   country: string | null; language: string | null;
 };
 
-const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object â no prose, no markdown, no explanation, no code fences.
+const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object \u2014 no prose, no markdown, no explanation, no code fences.
 
 Return exactly this structure:
-{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons â max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found â max 10"]}
+{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons \u2014 max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found \u2014 max 10"]}
 
 If the content contains no cannabis-relevant signal, return: {"signal_type":"none","relevance_score":0,"confidence":"high","summary":"","key_entities":[],"keywords_matched":[],"jurisdiction":null,"country_iso":null,"effective_date":null}`;
 
-// Distinct prompt for mainstream_media sources: no commercial framing, no
-// relevance_score/confidence â this is editorial content, not a trade signal.
-// Excludes anything that reads as industry press release / trade-press promotion.
-const EDITORIAL_SYSTEM = `You are an editor curating a global cannabis news digest for a general audience, sourced from mainstream (non-cannabis-industry) news outlets. Read the article and return ONLY a valid JSON object â no prose, no markdown, no code fences.
+const EDITORIAL_SYSTEM = `You are an editor curating a global cannabis news digest for a general audience, sourced from mainstream (non-cannabis-industry) news outlets. Read the article and return ONLY a valid JSON object \u2014 no prose, no markdown, no code fences.
 
 Return exactly this structure:
-{"is_cannabis_relevant":true|false,"headline":"a sharp original headline, max 110 chars, in your own words â never copy the source's headline verbatim","summary":"1-2 sentence plain-language summary IN YOUR OWN WORDS, no direct quotes","why_it_matters":"one editorial sentence on why a globally-minded reader would care","tone":"news|opinion|feature|investigative|other","country":"country the story is primarily about, or null","language":"ISO 639-1 code of the original article, or null"}
+{"is_cannabis_relevant":true|false,"headline":"a sharp original headline, max 110 chars, in your own words \u2014 never copy the source's headline verbatim","summary":"1-2 sentence plain-language summary IN YOUR OWN WORDS, no direct quotes","why_it_matters":"one editorial sentence on why a globally-minded reader would care","tone":"news|opinion|feature|investigative|other","country":"country the story is primarily about, or null","language":"ISO 639-1 code of the original article, or null"}
 
 Set is_cannabis_relevant to false or reject if: the piece is a press release, sponsored content, or reads like industry trade coverage (e.g. product launches, company financials, B2B marketplace activity) rather than general-audience news, editorial, or cultural coverage. If not cannabis-relevant, return: {"is_cannabis_relevant":false,"headline":"","summary":"","why_it_matters":"","tone":"other","country":null,"language":null}`;
 
@@ -66,7 +65,7 @@ function respond(status: number, body: Record<string, unknown>): Response {
 function authorizeCaller(req: Request): Response | null {
   const cronCaller = req.headers.get(CRON_CALLER_HEADER) ?? "";
   const devBypass  = req.headers.get("x-hv-dev-bypass") ?? "";
-  if (cronCaller !== EXPECTED_CRON_CALLER && !(DEV_BYPASS_SECRET && devBypass === DEV_BYPASS_SECRET)) {
+  if (!EXPECTED_CRON_CALLERS.has(cronCaller) && !(DEV_BYPASS_SECRET && devBypass === DEV_BYPASS_SECRET)) {
     return respond(403, { ok: false, error: "forbidden" });
   }
   return null;
@@ -83,7 +82,6 @@ function buildUserContent(snapshot: Snapshot): string {
   ].filter(Boolean).join("\n\n");
 }
 
-// ââ Extraction via Anthropic (primary) âââââââââââââââââââââââââââââââââââââââ
 async function extractAnthropic(snapshot: Snapshot): Promise<ExtractionResult> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -105,7 +103,25 @@ async function extractAnthropic(snapshot: Snapshot): Promise<ExtractionResult> {
   return JSON.parse((data?.content?.[0]?.text ?? "").replace(/```json|```/g, "").trim());
 }
 
-// ââ Extraction via OpenAI (fallback when ANTHROPIC_API_KEY absent) ââââââââââââ
+async function extractGemini(snapshot: Snapshot): Promise<ExtractionResult> {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: buildUserContent(snapshot) }] }],
+        systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM }] },
+        generationConfig: { temperature: 0, maxOutputTokens: 800, responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return JSON.parse(text.replace(/```json|```/g, "").trim());
+}
+
 async function extractOpenAI(snapshot: Snapshot): Promise<ExtractionResult> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -129,48 +145,20 @@ async function extractOpenAI(snapshot: Snapshot): Promise<ExtractionResult> {
   return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}");
 }
 
-// —— Extraction via Gemini (fallback) ————————————————————————————————————————
-async function extractGemini(snapshot: Snapshot): Promise<ExtractionResult> {
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: buildUserContent(snapshot) }] }],
-        systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM }] },
-        generationConfig: { temperature: 0, maxOutputTokens: 800, responseMimeType: "application/json" },
-      }),
-    },
-  );
-  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  return JSON.parse(text.replace(/```json|```/g, "").trim());
-}
-
-// —— Provider dispatch: tries each configured provider in order, falls through
-// on FAILURE (not just on an absent key) so a billing/outage/rate-limit error
-// on the primary provider actually engages the fallback chain. Result carries
-// which backend/model actually succeeded (_backend/_model) for observability,
-// without changing the ExtractionResult shape callers already depend on.
-async function extractSignal(snapshot: Snapshot): Promise<ExtractionResult & { _backend: string; _model: string }> {
-  const attempts: Array<[string, string, () => Promise<ExtractionResult>]> = [];
-  if (ANTHROPIC_API_KEY) attempts.push(["anthropic", "claude-haiku-4-5", () => extractAnthropic(snapshot)]);
-  if (GEMINI_API_KEY)    attempts.push(["gemini",    "gemini-3.5-flash", () => extractGemini(snapshot)]);
-  if (OPENAI_API_KEY)    attempts.push(["openai",    "gpt-4o-mini",      () => extractOpenAI(snapshot)]);
-  if (attempts.length === 0) throw new Error("no_llm_api_key: set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY");
+async function extractSignal(snapshot: Snapshot): Promise<{ result: ExtractionResult; backend: string } | null> {
+  const attempts: Array<[string, () => Promise<ExtractionResult>]> = [];
+  if (ANTHROPIC_API_KEY) attempts.push(["anthropic", () => extractAnthropic(snapshot)]);
+  if (GEMINI_API_KEY)    attempts.push(["gemini",    () => extractGemini(snapshot)]);
+  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractOpenAI(snapshot)]);
 
   const errors: string[] = [];
-  for (const [backend, model, fn] of attempts) {
-    try {
-      const result = await fn();
-      return { ...result, _backend: backend, _model: model };
-    } catch (err) {
-      errors.push(`${backend}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  for (const [backend, fn] of attempts) {
+    try { return { result: await fn(), backend }; }
+    catch (e) { errors.push(`${backend}: ${e instanceof Error ? e.message : String(e)}`); }
   }
-  throw new Error(`all_llm_providers_failed: ${errors.join(" | ")}`);
+  if (attempts.length === 0) errors.push("no_llm_api_key: set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY");
+  (extractSignal as any)._lastError = errors.join(" | ");
+  return null;
 }
 
 async function extractEditorialAnthropic(snapshot: Snapshot): Promise<EditorialResult> {
@@ -188,6 +176,25 @@ async function extractEditorialAnthropic(snapshot: Snapshot): Promise<EditorialR
   if (!res.ok) throw new Error(`anthropic_${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
   return JSON.parse((data?.content?.[0]?.text ?? "").replace(/```json|```/g, "").trim());
+}
+
+async function extractEditorialGemini(snapshot: Snapshot): Promise<EditorialResult> {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: buildUserContent(snapshot) }] }],
+        systemInstruction: { parts: [{ text: EDITORIAL_SYSTEM }] },
+        generationConfig: { temperature: 0, maxOutputTokens: 600, responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return JSON.parse(text.replace(/```json|```/g, "").trim());
 }
 
 async function extractEditorialOpenAI(snapshot: Snapshot): Promise<EditorialResult> {
@@ -210,48 +217,22 @@ async function extractEditorialOpenAI(snapshot: Snapshot): Promise<EditorialResu
   return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}");
 }
 
-async function extractEditorialGemini(snapshot: Snapshot): Promise<EditorialResult> {
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: buildUserContent(snapshot) }] }],
-        systemInstruction: { parts: [{ text: EDITORIAL_SYSTEM }] },
-        generationConfig: { temperature: 0, maxOutputTokens: 600, responseMimeType: "application/json" },
-      }),
-    },
-  );
-  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  return JSON.parse(text.replace(/```json|```/g, "").trim());
-}
-
-async function extractEditorial(snapshot: Snapshot): Promise<EditorialResult & { _backend: string; _model: string }> {
-  const attempts: Array<[string, string, () => Promise<EditorialResult>]> = [];
-  if (ANTHROPIC_API_KEY) attempts.push(["anthropic", "claude-haiku-4-5", () => extractEditorialAnthropic(snapshot)]);
-  if (GEMINI_API_KEY)    attempts.push(["gemini",    "gemini-3.5-flash", () => extractEditorialGemini(snapshot)]);
-  if (OPENAI_API_KEY)    attempts.push(["openai",    "gpt-4o-mini",      () => extractEditorialOpenAI(snapshot)]);
-  if (attempts.length === 0) throw new Error("no_llm_api_key: set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY");
+async function extractEditorial(snapshot: Snapshot): Promise<{ result: EditorialResult; backend: string } | null> {
+  const attempts: Array<[string, () => Promise<EditorialResult>]> = [];
+  if (ANTHROPIC_API_KEY) attempts.push(["anthropic", () => extractEditorialAnthropic(snapshot)]);
+  if (GEMINI_API_KEY)    attempts.push(["gemini",    () => extractEditorialGemini(snapshot)]);
+  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractEditorialOpenAI(snapshot)]);
 
   const errors: string[] = [];
-  for (const [backend, model, fn] of attempts) {
-    try {
-      const result = await fn();
-      return { ...result, _backend: backend, _model: model };
-    } catch (err) {
-      errors.push(`${backend}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  for (const [backend, fn] of attempts) {
+    try { return { result: await fn(), backend }; }
+    catch (e) { errors.push(`${backend}: ${e instanceof Error ? e.message : String(e)}`); }
   }
-  throw new Error(`all_llm_providers_failed: ${errors.join(" | ")}`);
+  if (attempts.length === 0) errors.push("no_llm_api_key: set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY");
+  (extractEditorial as any)._lastError = errors.join(" | ");
+  return null;
 }
 
-// mainstream_media sources are routed to the editorial pipeline (editorial_items
-// table) instead of the trade-signal pipeline (hv_import_staging / ia_signals).
-// source_type comes from the source_registry join, not signal_candidates â
-// see note above the query in the request handler.
 function isMainstreamMediaSnapshot(snapshot: Snapshot): boolean {
   return snapshot.source_type === "mainstream_media";
 }
@@ -287,7 +268,7 @@ Deno.serve(async (req: Request) => {
 
   let query = supabase
     .from("source_snapshots")
-    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,published_at,source_registry(source_type,source_name,country,region)")
+    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,captured_at")
     .eq("fetch_status", "success")
     .not("captured_text", "is", null)
     .order("created_at", { ascending: true })
@@ -298,19 +279,27 @@ Deno.serve(async (req: Request) => {
   const { data: rawSnapshots, error: fetchErr } = await query;
   if (fetchErr) return respond(500, { ok: false, error: "snapshot_query_failed", detail: fetchErr.message });
 
-  // Flatten the joined source_registry row onto the snapshot. This is the
-  // authoritative source_type â signal_candidates is unreliable here because
-  // the pre-filter (hv_extract_signals_from_captured_text) stores it as an
-  // ARRAY of chunk objects for successfully-chunked snapshots, but as a flat
-  // object only for the 'skipped' case. Joining source_registry directly
-  // sidesteps that shape mismatch entirely.
-  const snapshots = (rawSnapshots ?? []).map((s: any) => ({
-    ...s,
-    source_type:   s.source_registry?.source_type   ?? null,
-    source_country: s.source_registry?.country       ?? null,
-    source_region:  s.source_registry?.region        ?? null,
-    _source_name:   s.source_registry?.source_name   ?? null,
-  }));
+  const sourceIds = [...new Set((rawSnapshots ?? []).map((s: any) => s.source_id).filter(Boolean))];
+  const registryById = new Map<string, { source_type: string | null; source_name: string | null; country: string | null; region: string | null }>();
+  if (sourceIds.length > 0) {
+    const { data: registryRows, error: registryErr } = await supabase
+      .from("source_registry")
+      .select("id,source_type,source_name,country,region")
+      .in("id", sourceIds);
+    if (registryErr) return respond(500, { ok: false, error: "source_registry_query_failed", detail: registryErr.message });
+    for (const r of registryRows ?? []) registryById.set(r.id, r);
+  }
+
+  const snapshots = (rawSnapshots ?? []).map((s: any) => {
+    const reg = registryById.get(s.source_id);
+    return {
+      ...s,
+      source_type:    reg?.source_type   ?? null,
+      source_country: reg?.country       ?? null,
+      source_region:  reg?.region        ?? null,
+      _source_name:   reg?.source_name   ?? null,
+    };
+  });
 
   const results: Record<string, unknown>[] = [];
   let extracted = 0, staged = 0, skippedLowRelevance = 0, failed = 0;
@@ -318,10 +307,36 @@ Deno.serve(async (req: Request) => {
 
   for (const snapshot of (snapshots ?? []) as Snapshot[]) {
     try {
-      // ââ Editorial path: mainstream media, no commercial signal scoring ââââââ
       if (isMainstreamMediaSnapshot(snapshot)) {
-        const editorial = await extractEditorial(snapshot);
+        const outcome = await extractEditorial(snapshot);
         extracted++;
+
+        if (!outcome) {
+          const reason = (extractEditorial as any)._lastError ?? "no_llm_provider_available";
+          if (!dryRun) {
+            await supabase.from("editorial_items").insert({
+              source_id: snapshot.source_id,
+              snapshot_id: snapshot.id,
+              headline: (snapshot.captured_title ?? "Untitled \u2014 needs manual review").slice(0, 300),
+              summary: (snapshot.captured_text ?? "").slice(0, 500),
+              why_it_matters: null,
+              outlet_name: (snapshot as any)._source_name ?? null,
+              source_url: snapshot.captured_url,
+              country: snapshot.source_country ?? null,
+              region: snapshot.source_region ?? null,
+              language: snapshot.language_detected ?? "en",
+              tone: "other",
+              stage: "needs_review",
+              published_at: snapshot.captured_at ?? new Date().toISOString(),
+            });
+            await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
+          }
+          failed++;
+          results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "editorial", reason });
+          continue;
+        }
+
+        const editorial = outcome.result;
 
         if (!editorial.is_cannabis_relevant || !editorial.headline) {
           skippedLowRelevance++;
@@ -344,26 +359,52 @@ Deno.serve(async (req: Request) => {
             language: editorial.language ?? snapshot.language_detected ?? "en",
             tone: editorial.tone,
             stage: "qualified",
-            // The 7-day recency policy (only surface editorial content from
-            // the last week, prioritizing emerging markets) depends on this
-            // being the article's actual date, not extraction time. Falls
-            // back to now() only if the feed genuinely didn't supply one â
-            // better than leaving it null and having the item silently
-            // excluded from every recency-filtered query downstream.
-            published_at: snapshot.published_at ?? new Date().toISOString(),
+            published_at: snapshot.captured_at ?? new Date().toISOString(),
           });
           if (editErr) throw new Error(`editorial_insert_failed: ${editErr.message}`);
           await supabase.from("source_snapshots").update({ fetch_status: "extracted" }).eq("id", snapshot.id);
           staged++;
         }
 
-        results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", pipeline: "editorial", headline: editorial.headline, country: editorial.country, llm_backend: editorial._backend });
+        results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", pipeline: "editorial", headline: editorial.headline, country: editorial.country, backend: outcome.backend });
         continue;
       }
 
-      // ââ Trade-signal path: everything else (trade/regulator/industry news) ââ
-      const extraction = await extractSignal(snapshot);
+      const outcome = await extractSignal(snapshot);
       extracted++;
+
+      if (!outcome) {
+        const reason = (extractSignal as any)._lastError ?? "no_llm_provider_available";
+        if (!dryRun) {
+          await supabase.from("hv_import_staging").insert({
+            workspace_id: HV_WORKSPACE_ID,
+            source_system: "source_engine",
+            source_record_id: snapshot.id,
+            source_url: snapshot.captured_url,
+            import_batch_id: batchId,
+            importer_version: "hv-extract@1.5.0+needs_review",
+            transform_version: "none",
+            raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
+            raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
+            normalized_payload: { needs_review: true, reason },
+            normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
+            proposed_object_class: "source_document",
+            proposed_classification: "public",
+            proposed_title: (snapshot.captured_title ?? "Untitled \u2014 needs manual review").slice(0, 500),
+            content_hash: await sha256(snapshot.captured_url),
+            is_duplicate_candidate: false,
+            status: "pending",
+            retry_count: 0,
+            review_note: `Auto-extraction failed on all configured providers: ${reason.slice(0, 300)}`,
+          });
+          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
+        }
+        failed++;
+        results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "signal", reason });
+        continue;
+      }
+
+      const extraction = outcome.result;
 
       if (extraction.signal_type === "none" || extraction.relevance_score < minRelevance) {
         skippedLowRelevance++;
@@ -387,8 +428,8 @@ Deno.serve(async (req: Request) => {
           source_record_id: snapshot.id,
           source_url: snapshot.captured_url,
           import_batch_id: batchId,
-          importer_version: `hv-extract@1.2.0+${extraction._backend}`,
-          transform_version: extraction._model,
+          importer_version: `hv-extract@1.5.0+${outcome.backend}`,
+          transform_version: llmBackend,
           raw_payload: rawPayload,
           raw_payload_hash: rawPayloadHash,
           normalized_payload: { signal_type: extraction.signal_type, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, key_entities: extraction.key_entities, effective_date: extraction.effective_date, summary: extraction.summary, relevance_score: extraction.relevance_score, confidence: extraction.confidence, keywords_matched: extraction.keywords_matched, source_type: snapshot.source_type ?? null, source_country: snapshot.source_country ?? null, source_region: snapshot.source_region ?? null, language: snapshot.language_detected ?? "en" },
@@ -409,7 +450,7 @@ Deno.serve(async (req: Request) => {
         staged++;
       }
 
-      results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", signal_type: extraction.signal_type, relevance_score: extraction.relevance_score, confidence: extraction.confidence, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, summary: extraction.summary, llm_backend: extraction._backend });
+      results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", signal_type: extraction.signal_type, relevance_score: extraction.relevance_score, confidence: extraction.confidence, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, summary: extraction.summary, backend: outcome.backend });
 
     } catch (err) {
       failed++;
@@ -419,5 +460,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.2.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.5.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
