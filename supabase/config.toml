@@ -1,0 +1,45 @@
+# A string used to distinguish different Supabase projects on the same
+# host. Not required to be unique, but is recommended to have a value
+# that is easy to search for in code, e.g. Ctrl+F.
+project_id = "zvxdgdkukjrrwamdpqrg"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public", "api"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "https://harbourview.vercel.app"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_signup = true
+
+[edge_runtime]
+enabled = true
+
+[analytics]
+enabled = false
