@@ -36,3 +36,5 @@ export async function proxy(req: NextRequest) {
 export const config = {
   matcher: ['/dashboard/:path*', '/admin/:path*', '/api/:path*'],
 };
+
+// Migration note: middleware.ts fully removed
