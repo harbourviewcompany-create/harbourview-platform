@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -13,6 +13,10 @@ import { complianceRegions } from '@/lib/compliance/regions'
 import { GeneticsRequestModal } from './GeneticsRequestModal'
 import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
+import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
+import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
+import { DealRoomsPanel } from '@/components/dashboard/pages/DealRoomsPanel'
+import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
 
 
 type PublicServiceProvider = {
@@ -57,6 +61,7 @@ type Props = {
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
+  mySubmissions?:       MySubmission[]
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -601,11 +606,21 @@ function getDefaultMarketTab(rows?: Partial<DashboardMarketplaceRows>, wanted: W
   return 'cannabis'
 }
 
-function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts }) {
+type MarketSubView = 'browse' | 'submit' | 'quote' | 'deals' | 'my-listings'
+
+const MKT_ACTION_TABS_MOBILE: { id: MarketSubView; label: string }[] = [
+  { id: 'submit',      label: 'Submit Listing' },
+  { id: 'quote',       label: 'Request Quote' },
+  { id: 'deals',       label: 'Deal Rooms' },
+  { id: 'my-listings', label: 'My Listings' },
+]
+
+function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline, mySubmissions = [], userEmail }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts; mySubmissions?: MySubmission[]; userEmail?: string | null }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [sortByRating, setSortByRating] = useState(false)
   const [selectedCard, setSelectedCard] = useState<MobileMarketCard | null>(null)
+  const [subView, setSubView] = useState<MarketSubView>('browse')
 
   const cards = useMemo<MobileMarketCard[]>(() => {
     if (activeTab === 'wanted' && wantedListings.length > 0) {
@@ -654,6 +669,31 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
     )
   }
 
+  if (subView !== 'browse') {
+    return (
+      <div className="hvm-page-stack">
+        <button className="hvm-back-btn" type="button" onClick={() => setSubView('browse')}>← Back to marketplace</button>
+        <div className="hvm-scroll-tabs" role="tablist" aria-label="Marketplace actions">
+          <button type="button" onClick={() => setSubView('browse')}>Browse</button>
+          {MKT_ACTION_TABS_MOBILE.map(t => (
+            <button key={t.id} type="button" className={subView === t.id ? 'active' : ''} onClick={() => setSubView(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {subView === 'submit' ? (
+          <DynamicMarketplaceIntakeForm />
+        ) : subView === 'quote' ? (
+          <QuoteRequestForm />
+        ) : subView === 'deals' ? (
+          <DealRoomsPanel />
+        ) : (
+          <MyListingsClient submissions={mySubmissions} userEmail={userEmail ?? ''} />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
@@ -664,6 +704,15 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
           <Link href="/supplier-directory/apply" className="hvm-hero-link hvm-hero-link--gold">Apply as a supplier →</Link>
         </div>
       </section>
+
+      <div className="hvm-scroll-tabs" role="tablist" aria-label="Marketplace actions">
+        <button type="button" className="active">Browse</button>
+        {MKT_ACTION_TABS_MOBILE.map(t => (
+          <button key={t.id} type="button" onClick={() => setSubView(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="hvm-scroll-tabs" role="tablist" aria-label="Marketplace views">
         {MARKET_TABS.map(tab => {
@@ -3165,6 +3214,7 @@ export default function MobileCommandCentre({
   cultivarPassports = [],
   serviceProviders = [],
   collaborationProjects = [],
+  mySubmissions = [],
 }: Props) {
   const router = useRouter()
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
@@ -3293,7 +3343,7 @@ export default function MobileCommandCentre({
           />
         )
       case 'marketplace':
-        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} />
+        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'digest':
         return <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'signals':

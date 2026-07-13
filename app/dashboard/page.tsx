@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
@@ -232,7 +232,7 @@ export default async function DashboardPage({
     recentEduModulesResult, localIntelResult, sourceCoverageResult, jurisdictionPlaybookResult,
     educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
     cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
-    mySubmissionsResult,
+    mySubmissionsResult, countryEducationOverlaysResult,
   ] = await Promise.allSettled([
     fetchDashboardSignals(30),
     urlPage === 'digest' ? fetchDailyDigest(20, ALL_COUNTRIES.find(c => c.iso2 === countryIso2)?.displayName) : Promise.resolve({ signals: [], window: 'recent' as const }),
@@ -259,6 +259,7 @@ export default async function DashboardPage({
     getPublicServiceProviders(),
     getPublicCollaborationProjects(),
     getUserMarketplaceSubmissions(userId),
+    getCountryEducationOverlays(countryIso2, roleId),
   ])
 
   const signals               = settledOr(signalsResult, [], 'fetchDashboardSignals')
@@ -285,6 +286,7 @@ export default async function DashboardPage({
   const serviceProviders       = settledOr(serviceProvidersResult, [], 'getPublicServiceProviders')
   const collaborationProjects  = settledOr(collaborationProjectsResult, [], 'getPublicCollaborationProjects')
   const mySubmissions          = settledOr(mySubmissionsResult, [], 'getUserMarketplaceSubmissions')
+  const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
@@ -322,6 +324,7 @@ export default async function DashboardPage({
       serviceProviders={serviceProviders}
       collaborationProjects={collaborationProjects}
       mySubmissions={mySubmissions}
+      countryEducationOverlays={countryEducationOverlays}
     />
   )
 }
