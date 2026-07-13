@@ -180,6 +180,52 @@ const mexicoPrimaryRoleIds: RoleId[] = [
   'not_sure',
 ]
 
+// ── Remaining-country expansion — sourced from cc_jurisdiction_briefings.program_status
+// (all rows review_state='reviewed'), classified into 3 archetypes below. A first
+// keyword-matched pass mis-classified ~20 countries whose program_status contains a
+// negated "Medical" mention (e.g. "Prohibited — No Medical Programme", "Decriminalized;
+// No Formal Medical Program", "Medical Reform Under Discussion") as live medical
+// markets; those were manually re-checked and moved to the correct tier below.
+
+// Tier 7 — Prohibited: no legal domestic cultivation, import, or export route
+// exists, so commercial production/trade roles don't apply. Regulatory-watch
+// and legal/compliance roles lead; investor_operator covers speculative
+// interest in markets that may open in the future.
+const prohibitedMarketPrimaryRoleIds: RoleId[] = [
+  'regulatory_compliance',
+  'legal_advisory',
+  'government_regulator',
+  'investor_operator',
+  'not_sure',
+]
+
+// Tier 8 — Medical legal, domestic only (no confirmed export industry).
+// Smaller or newer medical programs generally still rely on imports rather
+// than domestic cultivation for supply, so importer is included but exporter
+// and gmp_quality (export-grade production) are not.
+const medicalDomesticNoExportPrimaryRoleIds: RoleId[] = [
+  'doctor_prescriber',
+  'pharmacist',
+  'regulatory_compliance',
+  'legal_advisory',
+  'importer',
+  'investor_operator',
+  'not_sure',
+]
+
+// Tier 9 — Decriminalized (personal use), no formal medical program. No
+// licensed commercial framework exists at all, so this is closer to the
+// prohibited tier than the medical tier for B2B purposes — legal/regulatory
+// watch plus patient/caregiver education for the personal-use population.
+const decrimNoMedicalPrimaryRoleIds: RoleId[] = [
+  'legal_advisory',
+  'regulatory_compliance',
+  'government_regulator',
+  'patient_caregiver_education',
+  'investor_operator',
+  'not_sure',
+]
+
 export const defaultCountryRoleProfile: CountryRoleProfile = {
   countryIso2: 'GLOBAL',
   countryName: 'Global default',
@@ -260,7 +306,10 @@ export const countryRoleProfiles: CountryRoleProfile[] = [
   })),
 
   // Tier 1 — EU medical-pharma, active import/export
-  ...['GR', 'FR', 'ES', 'IT', 'CZ', 'PL', 'CH', 'AT', 'DK', 'IE', 'HR', 'CY', 'NO'].map((countryIso2) => ({
+  // RS (Serbia) added in the remaining-country expansion: program_status
+  // explicitly cites an "Export Industry" alongside its prescription programme,
+  // matching this tier's shape rather than the domestic-only Tier 8 below.
+  ...['GR', 'FR', 'ES', 'IT', 'CZ', 'PL', 'CH', 'AT', 'DK', 'IE', 'HR', 'CY', 'NO', 'RS'].map((countryIso2) => ({
     countryIso2,
     countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
     marketModel: 'medical' as const,
@@ -329,6 +378,50 @@ export const countryRoleProfiles: CountryRoleProfile[] = [
     searchableRoleIds: allRoleIds,
     notes: 'Regulatory-watch posture while adult-use framework moves toward full regulation.',
   },
+
+  // Tier 7 — Prohibited jurisdictions: no legal domestic market.
+  ...[
+    'AE', 'AF', 'AM', 'AO', 'AW', 'AZ', 'BD', 'BF', 'BH', 'BI', 'BJ', 'BN', 'BT', 'BW', 'BY',
+    'CD', 'CF', 'CG', 'CI', 'CM', 'CN', 'CU', 'CV', 'CW', 'DJ', 'DO', 'DZ', 'EG', 'ER', 'ET',
+    'FJ', 'FO', 'GA', 'GG', 'GL', 'GM', 'GN', 'GQ', 'GW', 'HK', 'HN', 'HT', 'HU', 'ID', 'IM',
+    'IN', 'IQ', 'IR', 'JO', 'JP', 'KE', 'KG', 'KH', 'KI', 'KM', 'KW', 'KZ', 'LA', 'LK', 'LR',
+    'LY', 'MG', 'MH', 'ML', 'MM', 'MN', 'MO', 'MR', 'MU', 'MV', 'MY', 'MZ', 'NE', 'NI', 'NP',
+    'NR', 'OM', 'PG', 'PH', 'PK', 'PS', 'PW', 'QA', 'RW', 'SA', 'SB', 'SD', 'SG', 'SL', 'SN',
+    'SO', 'SR', 'SS', 'ST', 'SV', 'SX', 'SY', 'SZ', 'TD', 'TG', 'TJ', 'TL', 'TM', 'TN', 'TV',
+    'TW', 'TZ', 'UG', 'UZ', 'VE', 'VN', 'VU', 'WS', 'YE', 'ZM',
+    // Re-checked after the negated-"Medical" false-positive pass (see note above):
+    'AD', 'AL', 'BA', 'MD', 'XK', 'TR', 'GH', 'NG', 'BO', 'KP',
+  ].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'restricted' as const,
+    primaryRoleIds: prohibitedMarketPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !prohibitedMarketPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'No legal domestic cultivation, import or export route exists; profile prioritizes regulatory-watch, legal and government-facing pathways over commercial trade.',
+  })),
+
+  // Tier 8 — Medical legal, domestic only (no confirmed export industry).
+  ...['AR', 'BB', 'BR', 'CL', 'CR', 'EC', 'EE', 'GI', 'JE', 'LB', 'LI', 'LT', 'LV', 'MC', 'ME', 'MW', 'NZ', 'PA', 'PE', 'PY', 'SM', 'TH', 'UA', 'KR'].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'medical' as const,
+    primaryRoleIds: medicalDomesticNoExportPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !medicalDomesticNoExportPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'Domestic medical program without a confirmed export industry; profile prioritizes clinical, pharmacy, compliance and import pathways over cross-border trade.',
+  })),
+
+  // Tier 9 — Decriminalized (personal use), no formal medical program.
+  ...['AG', 'BZ', 'DM', 'GD', 'KN', 'LC', 'VC', 'GY', 'BS', 'GT', 'TT', 'GE', 'NA'].map((countryIso2) => ({
+    countryIso2,
+    countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
+    marketModel: 'restricted' as const,
+    primaryRoleIds: decrimNoMedicalPrimaryRoleIds,
+    secondaryRoleIds: allRoleIds.filter((roleId) => !decrimNoMedicalPrimaryRoleIds.includes(roleId)),
+    searchableRoleIds: allRoleIds,
+    notes: 'Personal-use decriminalization without a licensed medical or commercial framework; profile prioritizes legal, regulatory and patient-education pathways.',
+  })),
 ]
 
 export const countryRoleProfileMap = Object.fromEntries(
