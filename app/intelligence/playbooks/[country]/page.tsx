@@ -66,7 +66,7 @@ export default async function PlaybookDetailPage({
 
   const flag = COUNTRY_FLAGS[iso2] ?? '🌐'
   const difficultyColor = DIFFICULTY_COLOR[playbook.difficulty] ?? '#d4a84b'
-  const totalWeeks = playbook.steps.reduce((acc, s) => acc + s.weeks, 0)
+  const totalWeeks = playbook.steps.reduce((acc, s) => acc + s.estimated_weeks, 0)
 
   return (
     <main style={{ minHeight: '100vh', background: '#050c18', color: '#f5f0e8', fontFamily: 'inherit' }}>
@@ -120,14 +120,14 @@ export default async function PlaybookDetailPage({
             <p className="pd-label">Pathway Timeline — {totalWeeks} weeks estimated</p>
             <div className="pd-bar">
               {playbook.steps.map((step, i) => {
-                const pct = ((step.weeks / totalWeeks) * 100).toFixed(1)
+                const pct = ((step.estimated_weeks / totalWeeks) * 100).toFixed(1)
                 const hue = `hsl(${(i * 47) % 360}, 40%, 48%)`
                 return (
                   <div
                     key={step.step}
                     className="pd-bar-seg"
                     style={{ width: `${pct}%`, background: hue }}
-                    title={`${step.title} (~${step.weeks}w)`}
+                    title={`${step.title} (~${step.estimated_weeks}w)`}
                   >
                     {parseFloat(pct) > 8 && (
                       <span className="pd-bar-n">{step.step}</span>
@@ -140,7 +140,7 @@ export default async function PlaybookDetailPage({
               {playbook.steps.map((step, i) => (
                 <span key={step.step} className="pd-bar-item">
                   <span className="pd-bar-dot" style={{ background: `hsl(${(i * 47) % 360}, 40%, 48%)` }} />
-                  {step.step}. {step.title} (~{step.weeks}w)
+                  {step.step}. {step.title} (~{step.estimated_weeks}w)
                 </span>
               ))}
             </div>
@@ -157,9 +157,9 @@ export default async function PlaybookDetailPage({
                   <div className="pd-step-body">
                     <div className="pd-step-hd">
                       <h3 className="pd-step-title">{step.title}</h3>
-                      <span className="pd-step-wks">~{step.weeks}w</span>
+                      <span className="pd-step-wks">~{step.estimated_weeks}w</span>
                     </div>
-                    <p className="pd-step-text">{step.body}</p>
+                    <p className="pd-step-text">{step.description}</p>
                   </div>
                 </li>
               ))}

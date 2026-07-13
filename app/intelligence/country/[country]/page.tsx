@@ -229,8 +229,8 @@ export default async function CountryIntelligenceDrilldownPage({
                         </span>
                         <div>
                           <p className="text-sm font-semibold text-white/80">{step.title}</p>
-                          <p className="mt-1 text-xs leading-5 text-white/45">{step.body}</p>
-                          <span className="mt-1 inline-block font-mono text-[9px] text-white/20">~{step.weeks}w</span>
+                          <p className="mt-1 text-xs leading-5 text-white/45">{step.description}</p>
+                          <span className="mt-1 inline-block font-mono text-[9px] text-white/20">~{step.estimated_weeks}w</span>
                         </div>
                       </li>
                     ))}
@@ -459,8 +459,8 @@ export default async function CountryIntelligenceDrilldownPage({
                       </span>
                       <div>
                         <p className="text-sm font-semibold text-white/80">{step.title}</p>
-                        <p className="mt-1 text-xs leading-5 text-white/45">{step.body}</p>
-                        <span className="mt-1 inline-block font-mono text-[9px] text-white/20">~{step.weeks}w</span>
+                        <p className="mt-1 text-xs leading-5 text-white/45">{step.description}</p>
+                        <span className="mt-1 inline-block font-mono text-[9px] text-white/20">~{step.estimated_weeks}w</span>
                       </div>
                     </li>
                   ))}
