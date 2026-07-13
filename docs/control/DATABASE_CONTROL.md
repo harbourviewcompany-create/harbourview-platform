@@ -184,3 +184,18 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - **Rollback/forward-fix path:** rollback by reverting the migration before deployment. If already deployed, create a follow-up migration to revoke schema use and drop only the newly introduced `cannabis_intelligence` objects after confirming no production data was populated.
 - **Required tests:** focused Vitest migration/DTO boundary tests, TypeScript compile, lint, build, Supabase migration reset when Docker/local Supabase is available.
 - **Human approval status:** pending release/operator review because local Supabase runtime verification is blocked by unavailable Docker in this workspace.
+
+## 2026-07-13 (part 2) — LLM fallback extended to remaining Anthropic-only pipelines
+
+Follow-up to the digest fallback entry above, same session. User explicitly requested extending the same fallback pattern platform-wide ("Everything should have a fallback") after being told 4 more Anthropic-only functions existed.
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Tables/columns: `_counterparty_enrich_jobs`, `_country_enrich_jobs`, `_education_regen_jobs`, `_education_gen_jobs` each gained a `provider` column (additive)
+- RLS: unaffected — no new tables, no policy changes
+- Functions replaced (additive/backward-compatible, no signature changes): `run_counterparty_enrichment()`, `run_country_intel_enrichment()`, `run_education_section_gen()`, `run_education_deep_regen()` — each ported to the same Anthropic→OpenAI→Gemini circuit-breaker as the digest functions, writing to the existing `pipeline_manual_review_queue` on full degradation. Anthropic model unchanged (`claude-sonnet-4-6`); OpenAI fallback uses `gpt-4o-mini`, Gemini fallback uses `gemini-flash-latest`, matching the models already established for `run_signal_extraction` and the digest functions.
+- Public API routes affected: none
+- Migration file: `20260713221555_enrichment_llm_fallback_extension.sql`
+- Backward compatibility: additive only — no table dropped/renamed, no existing caller signature changed
+- Rollback: revert the four functions to their prior `CREATE OR REPLACE` bodies (Anthropic-only, captured via `pg_get_functiondef` before this change — see this session's investigation), `ALTER TABLE ... DROP COLUMN provider` on the four job tables. Forward-fix preferred — see Evidence Log for live-recovery proof same day on all four.
+- Required tests: no TypeScript/frontend files touched by this migration, so `lint`/`typecheck`/`build`/`test` scope is unchanged from the prior entry; SQL correctness verified by live invocation instead (see Evidence Log).
+- Human approval status: explicit user go-ahead ("Everything should have a fallback") after being told which functions remained unfixed.

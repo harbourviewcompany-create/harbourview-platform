@@ -478,6 +478,26 @@ Both points are flagged in the session report rather than acted on unilaterally,
 
 ---
 
+## 2026-07-13 (part 2) — Fallback extended to all remaining Anthropic-only pipelines, per user request
+
+**Trigger:** After the digest fallback fix above, user asked "check the Anthropic Console credit balance and plan" then, mid-message, redirected to "Everything should have a fallback" and confirmed extending the pattern to the four functions flagged as out-of-scope in the prior entry (`run_country_intel_enrichment`, `run_counterparty_enrichment`, `run_education_section_gen`, `run_education_deep_regen`).
+
+**Fix applied:** Same Anthropic→OpenAI→Gemini circuit-breaker pattern ported to all four, each writing to `pipeline_manual_review_queue` on full degradation. Anthropic's original model (`claude-sonnet-4-6`) preserved as tier 1; OpenAI (`gpt-4o-mini`) and Gemini (`gemini-flash-latest`) fallback tiers match what's already proven in `run_signal_extraction` and the digest functions. Applied via `apply_migration`: `20260713221555_enrichment_llm_fallback_extension.sql`.
+
+**Verification (same session, live production):** Manually invoked all four functions repeatedly and watched each escalate correctly:
+- `run_counterparty_enrichment`: `anthropic` attempt failed → escalated to `openai` → **succeeded**, `counterparties_enriched: 10`.
+- `run_country_intel_enrichment`: `anthropic` attempt failed → escalated to `openai` → **succeeded**, `countries_enriched: 8`.
+- `run_education_deep_regen`: `anthropic` attempt failed → escalated to `openai` → **succeeded**, `modules_regenerated: 1` (module `gacp-cultivation-standards`).
+- `run_education_section_gen`: returned `skipped: "no empty published modules remaining"` on invocation — correct behavior (no eligible work at time of test), not exercised end-to-end, but its collect/fire logic is verbatim-identical in structure to `run_education_deep_regen`, which was proven live.
+
+No TypeScript files were touched by this change (SQL-only migration), so the `lint`/`typecheck`/`build`/`test` results from the prior entry stand unchanged; correctness here is demonstrated by live invocation instead.
+
+**Files changed:** `supabase/migrations/20260713221555_enrichment_llm_fallback_extension.sql`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** See `DATABASE_CONTROL.md`'s 2026-07-13 (part 2) entry. Forward-fix preferred — live verification above confirms all four pipelines are healthier post-change, not just theoretically safer.
+
+---
+
 ## 2026-07-14 — Intelligence Architecture Stage 0: labeled eval set (intel_eval_set)
 
 **Change type:** Data model (migration) + backend admin page. Per
