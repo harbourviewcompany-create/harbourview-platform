@@ -40,6 +40,7 @@ enable_signup = true
 
 [edge_runtime]
 enabled = true
+deno_version = 2
 
 [analytics]
 enabled = false
