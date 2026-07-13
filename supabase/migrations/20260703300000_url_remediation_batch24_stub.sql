@@ -1,0 +1,19 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 24).
+--
+-- Texas DSHS Cannabis -> old path dead. Fixed to the correct current DSHS
+-- page (Low-THC Cannabis Medical Use), distinct from DPS which is a
+-- separate agency running licensing/CURT. Confirmed via search index.
+--
+-- Notable context surfaced: HB 46 (signed Jun 2025, effective Sep 2025)
+-- significantly expanded TCUP -- added chronic pain/Crohn's/TBI/hospice
+-- as qualifying conditions, raised licensee count from 3 to 15, added
+-- inhalation as a delivery method. Separately, a Mar 31 2026 enforcement
+-- deadline on smokable hemp products (Executive Order GA-56) just took
+-- effect -- a related but distinct hemp-retail crackdown that does not
+-- affect TCUP medical patients.
+--
+-- Remaining, not yet addressed: California Cannabis Open Data, EU TARIC,
+-- ASA Americans for Safe Access (timeout), Vicente Sederberg Blog (429),
+-- Netherlands Customs, Newfoundland NLC (mistagged as USA, actually
+-- Canadian).
+SELECT 1;
