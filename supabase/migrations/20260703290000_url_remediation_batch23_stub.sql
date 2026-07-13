@@ -1,0 +1,12 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 23).
+--
+-- South Dakota Cannabis Regulator -> old path dead. Replaced with the SD
+-- Department of Health medical cannabis program page, confirmed via
+-- search index with very current content (April 2026 patient statistics,
+-- 18,867 patients / 577 caregivers / 206 providers).
+--
+-- Remaining, not yet addressed: Texas DSHS, California Cannabis Open
+-- Data, EU TARIC, ASA Americans for Safe Access (timeout), Vicente
+-- Sederberg Blog (429), Netherlands Customs, Newfoundland NLC (mistagged
+-- as USA, actually Canadian).
+SELECT 1;
