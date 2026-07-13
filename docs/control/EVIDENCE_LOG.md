@@ -426,3 +426,22 @@ Both points are flagged in the session report rather than acted on unilaterally,
 **Files changed this session:** `supabase/migrations/20260709000000_add_ratings_to_listings.sql`, `supabase/migrations/20260710160000_add_ratings_indexes_concurrently.sql` (new), `docs/control/PROJECT_REGISTRY.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
 
 **Rollback:** Additive/type-widening only for the checked-in files; no destructive change. See `DATABASE_CONTROL.md`'s 2026-07-10 entry for the exact rollback and production forward-fix SQL.
+
+## 2026-07-11 — Missing authorization on api.set_regulatory_tier / api.accept_classifier_tier (found and fixed)
+
+**Finding:** a live `get_advisors` (security) scan on `zvxdgdkukjrrwamdpqrg`, run incidentally while verifying an unrelated PR, surfaced `authenticated_security_definer_function_executable` on `api.set_regulatory_tier` and `api.accept_classifier_tier`. Both are `SECURITY DEFINER` functions granted `EXECUTE` to the `authenticated` role via PostgREST RPC, with **no internal authorization check** — `pg_get_functiondef` confirmed neither function verified caller identity/role before writing. `p_actor` is a free-text parameter (default `'agent'`) logged only as an audit label, not used for authorization. Practical impact: any signed-in user could call `POST /rest/v1/rpc/set_regulatory_tier` with an arbitrary `p_iso`/`p_tier` and directly overwrite that country's compliance `regulatory_tier` classification in `public.countries` — a live privilege-escalation path on a platform whose core function is jurisdiction-based compliance classification. `api.get_corridor_stats` was also flagged (`anon` + `authenticated`) but assessed lower severity — it is read-only.
+
+**Fix applied same day, Tyler approved the "proper fix" path over a stopgap grant-revoke:**
+- Added `public.is_regulatory_tier_admin()`, matching the existing `public.is_genetics_admin_or_reviewer()` pattern already used elsewhere in this schema (`exists (select 1 from user_roles where user_id = auth.uid() and role = 'admin')`).
+- Added `if not public.is_regulatory_tier_admin() then raise exception ... end if;` as the first statement in both `api.set_regulatory_tier` and `api.accept_classifier_tier`, before any read/write.
+- Applied directly to production via `apply_migration` (`fix_regulatory_tier_rpc_missing_authz`), then reconciled into version control as `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql`.
+- `api.get_corridor_stats` intentionally left untouched this pass — separate, lower-severity, read-only issue.
+
+**Verification:**
+- `select public.is_regulatory_tier_admin()` with no session context (auth.uid() null) returns `false`, confirming the guard denies unauthenticated/non-admin callers as intended.
+- Re-ran `get_advisors` (security) post-fix: the `authenticated_security_definer_function_executable` WARN persists for both functions — expected and not a residual risk. That lint is grant-based only (checks whether `authenticated` has `EXECUTE`) and cannot see internal function logic; revoking the grant entirely would also block legitimate admin callers, since Supabase has no per-app-role Postgres grants below `authenticated`. The internal `is_regulatory_tier_admin()` check is the actual enforcement point and was verified directly.
+- Confirmed via live query that `user_roles` currently has role `admin` populated (existing admin access preserved).
+
+**Files changed:** `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql` (new), this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** `DROP FUNCTION public.is_regulatory_tier_admin(); CREATE OR REPLACE FUNCTION api.set_regulatory_tier(...) ... <original body without the guard>; CREATE OR REPLACE FUNCTION api.accept_classifier_tier(...) ... <original body without the guard>;` — reverts to the pre-fix (vulnerable) behavior; only do this if the guard itself causes an unexpected admin-access regression, and fix the guard rather than fully reverting if possible.
