@@ -1,0 +1,17 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 25).
+--
+-- California Cannabis Open Data -> old path dead. Replaced with DCC's
+-- official data dashboard hub (licensing, harvest, sales statistics
+-- compiled in-house from track-and-trace), confirmed via search index.
+--
+-- Notable market context surfaced: AB 564 (signed Sep 2025) reversed a
+-- 25% excise tax hike, setting the rate at 15% through 2028. California
+-- H1 2026 licensed sales ~$1.95B (Q1 down slightly YoY to $956.7M); DCC
+-- itself estimates only ~40% of state cannabis consumption flows through
+-- licensed retail, with unlicensed operators selling roughly 1.5x volume
+-- at lower prices without testing/licensing/tax obligations.
+--
+-- Remaining, not yet addressed: EU TARIC, ASA Americans for Safe Access
+-- (timeout), Vicente Sederberg Blog (429), Netherlands Customs,
+-- Newfoundland NLC (mistagged as USA, actually Canadian).
+SELECT 1;
