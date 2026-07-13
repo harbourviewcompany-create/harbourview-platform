@@ -213,7 +213,7 @@ export default async function ProfessionalsDirectoryPage() {
           </p>
           <div className="pro-footnote-links">
             <Link href="/markets">Market Briefings →</Link>
-            <Link href="/intelligence/playbooks">Entry Playbooks →</Link>
+            <Link href="/dashboard?page=signals">Entry Playbooks →</Link>
             <Link href="/marketplace">Exchange →</Link>
           </div>
         </footer>

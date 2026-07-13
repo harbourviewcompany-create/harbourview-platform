@@ -1,5 +1,2 @@
 import { redirect } from 'next/navigation'
-
-export default function ExportImportPage() {
-  redirect('/education/export-import-readiness')
-}
+export default function Page() { redirect('/dashboard?page=education') }

@@ -76,7 +76,7 @@ export function DashListingCard({ item }: Props) {
         <span className="text-[10px]" style={{ color: 'rgba(243,240,234,0.3)' }}>{item.age}</span>
         {item.locked ? (
           <Link
-            href="/marketplace/sell"
+            href="/dashboard?page=marketplace"
             className="rounded-lg px-3 py-1.5 text-[11px] transition-all"
             style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
           >
@@ -104,7 +104,7 @@ export function DashListingCard({ item }: Props) {
             Subscribe to access full detail
           </span>
           <Link
-            href="/marketplace/sell"
+            href="/dashboard?page=marketplace"
             className="rounded-lg px-3 py-1.5 text-[10px] transition-all"
             style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
           >

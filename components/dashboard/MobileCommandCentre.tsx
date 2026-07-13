@@ -10,6 +10,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView, CommandPage, DigestWindow } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
+import { GeneticsRequestModal } from './GeneticsRequestModal'
 import { formatOpportunityScore, opportunityScoreTone } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 
@@ -285,7 +286,7 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
     <>
       <section className="hvm-hero-card">
         <div className="hvm-country-row">
-          <span className="hvm-country-mark">🌐</span>
+          <span className="hvm-country-mark">{flagEmoji(country.iso2)}</span>
           <div>
             <h2>{country.label}</h2>
             <p>{roleLabel}</p>
@@ -340,15 +341,36 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
       )}
 
       {signals.length > 0 && (
-        <MobileAccordion title="Recent intelligence signals">
+        <MobileAccordion title={`Recent intelligence signals (${signals.length})`} defaultOpen>
           <div className="hvm-list-stack">
-            {signals.slice(0, 4).map((signal, index) => (
-              <div className="hvm-signal-card" key={`${signal.title}-${index}`}>
-                <strong>{signal.flag} {signal.title}</strong>
-                <small>{signal.market} · {signal.sourceLabel} · {signal.timeAgo} · {signal.confidence}% confidence</small>
-                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+            {signals.slice(0, 4).map((signal, index) => {
+              const cat = signal.type?.toLowerCase().includes('reg') || signal.type?.toLowerCase().includes('policy') ? 'regulatory' :
+                          signal.type?.toLowerCase().includes('market') || signal.type?.toLowerCase().includes('trade') ? 'economic' : 'trade'
+              const catColor = cat === 'regulatory' ? '#5b9bd5' : cat === 'economic' ? '#d4a84b' : '#4caf82'
+              const confColor = signal.confidence >= 80 ? '#4caf82' : signal.confidence >= 60 ? '#d4a84b' : '#e05555'
+              return (
+                <div className="hvm-signal-card hvm-signal-card--rich" key={`${signal.title}-${index}`} style={{ borderLeft: `3px solid ${catColor}` }}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': catColor } as React.CSSProperties}>{cat.toUpperCase()}</span>
+                    <span className="hvm-sig-market">{signal.market}</span>
+                    <span className="hvm-sig-time">{signal.timeAgo}</span>
+                  </div>
+                  <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
+                  <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                  <div className="hvm-sig-footer">
+                    <div className="hvm-sig-conf-bar">
+                      <div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} />
+                    </div>
+                    <span className="hvm-sig-conf-val" style={{ color: confColor }}>{signal.confidence}%</span>
+                  </div>
+                </div>
+              )
+            })}
+            {signals.length > 4 && (
+              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+                <span style={{ fontSize: 12, color: '#d4a84b', fontWeight: 600 }}>+{signals.length - 4} more · tap Intel tab for full feed</span>
               </div>
-            ))}
+            )}
           </div>
         </MobileAccordion>
       )}
@@ -2449,6 +2471,8 @@ const GENETICS_TABS: { id: GeneticsTabM; label: string }[] = [
 
 function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = [], collaborationProjects = [] }: { country: CountryOption; cultivarPassports?: PublicCultivarPassportDTO[]; serviceProviders?: PublicServiceProvider[]; collaborationProjects?: PublicCollaborationProject[] }) {
   const [tab, setTab] = useState<GeneticsTabM>('passports')
+  const [selectedPassport, setSelectedPassport] = useState<PublicCultivarPassportDTO | null>(null)
+  const [requestOpen, setRequestOpen] = useState(false)
 
   const isGlobal = country.iso2 === 'GLOBAL'
   const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
@@ -2462,6 +2486,153 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
     ...t,
     count: t.id === 'passports' ? displayPassports.length : t.id === 'services' ? displayProviders.length : displayProjects.length,
   }))
+
+  if (selectedPassport) {
+    const allOpps = selectedPassport.countryOpportunitiesPublic
+    return (
+      <div className="hvm-page-stack">
+        <button type="button" onClick={() => setSelectedPassport(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 16px', background: 'none', border: 'none', color: 'rgba(212,168,75,.8)', fontSize: 12, fontWeight: 600, cursor: 'pointer', letterSpacing: '.06em', marginBottom: 4 }}>
+          ← Cultivar list
+        </button>
+
+        <section className="hvm-hero-card compact">
+          <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>CULTIVAR PASSPORT</div>
+          <h2>⊕ {selectedPassport.displayName}</h2>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <span className="hvm-tag-chip" style={{ background: 'rgba(76,175,130,.12)', borderColor: 'rgba(76,175,130,.3)', color: '#4caf82' }}>{selectedPassport.cultivarCategory.replace(/_/g, ' ')}</span>
+            {selectedPassport.cannabisCategory && <span className="hvm-tag-chip" style={{ background: 'rgba(212,168,75,.1)', borderColor: 'rgba(212,168,75,.25)', color: '#d4a84b' }}>{selectedPassport.cannabisCategory.replace(/_/g, ' ')}</span>}
+            <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.6)' }}>{selectedPassport.claimStatus.replace(/_/g, ' ')}</span>
+          </div>
+          <p style={{ marginTop: 10, lineHeight: 1.6 }}>{selectedPassport.publicSummary}</p>
+        </section>
+
+        {(selectedPassport.originCountryCode || selectedPassport.breederDisplayName || selectedPassport.aliasesPublic.length > 0) && (
+          <div className="hvm-card">
+            <div className="hvm-kicker">ORIGIN &amp; PROVENANCE</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 }}>
+              {selectedPassport.originCountryCode && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Origin</span>
+                  <span>{flagEmoji(selectedPassport.originCountryCode)} {selectedPassport.originJurisdictionLabel ?? selectedPassport.originCountryCode}</span>
+                </div>
+              )}
+              {selectedPassport.breederDisplayName && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Breeder</span>
+                  <span>{selectedPassport.breederDisplayName}</span>
+                </div>
+              )}
+              {selectedPassport.rightsHolderDisplayName && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Rights holder</span>
+                  <span>{selectedPassport.rightsHolderDisplayName}</span>
+                </div>
+              )}
+              {selectedPassport.aliasesPublic.length > 0 && (
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.75)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'rgba(245,240,232,.35)', minWidth: 90 }}>Aliases</span>
+                  <span>{selectedPassport.aliasesPublic.join(', ')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(selectedPassport.evidenceScoreSummary || selectedPassport.verificationSummary) && (
+          <div className="hvm-card">
+            <div className="hvm-kicker">VERIFICATION STATUS</div>
+            {selectedPassport.evidenceScoreSummary && <p style={{ marginTop: 6, fontSize: 12, color: 'rgba(245,240,232,.75)', lineHeight: 1.6 }}>{selectedPassport.evidenceScoreSummary}</p>}
+            {selectedPassport.verificationSummary && <p style={{ marginTop: 6, fontSize: 12, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>{selectedPassport.verificationSummary}</p>}
+          </div>
+        )}
+
+        {allOpps.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.14em', padding: '4px 16px 6px' }}>COUNTRY OPPORTUNITIES · {allOpps.length}</div>
+            <div className="hvm-list-stack">
+              {allOpps.map((opp, i) => (
+                <div className="hvm-signal-card" key={i}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#4caf82' } as React.CSSProperties}>{opp.opportunityType.replace(/_/g, ' ')}</span>
+                    <span className="hvm-sig-market">{opp.status}</span>
+                  </div>
+                  <div className="hvm-sig-title">{flagEmoji(opp.countryCode)} {opp.jurisdictionLabel ?? opp.countryCode}</div>
+                  {opp.publicNote && <p className="hvm-signal-impact">{opp.publicNote}</p>}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>MT: {opp.materialTransferStatus.replace(/_/g, ' ')}</span>
+                    <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>Gate: {opp.jurisdictionGateStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {selectedPassport.publicEvidenceSummaries.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.14em', padding: '4px 16px 6px' }}>EVIDENCE SUMMARIES · {selectedPassport.publicEvidenceSummaries.length}</div>
+            <div className="hvm-list-stack">
+              {selectedPassport.publicEvidenceSummaries.map(ev => (
+                <div className="hvm-signal-card" key={ev.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#5b9bd5' } as React.CSSProperties}>{ev.evidenceType.replace(/_/g, ' ')}</span>
+                    <span className="hvm-sig-market">{ev.claimStatus.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="hvm-sig-title">{ev.title}</div>
+                  {ev.publicSummary && <p className="hvm-signal-impact">{ev.publicSummary}</p>}
+                  {(ev.sourceLabel || ev.sourceDate || ev.jurisdictionLabel) && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      {ev.sourceLabel && <span className="hvm-tag-chip" style={{ background: 'rgba(91,155,213,.12)', borderColor: 'rgba(91,155,213,.3)', color: '#5b9bd5' }}>{ev.sourceLabel}</span>}
+                      {ev.sourceDate && <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>{ev.sourceDate}</span>}
+                      {ev.jurisdictionLabel && <span className="hvm-tag-chip" style={{ background: 'rgba(245,240,232,.06)', borderColor: 'rgba(245,240,232,.15)', color: 'rgba(245,240,232,.5)' }}>{ev.jurisdictionLabel}</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {selectedPassport.publicCollaborationProjects.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,.35)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.14em', padding: '4px 16px 6px' }}>COLLABORATION PROJECTS · {selectedPassport.publicCollaborationProjects.length}</div>
+            <div className="hvm-list-stack">
+              {selectedPassport.publicCollaborationProjects.map(cp => (
+                <div className="hvm-signal-card" key={cp.id}>
+                  <div className="hvm-sig-head">
+                    <span className="hvm-sig-cat-chip" style={{ '--chip-color': '#a78bfa' } as React.CSSProperties}>{cp.projectType.replace(/_/g, ' ')}</span>
+                    <span className="hvm-sig-market">{cp.status}</span>
+                  </div>
+                  <div className="hvm-sig-title">⊗ {cp.title}</div>
+                  <p className="hvm-signal-impact">{cp.publicSummary}</p>
+                  {cp.evidenceNeeded && <div style={{ marginTop: 6, fontSize: 11, color: 'rgba(245,240,232,.5)', lineHeight: 1.5 }}><span style={{ color: 'rgba(245,240,232,.3)' }}>Evidence needed:</span> {cp.evidenceNeeded}</div>}
+                  {(cp.countryCode || cp.jurisdictionLabel) && (
+                    <div style={{ marginTop: 6 }}>
+                      <span className="hvm-tag-chip" style={{ background: 'rgba(167,139,250,.1)', borderColor: 'rgba(167,139,250,.25)', color: '#a78bfa' }}>
+                        {cp.jurisdictionLabel ?? (cp.countryCode ? `${flagEmoji(cp.countryCode)} ${cp.countryCode}` : '')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="hvm-card" style={{ background: 'rgba(212,168,75,.05)', borderColor: 'rgba(212,168,75,.2)' }}>
+          <div className="hvm-kicker">ACCESS &amp; LICENSING</div>
+          <p style={{ marginTop: 6, fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Cultivar data is subject to IP, PVP, and licensing controls. Harbourview passports are public-safe summaries only. Full evidence and commercial terms require a Harbourview-reviewed access request.</p>
+          <button type="button" onClick={() => setRequestOpen(true)} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            Request access — {selectedPassport.displayName} →
+          </button>
+        </div>
+
+        <p style={{ fontSize: 11, color: 'rgba(245,240,232,.3)', padding: '0 16px 24px', lineHeight: 1.6 }}>{selectedPassport.publicDisclaimer}</p>
+
+        <GeneticsRequestModal open={requestOpen} profileName={selectedPassport.displayName} onClose={() => setRequestOpen(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="hvm-page-stack">
@@ -2524,9 +2695,9 @@ function GeneticsMobile({ country, cultivarPassports = [], serviceProviders = []
                     </div>
                   ))}
                   {countryOpps.length > 0 ? (
-                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>{countryOpps[0].cta} →</Link>
+                    <button type="button" onClick={() => setSelectedPassport(p)} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{countryOpps[0].cta} →</button>
                   ) : (
-                    <Link href={`/genetics/cultivars/${p.slug}`} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>View passport →</Link>
+                    <button type="button" onClick={() => setSelectedPassport(p)} style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>View passport →</button>
                   )}
                 </div>
               )
@@ -2963,103 +3134,6 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
   )
 }
 
-// ── Countries Directory Mobile ────────────────────────────────────────────────
-
-function CountriesMobile({ signals, onCountrySelect }: {
-  signals: DashboardSignal[]
-  onCountrySelect?: (iso2: string) => void
-}) {
-  const [search, setSearch] = useState('')
-
-  const signalCountByMarket = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const s of signals) {
-      if (s.market) counts[s.market] = (counts[s.market] ?? 0) + 1
-    }
-    return counts
-  }, [signals])
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return ALL_COUNTRIES
-    const q = search.toLowerCase()
-    return ALL_COUNTRIES.filter(c => c.displayName.toLowerCase().includes(q) || c.iso2.toLowerCase().includes(q))
-  }, [search])
-
-  const byRegion = useMemo(() => {
-    const map = new Map<string, typeof ALL_COUNTRIES>()
-    for (const c of filtered) {
-      const key = c.region ?? 'Other'
-      map.set(key, [...(map.get(key) ?? []), c])
-    }
-    return map
-  }, [filtered])
-
-  return (
-    <div className="hvm-page-stack">
-      <div className="hvm-hero-card compact">
-        <p className="hvm-kicker">Country &amp; Territory Directory</p>
-        <strong style={{ display:'block', fontSize:22, color:'#f5f0e8', lineHeight:1.2 }}>{ALL_COUNTRIES.length} Countries</strong>
-        <p>All Harbourview jurisdictions. Tap any country to load its intelligence into the dashboard.</p>
-      </div>
-      <input
-        type="text"
-        placeholder="Search countries…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{
-          width:'100%', padding:'12px 14px', borderRadius:12,
-          border:'1px solid rgba(255,255,255,.12)', background:'rgba(255,255,255,.05)',
-          color:'rgba(245,240,232,.9)', fontSize:15, fontFamily:'inherit',
-          outline:'none',
-        }}
-      />
-      {filtered.length === 0 ? (
-        <div className="hvm-empty-card" style={{ padding:24, textAlign:'center' }}>
-          <p style={{ color:'rgba(245,240,232,.45)', fontSize:14 }}>No countries match &ldquo;{search}&rdquo;</p>
-        </div>
-      ) : (
-        [...byRegion.entries()].map(([region, countries]) => (
-          <details key={region} className="hvm-accordion" open={byRegion.size <= 3}>
-            <summary>
-              <span>{region}</span>
-              <span style={{ fontSize:12, fontWeight:400, color:'rgba(245,240,232,.45)' }}>{countries.length}</span>
-            </summary>
-            <div className="hvm-accordion-body">
-              <div className="hvm-list-stack" style={{ gap:8 }}>
-                {countries.map(c => {
-                  const sigCount = signalCountByMarket[c.displayName] ?? 0
-                  return (
-                    <button
-                      key={c.iso2}
-                      type="button"
-                      onClick={() => onCountrySelect?.(c.iso2)}
-                      style={{
-                        display:'flex', alignItems:'center', gap:10,
-                        padding:'10px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,.08)',
-                        background:'rgba(255,255,255,.03)', cursor:'pointer', textAlign:'left', width:'100%',
-                        color:'rgba(245,240,232,.88)', fontFamily:'inherit',
-                      }}
-                    >
-                      <span style={{ fontSize:20, flexShrink:0 }}>{flagEmoji(c.iso2)}</span>
-                      <span style={{ flex:1, minWidth:0 }}>
-                        <span style={{ display:'block', fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.displayName}</span>
-                        <span style={{ display:'block', fontSize:11, color:'rgba(245,240,232,.42)', fontFamily:'monospace' }}>
-                          {c.iso2}{sigCount > 0 ? ` · ${sigCount} signal${sigCount > 1 ? 's' : ''}` : ''}
-                        </span>
-                      </span>
-                      {sigCount > 0 && <span style={{ width:7, height:7, borderRadius:'50%', background:'#d4a84b', flexShrink:0 }} />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </details>
-        ))
-      )}
-    </div>
-  )
-}
-
 export default function MobileCommandCentre({
   signals,
   digestSignals,
@@ -3136,7 +3210,9 @@ export default function MobileCommandCentre({
     const params = new URLSearchParams()
     if (iso2 && iso2 !== 'GLOBAL') params.set('country', iso2)
     if (roleVal) params.set('role', roleVal)
-    if (pageVal !== 'briefing') params.set('page', pageVal)
+    // 'briefing' is the default (no param needed); 'signals' is excluded to
+    // prevent the browser restoring a stale "stuck on Intel" URL on next visit.
+    if (pageVal !== 'briefing' && pageVal !== 'signals') params.set('page', pageVal)
     const qs = params.toString()
     router.replace(qs ? `?${qs}` : '/dashboard')
   }
@@ -3240,7 +3316,7 @@ export default function MobileCommandCentre({
       case 'settings':
         return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} />
       case 'countries':
-        return <CountriesMobile signals={signals} onCountrySelect={handleCountryChange} />
+        return <CountriesDirectoryMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
         return null
     }
@@ -3248,7 +3324,8 @@ export default function MobileCommandCentre({
 
   return (
     <div className="hvm-app">
-      <style>{MOBILE_CSS}</style>
+      {/* dangerouslySetInnerHTML bypasses React 19 style-tag hoisting */}
+      <style dangerouslySetInnerHTML={{ __html: MOBILE_CSS }} />
 
       <section className="hvm-titlebar">
         <div className="hvm-titlebar-top">
@@ -3931,7 +4008,7 @@ const MOBILE_CSS = `
   font-size: 28px; font-weight: 700; line-height: 1.1; margin: 4px 0 8px;
 }
 .hvm-conf-bar-wrap {
-  height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
+  position: relative; height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
 }
 .hvm-conf-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
 

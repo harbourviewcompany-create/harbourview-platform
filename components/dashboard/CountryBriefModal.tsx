@@ -100,14 +100,14 @@ export function CountryBriefModal({ iso2, name, onClose }: Props) {
               {/* Actions */}
               <div className="mt-1 flex gap-2">
                 <Link
-                  href="/marketplace/sell"
+                  href="/dashboard?page=marketplace"
                   className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all"
                   style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                 >
                   Post listing →
                 </Link>
                 <Link
-                  href="/intelligence/country-briefs"
+                  href="/dashboard?page=countries"
                   className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all"
                   style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                 >
@@ -127,7 +127,7 @@ export function CountryBriefModal({ iso2, name, onClose }: Props) {
           {brief.status === 'error' && (
             <p className="text-[12px]" style={{ color: 'rgba(243,240,234,0.4)' }}>
               No public alpha brief is available for this market yet. {' '}
-              <Link href="/intelligence/country-briefs" className="underline" style={{ color: 'var(--hv-champagne-400)' }}>
+              <Link href="/dashboard?page=countries" className="underline" style={{ color: 'var(--hv-champagne-400)' }}>
                 Browse tracked country briefs →
               </Link>
             </p>

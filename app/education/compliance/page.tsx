@@ -1,5 +1,2 @@
 import { redirect } from 'next/navigation'
-
-export default function CompliancePage() {
-  redirect('/education/compliance-readiness')
-}
+export default function Page() { redirect('/dashboard?page=education') }

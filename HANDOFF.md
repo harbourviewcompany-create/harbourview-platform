@@ -38,6 +38,11 @@ This file has been gutted and restored twice. Before touching it, check that `li
 **4. `public-assets` storage bucket — do not modify RLS**
 The bucket has a broad SELECT policy enabling file listing. Whether this should be restricted is Tyler's call. Don't tighten or loosen it without explicit instruction.
 
+**5. `app/intelligence/licensing-pathways/page.tsx`, `app/intelligence/logistics-trade-routes/page.tsx`, and 7 HAR-39/HAR-40 routes — do not retire to Command Centre redirects**
+The first two were rebuilt with real live-data wiring (licensing-pathways: cross-links to all 20 `jurisdiction_playbooks`; logistics-trade-routes: `corridor_processing_times` + `corridor_regulatory_alerts` benchmarks and alert feed) on Jul 2-3, after the #937 Command Centre consolidation branch had already retired both to 2-line redirect stubs. The remaining 7 — `app/intelligence/source-engine`, `app/intelligence/watchlists`, `app/education/compliance-readiness`, `app/education/export-import-readiness`, `app/education/pharmaceutical-medical-cannabis`, `app/education/cannabis-history-library`, `app/policy-standards/regulatory-change-tracker` — are required verbatim by `scripts/test-har39-har40-public-surfaces.mjs`, a compliance gate that runs on every PR to `main` checking for specific legal/medical/copy-safety disclaimer language. #937's blanket retirement removed that language from source entirely. All 9 routes were restored during the Jul 3-4 rebase. Do not silently re-retire any of them — if you want to fold them into Command Centre, build the equivalent CC panel first, migrate the required disclaimer language into it, update `test-har39-har40-public-surfaces.mjs`'s `routeFileFor()` mapping (or the CC panel that replaces it) accordingly, confirm feature parity and test coverage, then update this note.
+
+**Resolved during this rebase, noted for reference:** `app/genetics/cultivars/[slug]/page.tsx` was initially restored to its live standalone version (P0 security-boundary test coverage in `tests/genetics/cultivarPassportNetwork.test.tsx`). A later commit on this same branch (`73f8a851`) properly ported it into the Command Centre genetics panel first — same `getPublicCultivarPassportBySlug`/`getPublicCultivarPassports` DTO source, both independently tested — then correctly reduced the standalone page to a redirect carrying the cultivar slug as a query param. The test was updated to assert the redirect target instead of rendering the retired page directly; the 8 other DTO-boundary assertions in that file are UI-architecture-independent and were left untouched. This is the model to follow for the 9 routes still exempted above.
+
 ---
 
 ## PRE-EXISTING FAILURES — Do Not Investigate These
@@ -164,6 +169,7 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 | Branch | Purpose | Status |
 |---|---|---|
 | `claude/harbourview-github-supabase-updates-15vrcr` | HANDOFF.md restructure (this PR, #923) | Pending merge |
+| `claude/harbourview-github-review-1omies` | Command Centre consolidation, #937 (Jul 1). Rebased onto main Jul 3-4 after going stale — 8 conflicting files resolved across two rebase passes, 7 pre-existing type errors uncovered and fixed, 2 stale test assertions updated. See DO NOT TOUCH #5 for the licensing-pathways/logistics-trade-routes carve-out this rebase established. | Rebased, CI pending |
 | `claude/counterparties-crud` | Phase 0 Counterparties | Unknown — check if stale |
 | `claude/intelligence-engine-full-stack` | Intelligence engine | Unknown — may be superseded |
 | `claude/intelligence-pipeline-complete` | Pipeline work | Unknown — may be superseded |

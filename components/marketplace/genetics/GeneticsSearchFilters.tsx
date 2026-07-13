@@ -96,7 +96,7 @@ export function GeneticsSearchFilters({
         </div>
 
         <Link
-          href="/marketplace/genetics"
+          href="/dashboard?page=genetics"
           className="text-sm text-gold/80 hover:text-gold-light"
         >
           Reset filters

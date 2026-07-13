@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useListingDetail } from '@/hooks/useListingDetail'
+import { useEffect, useState } from 'react'
+import { useListingDetail, type ListingDetail } from '@/hooks/useListingDetail'
 import { StatusBadge } from './StatusBadge'
+import { QuoteModal } from './QuoteModal'
 
 interface Props {
   listingId: string | null
@@ -27,6 +28,8 @@ function formatPrice(amount: number | null, currency: string, display: string | 
 
 export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatch }: Props) {
   const detail = useListingDetail(listingId)
+  const [watchState, setWatchState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [quoteOpen, setQuoteOpen] = useState(false)
 
   useEffect(() => {
     if (!listingId) return
@@ -34,6 +37,34 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [listingId, onClose])
+
+  useEffect(() => {
+    setWatchState('idle')
+  }, [listingId])
+
+  async function handleWatch(d: ListingDetail) {
+    if (watchState === 'saving' || watchState === 'saved') return
+    setWatchState('saving')
+    try {
+      const res = await fetch('/api/watchlist/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_type: 'marketplace_item',
+          title: d.title,
+          subtitle: formatTitle(d.subcategory ?? d.product_type ?? d.category),
+          jurisdiction: d.location_region ?? d.location_country ?? d.region,
+          ref_id: d.id,
+        }),
+      })
+      if (res.status === 401) { window.location.href = '/sign-in'; return }
+      if (!res.ok) throw new Error('watch failed')
+      setWatchState('saved')
+      onWatch?.(d.id)
+    } catch {
+      setWatchState('error')
+    }
+  }
 
   if (!listingId) return null
 
@@ -132,18 +163,19 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
                 {/* Actions */}
                 <div className="mt-1 flex gap-2">
                   <button
-                    onClick={() => onRequestAccess?.(d.id)}
+                    onClick={() => setQuoteOpen(true)}
                     className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all"
                     style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                   >
                     Request access →
                   </button>
                   <button
-                    onClick={() => onWatch?.(d.id)}
-                    className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all"
+                    onClick={() => handleWatch(d)}
+                    disabled={watchState === 'saving' || watchState === 'saved'}
+                    className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all disabled:opacity-60"
                     style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                   >
-                    Watch →
+                    {watchState === 'saving' ? 'Watching…' : watchState === 'saved' ? 'Watching ✓' : watchState === 'error' ? 'Retry watch' : 'Watch →'}
                   </button>
                   <button
                     onClick={onClose}
@@ -164,6 +196,12 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
           )}
         </div>
       </div>
+      <QuoteModal
+        open={quoteOpen}
+        listingTitle={detail.status === 'ok' ? detail.data.title : undefined}
+        onClose={() => setQuoteOpen(false)}
+        zIndex={210}
+      />
     </div>
   )
 }

@@ -153,10 +153,13 @@ export const WatchlistPage = React.memo(function WatchlistPage({
     setAddState('saving')
     try {
       const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { window.location.href = '/sign-in'; return }
       const orgId = await getOrgId()
       if (!orgId) { setAddState('idle'); return }
       await supabase.from('cc_watchlist_items').insert({
         org_id:       orgId,
+        added_by:     session.user.id,
         item_type:    'jurisdiction',
         title:        country.label,
         jurisdiction: country.iso2,

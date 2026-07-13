@@ -14,61 +14,51 @@ type NavGroup = {
   items: NavItem[]
 }
 
-// Restructured 2026-07: was 2 groups (Platform: 8 items, Intelligence: 14 items
-// flat). A 14-item flat dropdown hid the product behind a wall of links before
-// anyone understood the value prop. Split into 4 groups of ~4-6 items each,
-// organized by user intent (country research / live signals / compliance)
-// rather than internal naming. Trust & Governance, Access States, Platform
-// Map, and Reviewed Connections moved out of primary nav (see Footer) since
-// they're not what a first-time visitor needs to evaluate the product.
 const navGroups: NavGroup[] = [
   {
     label: 'Platform',
     items: [
+      { label: 'Platform Map', href: '/platform' },
       { label: 'Operator Dashboard', href: '/dashboard' },
       { label: 'Network', href: '/network' },
       { label: 'Professionals', href: '/professionals' },
       { label: 'Institutional Partnerships', href: '/institutional-partnerships' },
-    ],
-  },
-  {
-    label: 'Country Intelligence',
-    items: [
-      { label: 'Country Briefs', href: '/intelligence/country-briefs' },
-      { label: 'Market Briefings', href: '/markets' },
-      { label: 'Entry Playbooks', href: '/intelligence/playbooks' },
-      { label: 'Regulatory Pathways', href: '/intelligence/regulatory-pathways' },
-      { label: 'Licensing Pathways', href: '/intelligence/licensing-pathways' },
-      { label: 'Logistics & Trade Routes', href: '/intelligence/logistics-trade-routes' },
-    ],
-  },
-  {
-    label: 'Market Signals',
-    items: [
-      { label: 'Signals', href: '/signals' },
-      { label: 'Watchlists', href: '/intelligence/watchlists' },
-      { label: 'Counterparty Intelligence', href: '/intelligence/counterparty-intelligence' },
-    ],
-  },
-  {
-    label: 'Compliance & Trust',
-    items: [
-      { label: 'Policy & Standards', href: '/policy-standards' },
-      { label: 'Assessments', href: '/assessments' },
-      { label: 'Source Engine', href: '/intelligence/source-engine' },
-      { label: 'Source Methodology', href: '/source-methodology' },
+      { label: 'Reviewed Connections', href: '/reviewed-connections' },
       { label: 'Trust & Governance', href: '/trust-governance' },
       { label: 'Access States', href: '/access-states' },
+    ],
+  },
+  {
+    label: 'Exchange',
+    items: [
+      { label: 'Exchange Home', href: '/dashboard?page=marketplace' },
+      { label: 'Reviewed Listings', href: '/dashboard?page=marketplace' },
+      { label: 'Deal Rooms', href: '/marketplace/deals' },
+      { label: 'Wanted Requests', href: '/dashboard?page=marketplace' },
+      { label: 'Sell or Export', href: '/dashboard?page=marketplace' },
+      { label: 'Consumables', href: '/dashboard?page=marketplace' },
+      { label: 'Genetics', href: '/dashboard?page=genetics' },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { label: 'Intelligence Home', href: '/dashboard?page=signals' },
+      { label: 'Country Briefs', href: '/dashboard?page=countries' },
+      { label: 'Market Briefings', href: '/markets' },
+      { label: 'Regulatory Pathways', href: '/dashboard?page=regulatory' },
+      { label: 'Licensing Pathways', href: '/dashboard?page=access-pathway' },
+      { label: 'Counterparty Intelligence', href: '/dashboard?page=evidence' },
+      { label: 'Signals', href: '/dashboard?page=signals' },
+      { label: 'Watchlists', href: '/dashboard?page=watchlist' },
+      { label: 'Source Methodology', href: '/source-methodology' },
+      { label: 'Policy & Standards', href: '/policy-standards' },
     ],
   },
 ]
 
 const navLinks: NavItem[] = [
-  // Marketplace consolidation into Command Centre: Browse, Submit, Quote,
-  // Deal Rooms and My Listings are all sub-views of the marketplace panel
-  // now — one direct link in, not a dropdown of standalone routes.
-  { label: 'Marketplace', href: '/dashboard?page=marketplace' },
-  { label: 'Education', href: '/education' },
+  { label: 'Education', href: '/dashboard?page=education' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ]
@@ -76,10 +66,9 @@ const navLinks: NavItem[] = [
 const mobileNavLinks: NavItem[] = [
   { label: 'Marketplace', href: '/dashboard?page=marketplace' },
   { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Country Intelligence', href: '/intelligence/country-briefs' },
+  { label: 'Intelligence', href: '/dashboard?page=signals' },
   { label: 'Markets', href: '/markets' },
-  { label: 'Signals', href: '/signals' },
-  { label: 'Education', href: '/education' },
+  { label: 'Education', href: '/dashboard?page=education' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ]
@@ -111,7 +100,7 @@ export default function Nav() {
             aria-label="Primary navigation"
           >
             {navGroups.map((group) => {
-              const menuId = `desktop-nav-${group.label.toLowerCase().replace(/\s+/g, '-')}`
+              const menuId = `desktop-nav-${group.label.toLowerCase()}`
               const isOpen = openDesktopGroup === group.label
 
               return (
