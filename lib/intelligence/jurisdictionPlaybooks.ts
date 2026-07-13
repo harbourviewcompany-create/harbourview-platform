@@ -4,13 +4,17 @@ import { createClient as createSupabaseServerClient } from '@/lib/supabase/serve
 export type PlaybookStep = {
   step: number
   title: string
-  body: string
-  weeks: number
+  required: boolean
+  description: string
+  estimated_weeks: number
 }
 
 export type PlaybookRegulator = {
   name: string
   role: string
+  tier?: 'top' | 'mid'
+  country?: string
+  website?: string | null
 }
 
 export type JurisdictionPlaybook = {
