@@ -50,7 +50,7 @@ jobs:
       - name: Push migrations
         run: |
           set +e
-          supabase db push --db-url "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres" > /tmp/push_output.log 2>&1
+          supabase db push --include-all --db-url "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres" > /tmp/push_output.log 2>&1
           PUSH_EXIT_CODE=$?
           cat /tmp/push_output.log
           if [ $PUSH_EXIT_CODE -ne 0 ]; then
