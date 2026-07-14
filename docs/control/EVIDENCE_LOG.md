@@ -542,6 +542,40 @@ objects/route (no existing table, view, function, or consumer touched).
 
 ---
 
+## 2026-07-13/14 (part 3) — regulatory_signals.signals empty: distinct root cause, no LLM involved, orphaned schema drift found and reverted
+
+**Trigger:** User asked to continue building; when asked to pick a direction, chose investigating why `regulatory_signals.signals` was still empty (flagged as a separate "urgent" item in this file's original session-addenda note, which had incorrectly attributed it to `hv-score`).
+
+**Investigation, step 1 — disproved the LLM theory again:** `supabase/functions/hv-score/index.ts` writes to `hv_import_staging`/`hv_artifacts`, an entirely separate legacy pipeline — confirmed (again) unrelated. The real writer is `app/api/cron/regulatory-watch/route.ts` → `lib/regulatory-sources/runWatch.ts`, a Vercel-cron Next.js route with no LLM call anywhere in it (pure fetch/regex/keyword heuristics in `watcher.ts`).
+
+**Investigation, step 2 — Bug 1, stale view:** `api."regulatory_signals.signals"` was missing `source_url`/`source_published_at`/`private_summary`/`private_notes`, all present on the base table and always set by `createDraftSignal()`. Every insert 400'd; the watcher's for-loop had no per-source try/catch, so the entire daily run died at the first source with a relevant item — confirmed via `regulatory_signals.source_snapshots`: all 6 existing rows were for the *same* source_id (`6e8a6b7e-...`, "Peru DIGEMID medicinal cannabis"), and that source's own `last_checked_at` was still `null` despite being "checked" 6 times — proving the run crashed before `persistRun()`'s PATCH could ever complete, every single time. Confirmed safe to widen the view (RLS `admin_all` policy, admin-only, not the public-facing `public_signals` table). Verified via `BEGIN; INSERT ...; ROLLBACK;` using the exact real payload shape before and after the fix — 400 on missing column pre-fix, past that error post-fix (next failure was Bug 2, see below), no data left behind either way.
+
+**Investigation, step 3 — Bug 2, orphaned constraint drift (bigger finding):** past the view fix, the same test insert hit a CHECK constraint violation on `review_status='captured'`. Full diff against `20260312000000_regulatory_signals_v1.sql` (git-tracked, matches `lib/regulatory-signals/types.ts` exactly) revealed the live constraints had diverged far beyond that one field:
+- `review_status` CHECK narrowed from 10 values to 5, default changed `'captured'`→`'draft'`
+- `signal_type` CHECK replaced wholesale with an 18-value vocabulary (`enforcement_action`, `policy_consultation`, `quota_allocation`, `pharmaceutical_reclassification`, etc.) that does not appear **anywhere else in the repository** — no migration, no TS file, no doc
+- `confidence` CHECK: `'verified'` instead of `'official_confirmed'`
+- `regulatory_signals_publication_gate` — the constraint enforcing that a row can't be marked `published` without `public_safe`/`publish_to_public`/`public_summary`/`public_implication`/`canonical_source_url`/`published_at` all populated — was **missing entirely**. This is the actual compliance safety net on a regulated-industry intelligence table, not a cosmetic check.
+- 3 more not-empty CHECKs missing; 6 columns (`slug`, `signal_date`, `source_tier`, `source_type`, `source_url`, `private_summary`) had lost `NOT NULL`, leaving only `headline` enforced.
+
+`supabase_migrations.schema_migrations` records `20260628230550_regulatory_signals_pipeline_missing_columns` as applied 2026-06-28 with zero corresponding file in the repo — no stub, nothing. Traced as far as tooling here allows: no DDL audit log, no event trigger, no further attribution possible.
+
+**Two explicit check-ins with the user before acting**, given the compliance sensitivity and the fact each discovery expanded scope beyond what was already approved:
+1. Presented the `review_status`/`signal_type` divergence and the evidence trail; user said investigate further first rather than decide yet.
+2. Traced the orphaned-migration evidence as far as possible and re-presented; user confirmed proceeding with the narrower fix — at which point the *full* diff (publication_gate + NOT NULLs + confidence) surfaced. Presented that expanded scope separately before touching anything; user confirmed a full restore.
+
+**Fix applied:** `20260713223057_fix_stale_regulatory_signals_signals_api_view.sql` (view), `20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql` (all constraints/defaults/NOT NULLs restored to the original migration's values). Also added a per-source `try/catch` in `runRegulatoryWatch`'s loop (`lib/regulatory-sources/runWatch.ts`) so a single bad source can never again zero out the whole batch — the exact failure mode that let Bug 1 hide for weeks.
+
+**Verification:**
+- Post-fix `BEGIN; INSERT ...; ROLLBACK;` with the real writer's exact payload (including `review_status: 'captured'`, `signal_type: 'regulatory_change'`) succeeded cleanly — returned a real row, then rolled back, no persisted test data.
+- `npm run typecheck` clean; targeted `eslint lib/regulatory-sources/runWatch.ts` clean; `npm run build` clean; `npx vitest run tests/regulatory-sources/watcher.test.ts` — 4/4 passed.
+- Since both fixes are DB-level (view + constraints), the next scheduled `regulatory-watch` cron tick (12:00 UTC) against whatever's currently deployed to production should now succeed end-to-end without requiring any app redeploy. The `runWatch.ts` try/catch improvement is code-level and will only take effect once merged/deployed — out of scope for this session per the merge/deploy sign-off boundary.
+
+**Files changed:** `supabase/migrations/20260713223057_fix_stale_regulatory_signals_signals_api_view.sql`, `supabase/migrations/20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql`, `lib/regulatory-sources/runWatch.ts`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** See `DATABASE_CONTROL.md`'s 2026-07-13/14 (part 3) entry. Not recommended — reverting re-opens both the write-path failure and the missing compliance publication gate.
+
+---
+
 ## 2026-07-15 — Intelligence Architecture Stage 1: unified source registry (extend source_registry)
 
 **Change type:** Data model + data migration on production Supabase `zvxdgdkukjrrwamdpqrg`.
