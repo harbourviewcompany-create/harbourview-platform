@@ -1099,11 +1099,11 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             ))}
           </div>
         )}
-        <a href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
+        <Link href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>
-        </a>
+        </Link>
       </div>
     )
   }
@@ -1126,12 +1126,12 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           </section>
 
           {tiles.length > 0 && (
-            <a href="/intake" className="hvm-cta-card">
+            <Link href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(tiles[0].title)}`} className="hvm-cta-card">
               <span className="hvm-kicker">Next best action</span>
               <strong>{tiles[0].title} · {country.label}</strong>
               <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.62)', fontSize: 14, lineHeight: 1.45 }}>{tiles[0].desc}</p>
               <span className="hvm-cta-arrow">Start module →</span>
-            </a>
+            </Link>
           )}
 
           <div className="hvm-education-list">
