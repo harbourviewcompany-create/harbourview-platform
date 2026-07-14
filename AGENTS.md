@@ -20,6 +20,7 @@ Tyler's personal operating preferences for Claude sessions (action-on-reversibil
 - Do not commit generated secrets, credentials, tokens, private keys, or environment dumps.
 
 See also:
+- `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` — read before any intelligence/scraping/signals pipeline work
 - `docs/control/BUILD_CONTROL.md`
 - `docs/control/DESIGN_SYSTEM.md`
 - `docs/control/PR_REVIEW_CHECKLIST.md`
