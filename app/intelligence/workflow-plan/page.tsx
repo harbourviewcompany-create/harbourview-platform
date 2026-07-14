@@ -2,12 +2,20 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { deriveCorridorPlan } from '@/lib/intelligence/workflowEngine'
 import { DIFFICULTY_COLOR, DIFFICULTY_LABEL } from '@/lib/intelligence/jurisdictionPlaybooks'
+import { getFormatViability, listProductFormats } from '@/lib/intelligence/regulatoryPathways'
 
 const COUNTRY_FLAGS: Record<string, string> = {
   DE: '🇩🇪', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', NL: '🇳🇱',
   PT: '🇵🇹', TH: '🇹🇭', IL: '🇮🇱', CO: '🇨🇴', ZA: '🇿🇦',
   MT: '🇲🇹', LU: '🇱🇺', CZ: '🇨🇿', NZ: '🇳🇿', MX: '🇲🇽',
   BR: '🇧🇷', CH: '🇨🇭', FR: '🇫🇷', ES: '🇪🇸', PL: '🇵🇱',
+}
+
+const FORMAT_STATUS_COLOR: Record<string, string> = {
+  permitted: '#5fb87a',
+  restricted: '#d4a84b',
+  prohibited: '#e05555',
+  unclear: 'rgba(245,240,232,.4)',
 }
 
 export const metadata: Metadata = {
@@ -21,19 +29,21 @@ export const dynamic = 'force-dynamic'
 export default async function WorkflowPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ origin?: string; destination?: string }>
+  searchParams: Promise<{ origin?: string; destination?: string; format?: string }>
 }) {
-  const { origin = 'CA', destination = 'DE' } = await searchParams
-  const plan = await deriveCorridorPlan(origin, destination)
+  const { origin = 'CA', destination = 'DE', format = 'dried_flower' } = await searchParams
+  const [plan, viability, formats] = await Promise.all([
+    deriveCorridorPlan(origin, destination),
+    getFormatViability(destination, format),
+    listProductFormats(),
+  ])
 
   return (
     <main style={{ minHeight: '100vh', background: '#050c18', color: '#f5f0e8', fontFamily: 'inherit' }}>
       <style>{CSS}</style>
       <div className="wp-wrap">
         <nav className="wp-nav">
-          <Link href="/intelligence" className="wp-nav-link">Intelligence</Link>
-          <span className="wp-nav-sep">›</span>
-          <Link href="/intelligence/playbooks" className="wp-nav-link">Playbooks</Link>
+          <Link href="/dashboard?page=signals" className="wp-nav-link">Command Centre</Link>
           <span className="wp-nav-sep">›</span>
           <span className="wp-nav-current">Workflow Plan</span>
         </nav>
@@ -100,6 +110,71 @@ export default async function WorkflowPlanPage({
                 ))}
               </div>
             )}
+
+            <section className="wp-section">
+              <div className="wp-viability-hd">
+                <p className="wp-label" style={{ marginBottom: 0 }}>
+                  Format Viability — {viability.entitled ? viability.formatName : format.replace(/_/g, ' ')} in {plan.destination.name}
+                </p>
+                <div className="wp-format-switch">
+                  {formats.slice(0, 8).map((f) => (
+                    <Link
+                      key={f.slug}
+                      href={`/intelligence/workflow-plan?origin=${origin}&destination=${destination}&format=${f.slug}`}
+                      className={`wp-format-chip${f.slug === format ? ' wp-format-chip--active' : ''}`}
+                    >
+                      {f.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              {!viability.entitled ? (
+                <div className="wp-locked">
+                  <p className="wp-locked-lbl">🔒 Intel plan required</p>
+                  <p className="wp-locked-body">
+                    Per-format legal viability — which pathway permits this format, THC/CBD limits,
+                    possession limits — is part of the Intel tier. The process steps above are free;
+                    this is the part that answers whether the format is legally viable here at all
+                    before the steps matter.
+                  </p>
+                </div>
+              ) : viability.entries.length === 0 ? (
+                <p className="wp-viability-empty">
+                  No pathway in {plan.destination.name} currently has a format rule on file for{' '}
+                  {viability.formatName.toLowerCase()}. That means no data yet, not that it&rsquo;s
+                  prohibited — check the pathway list in the destination&rsquo;s own regulatory profile.
+                </p>
+              ) : (
+                <div className="wp-viability-list">
+                  {viability.entries.map((entry) => (
+                    <div key={entry.pathwayId} className="wp-viability-card">
+                      <div className="wp-viability-top">
+                        <span
+                          className="wp-viability-status"
+                          style={{ color: FORMAT_STATUS_COLOR[entry.formatStatus] ?? '#f5f0e8' }}
+                        >
+                          ● {entry.formatStatus}
+                        </span>
+                        <span className="wp-viability-pathway">{entry.pathwayName}</span>
+                      </div>
+                      {(entry.thcLimit || entry.cbdLimit) && (
+                        <div className="wp-viability-limits">
+                          {entry.thcLimit && <span>THC: {entry.thcLimit}</span>}
+                          {entry.cbdLimit && <span>CBD: {entry.cbdLimit}</span>}
+                        </div>
+                      )}
+                      {entry.notes && <p className="wp-viability-notes">{entry.notes}</p>}
+                      <p className="wp-viability-verified">
+                        {entry.lastVerifiedAt
+                          ? `Last verified ${new Date(entry.lastVerifiedAt).toLocaleDateString()}`
+                          : 'Not yet verified — directional, not confirmed'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section className="wp-section">
               <p className="wp-label">Merged Step Sequence — {plan.steps.length} steps</p>
@@ -246,6 +321,22 @@ const CSS = `
 .wp-notes-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5b9bd5;margin:0 0 8px}
 .wp-notes-body{font-size:13px;line-height:1.7;color:rgba(245,240,232,.7);margin:0}
 .wp-section{margin-bottom:36px}
+.wp-viability-hd{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.wp-format-switch{display:flex;flex-wrap:wrap;gap:6px}
+.wp-format-chip{font-size:11px;padding:4px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.1);color:rgba(245,240,232,.5);text-decoration:none;white-space:nowrap}
+.wp-format-chip--active{border-color:rgba(212,168,75,.4);color:#d4a84b;background:rgba(212,168,75,.06)}
+.wp-locked{padding:20px;border-radius:12px;background:rgba(212,168,75,.05);border:1px dashed rgba(212,168,75,.3)}
+.wp-locked-lbl{font-size:13px;font-weight:600;color:#d4a84b;margin:0 0 8px}
+.wp-locked-body{font-size:13px;line-height:1.7;color:rgba(245,240,232,.55);margin:0}
+.wp-viability-empty{font-size:13px;line-height:1.7;color:rgba(245,240,232,.45);font-style:italic}
+.wp-viability-list{display:flex;flex-direction:column;gap:12px}
+.wp-viability-card{padding:16px 18px;border-radius:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.015)}
+.wp-viability-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:6px}
+.wp-viability-status{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.wp-viability-pathway{font-size:13px;color:rgba(245,240,232,.7)}
+.wp-viability-limits{display:flex;gap:14px;font-size:11px;font-family:'JetBrains Mono',ui-monospace,monospace;color:rgba(245,240,232,.5);margin-bottom:6px}
+.wp-viability-notes{font-size:12px;line-height:1.6;color:rgba(245,240,232,.5);margin:0 0 8px}
+.wp-viability-verified{font-size:10px;color:rgba(245,240,232,.3);margin:0}
 .wp-label{font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:rgba(212,168,75,.55);margin:0 0 16px}
 .wp-steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:14px}
 .wp-step{display:flex;gap:16px}
