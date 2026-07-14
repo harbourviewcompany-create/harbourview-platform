@@ -21,13 +21,19 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const JSON_HEADERS = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 
+const BACKEND_MODEL: Record<string, string> = {
+  anthropic: "claude-haiku-4-5",
+  gemini: "gemini-3.5-flash",
+  openai: "gpt-4o-mini",
+};
+
 type Snapshot = {
   id: string; source_id: string; captured_url: string;
   captured_title: string | null; captured_text: string | null;
   signal_candidates: Record<string, unknown> | null;
   raw_html_hash: string | null; language_detected: string | null;
   source_type?: string | null; source_country?: string | null; source_region?: string | null;
-  captured_at?: string | null;
+  captured_at?: string | null; published_at?: string | null;
 };
 
 type ExtractionResult = {
@@ -44,17 +50,17 @@ type EditorialResult = {
   country: string | null; language: string | null;
 };
 
-const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object \u2014 no prose, no markdown, no explanation, no code fences.
+const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object -- no prose, no markdown, no explanation, no code fences.
 
 Return exactly this structure:
-{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons \u2014 max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found \u2014 max 10"]}
+{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
 
 If the content contains no cannabis-relevant signal, return: {"signal_type":"none","relevance_score":0,"confidence":"high","summary":"","key_entities":[],"keywords_matched":[],"jurisdiction":null,"country_iso":null,"effective_date":null}`;
 
-const EDITORIAL_SYSTEM = `You are an editor curating a global cannabis news digest for a general audience, sourced from mainstream (non-cannabis-industry) news outlets. Read the article and return ONLY a valid JSON object \u2014 no prose, no markdown, no code fences.
+const EDITORIAL_SYSTEM = `You are an editor curating a global cannabis news digest for a general audience, sourced from mainstream (non-cannabis-industry) news outlets. Read the article and return ONLY a valid JSON object -- no prose, no markdown, no code fences.
 
 Return exactly this structure:
-{"is_cannabis_relevant":true|false,"headline":"a sharp original headline, max 110 chars, in your own words \u2014 never copy the source's headline verbatim","summary":"1-2 sentence plain-language summary IN YOUR OWN WORDS, no direct quotes","why_it_matters":"one editorial sentence on why a globally-minded reader would care","tone":"news|opinion|feature|investigative|other","country":"country the story is primarily about, or null","language":"ISO 639-1 code of the original article, or null"}
+{"is_cannabis_relevant":true|false,"headline":"a sharp original headline, max 110 chars, in your own words -- never copy the source's headline verbatim","summary":"1-2 sentence plain-language summary IN YOUR OWN WORDS, no direct quotes","why_it_matters":"one editorial sentence on why a globally-minded reader would care","tone":"news|opinion|feature|investigative|other","country":"country the story is primarily about, or null","language":"ISO 639-1 code of the original article, or null"}
 
 Set is_cannabis_relevant to false or reject if: the piece is a press release, sponsored content, or reads like industry trade coverage (e.g. product launches, company financials, B2B marketplace activity) rather than general-audience news, editorial, or cultural coverage. If not cannabis-relevant, return: {"is_cannabis_relevant":false,"headline":"","summary":"","why_it_matters":"","tone":"other","country":null,"language":null}`;
 
@@ -268,7 +274,7 @@ Deno.serve(async (req: Request) => {
 
   let query = supabase
     .from("source_snapshots")
-    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,captured_at")
+    .select("id,source_id,captured_url,captured_title,captured_text,signal_candidates,raw_html_hash,language_detected,captured_at,published_at")
     .eq("fetch_status", "success")
     .not("captured_text", "is", null)
     .order("created_at", { ascending: true })
@@ -317,7 +323,7 @@ Deno.serve(async (req: Request) => {
             await supabase.from("editorial_items").insert({
               source_id: snapshot.source_id,
               snapshot_id: snapshot.id,
-              headline: (snapshot.captured_title ?? "Untitled \u2014 needs manual review").slice(0, 300),
+              headline: (snapshot.captured_title ?? "Untitled -- needs manual review").slice(0, 300),
               summary: (snapshot.captured_text ?? "").slice(0, 500),
               why_it_matters: null,
               outlet_name: (snapshot as any)._source_name ?? null,
@@ -327,7 +333,7 @@ Deno.serve(async (req: Request) => {
               language: snapshot.language_detected ?? "en",
               tone: "other",
               stage: "needs_review",
-              published_at: snapshot.captured_at ?? new Date().toISOString(),
+              published_at: snapshot.published_at ?? new Date().toISOString(),
             });
             await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
           }
@@ -359,7 +365,7 @@ Deno.serve(async (req: Request) => {
             language: editorial.language ?? snapshot.language_detected ?? "en",
             tone: editorial.tone,
             stage: "qualified",
-            published_at: snapshot.captured_at ?? new Date().toISOString(),
+            published_at: snapshot.published_at ?? new Date().toISOString(),
           });
           if (editErr) throw new Error(`editorial_insert_failed: ${editErr.message}`);
           await supabase.from("source_snapshots").update({ fetch_status: "extracted" }).eq("id", snapshot.id);
@@ -382,7 +388,7 @@ Deno.serve(async (req: Request) => {
             source_record_id: snapshot.id,
             source_url: snapshot.captured_url,
             import_batch_id: batchId,
-            importer_version: "hv-extract@1.5.0+needs_review",
+            importer_version: "hv-extract@1.6.1+needs_review",
             transform_version: "none",
             raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
             raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
@@ -390,7 +396,7 @@ Deno.serve(async (req: Request) => {
             normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
             proposed_object_class: "source_document",
             proposed_classification: "public",
-            proposed_title: (snapshot.captured_title ?? "Untitled \u2014 needs manual review").slice(0, 500),
+            proposed_title: (snapshot.captured_title ?? "Untitled -- needs manual review").slice(0, 500),
             content_hash: await sha256(snapshot.captured_url),
             is_duplicate_candidate: false,
             status: "pending",
@@ -428,8 +434,8 @@ Deno.serve(async (req: Request) => {
           source_record_id: snapshot.id,
           source_url: snapshot.captured_url,
           import_batch_id: batchId,
-          importer_version: `hv-extract@1.5.0+${outcome.backend}`,
-          transform_version: llmBackend,
+          importer_version: `hv-extract@1.6.1+${outcome.backend}`,
+          transform_version: BACKEND_MODEL[outcome.backend] ?? outcome.backend,
           raw_payload: rawPayload,
           raw_payload_hash: rawPayloadHash,
           normalized_payload: { signal_type: extraction.signal_type, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, key_entities: extraction.key_entities, effective_date: extraction.effective_date, summary: extraction.summary, relevance_score: extraction.relevance_score, confidence: extraction.confidence, keywords_matched: extraction.keywords_matched, source_type: snapshot.source_type ?? null, source_country: snapshot.source_country ?? null, source_region: snapshot.source_region ?? null, language: snapshot.language_detected ?? "en" },
@@ -460,5 +466,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.5.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.6.1", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
