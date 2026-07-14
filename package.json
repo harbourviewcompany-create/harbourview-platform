@@ -49,7 +49,7 @@
     "@react-three/fiber": "^9.0.0",
     "@react-three/postprocessing": "^3.0.4",
     "@sentry/nextjs": "^10.65.0",
-    "@supabase/ssr": "^0.12.0",
+    "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.2",
     "@tanstack/react-query": "^5.101.2",
     "@upstash/ratelimit": "^2.0.8",
