@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 13 2026 · Claude (Sonnet 5)
+> Last updated: Jul 14 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -188,6 +188,18 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 14 2026 — regulatory_pathways wired to intel tier + /intelligence retirement discovered · Claude (Sonnet 5)
+
+**Built what the commercial-usefulness discussion concluded on:** `regulatory_pathways`/`pathway_format_rules` exposed via `api` schema for the first time (PR #1049, merged), gated on `tier IN ('intel','operator')` via the existing `current_user_tier()` helper — replacing their previous fully-public RLS. `product_formats` stays public (reference taxonomy). Confirmed before building: zero rows in `subscriptions`, zero `intel`-tier users — this was a clean design decision, not a live-system change with anyone to grandfather in.
+
+Extended the corridor Workflow Plan (#1037) with a format-viability check — for the destination + a selected format, does an active pathway permit it, at what THC/CBD/possession limits — shown as the headline above the process steps, not a footnote. Free/ineligible callers get a locked upsell card, not a silent omission; entitled callers see each entry's `last_verified_at` so unverified rows read as directional, not authoritative.
+
+**Found while pulling latest main to build this: `/intelligence/*` was retired.** An earlier, unrelated commit (`d88b8643`, authored Jun 30 by a Sonnet 4.6 session, merged into main sometime after this session's #1037 on Jul 13) redirects the entire standalone intelligence section — including the workflow-plan page this session built last time — to Command Centre (`/dashboard?page=X`) routes. The page still renders at its direct URL but is unreachable via any normal navigation now. Fixed this page's own breadcrumbs to stop linking to the dead routes. Did **not** attempt integrating into `CommandCentre.tsx` itself (10k+ lines; has existing `case 'access-pathway'` / `'regulatory'` / `'licences'` / `'trade-calc'` handlers that are probably the right place for this, but deserve to be understood before guessing). This is a real follow-up, not something to silently absorb into a backend-focused PR.
+
+**Not done:** CommandCentre integration (above), and did not build a self-serve Stripe checkout flow for the `intel` tier — `sync_subscription_tier()` already exists and will pick up real subscriptions the moment they exist, but nothing currently creates one.
 
 ---
 
