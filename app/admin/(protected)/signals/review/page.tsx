@@ -37,7 +37,8 @@ export default async function RegulatorySignalReviewPage() {
         <h2 className="text-2xl font-semibold">Regulatory signal review queue</h2>
         <p className="mt-2 text-sm text-[#F5F1E8]/65">Draft watcher signals remain private until reviewed, marked public-safe, approved, and published.</p>
       </div>
-      <div className="flex gap-3 text-sm"><a className="text-[#C6A55A] underline" href="/admin/signals">Summary</a><a className="text-[#C6A55A] underline" href="/admin/signals/sources">Sources</a></div>
+      <div className="flex gap-3 text-sm"><a className="text-[#C6A55A] underline" href="/admin/signals">Summary</a><a className="text-[#C6A55A] underline" href="/admin/signals/sources">Sources</a><a className="text-[#C6A55A] underline" href="/admin/signals/queue">Engine queue (automated pipeline)</a></div>
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-[#F5F1E8]/55">This queue reviews manually-curated regulatory signals. The automated crawler pipeline (source_registry → signals, cat=SOURCE_ENGINE) has its own separate review queue — see &quot;Engine queue&quot; above.</div>
       {queue.length === 0 ? <div className="rounded-2xl border border-[#C6A55A]/10 bg-[#0B1A2F] p-10 text-center"><p className="text-sm text-[#F5F1E8]/55">No regulatory signals pending review.</p></div> : (
         <div className="space-y-5">
           {queue.map((signal) => (
