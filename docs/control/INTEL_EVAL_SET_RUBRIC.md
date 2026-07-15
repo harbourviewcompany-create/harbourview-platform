@@ -73,3 +73,30 @@ Non-signal rows are automatically **noise** — no separate judgment needed.
 Because the sample deliberately oversamples minority languages and rare score
 bands, pool-level precision/recall must be **reweighted by true stratum population**
 before it is read as a headline number.
+
+## Independent cross-check (added because human review is deferred)
+
+The owner is not hand-labeling. A set labeled only by one LLM cannot fully
+validate an LLM classifier — systematic mistakes become invisible when the
+classifier repeats them. To grade the set rather than assert it, a second,
+**non-LLM** annotator was added (`struct_is_junk`, migration
+`add_intel_eval_structural_crosscheck`): a pure surface-feature heuristic that
+flags nav/boilerplate/spam chrome. Its errors are uncorrelated with the semantic
+labels by construction.
+
+- **Agreement (≈87% of non-duplicate rows):** both a semantic read and an
+  independent structural signal concur → high-confidence labels.
+- **Disagreement (`needs_human = true`, ~27 rows):** the priority human queue.
+  In this batch, all but one are cases where structure reads clean but meaning is
+  off-topic or commercial (obituaries, dispensary listings) — exactly where a
+  surface heuristic is blind and human/semantic judgment is required. One
+  (`Denmark … Skip to content`) is a genuine mixed nav+content page.
+
+**Provisional-gate rule:** until a human adjudicates the `needs_human` rows, the
+Stage 2 precision/recall bar is computed on the **agreement** rows as the
+high-confidence core, and the disagreement rows are reported separately rather
+than silently averaged in. A ~20-minute human pass over the `needs_human` queue
+would convert the whole set to human-anchored ground truth at high leverage.
+
+The fastest path to that: `/admin/intel-eval` filtered to `needs_human` (these
+rows carry the flag; the page shows the draft + reason for one-tap confirm/correct).
