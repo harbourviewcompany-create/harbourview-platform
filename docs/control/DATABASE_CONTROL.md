@@ -213,3 +213,18 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - Rollback: re-run the pre-fix `CREATE OR REPLACE VIEW` (narrower column list) and re-loosen the constraints/NOT NULLs/default as found live — not recommended; this would re-introduce both the write-path failure and the missing compliance gate. Revert `runWatch.ts`'s try/catch via git if needed (pure code, no data impact).
 - Required tests: `npm run typecheck`, targeted `eslint` on changed files, `npm run build`, `npx vitest run tests/regulatory-sources/watcher.test.ts` all clean (see Evidence Log). DB correctness verified via rollback-only test inserts (`BEGIN; INSERT ...; ROLLBACK;`) matching the real writer's exact payload shape, not synthetic/fabricated persisted data.
 - Human approval status: two explicit check-ins — user first asked to investigate further before deciding on the narrower (review_status/signal_type) fix; after full drift trail was presented, confirmed proceeding; after the larger publication_gate/NOT NULL scope was discovered and separately surfaced, confirmed full restore.
+
+## 2026-07-15 — api.signals stale view: third occurrence of the same bug class, found while verifying a same-day feature
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Trigger: user asked a broad "what's missing to make Harbourview commercially valuable / nothing should be orphaned" audit question; chose to prioritize verifying the SOURCE_ENGINE review queue (`eb293d0`, merged and deployed to `main` production the same day)
+- Bug: `api.signals` (security_invoker view over `public.signals`) was never refreshed after the same commit's own migration added `reviewed_by`/`reviewed_at` to the base table. Every call the new admin review queue makes (`lib/signals-engine/admin.ts`) goes through this view via a bare `/rest/v1/signals` REST call — so the entire just-shipped feature was non-functional in production from the moment it deployed. Identical bug class to the two `regulatory_signals.signals` entries above, now the third occurrence this week.
+- Tables/columns affected: `api.signals` (view definition only — added `reviewed_by`, `reviewed_at` to its SELECT list, preserved `security_invoker=on`). No change to `public.signals` (base table already correct).
+- RLS: unaffected — no policy change; this is an admin-only surface gated by `requireAdminAuth()` at the route level
+- Public API routes affected: none (admin-only)
+- Migration file: `20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql`
+- Backward compatibility: additive only — widening a view's column list, no data touched
+- Rollback: re-run `create or replace view api.signals` with the pre-fix column list. Not recommended — this is the fix that makes the already-deployed review queue actually work.
+- Required tests: read-path and write-path verified live via the exact query/PATCH shape the app code builds (see Evidence Log); no TypeScript files touched, so no lint/typecheck/build re-run needed for this migration-only change.
+- Human approval status: read-only verification and this fix proceeded under the user's existing broad go-ahead for this audit ("nothing should be orphaned... everything needs to be working"); flagged plainly rather than silently fixed, since it directly bears on a feature merged by a different, concurrent session.
+- Also flagged, not fixed: sampled queue content shows the extraction/scoring pipeline confidently mis-scoring scraped nav-menu boilerplate as score-99/URGENT signals — a content-quality gap separate from this wiring bug, worth a dedicated look before this queue is relied on for anything customer-facing.

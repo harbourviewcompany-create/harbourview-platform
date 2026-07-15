@@ -610,3 +610,24 @@ then `alter table source_registry drop column content_type;`. Blast radius: none
 existing row's crawlable state changed, no reads rewired.
 
 **Not done:** no reads rewired; routing by content_type is Stage 7.
+
+---
+
+## 2026-07-15 — SOURCE_ENGINE review queue (merged to main same-day, `eb293d0`) was completely non-functional: same stale-view bug class, third occurrence
+
+**Trigger:** User asked a broader platform-audit question ("nothing should be orphaned... what's missing to make Harbourview commercially valuable"). While assembling a verified answer (Vercel deployment history, live table activity stats via `pg_stat_user_tables`), found that `main` had just gained a real, substantial commit: `eb293d0 feat(admin): build the SOURCE_ENGINE signal review queue`, addressing exactly the kind of gap the user was asking about — 7,136+ automated `public.signals` rows (`cat='SOURCE_ENGINE'`) had no review mechanism at all. Verifying this newly-landed, already-deployed-to-production feature became the priority the user picked.
+
+**Finding:** The new feature (`lib/signals-engine/admin.ts`, `app/admin/(protected)/signals/queue/page.tsx`) is well-built, but every one of its Supabase calls — `listEngineReviewQueue`, `countEngineReviewQueue`, `listDistinctEngineCountries` (SELECT `reviewed_by,reviewed_at`), `approveEngineSignal`, `rejectEngineSignal`, `bulkApproveEngineQueue` (PATCH `reviewed_by,reviewed_at`) — goes through a bare `/rest/v1/signals` call with no schema override, which this project routes to `api.signals` (a `security_invoker` passthrough view). That view was never refreshed after the same commit's own migration (`20260713090000_signals_reviewer_tracking_stub.sql`) added `reviewed_by`/`reviewed_at` to the base `public.signals` table. Confirmed live: `select id, reviewed_by, reviewed_at from api.signals` → `42703: column "reviewed_by" does not exist`. This is the third occurrence this week of the identical bug class (stale PostgREST view lagging a column addition on the base table) — see the two `regulatory_signals.signals` entries above. The feature's own commit message claims verification ("PostgREST filter logic tested against live data before commit... equivalent SQL WHERE clause returns exactly 1,085") — but that check ran the filter as a raw SQL WHERE clause directly against the base table, never through the actual `api.signals` view the deployed code calls through, which is why it shipped broken to production anyway.
+
+**Fix applied:** `create or replace view api.signals` adding `reviewed_by`/`reviewed_at` to its column list, preserving `security_invoker=on`. Applied via `apply_migration`: `20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql`.
+
+**Verification (live production):**
+- Read path: `select ... reviewed_by, reviewed_at from api.signals where cat='SOURCE_ENGINE' and reviewed is not true and (action is null or action <> 'rejected') and score >= 0 order by score desc, date desc` — the exact shape `listEngineReviewQueue()` builds — now returns rows cleanly.
+- Write path: `BEGIN; UPDATE api.signals SET reviewed=true, action='approved', reviewed_by=..., reviewed_at=now() WHERE id=...; ROLLBACK;` — matching `approveEngineSignal()` exactly — succeeds, no data left behind.
+- Current real queue size: **7,702** unreviewed `SOURCE_ENGINE` signals (grown from the 7,136 cited in this morning's commit — the crawler pipeline keeps running).
+
+**Also surfaced, not yet acted on:** sampled the queue's actual content while verifying — several of the highest-scored rows (score 99, priority `URGENT`) are scraped website navigation/menu boilerplate (e.g. a wall of "(Opens in new window)" nav-menu links from a state regulator site, a "Recent Searches / Popular Searches" sidebar dump), not real regulatory signals. The extraction/scoring pipeline is confidently mis-scoring non-content as top-priority. This is a content-quality problem independent of the review-queue wiring bug just fixed — worth a separate look at the extraction/scoring heuristics before this queue is used to greenlight anything customer-facing.
+
+**Files changed:** `supabase/migrations/20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** Re-run `create or replace view api.signals` with the pre-fix column list (drop `reviewed_by`, `reviewed_at`). Not recommended — this is the only fix needed to make the just-shipped review queue actually work.
