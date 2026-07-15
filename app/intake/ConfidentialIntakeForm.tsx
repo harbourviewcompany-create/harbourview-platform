@@ -47,8 +47,12 @@ function defaultMessage(context: IntakeContext) {
 
 export default function ConfidentialIntakeForm({
   initialContext = null,
+  initialEmail = null,
+  onClose,
 }: {
   initialContext?: IntakeContext
+  initialEmail?: string | null
+  onClose?: () => void
 }) {
   const [state, setState] = useState<FormState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
@@ -116,6 +120,11 @@ export default function ConfidentialIntakeForm({
           intake requests and respond directly. All submissions are handled in
           confidence.
         </p>
+        {onClose && (
+          <button type="button" onClick={onClose} className="btn-marketplace mt-6 px-6 py-2 text-sm">
+            Close
+          </button>
+        )}
       </div>
     )
   }
@@ -153,6 +162,7 @@ export default function ConfidentialIntakeForm({
             name="email"
             type="email"
             autoComplete="email"
+            defaultValue={initialEmail ?? ''}
             className={fieldClass}
           />
           {errors.email && <p className={errorClass}>{errors.email}</p>}

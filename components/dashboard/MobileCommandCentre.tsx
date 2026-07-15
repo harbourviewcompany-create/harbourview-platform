@@ -17,6 +17,7 @@ import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMa
 import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
 import { DealRoomsPanel } from '@/components/dashboard/pages/DealRoomsPanel'
 import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
+import ConfidentialIntakeForm from '@/app/intake/ConfidentialIntakeForm'
 
 
 type PublicServiceProvider = {
@@ -1099,11 +1100,11 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             ))}
           </div>
         )}
-        <Link href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
+        <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: selectedModule.title })} className="hvm-cta-card hvm-cta-card--btn">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>
-        </Link>
+        </button>
       </div>
     )
   }
@@ -1126,12 +1127,12 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           </section>
 
           {tiles.length > 0 && (
-            <Link href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(tiles[0].title)}`} className="hvm-cta-card">
+            <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: tiles[0].title })} className="hvm-cta-card hvm-cta-card--btn">
               <span className="hvm-kicker">Next best action</span>
               <strong>{tiles[0].title} · {country.label}</strong>
               <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.62)', fontSize: 14, lineHeight: 1.45 }}>{tiles[0].desc}</p>
-              <span className="hvm-cta-arrow">Start module →</span>
-            </Link>
+              <span className="hvm-cta-arrow">Request access →</span>
+            </button>
           )}
 
           <div className="hvm-education-list">
@@ -3241,6 +3242,7 @@ export default function MobileCommandCentre({
     return valid ? (initialPage as CommandPage) : 'briefing'
   })
   const [contextOpen, setContextOpen] = useState(false)
+  const [intakeSheet, setIntakeSheet] = useState<{ country: string; role: string; module: string } | null>(null)
   const [briefingSub, setBriefingSub] = useState<BriefingSub>(redirected?.briefingSub ?? 'overview')
   const [signalsSub, setSignalsSub] = useState<SignalSub>(redirected?.signalsSub ?? 'feed')
   const educationInitialSub = redirected?.educationSub ?? 'modules'
@@ -3422,6 +3424,23 @@ export default function MobileCommandCentre({
           </button>
         ))}
       </nav>
+
+      {intakeSheet && (
+        <div className="hvm-context-sheet" role="dialog" aria-modal="true" aria-label="Confidential intake">
+          <button className="hvm-sheet-backdrop" type="button" aria-label="Close intake sheet" onClick={() => setIntakeSheet(null)} />
+          <div className="hvm-sheet-panel hvm-intake-sheet-panel">
+            <div className="hvm-sheet-head">
+              <strong>Request briefing</strong>
+              <button type="button" onClick={() => setIntakeSheet(null)}>×</button>
+            </div>
+            <ConfidentialIntakeForm
+              initialContext={intakeSheet}
+              initialEmail={userEmail}
+              onClose={() => setIntakeSheet(null)}
+            />
+          </div>
+        </div>
+      )}
 
       {contextOpen && (
         <div className="hvm-context-sheet" role="dialog" aria-modal="true" aria-label="Change dashboard context">
@@ -3923,6 +3942,8 @@ const MOBILE_CSS = `
 }
 .hvm-cta-card strong { font-size: 16px; color: rgba(245,240,232,.94); }
 .hvm-cta-arrow { font-size: 13px; color: rgba(96,165,250,.9); font-weight: 600; }
+.hvm-cta-card--btn { width: 100%; text-align: left; cursor: pointer; font: inherit; appearance: none; -webkit-appearance: none; }
+.hvm-intake-sheet-panel { max-height: 88vh; overflow-y: auto; }
 .hvm-signin-btn {
   display: block; width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(96,165,250,.4); background: rgba(96,165,250,.1);
