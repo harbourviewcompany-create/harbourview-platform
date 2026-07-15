@@ -20,14 +20,15 @@ function firstParam(value: string | string[] | undefined): string {
   return value ?? ''
 }
 
-export default function IntakePage({
+export default async function IntakePage({
   searchParams,
 }: {
-  searchParams: SearchParams
+  searchParams: Promise<SearchParams>
 }) {
-  const country = firstParam(searchParams.country)
-  const role = firstParam(searchParams.role)
-  const module_ = firstParam(searchParams.module)
+  const sp = await searchParams
+  const country = firstParam(sp.country)
+  const role = firstParam(sp.role)
+  const module_ = firstParam(sp.module)
 
   const context = module_
     ? { country, role, module: module_ }
