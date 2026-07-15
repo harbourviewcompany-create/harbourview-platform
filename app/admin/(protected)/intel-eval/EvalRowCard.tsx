@@ -65,6 +65,14 @@ export function EvalRowCard({ row }: { row: EvalRow }) {
     <div className="rounded-lg border border-white/10 bg-[#0B1A2F]/60 p-4">
       <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#F5F1E8]/45">
         <span className={`rounded-full border px-2 py-0.5 ${statusChip}`}>{row.labelStatus}</span>
+        {row.needsHuman ? (
+          <span
+            title="The independent structural cross-check disagrees with the draft label — judge this one carefully."
+            className="rounded-full border border-amber-400/50 bg-amber-400/15 px-2 py-0.5 text-amber-200"
+          >
+            needs review
+          </span>
+        ) : null}
         <span>{row.lang}</span>
         <span>· {row.country || '—'}</span>
         <span>· score {row.score}</span>

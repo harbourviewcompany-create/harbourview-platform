@@ -49,6 +49,8 @@ export type EvalRow = {
   labeledBy: string | null;
   labeledAt: string | null;
   labelStatus: LabelStatus;
+  needsHuman: boolean;
+  structIsJunk: boolean | null;
 };
 
 type Row = Record<string, unknown>;
@@ -93,6 +95,8 @@ function rowToEval(r: Row): EvalRow {
       'corrected',
       'unlabelable',
     ]) ?? 'unlabeled') as LabelStatus,
+    needsHuman: r.needs_human === true,
+    structIsJunk: typeof r.struct_is_junk === 'boolean' ? r.struct_is_junk : null,
   };
 }
 
