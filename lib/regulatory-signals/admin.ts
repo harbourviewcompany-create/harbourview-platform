@@ -43,7 +43,7 @@ export async function listRegulatorySignals() {
 }
 
 export async function listRegulatoryReviewQueue() {
-  return fetchAdminSupabaseJson<RegulatorySignalRecord[]>('/rest/v1/regulatory_signals.signals?review_status=in.(captured,triaged,needs_source_validation,in_review,approved_private,approved_public)&select=*&order=captured_at.desc&limit=100')
+  return fetchAdminSupabaseJson<RegulatorySignalRecord[]>('/rest/v1/regulatory_signals.signals?review_status=in.(draft,in_review)&select=*&order=created_at.desc&limit=100')
 }
 
 export async function getRegulatorySignal(id: string) {
@@ -101,8 +101,8 @@ export async function createRegulatorySignal(formData: FormData, userId: string)
     body: JSON.stringify({
       slug: readField(formData, 'slug'),
       headline: readField(formData, 'headline'),
-      signal_type: readField(formData, 'signal_type') || 'regulatory_change',
-      review_status: 'captured',
+      signal_type: readField(formData, 'signal_type') || 'regulatory_guidance',
+      review_status: 'draft',
       confidence: readField(formData, 'confidence') || 'medium',
       impact_level: readField(formData, 'impact_level') || 'moderate',
       country_code: readField(formData, 'country_code') || null,
@@ -150,7 +150,7 @@ export async function updateRegulatorySignalReview(formData: FormData, userId: s
       publish_to_public: readBoolean(formData, 'publish_to_public'),
       updated_by: userId,
       reviewed_by: userId,
-      approved_by: reviewStatus === 'approved_public' ? userId : null,
+      approved_by: reviewStatus === 'published' ? userId : null,
       last_reviewed_at: new Date().toISOString(),
     }),
   })
@@ -161,7 +161,7 @@ export async function updateRegulatorySignalReview(formData: FormData, userId: s
     body: JSON.stringify({
       signal_id: id,
       reviewer_id: userId,
-      action: reviewStatus === 'rejected' ? 'rejected' : reviewStatus === 'approved_public' ? 'approved_public' : 'updated',
+      action: reviewStatus === 'rejected' ? 'rejected' : reviewStatus === 'published' ? 'published' : 'updated',
       notes: reviewerNote,
     }),
   })
@@ -179,7 +179,7 @@ export async function updateRegulatorySignalReview(formData: FormData, userId: s
 
 const SIGNAL_TYPE_TO_LANE: Record<string, string> = {
   import_export_pathway:        'trade',
-  customs_trade_requirement:    'trade',
+  trade_agreement:              'trade',
 }
 
 const IMPACT_TO_PRI: Record<string, string> = {
@@ -197,10 +197,10 @@ const IMPACT_TO_COMMERCIAL: Record<string, string> = {
 }
 
 const CONFIDENCE_TO_SCORE: Record<string, number> = {
-  official_confirmed: 95,
-  high:                85,
-  medium:              65,
-  low:                 40,
+  verified: 95,
+  high:     85,
+  medium:   65,
+  low:      40,
 }
 
 function publicSignalId(regulatorySignalId: string) {
@@ -209,7 +209,7 @@ function publicSignalId(regulatorySignalId: string) {
 
 async function syncRegulatorySignalToPublicFeed(record: RegulatorySignalRecord, reviewed: boolean) {
   const r = record as unknown as Record<string, unknown>
-  const signalType = String(r.signal_type ?? 'regulatory_change')
+  const signalType = String(r.signal_type ?? 'regulatory_guidance')
   const impact     = String(r.impact_level ?? 'moderate')
   const confidence = String(r.confidence ?? 'medium')
 

@@ -29,7 +29,7 @@ export { SIGNAL_TAG_MAP } from '@/lib/regulatory-signals/signalTags'
 
 function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
   switch (c) {
-    case 'official_confirmed': return 99
+    case 'verified':           return 99
     case 'high':               return 85
     case 'medium':             return 65
     case 'low':                return 42

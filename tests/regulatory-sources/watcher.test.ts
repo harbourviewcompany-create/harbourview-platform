@@ -39,7 +39,7 @@ describe('fresh regulatory source watcher', () => {
     expect(isRelevantRegulatoryText('The regulator opened a medical cannabis import consultation.')).toBe(true)
     expect(isRelevantRegulatoryText('General procurement notice for office chairs.')).toBe(false)
     expect(classifySignalType('New import permit requirement')).toBe('import_export_pathway')
-    expect(classifySignalType('Draft hemp rule consultation opened')).toBe('consultation_pending_rule_change')
+    expect(classifySignalType('Draft hemp rule consultation opened')).toBe('policy_consultation')
   })
 
   it('checks an HTML source and returns changed relevant content', async () => {
