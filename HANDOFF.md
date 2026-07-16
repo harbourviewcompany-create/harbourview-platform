@@ -193,6 +193,22 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 
 ---
 
+### Session: Jul 14 2026 (later) — moved into Command Centre, standalone pages removed · Claude (Sonnet 5)
+
+**Direct instruction: "This needs UI in Command Centre. There should be no standalone pages."** Confirms the `/intelligence/*` retirement found earlier this session was intentional policy, not an accident from one commit — CC is the one UI going forward.
+
+Moved the regulatory_pathways work (#1049) out of `/intelligence/workflow-plan` and into `CompliancePage` (`CommandCentre.tsx`) / `ComplianceMobile` (`MobileCommandCentre.tsx`) — checked `AccessPathwayPage` first as the seemingly-obvious fit given its name and its `pathwayData` prop, but that prop turns out to be `cc_pathway_templates` (role-based onboarding checklists — a *third*, different "pathway" concept from both `jurisdiction_playbooks` and `regulatory_pathways`). `CompliancePage` was the real fit — already consumes `jurisdictionPlaybook` from the same table family.
+
+Redesigned the data shape to fit CC's convention (show everything for the selected country at once, no picker) rather than force-fitting the single-format-with-picker design built for the standalone page: `getCountryPathwayMatrix(iso2)` replaces `getFormatViability`, fetched once in `dashboard/page.tsx`'s existing `Promise.allSettled` batch, threaded as a normal prop through both the desktop and mobile component trees (6 separate signatures to update, since Mobile has a fully separate implementation — same duplication pattern noted earlier this file for the heatmap-preferences guard).
+
+Deleted `app/intelligence/workflow-plan/page.tsx` and `app/api/workflow-plan/route.ts` — confirmed via `grep` first that nothing else referenced either path. Left `lib/intelligence/workflowEngine.ts` (the two-country corridor merge from #1037) in place and unused: it's a lib file, not a page, and CC's whole model is single-country-selector — there's no natural home for a two-country corridor view yet. Flagged as a real open design question in the PR rather than picked quickly.
+
+`tsc --noEmit` + `next build` clean. Confirmed via a fresh recursive tree listing that both deleted paths were actually gone before committing, not just assumed from the local `rm`.
+
+**Still open:** where (if anywhere) the origin+destination corridor view belongs in a single-country-selector UI.
+
+---
+
 ### Session: Jul 14 2026 — regulatory_pathways wired to intel tier + /intelligence retirement discovered · Claude (Sonnet 5)
 
 **Built what the commercial-usefulness discussion concluded on:** `regulatory_pathways`/`pathway_format_rules` exposed via `api` schema for the first time (PR #1049, merged), gated on `tier IN ('intel','operator')` via the existing `current_user_tier()` helper — replacing their previous fully-public RLS. `product_formats` stays public (reference taxonomy). Confirmed before building: zero rows in `subscriptions`, zero `intel`-tier users — this was a clean design decision, not a live-system change with anyone to grandfather in.
