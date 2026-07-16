@@ -2,15 +2,15 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireAdminAuth } from '@/lib/auth/adminGuard';
+import { saveEvalLabel } from '@/lib/intelligence-automation/evalSet';
 import {
-  saveEvalLabel,
   QUALITY_LABELS,
   CONTENT_TYPES,
   IMPACTS,
   type QualityLabel,
   type ContentType,
   type Impact,
-} from '@/lib/intelligence-automation/evalSet';
+} from '@/lib/intelligence-automation/evalSetTypes';
 
 export type SaveActionState = { ok: boolean; message?: string };
 

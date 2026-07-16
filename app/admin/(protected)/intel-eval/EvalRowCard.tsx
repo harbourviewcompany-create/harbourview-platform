@@ -6,7 +6,7 @@ import {
   CONTENT_TYPES,
   IMPACTS,
   type EvalRow,
-} from '@/lib/intelligence-automation/evalSet';
+} from '@/lib/intelligence-automation/evalSetTypes';
 import { saveLabelAction } from './actions';
 
 const QUALITY_HINT: Record<string, string> = {
