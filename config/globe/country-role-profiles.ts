@@ -226,6 +226,35 @@ const decrimNoMedicalPrimaryRoleIds: RoleId[] = [
   'not_sure',
 ]
 
+// Commercial production/trade roles — excluded from secondaryRoleIds (not just
+// primaryRoleIds) for Tiers 7 and 9, since both explicitly have no legal
+// commercial framework at all (see tier notes above), unlike Tier 8 where a
+// domestic (non-export) commercial supply chain can still exist.
+const commercialTradeRoleIds: RoleId[] = [
+  'budtender',
+  'cultivator_producer',
+  'geneticist_breeder',
+  'processor_extractor',
+  'lab_qa',
+  'importer',
+  'exporter',
+  'distributor_wholesaler',
+  'clinic_healthcare_operator',
+  'retail_operator',
+  'gmp_quality',
+  'logistics_customs',
+]
+
+const prohibitedMarketSecondaryRoleIds: RoleId[] = allRoleIds.filter(
+  (roleId) => !prohibitedMarketPrimaryRoleIds.includes(roleId) && !commercialTradeRoleIds.includes(roleId),
+)
+const medicalDomesticNoExportSecondaryRoleIds: RoleId[] = allRoleIds.filter(
+  (roleId) => !medicalDomesticNoExportPrimaryRoleIds.includes(roleId),
+)
+const decrimNoMedicalSecondaryRoleIds: RoleId[] = allRoleIds.filter(
+  (roleId) => !decrimNoMedicalPrimaryRoleIds.includes(roleId) && !commercialTradeRoleIds.includes(roleId),
+)
+
 export const defaultCountryRoleProfile: CountryRoleProfile = {
   countryIso2: 'GLOBAL',
   countryName: 'Global default',
@@ -396,7 +425,7 @@ export const countryRoleProfiles: CountryRoleProfile[] = [
     countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
     marketModel: 'restricted' as const,
     primaryRoleIds: prohibitedMarketPrimaryRoleIds,
-    secondaryRoleIds: allRoleIds.filter((roleId) => !prohibitedMarketPrimaryRoleIds.includes(roleId)),
+    secondaryRoleIds: prohibitedMarketSecondaryRoleIds,
     searchableRoleIds: allRoleIds,
     notes: 'No legal domestic cultivation, import or export route exists; profile prioritizes regulatory-watch, legal and government-facing pathways over commercial trade.',
   })),
@@ -407,7 +436,7 @@ export const countryRoleProfiles: CountryRoleProfile[] = [
     countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
     marketModel: 'medical' as const,
     primaryRoleIds: medicalDomesticNoExportPrimaryRoleIds,
-    secondaryRoleIds: allRoleIds.filter((roleId) => !medicalDomesticNoExportPrimaryRoleIds.includes(roleId)),
+    secondaryRoleIds: medicalDomesticNoExportSecondaryRoleIds,
     searchableRoleIds: allRoleIds,
     notes: 'Domestic medical program without a confirmed export industry; profile prioritizes clinical, pharmacy, compliance and import pathways over cross-border trade.',
   })),
@@ -418,7 +447,7 @@ export const countryRoleProfiles: CountryRoleProfile[] = [
     countryName: countryOptionMap[countryIso2]?.name ?? countryIso2,
     marketModel: 'restricted' as const,
     primaryRoleIds: decrimNoMedicalPrimaryRoleIds,
-    secondaryRoleIds: allRoleIds.filter((roleId) => !decrimNoMedicalPrimaryRoleIds.includes(roleId)),
+    secondaryRoleIds: decrimNoMedicalSecondaryRoleIds,
     searchableRoleIds: allRoleIds,
     notes: 'Personal-use decriminalization without a licensed medical or commercial framework; profile prioritizes legal, regulatory and patient-education pathways.',
   })),
