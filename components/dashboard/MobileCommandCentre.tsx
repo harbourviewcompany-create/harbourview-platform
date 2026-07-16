@@ -319,7 +319,7 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         )}
       </section>
 
-      <div className="hvm-status-grid">
+      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
         <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
         <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
