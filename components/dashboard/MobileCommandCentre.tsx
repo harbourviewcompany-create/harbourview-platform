@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+
+const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
+  permitted: '#5fb87a',
+  restricted: '#d4a84b',
+  prohibited: '#e05555',
+  unclear: 'rgba(245,240,232,.4)',
+}
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView, CommandPage, DigestWindow } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
@@ -52,6 +59,7 @@ type Props = {
   sourceCoverage?:      SourceCoverageRow[]
   countryEducationOverlays?: CountryEducationOverlay[]
   jurisdictionPlaybook?: JurisdictionPlaybook
+  pathwayMatrix?:       import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   educationTracks?:     EducationTrack[]
   marketMetrics?:       MarketMetric[]
   tradeFlows?:          TradeFlow[]
@@ -466,11 +474,11 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
-      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
+      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} />}
       {sub === 'local-intel'    && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
       {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
@@ -2939,7 +2947,7 @@ function countryToComplianceSlug(region?: string, subregion?: string): string {
   return 'europe'
 }
 
-function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
+function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook, pathwayMatrix }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix }) {
   const fullCountry = useMemo(() => ALL_COUNTRIES.find(c => c.iso2 === country.iso2), [country.iso2])
   const regionContext = useMemo(() => {
     const slug = countryToComplianceSlug(fullCountry?.region, fullCountry?.subregion)
@@ -3035,6 +3043,43 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
             <div key={i} style={{ marginTop: i === 0 ? 6 : 8, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <span style={{ color: 'rgba(229,115,115,.7)', flexShrink: 0, fontSize: 12, marginTop: 1 }}>⚠</span>
               <div style={{ fontSize: 12, color: 'rgba(245,240,232,.65)', lineHeight: 1.5 }}>{pitfall}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pathwayMatrix && !pathwayMatrix.entitled && (
+        <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(212,168,75,.3)', borderStyle: 'dashed' }}>
+          <div className="hvm-kicker" style={{ color: '#d4a84b' }}>🔒 FORMAT VIABILITY — INTEL PLAN REQUIRED</div>
+          <p style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', lineHeight: 1.6, marginTop: 6 }}>
+            Which pathway permits which product format here, THC/CBD limits, possession limits — part of the Intel tier.
+          </p>
+        </div>
+      )}
+
+      {pathwayMatrix?.entitled && pathwayMatrix.pathways.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">FORMAT VIABILITY — {pathwayMatrix.pathways.length} PATHWAY{pathwayMatrix.pathways.length === 1 ? '' : 'S'}</div>
+          {pathwayMatrix.pathways.map((pathway, i) => (
+            <div key={pathway.id} style={{ marginTop: i === 0 ? 6 : 10, paddingTop: i === 0 ? 0 : 10, borderTop: i === 0 ? undefined : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(245,240,232,.85)' }}>{pathway.name}</div>
+              <div style={{ fontSize: 10, color: 'rgba(245,240,232,.4)', marginBottom: 6 }}>{pathway.regulator ?? pathway.pathwayType.replace(/_/g, ' ')} · {pathway.status}</div>
+              {pathway.formats.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {pathway.formats.map(f => (
+                    <span
+                      key={f.formatSlug}
+                      style={{
+                        fontSize: 10, padding: '2px 7px', borderRadius: 100, border: '1px solid',
+                        borderColor: MOBILE_FORMAT_STATUS_COLOR[f.status] ? `${MOBILE_FORMAT_STATUS_COLOR[f.status]}40` : 'rgba(255,255,255,.12)',
+                        color: MOBILE_FORMAT_STATUS_COLOR[f.status] ?? 'rgba(245,240,232,.5)',
+                      }}
+                    >
+                      {f.formatName} · {f.status}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -3204,6 +3249,7 @@ export default function MobileCommandCentre({
   sourceCoverage,
   countryEducationOverlays,
   jurisdictionPlaybook,
+  pathwayMatrix,
   educationTracks = [],
   marketMetrics = [],
   tradeFlows = [],
@@ -3336,7 +3382,7 @@ export default function MobileCommandCentre({
             pathwayData={pathwayData} localIntel={localIntel}
             countryOptions={countryOptions} roleOptions={roleOptions}
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
-            jurisdictionPlaybook={jurisdictionPlaybook}
+            jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix}
             onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => handlePageChange('settings')}
             sub={briefingSub} userEmail={userEmail}

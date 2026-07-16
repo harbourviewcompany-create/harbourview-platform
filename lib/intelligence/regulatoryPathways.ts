@@ -2,45 +2,51 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 
 /**
- * Format viability check — intel/operator tier
- * ─────────────────────────────────────────────
- * regulatory_pathways + pathway_format_rules were built (98 pathway rows
- * across ~65 countries, 238 format rules) but never exposed through the api
- * schema at all, and were previously fully public rather than tier-gated.
- * This is the first thing to consume them: for a destination country and a
- * product format, is there an active legal pathway that actually permits it.
+ * Country pathway/format matrix — intel/operator tier
+ * ────────────────────────────────────────────────────
+ * regulatory_pathways + pathway_format_rules (98 pathway rows across ~65
+ * countries, 238 format rules) were built but never exposed through the api
+ * schema, and were previously fully public rather than tier-gated. This is
+ * what surfaces them, in the shape Command Centre actually wants: for the
+ * currently-selected country, every active pathway and every format's status
+ * under it, no picker or extra interaction required — matching how
+ * CompliancePage already shows the rest of jurisdictionPlaybook (all of it,
+ * at once).
  *
  * Uses the cookie-based, session-aware client (not the service-role client
  * jurisdictionPlaybooks.ts uses) specifically so RLS's tier check runs as the
- * calling user, not as a privileged bypass. Tier is also checked directly
- * and separately from the row query itself: an empty result set is
- * ambiguous on its own (not entitled vs. entitled but no pathway covers this
- * format), and the caller needs to tell those two apart to show the right
- * UI state.
+ * calling user. Tier is also checked directly, separately from the row
+ * query: an empty pathway list is ambiguous on its own (not entitled vs.
+ * entitled but nothing on file for this country), and the caller needs to
+ * tell those apart to show the right state.
  */
 
 export type PathwayFormatStatus = 'permitted' | 'restricted' | 'prohibited' | 'unclear'
 
-export type FormatViabilityEntry = {
-  pathwayId: string
-  pathwayName: string
-  pathwayType: string
-  pathwayStatus: string
-  formatStatus: PathwayFormatStatus
+export type PathwayFormatEntry = {
+  formatSlug: string
+  formatName: string
+  status: PathwayFormatStatus
   thcLimit: string | null
   cbdLimit: string | null
   notes: string | null
-  lastVerifiedAt: string | null
 }
 
-export type FormatViabilityResult =
-  | { entitled: false }
-  | { entitled: true; formatName: string; entries: FormatViabilityEntry[] }
+export type CountryPathway = {
+  id: string
+  name: string
+  pathwayType: string
+  status: string
+  regulator: string | null
+  summary: string | null
+  formats: PathwayFormatEntry[]
+}
 
-export async function getFormatViability(
-  destinationIso2: string,
-  formatSlug: string,
-): Promise<FormatViabilityResult> {
+export type CountryPathwayMatrix =
+  | { entitled: false }
+  | { entitled: true; pathways: CountryPathway[] }
+
+export async function getCountryPathwayMatrix(iso2: string | null): Promise<CountryPathwayMatrix> {
   const supabase = await createClient()
 
   const { data: profile } = await supabase
@@ -53,64 +59,53 @@ export async function getFormatViability(
     return { entitled: false }
   }
 
-  const { data: format } = await supabase
-    .from('product_formats')
-    .select('id, name')
-    .eq('slug', formatSlug)
-    .maybeSingle()
-
-  if (!format) return { entitled: true, formatName: formatSlug, entries: [] }
+  if (!iso2) return { entitled: true, pathways: [] }
 
   const { data: pathways } = await supabase
     .from('regulatory_pathways')
-    .select('id, name, pathway_type, status')
-    .eq('iso_alpha2', destinationIso2.trim().toUpperCase())
+    .select('id, name, pathway_type, status, regulator, summary')
+    .eq('iso_alpha2', iso2.trim().toUpperCase())
 
   if (!pathways || pathways.length === 0) {
-    return { entitled: true, formatName: format.name, entries: [] }
+    return { entitled: true, pathways: [] }
   }
 
   const pathwayIds = pathways.map((p) => p.id)
 
-  const { data: rules } = await supabase
-    .from('pathway_format_rules')
-    .select('pathway_id, status, thc_limit, cbd_limit, notes, last_verified_at')
-    .in('pathway_id', pathwayIds)
-    .eq('format_id', format.id)
+  const [{ data: rules }, { data: formats }] = await Promise.all([
+    supabase
+      .from('pathway_format_rules')
+      .select('pathway_id, format_id, status, thc_limit, cbd_limit, notes')
+      .in('pathway_id', pathwayIds),
+    supabase.from('product_formats').select('id, slug, name'),
+  ])
 
-  const entries: FormatViabilityEntry[] = (rules ?? [])
-    .map((rule) => {
-      const pathway = pathways.find((p) => p.id === rule.pathway_id)
-      if (!pathway) return null
-      return {
-        pathwayId: pathway.id,
-        pathwayName: pathway.name,
-        pathwayType: pathway.pathway_type,
-        pathwayStatus: pathway.status,
-        formatStatus: rule.status as PathwayFormatStatus,
-        thcLimit: rule.thc_limit,
-        cbdLimit: rule.cbd_limit,
-        notes: rule.notes,
-        lastVerifiedAt: rule.last_verified_at,
-      }
-    })
-    .filter((e): e is FormatViabilityEntry => e !== null)
+  const formatById = new Map((formats ?? []).map((f) => [f.id, f]))
 
-  return { entitled: true, formatName: format.name, entries }
-}
-
-export type ProductFormatOption = {
-  slug: string
-  name: string
-  category: string
-}
-
-/** Public reference list — not tier-gated, just the 17-row taxonomy. */
-export async function listProductFormats(): Promise<ProductFormatOption[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('product_formats')
-    .select('slug, name, category')
-    .order('sort_order')
-  return data ?? []
+  return {
+    entitled: true,
+    pathways: pathways.map((pathway) => ({
+      id: pathway.id,
+      name: pathway.name,
+      pathwayType: pathway.pathway_type,
+      status: pathway.status,
+      regulator: pathway.regulator,
+      summary: pathway.summary,
+      formats: (rules ?? [])
+        .filter((r) => r.pathway_id === pathway.id)
+        .map((r) => {
+          const fmt = formatById.get(r.format_id)
+          if (!fmt) return null
+          return {
+            formatSlug: fmt.slug,
+            formatName: fmt.name,
+            status: r.status as PathwayFormatStatus,
+            thcLimit: r.thc_limit,
+            cbdLimit: r.cbd_limit,
+            notes: r.notes,
+          }
+        })
+        .filter((f): f is PathwayFormatEntry => f !== null),
+    })),
+  }
 }

@@ -123,6 +123,7 @@ type Props = {
   recentEduModules?:    RecentEduModule[]
   sourceCoverage?:      SourceCoverageRow[]
   jurisdictionPlaybook?: JurisdictionPlaybook
+  pathwayMatrix?:       import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   educationTracks?:     EducationTrack[]
   marketMetrics?:       MarketMetric[]
   tradeFlows?:          TradeFlow[]
@@ -145,6 +146,13 @@ const GlobeCanvas = dynamic(
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
+
+const FORMAT_STATUS_COLOR: Record<string, string> = {
+  permitted: '#5fb87a',
+  restricted: '#d4a84b',
+  prohibited: '#e05555',
+  unclear: 'rgba(245,240,232,.4)',
+}
 
 type NavItem    = { id: CommandPage; label: string; icon: string }
 type NavSection = { label?: string; items: NavItem[] }
@@ -5391,12 +5399,14 @@ const CompliancePage = React.memo(function CompliancePage({
   country,
   countryIntel,
   jurisdictionPlaybook,
+  pathwayMatrix,
   role,
   onPageChange,
 }: {
   country: { iso2: string; label: string }
   countryIntel?: CountryIntelProfile | null
   jurisdictionPlaybook?: JurisdictionPlaybook | null
+  pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   role?: string
   onPageChange?: (page: CommandPage) => void
 }) {
@@ -5506,6 +5516,52 @@ const CompliancePage = React.memo(function CompliancePage({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {pathwayMatrix && !pathwayMatrix.entitled && (
+          <div className="cc-sig-feed">
+            <div className="cc-sig-group" style={{ border: '1px dashed rgba(212,168,75,.3)', background: 'rgba(212,168,75,.04)' }}>
+              <div className="cc-sig-group-hd"><span>🔒 Format Viability — Intel plan required</span></div>
+              <div className="cc-sig-row">
+                <div className="cc-sig-body">
+                  <small>Which pathway permits which product format here, THC/CBD limits, possession limits — this is part of the Intel tier. The market entry steps above are available now; this is the part that answers whether a format is legally viable before those steps matter.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pathwayMatrix?.entitled && pathwayMatrix.pathways.length > 0 && (
+          <div className="cc-sig-feed">
+            <div className="cc-sig-group">
+              <div className="cc-sig-group-hd"><span>Format Viability — {country.label}</span><span>{pathwayMatrix.pathways.length} pathway{pathwayMatrix.pathways.length === 1 ? '' : 's'}</span></div>
+              {pathwayMatrix.pathways.map(pathway => (
+                <div key={pathway.id} className="cc-sig-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div className="cc-sig-body" style={{ marginBottom: pathway.formats.length > 0 ? 6 : 0 }}>
+                    <strong>{pathway.name}</strong>
+                    <small>{pathway.regulator ?? pathway.pathwayType.replace(/_/g, ' ')} · {pathway.status}</small>
+                  </div>
+                  {pathway.formats.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 4 }}>
+                      {pathway.formats.map(f => (
+                        <span
+                          key={f.formatSlug}
+                          title={[f.thcLimit && `THC ${f.thcLimit}`, f.cbdLimit && `CBD ${f.cbdLimit}`, f.notes].filter(Boolean).join(' — ') || undefined}
+                          style={{
+                            fontSize: '10px', padding: '3px 8px', borderRadius: 100, border: '1px solid',
+                            borderColor: FORMAT_STATUS_COLOR[f.status] ? `${FORMAT_STATUS_COLOR[f.status]}40` : 'rgba(255,255,255,.12)',
+                            color: FORMAT_STATUS_COLOR[f.status] ?? 'rgba(245,240,232,.5)',
+                          }}
+                        >
+                          {f.formatName} · {f.status}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -10259,6 +10315,7 @@ export default function CommandCentre({
   recentEduModules,
   sourceCoverage,
   jurisdictionPlaybook,
+  pathwayMatrix,
   educationTracks = [],
   marketMetrics = [],
   tradeFlows = [],
@@ -10446,7 +10503,7 @@ export default function CommandCentre({
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':
-        return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
+        return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       case 'assistant':
