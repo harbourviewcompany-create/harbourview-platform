@@ -1,0 +1,51 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session).
+--
+-- Fixes a major bug found during this session's URL remediation work:
+-- fetchDashboardSignals() in lib/dashboard/dashboardServerData.ts filters
+-- signals by country with a plain lowercase exact-string match against
+-- countries.country_name -- no ISO2 fallback, no alias handling. A full
+-- audit of every distinct signals.country value found 7 real mismatches
+-- affecting 2,862 signals, dominated by USA (2,611 -- the single largest
+-- signal-producing "country" in the entire table, silently invisible on
+-- its own Intel tab this whole time):
+--
+--   USA -> United States (2,611)
+--   UK -> United Kingdom (143)
+--   Turkiye -> Türkiye (85, missing diacritic)
+--   UAE -> United Arab Emirates (12)
+--   Czech Republic -> Czechia (8)
+--   Democratic Republic of Congo -> Democratic Republic of the Congo (2)
+--   Turkey -> Türkiye (1)
+--
+-- Separately confirmed as NOT bugs, correctly non-matching by design:
+-- Global/Europe/LATAM/Africa/Pacific/Asia/Middle East/European Union/
+-- Eastern Europe-Central Asia/Caribbean (635 signals, genuinely regional
+-- rather than single-country) and 335 signals with no country tag at all
+-- (a completeness gap, different problem).
+--
+-- FIX: rather than patch every app-side call site doing the naive
+-- comparison, normalized the DATA to match countries.country_name exactly
+-- (so existing exact-match code just works), and added a trigger so this
+-- can't recur -- the LLM-driven extraction/scoring pipeline will keep
+-- naturally writing colloquial forms like "USA" going forward, so a
+-- one-time data fix alone would have silently regressed within days.
+--
+-- - country_name_aliases table: alias -> canonical_name, seeded with the
+--   7 confirmed mismatches plus ~35 other proactive common variants
+--   (Russia/Russian Federation, Ivory Coast/Cote d'Ivoire, Swaziland/
+--   Eswatini, Macedonia/North Macedonia, Burma/Myanmar, Holland/
+--   Netherlands, DRC variants, Caribbean island "and X" contractions,
+--   etc.) to pre-empt the same bug recurring for countries not yet
+--   appearing in signals today.
+-- - normalize_signal_country() trigger function + BEFORE INSERT OR UPDATE
+--   OF country trigger on public.signals: looks up NEW.country in the
+--   alias table (case-insensitive) and rewrites to canonical form if
+--   found, otherwise leaves it untouched (so Global/Europe/etc pass
+--   through correctly).
+-- - Retroactive UPDATE fixing all 2,862 existing affected signals.
+--
+-- Verified live: re-ran the full mismatch audit post-fix, zero rows
+-- returned. Tested the trigger directly with a throwaway insert
+-- (country='USA' in, country='United States' back out), then deleted
+-- the test row.
+SELECT 1;

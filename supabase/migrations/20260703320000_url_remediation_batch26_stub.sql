@@ -1,0 +1,12 @@
+-- Applied directly to production via Supabase MCP (Jul 3 2026 session, batch 26).
+--
+-- Newfoundland NLC Cannabis -> old nlc.ca domain entirely dead. Real
+-- corporate domain is nlliquorcorp.com. Confirmed via search index, real
+-- 2026 content. Bonus: live news release (3 weeks old at check time) on
+-- NLC issuing a call for new Tier 4 licensed cannabis retailers across 15
+-- rural/underserved areas, applications due Jul 4 2026 -- genuinely
+-- current market-expansion intelligence.
+--
+-- Remaining, not yet addressed: EU TARIC, ASA Americans for Safe Access
+-- (timeout), Vicente Sederberg Blog (429), Netherlands Customs.
+SELECT 1;

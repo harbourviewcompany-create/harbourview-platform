@@ -214,6 +214,12 @@ export async function listLicenceCountries(): Promise<AdminDataResult<{ country_
   return fetchAdminSupabaseJson<{ country_iso2: string }[]>(`/rest/v1/operator_licences?${params}`)
 }
 
+/** Country display names, sourced live from the canonical countries table (not a hardcoded list). */
+export async function listCountryNames(): Promise<AdminDataResult<{ iso_alpha2: string; country_name: string }[]>> {
+  const params = new URLSearchParams({ select: 'iso_alpha2,country_name' })
+  return fetchAdminSupabaseJson<{ iso_alpha2: string; country_name: string }[]>(`/rest/v1/countries?${params}`)
+}
+
 // ---------------------------------------------------------------------------
 // Labels
 // ---------------------------------------------------------------------------

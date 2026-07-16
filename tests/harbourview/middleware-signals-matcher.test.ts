@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { config } from '../../middleware';
+import { config } from '../../proxy';
 
 function matchesPath(pathname: string, pattern: string): boolean {
   if (!pattern.includes('/:path*')) {
