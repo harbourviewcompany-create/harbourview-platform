@@ -18,20 +18,29 @@ export const SIGNAL_TAG_MAP: Record<string, SignalTag> = {
   facility_expansion:       { label: 'INVESTMENT',   color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
 }
 
-// Maps regulatory signal types → the tag key above
+// Maps regulatory signal types → the tag key above.
+// Keys must match the live `regulatory_signals_type_check` CHECK constraint
+// values (see lib/regulatory-signals/types.ts) or the lookup silently misses
+// and falls back to INTEL_TAG_FALLBACK.
 export const REG_TYPE_TO_TAG: Record<string, string> = {
-  regulatory_change:               'regulatory_change',
-  policy_announcement:             'regulatory_change',
-  controlled_substance_scheduling: 'regulatory_change',
-  consultation_pending_rule_change:'regulatory_change',
-  court_agency_decision:           'regulatory_change',
-  import_export_pathway:           'new_product_category',
-  customs_trade_requirement:       'new_product_category',
-  licensing_market_access:         'importer_activity',
-  prescription_patient_access:     'importer_activity',
-  hemp_cbd_controlled_cannabinoids:'importer_activity',
-  enforcement_compliance_action:   'documentation_readiness',
-  quality_standard_requirement:    'documentation_readiness',
+  regulatory_guidance:              'regulatory_change',
+  policy_consultation:              'regulatory_change',
+  legislation_change:               'regulatory_change',
+  pharmaceutical_reclassification:  'regulatory_change',
+  court_decision:                   'regulatory_change',
+  international_treaty:             'regulatory_change',
+  market_exit:                      'regulatory_change',
+  import_export_pathway:            'new_product_category',
+  trade_agreement:                  'new_product_category',
+  quota_allocation:                 'new_product_category',
+  industrial_use_access:            'new_product_category',
+  licensing_market_access:          'importer_activity',
+  prescription_patient_access:      'importer_activity',
+  hemp_cbd_boundary:                'importer_activity',
+  professional_access:              'importer_activity',
+  enforcement_action:               'documentation_readiness',
+  enforcement_risk:                 'documentation_readiness',
+  research_access:                  'documentation_readiness',
 }
 
 export const INTEL_TAG_FALLBACK: SignalTag = {

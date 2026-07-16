@@ -88,7 +88,7 @@ async function createDraftSignal(
       slug,
       headline: item.title.slice(0, 240),
       signal_type: item.signal_type,
-      review_status: 'captured',
+      review_status: 'draft',
       confidence: 'medium',
       impact_level: 'moderate',
       ...publicSignalSourceFields(source),
@@ -171,24 +171,44 @@ export async function runRegulatoryWatch(limit = 20): Promise<RegulatoryWatchSum
   const evidence: RegulatoryWatchEvidence[] = []
 
   for (const source of sources) {
-    const result = await checkRegulatorySource(source)
-    const snapshotId = await createSnapshot(url, key, source, result)
+    let snapshotId: string | null = null
     const signalIds: string[] = []
-    for (const item of result.items.filter((row) => row.relevant).slice(0, 5)) {
-      const id = await createDraftSignal(url, key, source, item)
-      if (id) signalIds.push(id)
+    try {
+      const result = await checkRegulatorySource(source)
+      snapshotId = await createSnapshot(url, key, source, result)
+      for (const item of result.items.filter((row) => row.relevant).slice(0, 5)) {
+        const id = await createDraftSignal(url, key, source, item)
+        if (id) signalIds.push(id)
+      }
+      await persistRun(url, key, source, result, snapshotId, signalIds[0] || null)
+      evidence.push({
+        source: source.source_name,
+        status: result.status,
+        http_status: result.http_status,
+        changed: result.changed,
+        relevant: result.relevant,
+        snapshot_id: snapshotId,
+        signal_ids: signalIds,
+        error: result.error_message,
+      })
+    } catch (error) {
+      // A single source's failure (e.g. a constraint violation on insert) must
+      // not abort the whole batch — without this, one bad source blocks
+      // last_checked_at from advancing for every source that follows it,
+      // since the query orders oldest-checked-first.
+      const message = error instanceof Error ? error.message : 'Unknown regulatory watch failure'
+      console.error('regulatory_watch: source failed, continuing batch', { source: source.source_name, message })
+      evidence.push({
+        source: source.source_name,
+        status: 'failing',
+        http_status: null,
+        changed: false,
+        relevant: false,
+        snapshot_id: snapshotId,
+        signal_ids: signalIds,
+        error: message,
+      })
     }
-    await persistRun(url, key, source, result, snapshotId, signalIds[0] || null)
-    evidence.push({
-      source: source.source_name,
-      status: result.status,
-      http_status: result.http_status,
-      changed: result.changed,
-      relevant: result.relevant,
-      snapshot_id: snapshotId,
-      signal_ids: signalIds,
-      error: result.error_message,
-    })
   }
 
   return {

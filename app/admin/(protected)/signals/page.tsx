@@ -14,7 +14,7 @@ export default async function AdminSignalsPage() {
   const [signalsResult, sourcesResult, engineQueueResult] = await Promise.all([listRegulatorySignals(), listRegulatorySources(), countEngineReviewQueue({ minScore: 50 })])
   const signals = signalsResult.ok ? signalsResult.data ?? [] : []
   const sources = sourcesResult.ok ? sourcesResult.data ?? [] : []
-  const pending = signals.filter((row) => ['captured', 'triaged', 'needs_source_validation', 'in_review', 'approved_private', 'approved_public'].includes(row.review_status)).length
+  const pending = signals.filter((row) => ['draft', 'in_review'].includes(row.review_status)).length
   const published = signals.filter((row) => row.review_status === 'published' && row.public_safe && row.publish_to_public).length
   const failing = sources.filter((row) => row.watch_status === 'failing' || row.watch_status === 'blocked').length
   const enginePending = engineQueueResult.ok ? engineQueueResult.data : null

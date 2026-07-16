@@ -51,11 +51,10 @@ export default async function RegulatorySignalDetailAdminPage({ params }: { para
       <form action={transitionAction} className="mt-8 grid gap-3">
         <input type="hidden" name="id" value={(signal as any).id} />
         <select name="status" className="rounded bg-black/30 p-3">
-          <option value="triaged">Triaged</option>
           <option value="in_review">In review</option>
-          <option value="approved_public">Approved public</option>
           <option value="published">Publish</option>
           <option value="rejected">Reject</option>
+          <option value="archived">Archive</option>
         </select>
         <textarea name="note" placeholder="Optional note" className="rounded bg-black/30 p-3" />
         <button className="rounded-full bg-[#C6A55A] px-4 py-2 text-sm text-[#081423]">Update Status</button>

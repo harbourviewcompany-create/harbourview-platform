@@ -103,13 +103,13 @@ export function classifySignalType(text: string): RegulatorySignalType {
   if (/(import|export|customs|shipment|border|trade)/.test(lower)) return 'import_export_pathway'
   if (/(licen[cs]e|licensing|market access|permit|authori[sz]ation)/.test(lower)) return 'licensing_market_access'
   if (/(prescription|patient|pharmacy|pharmacist|doctor|physician|medical cannabis|medicinal cannabis)/.test(lower)) return 'prescription_patient_access'
-  if (/(enforcement|recall|warning|inspection|compliance action|seizure|penalt)/.test(lower)) return 'enforcement_compliance_action'
-  if (/(consultation|proposed rule|draft|comment period|notice of intent)/.test(lower)) return 'consultation_pending_rule_change'
-  if (/(hemp|cbd|cannabinoid|cannabidiol|thc|tetrahydrocannabinol|novel food)/.test(lower)) return 'hemp_cbd_controlled_cannabinoids'
-  if (/(controlled substance|narcotic|schedule|scheduling)/.test(lower)) return 'controlled_substance_scheduling'
-  if (/(quality|gmp|gacp|standard|testing|laboratory|labelling|labeling|packaging)/.test(lower)) return 'quality_standard_requirement'
+  if (/(enforcement|recall|warning|inspection|compliance action|seizure|penalt)/.test(lower)) return 'enforcement_action'
+  if (/(consultation|proposed rule|draft|comment period|notice of intent)/.test(lower)) return 'policy_consultation'
+  if (/(hemp|cbd|cannabinoid|cannabidiol|thc|tetrahydrocannabinol|novel food)/.test(lower)) return 'hemp_cbd_boundary'
+  if (/(controlled substance|narcotic|schedule|scheduling)/.test(lower)) return 'pharmaceutical_reclassification'
+  if (/(quality|gmp|gacp|standard|testing|laboratory|labelling|labeling|packaging)/.test(lower)) return 'regulatory_guidance'
 
-  return 'regulatory_change'
+  return 'regulatory_guidance'
 }
 
 function titleFromHtml(html: string, fallback: string) {
@@ -204,7 +204,7 @@ export async function checkRegulatorySource(source: WatchableRegulatorySource, f
       previous_hash: previousHash,
       changed: false,
       relevant: false,
-      signal_type: 'regulatory_change',
+      signal_type: 'regulatory_guidance',
       error_message: 'No fetchable source URL is configured.',
       items: [],
     }
@@ -234,7 +234,7 @@ export async function checkRegulatorySource(source: WatchableRegulatorySource, f
         previous_hash: previousHash,
         changed: false,
         relevant: false,
-        signal_type: 'regulatory_change',
+        signal_type: 'regulatory_guidance',
         error_message: `Fetch failed with HTTP ${response.status}`,
         items: [],
       }
@@ -301,7 +301,7 @@ export async function checkRegulatorySource(source: WatchableRegulatorySource, f
       previous_hash: previousHash,
       changed: false,
       relevant: false,
-      signal_type: 'regulatory_change',
+      signal_type: 'regulatory_guidance',
       error_message: message,
       items: [],
     }
