@@ -445,3 +445,48 @@ Both points are flagged in the session report rather than acted on unilaterally,
 **Files changed:** `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql` (new), this entry, `docs/control/DATABASE_CONTROL.md`.
 
 **Rollback:** `DROP FUNCTION public.is_regulatory_tier_admin(); CREATE OR REPLACE FUNCTION api.set_regulatory_tier(...) ... <original body without the guard>; CREATE OR REPLACE FUNCTION api.accept_classifier_tier(...) ... <original body without the guard>;` — reverts to the pre-fix (vulnerable) behavior; only do this if the guard itself causes an unexpected admin-access regression, and fix the guard rather than fully reverting if possible.
+
+
+---
+
+## 2026-07-14 — Intelligence Architecture Stage 0: labeled eval set (intel_eval_set)
+
+**Change type:** Data model (migration) + backend admin page. Per
+`docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §8 Stage 0.
+
+**Environment:** production Supabase `zvxdgdkukjrrwamdpqrg`.
+
+**DB objects (applied live, additive, reversible):**
+- `public.intel_eval_set` (migration `create_intel_eval_set_stage0`). RLS enabled,
+  no policies → service_role/admin only. Rollback: `drop table public.intel_eval_set`.
+- `api.intel_eval_labeling` view + `api.save_intel_eval_label(...)` RPC
+  (migration `expose_intel_eval_set_via_api_schema`), service_role-only grants.
+  Needed because PostgREST exposes only the `api` schema. Rollback: drop function + view.
+
+**Data:** 202-row stratified sample materialized deterministically (md5(id) ordering).
+Coverage verified: 16 languages, 48 countries, all 4 score bands, both top_lanes,
+22 strata. Minority languages oversampled (all 13 rare-language rows taken in full;
+es capped 35, pt 24) per Tyler's decision — proportional sampling would have yielded
+~5 non-English rows and failed the ≥5-language bar.
+
+**Labels:** assistant first-pass drafts on all 202 rows (`draft_*` columns, kept
+separate from human ground truth). Draft distribution — quality: signal 143 /
+spam 25 / duplicate 21 / nav 7 / boilerplate 6; content_type: story 68 / noise 59 /
+regulatory 44 / market 17 / research 14. Human confirmation pending via
+`/admin/intel-eval`; precision/recall gate (Stage 2) computes on confirmed+corrected
+rows only.
+
+**Findings (evidence the scorer is inverted, per spec §2.5):** score-99/URGENT rows
+in the sample are near-uniformly nav chrome or SEO affiliate spam (gov-site menus,
+CannabisRegulations.ai "$1,750 AI guide" upsells); genuine one-line headlines score
+20–40. Heavy syndication produced 21 exact duplicate clusters across country feeds.
+
+**Validation:** lint / typecheck / build to be run on the branch before merge.
+Runtime: `api.intel_eval_labeling` smoke-tested (202 rows readable via service role).
+
+**Open decisions surfaced to owner (§10):** precision/recall bar for the `signal`
+classifier (spec proposes p≥0.9 / r≥0.7).
+
+**Rollback plan:** drop the two api objects, then drop the table; delete the admin
+route + `lib/intelligence-automation/evalSet.ts`. Blast radius: none outside the new
+objects/route (no existing table, view, function, or consumer touched).
