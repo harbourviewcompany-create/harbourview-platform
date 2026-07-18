@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthenticatedUser, createSupabaseServiceClient } from "@/lib/supabase/server"
 import { enforceRateLimit, getClientIp } from "@/lib/network/rateLimit"
+import { ORG_TYPES } from "@/lib/hv/orgTypes"
 
 const ROUTE_ID = "/api/org/create"
-
-const ORG_TYPES = ["supplier","buyer","broker","lab","pharmacy","clinic","equipment","service","financial","distributor","exporter","importer"]
 
 export async function POST(req: NextRequest) {
   const user = await getAuthenticatedUser()
