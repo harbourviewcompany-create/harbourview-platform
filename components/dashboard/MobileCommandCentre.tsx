@@ -71,6 +71,7 @@ type Props = {
   serviceProviders?:    PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
   mySubmissions?:       MySubmission[]
+  hasOrg?:              boolean
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -3137,7 +3138,137 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook, pathway
   )
 }
 
-function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange, userEmail }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; userEmail?: string | null }) {
+const MOBILE_ORG_TYPE_OPTIONS: SelectOption[] = [
+  { value: 'supplier',    label: 'Supplier / Cultivator' },
+  { value: 'buyer',       label: 'Buyer / Importer' },
+  { value: 'broker',      label: 'Broker / Trade Intermediary' },
+  { value: 'lab',         label: 'Testing Laboratory' },
+  { value: 'pharmacy',    label: 'Pharmacy' },
+  { value: 'clinic',      label: 'Clinic' },
+  { value: 'equipment',   label: 'Equipment / Technology Provider' },
+  { value: 'service',     label: 'Professional Service Provider' },
+  { value: 'financial',   label: 'Financial / Investment' },
+  { value: 'distributor', label: 'Distributor' },
+  { value: 'exporter',    label: 'Exporter' },
+  { value: 'importer',    label: 'Importer' },
+]
+
+function OrganizationMobile({ hasOrg, countryOptions }: { hasOrg?: boolean; countryOptions: SelectOption[] }) {
+  const [legalName, setLegalName] = useState('')
+  const [tradeName, setTradeName] = useState('')
+  const [orgType, setOrgType] = useState('')
+  const [jurisdiction, setJurisdiction] = useState('')
+  const [region, setRegion] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const handleSubmit = async () => {
+    setError(null)
+    if (!legalName.trim())         return setError('Legal name is required.')
+    if (!orgType)                  return setError('Select an organization type.')
+    if (jurisdiction.length !== 2) return setError('Select a jurisdiction country.')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/org/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          legal_name: legalName.trim(),
+          trade_name: tradeName.trim() || undefined,
+          org_type: orgType,
+          jurisdiction_country: jurisdiction,
+          jurisdiction_region: region.trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(
+          json?.error === 'USER_ALREADY_HAS_ORG' ? 'You already belong to an organization.' :
+          json?.error === 'SLUG_CONFLICT' ? 'A very similar organization name already exists.' :
+          typeof json?.error === 'string' ? json.error : 'Could not create your organization.'
+        )
+        return
+      }
+      setDone(true)
+    } catch {
+      setError('Network error — please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (hasOrg && !done) {
+    return (
+      <div className="hvm-page-stack">
+        <section className="hvm-hero-card compact">
+          <h2>Organization</h2>
+          <p>Your organization is already set up. License and facility management is coming to this section next.</p>
+        </section>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div className="hvm-page-stack">
+        <section className="hvm-hero-card compact">
+          <h2>Organization created</h2>
+          <p>Your Passport verification has started — unverified by default until you submit for review.</p>
+        </section>
+      </div>
+    )
+  }
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Create Your Organization</h2>
+        <p>Every counterparty on Harbourview operates through a verified organization. This starts your Passport.</p>
+      </section>
+
+      <div className="hvm-org-note">
+        Created privately and unverified by default. One organization per account at creation — teammates can be invited afterward.
+      </div>
+
+      {error && <div className="hvm-org-error">{error}</div>}
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        <label className="hvm-settings-label">
+          <span>Legal name *</span>
+          <input className="hvm-settings-input" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder="Legal entity name" />
+        </label>
+        <label className="hvm-settings-label">
+          <span>Trade name</span>
+          <input className="hvm-settings-input" value={tradeName} onChange={e => setTradeName(e.target.value)} placeholder="If different from legal name" />
+        </label>
+        <label className="hvm-settings-label">
+          <span>Organization type *</span>
+          <select className="hvm-settings-select" value={orgType} onChange={e => setOrgType(e.target.value)}>
+            <option value="">Select organization type</option>
+            {MOBILE_ORG_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="hvm-settings-label">
+          <span>Country of registration *</span>
+          <select className="hvm-settings-select" value={jurisdiction} onChange={e => setJurisdiction(e.target.value)}>
+            <option value="">Select country</option>
+            {countryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="hvm-settings-label">
+          <span>State / province (optional)</span>
+          <input className="hvm-settings-input" value={region} onChange={e => setRegion(e.target.value)} placeholder="Region" />
+        </label>
+        <button className="hvm-org-submit" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Creating…' : 'Create Organization'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange, userEmail, hasOrg, onOpenOrganization }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; userEmail?: string | null; hasOrg?: boolean; onOpenOrganization?: () => void }) {
   const [notifWatchlist, setNotifWatchlist] = useState(true)
   const [notifSignals, setNotifSignals] = useState(true)
   const today = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -3148,6 +3279,20 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
         <h2>Settings</h2>
         <p>{country.label} · {roleLabel}</p>
       </section>
+
+      <MobileAccordion title="Organization" defaultOpen={!hasOrg}>
+        <div className="hvm-signal-card hvm-trigger-row" onClick={onOpenOrganization} style={{ cursor: 'pointer' }}>
+          <div>
+            <strong style={{ fontSize: 14 }}>{hasOrg ? 'Your organization' : 'No organization yet'}</strong>
+            <small style={{ display: 'block', marginTop: 4, color: 'rgba(245,240,232,.48)' }}>
+              {hasOrg ? 'View Passport status' : 'Create one to start Passport verification'}
+            </small>
+          </div>
+          <span style={{ fontSize: 11, color: '#d4a84b', fontWeight: 700, flexShrink: 0 }}>
+            {hasOrg ? 'View →' : 'Create →'}
+          </span>
+        </div>
+      </MobileAccordion>
 
       <MobileAccordion title="Jurisdiction context" defaultOpen>
         <div style={{ display: 'grid', gap: 12 }}>
@@ -3279,6 +3424,7 @@ export default function MobileCommandCentre({
   serviceProviders = [],
   collaborationProjects = [],
   mySubmissions = [],
+  hasOrg,
 }: Props) {
   const router = useRouter()
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
@@ -3428,7 +3574,9 @@ export default function MobileCommandCentre({
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'settings':
-        return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} />
+        return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} hasOrg={hasOrg} onOpenOrganization={() => handlePageChange('organization')} />
+      case 'organization':
+        return <OrganizationMobile hasOrg={hasOrg} countryOptions={countryOptions} />
       case 'countries':
         return <CountriesDirectoryMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
@@ -3958,6 +4106,27 @@ const MOBILE_CSS = `
   color: rgba(245,240,232,.94); padding: 0 14px; font-size: 16px; outline: none;
 }
 .hvm-settings-select option { color: #07111d; }
+.hvm-settings-input {
+  width: 100%; min-height: 50px; border: 1px solid rgba(255,255,255,.13);
+  border-radius: 14px; background: rgba(255,255,255,.055);
+  color: rgba(245,240,232,.94); padding: 0 14px; font-size: 16px; outline: none;
+  box-sizing: border-box;
+}
+.hvm-settings-input::placeholder { color: rgba(245,240,232,.35); }
+.hvm-org-submit {
+  width: 100%; min-height: 50px; border-radius: 14px; border: none;
+  background: #d4a84b; color: #050c18; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+.hvm-org-submit:disabled { opacity: .55; }
+.hvm-org-error {
+  font-size: 13px; color: #ef4444; background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.25); border-radius: 12px; padding: 10px 14px;
+}
+.hvm-org-note {
+  font-size: 12.5px; line-height: 1.55; color: rgba(245,240,232,.6);
+  background: rgba(212,168,75,.08); border: 1px solid rgba(212,168,75,.2);
+  border-radius: 12px; padding: 10px 14px;
+}
 .hvm-signout-btn {
   width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.055);

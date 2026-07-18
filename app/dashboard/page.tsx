@@ -199,6 +199,7 @@ export default async function DashboardPage({
   let userEmail:        string | null = null
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
+  let hasOrg: boolean = true // default true so unauthenticated/unknown state never shows the banner
 
   try {
     const supabase = await createClient()
@@ -213,6 +214,14 @@ export default async function DashboardPage({
         .single()
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
+
+      const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single()
+      hasOrg = !!membership
     }
   } catch {
     // No auth or prefs table not yet migrated.
@@ -300,6 +309,7 @@ export default async function DashboardPage({
   return (
     <DashboardResponsiveShell
       key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
+      hasOrg={hasOrg}
       signals={signals}
       digestSignals={dailyDigest.signals}
       digestWindow={dailyDigest.window}
