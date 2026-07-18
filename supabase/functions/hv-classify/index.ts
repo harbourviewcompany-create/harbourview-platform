@@ -4,22 +4,24 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 /**
  * hv-classify — Stage 2 of docs/INTELLIGENCE_ARCHITECTURE_SPEC.md.
  *
- * Implements the Section 6.1 classification contract:
- *   input : a signal's { headline, summary }  (or a signal_id to fetch)
- *   output: { quality_label, content_type, impact, confidence, reason }
+ * Section 6.1 contract:  input { headline, summary } -> { quality_label,
+ * content_type, impact, confidence, reason }.
  *
- * CRITICAL (spec §6.2 / guardrail #2): this classifier is VALIDATION-ONLY. It is
- * wired to nothing in the promotion path. Its only DB write is to
- * intel_eval_predictions, for grading against the human-labelled intel_eval_set.
- * Do not call it from source-engine-promote or the orchestrator until it has
- * cleared the precision/recall bar on the eval set.
+ * FALLBACK BY DESIGN (there is always a plan for fallbacks):
+ *   provider chain (configurable via CLASSIFY_PROVIDER_ORDER, default openai,gemini,anthropic)
+ *   -> each is only attempted if its key is set; a failing/exhausted provider is skipped
+ *   -> if ALL LLM providers fail, the row falls back to MANUAL REVIEW: it is written to
+ *      intel_classify_review_queue for a human to label. Nothing is ever silently dropped.
+ * Anthropic is ordered LAST so a dead/unfunded Anthropic key never blocks or is hit first.
  *
- * Modes (POST body):
- *   { text: { headline, summary } }        -> classify ad-hoc, return JSON (no write)
- *   { signalId: "<id>" }                   -> fetch from signals, classify, return JSON
- *   { mode: "eval", runId?, limit? }       -> classify intel_eval_set rows lacking a
- *                                             prediction for runId; write to
- *                                             intel_eval_predictions; return summary
+ * VALIDATION-ONLY (spec §6.2 / guardrail #2): wired to nothing in the promotion path.
+ * Its only writes are intel_eval_predictions (grading) and intel_classify_review_queue
+ * (manual-review fallback). source-engine-promote and the orchestrator are untouched.
+ *
+ * Modes (POST):
+ *   { text:{headline,summary} }        -> classify ad-hoc, return JSON (no write)
+ *   { signalId }                       -> fetch signal, classify; on total failure route to manual review
+ *   { mode:"eval", runId?, limit? }    -> classify eval rows -> intel_eval_predictions; failures -> manual review
  */
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -28,13 +30,11 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SHARED_SECRET = Deno.env.get("HV_PIPELINE_CRON_SHARED_SECRET") ?? "";
+// Default order puts the providers we actually fund first; Anthropic last.
+const PROVIDER_ORDER = (Deno.env.get("CLASSIFY_PROVIDER_ORDER") ?? "openai,gemini,anthropic")
+  .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
-const MODELS = {
-  anthropic: "claude-haiku-4-5",
-  gemini: "gemini-3.5-flash",
-  openai: "gpt-4o-mini",
-} as const;
-
+const MODELS = { anthropic: "claude-haiku-4-5", gemini: "gemini-3.5-flash", openai: "gpt-4o-mini" } as const;
 const QUALITY = ["signal", "boilerplate", "spam", "nav", "duplicate"];
 const CONTENT = ["regulatory", "market", "story", "research", "noise"];
 const IMPACT = ["high", "medium", "low"];
@@ -63,26 +63,20 @@ Given a headline and extracted body text from a web page, output STRICT JSON onl
 - reason: under 12 words
 Judge by MEANING, not keyword density. A page dense with cannabis keywords that is only a navigation menu or a list of report links is nav, not signal. A short genuine headline about a real event is a signal. Text not about cannabis at all is spam. Output ONLY the JSON object, no prose.`;
 
-function buildUser(headline: string, summary: string): string {
-  return `HEADLINE: ${headline ?? ""}\n\nBODY: ${summary ?? ""}`;
-}
+const buildUser = (h: string, s: string) => `HEADLINE: ${h ?? ""}\n\nBODY: ${s ?? ""}`;
 
 function extractJson(text: string): Record<string, unknown> | null {
-  const m = text.match(/\{[\s\S]*\}/);
+  const cleaned = text.replace(/```json|```/g, "");
+  const m = cleaned.match(/\{[\s\S]*\}/);
   if (!m) return null;
-  try {
-    return JSON.parse(m[0]);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(m[0]); } catch { return null; }
 }
-
 function coerce(raw: Record<string, unknown> | null) {
   if (!raw) return null;
   const q = String(raw.quality_label ?? "").toLowerCase();
+  if (!QUALITY.includes(q)) return null;
   const c = String(raw.content_type ?? "").toLowerCase();
   const i = String(raw.impact ?? "").toLowerCase();
-  if (!QUALITY.includes(q)) return null;
   return {
     quality_label: q,
     content_type: CONTENT.includes(c) ? c : q === "signal" ? "story" : "noise",
@@ -92,136 +86,129 @@ function coerce(raw: Record<string, unknown> | null) {
   };
 }
 
-async function callAnthropic(headline: string, summary: string) {
-  if (!ANTHROPIC_API_KEY) return null;
+// --- providers: each throws on failure so the chain can catch and fall through ---
+async function viaAnthropic(h: string, s: string) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODELS.anthropic,
-      max_tokens: 300,
-      temperature: 0,
-      system: SYSTEM,
-      messages: [{ role: "user", content: buildUser(headline, summary) }],
-    }),
+    headers: { "content-type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model: MODELS.anthropic, max_tokens: 300, temperature: 0, system: SYSTEM,
+      messages: [{ role: "user", content: buildUser(h, s) }] }),
   });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const parsed = coerce(extractJson(data?.content?.[0]?.text ?? ""));
-  return parsed ? { ...parsed, model: MODELS.anthropic } : null;
+  if (!res.ok) throw new Error(`anthropic_${res.status}: ${(await res.text()).slice(0, 160)}`);
+  const d = await res.json();
+  return coerce(extractJson(d?.content?.[0]?.text ?? ""));
 }
-
-async function callOpenAI(headline: string, summary: string) {
-  if (!OPENAI_API_KEY) return null;
+async function viaOpenAI(h: string, s: string) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify({
-      model: MODELS.openai,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: buildUser(headline, summary) },
-      ],
-    }),
+    body: JSON.stringify({ model: MODELS.openai, temperature: 0, response_format: { type: "json_object" },
+      messages: [{ role: "system", content: SYSTEM }, { role: "user", content: buildUser(h, s) }] }),
   });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const parsed = coerce(extractJson(data?.choices?.[0]?.message?.content ?? ""));
-  return parsed ? { ...parsed, model: MODELS.openai } : null;
+  if (!res.ok) throw new Error(`openai_${res.status}: ${(await res.text()).slice(0, 160)}`);
+  const d = await res.json();
+  return coerce(extractJson(d?.choices?.[0]?.message?.content ?? ""));
+}
+async function viaGemini(h: string, s: string) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.gemini}:generateContent`,
+    { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: buildUser(h, s) }] }],
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        generationConfig: { temperature: 0, maxOutputTokens: 300, responseMimeType: "application/json" } }) },
+  );
+  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 160)}`);
+  const d = await res.json();
+  return coerce(extractJson(d?.candidates?.[0]?.content?.parts?.[0]?.text ?? ""));
 }
 
-/** Provider fallback chain: Anthropic -> OpenAI. Gemini can be added the same way. */
-async function classifyOne(headline: string, summary: string) {
-  return (await callAnthropic(headline, summary)) ?? (await callOpenAI(headline, summary));
+const PROVIDERS: Record<string, { key: string; fn: (h: string, s: string) => Promise<ReturnType<typeof coerce>> }> = {
+  anthropic: { key: ANTHROPIC_API_KEY, fn: viaAnthropic },
+  openai: { key: OPENAI_API_KEY, fn: viaOpenAI },
+  gemini: { key: GEMINI_API_KEY, fn: viaGemini },
+};
+
+/** Try each configured+keyed provider in order. Returns {result,backend} or {errors}. */
+async function classifyOne(h: string, s: string) {
+  const errors: string[] = [];
+  for (const name of PROVIDER_ORDER) {
+    const p = PROVIDERS[name];
+    if (!p || !p.key) continue;
+    try {
+      const result = await p.fn(h, s);
+      if (result) return { result, backend: name };
+      errors.push(`${name}: empty_or_invalid_json`);
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+  if (errors.length === 0) errors.push("no_llm_provider_configured");
+  return { errors };
 }
 
 function authorized(req: Request): boolean {
-  if (!SHARED_SECRET) return true; // if unset, rely on platform gateway auth
-  const got = req.headers.get("x-shared-secret") ?? "";
-  return got === SHARED_SECRET;
+  if (!SHARED_SECRET) return true;
+  return (req.headers.get("x-shared-secret") ?? "") === SHARED_SECRET;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: false, error: "method_not_allowed" }), {
-      status: 405,
-      headers: { ...CORS, "content-type": "application/json" },
-    });
-  }
-  if (!authorized(req)) {
-    return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
-      status: 401,
-      headers: { ...CORS, "content-type": "application/json" },
-    });
-  }
+  const json = (p: unknown, status = 200) =>
+    new Response(JSON.stringify(p), { status, headers: { ...CORS, "content-type": "application/json" } });
+  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+  if (!authorized(req)) return json({ ok: false, error: "unauthorized" }, 401);
 
-  const body = await req.json().catch(() => ({}));
-  const json = (payload: unknown, status = 200) =>
-    new Response(JSON.stringify(payload), { status, headers: { ...CORS, "content-type": "application/json" } });
-
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // ---- ad-hoc / single-signal classification (no write) ----
+  // manual-review fallback: never drop a row that no provider could classify.
+  const routeToManualReview = async (signalId: string, headline: string, summary: string, reason: string) => {
+    await supabase.from("intel_classify_review_queue").upsert(
+      { signal_id: signalId, headline, summary, reason, created_at: new Date().toISOString() },
+      { onConflict: "signal_id" },
+    );
+  };
+
+  // ---- ad-hoc / single-signal ----
   if (body.text || body.signalId) {
     let headline = body.text?.headline ?? "";
     let summary = body.text?.summary ?? "";
     if (body.signalId) {
-      const { data, error } = await supabase
-        .from("signals")
-        .select("headline,summary")
-        .eq("id", body.signalId)
-        .maybeSingle();
+      const { data, error } = await supabase.from("signals").select("headline,summary").eq("id", body.signalId).maybeSingle();
       if (error) return json({ ok: false, error: "signal_query_failed", detail: error.message }, 500);
       if (!data) return json({ ok: false, error: "signal_not_found" }, 404);
-      headline = data.headline ?? "";
-      summary = data.summary ?? "";
+      headline = data.headline ?? ""; summary = data.summary ?? "";
     }
-    const result = await classifyOne(headline, summary);
-    if (!result) return json({ ok: false, error: "classification_failed" }, 502);
-    return json({ ok: true, classification: result });
+    const out = await classifyOne(headline, summary);
+    if ("result" in out) return json({ ok: true, backend: out.backend, classification: out.result });
+    if (body.signalId) await routeToManualReview(body.signalId, headline, summary, out.errors.join(" | "));
+    return json({ ok: true, routed: "manual_review", reason: out.errors.join(" | ") });
   }
 
-  // ---- eval mode: classify intel_eval_set rows, write predictions (validation only) ----
+  // ---- eval mode ----
   if (body.mode === "eval") {
     const runId = String(body.runId ?? `run-${new Date().toISOString().slice(0, 19)}`);
     const limit = Math.min(Number(body.limit ?? 250), 500);
-
-    // rows in the eval set that don't yet have a prediction for this runId
-    const { data: rows, error } = await supabase.rpc("intel_eval_rows_needing_prediction", {
-      p_run_id: runId,
-      p_limit: limit,
-    });
+    const { data: rows, error } = await supabase.rpc("intel_eval_rows_needing_prediction", { p_run_id: runId, p_limit: limit });
     if (error) return json({ ok: false, error: "eval_query_failed", detail: error.message }, 500);
 
-    let done = 0;
-    let failed = 0;
+    let done = 0, manualReview = 0;
     for (const r of rows ?? []) {
-      const result = await classifyOne(r.headline ?? "", r.summary ?? "");
-      if (!result) {
-        failed++;
-        continue;
+      const out = await classifyOne(r.headline ?? "", r.summary ?? "");
+      if ("result" in out) {
+        const { error: insErr } = await supabase.from("intel_eval_predictions").insert({
+          run_id: runId, signal_id: r.signal_id, quality_label: out.result.quality_label,
+          content_type: out.result.content_type, impact: out.result.impact,
+          confidence: out.result.confidence, reason: out.result.reason, model: out.backend,
+        });
+        if (insErr) { await routeToManualReview(r.signal_id, r.headline, r.summary, `insert_failed: ${insErr.message}`); manualReview++; }
+        else done++;
+      } else {
+        await routeToManualReview(r.signal_id, r.headline, r.summary, out.errors.join(" | "));
+        manualReview++;
       }
-      const { error: insErr } = await supabase.from("intel_eval_predictions").insert({
-        run_id: runId,
-        signal_id: r.signal_id,
-        quality_label: result.quality_label,
-        content_type: result.content_type,
-        impact: result.impact,
-        confidence: result.confidence,
-        reason: result.reason,
-        model: result.model,
-      });
-      if (insErr) failed++;
-      else done++;
     }
-    return json({ ok: true, runId, classified: done, failed, requested: rows?.length ?? 0 });
+    return json({ ok: true, runId, classified: done, manual_review: manualReview, requested: rows?.length ?? 0 });
   }
 
   return json({ ok: false, error: "bad_request", hint: "provide text, signalId, or mode=eval" }, 400);

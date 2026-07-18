@@ -88,3 +88,18 @@ grant select on api.intel_eval_scoring to service_role;
 grant execute on function api.intel_eval_rows_needing_prediction(text,int) to service_role;
 grant select on public.intel_eval_predictions to service_role;
 grant insert on public.intel_eval_predictions to service_role;
+
+-- Manual-review terminal fallback: rows no LLM provider could classify land here for
+-- a human to label (never silently dropped). Populated by hv-classify.
+create table public.intel_classify_review_queue (
+  signal_id  text primary key references public.signals(id) on delete cascade,
+  headline   text,
+  summary    text,
+  reason     text,
+  resolved   boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.intel_classify_review_queue enable row level security;
+comment on table public.intel_classify_review_queue is
+  'Stage 2 manual-review fallback: signals no LLM provider could classify (all providers failed/exhausted). Human labels these. Populated by hv-classify.';
+grant select, insert, update on public.intel_classify_review_queue to service_role;

@@ -15,9 +15,9 @@ Prompt definitions match `docs/control/INTEL_EVAL_SET_RUBRIC.md` so classifier a
 ground truth use the same taxonomy.
 
 ## Components
-- `supabase/functions/hv-classify/index.ts` — the classifier. Providers: Anthropic
-  `claude-haiku-4-5` primary, OpenAI `gpt-4o-mini` fallback (mirrors `hv-extract`).
-  Modes: ad-hoc `{text}`, single `{signalId}`, batch `{mode:"eval"}`.
+- `supabase/functions/hv-classify/index.ts` — the classifier. Modes: ad-hoc `{text}`,
+  single `{signalId}`, batch `{mode:"eval"}`.
+- `public.intel_classify_review_queue` — the manual-review terminal fallback.
 - `public.intel_eval_predictions` — one row per (run_id, signal) prediction.
 - `api.intel_eval_rows_needing_prediction(run_id, limit)` — feeds the batch runner.
 - `api.intel_eval_scoring` — per-run precision/recall/accuracy vs the eval set.
@@ -26,6 +26,18 @@ ground truth use the same taxonomy.
 Per spec §6.2 / guardrail #2, the classifier drives no promotion. Its only write is to
 `intel_eval_predictions`. `source-engine-promote` and the orchestrator are untouched.
 It gets wired to promotion (Stage 3) **only after** it clears the bar on the eval set.
+
+## Fallbacks (there is always a plan for fallbacks)
+Provider chain, configurable via `CLASSIFY_PROVIDER_ORDER` (default **`openai,gemini,anthropic`**):
+1. Try each provider **whose key is set**, in order. A failing or credit-exhausted provider
+   is caught and skipped — it never blocks the chain.
+2. **Anthropic is ordered LAST** so an unfunded Anthropic key is never hit first and never
+   blocks. (This is the fix for the flaw in `hv-extract`, which tries Anthropic first.)
+3. If **all** LLM providers fail, the row falls back to **manual review**: it is written to
+   `intel_classify_review_queue` for a human to label. Nothing is ever silently dropped.
+
+So the classifier does not depend on any single paid provider, and specifically does not
+depend on Anthropic.
 
 ## The gate
 `api.intel_eval_scoring` computes, per run:
@@ -46,18 +58,19 @@ It gets wired to promotion (Stage 3) **only after** it clears the bar on the eva
 Because the eval sample oversamples minority languages/bands, reweight by true stratum
 population before reading pool-level precision/recall as a headline number.
 
-## Status / blocker (2026-07-15)
-Built but **not deployed and not validated live**. A live proof run was attempted from a
-sandbox against the 15 sharpest inversion rows (score-99 nav/spam vs score-20-40 real
-signals) but the **Anthropic API key returned `credit balance is too low`** (HTTP 400).
-That blocks any LLM call on that key — **likely also affecting the live pipeline's
-`hv-extract` and other LLM steps**; worth checking billing regardless of this stage.
+## Status (2026-07-15)
+Built with the full fallback chain above; **not deployed and not validated live yet**.
+Anthropic being out of credit is *not* a blocker — the chain runs on OpenAI/Gemini first
+and Anthropic last, with manual review as the terminal fallback. A live run still needs
+(a) at least one funded non-Anthropic provider key set in the edge-function env
+(`OPENAI_API_KEY` and/or `GEMINI_API_KEY`), and (b) the 202-row human labelling pass so the
+gate is measured against real ground truth rather than assistant drafts. I could not test
+providers from the build sandbox (its network only reaches Anthropic), so the first real run
+happens on deploy — hence deploy is held for your go, not merged blind.
 
-Therefore Stage 2 ships as reviewed code with **no live apply and no deploy**: unlike the
-Stage 0/1 data changes, this is runnable code that should not hit production untested.
-Deploy + first validation run should happen once (a) API credits are restored and (b) the
-202-row human labelling pass is done, so the gate is measured against real ground truth
-rather than assistant drafts.
+Note on the earlier alarm: `hv-extract` already falls back across providers, so the live
+pipeline degrades rather than dies when Anthropic is down — but it wastes a failed Anthropic
+call first. Reordering it the way `hv-classify` is ordered would remove that waste.
 
 ## Rollback
 `drop view api.intel_eval_scoring; drop function api.intel_eval_rows_needing_prediction(text,int); drop table public.intel_eval_predictions;`
