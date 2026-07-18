@@ -1047,7 +1047,7 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
   { id: 'research', label: 'Research' },
 ]
 
-function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, countryEducationOverlays, professionals = [], initialSub = 'modules' }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; countryEducationOverlays?: CountryEducationOverlay[]; professionals?: HvProfessional[]; initialSub?: EduSub }) {
+function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, countryEducationOverlays, professionals = [], initialSub = 'modules', onOpenIntake }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; countryEducationOverlays?: CountryEducationOverlay[]; professionals?: HvProfessional[]; initialSub?: EduSub; onOpenIntake?: (ctx: { country: string; role: string; module: string }) => void }) {
   const [sub, setSub] = useState<EduSub>(initialSub)
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
 
@@ -1100,7 +1100,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             ))}
           </div>
         )}
-        <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: selectedModule.title })} className="hvm-cta-card hvm-cta-card--btn">
+        <button type="button" onClick={() => onOpenIntake?.({ country: country.iso2, role: roleLabel, module: selectedModule.title })} className="hvm-cta-card hvm-cta-card--btn">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>
@@ -1127,7 +1127,7 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           </section>
 
           {tiles.length > 0 && (
-            <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: tiles[0].title })} className="hvm-cta-card hvm-cta-card--btn">
+            <button type="button" onClick={() => onOpenIntake?.({ country: country.iso2, role: roleLabel, module: tiles[0].title })} className="hvm-cta-card hvm-cta-card--btn">
               <span className="hvm-kicker">Next best action</span>
               <strong>{tiles[0].title} · {country.label}</strong>
               <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.62)', fontSize: 14, lineHeight: 1.45 }}>{tiles[0].desc}</p>
@@ -3361,6 +3361,7 @@ export default function MobileCommandCentre({
             countryEducationOverlays={countryEducationOverlays}
             professionals={professionals}
             initialSub={educationInitialSub}
+            onOpenIntake={setIntakeSheet}
           />
         )
       case 'genetics':
