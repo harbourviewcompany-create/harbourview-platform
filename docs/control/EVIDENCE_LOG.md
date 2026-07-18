@@ -492,3 +492,40 @@ classifier (spec proposes p≥0.9 / r≥0.7).
 **Rollback plan:** drop the two api objects, then drop the table; delete the admin
 route + `lib/intelligence-automation/evalSet.ts`. Blast radius: none outside the new
 objects/route (no existing table, view, function, or consumer touched).
+
+---
+
+## 2026-07-15 — Intelligence Architecture Stage 1: unified source registry (extend source_registry)
+
+**Change type:** Data model + data migration on production Supabase `zvxdgdkukjrrwamdpqrg`.
+Per `INTELLIGENCE_ARCHITECTURE_SPEC.md` Stage 1.
+
+**Decision:** Spec said "create `intel_sources`," but verification found `source_registry`
+already IS the live intelligence registry (1,487 rows, with language/tier/country/cadence),
+consumed by `source-engine-fetch` + orchestrator. Owner approved **extending it in place**
+rather than spawning a third parallel estate.
+
+**Guardrail #1 (verify consumers):** `source-engine-fetch` reads `source_registry` with
+`.eq('is_active',true).eq('relevance_status','active')` and writes `last_checked_at` back.
+Therefore marketplace rows imported dormant (is_active=false, relevance_status='needs_review')
+are never crawled — zero behavior change (also guardrail #7).
+
+**Applied live (all reversible):**
+- `content_type text[]` added to `source_registry` (migration `stage1_add_content_type...`).
+- Backfilled `content_type` on 1,471 existing rows from `source_type` (regulatory 627 /
+  market 449 / story 408 / research 3).
+- Imported 240 marketplace sources from `lib/scrapers/sources.ts` dormant. 311 raw →
+  260 distinct URLs (51 dupes in sources.ts) → 20 already existed → 240 inserted.
+
+**Verified:** 0 marketplace rows active; 0 null content_type; 0 active rows missing language;
+registry 1,487 → 1,727.
+
+**Coverage-gap finding:** 1,180 active sources are 97% English (1,148/1,180); only 32
+non-English. Scopes Stage 6. See `docs/control/STAGE1_SOURCE_REGISTRY_COVERAGE.md`.
+
+**Rollback:** `delete from source_registry where source_type='marketplace';`
+then `update source_registry set content_type=null where source_type<>'marketplace';`
+then `alter table source_registry drop column content_type;`. Blast radius: none — no
+existing row's crawlable state changed, no reads rewired.
+
+**Not done:** no reads rewired; routing by content_type is Stage 7.
