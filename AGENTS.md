@@ -11,6 +11,12 @@ This file defines baseline instructions for all agents and contributors working 
 ## Claude-Specific Operating Preferences
 Tyler's personal operating preferences for Claude sessions (action-on-reversibility rules, credential handling, the merge/deploy sign-off boundary) live in `CLAUDE.md` at the repo root and apply to any Claude session working in this codebase. Where the two files both speak to process (PR discipline, QA gates, etc.), this file is the more specific and authoritative source for this repository.
 
+## Merge Discipline — No Direct Commits to `main`
+- Every change — including docs-only edits — lands via a pull request. Direct commits or pushes to `main` are not permitted, regardless of how small or reversible the change looks. This applies equally to human contributors and agents.
+- `main` currently has no branch-protection rule technically blocking direct pushes (open gap — see `docs/control/EVIDENCE_LOG.md`). That gap does not relax this rule; treat it as binding regardless of what the platform happens to allow.
+- A PR is not done when it merges. It is done when the QA commands for its change type (below) were actually run with their output quoted in the PR body, and a corresponding `docs/control/EVIDENCE_LOG.md` entry exists (see Evidence Logging under PR Body Template below) — not only for "production-impacting" work, for every merged PR.
+- This rule exists because it was violated in practice: a prior session pushed a run of commits straight to `main` with no PR, no QA gate, and no evidence-log entry, discovered only when this file was read for an unrelated reason. Reading this file before the first edit (see Coding & Style Expectations below) is what would have caught it.
+
 ## Coding & Style Expectations
 - Follow existing conventions in touched files; do not introduce a second style system in the same module.
 - Keep changes minimal, composable, and reversible; avoid opportunistic refactors unless requested.
@@ -135,7 +141,7 @@ Commands run:
 - Blast radius and owner
 ```
 
-Evidence must be reproducible, time-bounded, and tied to changed behavior. For production-impacting work, include an evidence trail in `docs/control/EVIDENCE_LOG.md`.
+Evidence must be reproducible, time-bounded, and tied to changed behavior. Every PR — including docs-only changes — adds a corresponding entry to `docs/control/EVIDENCE_LOG.md` before merge. Scale the entry to the change: a one-line row (date, scope, command/source, result, PR link, status) is sufficient for docs-only or trivial changes; production-impacting work requires the fuller evidence trail already modeled in that file's Gate 4 section. A PR with no `EVIDENCE_LOG.md` entry is not ready to merge, per the Merge Discipline section above.
 
 See also:
 - `docs/control/PR_REVIEW_CHECKLIST.md`

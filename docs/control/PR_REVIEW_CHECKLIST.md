@@ -23,6 +23,14 @@ Every PR must include:
 
 ## Review gates
 
+### All PR types (baseline gate — check before any type-specific gate below)
+
+Reject if:
+
+- The change was pushed directly to `main` rather than opened as a PR (see `AGENTS.md` Merge Discipline)
+- No `docs/control/EVIDENCE_LOG.md` entry exists for this change — a one-line entry (date, scope, command/source, result, PR link, status) is sufficient for docs-only or trivial changes; production-impacting work needs the fuller trail
+- The QA commands claimed in the PR body were not actually run, or no output/evidence is attached to back the claim
+
 ### Documentation-only PR
 
 Approve only if:
@@ -133,7 +141,7 @@ Do not approve with: looks good, nice cleanup, no issues, safe change, seems fin
 
 ## Completion criteria
 
-A PR review is complete only when the decision is explicit, scope/evidence/data risk are checked, merge blockers are named and remaining risk is either accepted or assigned to a follow-up ticket.
+A PR review is complete only when the decision is explicit, scope/evidence/data risk are checked, merge blockers are named, remaining risk is either accepted or assigned to a follow-up ticket, and a `docs/control/EVIDENCE_LOG.md` entry is confirmed to exist for the change.
 
 ## QA bundle expectations for review
 
