@@ -5,7 +5,6 @@ import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelP
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
-import CreateOrgBanner from '@/components/dashboard/CreateOrgBanner'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -305,10 +304,9 @@ export default async function DashboardPage({
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
 
   return (
-    <>
-      {userId && !hasOrg && <CreateOrgBanner />}
-      <DashboardResponsiveShell
+    <DashboardResponsiveShell
       key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
+      hasOrg={hasOrg}
       signals={signals}
       digestSignals={dailyDigest.signals}
       digestWindow={dailyDigest.window}
@@ -342,6 +340,5 @@ export default async function DashboardPage({
       mySubmissions={mySubmissions}
       countryEducationOverlays={countryEducationOverlays}
     />
-    </>
   )
 }
