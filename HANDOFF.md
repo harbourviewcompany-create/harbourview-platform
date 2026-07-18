@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 18 2026 · Claude (Sonnet 5)
+> Last updated: Jul 18 2026 (later) · Claude (Sonnet 5)
 
 ---
 
@@ -12,13 +12,13 @@
 | **Supabase** | `ACTIVE_HEALTHY` · PostgreSQL 17.6.1 · `zvxdgdkukjrrwamdpqrg` · us-west-2 |
 | **Vercel** | ✅ Green · project `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` |
 | **Cloudflare Pages** | ✅ Green |
-| **Migration ledger** | ⚠️ NOT reconciled — independent Jul 11 diff against `supabase_migrations.schema_migrations` found 31 ledger-vs-repo gap entries (growing — 7 more appeared mid-review) plus 22 repo-only files never applied. See ADR #17 and the Jul 11 session entry below; do not trust this line without re-running that diff. |
+| **Migration ledger** | ✅ Reconciled Jul 18 — `schema_migrations` head (`20260718191722`) matches `main`'s latest deploy commit (`0af6a05`) exactly, verified this session. That commit is itself the 3rd drift reconciliation in one week (its own count) — automation to prevent recurrence still not built, see Jul 18 (later) session entry. |
 | **Supabase Preview CI** | ✅ Green (was failing on every push; fixed by reconciling 14 unapplied files Jul 1) |
 | **E2E tests** | Runs (~9 min) but fails — tests have never passed in CI; need triage pass |
-| **Last migration** | `revoke_public_pseudorole_claim_intelligence_job` — Jul 4 2026 |
+| **Last migration** | `create_engine_review_queue_api_rpcs` — `20260718191722` |
 | **Vercel crons** | 15 production crons defined in `vercel.json`. Auth headers were broken until Jul 1 (`fix_cron_trigger_auth_headers_v2`). Health post-fix unverified — check Vercel cron logs before assuming they're running. |
-| **Migration drift** | Reconciled Jul 1 (#922) — but this is the 4th reconciliation in 4 days. See Protocol below. |
-| **Open PRs** | #1024 (Market Entry OS audit, docs-only, up to v1.2) is the only one left open from the previous batch. #1026 merged. #1021/#1022/#1023 all closed unmerged — each independently verified superseded by equivalent-or-better changes already on `main` (see Jul 11 later-session entry below for the exact diffs checked). New this session: #1031, merged — `security_invoker` regression fix, see ADR #18. |
+| **Migration drift** | Reconciled Jul 18 (18 files, commit `df491411`) — 3rd reconciliation this week per that commit's own count. Root cause (no enforced local-file-on-apply check) still unfixed. See Protocol below and Jul 18 (later) session entry. |
+| **Open PRs** | 13 open. Real (non-Dependabot): #1076 (playbook fabricated-timeline cleanup, DB change already live), #1070 (LLM-fallback + regulatory_signals/SOURCE_ENGINE view-drift fixes already live, 3 mobile UI fixes not yet live, rebased & GO per its own checklist), #1054 (admin nav/IA overhaul, build-green, 4 new review actions' runtime behavior unverified). Remaining 10 are Dependabot bumps, oldest (#1034, eslint 9→10 major) open since Jul 13, untouched. |
 | **Open issues** | #801 Phase 0 epic (Counterparties, Watchlist, Genetics, Admin polish) |
 | **TypeScript** | `npx tsc --noEmit` clean (0 errors) as of `b8de567` (2026-07-07). Prior entry here claimed "2 pre-existing errors (`@tanstack/react-query` missing dep + Stripe API version)" — not reproduced this session; either fixed by an intervening commit or was already stale. Not independently investigated further. |
 
@@ -190,6 +190,21 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 18 2026 (later) — cross-surface audit, HANDOFF reconciliation · Claude (Sonnet 5)
+
+Asked to review recent activity across GitHub/Supabase/Vercel and update this file. Found HANDOFF.md itself had drifted: this file's own CURRENT STATE table (Migration ledger, Last migration, Open PRs rows) still reflected Jul 11 state — 31-gap ledger warning, `revoke_public_pseudorole_claim_intelligence_job` as latest migration, PR #1024-era open-PR list — despite three more migration-reconciliation cycles, an org-verification-loop merge, and a live schema fix all landing on `main` since. Table rows corrected below to match verified live state as of this session; no runtime code touched.
+
+**Verified this session (read-only across all three surfaces):**
+- `supabase_migrations.schema_migrations` head (`20260718191722_create_engine_review_queue_api_rpcs`) matches Vercel's latest production deploy commit (`0af6a05`, target=production, state=READY) — DB and deployed app are in sync right now.
+- That same latest commit is itself a migration-drift reconciliation (18 files) — per its own message, the *third* such reconciliation in one week. Root cause unchanged: `apply_migration` isn't gated behind a matching committed file in the same session, only a documented (unenforced) convention. Recommended fix (scheduled reconciliation job or a diff/webhook that flags drift early) not yet built — flagging again since it's now recurred three sessions running.
+- `list_prs` (open, all): 13 open. Real: #1076 (playbook fabricated-timeline nulling, DB change already live), #1070 (LLM-fallback + `regulatory_signals`/SOURCE_ENGINE view-drift fixes already live, 3 mobile UI fixes not yet live — rebased 52 commits onto `main`, ready to merge per its own GO decision), #1054 (admin nav/IA overhaul — build-green, but the 4 new review actions' runtime behavior is explicitly unverified per the PR's own checklist). Remaining 10 are Dependabot version bumps, oldest (#1034, eslint 9→10 **major**) open since Jul 13 untouched — none reviewed or merged this session, flagging the major-version one since it likely needs a real look rather than auto-merge.
+- Confirmed live via `get_edge_function` + a working authenticated call: `github-bridge` v6 (52 deploys) is healthy, its caller-auth (`x-hv-bridge-key` header, verified server-side against the `hv_github_bridge_caller_secret` vault entry via `api.hv_bridge_key_matches`) works end-to-end.
+- Not touched, worth a look: `list_edge_functions` shows ~45 throwaway one-off functions from past debug sessions still deployed (`*-temp`, `*-inspect`, `*-fix-push`, `globe-russia-*`, etc. — e.g. `check994`, `wantedlisting-fullblock`). Harmless but pure clutter; candidate for a cleanup pass.
+
+**Not re-verified this session (left as previously recorded, do not assume current without re-checking):** branch-protection gap (`required_status_checks.contexts` empty, `enforce_admins` false), stale Cloudflare Pages git integration disconnect, Vercel cron auth-header health, E2E suite status, TypeScript clean-build status.
 
 ---
 
