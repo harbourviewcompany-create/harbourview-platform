@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
   if (!authorized(req)) return json({ ok: false, error: "unauthorized" }, 401);
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { db: { schema: "api" } });
 
   // manual-review fallback: never drop a row that no provider could classify.
   const routeToManualReview = async (signalId: string, headline: string, summary: string, reason: string) => {
