@@ -65,6 +65,7 @@ type Props = {
   tradeFlows?:          TradeFlow[]
   professionals?:       HvProfessional[]
   cannabisOperators?:   CannabisOperator[]
+  operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix
   userEmail?:           string | null
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
@@ -623,7 +624,7 @@ const MKT_ACTION_TABS_MOBILE: { id: MarketSubView; label: string }[] = [
   { id: 'my-listings', label: 'My Listings' },
 ]
 
-function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline, mySubmissions = [], userEmail }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts; mySubmissions?: MySubmission[]; userEmail?: string | null }) {
+function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], operatorLicenceMatrix, pipeline, mySubmissions = [], userEmail }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix; pipeline?: PipelineCounts; mySubmissions?: MySubmission[]; userEmail?: string | null }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [sortByRating, setSortByRating] = useState(false)
@@ -805,15 +806,31 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       {cannabisOperators.length > 0 && (
         <MobileAccordion title={`Verified operators — ${country.label} (${cannabisOperators.length})`}>
           <div className="hvm-list-stack">
-            {cannabisOperators.slice(0, 8).map(op => (
-              <div className="hvm-signal-card" key={op.id}>
-                <strong>{op.legal_name}</strong>
-                <small>
-                  {op.operator_type ?? 'Operator'}
-                  {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
-                </small>
-              </div>
-            ))}
+            {cannabisOperators.slice(0, 8).map(op => {
+              const licences = operatorLicenceMatrix?.entitled ? operatorLicenceMatrix.byOperatorId[op.id] ?? [] : []
+              return (
+                <div className="hvm-signal-card" key={op.id}>
+                  <strong>{op.legal_name}</strong>
+                  <small>
+                    {op.operator_type ?? 'Operator'}
+                    {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
+                  </small>
+                  {licences.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
+                      {licences.map((lic, i) => (
+                        <span key={i} style={{ display: 'contents' }}>
+                          {lic.gmpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GMP</span>}
+                          {lic.gacpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GACP</span>}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {operatorLicenceMatrix && !operatorLicenceMatrix.entitled && (
+                    <div style={{ fontSize: 9, color: '#d4a84b', marginTop: 5 }}>🔒 Licence & certification detail — Intel plan</div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </MobileAccordion>
       )}
@@ -3255,6 +3272,7 @@ export default function MobileCommandCentre({
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  operatorLicenceMatrix,
   pipeline,
   userEmail,
   cultivarPassports = [],
@@ -3389,7 +3407,7 @@ export default function MobileCommandCentre({
           />
         )
       case 'marketplace':
-        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} mySubmissions={mySubmissions} userEmail={userEmail} />
+        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} operatorLicenceMatrix={operatorLicenceMatrix} pipeline={pipeline} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'digest':
         return <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'signals':

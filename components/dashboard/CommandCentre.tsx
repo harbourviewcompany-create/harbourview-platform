@@ -129,6 +129,7 @@ type Props = {
   tradeFlows?:          TradeFlow[]
   professionals?:       HvProfessional[]
   cannabisOperators?:   CannabisOperator[]
+  operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix
   userEmail?:           string | null
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
@@ -1108,7 +1109,7 @@ const MKT_ACTION_TABS: { id: MarketSubView; label: string }[] = [
 ]
 
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange, mySubmissions = [], userEmail,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], operatorLicenceMatrix, pipeline, onPageChange, mySubmissions = [], userEmail,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -1118,6 +1119,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   wantedCount?:      number
   pathwayData?:      PathwayData
   cannabisOperators?: CannabisOperator[]
+  operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix
   pipeline?:         PipelineCounts
   onPageChange?:     (page: CommandPage) => void
   mySubmissions?:    MySubmission[]
@@ -1487,17 +1489,32 @@ const MarketplacePage = React.memo(function MarketplacePage({
         {cannabisOperators.length > 0 && (
           <div className="cc-right-section">
             <div className="cc-right-head">VERIFIED OPERATORS — {country.label.toUpperCase()}</div>
-            {cannabisOperators.slice(0, 5).map(op => (
-              <div key={op.id} className="cc-req-row">
-                <span className={`cc-req-icon ${op.verification_status === 'verified' ? 'ok' : 'pending'}`}>
-                  {op.verification_status === 'verified' ? '✓' : '○'}
-                </span>
-                <div>
-                  <strong>{op.legal_name}</strong>
-                  <small>{op.operator_type ?? 'Operator'}</small>
+            {cannabisOperators.slice(0, 5).map(op => {
+              const licences = operatorLicenceMatrix?.entitled ? operatorLicenceMatrix.byOperatorId[op.id] ?? [] : []
+              return (
+                <div key={op.id} className="cc-req-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span className={`cc-req-icon ${op.verification_status === 'verified' ? 'ok' : 'pending'}`}>
+                      {op.verification_status === 'verified' ? '✓' : '○'}
+                    </span>
+                    <div>
+                      <strong>{op.legal_name}</strong>
+                      <small>{op.operator_type ?? 'Operator'}</small>
+                    </div>
+                  </div>
+                  {licences.map((lic, i) => (
+                    <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4, paddingLeft: 26 }}>
+                      {lic.gmpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GMP</span>}
+                      {lic.gacpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GACP</span>}
+                      {lic.licenceClass && <span style={{ fontSize: 9, color: 'rgba(245,240,232,.4)' }}>{lic.licenceClass}</span>}
+                    </div>
+                  ))}
+                  {operatorLicenceMatrix && !operatorLicenceMatrix.entitled && (
+                    <div style={{ fontSize: 9, color: '#d4a84b', paddingLeft: 26, marginTop: 4 }}>🔒 Licence & certification detail — Intel plan</div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
             <button className="cc-right-link" onClick={() => setSubView('browse')}>View all operators →</button>
           </div>
         )}
@@ -10321,6 +10338,7 @@ export default function CommandCentre({
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  operatorLicenceMatrix,
   userEmail,
   cultivarPassports = [],
   serviceProviders = [],
@@ -10485,7 +10503,7 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} operatorLicenceMatrix={operatorLicenceMatrix} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} onPageChange={handlePageChange} />
       case 'education':

@@ -4,6 +4,7 @@ import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWa
 import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
+import { getOperatorLicenceMatrix } from '@/lib/intelligence/operatorIntelligence'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -284,6 +285,8 @@ export default async function DashboardPage({
   const tradeFlows             = settledOr(tradeFlowsResult, undefined, 'getTradeFlows')
   const professionals          = settledOr(professionalsResult, undefined, 'getProfessionals')
   const cannabisOperators      = settledOr(cannabisOperatorsResult, undefined, 'getCannabisOperators')
+  const operatorLicenceMatrix  = await getOperatorLicenceMatrix((cannabisOperators ?? []).map(op => op.id))
+    .catch(() => ({ entitled: false as const }))
   const cultivarPassports      = settledOr(cultivarPassportsResult, [], 'getPublicCultivarPassports')
   const serviceProviders       = settledOr(serviceProvidersResult, [], 'getPublicServiceProviders')
   const collaborationProjects  = settledOr(collaborationProjectsResult, [], 'getPublicCollaborationProjects')
@@ -323,6 +326,7 @@ export default async function DashboardPage({
       tradeFlows={tradeFlows}
       professionals={professionals}
       cannabisOperators={cannabisOperators}
+      operatorLicenceMatrix={operatorLicenceMatrix}
       userEmail={userEmail}
       cultivarPassports={cultivarPassports}
       serviceProviders={serviceProviders}
