@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 14 2026 · Claude (Sonnet 5)
+> Last updated: Jul 18 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -190,6 +190,22 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 18 2026 — operator licence/certification cross-reference, intel-tier · Claude (Sonnet 5)
+
+Asked directly how to best optimize the Compliance-tab work for commercial value to an industry professional. The sharpest answer wasn't a pricing tweak — it was a second dataset sitting in the exact same "built, zero api exposure" state as `regulatory_pathways` was: `operator_licences` (98 rows — named companies, licence class, GMP/GACP certification, authorized activities), linked via `cannabis_operators` (already live, public, shown today in `MarketplacePage`'s "Verified Operators" sidebar).
+
+Checked real content before proposing anything, same as every other dataset this session: Germany alone has 7 `admin_verified` companies with real licence detail (Canopy Growth Germany, Demecan, Tilray Deutschland, IMC Germany on the import side; Little Green Pharma, Inter Cannabis, Flora Growth on the export side). Not a stub.
+
+**Why this one's different from the others:** it's the first piece of this whole intel-tier build that isn't just gated reference data — it turns "dried flower is permitted in Germany" into "dried flower is permitted in Germany, here are the 3 GMP-certified companies already doing it." That pairing (legal viability + who's already active) is the one a generic compliance-data vendor can't copy, because it only means something next to a marketplace that can make the introduction. Also flagged, not yet built: a "request verification" action routing unverified rows to a real person — productizing the advisory practice directly rather than treating unverified data as a liability to apologize for.
+
+Shipped (#1071): `operator_licences` gated on `tier IN ('intel','operator')` (same `current_user_tier()` pattern), `operator_countries` exposed public (zero api exposure, but low incremental value to gate — presence is already visible via `cannabis_operators.country_iso2`). `getOperatorLicenceMatrix(operatorIds)` runs as a small sequential fetch after `getCannabisOperators` resolves — new file, didn't touch that existing working function. Threaded through both `MarketplacePage` and `MarketplaceMobile` — GMP/GACP badges + licence class shown inline under each operator for entitled users, a locked-teaser line for everyone else.
+
+`tsc` + `next build` clean. `get_advisors` re-checked — no new findings.
+
+**Still open, mentioned but not built:** cross-country ranked comparison (which of the ~65 countries are viable for a given format, not just the one currently selected — CC's single-country model doesn't fit this any better than it fit the two-country corridor view); `cc_watch_rules` already exists and could cheaply extend to alert on pathway-status changes, not yet wired; the verification-request-routes-to-a-person idea above.
 
 ---
 
