@@ -26,10 +26,6 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/cron/intelligence-graph",
-      "schedule": "0 9 * * *"
-    },
-    {
       "path": "/api/cron/regulatory-watch",
       "schedule": "0 12 * * *"
     },

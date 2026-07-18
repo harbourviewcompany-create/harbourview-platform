@@ -1,4 +1,16 @@
 // app/api/cron/intelligence-graph/route.ts
+//
+// RETIRED 2026-07-18 (North Star v1.5): removed from vercel.json's cron
+// schedule. Promoted ia_signals into cannabis_intelligence
+// (source_documents → evidence_claims → regulatory_authorities), but
+// nothing in the app ever read from cannabis_intelligence -- a repo-wide
+// .ts/.tsx grep found only a test file and this write path itself.
+// jurisdiction_playbooks is the canonical knowledge graph (see North Star
+// doc); this route is left in place, unscheduled, in case that decision
+// is revisited. Do not re-add to vercel.json without re-verifying a
+// consumer exists.
+//
+// Original header, preserved for context:
 // Vercel Cron — promotes ia_signals into the cannabis_intelligence
 // provenance chain: source_documents → evidence_claims → regulatory_authorities
 //
