@@ -22,15 +22,25 @@ export default async function NewRegulatorySignalPage() {
       <form action={createSignalAction} className="mt-6 grid gap-4 text-sm">
         <input name="headline" placeholder="Headline" className="rounded bg-black/30 p-3" required />
         <input name="slug" placeholder="slug" className="rounded bg-black/30 p-3" required />
-        <select name="signal_type" className="rounded bg-black/30 p-3" defaultValue="regulatory_change">
-          <option value="regulatory_change">Regulatory change</option>
-          <option value="policy_announcement">Policy announcement</option>
+        <select name="signal_type" className="rounded bg-black/30 p-3" defaultValue="regulatory_guidance">
+          <option value="regulatory_guidance">Regulatory guidance</option>
+          <option value="policy_consultation">Policy consultation</option>
+          <option value="legislation_change">Legislation change</option>
           <option value="import_export_pathway">Import/export pathway</option>
           <option value="licensing_market_access">Licensing/market access</option>
           <option value="prescription_patient_access">Prescription/patient access</option>
-          <option value="hemp_cbd_controlled_cannabinoids">Hemp/CBD/controlled cannabinoids</option>
-          <option value="enforcement_compliance_action">Enforcement/compliance action</option>
-          <option value="consultation_pending_rule_change">Consultation/pending rule change</option>
+          <option value="hemp_cbd_boundary">Hemp/CBD boundary</option>
+          <option value="enforcement_action">Enforcement action</option>
+          <option value="pharmaceutical_reclassification">Pharmaceutical reclassification</option>
+          <option value="trade_agreement">Trade agreement</option>
+          <option value="court_decision">Court decision</option>
+          <option value="quota_allocation">Quota allocation</option>
+          <option value="international_treaty">International treaty</option>
+          <option value="industrial_use_access">Industrial use access</option>
+          <option value="professional_access">Professional access</option>
+          <option value="research_access">Research access</option>
+          <option value="enforcement_risk">Enforcement risk</option>
+          <option value="market_exit">Market exit</option>
         </select>
         <input name="signal_date" type="date" className="rounded bg-black/30 p-3" required />
         <div className="grid gap-4 md:grid-cols-2">

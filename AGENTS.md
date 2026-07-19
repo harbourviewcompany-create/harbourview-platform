@@ -11,6 +11,12 @@ This file defines baseline instructions for all agents and contributors working 
 ## Claude-Specific Operating Preferences
 Tyler's personal operating preferences for Claude sessions (action-on-reversibility rules, credential handling, the merge/deploy sign-off boundary) live in `CLAUDE.md` at the repo root and apply to any Claude session working in this codebase. Where the two files both speak to process (PR discipline, QA gates, etc.), this file is the more specific and authoritative source for this repository.
 
+## Merge Discipline — No Direct Commits to `main`
+- Every change — including docs-only edits — lands via a pull request. Direct commits or pushes to `main` are not permitted, regardless of how small or reversible the change looks. This applies equally to human contributors and agents.
+- `main` currently has no branch-protection rule technically blocking direct pushes (open gap — see `docs/control/EVIDENCE_LOG.md`). That gap does not relax this rule; treat it as binding regardless of what the platform happens to allow.
+- A PR is not done when it merges. It is done when the QA commands for its change type (below) were actually run with their output quoted in the PR body, and a corresponding `docs/control/EVIDENCE_LOG.md` entry exists — not only for "production-impacting" work, for every merged PR. `docs/control/PR_REVIEW_CHECKLIST.md`'s baseline gate is the canonical definition of what that entry needs to contain (including a minimal copy-paste template for docs-only/trivial changes) — this file doesn't restate it, to avoid the two documents drifting apart.
+- This rule exists because it was violated in practice: a prior session pushed a run of commits straight to `main` with no PR, no QA gate, and no evidence-log entry, discovered only when this file was read for an unrelated reason. Reading this file before the first edit (see Coding & Style Expectations below) is what would have caught it.
+
 ## Coding & Style Expectations
 - Follow existing conventions in touched files; do not introduce a second style system in the same module.
 - Keep changes minimal, composable, and reversible; avoid opportunistic refactors unless requested.
@@ -20,6 +26,7 @@ Tyler's personal operating preferences for Claude sessions (action-on-reversibil
 - Do not commit generated secrets, credentials, tokens, private keys, or environment dumps.
 
 See also:
+- `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` — read before any intelligence/scraping/signals pipeline work
 - `docs/control/BUILD_CONTROL.md`
 - `docs/control/DESIGN_SYSTEM.md`
 - `docs/control/PR_REVIEW_CHECKLIST.md`
@@ -134,7 +141,7 @@ Commands run:
 - Blast radius and owner
 ```
 
-Evidence must be reproducible, time-bounded, and tied to changed behavior. For production-impacting work, include an evidence trail in `docs/control/EVIDENCE_LOG.md`.
+Evidence must be reproducible, time-bounded, and tied to changed behavior. Every PR — including docs-only changes — adds a corresponding entry to `docs/control/EVIDENCE_LOG.md` before merge, per the Merge Discipline section above. See `docs/control/PR_REVIEW_CHECKLIST.md`'s baseline gate for the canonical scaling rules and a minimal copy-paste template — not restated here.
 
 See also:
 - `docs/control/PR_REVIEW_CHECKLIST.md`

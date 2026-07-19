@@ -1,3 +1,28 @@
+-- MOVED OUT OF supabase/migrations/ on 2026-07-18 -- targets a schema
+-- that does not exist and, per available evidence, was never built.
+--
+-- This file's INSERT/RLS/graph-log statements all target a
+-- `cannabis_intelligence` schema. Live schema check confirmed this schema
+-- does not exist anywhere in the database. The one live table that could
+-- plausibly be the intended target -- public.jurisdictions -- has a
+-- fundamentally different, incompatible column set (identity_verification_status,
+-- data_release_status, un_region_name, etc.) vs. what this file expects
+-- (confidence_score, evidence_status, review_status, exposure_level,
+-- universe_import_status, iso_alpha2) -- not a naming mismatch fixable by
+-- a schema-prefix correction, a genuinely different table design.
+--
+-- Only one other migration references cannabis_intelligence at all
+-- (20260607140000_cannabis_data_contract_v1_p0_p1.sql, already applied to
+-- remote), so this file's dependency was apparently never fully realized
+-- even by its own predecessor.
+--
+-- Needs a decision, not a mechanical fix: either rewrite these seeds/RLS/
+-- graph-log statements against the public.jurisdictions design that
+-- actually shipped, or formally retire this file if the cannabis_intelligence
+-- schema concept was abandoned in favor of the public schema approach.
+-- Blocked `supabase db push` for every migration after it in timestamp
+-- order until moved here.
+
 -- =============================================================================
 -- cannabis_intelligence graph foundation
 -- =============================================================================

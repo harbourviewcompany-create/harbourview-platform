@@ -88,6 +88,7 @@ Branching, committing, and opening PRs are reversible Ã¢ÂÂ do them freel
 - Every build decision must be justified
 - Flag tradeoffs and alternatives before committing to an approach
 - Quality over speed, always
+- **Before any work on the intelligence/scraping/signals pipeline** (scrapers, `signals`/`ia_signals`, scoring, promotion, the Intel/Digest feeds, source registry, or the edge-function/cron ingestion estate), read `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` first and follow its staged plan and guardrails (Section 9). It contains the verified current-state diagnosis and the approved target architecture.
 
 ### 6. Strategy Standards
 

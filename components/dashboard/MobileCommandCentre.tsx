@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+
+const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
+  permitted: '#5fb87a',
+  restricted: '#d4a84b',
+  prohibited: '#e05555',
+  unclear: 'rgba(245,240,232,.4)',
+}
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
 import type { DashboardMarketplaceRows, MarketRow, MarketView, CommandPage, DigestWindow } from '@/components/dashboard/CommandCentre'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
@@ -36,6 +43,12 @@ type Props = {
   digestWindow?: DigestWindow
   eduCategories: { icon: string; title: string; desc: string }[]
   initialCountryIso2?: string | null
+  // Subnational selection carried from the globe router (e.g. "Illinois" for
+  // US-IL). country/COUNTRIES only model full countries, so this is threaded
+  // separately for display (title kicker) and to highlight the matching row
+  // in Local Intel's municipal watch list, rather than fabricating
+  // state-level Overview/Compliance data that doesn't exist in the DB.
+  regionLabel?: string | null
   initialRoleId?: string | null
   initialPage?: string | null
   wantedCount?: number
@@ -52,16 +65,19 @@ type Props = {
   sourceCoverage?:      SourceCoverageRow[]
   countryEducationOverlays?: CountryEducationOverlay[]
   jurisdictionPlaybook?: JurisdictionPlaybook
+  pathwayMatrix?:       import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   educationTracks?:     EducationTrack[]
   marketMetrics?:       MarketMetric[]
   tradeFlows?:          TradeFlow[]
   professionals?:       HvProfessional[]
   cannabisOperators?:   CannabisOperator[]
+  operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix
   userEmail?:           string | null
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
   mySubmissions?:       MySubmission[]
+  hasOrg?:              boolean
 }
 
 type CountryOption = { iso2: string; label: string }
@@ -303,7 +319,7 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         )}
       </section>
 
-      <div className="hvm-status-grid">
+      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
         <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
         <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
@@ -466,12 +482,12 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
-      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} />}
-      {sub === 'local-intel'    && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} />}
+      {sub === 'local-intel'    && <LocalIntelMobile country={country} regionLabel={regionLabel} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
       {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
@@ -615,7 +631,7 @@ const MKT_ACTION_TABS_MOBILE: { id: MarketSubView; label: string }[] = [
   { id: 'my-listings', label: 'My Listings' },
 ]
 
-function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], pipeline, mySubmissions = [], userEmail }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; pipeline?: PipelineCounts; mySubmissions?: MySubmission[]; userEmail?: string | null }) {
+function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], wantedCount = 0, cannabisOperators = [], operatorLicenceMatrix, pipeline, mySubmissions = [], userEmail }: { country: CountryOption; marketplaceRows?: Partial<DashboardMarketplaceRows>; wantedListings?: WantedListing[]; wantedCount?: number; cannabisOperators?: CannabisOperator[]; operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix; pipeline?: PipelineCounts; mySubmissions?: MySubmission[]; userEmail?: string | null }) {
   const [activeTab, setActiveTab] = useState<MarketView>(() => getDefaultMarketTab(marketplaceRows, wantedListings))
   const [search, setSearch] = useState('')
   const [sortByRating, setSortByRating] = useState(false)
@@ -797,15 +813,31 @@ function MarketplaceMobile({ country, marketplaceRows, wantedListings = [], want
       {cannabisOperators.length > 0 && (
         <MobileAccordion title={`Verified operators — ${country.label} (${cannabisOperators.length})`}>
           <div className="hvm-list-stack">
-            {cannabisOperators.slice(0, 8).map(op => (
-              <div className="hvm-signal-card" key={op.id}>
-                <strong>{op.legal_name}</strong>
-                <small>
-                  {op.operator_type ?? 'Operator'}
-                  {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
-                </small>
-              </div>
-            ))}
+            {cannabisOperators.slice(0, 8).map(op => {
+              const licences = operatorLicenceMatrix?.entitled ? operatorLicenceMatrix.byOperatorId[op.id] ?? [] : []
+              return (
+                <div className="hvm-signal-card" key={op.id}>
+                  <strong>{op.legal_name}</strong>
+                  <small>
+                    {op.operator_type ?? 'Operator'}
+                    {op.verification_status === 'verified' ? ' · ✓ Verified' : ' · Pending'}
+                  </small>
+                  {licences.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
+                      {licences.map((lic, i) => (
+                        <span key={i} style={{ display: 'contents' }}>
+                          {lic.gmpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GMP</span>}
+                          {lic.gacpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GACP</span>}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {operatorLicenceMatrix && !operatorLicenceMatrix.entitled && (
+                    <div style={{ fontSize: 9, color: '#d4a84b', marginTop: 5 }}>🔒 Licence & certification detail — Intel plan</div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </MobileAccordion>
       )}
@@ -1337,6 +1369,38 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
           <div className="hvm-kicker">Commercial impact</div>
           <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selectedSignal.commercialImpact}</p>
         </div>
+
+        {selectedSignal.analysis && (
+          <div className="hvm-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {selectedSignal.analysis.what_changed && (
+              <div>
+                <div className="hvm-kicker">What changed</div>
+                <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.6 }}>{selectedSignal.analysis.what_changed}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.who_is_affected && (
+              <div>
+                <div className="hvm-kicker">Who&apos;s affected</div>
+                <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.6 }}>{selectedSignal.analysis.who_is_affected}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.deadline && selectedSignal.analysis.deadline !== 'null' && (
+              <div>
+                <div className="hvm-kicker">Deadline</div>
+                <p style={{ margin: '6px 0 0', color: '#d4a84b', fontSize: 14, lineHeight: 1.6, fontWeight: 600 }}>{selectedSignal.analysis.deadline}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.recommended_action && (
+              <div>
+                <div className="hvm-kicker">Recommended action</div>
+                <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.6 }}>{selectedSignal.analysis.recommended_action}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.confidence_rationale && (
+              <p style={{ margin: 0, color: 'rgba(245,240,232,.42)', fontSize: 12, lineHeight: 1.5, fontStyle: 'italic' }}>{selectedSignal.analysis.confidence_rationale}</p>
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8 }}>
           <span className="hvm-tag-chip" style={{ background: selectedSignal.tag.bg, borderColor: selectedSignal.tag.border, color: selectedSignal.tag.color }}>{selectedSignal.tag.label}</span>
@@ -2359,7 +2423,7 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
   )
 }
 
-function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryIntel }: { country: CountryOption; roleLabel: string; signals: DashboardSignal[]; localIntel?: LocalIntelData | null; countryIntel?: CountryIntelProfile | null }) {
+function LocalIntelMobile({ country, regionLabel, roleLabel, signals, localIntel, countryIntel }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; signals: DashboardSignal[]; localIntel?: LocalIntelData | null; countryIntel?: CountryIntelProfile | null }) {
   const constraints = useMemo(() => {
     if (localIntel?.constraints && localIntel.constraints.length > 0) return localIntel.constraints
     if (countryIntel) {
@@ -2392,7 +2456,7 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <h2>Local Intel</h2>
-        <p>{country.label} · {roleLabel}</p>
+        <p>{country.label}{regionLabel ? ` · ${regionLabel}` : ''} · {roleLabel}</p>
         {localIntel?.coverageStatus && (
           <blockquote>Coverage: {localIntel.coverageStatus.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</blockquote>
         )}
@@ -2410,19 +2474,26 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
       </MobileAccordion>
 
       {municipalities.length > 0 && (
-        <MobileAccordion title={`Municipal watch (${municipalities.length})`}>
+        <MobileAccordion title={`Municipal watch (${municipalities.length})`} defaultOpen={Boolean(regionLabel)}>
           <div className="hvm-list-stack">
-            {municipalities.map((m, i) => (
-              <div className="hvm-signal-card hvm-muni-row" key={i}>
-                <div style={{ flex: 1 }}>
-                  <strong style={{ fontSize: 15 }}>{m.name}</strong>
-                  {m.note && <p className="hvm-signal-impact">{m.note}</p>}
+            {municipalities.map((m, i) => {
+              const isSelectedRegion = Boolean(regionLabel) && m.name.trim().toLowerCase() === regionLabel!.trim().toLowerCase()
+              return (
+                <div
+                  className="hvm-signal-card hvm-muni-row"
+                  key={i}
+                  style={isSelectedRegion ? { borderColor: 'rgba(212,168,75,0.6)', background: 'rgba(212,168,75,0.08)' } : undefined}
+                >
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 15 }}>{m.name}{isSelectedRegion ? ' · Selected market' : ''}</strong>
+                    {m.note && <p className="hvm-signal-impact">{m.note}</p>}
+                  </div>
+                  <span className={`hvm-muni-badge hvm-muni-badge--${m.status}`}>
+                    {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
+                  </span>
                 </div>
-                <span className={`hvm-muni-badge hvm-muni-badge--${m.status}`}>
-                  {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </MobileAccordion>
       )}
@@ -2939,7 +3010,7 @@ function countryToComplianceSlug(region?: string, subregion?: string): string {
   return 'europe'
 }
 
-function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook }) {
+function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook, pathwayMatrix }: { country: CountryOption; countryIntel?: CountryIntelProfile | null; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix }) {
   const fullCountry = useMemo(() => ALL_COUNTRIES.find(c => c.iso2 === country.iso2), [country.iso2])
   const regionContext = useMemo(() => {
     const slug = countryToComplianceSlug(fullCountry?.region, fullCountry?.subregion)
@@ -3040,6 +3111,43 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
         </div>
       )}
 
+      {pathwayMatrix && !pathwayMatrix.entitled && (
+        <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(212,168,75,.3)', borderStyle: 'dashed' }}>
+          <div className="hvm-kicker" style={{ color: '#d4a84b' }}>🔒 FORMAT VIABILITY — INTEL PLAN REQUIRED</div>
+          <p style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', lineHeight: 1.6, marginTop: 6 }}>
+            Which pathway permits which product format here, THC/CBD limits, possession limits — part of the Intel tier.
+          </p>
+        </div>
+      )}
+
+      {pathwayMatrix?.entitled && pathwayMatrix.pathways.length > 0 && (
+        <div className="hvm-signal-card hvm-signal-card--rich">
+          <div className="hvm-kicker">FORMAT VIABILITY — {pathwayMatrix.pathways.length} PATHWAY{pathwayMatrix.pathways.length === 1 ? '' : 'S'}</div>
+          {pathwayMatrix.pathways.map((pathway, i) => (
+            <div key={pathway.id} style={{ marginTop: i === 0 ? 6 : 10, paddingTop: i === 0 ? 0 : 10, borderTop: i === 0 ? undefined : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(245,240,232,.85)' }}>{pathway.name}</div>
+              <div style={{ fontSize: 10, color: 'rgba(245,240,232,.4)', marginBottom: 6 }}>{pathway.regulator ?? pathway.pathwayType.replace(/_/g, ' ')} · {pathway.status}</div>
+              {pathway.formats.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {pathway.formats.map(f => (
+                    <span
+                      key={f.formatSlug}
+                      style={{
+                        fontSize: 10, padding: '2px 7px', borderRadius: 100, border: '1px solid',
+                        borderColor: MOBILE_FORMAT_STATUS_COLOR[f.status] ? `${MOBILE_FORMAT_STATUS_COLOR[f.status]}40` : 'rgba(255,255,255,.12)',
+                        color: MOBILE_FORMAT_STATUS_COLOR[f.status] ?? 'rgba(245,240,232,.5)',
+                      }}
+                    >
+                      {f.formatName} · {f.status}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {regionContext && (
         <MobileAccordion title={`${regionContext.name} compliance context`} defaultOpen>
           <p className="hvm-briefing-body">{regionContext.summary}</p>
@@ -3075,7 +3183,294 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook }: { cou
   )
 }
 
-function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange, userEmail }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; userEmail?: string | null }) {
+const MOBILE_ORG_TYPE_OPTIONS: SelectOption[] = [
+  { value: 'supplier',    label: 'Supplier / Cultivator' },
+  { value: 'buyer',       label: 'Buyer / Importer' },
+  { value: 'broker',      label: 'Broker / Trade Intermediary' },
+  { value: 'lab',         label: 'Testing Laboratory' },
+  { value: 'pharmacy',    label: 'Pharmacy' },
+  { value: 'clinic',      label: 'Clinic' },
+  { value: 'equipment',   label: 'Equipment / Technology Provider' },
+  { value: 'service',     label: 'Professional Service Provider' },
+  { value: 'financial',   label: 'Financial / Investment' },
+  { value: 'distributor', label: 'Distributor' },
+  { value: 'exporter',    label: 'Exporter' },
+  { value: 'importer',    label: 'Importer' },
+]
+
+type OrgMeLicenceMobile = { id: string; licence_number: string; licence_type: string; jurisdiction_country: string; status: string; verified: boolean; expires_at: string }
+type OrgMeMobile = { id: string; name: string; legal_name: string; trade_name: string | null; org_type: string; jurisdiction_country: string; verification_status: string }
+
+function OrganizationMobile({ hasOrg, countryOptions }: { hasOrg?: boolean; countryOptions: SelectOption[] }) {
+  const [legalName, setLegalName] = useState('')
+  const [tradeName, setTradeName] = useState('')
+  const [orgType, setOrgType] = useState('')
+  const [jurisdiction, setJurisdiction] = useState('')
+  const [region, setRegion] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const handleSubmit = async () => {
+    setError(null)
+    if (!legalName.trim())         return setError('Legal name is required.')
+    if (!orgType)                  return setError('Select an organization type.')
+    if (jurisdiction.length !== 2) return setError('Select a jurisdiction country.')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/org/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          legal_name: legalName.trim(),
+          trade_name: tradeName.trim() || undefined,
+          org_type: orgType,
+          jurisdiction_country: jurisdiction,
+          jurisdiction_region: region.trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(
+          json?.error === 'USER_ALREADY_HAS_ORG' ? 'You already belong to an organization.' :
+          json?.error === 'SLUG_CONFLICT' ? 'A very similar organization name already exists.' :
+          typeof json?.error === 'string' ? json.error : 'Could not create your organization.'
+        )
+        return
+      }
+      setDone(true)
+    } catch {
+      setError('Network error — please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (hasOrg || done) {
+    return <OrganizationDashboardMobile countryOptions={countryOptions} justCreated={done} />
+  }
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>Create Your Organization</h2>
+        <p>Every counterparty on Harbourview operates through a verified organization. This starts your Passport.</p>
+      </section>
+
+      <div className="hvm-org-note">
+        Created privately and unverified by default. One organization per account at creation — teammates can be invited afterward.
+      </div>
+
+      {error && <div className="hvm-org-error">{error}</div>}
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        <label className="hvm-settings-label">
+          <span>Legal name *</span>
+          <input className="hvm-settings-input" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder="Legal entity name" />
+        </label>
+        <label className="hvm-settings-label">
+          <span>Trade name</span>
+          <input className="hvm-settings-input" value={tradeName} onChange={e => setTradeName(e.target.value)} placeholder="If different from legal name" />
+        </label>
+        <label className="hvm-settings-label">
+          <span>Organization type *</span>
+          <select className="hvm-settings-select" value={orgType} onChange={e => setOrgType(e.target.value)}>
+            <option value="">Select organization type</option>
+            {MOBILE_ORG_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="hvm-settings-label">
+          <span>Country of registration *</span>
+          <select className="hvm-settings-select" value={jurisdiction} onChange={e => setJurisdiction(e.target.value)}>
+            <option value="">Select country</option>
+            {countryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="hvm-settings-label">
+          <span>State / province (optional)</span>
+          <input className="hvm-settings-input" value={region} onChange={e => setRegion(e.target.value)} placeholder="Region" />
+        </label>
+        <button className="hvm-org-submit" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Creating…' : 'Create Organization'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const MOBILE_LICENCE_TYPE_OPTIONS = [
+  'Cultivation', 'Processing/Manufacturing', 'Extraction', 'Distribution',
+  'Retail/Dispensing', 'Import', 'Export', 'Testing Laboratory', 'Research', 'Other',
+]
+
+function OrganizationDashboardMobile({ countryOptions, justCreated }: { countryOptions: SelectOption[]; justCreated?: boolean }) {
+  const [loading, setLoading] = useState(true)
+  const [org, setOrg] = useState<OrgMeMobile | null>(null)
+  const [licences, setLicences] = useState<OrgMeLicenceMobile[]>([])
+  const [showForm, setShowForm] = useState(false)
+
+  const [licNumber, setLicNumber] = useState('')
+  const [licAuthority, setLicAuthority] = useState('')
+  const [licType, setLicType] = useState('')
+  const [licCountry, setLicCountry] = useState('')
+  const [licRegion, setLicRegion] = useState('')
+  const [licExpires, setLicExpires] = useState('')
+  const [licSubmitting, setLicSubmitting] = useState(false)
+  const [licError, setLicError] = useState<string | null>(null)
+  const [licResult, setLicResult] = useState<{ auto_verified: boolean } | null>(null)
+
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/org/me')
+      const json = await res.json()
+      setOrg(json?.data?.org ?? null)
+      setLicences(json?.data?.licences ?? [])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const submitLicence = async () => {
+    setLicError(null)
+    setLicResult(null)
+    if (!licNumber.trim())        return setLicError('Licence number is required.')
+    if (!licAuthority.trim())     return setLicError('Issuing authority is required.')
+    if (!licType)                 return setLicError('Select a licence type.')
+    if (licCountry.length !== 2)  return setLicError('Select a jurisdiction country.')
+    if (!licExpires)              return setLicError('Expiry date is required.')
+
+    setLicSubmitting(true)
+    try {
+      const res = await fetch('/api/org/licences/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          licence_number: licNumber.trim(), issuing_authority: licAuthority.trim(),
+          licence_type: licType, jurisdiction_country: licCountry,
+          jurisdiction_region: licRegion.trim() || undefined, expires_at: licExpires,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setLicError(typeof json?.error === 'string' ? json.error : 'Could not submit licence.'); return }
+      setLicResult({ auto_verified: !!json?.data?.auto_verified })
+      setLicNumber(''); setLicAuthority(''); setLicType(''); setLicCountry(''); setLicRegion(''); setLicExpires('')
+      await load()
+    } catch {
+      setLicError('Network error — please try again.')
+    } finally {
+      setLicSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="hvm-page-stack">
+        <section className="hvm-hero-card compact"><p>Loading your organization…</p></section>
+      </div>
+    )
+  }
+  if (!org) {
+    return (
+      <div className="hvm-page-stack">
+        <section className="hvm-hero-card compact"><p>Couldn&apos;t load your organization. Try refreshing.</p></section>
+      </div>
+    )
+  }
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>{org.trade_name || org.legal_name}</h2>
+        {org.trade_name && <p>{org.legal_name}</p>}
+        <p style={{ color: '#d4a84b', textTransform: 'uppercase', fontSize: 12, letterSpacing: '.06em', marginTop: 6 }}>
+          {org.verification_status.replace('_', ' ')}
+        </p>
+      </section>
+
+      {justCreated && (
+        <div className="hvm-org-note">Organization created. Add a licence below to move your Passport toward verification.</div>
+      )}
+
+      <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '4px 2px' }}>
+        Licences ({licences.length})
+      </div>
+      {licences.length === 0 && (
+        <div className="hvm-org-note">No licences submitted yet.</div>
+      )}
+      {licences.map(l => (
+        <div className="hvm-signal-card" key={l.id}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div>
+              <strong style={{ fontSize: 14 }}>{l.licence_type} — {l.jurisdiction_country}</strong>
+              <small style={{ display: 'block', marginTop: 4, color: 'rgba(245,240,232,.48)' }}>
+                #{l.licence_number} · expires {l.expires_at}
+              </small>
+            </div>
+            <span style={{
+              fontSize: 11, textTransform: 'uppercase', flexShrink: 0,
+              color: l.status === 'active' ? '#10b981' : l.status === 'revoked' ? '#ef4444' : '#d4a84b',
+            }}>
+              {l.verified ? 'Auto-verified' : l.status}
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {!showForm ? (
+        <button className="hvm-org-submit" onClick={() => setShowForm(true)}>+ Add a licence</button>
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {licError && <div className="hvm-org-error">{licError}</div>}
+          {licResult && (
+            <div className="hvm-org-note">
+              {licResult.auto_verified
+                ? 'Matched the public regulator registry — verified automatically, no review needed.'
+                : 'Submitted. No automatic match was found, so this needs a quick manual review.'}
+            </div>
+          )}
+          <label className="hvm-settings-label">
+            <span>Licence number *</span>
+            <input className="hvm-settings-input" value={licNumber} onChange={e => setLicNumber(e.target.value)} placeholder="Licence number" />
+          </label>
+          <label className="hvm-settings-label">
+            <span>Issuing authority *</span>
+            <input className="hvm-settings-input" value={licAuthority} onChange={e => setLicAuthority(e.target.value)} placeholder="e.g. Health Canada" />
+          </label>
+          <label className="hvm-settings-label">
+            <span>Licence type *</span>
+            <select className="hvm-settings-select" value={licType} onChange={e => setLicType(e.target.value)}>
+              <option value="">Select licence type</option>
+              {MOBILE_LICENCE_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label className="hvm-settings-label">
+            <span>Jurisdiction country *</span>
+            <select className="hvm-settings-select" value={licCountry} onChange={e => setLicCountry(e.target.value)}>
+              <option value="">Select country</option>
+              {countryOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </label>
+          <label className="hvm-settings-label">
+            <span>State / province</span>
+            <input className="hvm-settings-input" value={licRegion} onChange={e => setLicRegion(e.target.value)} placeholder="Optional" />
+          </label>
+          <label className="hvm-settings-label">
+            <span>Expiry date *</span>
+            <input className="hvm-settings-input" type="date" value={licExpires} onChange={e => setLicExpires(e.target.value)} />
+          </label>
+          <button className="hvm-org-submit" onClick={submitLicence} disabled={licSubmitting}>
+            {licSubmitting ? 'Submitting…' : 'Submit Licence'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions, onCountryChange, onRoleChange, userEmail, hasOrg, onOpenOrganization }: { country: CountryOption; role: string; roleLabel: string; countryOptions: SelectOption[]; roleOptions: SelectOption[]; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; userEmail?: string | null; hasOrg?: boolean; onOpenOrganization?: () => void }) {
   const [notifWatchlist, setNotifWatchlist] = useState(true)
   const [notifSignals, setNotifSignals] = useState(true)
   const today = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -3086,6 +3481,20 @@ function SettingsMobile({ country, role, roleLabel, countryOptions, roleOptions,
         <h2>Settings</h2>
         <p>{country.label} · {roleLabel}</p>
       </section>
+
+      <MobileAccordion title="Organization" defaultOpen={!hasOrg}>
+        <div className="hvm-signal-card hvm-trigger-row" onClick={onOpenOrganization} style={{ cursor: 'pointer' }}>
+          <div>
+            <strong style={{ fontSize: 14 }}>{hasOrg ? 'Your organization' : 'No organization yet'}</strong>
+            <small style={{ display: 'block', marginTop: 4, color: 'rgba(245,240,232,.48)' }}>
+              {hasOrg ? 'View Passport status' : 'Create one to start Passport verification'}
+            </small>
+          </div>
+          <span style={{ fontSize: 11, color: '#d4a84b', fontWeight: 700, flexShrink: 0 }}>
+            {hasOrg ? 'View →' : 'Create →'}
+          </span>
+        </div>
+      </MobileAccordion>
 
       <MobileAccordion title="Jurisdiction context" defaultOpen>
         <div style={{ display: 'grid', gap: 12 }}>
@@ -3189,6 +3598,7 @@ export default function MobileCommandCentre({
   digestWindow,
   eduCategories,
   initialCountryIso2,
+  regionLabel,
   initialRoleId,
   initialPage,
   wantedCount = 0,
@@ -3204,17 +3614,20 @@ export default function MobileCommandCentre({
   sourceCoverage,
   countryEducationOverlays,
   jurisdictionPlaybook,
+  pathwayMatrix,
   educationTracks = [],
   marketMetrics = [],
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  operatorLicenceMatrix,
   pipeline,
   userEmail,
   cultivarPassports = [],
   serviceProviders = [],
   collaborationProjects = [],
   mySubmissions = [],
+  hasOrg,
 }: Props) {
   const router = useRouter()
   const initialCountry = useMemo(() => COUNTRIES.find(c => c.iso2 === initialCountryIso2) ?? { iso2: 'GLOBAL', label: 'Global Market' }, [initialCountryIso2])
@@ -3331,19 +3744,19 @@ export default function MobileCommandCentre({
       case 'briefing':
         return (
           <BriefingMobile
-            country={country} roleLabel={roleLabel} roleId={role}
+            country={country} regionLabel={regionLabel} roleLabel={roleLabel} roleId={role}
             countryIntel={countryIntel} signals={signals}
             pathwayData={pathwayData} localIntel={localIntel}
             countryOptions={countryOptions} roleOptions={roleOptions}
             marketMetrics={marketMetrics} tradeFlows={tradeFlows}
-            jurisdictionPlaybook={jurisdictionPlaybook}
+            jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix}
             onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => handlePageChange('settings')}
             sub={briefingSub} userEmail={userEmail}
           />
         )
       case 'marketplace':
-        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} pipeline={pipeline} mySubmissions={mySubmissions} userEmail={userEmail} />
+        return <MarketplaceMobile country={country} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} cannabisOperators={cannabisOperators} operatorLicenceMatrix={operatorLicenceMatrix} pipeline={pipeline} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'digest':
         return <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'signals':
@@ -3364,7 +3777,9 @@ export default function MobileCommandCentre({
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
       case 'settings':
-        return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} />
+        return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} hasOrg={hasOrg} onOpenOrganization={() => handlePageChange('organization')} />
+      case 'organization':
+        return <OrganizationMobile hasOrg={hasOrg} countryOptions={countryOptions} />
       case 'countries':
         return <CountriesDirectoryMobile signals={signals} onCountrySelect={handleCountryChange} />
       default:
@@ -3380,7 +3795,7 @@ export default function MobileCommandCentre({
       <section className="hvm-titlebar">
         <div className="hvm-titlebar-top">
           <div className="hvm-titlebar-text">
-            <span className="hvm-title-kicker">{country.label} · {roleLabel}</span>
+            <span className="hvm-title-kicker">{country.label}{regionLabel ? ` · ${regionLabel}` : ''} · {roleLabel}</span>
             <h1>{pageTitle}</h1>
           </div>
           <div className="hvm-titlebar-actions">
@@ -3894,6 +4309,27 @@ const MOBILE_CSS = `
   color: rgba(245,240,232,.94); padding: 0 14px; font-size: 16px; outline: none;
 }
 .hvm-settings-select option { color: #07111d; }
+.hvm-settings-input {
+  width: 100%; min-height: 50px; border: 1px solid rgba(255,255,255,.13);
+  border-radius: 14px; background: rgba(255,255,255,.055);
+  color: rgba(245,240,232,.94); padding: 0 14px; font-size: 16px; outline: none;
+  box-sizing: border-box;
+}
+.hvm-settings-input::placeholder { color: rgba(245,240,232,.35); }
+.hvm-org-submit {
+  width: 100%; min-height: 50px; border-radius: 14px; border: none;
+  background: #d4a84b; color: #050c18; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+.hvm-org-submit:disabled { opacity: .55; }
+.hvm-org-error {
+  font-size: 13px; color: #ef4444; background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.25); border-radius: 12px; padding: 10px 14px;
+}
+.hvm-org-note {
+  font-size: 12.5px; line-height: 1.55; color: rgba(245,240,232,.6);
+  background: rgba(212,168,75,.08); border: 1px solid rgba(212,168,75,.2);
+  border-radius: 12px; padding: 10px 14px;
+}
 .hvm-signout-btn {
   width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.055);

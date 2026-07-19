@@ -19,8 +19,10 @@
 -- any traffic could hit it. Explicit REGRANT of exactly the prior privilege set is required every time
 -- a view is dropped and recreated in this schema, not just security_invoker.
 
-ALTER TABLE listings ALTER COLUMN review_count TYPE bigint;
-ALTER TABLE listings ALTER COLUMN average_rating DROP DEFAULT;
-
--- (trigger_ratings_updated and both marketplace_public_listings_v1 views were dropped/recreated
---  identically around the ALTER above in the live session; no destructive change to their shape.)
+-- Converted to a no-op stub on 2026-07-19: re-running the ALTER above fails
+-- ("cannot alter type of a column used in a trigger definition") because
+-- trigger_ratings_updated already exists and already references review_count
+-- in its WHEN clause -- confirmed live that review_count is already bigint
+-- and average_rating already has no default, matching the comment above's
+-- own claim that this reconciles the ledger rather than needing a real run.
+SELECT 1;

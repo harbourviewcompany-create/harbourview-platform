@@ -49,7 +49,19 @@ jobs:
 
       - name: Push migrations
         run: |
-          supabase db push --db-url "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+          set +e
+          supabase db push --include-all --db-url "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres" > /tmp/push_output.log 2>&1
+          PUSH_EXIT_CODE=$?
+          cat /tmp/push_output.log
+          if [ $PUSH_EXIT_CODE -ne 0 ]; then
+            SUMMARY=$(grep -B2 -A3 "^ERROR:" /tmp/push_output.log | tail -c 3200)
+            if [ -z "$SUMMARY" ]; then
+              SUMMARY=$(tail -c 3200 /tmp/push_output.log)
+            fi
+            ENCODED=$(echo "$SUMMARY" | sed 's/%/%25/g; s/\r/%0D/g; s/$/%0A/' | tr -d '\n')
+            echo "::error title=Push migrations failed (ERROR context)::${ENCODED}"
+          fi
+          exit $PUSH_EXIT_CODE
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

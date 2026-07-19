@@ -27,6 +27,8 @@ create table if not exists country_education_overlay (
 
 alter table country_education_overlay enable row level security;
 
+drop policy if exists "public read published country overlays" on country_education_overlay;
+
 create policy "public read published country overlays"
   on country_education_overlay for select
   using (review_status in ('verified_primary_source','verified_professional_body','verified_peer_reviewed','verified_secondary_source'));
