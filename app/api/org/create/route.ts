@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthenticatedUser, createSupabaseServiceClient } from "@/lib/supabase/server"
 import { enforceRateLimit, getClientIp } from "@/lib/network/rateLimit"
+import { ORG_TYPES } from "@/lib/hv/orgTypes"
 
 const ROUTE_ID = "/api/org/create"
-
-const ORG_TYPES = ["supplier","buyer","broker","lab","pharmacy","clinic","equipment","service","financial","distributor","exporter","importer"]
 
 export async function POST(req: NextRequest) {
   const user = await getAuthenticatedUser()
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json() } catch { return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 }) }
   const { legal_name, trade_name, org_type, jurisdiction_country, jurisdiction_region } = body
   if (!legal_name?.trim()) return NextResponse.json({ error: "legal_name required" }, { status: 422 })
-  if (!org_type || !ORG_TYPES.includes(org_type)) return NextResponse.json({ error: "invalid org_type" }, { status: 422 })
+  if (!org_type || !(ORG_TYPES as readonly string[]).includes(org_type)) return NextResponse.json({ error: "invalid org_type" }, { status: 422 })
   if (!jurisdiction_country?.trim() || jurisdiction_country.trim().length !== 2) return NextResponse.json({ error: "jurisdiction_country must be 2-letter ISO code" }, { status: 422 })
   const slug = (trade_name?.trim() || legal_name.trim())
     .toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 48)

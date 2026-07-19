@@ -45,6 +45,10 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
 | 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
+| 2026-07-18 | Merge Discipline tightening — `AGENTS.md` + `PR_REVIEW_CHECKLIST.md` now require a PR and an `EVIDENCE_LOG.md` entry for every change | Docs-only edit; `npm run test -- --passWithNoTests` attempted, failed with `vitest: not found` (`node_modules` not installed in this sandbox, no prior `npm install`) — documented in PR body per AGENTS.md's fallback clause | Added explicit "no direct commits to `main`" rule and broadened evidence-log requirement from "production-impacting work" to every PR (one-line entry as the floor for docs-only/trivial changes) | Branch `claude/harbourview-platform-architecture-44a9si`; PR #1064 | Current |
+| 2026-07-18 | North Star v1.4 — business model + knowledge graph decisions resolved | Docs-only edit; live Supabase check via MCP (`execute_sql`, `get_logs`) confirmed `hv-score` healthy and `jurisdiction_playbooks` (not `cannabis_intelligence`) is the schema with real consumers (`grep` across `.ts`/`.tsx`) | Business model set to per-report (Tyler); knowledge graph canonicalization set to `jurisdiction_playbooks` (Claude, on evidence — reversed v1.3's tentative lean); corrected stale `hv-score` billing claim from CLAUDE.md addenda | Branch `claude/harbourview-platform-architecture-44a9si`; PR #1067 | Current |
+| 2026-07-18 | North Star v1.5 — CounterpartyStub, network integration, cannabis_intelligence cron resolved | Checked `docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md` (no counterparty public view exists) and `lib/intelligence-engine/graph-writer.ts` (no LLM calls, confirmed before retiring) | CounterpartyStub tier: HAR-99/101 holds, no raw contact data in reports. Network integration: reports-only, no automated intro-triggering. `cannabis_intelligence` write cron: retired — removed from `vercel.json`, route left in place unscheduled with explanatory header. All four originally-blocking decisions now resolved. | Branch `claude/harbourview-platform-architecture-44a9si`; PR #1072 | Current |
+| 2026-07-18 | North Star v1.6 — per-report payment mechanism decided, implementation deferred | Checked `lib/stripe/server.ts`, `lib/billing/entitlements.ts`, `app/api/stripe/checkout/route.ts` (existing integration is subscription-only) and repo-wide search for `corridor_reports`/`corridor_plan`/`mission_report` (none exist) | Decided a second, one-time Stripe Checkout path (`mode: 'payment'`) separate from the existing subscription tier system. Did not implement the route/schema — no report data model exists yet to attach a purchase to; flagged as a build trigger tied to the Documentation Engine (6) landing. | Branch `claude/harbourview-platform-architecture-44a9si`; PR to be linked after creation | Current |
 
 ### Gate 4 Detailed Evidence — 2026-06-25
 
@@ -445,3 +449,125 @@ Both points are flagged in the session report rather than acted on unilaterally,
 **Files changed:** `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql` (new), this entry, `docs/control/DATABASE_CONTROL.md`.
 
 **Rollback:** `DROP FUNCTION public.is_regulatory_tier_admin(); CREATE OR REPLACE FUNCTION api.set_regulatory_tier(...) ... <original body without the guard>; CREATE OR REPLACE FUNCTION api.accept_classifier_tier(...) ... <original body without the guard>;` — reverts to the pre-fix (vulnerable) behavior; only do this if the guard itself causes an unexpected admin-access regression, and fix the guard rather than fully reverting if possible.
+
+
+---
+
+## 2026-07-14 — Intelligence Architecture Stage 0: labeled eval set (intel_eval_set)
+
+**Change type:** Data model (migration) + backend admin page. Per
+`docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §8 Stage 0.
+
+**Environment:** production Supabase `zvxdgdkukjrrwamdpqrg`.
+
+**DB objects (applied live, additive, reversible):**
+- `public.intel_eval_set` (migration `create_intel_eval_set_stage0`). RLS enabled,
+  no policies → service_role/admin only. Rollback: `drop table public.intel_eval_set`.
+- `api.intel_eval_labeling` view + `api.save_intel_eval_label(...)` RPC
+  (migration `expose_intel_eval_set_via_api_schema`), service_role-only grants.
+  Needed because PostgREST exposes only the `api` schema. Rollback: drop function + view.
+
+**Data:** 202-row stratified sample materialized deterministically (md5(id) ordering).
+Coverage verified: 16 languages, 48 countries, all 4 score bands, both top_lanes,
+22 strata. Minority languages oversampled (all 13 rare-language rows taken in full;
+es capped 35, pt 24) per Tyler's decision — proportional sampling would have yielded
+~5 non-English rows and failed the ≥5-language bar.
+
+**Labels:** assistant first-pass drafts on all 202 rows (`draft_*` columns, kept
+separate from human ground truth). Draft distribution — quality: signal 143 /
+spam 25 / duplicate 21 / nav 7 / boilerplate 6; content_type: story 68 / noise 59 /
+regulatory 44 / market 17 / research 14. Human confirmation pending via
+`/admin/intel-eval`; precision/recall gate (Stage 2) computes on confirmed+corrected
+rows only.
+
+**Findings (evidence the scorer is inverted, per spec §2.5):** score-99/URGENT rows
+in the sample are near-uniformly nav chrome or SEO affiliate spam (gov-site menus,
+CannabisRegulations.ai "$1,750 AI guide" upsells); genuine one-line headlines score
+20–40. Heavy syndication produced 21 exact duplicate clusters across country feeds.
+
+**Validation:** lint / typecheck / build to be run on the branch before merge.
+Runtime: `api.intel_eval_labeling` smoke-tested (202 rows readable via service role).
+
+**Open decisions surfaced to owner (§10):** precision/recall bar for the `signal`
+classifier (spec proposes p≥0.9 / r≥0.7).
+
+**Rollback plan:** drop the two api objects, then drop the table; delete the admin
+route + `lib/intelligence-automation/evalSet.ts`. Blast radius: none outside the new
+objects/route (no existing table, view, function, or consumer touched).
+
+---
+
+## 2026-07-15 — Intelligence Architecture Stage 1: unified source registry (extend source_registry)
+
+**Change type:** Data model + data migration on production Supabase `zvxdgdkukjrrwamdpqrg`.
+Per `INTELLIGENCE_ARCHITECTURE_SPEC.md` Stage 1.
+
+**Decision:** Spec said "create `intel_sources`," but verification found `source_registry`
+already IS the live intelligence registry (1,487 rows, with language/tier/country/cadence),
+consumed by `source-engine-fetch` + orchestrator. Owner approved **extending it in place**
+rather than spawning a third parallel estate.
+
+**Guardrail #1 (verify consumers):** `source-engine-fetch` reads `source_registry` with
+`.eq('is_active',true).eq('relevance_status','active')` and writes `last_checked_at` back.
+Therefore marketplace rows imported dormant (is_active=false, relevance_status='needs_review')
+are never crawled — zero behavior change (also guardrail #7).
+
+**Applied live (all reversible):**
+- `content_type text[]` added to `source_registry` (migration `stage1_add_content_type...`).
+- Backfilled `content_type` on 1,471 existing rows from `source_type` (regulatory 627 /
+  market 449 / story 408 / research 3).
+- Imported 240 marketplace sources from `lib/scrapers/sources.ts` dormant. 311 raw →
+  260 distinct URLs (51 dupes in sources.ts) → 20 already existed → 240 inserted.
+
+**Verified:** 0 marketplace rows active; 0 null content_type; 0 active rows missing language;
+registry 1,487 → 1,727.
+
+**Coverage-gap finding:** 1,180 active sources are 97% English (1,148/1,180); only 32
+non-English. Scopes Stage 6. See `docs/control/STAGE1_SOURCE_REGISTRY_COVERAGE.md`.
+
+**Rollback:** `delete from source_registry where source_type='marketplace';`
+then `update source_registry set content_type=null where source_type<>'marketplace';`
+then `alter table source_registry drop column content_type;`. Blast radius: none — no
+existing row's crawlable state changed, no reads rewired.
+
+**Not done:** no reads rewired; routing by content_type is Stage 7.
+
+## 2026-07-19 — main branch lint-error regression found and fixed (0→8 errors)
+
+**Finding:** while locally verifying 9 open dependabot PRs (none of which triggered this
+repo's required CI checks — see PR review comments on #1061/#1060/#1059/#1058/#1057/#1056/
+#1051/#1050/#1042 for detail), `npm run lint` on a clean, unmodified `origin/main` checkout
+returned **8 errors, 151 warnings** — not the previously-established baseline of 0 errors,
+127 warnings. Confirmed by reverting the working tree to plain `origin/main` content and
+re-running lint before touching any dependency version. Not caused by any dependency bump;
+the errors were already live on `main` from unrelated recent merges.
+
+**Errors, all mechanical, no logic changes:**
+- 7× `react/no-unescaped-entities` — raw apostrophes in JSX text nodes (`couldn't`,
+  `haven't`, `role's`, `we'll`) across `app/admin/(protected)/orgs/page.tsx`,
+  `components/dashboard/CommandCentre.tsx` (×4), `components/dashboard/MobileCommandCentre.tsx`.
+  Escaped to `&apos;`.
+- 1× `prefer-const` — `let list = ...` in `CommandCentre.tsx`'s licence-sort `useMemo` was
+  never reassigned after initialization. Changed to `const`.
+- 1× `@typescript-eslint/no-explicit-any` — `lib/signals-engine/admin.ts`'s `callRpc<T>`
+  returned `client as any` on the error branch. `getAdminDataClient()`'s false-branch shape
+  (`{ ok: false; error: AdminDataError }`) is structurally identical to `AdminResult<T>`'s
+  false branch regardless of `T`, so replaced with `client as AdminResult<T>` — same runtime
+  behavior, no more `any`.
+
+**Why this matters beyond the 8 lines:** every PR opened against `main` inherits this
+baseline. Until fixed, no PR could honestly claim "0 errors" against a clean lint run, and
+the "genuinely green required checks" bar this repo's `PR_REVIEW_CHECKLIST.md` sets was
+unverifiable for any concurrently-open PR that didn't itself happen to touch these exact
+lines.
+
+**QA:** `npm run lint` (0 errors, 151 pre-existing warnings, unchanged), `npm run typecheck`
+(0 errors — specifically re-verified given the `any`→`AdminResult<T>` type change),
+`npm run test` (all suites pass), `npm run build` (clean, all routes compiled).
+
+**Files changed:** `app/admin/(protected)/orgs/page.tsx`, `components/dashboard/CommandCentre.tsx`,
+`components/dashboard/MobileCommandCentre.tsx`, `lib/signals-engine/admin.ts`, this entry.
+
+**Rollback:** Revert the commit — each fix is a narrow, single-line, behavior-preserving
+change (JSX entity escaping, `let`→`const`, a type assertion narrowing from `any`); no data,
+schema, or runtime-behavior risk either direction.

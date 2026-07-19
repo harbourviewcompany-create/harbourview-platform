@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No billing account found' }, { status: 404 })
     }
 
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://harbourview.network'
+    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://harbourview.vercel.app'
 
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
