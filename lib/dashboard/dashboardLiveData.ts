@@ -977,6 +977,43 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
   }
 }
 
+// ── Registry coverage summary (total active sources + language spread) ────────
+// Surfaces the actual source_registry footprint for a country -- previously
+// invisible to users, who only ever saw the small ia_sources fixture table (12
+// rows platform-wide) in the Evidence & Sources page. source_registry is the
+// real, live registry (1,700+ rows platform-wide as of 2026-07) that the
+// crawler and intelligence pipeline actually run against.
+export type RegistryCoverageSummary = {
+  totalActive:     number
+  tier1Count:      number
+  languages:       string[]   // distinct active source languages for this country
+}
+
+export async function getRegistryCoverageSummary(countryIso2: string | null): Promise<RegistryCoverageSummary | null> {
+  if (!countryIso2) return null
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('source_registry')
+      .select('tier, language')
+      .eq('iso', countryIso2.toUpperCase())
+      .eq('is_active', true)
+    if (error || !data || data.length === 0) return null
+
+    const languages = Array.from(new Set(
+      data.map(r => (typeof r.language === 'string' ? r.language : null)).filter((l): l is string => !!l),
+    )).sort()
+
+    return {
+      totalActive: data.length,
+      tier1Count:  data.filter(r => r.tier === 1).length,
+      languages,
+    }
+  } catch {
+    return null
+  }
+}
+
 // ── Country-specific education overlay ────────────────────────────────────
 export type CountryEducationOverlay = {
   moduleKey:    string
@@ -1286,3 +1323,4 @@ export async function getUserMarketplaceSubmissions(userId: string | null): Prom
     return data ?? []
   } catch { return [] }
 }
+
