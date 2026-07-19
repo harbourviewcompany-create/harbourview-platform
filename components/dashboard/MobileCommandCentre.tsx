@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { RegulatoryRadar } from './pages/RegulatoryRadar'
 
 const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
   permitted: '#5fb87a',
@@ -2260,6 +2261,8 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
           </p>
         )}
       </section>
+
+      <RegulatoryRadar countryIso={country.iso2} />
 
       {/* Status matrix */}
       <MobileAccordion title="Market status matrix" defaultOpen>
