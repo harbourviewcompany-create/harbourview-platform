@@ -21,6 +21,18 @@ export type DashboardSignal = {
   // 'editorial': mainstream-media cannabis news/commentary — no confidence score,
   // no commercial-impact framing, rendered as a plain headline + why-it-matters card.
   contentType?: 'signal' | 'editorial'
+  // LLM-generated synthesis (what changed, who's affected, deadline,
+  // recommended action, confidence rationale) — the analysis layer, not
+  // just a bare headline. Optional: only present once hv-signal-analysis
+  // has processed a given signal; older/unanalyzed signals fall back to
+  // commercialImpact alone.
+  analysis?: {
+    what_changed?: string
+    who_is_affected?: string
+    deadline?: string | null
+    recommended_action?: string
+    confidence_rationale?: string
+  }
 }
 
 export type DigestWindow = '24h' | '7d' | '30d' | 'recent'

@@ -45,6 +45,11 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
 | 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
+| 2026-07-18 | Merge Discipline tightening — `AGENTS.md` + `PR_REVIEW_CHECKLIST.md` now require a PR and an `EVIDENCE_LOG.md` entry for every change | Docs-only edit; `npm run test -- --passWithNoTests` attempted, failed with `vitest: not found` (`node_modules` not installed in this sandbox, no prior `npm install`) — documented in PR body per AGENTS.md's fallback clause | Added explicit "no direct commits to `main`" rule and broadened evidence-log requirement from "production-impacting work" to every PR (one-line entry as the floor for docs-only/trivial changes) | Branch `claude/harbourview-platform-architecture-44a9si`; PR #1064 | Current |
+| 2026-07-18 | North Star v1.4 — business model + knowledge graph decisions resolved | Docs-only edit; live Supabase check via MCP (`execute_sql`, `get_logs`) confirmed `hv-score` healthy and `jurisdiction_playbooks` (not `cannabis_intelligence`) is the schema with real consumers (`grep` across `.ts`/`.tsx`) | Business model set to per-report (Tyler); knowledge graph canonicalization set to `jurisdiction_playbooks` (Claude, on evidence — reversed v1.3's tentative lean); corrected stale `hv-score` billing claim from CLAUDE.md addenda | Branch `claude/harbourview-platform-architecture-44a9si`; PR #1067 | Current |
+| 2026-07-18 | North Star v1.5 — CounterpartyStub, network integration, cannabis_intelligence cron resolved | Checked `docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md` (no counterparty public view exists) and `lib/intelligence-engine/graph-writer.ts` (no LLM calls, confirmed before retiring) | CounterpartyStub tier: HAR-99/101 holds, no raw contact data in reports. Network integration: reports-only, no automated intro-triggering. `cannabis_intelligence` write cron: retired — removed from `vercel.json`, route left in place unscheduled with explanatory header. All four originally-blocking decisions now resolved. | Branch `claude/harbourview-platform-architecture-44a9si`; PR #1072 | Current |
+| 2026-07-18 | North Star v1.6 — per-report payment mechanism decided, implementation deferred | Checked `lib/stripe/server.ts`, `lib/billing/entitlements.ts`, `app/api/stripe/checkout/route.ts` (existing integration is subscription-only) and repo-wide search for `corridor_reports`/`corridor_plan`/`mission_report` (none exist) | Decided a second, one-time Stripe Checkout path (`mode: 'payment'`) separate from the existing subscription tier system. Did not implement the route/schema — no report data model exists yet to attach a purchase to; flagged as a build trigger tied to the Documentation Engine (6) landing. | Branch `claude/harbourview-platform-architecture-44a9si`; PR to be linked after creation | Current |
+| 2026-07-18 | Mobile UI fixes from a user-supplied screenshot review: (1) Illinois/state-level selection reverted to showing "United States" — `region` query param from the globe router was never read by the country/role page; (2) Briefing status grid (Import/Export status, Market access, Adult-use) rendered as 4 stacked full-width one-word cards instead of a compact 2-col grid; (3) globe regulatory legend rendered open by default, covering ~50% of the mobile viewport | `npm run typecheck` (0 errors), `npm run lint` (153 problems: 5 errors/148 warnings, all pre-existing on `main`, zero new), `npm run build` (clean), `npm run test` (57/57 passed) — all re-run after rebasing this branch onto current `main` | (1) Threaded `region` through `page.tsx` → `MobileCommandCentre`/`CommandCentre` Props → header + Local Intel highlighting, display-only, no fabricated state-level data; (2) `hvm-status-grid` given the same `repeat(2, minmax(0,1fr))` override already used elsewhere in the file; (3) legend now collapsed by default to a tap-to-expand chip | Branch `claude/stale-data-review-sh9wim`; PR #1070 | Current |
 
 ### Gate 4 Detailed Evidence — 2026-06-25
 
@@ -445,3 +450,225 @@ Both points are flagged in the session report rather than acted on unilaterally,
 **Files changed:** `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql` (new), this entry, `docs/control/DATABASE_CONTROL.md`.
 
 **Rollback:** `DROP FUNCTION public.is_regulatory_tier_admin(); CREATE OR REPLACE FUNCTION api.set_regulatory_tier(...) ... <original body without the guard>; CREATE OR REPLACE FUNCTION api.accept_classifier_tier(...) ... <original body without the guard>;` — reverts to the pre-fix (vulnerable) behavior; only do this if the guard itself causes an unexpected admin-access regression, and fix the guard rather than fully reverting if possible.
+
+---
+
+## 2026-07-13 — Daily Digest stale since 07-07: no LLM fallback, root-caused and fixed same day
+
+**Finding:** User reported the mobile Digest screen showing stale news (Apr/Feb 2026 items) unchanged for a week. Live investigation on `zvxdgdkukjrrwamdpqrg`:
+- `regulatory_signals.signals` and `.public_signals`: 0 rows each — a documented pre-existing note attributed this to `hv-score`, but live inspection of `supabase/functions/hv-score/index.ts` showed it's a pure deterministic rules engine over `hv_import_staging` with no LLM call at all — that attribution was wrong; its own live response (`net._http_response` id 7749) confirmed `signals_considered:0`, unrelated to any provider outage.
+- The actual UI (`app/api/dashboard/digest/route.ts`) reads `daily_digest`, populated by `run_daily_digest()`/`run_editorial_digest()`. Last `published` row with real headlines: **2026-07-07**. Both functions were hardcoded to call Anthropic only (`api.anthropic.com/v1/messages`), no fallback.
+- Live-fired `net.http_get`/`net.http_post` probes at time of investigation confirmed: Anthropic key returns `400 "Your credit balance is too low to access the Anthropic API"` (matches CLAUDE.md's Harbourview-addendum billing note, and was still live, not resolved); OpenAI key returns `200` on `/v1/models`; Gemini key returns `200` on `/v1beta/models` — both fallback keys already present in `vault.decrypted_secrets` and functional.
+- `run_signal_extraction()` already had a proven 3-tier Anthropic→OpenAI→Gemini circuit-breaker (added 2026-07-09, `20260709085504_signal_extraction_fix_gemini_thinking_and_parts.sql`) — confirmed why `ia_signals` kept growing (517 rows) through the outage while the digest did not: the digest functions were simply never ported to that pattern.
+- Two additional latent bugs found and fixed while porting: (1) `run_daily_digest`'s "already ran today" guard checked for *any* `daily_digest` row for the date, but `run_editorial_digest` independently upserts one — if editorial ran first, the trade-signal half silently never ran for that day; (2) a `_digest_jobs` row that received any HTTP response (including a same-provider error) was never marked `collected` except after a multi-hour timeout, so a single failure froze that day's job forever with no retry.
+
+**Fix applied same day, Tyler approved scope (3-tier fallback + manual-review bucket + daily notification email) via explicit go-ahead before any migration was applied:**
+- `run_daily_digest()`, `run_editorial_digest()` ported to the same Anthropic→OpenAI→Gemini circuit-breaker pattern as `run_signal_extraction`, plus the two retry-logic fixes above.
+- New `public.pipeline_manual_review_queue` table (unique on pipeline+reference_date) written to by all three functions when every configured provider is circuit-broken; `run_signal_extraction` previously returned this state silently and now also records it (one-line addition, logic otherwise unchanged).
+- New `app/api/cron/pipeline-manual-review-notify` route (Vercel cron, `0 10 * * *`, added to `vercel.json`) emails any un-notified queue rows via the existing Resend pattern (`lib/pipeline/manualReviewNotification.ts`, mirrors `lib/signals/notification.ts`), idempotent via `notified_at`.
+- Applied via `apply_migration`: `20260713213101_digest_llm_fallback_and_manual_review_queue.sql`, `20260713213743_expose_pipeline_manual_review_queue_via_api.sql`.
+- Four more Anthropic-only, no-fallback functions were found during the search (`run_country_intel_enrichment`, `run_counterparty_enrichment`, `run_education_section_gen`, `run_education_deep_regen`) — intentionally left untouched this pass; flagged to Tyler as a separate follow-up decision, not folded into this fix.
+
+**Verification (same session, live production):**
+- Manually invoked `run_daily_digest()`/`run_editorial_digest()` repeatedly and observed the circuit breaker escalate correctly: attempt 1 tried `anthropic` (failed, `400`, now correctly marked collected instead of freezing), attempt 2 escalated to `openai` and **published successfully** — `daily_digest` row for `2026-07-13`: `status='published'`, 8 headlines, 8 editorial items, real non-garbled content (e.g. `"Trump Reclassifies Medical Marijuana to Schedule III, Easing Regulations"`, `market: "United States of America"`).
+- `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test` all clean on the new TS files (`app/api/cron/pipeline-manual-review-notify/route.ts`, `lib/pipeline/manualReviewNotification.ts`) — `node_modules` was not installed in this session's environment; ran `npm install` first (652 packages, no blocking errors) to make these commands runnable, documented here since that's a deviation from assuming a pre-provisioned environment.
+
+**Files changed:** `supabase/migrations/20260713213101_digest_llm_fallback_and_manual_review_queue.sql`, `supabase/migrations/20260713213743_expose_pipeline_manual_review_queue_via_api.sql`, `app/api/cron/pipeline-manual-review-notify/route.ts`, `lib/pipeline/manualReviewNotification.ts`, `vercel.json`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** See `DATABASE_CONTROL.md`'s 2026-07-13 entry for exact rollback SQL. Forward-fix strongly preferred — reverting re-introduces the exact single-point-of-failure and silent-freeze bugs this fix removes, and the live verification above already proves the forward state is correct.
+
+---
+
+## 2026-07-13 (part 2) — Fallback extended to all remaining Anthropic-only pipelines, per user request
+
+**Trigger:** After the digest fallback fix above, user asked "check the Anthropic Console credit balance and plan" then, mid-message, redirected to "Everything should have a fallback" and confirmed extending the pattern to the four functions flagged as out-of-scope in the prior entry (`run_country_intel_enrichment`, `run_counterparty_enrichment`, `run_education_section_gen`, `run_education_deep_regen`).
+
+**Fix applied:** Same Anthropic→OpenAI→Gemini circuit-breaker pattern ported to all four, each writing to `pipeline_manual_review_queue` on full degradation. Anthropic's original model (`claude-sonnet-4-6`) preserved as tier 1; OpenAI (`gpt-4o-mini`) and Gemini (`gemini-flash-latest`) fallback tiers match what's already proven in `run_signal_extraction` and the digest functions. Applied via `apply_migration`: `20260713221555_enrichment_llm_fallback_extension.sql`.
+
+**Verification (same session, live production):** Manually invoked all four functions repeatedly and watched each escalate correctly:
+- `run_counterparty_enrichment`: `anthropic` attempt failed → escalated to `openai` → **succeeded**, `counterparties_enriched: 10`.
+- `run_country_intel_enrichment`: `anthropic` attempt failed → escalated to `openai` → **succeeded**, `countries_enriched: 8`.
+- `run_education_deep_regen`: `anthropic` attempt failed → escalated to `openai` → **succeeded**, `modules_regenerated: 1` (module `gacp-cultivation-standards`).
+- `run_education_section_gen`: returned `skipped: "no empty published modules remaining"` on invocation — correct behavior (no eligible work at time of test), not exercised end-to-end, but its collect/fire logic is verbatim-identical in structure to `run_education_deep_regen`, which was proven live.
+
+No TypeScript files were touched by this change (SQL-only migration), so the `lint`/`typecheck`/`build`/`test` results from the prior entry stand unchanged; correctness here is demonstrated by live invocation instead.
+
+**Files changed:** `supabase/migrations/20260713221555_enrichment_llm_fallback_extension.sql`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** See `DATABASE_CONTROL.md`'s 2026-07-13 (part 2) entry. Forward-fix preferred — live verification above confirms all four pipelines are healthier post-change, not just theoretically safer.
+
+---
+
+## 2026-07-14 — Intelligence Architecture Stage 0: labeled eval set (intel_eval_set)
+
+**Change type:** Data model (migration) + backend admin page. Per
+`docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §8 Stage 0.
+
+**Environment:** production Supabase `zvxdgdkukjrrwamdpqrg`.
+
+**DB objects (applied live, additive, reversible):**
+- `public.intel_eval_set` (migration `create_intel_eval_set_stage0`). RLS enabled,
+  no policies → service_role/admin only. Rollback: `drop table public.intel_eval_set`.
+- `api.intel_eval_labeling` view + `api.save_intel_eval_label(...)` RPC
+  (migration `expose_intel_eval_set_via_api_schema`), service_role-only grants.
+  Needed because PostgREST exposes only the `api` schema. Rollback: drop function + view.
+
+**Data:** 202-row stratified sample materialized deterministically (md5(id) ordering).
+Coverage verified: 16 languages, 48 countries, all 4 score bands, both top_lanes,
+22 strata. Minority languages oversampled (all 13 rare-language rows taken in full;
+es capped 35, pt 24) per Tyler's decision — proportional sampling would have yielded
+~5 non-English rows and failed the ≥5-language bar.
+
+**Labels:** assistant first-pass drafts on all 202 rows (`draft_*` columns, kept
+separate from human ground truth). Draft distribution — quality: signal 143 /
+spam 25 / duplicate 21 / nav 7 / boilerplate 6; content_type: story 68 / noise 59 /
+regulatory 44 / market 17 / research 14. Human confirmation pending via
+`/admin/intel-eval`; precision/recall gate (Stage 2) computes on confirmed+corrected
+rows only.
+
+**Findings (evidence the scorer is inverted, per spec §2.5):** score-99/URGENT rows
+in the sample are near-uniformly nav chrome or SEO affiliate spam (gov-site menus,
+CannabisRegulations.ai "$1,750 AI guide" upsells); genuine one-line headlines score
+20–40. Heavy syndication produced 21 exact duplicate clusters across country feeds.
+
+**Validation:** lint / typecheck / build to be run on the branch before merge.
+Runtime: `api.intel_eval_labeling` smoke-tested (202 rows readable via service role).
+
+**Open decisions surfaced to owner (§10):** precision/recall bar for the `signal`
+classifier (spec proposes p≥0.9 / r≥0.7).
+
+**Rollback plan:** drop the two api objects, then drop the table; delete the admin
+route + `lib/intelligence-automation/evalSet.ts`. Blast radius: none outside the new
+objects/route (no existing table, view, function, or consumer touched).
+
+---
+
+## 2026-07-13/14 (part 3) — regulatory_signals.signals empty: distinct root cause, no LLM involved, orphaned schema drift found and reverted
+
+**Trigger:** User asked to continue building; when asked to pick a direction, chose investigating why `regulatory_signals.signals` was still empty (flagged as a separate "urgent" item in this file's original session-addenda note, which had incorrectly attributed it to `hv-score`).
+
+**Investigation, step 1 — disproved the LLM theory again:** `supabase/functions/hv-score/index.ts` writes to `hv_import_staging`/`hv_artifacts`, an entirely separate legacy pipeline — confirmed (again) unrelated. The real writer is `app/api/cron/regulatory-watch/route.ts` → `lib/regulatory-sources/runWatch.ts`, a Vercel-cron Next.js route with no LLM call anywhere in it (pure fetch/regex/keyword heuristics in `watcher.ts`).
+
+**Investigation, step 2 — Bug 1, stale view:** `api."regulatory_signals.signals"` was missing `source_url`/`source_published_at`/`private_summary`/`private_notes`, all present on the base table and always set by `createDraftSignal()`. Every insert 400'd; the watcher's for-loop had no per-source try/catch, so the entire daily run died at the first source with a relevant item — confirmed via `regulatory_signals.source_snapshots`: all 6 existing rows were for the *same* source_id (`6e8a6b7e-...`, "Peru DIGEMID medicinal cannabis"), and that source's own `last_checked_at` was still `null` despite being "checked" 6 times — proving the run crashed before `persistRun()`'s PATCH could ever complete, every single time. Confirmed safe to widen the view (RLS `admin_all` policy, admin-only, not the public-facing `public_signals` table). Verified via `BEGIN; INSERT ...; ROLLBACK;` using the exact real payload shape before and after the fix — 400 on missing column pre-fix, past that error post-fix (next failure was Bug 2, see below), no data left behind either way.
+
+**Investigation, step 3 — Bug 2, orphaned constraint drift (bigger finding):** past the view fix, the same test insert hit a CHECK constraint violation on `review_status='captured'`. Full diff against `20260312000000_regulatory_signals_v1.sql` (git-tracked, matches `lib/regulatory-signals/types.ts` exactly) revealed the live constraints had diverged far beyond that one field:
+- `review_status` CHECK narrowed from 10 values to 5, default changed `'captured'`→`'draft'`
+- `signal_type` CHECK replaced wholesale with an 18-value vocabulary (`enforcement_action`, `policy_consultation`, `quota_allocation`, `pharmaceutical_reclassification`, etc.) that does not appear **anywhere else in the repository** — no migration, no TS file, no doc
+- `confidence` CHECK: `'verified'` instead of `'official_confirmed'`
+- `regulatory_signals_publication_gate` — the constraint enforcing that a row can't be marked `published` without `public_safe`/`publish_to_public`/`public_summary`/`public_implication`/`canonical_source_url`/`published_at` all populated — was **missing entirely**. This is the actual compliance safety net on a regulated-industry intelligence table, not a cosmetic check.
+- 3 more not-empty CHECKs missing; 6 columns (`slug`, `signal_date`, `source_tier`, `source_type`, `source_url`, `private_summary`) had lost `NOT NULL`, leaving only `headline` enforced.
+
+`supabase_migrations.schema_migrations` records `20260628230550_regulatory_signals_pipeline_missing_columns` as applied 2026-06-28 with zero corresponding file in the repo — no stub, nothing. Traced as far as tooling here allows: no DDL audit log, no event trigger, no further attribution possible.
+
+**Two explicit check-ins with the user before acting**, given the compliance sensitivity and the fact each discovery expanded scope beyond what was already approved:
+1. Presented the `review_status`/`signal_type` divergence and the evidence trail; user said investigate further first rather than decide yet.
+2. Traced the orphaned-migration evidence as far as possible and re-presented; user confirmed proceeding with the narrower fix — at which point the *full* diff (publication_gate + NOT NULLs + confidence) surfaced. Presented that expanded scope separately before touching anything; user confirmed a full restore.
+
+**Fix applied:** `20260713223057_fix_stale_regulatory_signals_signals_api_view.sql` (view), `20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql` (all constraints/defaults/NOT NULLs restored to the original migration's values). Also added a per-source `try/catch` in `runRegulatoryWatch`'s loop (`lib/regulatory-sources/runWatch.ts`) so a single bad source can never again zero out the whole batch — the exact failure mode that let Bug 1 hide for weeks.
+
+**Verification:**
+- Post-fix `BEGIN; INSERT ...; ROLLBACK;` with the real writer's exact payload (including `review_status: 'captured'`, `signal_type: 'regulatory_change'`) succeeded cleanly — returned a real row, then rolled back, no persisted test data.
+- `npm run typecheck` clean; targeted `eslint lib/regulatory-sources/runWatch.ts` clean; `npm run build` clean; `npx vitest run tests/regulatory-sources/watcher.test.ts` — 4/4 passed.
+- Since both fixes are DB-level (view + constraints), the next scheduled `regulatory-watch` cron tick (12:00 UTC) against whatever's currently deployed to production should now succeed end-to-end without requiring any app redeploy. The `runWatch.ts` try/catch improvement is code-level and will only take effect once merged/deployed — out of scope for this session per the merge/deploy sign-off boundary.
+
+**Files changed:** `supabase/migrations/20260713223057_fix_stale_regulatory_signals_signals_api_view.sql`, `supabase/migrations/20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql`, `lib/regulatory-sources/runWatch.ts`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** See `DATABASE_CONTROL.md`'s 2026-07-13/14 (part 3) entry. Not recommended — reverting re-opens both the write-path failure and the missing compliance publication gate.
+
+---
+
+## 2026-07-15 — Intelligence Architecture Stage 1: unified source registry (extend source_registry)
+
+**Change type:** Data model + data migration on production Supabase `zvxdgdkukjrrwamdpqrg`.
+Per `INTELLIGENCE_ARCHITECTURE_SPEC.md` Stage 1.
+
+**Decision:** Spec said "create `intel_sources`," but verification found `source_registry`
+already IS the live intelligence registry (1,487 rows, with language/tier/country/cadence),
+consumed by `source-engine-fetch` + orchestrator. Owner approved **extending it in place**
+rather than spawning a third parallel estate.
+
+**Guardrail #1 (verify consumers):** `source-engine-fetch` reads `source_registry` with
+`.eq('is_active',true).eq('relevance_status','active')` and writes `last_checked_at` back.
+Therefore marketplace rows imported dormant (is_active=false, relevance_status='needs_review')
+are never crawled — zero behavior change (also guardrail #7).
+
+**Applied live (all reversible):**
+- `content_type text[]` added to `source_registry` (migration `stage1_add_content_type...`).
+- Backfilled `content_type` on 1,471 existing rows from `source_type` (regulatory 627 /
+  market 449 / story 408 / research 3).
+- Imported 240 marketplace sources from `lib/scrapers/sources.ts` dormant. 311 raw →
+  260 distinct URLs (51 dupes in sources.ts) → 20 already existed → 240 inserted.
+
+**Verified:** 0 marketplace rows active; 0 null content_type; 0 active rows missing language;
+registry 1,487 → 1,727.
+
+**Coverage-gap finding:** 1,180 active sources are 97% English (1,148/1,180); only 32
+non-English. Scopes Stage 6. See `docs/control/STAGE1_SOURCE_REGISTRY_COVERAGE.md`.
+
+**Rollback:** `delete from source_registry where source_type='marketplace';`
+then `update source_registry set content_type=null where source_type<>'marketplace';`
+then `alter table source_registry drop column content_type;`. Blast radius: none — no
+existing row's crawlable state changed, no reads rewired.
+
+**Not done:** no reads rewired; routing by content_type is Stage 7.
+
+---
+
+## 2026-07-15 — SOURCE_ENGINE review queue (merged to main same-day, `eb293d0`) was completely non-functional: same stale-view bug class, third occurrence
+
+**Trigger:** User asked a broader platform-audit question ("nothing should be orphaned... what's missing to make Harbourview commercially valuable"). While assembling a verified answer (Vercel deployment history, live table activity stats via `pg_stat_user_tables`), found that `main` had just gained a real, substantial commit: `eb293d0 feat(admin): build the SOURCE_ENGINE signal review queue`, addressing exactly the kind of gap the user was asking about — 7,136+ automated `public.signals` rows (`cat='SOURCE_ENGINE'`) had no review mechanism at all. Verifying this newly-landed, already-deployed-to-production feature became the priority the user picked.
+
+**Finding:** The new feature (`lib/signals-engine/admin.ts`, `app/admin/(protected)/signals/queue/page.tsx`) is well-built, but every one of its Supabase calls — `listEngineReviewQueue`, `countEngineReviewQueue`, `listDistinctEngineCountries` (SELECT `reviewed_by,reviewed_at`), `approveEngineSignal`, `rejectEngineSignal`, `bulkApproveEngineQueue` (PATCH `reviewed_by,reviewed_at`) — goes through a bare `/rest/v1/signals` call with no schema override, which this project routes to `api.signals` (a `security_invoker` passthrough view). That view was never refreshed after the same commit's own migration (`20260713090000_signals_reviewer_tracking_stub.sql`) added `reviewed_by`/`reviewed_at` to the base `public.signals` table. Confirmed live: `select id, reviewed_by, reviewed_at from api.signals` → `42703: column "reviewed_by" does not exist`. This is the third occurrence this week of the identical bug class (stale PostgREST view lagging a column addition on the base table) — see the two `regulatory_signals.signals` entries above. The feature's own commit message claims verification ("PostgREST filter logic tested against live data before commit... equivalent SQL WHERE clause returns exactly 1,085") — but that check ran the filter as a raw SQL WHERE clause directly against the base table, never through the actual `api.signals` view the deployed code calls through, which is why it shipped broken to production anyway.
+
+**Fix applied:** `create or replace view api.signals` adding `reviewed_by`/`reviewed_at` to its column list, preserving `security_invoker=on`. Applied via `apply_migration`: `20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql`.
+
+**Verification (live production):**
+- Read path: `select ... reviewed_by, reviewed_at from api.signals where cat='SOURCE_ENGINE' and reviewed is not true and (action is null or action <> 'rejected') and score >= 0 order by score desc, date desc` — the exact shape `listEngineReviewQueue()` builds — now returns rows cleanly.
+- Write path: `BEGIN; UPDATE api.signals SET reviewed=true, action='approved', reviewed_by=..., reviewed_at=now() WHERE id=...; ROLLBACK;` — matching `approveEngineSignal()` exactly — succeeds, no data left behind.
+- Current real queue size: **7,702** unreviewed `SOURCE_ENGINE` signals (grown from the 7,136 cited in this morning's commit — the crawler pipeline keeps running).
+
+**Also surfaced, not yet acted on:** sampled the queue's actual content while verifying — several of the highest-scored rows (score 99, priority `URGENT`) are scraped website navigation/menu boilerplate (e.g. a wall of "(Opens in new window)" nav-menu links from a state regulator site, a "Recent Searches / Popular Searches" sidebar dump), not real regulatory signals. The extraction/scoring pipeline is confidently mis-scoring non-content as top-priority. This is a content-quality problem independent of the review-queue wiring bug just fixed — worth a separate look at the extraction/scoring heuristics before this queue is used to greenlight anything customer-facing.
+
+**Files changed:** `supabase/migrations/20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql`, this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** Re-run `create or replace view api.signals` with the pre-fix column list (drop `reviewed_by`, `reviewed_at`). Not recommended — this is the only fix needed to make the just-shipped review queue actually work.
+
+## 2026-07-19 — main branch lint-error regression found and fixed (0→8 errors)
+
+**Finding:** while locally verifying 9 open dependabot PRs (none of which triggered this
+repo's required CI checks — see PR review comments on #1061/#1060/#1059/#1058/#1057/#1056/
+#1051/#1050/#1042 for detail), `npm run lint` on a clean, unmodified `origin/main` checkout
+returned **8 errors, 151 warnings** — not the previously-established baseline of 0 errors,
+127 warnings. Confirmed by reverting the working tree to plain `origin/main` content and
+re-running lint before touching any dependency version. Not caused by any dependency bump;
+the errors were already live on `main` from unrelated recent merges.
+
+**Errors, all mechanical, no logic changes:**
+- 7× `react/no-unescaped-entities` — raw apostrophes in JSX text nodes (`couldn't`,
+  `haven't`, `role's`, `we'll`) across `app/admin/(protected)/orgs/page.tsx`,
+  `components/dashboard/CommandCentre.tsx` (×4), `components/dashboard/MobileCommandCentre.tsx`.
+  Escaped to `&apos;`.
+- 1× `prefer-const` — `let list = ...` in `CommandCentre.tsx`'s licence-sort `useMemo` was
+  never reassigned after initialization. Changed to `const`.
+- 1× `@typescript-eslint/no-explicit-any` — `lib/signals-engine/admin.ts`'s `callRpc<T>`
+  returned `client as any` on the error branch. `getAdminDataClient()`'s false-branch shape
+  (`{ ok: false; error: AdminDataError }`) is structurally identical to `AdminResult<T>`'s
+  false branch regardless of `T`, so replaced with `client as AdminResult<T>` — same runtime
+  behavior, no more `any`.
+
+**Why this matters beyond the 8 lines:** every PR opened against `main` inherits this
+baseline. Until fixed, no PR could honestly claim "0 errors" against a clean lint run, and
+the "genuinely green required checks" bar this repo's `PR_REVIEW_CHECKLIST.md` sets was
+unverifiable for any concurrently-open PR that didn't itself happen to touch these exact
+lines.
+
+**QA:** `npm run lint` (0 errors, 151 pre-existing warnings, unchanged), `npm run typecheck`
+(0 errors — specifically re-verified given the `any`→`AdminResult<T>` type change),
+`npm run test` (all suites pass), `npm run build` (clean, all routes compiled).
+
+**Files changed:** `app/admin/(protected)/orgs/page.tsx`, `components/dashboard/CommandCentre.tsx`,
+`components/dashboard/MobileCommandCentre.tsx`, `lib/signals-engine/admin.ts`, this entry.
+
+**Rollback:** Revert the commit — each fix is a narrow, single-line, behavior-preserving
+change (JSX entity escaping, `let`→`const`, a type assertion narrowing from `any`); no data,
+schema, or runtime-behavior risk either direction.

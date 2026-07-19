@@ -29,6 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/candidates" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Candidates</Link>
             <Link href="/admin/intelligence-automation" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Intelligence</Link>
             <Link href="/admin/counterparties" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Counterparties</Link>
+            <Link href="/admin/orgs" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Orgs</Link>
             <Link href="/admin/applications" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Applications</Link>
             <Link href="/admin/genetics/review" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Genetics review</Link>
             <Link href="/admin/agents" className="rounded-full border border-[#C6A55A]/40 px-3 py-1.5 text-[#C6A55A] transition hover:bg-[#C6A55A]/10">Agents</Link>

@@ -1,18 +1,24 @@
 import type { RegulatorySignalType } from './types'
 
 export const REGULATORY_SIGNAL_TYPE_LABELS: Record<RegulatorySignalType, string> = {
-  regulatory_change: 'Regulatory Changes',
-  policy_announcement: 'Policy Announcements',
-  import_export_pathway: 'Import and Export Pathways',
   licensing_market_access: 'Licensing and Market Access',
   prescription_patient_access: 'Prescription and Patient Access',
-  hemp_cbd_controlled_cannabinoids: 'Hemp, CBD and Controlled Cannabinoids',
-  enforcement_compliance_action: 'Enforcement and Compliance Actions',
-  consultation_pending_rule_change: 'Consultations and Pending Rule Changes',
-  court_agency_decision: 'Court and Agency Decisions',
-  controlled_substance_scheduling: 'Controlled Substance Scheduling',
-  customs_trade_requirement: 'Customs and Trade Requirements',
-  quality_standard_requirement: 'Quality Standard Requirements',
+  import_export_pathway: 'Import and Export Pathways',
+  enforcement_action: 'Enforcement Actions',
+  policy_consultation: 'Policy Consultations',
+  legislation_change: 'Legislation Changes',
+  quota_allocation: 'Quota Allocations',
+  regulatory_guidance: 'Regulatory Guidance',
+  court_decision: 'Court Decisions',
+  trade_agreement: 'Trade Agreements',
+  international_treaty: 'International Treaties',
+  pharmaceutical_reclassification: 'Pharmaceutical Reclassification',
+  hemp_cbd_boundary: 'Hemp, CBD and Controlled Cannabinoids',
+  industrial_use_access: 'Industrial Use Access',
+  professional_access: 'Professional Access',
+  research_access: 'Research Access',
+  enforcement_risk: 'Enforcement Risk',
+  market_exit: 'Market Exit',
 }
 
 export const REGULATORY_SIGNALS_DISCLAIMER =

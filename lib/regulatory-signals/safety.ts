@@ -150,7 +150,7 @@ export function toPublicRegulatorySignal(record: RegulatorySignalRecord): Public
 
 export function assertPublicationGate(record: RegulatorySignalRecord) {
   const blockers = [
-    record.review_status !== 'approved_public' && record.review_status !== 'published' ? 'Review status must be approved_public before publication.' : null,
+    record.review_status !== 'in_review' && record.review_status !== 'published' ? 'Review status must be in_review before publication.' : null,
     !record.public_safe ? 'public_safe must be true.' : null,
     !record.publish_to_public ? 'publish_to_public must be true.' : null,
     !record.public_summary?.trim() ? 'Public summary is required.' : null,

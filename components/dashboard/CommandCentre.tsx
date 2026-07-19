@@ -75,6 +75,7 @@ export type CommandPage =
   | 'insurance'
   | 'licences'
   | 'trade-calc'
+  | 'organization'
 
 export type { DigestWindow }
 
@@ -108,6 +109,12 @@ type Props = {
   eduCategories:    { icon: string; title: string; desc: string }[]
   countryEducationOverlays?: CountryEducationOverlay[]
   initialCountryIso2?: string | null
+  // Subnational selection carried from the globe router (e.g. "Illinois" for
+  // US-IL). Not resolved into desktop's own country model — display-only,
+  // consumed by MobileCommandCentre's header/Local Intel; accepted here so
+  // the shared Props type (DashboardResponsiveShell) stays structurally
+  // compatible across both shells.
+  regionLabel?:     string | null
   initialRoleId?:   string | null
   initialPage?:     CommandPage | null
   wantedCount?:     number
@@ -123,16 +130,19 @@ type Props = {
   recentEduModules?:    RecentEduModule[]
   sourceCoverage?:      SourceCoverageRow[]
   jurisdictionPlaybook?: JurisdictionPlaybook
+  pathwayMatrix?:       import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   educationTracks?:     EducationTrack[]
   marketMetrics?:       MarketMetric[]
   tradeFlows?:          TradeFlow[]
   professionals?:       HvProfessional[]
   cannabisOperators?:   CannabisOperator[]
+  operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix
   userEmail?:           string | null
   cultivarPassports?:   PublicCultivarPassportDTO[]
   serviceProviders?:    PublicServiceProvider[]
   collaborationProjects?: PublicCollaborationProject[]
   mySubmissions?:       MySubmission[]
+  hasOrg?:              boolean
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -145,6 +155,13 @@ const GlobeCanvas = dynamic(
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTRIES = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label: c.displayName }))
+
+const FORMAT_STATUS_COLOR: Record<string, string> = {
+  permitted: '#5fb87a',
+  restricted: '#d4a84b',
+  prohibited: '#e05555',
+  unclear: 'rgba(245,240,232,.4)',
+}
 
 type NavItem    = { id: CommandPage; label: string; icon: string }
 type NavSection = { label?: string; items: NavItem[] }
@@ -203,6 +220,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'assistant',     label: 'AI Assistant',  icon: '◈' },
       { id: 'notifications', label: 'Notifications', icon: '◎' },
       { id: 'documents',     label: 'Documents',     icon: '⊡' },
+      { id: 'organization',  label: 'Organization',  icon: '⊙' },
       { id: 'settings',      label: 'Settings',      icon: '⊙' },
     ],
   },
@@ -1100,7 +1118,7 @@ const MKT_ACTION_TABS: { id: MarketSubView; label: string }[] = [
 ]
 
 const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange, mySubmissions = [], userEmail,
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], operatorLicenceMatrix, pipeline, onPageChange, mySubmissions = [], userEmail,
 }: {
   country:           { iso2: string; label: string }
   region:            string
@@ -1110,6 +1128,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
   wantedCount?:      number
   pathwayData?:      PathwayData
   cannabisOperators?: CannabisOperator[]
+  operatorLicenceMatrix?: import('@/lib/intelligence/operatorIntelligence').OperatorLicenceMatrix
   pipeline?:         PipelineCounts
   onPageChange?:     (page: CommandPage) => void
   mySubmissions?:    MySubmission[]
@@ -1479,17 +1498,32 @@ const MarketplacePage = React.memo(function MarketplacePage({
         {cannabisOperators.length > 0 && (
           <div className="cc-right-section">
             <div className="cc-right-head">VERIFIED OPERATORS — {country.label.toUpperCase()}</div>
-            {cannabisOperators.slice(0, 5).map(op => (
-              <div key={op.id} className="cc-req-row">
-                <span className={`cc-req-icon ${op.verification_status === 'verified' ? 'ok' : 'pending'}`}>
-                  {op.verification_status === 'verified' ? '✓' : '○'}
-                </span>
-                <div>
-                  <strong>{op.legal_name}</strong>
-                  <small>{op.operator_type ?? 'Operator'}</small>
+            {cannabisOperators.slice(0, 5).map(op => {
+              const licences = operatorLicenceMatrix?.entitled ? operatorLicenceMatrix.byOperatorId[op.id] ?? [] : []
+              return (
+                <div key={op.id} className="cc-req-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span className={`cc-req-icon ${op.verification_status === 'verified' ? 'ok' : 'pending'}`}>
+                      {op.verification_status === 'verified' ? '✓' : '○'}
+                    </span>
+                    <div>
+                      <strong>{op.legal_name}</strong>
+                      <small>{op.operator_type ?? 'Operator'}</small>
+                    </div>
+                  </div>
+                  {licences.map((lic, i) => (
+                    <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4, paddingLeft: 26 }}>
+                      {lic.gmpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GMP</span>}
+                      {lic.gacpCertified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 100, border: '1px solid rgba(95,184,122,.3)', color: '#5fb87a' }}>GACP</span>}
+                      {lic.licenceClass && <span style={{ fontSize: 9, color: 'rgba(245,240,232,.4)' }}>{lic.licenceClass}</span>}
+                    </div>
+                  ))}
+                  {operatorLicenceMatrix && !operatorLicenceMatrix.entitled && (
+                    <div style={{ fontSize: 9, color: '#d4a84b', paddingLeft: 26, marginTop: 4 }}>🔒 Licence & certification detail — Intel plan</div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
             <button className="cc-right-link" onClick={() => setSubView('browse')}>View all operators →</button>
           </div>
         )}
@@ -2219,6 +2253,340 @@ const SAVED_PRESETS = [
   { label: 'Evidence Deep Dive',     type: 'Custom'  },
   { label: 'Legislative Tracker',    type: 'Custom'  },
 ]
+
+const ORG_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'supplier',    label: 'Supplier / Cultivator' },
+  { value: 'buyer',       label: 'Buyer / Importer' },
+  { value: 'broker',      label: 'Broker / Trade Intermediary' },
+  { value: 'lab',         label: 'Testing Laboratory' },
+  { value: 'pharmacy',    label: 'Pharmacy' },
+  { value: 'clinic',      label: 'Clinic' },
+  { value: 'equipment',   label: 'Equipment / Technology Provider' },
+  { value: 'service',     label: 'Professional Service Provider' },
+  { value: 'financial',   label: 'Financial / Investment' },
+  { value: 'distributor', label: 'Distributor' },
+  { value: 'exporter',    label: 'Exporter' },
+  { value: 'importer',    label: 'Importer' },
+]
+
+type OrgMeLicence = { id: string; licence_number: string; licence_type: string; jurisdiction_country: string; status: string; verified: boolean; expires_at: string }
+type OrgMe = { id: string; name: string; legal_name: string; trade_name: string | null; org_type: string; jurisdiction_country: string; verification_status: string }
+
+const OrganizationPage = React.memo(function OrganizationPage({
+  hasOrg, countryOptions, onPageChange,
+}: { hasOrg?: boolean; countryOptions: SelectOpt[]; onPageChange?: (page: CommandPage) => void }) {
+  const [legalName,   setLegalName]   = useState('')
+  const [tradeName,   setTradeName]   = useState('')
+  const [orgType,     setOrgType]     = useState('')
+  const [jurisdiction, setJurisdiction] = useState('')
+  const [region,      setRegionField] = useState('')
+  const [submitting,  setSubmitting]  = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const [done,        setDone]        = useState(false)
+
+  const handleSubmit = async () => {
+    setError(null)
+    if (!legalName.trim())          return setError('Legal name is required.')
+    if (!orgType)                   return setError('Select an organization type.')
+    if (jurisdiction.length !== 2)  return setError('Select a jurisdiction country.')
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/org/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          legal_name: legalName.trim(),
+          trade_name: tradeName.trim() || undefined,
+          org_type: orgType,
+          jurisdiction_country: jurisdiction,
+          jurisdiction_region: region.trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(
+          json?.error === 'USER_ALREADY_HAS_ORG' ? 'You already belong to an organization.' :
+          json?.error === 'SLUG_CONFLICT' ? 'A very similar organization name already exists — try a more specific legal name.' :
+          typeof json?.error === 'string' ? json.error : 'Could not create your organization. Please try again.'
+        )
+        return
+      }
+      setDone(true)
+    } catch {
+      setError('Network error — please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (hasOrg || done) {
+    return <OrganizationDashboard countryOptions={countryOptions} justCreated={done} />
+  }
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.org-header { margin-bottom: 18px; }
+.org-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.org-sub { font-size: .78rem; color: #8a8a9a; margin-top: 3px; }
+.org-row { margin-bottom: 14px; }
+.org-label { font-size: .72rem; color: #8a8a9a; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .06em; }
+.org-input, .org-select { width: 100%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 9px 12px; color: #f5f0e8; font-size: .85rem; outline: none; box-sizing: border-box; }
+.org-input:focus, .org-select:focus { border-color: #d4a84b; }
+.org-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.org-note { font-size: .73rem; line-height: 1.6; color: #9090a0; background: rgba(212,168,75,.08); border: 1px solid rgba(212,168,75,.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; }
+.org-error { font-size: .78rem; color: #ef4444; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; }
+.org-submit { background: #d4a84b; color: #050c18; font-weight: 600; font-size: .85rem; border: none; border-radius: 20px; padding: 10px 22px; cursor: pointer; }
+.org-submit:disabled { opacity: .55; cursor: default; }
+        `}</style>
+
+        <div className="org-header">
+          <div className="org-title">Create Your Organization</div>
+          <div className="org-sub">Every counterparty on Harbourview operates through a verified organization. This starts your Passport.</div>
+        </div>
+
+        <div className="org-note">
+          Created privately and unverified by default. Nothing is public until you submit for review. One organization per account at creation — teammates can be invited afterward.
+        </div>
+
+        {error && <div className="org-error">{error}</div>}
+
+        <div className="org-row org-grid">
+          <div>
+            <label className="org-label">Legal name *</label>
+            <input className="org-input" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder="Legal entity name" />
+          </div>
+          <div>
+            <label className="org-label">Trade name</label>
+            <input className="org-input" value={tradeName} onChange={e => setTradeName(e.target.value)} placeholder="If different from legal name" />
+          </div>
+        </div>
+
+        <div className="org-row">
+          <label className="org-label">Organization type *</label>
+          <select className="org-select" value={orgType} onChange={e => setOrgType(e.target.value)}>
+            <option value="">Select organization type</option>
+            {ORG_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div className="org-row org-grid">
+          <div>
+            <label className="org-label">Country of registration *</label>
+            <select className="org-select" value={jurisdiction} onChange={e => setJurisdiction(e.target.value)}>
+              <option value="">Select country</option>
+              {countryOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="org-label">State / province (optional)</label>
+            <input className="org-input" value={region} onChange={e => setRegionField(e.target.value)} placeholder="Region" />
+          </div>
+        </div>
+
+        <button className="org-submit" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Creating…' : 'Create Organization'}
+        </button>
+      </div>
+    </div>
+  )
+})
+
+const LICENCE_TYPE_OPTIONS = [
+  'Cultivation', 'Processing/Manufacturing', 'Extraction', 'Distribution',
+  'Retail/Dispensing', 'Import', 'Export', 'Testing Laboratory', 'Research', 'Other',
+]
+
+const OrganizationDashboard = React.memo(function OrganizationDashboard({
+  countryOptions, justCreated,
+}: { countryOptions: SelectOpt[]; justCreated?: boolean }) {
+  const [loading, setLoading] = useState(true)
+  const [org, setOrg] = useState<OrgMe | null>(null)
+  const [licences, setLicences] = useState<OrgMeLicence[]>([])
+  const [showForm, setShowForm] = useState(false)
+
+  const [licNumber, setLicNumber] = useState('')
+  const [licAuthority, setLicAuthority] = useState('')
+  const [licType, setLicType] = useState('')
+  const [licCountry, setLicCountry] = useState('')
+  const [licRegion, setLicRegion] = useState('')
+  const [licExpires, setLicExpires] = useState('')
+  const [licSubmitting, setLicSubmitting] = useState(false)
+  const [licError, setLicError] = useState<string | null>(null)
+  const [licResult, setLicResult] = useState<{ auto_verified: boolean } | null>(null)
+
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/org/me')
+      const json = await res.json()
+      setOrg(json?.data?.org ?? null)
+      setLicences(json?.data?.licences ?? [])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const submitLicence = async () => {
+    setLicError(null)
+    setLicResult(null)
+    if (!licNumber.trim())        return setLicError('Licence number is required.')
+    if (!licAuthority.trim())     return setLicError('Issuing authority is required.')
+    if (!licType)                 return setLicError('Select a licence type.')
+    if (licCountry.length !== 2)  return setLicError('Select a jurisdiction country.')
+    if (!licExpires)              return setLicError('Expiry date is required.')
+
+    setLicSubmitting(true)
+    try {
+      const res = await fetch('/api/org/licences/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          licence_number: licNumber.trim(), issuing_authority: licAuthority.trim(),
+          licence_type: licType, jurisdiction_country: licCountry,
+          jurisdiction_region: licRegion.trim() || undefined, expires_at: licExpires,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setLicError(typeof json?.error === 'string' ? json.error : 'Could not submit licence.'); return }
+      setLicResult({ auto_verified: !!json?.data?.auto_verified })
+      setLicNumber(''); setLicAuthority(''); setLicType(''); setLicCountry(''); setLicRegion(''); setLicExpires('')
+      await load()
+    } catch {
+      setLicError('Network error — please try again.')
+    } finally {
+      setLicSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="cc-two-col-page">
+      <div className="cc-two-main">
+        <style>{`
+.org-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
+.org-sub { font-size: .78rem; color: #8a8a9a; margin-top: 6px; }
+.org-status-pill { display: inline-block; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; padding: 3px 10px; border-radius: 999px; margin-top: 10px; }
+.org-status-verified { background: rgba(16,185,129,.15); color: #10b981; }
+.org-status-pending { background: rgba(212,168,75,.15); color: #d4a84b; }
+.org-status-unverified { background: rgba(139,139,154,.15); color: #8a8a9a; }
+.org-lic-card { border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 12px 14px; margin-top: 12px; }
+.org-lic-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.org-lic-status { font-size: .68rem; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.org-add-btn { margin-top: 18px; background: transparent; border: 1px solid #d4a84b; color: #d4a84b; font-weight: 600; font-size: .8rem; border-radius: 20px; padding: 8px 18px; cursor: pointer; }
+.org-row { margin-bottom: 14px; }
+.org-label { font-size: .72rem; color: #8a8a9a; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .06em; }
+.org-input, .org-select { width: 100%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 9px 12px; color: #f5f0e8; font-size: .85rem; outline: none; box-sizing: border-box; }
+.org-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.org-submit { background: #d4a84b; color: #050c18; font-weight: 600; font-size: .85rem; border: none; border-radius: 20px; padding: 10px 22px; cursor: pointer; margin-top: 4px; }
+.org-submit:disabled { opacity: .55; cursor: default; }
+.org-error { font-size: .78rem; color: #ef4444; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; margin-top: 12px; }
+.org-success { font-size: .78rem; color: #10b981; background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25); border-radius: 8px; padding: 9px 12px; margin-top: 12px; }
+        `}</style>
+
+        {loading ? (
+          <div className="org-sub">Loading your organization…</div>
+        ) : !org ? (
+          <div className="org-sub">Couldn&apos;t load your organization. Try refreshing.</div>
+        ) : (
+          <>
+            <div className="org-title">{org.trade_name || org.legal_name}</div>
+            {org.trade_name && <div className="org-sub">{org.legal_name}</div>}
+            <span className={`org-status-pill ${
+              org.verification_status === 'verified' ? 'org-status-verified' :
+              org.verification_status === 'pending_review' ? 'org-status-pending' : 'org-status-unverified'
+            }`}>
+              {org.verification_status.replace('_', ' ')}
+            </span>
+
+            {justCreated && (
+              <div className="org-success">Organization created. Add a licence below to move your Passport toward verification.</div>
+            )}
+
+            <div style={{ marginTop: 20, fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              Licences ({licences.length})
+            </div>
+            {licences.length === 0 && (
+              <div className="org-sub" style={{ marginTop: 6 }}>No licences submitted yet.</div>
+            )}
+            {licences.map(l => (
+              <div className="org-lic-card" key={l.id}>
+                <div className="org-lic-row">
+                  <div>
+                    <div style={{ fontSize: '.85rem', color: '#f5f0e8' }}>{l.licence_type} — {l.jurisdiction_country}</div>
+                    <div className="org-sub">#{l.licence_number} · expires {l.expires_at}</div>
+                  </div>
+                  <span className="org-lic-status" style={{
+                    background: l.status === 'active' ? 'rgba(16,185,129,.15)' : l.status === 'revoked' ? 'rgba(239,68,68,.15)' : 'rgba(212,168,75,.15)',
+                    color: l.status === 'active' ? '#10b981' : l.status === 'revoked' ? '#ef4444' : '#d4a84b',
+                  }}>
+                    {l.verified ? 'Auto-verified' : l.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {!showForm ? (
+              <button className="org-add-btn" onClick={() => setShowForm(true)}>+ Add a licence</button>
+            ) : (
+              <div style={{ marginTop: 20 }}>
+                {licError && <div className="org-error">{licError}</div>}
+                {licResult && (
+                  <div className="org-success">
+                    {licResult.auto_verified
+                      ? 'Matched the public regulator registry — verified automatically, no review needed.'
+                      : 'Submitted. No automatic match was found, so this needs a quick manual review.'}
+                  </div>
+                )}
+                <div className="org-row org-grid" style={{ marginTop: 12 }}>
+                  <div>
+                    <label className="org-label">Licence number *</label>
+                    <input className="org-input" value={licNumber} onChange={e => setLicNumber(e.target.value)} placeholder="Licence number" />
+                  </div>
+                  <div>
+                    <label className="org-label">Issuing authority *</label>
+                    <input className="org-input" value={licAuthority} onChange={e => setLicAuthority(e.target.value)} placeholder="e.g. Health Canada" />
+                  </div>
+                </div>
+                <div className="org-row">
+                  <label className="org-label">Licence type *</label>
+                  <select className="org-select" value={licType} onChange={e => setLicType(e.target.value)}>
+                    <option value="">Select licence type</option>
+                    {LICENCE_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="org-row org-grid">
+                  <div>
+                    <label className="org-label">Jurisdiction country *</label>
+                    <select className="org-select" value={licCountry} onChange={e => setLicCountry(e.target.value)}>
+                      <option value="">Select country</option>
+                      {countryOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="org-label">State / province</label>
+                    <input className="org-input" value={licRegion} onChange={e => setLicRegion(e.target.value)} placeholder="Optional" />
+                  </div>
+                </div>
+                <div className="org-row">
+                  <label className="org-label">Expiry date *</label>
+                  <input className="org-input" type="date" value={licExpires} onChange={e => setLicExpires(e.target.value)} />
+                </div>
+                <button className="org-submit" onClick={submitLicence} disabled={licSubmitting}>
+                  {licSubmitting ? 'Submitting…' : 'Submit Licence'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+})
+
 
 const SettingsPage = React.memo(function SettingsPage({
   country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange, onPageChange,
@@ -5391,12 +5759,14 @@ const CompliancePage = React.memo(function CompliancePage({
   country,
   countryIntel,
   jurisdictionPlaybook,
+  pathwayMatrix,
   role,
   onPageChange,
 }: {
   country: { iso2: string; label: string }
   countryIntel?: CountryIntelProfile | null
   jurisdictionPlaybook?: JurisdictionPlaybook | null
+  pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   role?: string
   onPageChange?: (page: CommandPage) => void
 }) {
@@ -5506,6 +5876,52 @@ const CompliancePage = React.memo(function CompliancePage({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {pathwayMatrix && !pathwayMatrix.entitled && (
+          <div className="cc-sig-feed">
+            <div className="cc-sig-group" style={{ border: '1px dashed rgba(212,168,75,.3)', background: 'rgba(212,168,75,.04)' }}>
+              <div className="cc-sig-group-hd"><span>🔒 Format Viability — Intel plan required</span></div>
+              <div className="cc-sig-row">
+                <div className="cc-sig-body">
+                  <small>Which pathway permits which product format here, THC/CBD limits, possession limits — this is part of the Intel tier. The market entry steps above are available now; this is the part that answers whether a format is legally viable before those steps matter.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pathwayMatrix?.entitled && pathwayMatrix.pathways.length > 0 && (
+          <div className="cc-sig-feed">
+            <div className="cc-sig-group">
+              <div className="cc-sig-group-hd"><span>Format Viability — {country.label}</span><span>{pathwayMatrix.pathways.length} pathway{pathwayMatrix.pathways.length === 1 ? '' : 's'}</span></div>
+              {pathwayMatrix.pathways.map(pathway => (
+                <div key={pathway.id} className="cc-sig-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div className="cc-sig-body" style={{ marginBottom: pathway.formats.length > 0 ? 6 : 0 }}>
+                    <strong>{pathway.name}</strong>
+                    <small>{pathway.regulator ?? pathway.pathwayType.replace(/_/g, ' ')} · {pathway.status}</small>
+                  </div>
+                  {pathway.formats.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 4 }}>
+                      {pathway.formats.map(f => (
+                        <span
+                          key={f.formatSlug}
+                          title={[f.thcLimit && `THC ${f.thcLimit}`, f.cbdLimit && `CBD ${f.cbdLimit}`, f.notes].filter(Boolean).join(' — ') || undefined}
+                          style={{
+                            fontSize: '10px', padding: '3px 8px', borderRadius: 100, border: '1px solid',
+                            borderColor: FORMAT_STATUS_COLOR[f.status] ? `${FORMAT_STATUS_COLOR[f.status]}40` : 'rgba(255,255,255,.12)',
+                            color: FORMAT_STATUS_COLOR[f.status] ?? 'rgba(245,240,232,.5)',
+                          }}
+                        >
+                          {f.formatName} · {f.status}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -6880,7 +7296,7 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
         {/* Submit CTA */}
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Know a provider?</div>
-          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Help the industry by submitting cannabis-friendly financial institutions we haven't listed yet.</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Help the industry by submitting cannabis-friendly financial institutions we haven&apos;t listed yet.</div>
           <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
             Submit a Provider
           </button>
@@ -8489,7 +8905,7 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
             <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
               <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>For {role}s</div>
               <div style={{ fontSize: '.76rem', color: '#b0b0c0', marginBottom: 10, lineHeight: 1.5 }}>
-                Logistics providers matched to your role's typical shipping profile.
+                Logistics providers matched to your role&apos;s typical shipping profile.
               </div>
               {([
                 ['Matched Providers', roleMatchTotal],
@@ -9225,7 +9641,7 @@ const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
   }), [licences])
 
   const sorted = useMemo(() => {
-    let list = filterStatus === 'all' ? [...licences] : licences.filter(l => calcLicenceStatus(l.expiryDate) === filterStatus)
+    const list = filterStatus === 'all' ? [...licences] : licences.filter(l => calcLicenceStatus(l.expiryDate) === filterStatus)
     return list.sort((a, b) => {
       if (sortKey === 'expiryDate') {
         const da = licenceDaysLeft(a.expiryDate) ?? 99999
@@ -10204,7 +10620,7 @@ const EventsPage = React.memo(function EventsPage({
           <div id="cc-events-submit">
             <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>SUBMIT AN EVENT</div>
             {submitSent ? (
-              <div style={{ fontSize: '11px', color: '#4caf82' }}>✓ Thank you — we'll review and add it to the calendar.</div>
+              <div style={{ fontSize: '11px', color: '#4caf82' }}>✓ Thank you — we&apos;ll review and add it to the calendar.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {[
@@ -10259,16 +10675,19 @@ export default function CommandCentre({
   recentEduModules,
   sourceCoverage,
   jurisdictionPlaybook,
+  pathwayMatrix,
   educationTracks = [],
   marketMetrics = [],
   tradeFlows = [],
   professionals = [],
   cannabisOperators = [],
+  operatorLicenceMatrix,
   userEmail,
   cultivarPassports = [],
   serviceProviders = [],
   collaborationProjects = [],
   mySubmissions = [],
+  hasOrg,
 }: Props) {
   const router = useRouter()
 
@@ -10428,7 +10847,7 @@ export default function CommandCentre({
       case 'access-pathway':
         return <AccessPathwayPage country={country} region={region} role={roleLabel} signals={signals} pathwayData={pathwayData} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} onPageChange={handlePageChange} />
       case 'marketplace':
-        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
+        return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} operatorLicenceMatrix={operatorLicenceMatrix} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'evidence':
         return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} onPageChange={handlePageChange} />
       case 'education':
@@ -10446,7 +10865,7 @@ export default function CommandCentre({
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'compliance':
-        return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} role={roleLabel} onPageChange={handlePageChange} />
+        return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
         return <CountriesDirectoryPage signals={signals} onCountrySelect={handleCountryChange} />
       case 'assistant':
@@ -10475,6 +10894,8 @@ export default function CommandCentre({
         return <LicenceTrackerPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'trade-calc':
         return <LandedCostPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
+      case 'organization':
+        return <OrganizationPage hasOrg={hasOrg} countryOptions={countryOptions} onPageChange={handlePageChange} />
       default:
         return null
     }
