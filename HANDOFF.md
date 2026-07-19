@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 18 2026 (later) · Claude (Sonnet 5)
+> Last updated: Jul 19 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -192,6 +192,18 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Jul 19 2026 — tier-gate revert reconciled with concurrent session, not overwritten · Claude (Sonnet 5)
+
+Tyler asked directly whether to take everything off paid tiering and leave it open until a paywall decision is made, or keep the intel/operator gate from #1049/#1071 as-is. Before answering, pulled latest main and found the answer had already changed: North Star v1.4/v1.5 (decided the same day) rejected subscription tiers entirely in favor of per-report, one-time payment. Checked further and found a second, separate, already-built, Stripe-webhook-wired entitlement system (`lib/billing/entitlements.ts`, `free/starter/professional/enterprise`, listing `compliance` at `starter` minimum) whose enforcement function `requireAuth()` is never called anywhere in `app/` — fully dead — and a one-shot backfill script that tries to bridge it to `user_profiles.tier` but writes `'intel'`/`'operator'` into a field typed as the other vocabulary, silently broken if run (`getTierLevel('intel')` returns -1, below free).
+
+Given that, reverted the RLS policies on `regulatory_pathways`/`pathway_format_rules`/`operator_licences` back to public — a correction, not a pause, since neither tier vocabulary in this codebase is where entitlement checks are actually headed.
+
+**While mid-build on the application-code side, pulling again surfaced that a concurrent session (the Jul 18 (later) cross-surface audit entry above) had independently reached the same conclusion** — `getCountryPathwayMatrix`/`getOperatorLicenceMatrix`'s tier checks commented out (not deleted, restorable), plus a large, unrelated org-verification/licence-submission feature built in the same window (`app/admin/(protected)/orgs`, `app/api/org/*`). Did not push my own more invasive rewrite (full type simplification, dropped the `entitled` union) over that — checked `pg_policies` directly, confirmed their app-layer fix and my RLS-layer fix were complementary, not conflicting, and pushed only the missing piece: a migration file committing the RLS change I'd already applied live via `execute_sql`, which had no corresponding file in the repo yet. Left the application files exactly as the other session's already-merged fix, since a competing rewrite would have been pure churn against actively-changing code for no functional gain.
+
+**Not done:** did not investigate the new org-verification/licence-submission feature beyond confirming it doesn't depend on the tier-gate shape I almost changed. Worth a look by whoever picks this repo up next, since it's a substantial addition (`OrgReviewTable.tsx`, `verify-org`, `org/create`, `org/licences/submit`) that arrived without a HANDOFF entry of its own describing it in detail — only the ADR #22/admin-nav entry above touches on it in passing.
 
 ---
 
