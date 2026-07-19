@@ -2490,7 +2490,7 @@ const OrganizationDashboard = React.memo(function OrganizationDashboard({
         {loading ? (
           <div className="org-sub">Loading your organization…</div>
         ) : !org ? (
-          <div className="org-sub">Couldn't load your organization. Try refreshing.</div>
+          <div className="org-sub">Couldn&apos;t load your organization. Try refreshing.</div>
         ) : (
           <>
             <div className="org-title">{org.trade_name || org.legal_name}</div>
@@ -7296,7 +7296,7 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
         {/* Submit CTA */}
         <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '.82rem', fontWeight: 600, color: '#f5f0e8', marginBottom: 6 }}>Know a provider?</div>
-          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Help the industry by submitting cannabis-friendly financial institutions we haven't listed yet.</div>
+          <div style={{ fontSize: '.76rem', color: '#8a8a9a', marginBottom: 10 }}>Help the industry by submitting cannabis-friendly financial institutions we haven&apos;t listed yet.</div>
           <button style={{ background: 'rgba(212,168,75,.15)', border: '1px solid rgba(212,168,75,.4)', borderRadius: 6, padding: '7px 14px', color: '#d4a84b', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', width: '100%' }}>
             Submit a Provider
           </button>
@@ -8905,7 +8905,7 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
             <div style={{ background: 'rgba(16,185,129,.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(16,185,129,.3)' }}>
               <div style={{ fontSize: '.72rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>For {role}s</div>
               <div style={{ fontSize: '.76rem', color: '#b0b0c0', marginBottom: 10, lineHeight: 1.5 }}>
-                Logistics providers matched to your role's typical shipping profile.
+                Logistics providers matched to your role&apos;s typical shipping profile.
               </div>
               {([
                 ['Matched Providers', roleMatchTotal],
@@ -9641,7 +9641,7 @@ const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
   }), [licences])
 
   const sorted = useMemo(() => {
-    let list = filterStatus === 'all' ? [...licences] : licences.filter(l => calcLicenceStatus(l.expiryDate) === filterStatus)
+    const list = filterStatus === 'all' ? [...licences] : licences.filter(l => calcLicenceStatus(l.expiryDate) === filterStatus)
     return list.sort((a, b) => {
       if (sortKey === 'expiryDate') {
         const da = licenceDaysLeft(a.expiryDate) ?? 99999
@@ -10620,7 +10620,7 @@ const EventsPage = React.memo(function EventsPage({
           <div id="cc-events-submit">
             <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>SUBMIT AN EVENT</div>
             {submitSent ? (
-              <div style={{ fontSize: '11px', color: '#4caf82' }}>✓ Thank you — we'll review and add it to the calendar.</div>
+              <div style={{ fontSize: '11px', color: '#4caf82' }}>✓ Thank you — we&apos;ll review and add it to the calendar.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {[
