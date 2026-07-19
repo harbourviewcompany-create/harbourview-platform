@@ -195,6 +195,22 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 
 ---
 
+### Session: Jul 19 2026 (cont. 2) -- cut marketplace review-queue backlog (529 -> 2), fixed root cause · Claude (Sonnet 5)
+
+**Surveyed every real admin review queue** before touching anything, per "cut all admin review work": `hv_admin_review_queue` (generic queue, 0 rows -- already empty since #1077's auto-verification), `network_review_items` (0 pending), `genetics_claim_reviews`/`genetics_access_requests` (1 each, too small to automate), `pipeline_manual_review_queue` (new from PR #1070, 0 rows), `regulatory_pending_changes` (6 pending, **not yet looked at, still open**). `ia_counterparties.documentation_status` looked like a review queue but isn't one -- it's a data-completeness tracker with no human approve/reject step, so nothing to cut there.
+
+**`marketplace_candidates` was the real one: 529 stuck in `needs_review`, confirmed via status history that status had never once moved past `needs_review` for any row ever** -- this queue had never actually been worked. Before assuming it was safe to auto-approve, checked the data itself: confidence scores were all clustered in the same low decile (not a usable signal), zero had images, and **527 of 529 had no price at all**. That's not a backlog of good-but-unreviewed listings, it's raw scraped data missing the basics before it's even reviewable -- auto-approving would have meant publishing 527 listings with no price shown.
+
+**Fix, in two parts, both live in production (Vercel-confirmed READY, not just pushed):**
+1. Backfilled the 527 junk rows (`candidate_type='scraped'` only -- the 1 `used_surplus_equipment` row and the intake-form/user-submission path were deliberately left untouched, since those come from real people and deserve human review regardless of missing fields) from `needs_review` to a new `needs_enrichment` status, via a proper tracked migration (`20260719190929_route_junk_scraped_candidates_to_needs_enrichment.sql`, idempotent) rather than a raw untracked UPDATE -- catching myself on exactly the apply-without-committing pattern ADR #17 already covers.
+2. Fixed `lib/scrapers/ingestor.ts` so future scraped candidates only reach `needs_review` if they have a real price and a real title (>=5 chars); everything else goes straight to `needs_enrichment`. Tomorrow's 06:00 UTC scrape run is the first real test of this in production -- **not yet verified against `scripts/test-live-source-intake.mjs`,** which exists in-repo and should be run before fully trusting this holds up against live scraper output.
+
+**Net result:** `/admin/listings/candidates` queue is 2 real, complete candidates instead of 529. Nothing was auto-published; nothing was auto-approved. The two admin pages that read this table (`/admin/listings/candidates` and `/admin/marketplace/intake-queue`) needed no changes -- both already filter by `status=eq.needs_review`, so the reclassified rows simply stopped showing up.
+
+**Still open, not done this session:** `regulatory_pending_changes` (6 pending) not investigated. A `create_playbook_staleness_queue` migration (20260719092425) landed concurrently this same day from another session -- worth checking whether it's another review-style queue before assuming the survey above is exhaustive.
+
+---
+
 ### Session: Jul 19 2026 (cont.) -- PR review, migration-drift audit, edge-function security pass, regulatory-pathways admin panel, paywall disable · Claude (Sonnet 5)
 
 **Scope:** long session, several distinct threads. Logging it all here since none of it had a HANDOFF entry yet -- closing that gap was explicitly requested at the end.
