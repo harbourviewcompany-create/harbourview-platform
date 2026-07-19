@@ -1,0 +1,50 @@
+-- Applied directly to production via Supabase MCP (Jul 18 2026 session).
+-- Covers everything from this turn: the GAZETTE quality gate extension,
+-- the new per-signal analysis layer, and a critical schema-exposure fix
+-- discovered while building it.
+--
+-- 1. GAZETTE quality gate: reviewed=true was unconditional on every
+--    non-SOURCE_ENGINE category, including GAZETTE -- an automated
+--    government-portal extraction pathway with the identical nav-menu-
+--    pollution failure mode as SOURCE_ENGINE, just never gated. Reviewed
+--    all 24 rows directly: score >= 70 is exclusively real headlines
+--    (Jamaica hemp legislation, Mexico COFEPRIS); everything below is
+--    site nav menus, portal homepage titles, and one fabricated date
+--    (2045). signals_quality now gates GAZETTE the same way.
+--
+-- 2. Signal analysis layer: added analysis/analysis_generated_at/
+--    analysis_backend columns to public.signals. New hv-signal-analysis
+--    Edge Function (Claude Haiku 4.5 primary, Gemini then OpenAI
+--    fallback -- reusing hv-extract's exact multi-provider pattern)
+--    generates what_changed / who_is_affected / deadline /
+--    recommended_action / confidence_rationale for every reviewed=true
+--    signal lacking analysis. Wired into pg_cron every 30 min
+--    (hv-signal-analysis-every-30min). First batch: 16 signals analyzed
+--    live, 0 failures, verified against the actual Mexico COFEPRIS
+--    signal from live product screenshots.
+--
+-- 3. CRITICAL DISCOVERY: this project's PostgREST only exposes the `api`
+--    and `graphql_public` schemas -- confirmed directly via a 406
+--    response: "Only the following schemas are exposed: api,
+--    graphql_public". `public` is NOT reachable via REST under any
+--    header combination. This silently broke two things:
+--      a) The hv-signal-analysis Edge Function's initial raw REST calls
+--         to /rest/v1/signals (caught before ever going live -- fixed
+--         during this same build by moving to api-schema RPC functions).
+--      b) The engine review queue (lib/signals-engine/admin.ts, built
+--         earlier this session) -- its raw /rest/v1/signals calls have
+--         been silently failing in production the entire time it's
+--         existed. Fixed in the same commit as this migration by adding
+--         api-schema RPC functions (list_engine_review_queue,
+--         approve_engine_signal, reject_engine_signal,
+--         bulk_approve_engine_queue, count_engine_review_queue,
+--         list_engine_review_countries) and rewriting admin.ts to call
+--         them instead of raw table REST paths.
+--    All RPC functions (get_signals_pending_analysis, save_signal_analysis,
+--    and the six engine-review-queue ones) live in the `api` schema with
+--    SECURITY DEFINER + SET search_path=public, reaching public.signals
+--    via schema-qualified SQL inside the function body -- sidesteps the
+--    REST exposure restriction entirely regardless of its root cause.
+--    Every RPC verified directly via net.http_post before being wired
+--    into application code.
+SELECT 1;
