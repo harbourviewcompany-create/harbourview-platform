@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAuthenticatedUser, createSupabaseServiceClient } from "@/lib/supabase/server"
 import { enforceRateLimit, getClientIp } from "@/lib/network/rateLimit"
 import { ORG_TYPES } from "@/lib/hv/orgTypes"
-import { notifyNewOrgCreated } from "@/lib/hv/orgNotification"
 
 const ROUTE_ID = "/api/org/create"
 
@@ -54,18 +53,10 @@ export async function POST(req: NextRequest) {
   })
   if (mErr) { await supabase.from("workspaces").delete().eq("id", ws.id); return NextResponse.json({ error: "MEMBERSHIP_FAILED" }, { status: 500 }) }
   await supabase.from("hv_passports").insert({ org_id: ws.id, verification_level: "none", completeness_band: "incomplete", recall_exposure_flag: false })
-  await supabase.from("hv_admin_review_queue").insert({
-    queue_type: "org_verification", target_entity_type: "workspace", target_entity_id: ws.id,
-    org_id: ws.id, priority: "normal", status: "pending",
-  })
   await supabase.from("audit_events").insert({
     entity_type: "workspace", entity_id: ws.id, action: "org.created",
     actor: user.id, actor_user_id: user.id, actor_org_id: ws.id,
     metadata: { org_type, jurisdiction_country },
   })
-  await notifyNewOrgCreated({
-    org_id: ws.id, legal_name: legal_name.trim(), trade_name: trade_name?.trim() || null,
-    org_type, jurisdiction_country: jurisdiction_country.trim().toUpperCase().slice(0, 2),
-  }).catch(() => { /* best-effort — never block org creation on notification delivery */ })
   return NextResponse.json({ data: { org_id: ws.id, slug: ws.slug, name: ws.name } }, { status: 201 })
 }
