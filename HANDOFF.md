@@ -12,6 +12,7 @@
 | **Supabase** | `ACTIVE_HEALTHY` · PostgreSQL 17.6.1 · `zvxdgdkukjrrwamdpqrg` · us-west-2 |
 | **Vercel** | ✅ Green · project `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` |
 | **Cloudflare Pages** | ✅ Green |
+| **Branch protection** | ✅ Applied Jul 18 — `main` had **zero** protection (confirmed via 404 on the protection endpoint, not an auth artifact). Now: required checks (`Type Check`, `Next.js Build`, `Security / Leakage`, `Critical Env Secrets`), force-push and deletion blocked, `enforce_admins: false` (deliberate — preserves the admin-PAT direct-push pattern used for reconciliation commits; non-admin contributors must pass checks). Set via a new `set_branch_protection` op added to `github-bridge` (v7) — pg_net can't do PUT directly. |
 | **Migration ledger** | ✅ Reconciled Jul 18 — `schema_migrations` head (`20260718191722`) matches `main`'s latest deploy commit (`0af6a05`) exactly, verified this session. That commit is itself the 3rd drift reconciliation in one week (its own count) — automation to prevent recurrence still not built, see Jul 18 (later) session entry. |
 | **Supabase Preview CI** | ✅ Green (was failing on every push; fixed by reconciling 14 unapplied files Jul 1) |
 | **E2E tests** | Runs (~9 min) but fails — tests have never passed in CI; need triage pass |
