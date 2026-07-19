@@ -135,7 +135,15 @@ export async function insertCandidates(
       raw_payload: raw as unknown as Record<string, unknown>,
       ai_normalised: normalised as unknown as Record<string, unknown>,
       confidence: normalised.confidence,
-      status: 'needs_review',
+      // A scraped candidate only ever reaches the human review queue once it has
+      // the basics a reviewer needs to make a call on: a real price and a real
+      // title. Before this, ~527 of 529 pending candidates had no price at all --
+      // review work was actually enrichment work wearing a review-queue costume.
+      // Anything short of that goes to needs_enrichment instead, to be picked up
+      // and completed before it ever asks for a human decision.
+      status: (normalised.priceAmount != null && normalised.title && normalised.title.trim().length >= 5)
+        ? 'needs_review'
+        : 'needs_enrichment',
       discovered_at: raw.discoveredAt,
     }
 
