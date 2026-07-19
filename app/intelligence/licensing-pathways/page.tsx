@@ -81,7 +81,8 @@ export default async function LicensingPathwaysPage() {
                 eyebrow={`${COUNTRY_FLAGS[pb.country_iso2] ?? 'ð'} ${pb.country_iso2} Â· ${DIFFICULTY_LABEL[pb.difficulty]}`}
                 title={pb.country_name}
               >
-                {pb.typical_timeline_months} month typical timeline Â· {pb.steps.length} licensing steps Â·{' '}
+                {pb.typical_timeline_months != null && `${pb.typical_timeline_months} month typical timeline Â· `}
+                {pb.steps.length} licensing steps Â·{' '}
                 {pb.key_regulators.length} regulator{pb.key_regulators.length === 1 ? '' : 's'} mapped
               </PublicLinkCard>
             ))}
