@@ -21,7 +21,7 @@ export type JurisdictionPlaybook = {
   country_iso2: string
   country_name: string
   difficulty: 'low' | 'moderate' | 'high' | 'very_high'
-  typical_timeline_months: number
+  typical_timeline_months: number | null
   estimated_cost_range: string | null
   legal_framework_summary: string | null
   steps: PlaybookStep[]

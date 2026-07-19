@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 export type PendingOrgRow = {
   queue_id: string
   org_id: string
+  queue_type: string
+  licence_id: string | null
   priority: string
   created_at: string
   legal_name: string
@@ -13,6 +15,9 @@ export type PendingOrgRow = {
   org_type: string
   jurisdiction_country: string
   verification_status: string
+  licence_number: string | null
+  licence_type: string | null
+  notes: string | null
 }
 
 export default function OrgReviewTable({ rows }: { rows: PendingOrgRow[] }) {
@@ -29,7 +34,12 @@ export default function OrgReviewTable({ rows }: { rows: PendingOrgRow[] }) {
         const res = await fetch('/api/admin/verify-org', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ org_id: row.org_id, verification_status, queue_id: row.queue_id }),
+          body: JSON.stringify({
+            org_id: row.org_id,
+            verification_status,
+            queue_id: row.queue_id,
+            licence_id: row.licence_id ?? undefined,
+          }),
         })
         if (!res.ok) {
           const json = await res.json().catch(() => ({}))
@@ -47,11 +57,11 @@ export default function OrgReviewTable({ rows }: { rows: PendingOrgRow[] }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#C6A55A]/25 bg-[#0B1A2F]">
-      <table className="w-full min-w-[1100px] text-left text-sm">
+      <table className="w-full min-w-[1200px] text-left text-sm">
         <thead className="bg-black/25 text-xs uppercase tracking-[0.18em] text-[#C6A55A]">
           <tr>
             <th className="p-4">Organization</th>
-            <th className="p-4">Type</th>
+            <th className="p-4">Reason</th>
             <th className="p-4">Jurisdiction</th>
             <th className="p-4">Priority</th>
             <th className="p-4">Created</th>
@@ -64,8 +74,19 @@ export default function OrgReviewTable({ rows }: { rows: PendingOrgRow[] }) {
               <td className="p-4">
                 <div className="font-medium text-[#F5F1E8]">{row.trade_name || row.legal_name}</div>
                 {row.trade_name && <div className="mt-1 text-xs text-[#F5F1E8]/45">{row.legal_name}</div>}
+                <div className="mt-1 text-xs text-[#F5F1E8]/45">{row.org_type}</div>
               </td>
-              <td className="p-4">{row.org_type}</td>
+              <td className="p-4">
+                {row.queue_type === 'licence_verification' ? (
+                  <>
+                    <div>Licence: {row.licence_type}</div>
+                    <div className="mt-1 text-xs text-[#F5F1E8]/45">#{row.licence_number} — no registry match</div>
+                  </>
+                ) : (
+                  <div>Organization signup</div>
+                )}
+                {row.notes && <div className="mt-1 text-xs text-[#F5F1E8]/45">{row.notes}</div>}
+              </td>
               <td className="p-4">{row.jurisdiction_country}</td>
               <td className="p-4">{row.priority}</td>
               <td className="p-4">{row.created_at}</td>
@@ -93,7 +114,7 @@ export default function OrgReviewTable({ rows }: { rows: PendingOrgRow[] }) {
             </tr>
           )) : (
             <tr>
-              <td colSpan={6} className="p-8 text-center text-[#F5F1E8]/55">No organizations pending verification.</td>
+              <td colSpan={6} className="p-8 text-center text-[#F5F1E8]/55">Nothing needs manual review right now.</td>
             </tr>
           )}
         </tbody>

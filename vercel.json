@@ -32,6 +32,10 @@
     {
       "path": "/api/cron/prune-client-errors",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/pipeline-manual-review-notify",
+      "schedule": "0 10 * * *"
     }
   ]
 }

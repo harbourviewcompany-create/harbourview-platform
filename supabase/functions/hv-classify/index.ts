@@ -110,7 +110,7 @@ async function viaOpenAI(h: string, s: string) {
   const content = d?.choices?.[0]?.message?.content ?? "";
   const result = coerce(extractJson(content));
   if (!result) {
-    console.log("openai_diag", JSON.stringify({ finish_reason: d?.choices?.[0]?.finish_reason, content: String(content).slice(0, 300) }));
+    console.log("openai_diag", JSON.stringify({ finish_reason: d?.choices?.[0]?.finish_reason, content_length: String(content).length }));
   }
   return result;
 }
@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
   if (!authorized(req)) return json({ ok: false, error: "unauthorized" }, 401);
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { db: { schema: "api" } });
 
   // manual-review fallback: never drop a row that no provider could classify.
   const routeToManualReview = async (signalId: string, headline: string, summary: string, reason: string) => {
