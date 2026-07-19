@@ -136,6 +136,14 @@ function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSign
     }))
 }
 
+type SignalAnalysis = {
+  what_changed?: string
+  who_is_affected?: string
+  deadline?: string | null
+  recommended_action?: string
+  confidence_rationale?: string
+}
+
 type CuratedSignalRow = {
   id: string
   headline: string
@@ -146,6 +154,7 @@ type CuratedSignalRow = {
   country: string | null
   date: string | null
   created_at: string
+  analysis: SignalAnalysis | null
 }
 
 const LANE_TO_TAG: Record<string, string> = {
@@ -183,6 +192,7 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
     sourceLabel:      'Harbourview Regulatory Watch',
     flag:             flagForMarket(market),
     contentType:      'signal',
+    analysis:         s.analysis ?? undefined,
   }
 }
 
@@ -231,7 +241,7 @@ export async function fetchDashboardSignals(
         const svc = await createSupabaseServiceClient()
         return svc
           .from('signals_quality')
-          .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+          .select('id, headline, cat, top_lane, pri, score, country, date, created_at, analysis')
           .eq('reviewed', true)
           .order('score', { ascending: false })
           .limit(200)
@@ -240,7 +250,7 @@ export async function fetchDashboardSignals(
         const anon = await createClient()
         return anon
           .from('signals_quality')
-          .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+          .select('id, headline, cat, top_lane, pri, score, country, date, created_at, analysis')
           .eq('reviewed', true)
           .order('score', { ascending: false })
           .limit(200)

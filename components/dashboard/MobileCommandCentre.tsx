@@ -1364,6 +1364,38 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
           <p style={{ margin: '8px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.65 }}>{selectedSignal.commercialImpact}</p>
         </div>
 
+        {selectedSignal.analysis && (
+          <div className="hvm-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {selectedSignal.analysis.what_changed && (
+              <div>
+                <div className="hvm-kicker">What changed</div>
+                <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.6 }}>{selectedSignal.analysis.what_changed}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.who_is_affected && (
+              <div>
+                <div className="hvm-kicker">Who&apos;s affected</div>
+                <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.6 }}>{selectedSignal.analysis.who_is_affected}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.deadline && selectedSignal.analysis.deadline !== 'null' && (
+              <div>
+                <div className="hvm-kicker">Deadline</div>
+                <p style={{ margin: '6px 0 0', color: '#d4a84b', fontSize: 14, lineHeight: 1.6, fontWeight: 600 }}>{selectedSignal.analysis.deadline}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.recommended_action && (
+              <div>
+                <div className="hvm-kicker">Recommended action</div>
+                <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.88)', fontSize: 14, lineHeight: 1.6 }}>{selectedSignal.analysis.recommended_action}</p>
+              </div>
+            )}
+            {selectedSignal.analysis.confidence_rationale && (
+              <p style={{ margin: 0, color: 'rgba(245,240,232,.42)', fontSize: 12, lineHeight: 1.5, fontStyle: 'italic' }}>{selectedSignal.analysis.confidence_rationale}</p>
+            )}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8 }}>
           <span className="hvm-tag-chip" style={{ background: selectedSignal.tag.bg, borderColor: selectedSignal.tag.border, color: selectedSignal.tag.color }}>{selectedSignal.tag.label}</span>
         </div>
