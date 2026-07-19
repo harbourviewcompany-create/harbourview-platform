@@ -54,10 +54,14 @@ export async function getCountryPathwayMatrix(iso2: string | null): Promise<Coun
     .select('tier')
     .maybeSingle()
 
-  const tier = profile?.tier
-  if (tier !== 'intel' && tier !== 'operator') {
-    return { entitled: false }
-  }
+  // Paywall intentionally disabled -- business decision (Jul 2026): nothing is
+  // gated behind tier right now, revisit later. Restore the block below to
+  // re-enable (kept, not deleted, for exactly that reason).
+  void profile
+  // const tier = profile?.tier
+  // if (tier !== 'intel' && tier !== 'operator') {
+  //   return { entitled: false }
+  // }
 
   if (!iso2) return { entitled: true, pathways: [] }
 

@@ -3,6 +3,12 @@
 -- render as fabricated fact. Allow "unknown", then strip the placeholders.
 -- Conservative: only removes values that are unambiguously not real; anything with evidence
 -- (source_id OR a substantive confidence_label) keeps its timeline.
+--
+-- This file's SQL matches what was actually applied directly to production via
+-- apply_migration (version 20260718184353) -- see PR #1076. An earlier stub
+-- ("SELECT 1; no DDL executed by this file") landed on main from a separate
+-- migration-drift reconciliation pass that didn't have the real SQL text
+-- available at the time; replaced here with the authoritative content.
 
 alter table public.jurisdiction_playbooks alter column typical_timeline_months drop not null;
 
