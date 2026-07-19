@@ -331,7 +331,7 @@ export default async function DashboardPage({
       evidenceData={evidenceData}
       recentEduModules={recentEduModules}
       sourceCoverage={sourceCoverage}
-      registryCoverageSummary={registryCoverageSummary}
+      registryCoverageSummary={registryCoverageSummary ?? undefined}
       jurisdictionPlaybook={jurisdictionPlaybook ?? undefined}
       pathwayMatrix={pathwayMatrix}
       educationTracks={educationTracks}
