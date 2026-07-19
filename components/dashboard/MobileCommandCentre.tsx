@@ -377,7 +377,8 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
                     <span className="hvm-sig-time">{signal.timeAgo}</span>
                   </div>
                   <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-                  <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                  <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+                  {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
                   <div className="hvm-sig-footer">
                     <div className="hvm-sig-conf-bar">
                       <div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} />
@@ -1503,7 +1504,8 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
                 <span className="hvm-sig-time">{signal.timeAgo}</span>
               </div>
               <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+              <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+              {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
               <div className="hvm-sig-footer">
                 <div className="hvm-sig-conf-bar">
                   <div className="hvm-sig-conf-fill" style={{
@@ -1698,7 +1700,8 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
                 <span className="hvm-sig-time">{signal.timeAgo}</span>
               </div>
               <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+              <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+              {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
               <div className="hvm-sig-footer">
                 <div className="hvm-sig-conf-bar">
                   <div className="hvm-sig-conf-fill" style={{
@@ -2297,7 +2300,8 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
                   <span className="hvm-sig-time">{signal.timeAgo}</span>
                 </div>
                 <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+                {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
                 <div className="hvm-sig-footer">
                   <div className="hvm-sig-conf-bar"><div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} /></div>
                   <span className="hvm-sig-conf-val" style={{ color: confColor }}>{signal.confidence}%</span>
