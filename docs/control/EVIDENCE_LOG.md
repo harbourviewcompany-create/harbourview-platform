@@ -531,3 +531,43 @@ then `alter table source_registry drop column content_type;`. Blast radius: none
 existing row's crawlable state changed, no reads rewired.
 
 **Not done:** no reads rewired; routing by content_type is Stage 7.
+
+## 2026-07-19 — main branch lint-error regression found and fixed (0→8 errors)
+
+**Finding:** while locally verifying 9 open dependabot PRs (none of which triggered this
+repo's required CI checks — see PR review comments on #1061/#1060/#1059/#1058/#1057/#1056/
+#1051/#1050/#1042 for detail), `npm run lint` on a clean, unmodified `origin/main` checkout
+returned **8 errors, 151 warnings** — not the previously-established baseline of 0 errors,
+127 warnings. Confirmed by reverting the working tree to plain `origin/main` content and
+re-running lint before touching any dependency version. Not caused by any dependency bump;
+the errors were already live on `main` from unrelated recent merges.
+
+**Errors, all mechanical, no logic changes:**
+- 7× `react/no-unescaped-entities` — raw apostrophes in JSX text nodes (`couldn't`,
+  `haven't`, `role's`, `we'll`) across `app/admin/(protected)/orgs/page.tsx`,
+  `components/dashboard/CommandCentre.tsx` (×4), `components/dashboard/MobileCommandCentre.tsx`.
+  Escaped to `&apos;`.
+- 1× `prefer-const` — `let list = ...` in `CommandCentre.tsx`'s licence-sort `useMemo` was
+  never reassigned after initialization. Changed to `const`.
+- 1× `@typescript-eslint/no-explicit-any` — `lib/signals-engine/admin.ts`'s `callRpc<T>`
+  returned `client as any` on the error branch. `getAdminDataClient()`'s false-branch shape
+  (`{ ok: false; error: AdminDataError }`) is structurally identical to `AdminResult<T>`'s
+  false branch regardless of `T`, so replaced with `client as AdminResult<T>` — same runtime
+  behavior, no more `any`.
+
+**Why this matters beyond the 8 lines:** every PR opened against `main` inherits this
+baseline. Until fixed, no PR could honestly claim "0 errors" against a clean lint run, and
+the "genuinely green required checks" bar this repo's `PR_REVIEW_CHECKLIST.md` sets was
+unverifiable for any concurrently-open PR that didn't itself happen to touch these exact
+lines.
+
+**QA:** `npm run lint` (0 errors, 151 pre-existing warnings, unchanged), `npm run typecheck`
+(0 errors — specifically re-verified given the `any`→`AdminResult<T>` type change),
+`npm run test` (all suites pass), `npm run build` (clean, all routes compiled).
+
+**Files changed:** `app/admin/(protected)/orgs/page.tsx`, `components/dashboard/CommandCentre.tsx`,
+`components/dashboard/MobileCommandCentre.tsx`, `lib/signals-engine/admin.ts`, this entry.
+
+**Rollback:** Revert the commit — each fix is a narrow, single-line, behavior-preserving
+change (JSX entity escaping, `let`→`const`, a type assertion narrowing from `any`); no data,
+schema, or runtime-behavior risk either direction.
