@@ -154,7 +154,7 @@ type CuratedSignalRow = {
   country: string | null
   date: string | null
   created_at: string
-  analysis: SignalAnalysis | null
+  analysis?: SignalAnalysis | null
 }
 
 const LANE_TO_TAG: Record<string, string> = {
