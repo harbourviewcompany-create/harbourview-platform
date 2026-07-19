@@ -5,6 +5,7 @@ import React from 'react'
 import type { CountryIntelProfile } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { formatOpportunityScore, opportunityScoreOutOfTen } from '@/lib/dashboard/opportunityScore'
+import { RegulatoryRadar } from './RegulatoryRadar'
 
 export interface RegulatoryPageProps {
   country:      { iso2: string; label: string }
@@ -140,6 +141,7 @@ export const RegulatoryPage = React.memo(function RegulatoryPage({
             <a href="/compliance" className="rp-cta-outline">Country Compliance Guide</a>
             <Link href="/intelligence" className="rp-cta-outline">Full Intelligence Profile</Link>
           </div>
+          <RegulatoryRadar countryIso={country.iso2} />
         </div>
 
         {/* ── Right: Regulatory signals ───────────────────────────────────── */}
