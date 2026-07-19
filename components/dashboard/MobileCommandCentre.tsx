@@ -3153,6 +3153,9 @@ const MOBILE_ORG_TYPE_OPTIONS: SelectOption[] = [
   { value: 'importer',    label: 'Importer' },
 ]
 
+type OrgMeLicenceMobile = { id: string; licence_number: string; licence_type: string; jurisdiction_country: string; status: string; verified: boolean; expires_at: string }
+type OrgMeMobile = { id: string; name: string; legal_name: string; trade_name: string | null; org_type: string; jurisdiction_country: string; verification_status: string }
+
 function OrganizationMobile({ hasOrg, countryOptions }: { hasOrg?: boolean; countryOptions: SelectOption[] }) {
   const [legalName, setLegalName] = useState('')
   const [tradeName, setTradeName] = useState('')
@@ -3198,26 +3201,8 @@ function OrganizationMobile({ hasOrg, countryOptions }: { hasOrg?: boolean; coun
     }
   }
 
-  if (hasOrg && !done) {
-    return (
-      <div className="hvm-page-stack">
-        <section className="hvm-hero-card compact">
-          <h2>Organization</h2>
-          <p>Your organization is already set up. License and facility management is coming to this section next.</p>
-        </section>
-      </div>
-    )
-  }
-
-  if (done) {
-    return (
-      <div className="hvm-page-stack">
-        <section className="hvm-hero-card compact">
-          <h2>Organization created</h2>
-          <p>Your Passport verification has started — unverified by default until you submit for review.</p>
-        </section>
-      </div>
-    )
+  if (hasOrg || done) {
+    return <OrganizationDashboardMobile countryOptions={countryOptions} justCreated={done} />
   }
 
   return (
@@ -3264,6 +3249,178 @@ function OrganizationMobile({ hasOrg, countryOptions }: { hasOrg?: boolean; coun
           {submitting ? 'Creating…' : 'Create Organization'}
         </button>
       </div>
+    </div>
+  )
+}
+
+const MOBILE_LICENCE_TYPE_OPTIONS = [
+  'Cultivation', 'Processing/Manufacturing', 'Extraction', 'Distribution',
+  'Retail/Dispensing', 'Import', 'Export', 'Testing Laboratory', 'Research', 'Other',
+]
+
+function OrganizationDashboardMobile({ countryOptions, justCreated }: { countryOptions: SelectOption[]; justCreated?: boolean }) {
+  const [loading, setLoading] = useState(true)
+  const [org, setOrg] = useState<OrgMeMobile | null>(null)
+  const [licences, setLicences] = useState<OrgMeLicenceMobile[]>([])
+  const [showForm, setShowForm] = useState(false)
+
+  const [licNumber, setLicNumber] = useState('')
+  const [licAuthority, setLicAuthority] = useState('')
+  const [licType, setLicType] = useState('')
+  const [licCountry, setLicCountry] = useState('')
+  const [licRegion, setLicRegion] = useState('')
+  const [licExpires, setLicExpires] = useState('')
+  const [licSubmitting, setLicSubmitting] = useState(false)
+  const [licError, setLicError] = useState<string | null>(null)
+  const [licResult, setLicResult] = useState<{ auto_verified: boolean } | null>(null)
+
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/org/me')
+      const json = await res.json()
+      setOrg(json?.data?.org ?? null)
+      setLicences(json?.data?.licences ?? [])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const submitLicence = async () => {
+    setLicError(null)
+    setLicResult(null)
+    if (!licNumber.trim())        return setLicError('Licence number is required.')
+    if (!licAuthority.trim())     return setLicError('Issuing authority is required.')
+    if (!licType)                 return setLicError('Select a licence type.')
+    if (licCountry.length !== 2)  return setLicError('Select a jurisdiction country.')
+    if (!licExpires)              return setLicError('Expiry date is required.')
+
+    setLicSubmitting(true)
+    try {
+      const res = await fetch('/api/org/licences/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          licence_number: licNumber.trim(), issuing_authority: licAuthority.trim(),
+          licence_type: licType, jurisdiction_country: licCountry,
+          jurisdiction_region: licRegion.trim() || undefined, expires_at: licExpires,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setLicError(typeof json?.error === 'string' ? json.error : 'Could not submit licence.'); return }
+      setLicResult({ auto_verified: !!json?.data?.auto_verified })
+      setLicNumber(''); setLicAuthority(''); setLicType(''); setLicCountry(''); setLicRegion(''); setLicExpires('')
+      await load()
+    } catch {
+      setLicError('Network error — please try again.')
+    } finally {
+      setLicSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="hvm-page-stack">
+        <section className="hvm-hero-card compact"><p>Loading your organization…</p></section>
+      </div>
+    )
+  }
+  if (!org) {
+    return (
+      <div className="hvm-page-stack">
+        <section className="hvm-hero-card compact"><p>Couldn't load your organization. Try refreshing.</p></section>
+      </div>
+    )
+  }
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <h2>{org.trade_name || org.legal_name}</h2>
+        {org.trade_name && <p>{org.legal_name}</p>}
+        <p style={{ color: '#d4a84b', textTransform: 'uppercase', fontSize: 12, letterSpacing: '.06em', marginTop: 6 }}>
+          {org.verification_status.replace('_', ' ')}
+        </p>
+      </section>
+
+      {justCreated && (
+        <div className="hvm-org-note">Organization created. Add a licence below to move your Passport toward verification.</div>
+      )}
+
+      <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '4px 2px' }}>
+        Licences ({licences.length})
+      </div>
+      {licences.length === 0 && (
+        <div className="hvm-org-note">No licences submitted yet.</div>
+      )}
+      {licences.map(l => (
+        <div className="hvm-signal-card" key={l.id}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div>
+              <strong style={{ fontSize: 14 }}>{l.licence_type} — {l.jurisdiction_country}</strong>
+              <small style={{ display: 'block', marginTop: 4, color: 'rgba(245,240,232,.48)' }}>
+                #{l.licence_number} · expires {l.expires_at}
+              </small>
+            </div>
+            <span style={{
+              fontSize: 11, textTransform: 'uppercase', flexShrink: 0,
+              color: l.status === 'active' ? '#10b981' : l.status === 'revoked' ? '#ef4444' : '#d4a84b',
+            }}>
+              {l.verified ? 'Auto-verified' : l.status}
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {!showForm ? (
+        <button className="hvm-org-submit" onClick={() => setShowForm(true)}>+ Add a licence</button>
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {licError && <div className="hvm-org-error">{licError}</div>}
+          {licResult && (
+            <div className="hvm-org-note">
+              {licResult.auto_verified
+                ? 'Matched the public regulator registry — verified automatically, no review needed.'
+                : 'Submitted. No automatic match was found, so this needs a quick manual review.'}
+            </div>
+          )}
+          <label className="hvm-settings-label">
+            <span>Licence number *</span>
+            <input className="hvm-settings-input" value={licNumber} onChange={e => setLicNumber(e.target.value)} placeholder="Licence number" />
+          </label>
+          <label className="hvm-settings-label">
+            <span>Issuing authority *</span>
+            <input className="hvm-settings-input" value={licAuthority} onChange={e => setLicAuthority(e.target.value)} placeholder="e.g. Health Canada" />
+          </label>
+          <label className="hvm-settings-label">
+            <span>Licence type *</span>
+            <select className="hvm-settings-select" value={licType} onChange={e => setLicType(e.target.value)}>
+              <option value="">Select licence type</option>
+              {MOBILE_LICENCE_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label className="hvm-settings-label">
+            <span>Jurisdiction country *</span>
+            <select className="hvm-settings-select" value={licCountry} onChange={e => setLicCountry(e.target.value)}>
+              <option value="">Select country</option>
+              {countryOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </label>
+          <label className="hvm-settings-label">
+            <span>State / province</span>
+            <input className="hvm-settings-input" value={licRegion} onChange={e => setLicRegion(e.target.value)} placeholder="Optional" />
+          </label>
+          <label className="hvm-settings-label">
+            <span>Expiry date *</span>
+            <input className="hvm-settings-input" type="date" value={licExpires} onChange={e => setLicExpires(e.target.value)} />
+          </label>
+          <button className="hvm-org-submit" onClick={submitLicence} disabled={licSubmitting}>
+            {licSubmitting ? 'Submitting…' : 'Submit Licence'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
