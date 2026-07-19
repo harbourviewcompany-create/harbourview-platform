@@ -3343,7 +3343,7 @@ function OrganizationDashboardMobile({ countryOptions, justCreated }: { countryO
   if (!org) {
     return (
       <div className="hvm-page-stack">
-        <section className="hvm-hero-card compact"><p>Couldn't load your organization. Try refreshing.</p></section>
+        <section className="hvm-hero-card compact"><p>Couldn&apos;t load your organization. Try refreshing.</p></section>
       </div>
     )
   }
