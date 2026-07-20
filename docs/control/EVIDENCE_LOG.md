@@ -674,6 +674,39 @@ lines.
 change (JSX entity escaping, `let`→`const`, a type assertion narrowing from `any`); no data,
 schema, or runtime-behavior risk either direction.
 
+## 2026-07-19 — jurisdiction_playbooks fabricated-zero regression (PR #1076's fix reverted by concurrent writes, re-fixed)
+
+**Finding:** while doing a final post-merge verification pass on `main` (unrelated to any
+specific PR), checked live production against PR #1076's own claim ("nulls all
+`typical_timeline_months = 0`, 56 rows"). Live query found **14 rows back at
+`typical_timeline_months = 0`**, all `status = 'published'` (customer-facing), all with
+`updated_at` timestamps between 2026-07-18 23:01 and 2026-07-19 11:42 — i.e. all rewritten
+*after* #1076's migration ran (2026-07-18 18:43:53) by some other concurrent session's
+playbook batch work. This is not a failure of #1076's migration; it's a live regression
+introduced afterward by unrelated writes reintroducing the exact fabricated-placeholder
+pattern #1076 was written to eliminate.
+
+**Fix:** re-ran the identical, already-reviewed `UPDATE public.jurisdiction_playbooks SET
+typical_timeline_months = null WHERE typical_timeline_months = 0` from #1076's migration
+against the 14 offending rows (Tyler approved before running, per the compliance-facing-
+content rule). Verified `select count(*) ... where typical_timeline_months = 0` → 0
+immediately after.
+
+**Affected countries (all published):** KI, ML, MG, JO, XK, KW, KG, LR, LY, MH, MV, MR, FM, MD.
+
+**Root cause not fixed here:** there is still no constraint or application-side guard
+preventing `typical_timeline_months = 0` from being written again — #1076 and this follow-up
+are both one-time data cleanups, not a durable fix. A `CHECK (typical_timeline_months IS NULL
+OR typical_timeline_months > 0)` constraint (or equivalent write-path validation on whatever
+batch process is producing these rows) is the actual fix and is **not done** — flagged here
+as an open item, not resolved.
+
+**Files changed:** this entry, `docs/control/DATABASE_CONTROL.md`. No migration file — this
+is a data-only re-application of #1076's already-committed migration logic, not new SQL.
+
+**Rollback:** Not applicable / not recommended — reverting would restore fabricated `0`-month
+timelines to 14 published, customer-facing playbooks.
+
 ## 2026-07-19 — Intelligence Architecture Stage 0/2: independent eval-set labeling, partial classifier validation, `hv-classify` schema bug found
 
 **Change type:** Data-only writes on production Supabase `zvxdgdkukjrrwamdpqrg` (no migration); one diagnostic code change to `hv-classify` (PR #1082).
