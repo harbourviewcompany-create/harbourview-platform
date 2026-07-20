@@ -70,13 +70,16 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { label: 'Governance', href: '/admin/governance' },
       { label: 'Global expansion', href: '/admin/global-expansion' },
-      // This page lives at app/intelligence/regulatory-pathways, NOT under
-      // app/admin/(protected)/ -- it is not admin-auth-gated. The previous
-      // link pointed at /admin/regulatory-pathways, which 404s (no such
-      // page exists). Corrected here. Flagging for product review: an admin
-      // nav routing a user out of the authenticated admin area to a public
-      // route is probably not intentional and should be revisited.
-      { label: 'Regulatory pathways', href: '/intelligence/regulatory-pathways' },
+      // /admin/regulatory-pathways DOES exist (app/admin/(protected)/regulatory-pathways/page.tsx,
+      // admin-auth-gated via requireAdminAuth) -- it 404'd for whoever audited this
+      // nav only because it was on a checkout/branch that predated the commit adding
+      // it on main. It surfaces regulatory_pathways/pathway_format_rules/operator_licences
+      // data for fulfilling "Request Country Intelligence" submissions. This is a
+      // different page and different dataset from app/intelligence/regulatory-pathways
+      // (which renders jurisdiction_playbooks data and is intentionally public, not
+      // admin-gated) -- that page does not belong in this admin nav at all, which is
+      // exactly what its own prior comment here flagged as suspicious.
+      { label: 'Regulatory pathways', href: '/admin/regulatory-pathways' },
     ],
   },
   {
