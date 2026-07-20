@@ -98,3 +98,14 @@ The system **runs**; it does not **learn**. There is no engagement telemetry, no
 - **`hv_promote_signals` must stay safe:** only ever promotes, never demotes, never touches `reviewed_by LIKE 'human:%'`, idempotent.
 - **Migrations apply live then get PR'd** (drift is a recurring problem — reconcile the ledger against the repo).
 - **The feed reads `signals_quality WHERE reviewed=true`** server-side; changes to that view are live to users immediately, without a frontend merge.
+
+
+---
+
+## 9. Post-handoff addenda (verified live, same day)
+
+- **The backfill never actually completed — cron-pausing is why.** The `hv-quality-pipeline` cron fired ~once per 15 min during this session instead of every 2 min, because it was repeatedly unscheduled to run git commits (the pg_net flood evicts git API responses, so commits seemed to "need" a pause). Net effect: ~4,600 of ~8,600 signals classified, crawling. **Do not pause the crons to commit.** The fresh-feed payoff depends on letting this run uninterrupted (~2–3h).
+- **The graph has nodes but no edges.** Build 1 (`hv_entities_*`) writes signal→entity links and creates entity nodes, but **zero entity↔entity relationships** (`ia_graph_edges` unchanged at 195). Co-mentioned entities in the same signal (a real relationship) are not linked. The world-model is currently a bag of nodes. **Relationship extraction — not node extraction — is the real moat build:** add an edge-builder that links co-mentioned entities per signal, typed (regulated-by, supplies, invested-in, party-to) with provenance.
+- **New tables lack RLS.** `signal_entities`, `legislative_bills`, `excluded_source_domains`, and the `hv_*_jobs` tables have row-level security off. Mitigated (only the `api` schema is PostgREST-exposed; these are `public`), but not defense-in-depth. Enable RLS before any `public` exposure.
+
+**Verified NOT problems:** classify never ran ahead of translation (0 non-English rows classified without `title_en`); no stranded jobs at handoff.
