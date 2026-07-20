@@ -242,4 +242,18 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - Rollback: not applicable / not recommended — would restore fabricated timelines to 14 published rows.
 - Required tests: none applicable (data-only fix, no code path changed); verified via `select count(*) where typical_timeline_months = 0` → 0 immediately after.
 - Human approval status: Tyler approved before running, per the compliance-facing-content rule (published, customer-facing data).
+
+## 2026-07-20 — jurisdiction_playbooks: CHECK constraint closes fabricated-zero root cause
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Trigger: root-cause gap explicitly flagged as open in the 2026-07-19 entry above; Tyler asked to close it.
+- Tables/columns affected: `public.jurisdiction_playbooks.typical_timeline_months` (new CHECK constraint; `api.jurisdiction_playbooks` view unaffected).
+- Change: `ADD CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check CHECK (typical_timeline_months IS NULL OR typical_timeline_months > 0)`.
+- RLS: unaffected, no policy touched.
+- Public API routes affected: none — constraint only rejects future writes of `0`/negative values; does not change read shape or existing valid data (122 null, 81 positive, 0 zero/negative at time of apply).
+- Migration file: `supabase/migrations/20260720120000_jurisdiction_playbooks_timeline_positive_check.sql` (applied live first via `apply_migration`, then committed to reconcile the migration ledger).
+- Backward compatibility: additive/reversible constraint; no existing row violates it, so no backfill required.
+- Rollback: `ALTER TABLE public.jurisdiction_playbooks DROP CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check;`
+- Required tests: none applicable (schema-only, no application code path changed); verified via `pg_get_constraintdef` query immediately post-apply. Full repo QA (lint/typecheck/test/build) run before merge per repo convention.
+- Human approval status: Tyler approved explicitly ("Confirm") before the migration was applied, per the compliance-facing-content rule.
 - **Not done — root cause still open:** no `CHECK` constraint or write-path validation prevents `typical_timeline_months = 0` from being written again. Both #1076 and this entry are one-time data cleanups; whatever batch process produced these 14 rows can reintroduce the same pattern at any time. A `CHECK (typical_timeline_months IS NULL OR typical_timeline_months > 0)` constraint (or equivalent guard on the writing process) is the actual fix and remains outstanding.
