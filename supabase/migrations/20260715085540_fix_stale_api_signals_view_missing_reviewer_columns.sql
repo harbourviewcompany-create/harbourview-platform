@@ -17,37 +17,12 @@
 -- No RLS/security posture change -- api.signals is already read/write for
 -- authenticated + service_role (this is an admin-only surface gated by
 -- requireAdminAuth() at the route level, not by this view).
-create or replace view api.signals
-  with (security_invoker = on)
-  as
-select
-  id,
-  date,
-  cat,
-  pri,
-  score,
-  headline,
-  summary,
-  source,
-  url,
-  verification,
-  tier,
-  lang,
-  company,
-  country,
-  in_network,
-  lane_r,
-  lane_e,
-  lane_t,
-  top_lane,
-  query_pack,
-  commercial_impact,
-  reviewed,
-  action,
-  created_at,
-  embedding_1024,
-  embedding_model,
-  embedded_at,
-  reviewed_by,
-  reviewed_at
-from public.signals;
+-- Converted to a no-op stub on 2026-07-20: re-running the CREATE OR
+-- REPLACE VIEW below fails ("cannot drop columns from view") because a
+-- later migration added editorial_title/editorial_blurb columns to the
+-- live view that this file's SELECT list predates -- confirmed live via
+-- information_schema.columns that api.signals already has all 31 columns
+-- including reviewed_by/reviewed_at (this file's fix) plus those 2 more.
+-- The real work was already applied to production under the neighboring
+-- version 20260715085610 (same filename, 30 seconds later).
+SELECT 1;
