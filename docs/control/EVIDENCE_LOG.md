@@ -733,3 +733,19 @@ timelines to 14 published, customer-facing playbooks.
 **Not done / blocked:** full-coverage classifier validation (109 rows remaining); the `api.*` view work needed to actually fix `hv-classify`'s schema bug; billing fixes for Anthropic/Gemini (owner's call); the resulting decision on whether/how to wire `hv-classify` into `api.promote_classified_signals()` (Stage 3, already built inert — see `docs/control/STAGE3_PROMOTION.md` — dry-run by default, no cron, empty `signal_classifications` table, blast radius none).
 
 **Rollback:** eval-set labels are data, not schema — `update public.intel_eval_set set quality_label=null, content_type=null, impact=null, label_status='unlabelable', labeled_by=null, labeled_at=null where labeled_by like 'claude:%';` would revert to pre-session state. `intel_eval_predictions` rows for `run_id='v1-smoke'` are validation-only, never read by anything live — `delete from public.intel_eval_predictions where run_id='v1-smoke';` if needed. PR #1082's diagnostic log: `git revert`, redeploy.
+
+## 2026-07-20 — jurisdiction_playbooks: CHECK constraint added to close the fabricated-zero recurrence (root cause from 2026-07-19 entry, now fixed)
+
+**Context:** the two prior fixes (PR #1076, then the 2026-07-19 re-fix of 14 rows) both nulled fabricated `typical_timeline_months = 0` values but left the underlying gap open — no constraint or write-path guard prevented a future batch from reintroducing `0`. That gap was explicitly flagged as an unresolved open item in the 2026-07-19 entry above. Tyler asked to close it.
+
+**Investigation:** confirmed live via Supabase MCP that `public.jurisdiction_playbooks` is the base table (`api.jurisdiction_playbooks` is a view over it, consistent with this project's `api`-schema-only PostgREST exposure). Current data: 122 null, 81 positive, 0 zero, 0 negative for `typical_timeline_months` — the prior fixes have held. Grepped the repo for all writers of this column: every hit is a hand-authored SQL content-migration file (`supabase/migrations/*jurisdiction_playbooks*` batches) — there is no application/API write path for this column, so a code-level guard would not have covered the actual failure mode. A database-level `CHECK` constraint is the correct and only complete guard here.
+
+**Fix:** applied live via Supabase MCP `apply_migration` — `ALTER TABLE public.jurisdiction_playbooks ADD CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check CHECK (typical_timeline_months IS NULL OR typical_timeline_months > 0);`. Verified via `pg_get_constraintdef` immediately after that the constraint is live. Existing data satisfies it (confirmed above), so no backfill was needed. Any future migration attempting to write `typical_timeline_months = 0` (or negative) will now fail at apply time instead of silently landing on published, customer-facing rows.
+
+**Tyler approval:** explicit ("Confirm"), per the compliance-facing-content confirmation rule, before the migration was applied.
+
+**Files changed:** `supabase/migrations/20260720120000_jurisdiction_playbooks_timeline_positive_check.sql` (reconciliation file matching the migration already applied live), this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Validation:** constraint existence verified via direct `pg_constraint` query post-apply. No application code changed — no lint/typecheck/build impact expected; full QA run before merge regardless per repo convention.
+
+**Rollback:** `ALTER TABLE public.jurisdiction_playbooks DROP CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check;` — safe, reversible, restores the pre-constraint (unguarded) state.
