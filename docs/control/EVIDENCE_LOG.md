@@ -749,3 +749,19 @@ timelines to 14 published, customer-facing playbooks.
 **Validation:** constraint existence verified via direct `pg_constraint` query post-apply. No application code changed — no lint/typecheck/build impact expected; full QA run before merge regardless per repo convention.
 
 **Rollback:** `ALTER TABLE public.jurisdiction_playbooks DROP CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check;` — safe, reversible, restores the pre-constraint (unguarded) state.
+
+## 2026-07-20 — HANDOFF.md split scaffold (docs-only, additive) — PR #1093
+
+**Context:** HANDOFF.md has grown to ~117KB, mixing volatile current-state (status board, session log) with permanent content (DO NOT TOUCH rules, ADRs #1–#21+). This is a merge-conflict magnet and no agent reliably reads it in full. Decision from a doc-review pass: split it into stable, single-purpose files.
+
+**Change:** Additive scaffold only. Two new files created on branch `docs/split-handoff`: `docs/DO_NOT_TOUCH.md` (operational constraints) and `docs/adr/README.md` (ADR log home). Both carry an explicit "SCAFFOLD (structure only)" banner stating that verbatim rule/ADR text has intentionally NOT been moved yet, and that `HANDOFF.md` remains the source of truth until a reviewed content-migration follow-up. No existing file modified; +59/−0 across 2 files (this EVIDENCE_LOG entry is the only edit to an existing file).
+
+**Why deferred content move:** Moving 117KB of do-not-touch rules and 21+ ADRs verbatim through the web editor risks silently dropping/truncating a control entry (raw read truncated at ~76K chars) — deferred to a diff-verified follow-up PR per AGENTS.md "verify before building on it."
+
+**Validation:** Docs-only change; no lint/typecheck/test/build impact. `npm run test -- --passWithNoTests` sanity per AGENTS.md docs-only gate NOT run in this browser session (no shell) — flagged, not claimed. PR CI (Next.js Build, Branch Verification, CI/Domain Logic) running on the PR at open.
+
+**Companion doc-hygiene issues:** #1091 (CLAUDE.md mojibake / double-encoded UTF-8), #1092 (branch-protection status reconciliation between AGENTS.md and HANDOFF.md).
+
+**Rollback:** Delete the two new files / close PR #1093. No blast radius (additive only).
+
+**Status:** Current — awaiting review (PR marked ready for review, not merged; no sign-off given).
