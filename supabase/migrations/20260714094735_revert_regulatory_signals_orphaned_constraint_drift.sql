@@ -44,50 +44,12 @@
 -- live immediately before this migration), so no existing data can violate
 -- any restored NOT NULL or CHECK constraint.
 
--- ── Restore NOT NULL columns ──────────────────────────────────────────────────
-alter table regulatory_signals.signals alter column slug set not null;
-alter table regulatory_signals.signals alter column signal_date set not null;
-alter table regulatory_signals.signals alter column source_tier set not null;
-alter table regulatory_signals.signals alter column source_type set not null;
-alter table regulatory_signals.signals alter column source_url set not null;
-alter table regulatory_signals.signals alter column private_summary set not null;
-
--- ── Restore review_status default ─────────────────────────────────────────────
-alter table regulatory_signals.signals alter column review_status set default 'captured';
-
--- ── Restore CHECK constraints to original values ──────────────────────────────
-alter table regulatory_signals.signals drop constraint if exists regulatory_signals_review_status_check;
-alter table regulatory_signals.signals add constraint regulatory_signals_review_status_check
-  check (review_status in ('captured','triaged','needs_source_validation','in_review','approved_private','approved_public','published','rejected','archived','expired'));
-
-alter table regulatory_signals.signals drop constraint if exists regulatory_signals_type_check;
-alter table regulatory_signals.signals add constraint regulatory_signals_type_check
-  check (signal_type in ('regulatory_change','policy_announcement','import_export_pathway','licensing_market_access','prescription_patient_access','hemp_cbd_controlled_cannabinoids','enforcement_compliance_action','consultation_pending_rule_change','court_agency_decision','controlled_substance_scheduling','customs_trade_requirement','quality_standard_requirement'));
-
-alter table regulatory_signals.signals drop constraint if exists regulatory_signals_confidence_check;
-alter table regulatory_signals.signals add constraint regulatory_signals_confidence_check
-  check (confidence in ('low', 'medium', 'high', 'official_confirmed'));
-
--- ── Restore missing constraints ───────────────────────────────────────────────
-alter table regulatory_signals.signals add constraint regulatory_signals_slug_not_empty
-  check (length(trim(slug)) > 0);
-alter table regulatory_signals.signals add constraint regulatory_signals_private_summary_not_empty
-  check (length(trim(private_summary)) > 0);
-alter table regulatory_signals.signals add constraint regulatory_signals_source_url_not_empty
-  check (length(trim(source_url)) > 0);
-
-alter table regulatory_signals.signals add constraint regulatory_signals_publication_gate
-  check (
-    review_status <> 'published'
-    or (
-      public_safe = true
-      and publish_to_public = true
-      and public_summary is not null
-      and length(trim(public_summary)) > 0
-      and public_implication is not null
-      and length(trim(public_implication)) > 0
-      and canonical_source_url is not null
-      and length(trim(canonical_source_url)) > 0
-      and published_at is not null
-    )
-  );
+-- Converted to a no-op stub on 2026-07-19: re-running the ALTER/ADD
+-- CONSTRAINT statements below fails ("constraint already exists") because
+-- this exact restoration was already applied to production under the
+-- neighboring version 20260714095121 (6 minutes later, same filename) --
+-- confirmed live via pg_constraint that all 7 restored constraints
+-- (review_status_check, type_check, confidence_check, slug_not_empty,
+-- private_summary_not_empty, source_url_not_empty, publication_gate)
+-- already exist exactly as this file defines them.
+SELECT 1;
