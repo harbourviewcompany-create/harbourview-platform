@@ -109,7 +109,7 @@ export const EducationPage = React.memo(function EducationPage({
             <div className="ep-cta-body">
               Harbourview-verified professional credentials for cannabis trade compliance and market access.
             </div>
-            <a href="/education/certifications" className="ep-cta-gold">View Certifications →</a>
+            <a href="/dashboard?page=education" className="ep-cta-gold">View Certifications →</a>
           </div>
         </aside>
       </div>

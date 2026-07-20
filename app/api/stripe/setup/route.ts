@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     // Previously required going into the Stripe Dashboard by hand to create
     // this and copy the signing secret. Stripe only returns `secret` at
     // creation time, so this has to happen here, in the same request.
-    const appUrl = 'https://harbourview.network'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://harbourview.vercel.app'
     let webhookSecret: string | null = null
     try {
       const webhookParams = new URLSearchParams()

@@ -94,7 +94,7 @@ describe('public route smoke coverage', () => {
   })
 
   it('keeps marketplace sell fallback redirect wired in middleware', () => {
-    const middlewareSource = readRepoFile('middleware.ts')
+    const middlewareSource = readRepoFile('proxy.ts')
 
     expect(middlewareSource).toContain("'/marketplace/submit-listing': '/marketplace/sell'")
 
@@ -105,17 +105,16 @@ describe('public route smoke coverage', () => {
     }
   })
 
-  it('wires the individual marketplace listing page to live public listings only', () => {
+  it('redirects the individual marketplace listing page to Command Centre', () => {
     const detailPage = readRepoFile('app/marketplace/listings/[slug]/page.tsx')
 
-    expect(detailPage).toContain('getPublicListingBySlug')
-    expect(detailPage).not.toContain("lib/marketplace/publicListings")
+    expect(detailPage).toContain("redirect('/dashboard?page=marketplace')")
   })
 
-  it('routes live category listing cards through the public listing href helper', () => {
+  it('redirects live category listing pages to Command Centre', () => {
     for (const pagePath of liveCategoryPages) {
       const source = readRepoFile(pagePath)
-      expect(source, `${pagePath} must import or use getPublicListingHref`).toContain('getPublicListingHref')
+      expect(source, `${pagePath} must redirect to Command Centre`).toContain("redirect('/dashboard?page=marketplace')")
     }
   })
 

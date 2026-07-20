@@ -3,16 +3,16 @@ import type { PublicRegulatorySignal, RegulatorySignalType } from './types'
 
 // ── Map public.signals.cat → RegulatorySignalType ─────────────────────────────
 const CAT_TO_TYPE: Record<string, RegulatorySignalType> = {
-  GAZETTE:        'regulatory_change',
-  PARLIAMENTARY:  'policy_announcement',
-  PRESS_RELEASE:  'regulatory_change',
+  GAZETTE:        'regulatory_guidance',
+  PARLIAMENTARY:  'policy_consultation',
+  PRESS_RELEASE:  'regulatory_guidance',
   LICENSING:      'licensing_market_access',
-  SOURCE_ENGINE:  'regulatory_change',
-  MDB_PROJECT:    'regulatory_change',
-  regulatory:     'regulatory_change',
+  SOURCE_ENGINE:  'regulatory_guidance',
+  MDB_PROJECT:    'regulatory_guidance',
+  regulatory:     'regulatory_guidance',
   market:         'licensing_market_access',
-  financial:      'regulatory_change',
-  intelligence:   'regulatory_change',
+  financial:      'regulatory_guidance',
+  intelligence:   'regulatory_guidance',
   supply:         'import_export_pathway',
 }
 
@@ -51,7 +51,7 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
     id,
     slug: id,
     headline,
-    signal_type: CAT_TO_TYPE[cat] ?? 'regulatory_change',
+    signal_type: CAT_TO_TYPE[cat] ?? 'regulatory_guidance',
     confidence,
     impact_level: impactLevel,
     country_code: null,
@@ -97,7 +97,7 @@ function mapApprovedRow(r: Record<string, unknown>): PublicRegulatorySignal | nu
     id:                   typeof r.id === 'string'                    ? r.id                    : String(r.id ?? ''),
     slug:                 typeof r.slug === 'string'                  ? r.slug                  : String(r.id ?? ''),
     headline,
-    signal_type:          (r.signal_type as PublicRegulatorySignal['signal_type']) ?? 'regulatory_change',
+    signal_type:          (r.signal_type as PublicRegulatorySignal['signal_type']) ?? 'regulatory_guidance',
     confidence,
     impact_level,
     country_code:         typeof r.country_code === 'string'          ? r.country_code          : null,

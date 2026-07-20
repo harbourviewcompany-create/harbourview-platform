@@ -37,9 +37,6 @@ export const TIER_DISPLAY = {
     features: [
       'Source trail access on every signal',
       'Contradiction review and confidence context',
-      'Counterparty movement alerts',
-      'Corridor monitoring across 50+ jurisdictions',
-      'Regional rule-change alerts',
       'Saved watchlists',
     ],
   },
@@ -52,7 +49,6 @@ export const TIER_DISPLAY = {
       'Reviewed counterparty introductions',
       'Deal room access',
       'Proof review workflow',
-      'Priority market queue',
       'Direct Harbourview analyst access',
     ],
   },

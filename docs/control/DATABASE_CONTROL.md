@@ -98,6 +98,20 @@ Database changes require static route/action review, migration review, RLS revie
 
 Database work is complete only when environment, SQL/migrations, RLS impact, public/private exposure, tests and production approval status are all recorded.
 
+## 2026-07-13 — Digest LLM fallback + pipeline_manual_review_queue
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Tables/columns: new `public.pipeline_manual_review_queue` (id, pipeline, reference_date, reason, detail, created_at, notified_at, resolved_at, resolved_by; unique on pipeline+reference_date); `_digest_jobs` and `_editorial_digest_jobs` gained a `provider` column
+- RLS: `pipeline_manual_review_queue` has RLS enabled, no policies (service-role only, matching `service_role`'s RLS-bypass default; no anon/authenticated grants — internal ops data, not a public surface)
+- Functions replaced (all additive/backward-compatible, no signature changes): `run_daily_digest()`, `run_editorial_digest()`, `run_signal_extraction(integer)`
+- Public API routes affected: none directly; `app/api/dashboard/digest/route.ts` continues reading `daily_digest` unchanged — it now just gets fresher data
+- New route: `app/api/cron/pipeline-manual-review-notify` (service-role, `db.schema='api'`, reads/updates via new `api.pipeline_manual_review_queue` security-invoker view)
+- Migration files: `20260713213101_digest_llm_fallback_and_manual_review_queue.sql`, `20260713213743_expose_pipeline_manual_review_queue_via_api.sql`
+- Backward compatibility: additive only — existing `daily_digest`/`_digest_jobs`/`_editorial_digest_jobs` rows and callers untouched; `run_signal_extraction`'s only change is one `INSERT` in its existing all-degraded branch
+- Rollback: `DROP VIEW api.pipeline_manual_review_queue; DROP TABLE public.pipeline_manual_review_queue;`, revert the three functions to their prior `CREATE OR REPLACE` bodies (see migration history), `ALTER TABLE ... DROP COLUMN provider` on both job tables. Forward-fix preferred — see Evidence Log for live-recovery proof same day.
+- Required tests: `npm run lint` / `npm run typecheck` / `npm run test` / `npm run build` all clean on this change (see Evidence Log)
+- Human approval status: Tyler approved scope (3-tier fallback on both digest functions + manual-review bucket with daily email notification) via explicit go-ahead in-session before any migration was applied
+
 ## 2026-07-09 — PR #1000 marketplace ratings migration (review fixes)
 
 - **Environment:** local workspace review only; migration not applied to any Supabase project (local, preview, or production) from this session.
@@ -145,6 +159,18 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - **Required tests:** `npm run lint` (0 errors, 127 pre-existing warnings, none newly introduced), `npx tsc --noEmit` (0 errors), `npm run test` (all suites green, incl. `test:listing-quality`'s `publicProjection`/`unified-listings-dto` suites), `npm run build` (clean, all routes compiled). Migration dry-run against a real Postgres instance was **not possible this session** — no Docker daemon available in this sandbox (`docker info` fails to reach `/var/run/docker.sock`) and no local Supabase stack — consistent with the same limitation recorded in the 2026-07-09 entry above. SQL was manually verified instead: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction (confirmed against Postgres docs and the existing `20260622130000` precedent file), a `CHECK` constraint automatically passes when the expression evaluates to `NULL` (so removing `average_rating`'s default needed no `CHECK` change), and `bigint` covers the full `int4` range with headroom.
 - **Human approval status:** pending — fix is committed to `claude/pr-1000-review-pmm1up` and pushed, but since that PR is closed/merged, a new PR against `main` is needed for this to actually enter review. The production forward-fix SQL above is a separate, additional approval needed before any live database change.
 
+## 2026-07-11 — api.set_regulatory_tier / api.accept_classifier_tier missing authorization (fixed same day)
+
+- **Environment:** production (`zvxdgdkukjrrwamdpqrg`), applied directly via `apply_migration`, Tyler approved before execution.
+- **Migration:** `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql`.
+- **Tables/functions affected:** new function `public.is_regulatory_tier_admin()`; `api.set_regulatory_tier` and `api.accept_classifier_tier` modified in place (`CREATE OR REPLACE FUNCTION`) to call the new guard as their first statement. No table schema changes.
+- **RLS impact:** none directly (these are RPC functions, not table policies), but the fix closes an equivalent authorization gap — `SECURITY DEFINER` functions bypass RLS by design, and these two had no substitute check at all. `public.is_regulatory_tier_admin()` reads `user_roles` (`role = 'admin'`), same table/pattern as the existing `is_genetics_admin_or_reviewer()`.
+- **Public API routes affected:** `/rest/v1/rpc/set_regulatory_tier`, `/rest/v1/rpc/accept_classifier_tier`. Both remain callable by `authenticated` at the grant level (required — admins are also `authenticated`, Supabase has no finer-grained Postgres role), but now reject any caller whose `user_roles` row isn't `role = 'admin'`.
+- **Backward compatibility:** additive/restrictive only — no existing admin caller loses access (verified `user_roles` currently has `role = 'admin'` populated); only previously-unauthorized `authenticated` callers are newly blocked, which is the intended fix.
+- **Rollback/forward-fix path:** revert to the pre-fix function bodies (see `EVIDENCE_LOG.md`'s 2026-07-11 entry for the exact statement) only if the guard causes an unexpected admin-access regression — prefer fixing the guard over a full revert, since reverting restores the original vulnerability.
+- **Required tests:** functional verification only (no application code changed) — confirmed `is_regulatory_tier_admin()` returns `false` with no session, confirmed via live query that `user_roles` has at least one `admin` row (existing access preserved), re-ran `get_advisors` (security) post-fix.
+- **Human approval status:** done — production fix applied and verified same session, Tyler explicitly chose "proper fix" (admin-check guard) over the alternative stopgap (revoke `authenticated` grant entirely).
+
 ## 2026-06-07 — Cannabis Data Contract v1.0 P0/P1 Foundation
 
 - **Environment:** local workspace only; no production Supabase push was attempted.
@@ -158,3 +184,76 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - **Rollback/forward-fix path:** rollback by reverting the migration before deployment. If already deployed, create a follow-up migration to revoke schema use and drop only the newly introduced `cannabis_intelligence` objects after confirming no production data was populated.
 - **Required tests:** focused Vitest migration/DTO boundary tests, TypeScript compile, lint, build, Supabase migration reset when Docker/local Supabase is available.
 - **Human approval status:** pending release/operator review because local Supabase runtime verification is blocked by unavailable Docker in this workspace.
+
+## 2026-07-13 (part 2) — LLM fallback extended to remaining Anthropic-only pipelines
+
+Follow-up to the digest fallback entry above, same session. User explicitly requested extending the same fallback pattern platform-wide ("Everything should have a fallback") after being told 4 more Anthropic-only functions existed.
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Tables/columns: `_counterparty_enrich_jobs`, `_country_enrich_jobs`, `_education_regen_jobs`, `_education_gen_jobs` each gained a `provider` column (additive)
+- RLS: unaffected — no new tables, no policy changes
+- Functions replaced (additive/backward-compatible, no signature changes): `run_counterparty_enrichment()`, `run_country_intel_enrichment()`, `run_education_section_gen()`, `run_education_deep_regen()` — each ported to the same Anthropic→OpenAI→Gemini circuit-breaker as the digest functions, writing to the existing `pipeline_manual_review_queue` on full degradation. Anthropic model unchanged (`claude-sonnet-4-6`); OpenAI fallback uses `gpt-4o-mini`, Gemini fallback uses `gemini-flash-latest`, matching the models already established for `run_signal_extraction` and the digest functions.
+- Public API routes affected: none
+- Migration file: `20260713221555_enrichment_llm_fallback_extension.sql`
+- Backward compatibility: additive only — no table dropped/renamed, no existing caller signature changed
+- Rollback: revert the four functions to their prior `CREATE OR REPLACE` bodies (Anthropic-only, captured via `pg_get_functiondef` before this change — see this session's investigation), `ALTER TABLE ... DROP COLUMN provider` on the four job tables. Forward-fix preferred — see Evidence Log for live-recovery proof same day on all four.
+- Required tests: no TypeScript/frontend files touched by this migration, so `lint`/`typecheck`/`build`/`test` scope is unchanged from the prior entry; SQL correctness verified by live invocation instead (see Evidence Log).
+- Human approval status: explicit user go-ahead ("Everything should have a fallback") after being told which functions remained unfixed.
+
+## 2026-07-13/14 (part 3) — regulatory_signals.signals: stale view + orphaned constraint drift (distinct root cause, unrelated to LLM fallback)
+
+User asked to investigate why `regulatory_signals.signals` was still empty even after the LLM fallback work. This pipeline has no LLM call at all — root cause was two independent DB-level bugs.
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- **Bug 1 — stale PostgREST view:** `api."regulatory_signals.signals"` (security_invoker view) was missing four columns (`source_url`, `source_published_at`, `private_summary`, `private_notes`) that exist on the base table and that the Fresh Regulatory Sources watcher (`lib/regulatory-sources/runWatch.ts` → `createDraftSignal`) always sets on insert. Every insert 400'd with "column does not exist"; `runRegulatoryWatch`'s for-loop had no per-source try/catch, so this uncaught failure aborted the entire daily cron run at the first source with a relevant item, every time — which is also why `source_check_runs` stayed at 0 rows and the same source (Peru DIGEMID) kept getting re-checked instead of the 348-source registry rotating. Confirmed safe to widen (RLS: single `admin_all` policy gated on `user_roles.role='admin'`, so no non-admin caller can read any row regardless of columns exposed — this is an admin-only draft-review surface, not `regulatory_signals.public_signals`, the actual curated public table). Fixed: `20260713223057_fix_stale_regulatory_signals_signals_api_view.sql`.
+- **Bug 2 — orphaned constraint/column drift, no git trace:** the live `review_status` CHECK (5 values, default `'draft'`), `signal_type` CHECK (18 values, entirely different vocabulary), and `confidence` CHECK (`'verified'` instead of `'official_confirmed'`) all diverged from `20260312000000_regulatory_signals_v1.sql` — the migration every current app file (`types.ts`, `admin.ts`, the watcher) still targets. `regulatory_signals_publication_gate` (the constraint preventing `review_status='published'` without `public_safe`/`publish_to_public`/`public_summary`/`public_implication`/`canonical_source_url`/`published_at` all populated — the actual compliance safety net) was missing entirely, along with 3 not-empty CHECKs and NOT NULL on 6 columns (only `headline` retained it). `supabase_migrations.schema_migrations` records `20260628230550_regulatory_signals_pipeline_missing_columns` as applied 2026-06-28 with **no corresponding file anywhere in the repo** (not even the "applied directly to remote" stub pattern used for other remote-only migrations) — likely, though not provable beyond this, source of the drift. The live constraint's specific signal_type vocabulary (`enforcement_action`, `policy_consultation`, `quota_allocation`, etc.) appears nowhere else in the repository. User explicitly confirmed reverting to the original design after this full trail was presented (asked to investigate further once first, then confirmed full restore once the publication_gate/NOT NULL scope was also surfaced — see Evidence Log for both check-in points). Fixed: `20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql`.
+- Also hardened `runRegulatoryWatch`'s per-source loop with a try/catch (`lib/regulatory-sources/runWatch.ts`) so one failing source can no longer zero out the entire batch — matches the exact failure mode that let Bug 1 go undetected for weeks.
+- Public API routes affected: none directly (admin-only surface)
+- Backward compatibility: additive/restorative only — table had 0 rows at time of both migrations (confirmed immediately before each), so no existing data could violate any restored constraint
+- Rollback: re-run the pre-fix `CREATE OR REPLACE VIEW` (narrower column list) and re-loosen the constraints/NOT NULLs/default as found live — not recommended; this would re-introduce both the write-path failure and the missing compliance gate. Revert `runWatch.ts`'s try/catch via git if needed (pure code, no data impact).
+- Required tests: `npm run typecheck`, targeted `eslint` on changed files, `npm run build`, `npx vitest run tests/regulatory-sources/watcher.test.ts` all clean (see Evidence Log). DB correctness verified via rollback-only test inserts (`BEGIN; INSERT ...; ROLLBACK;`) matching the real writer's exact payload shape, not synthetic/fabricated persisted data.
+- Human approval status: two explicit check-ins — user first asked to investigate further before deciding on the narrower (review_status/signal_type) fix; after full drift trail was presented, confirmed proceeding; after the larger publication_gate/NOT NULL scope was discovered and separately surfaced, confirmed full restore.
+
+## 2026-07-15 — api.signals stale view: third occurrence of the same bug class, found while verifying a same-day feature
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Trigger: user asked a broad "what's missing to make Harbourview commercially valuable / nothing should be orphaned" audit question; chose to prioritize verifying the SOURCE_ENGINE review queue (`eb293d0`, merged and deployed to `main` production the same day)
+- Bug: `api.signals` (security_invoker view over `public.signals`) was never refreshed after the same commit's own migration added `reviewed_by`/`reviewed_at` to the base table. Every call the new admin review queue makes (`lib/signals-engine/admin.ts`) goes through this view via a bare `/rest/v1/signals` REST call — so the entire just-shipped feature was non-functional in production from the moment it deployed. Identical bug class to the two `regulatory_signals.signals` entries above, now the third occurrence this week.
+- Tables/columns affected: `api.signals` (view definition only — added `reviewed_by`, `reviewed_at` to its SELECT list, preserved `security_invoker=on`). No change to `public.signals` (base table already correct).
+- RLS: unaffected — no policy change; this is an admin-only surface gated by `requireAdminAuth()` at the route level
+- Public API routes affected: none (admin-only)
+- Migration file: `20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql`
+- Backward compatibility: additive only — widening a view's column list, no data touched
+- Rollback: re-run `create or replace view api.signals` with the pre-fix column list. Not recommended — this is the fix that makes the already-deployed review queue actually work.
+- Required tests: read-path and write-path verified live via the exact query/PATCH shape the app code builds (see Evidence Log); no TypeScript files touched, so no lint/typecheck/build re-run needed for this migration-only change.
+- Human approval status: read-only verification and this fix proceeded under the user's existing broad go-ahead for this audit ("nothing should be orphaned... everything needs to be working"); flagged plainly rather than silently fixed, since it directly bears on a feature merged by a different, concurrent session.
+- Also flagged, not fixed: sampled queue content shows the extraction/scoring pipeline confidently mis-scoring scraped nav-menu boilerplate as score-99/URGENT signals — a content-quality gap separate from this wiring bug, worth a dedicated look before this queue is relied on for anything customer-facing.
+
+## 2026-07-19 — jurisdiction_playbooks fabricated-zero regression (14 published rows, re-fixed)
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Trigger: final post-merge verification pass on `main`, cross-checking PR #1076's own claim ("nulls all `typical_timeline_months = 0`, 56 rows") against live state.
+- Tables/columns affected: `public.jurisdiction_playbooks.typical_timeline_months` (data only, no schema change — column was already made nullable by #1076's migration `20260718184353`).
+- Bug: 14 `status='published'` rows had `typical_timeline_months = 0` again, all with `updated_at` timestamps after #1076's migration ran — reintroduced by a separate concurrent session's playbook batch work, not a failure of #1076 itself.
+- RLS: unaffected, no policy touched.
+- Public API routes affected: none directly, but these are public-facing published playbooks read by the licensing-pathways/intelligence surfaces — the fabricated `0` was customer-visible until this fix.
+- Migration file: none — re-application of #1076's already-committed `UPDATE ... WHERE typical_timeline_months = 0` logic via `execute_sql`, not new DDL/DML logic.
+- Backward compatibility: data correction only, no structural change.
+- Rollback: not applicable / not recommended — would restore fabricated timelines to 14 published rows.
+- Required tests: none applicable (data-only fix, no code path changed); verified via `select count(*) where typical_timeline_months = 0` → 0 immediately after.
+- Human approval status: Tyler approved before running, per the compliance-facing-content rule (published, customer-facing data).
+
+## 2026-07-20 — jurisdiction_playbooks: CHECK constraint closes fabricated-zero root cause
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Trigger: root-cause gap explicitly flagged as open in the 2026-07-19 entry above; Tyler asked to close it.
+- Tables/columns affected: `public.jurisdiction_playbooks.typical_timeline_months` (new CHECK constraint; `api.jurisdiction_playbooks` view unaffected).
+- Change: `ADD CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check CHECK (typical_timeline_months IS NULL OR typical_timeline_months > 0)`.
+- RLS: unaffected, no policy touched.
+- Public API routes affected: none — constraint only rejects future writes of `0`/negative values; does not change read shape or existing valid data (122 null, 81 positive, 0 zero/negative at time of apply).
+- Migration file: `supabase/migrations/20260720120000_jurisdiction_playbooks_timeline_positive_check.sql` (applied live first via `apply_migration`, then committed to reconcile the migration ledger).
+- Backward compatibility: additive/reversible constraint; no existing row violates it, so no backfill required.
+- Rollback: `ALTER TABLE public.jurisdiction_playbooks DROP CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check;`
+- Required tests: none applicable (schema-only, no application code path changed); verified via `pg_get_constraintdef` query immediately post-apply. Full repo QA (lint/typecheck/test/build) run before merge per repo convention.
+- Human approval status: Tyler approved explicitly ("Confirm") before the migration was applied, per the compliance-facing-content rule.
+- **Not done — root cause still open:** no `CHECK` constraint or write-path validation prevents `typical_timeline_months = 0` from being written again. Both #1076 and this entry are one-time data cleanups; whatever batch process produced these 14 rows can reintroduce the same pattern at any time. A `CHECK (typical_timeline_months IS NULL OR typical_timeline_months > 0)` constraint (or equivalent guard on the writing process) is the actual fix and remains outstanding.

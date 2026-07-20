@@ -22,6 +22,14 @@ vi.mock('@/lib/genetics/queries', async () => {
   }
 })
 
+let capturedRedirectUrl: string | undefined
+vi.mock('next/navigation', () => ({
+  redirect: (url: string) => {
+    capturedRedirectUrl = url
+    throw new Error('NEXT_REDIRECT_TEST_STUB')
+  },
+}))
+
 import CultivarPassportPage from '@/app/genetics/cultivars/[slug]/page'
 import { demoAccessGrants, demoAccessRequests, demoEvidenceItems, demoGeneticsProfiles, getAdminGeneticsReviewQueue, getInternalCultivarPassports, getPublicCultivarPassportBySlug, getPublicCultivarPassports } from '@/lib/genetics/demoData'
 import { approvedRequestDoesNotGrantEvidence, grantAllowsEvidence } from '@/lib/genetics/accessGrants'
@@ -64,15 +72,21 @@ describe('Cultivar Passport Network P0 DTO boundaries', () => {
     expect(JSON.stringify(passport)).not.toContain('genotype-placeholder')
   })
 
-  it('renders the public passport page with only public DTO fields', async () => {
-    const element = await CultivarPassportPage({ params: Promise.resolve({ slug: 'demo-cultivar-alpha' }) })
-    const html = renderToStaticMarkup(element)
-    expect(html).toContain('Demo Cultivar Alpha')
-    expect(html).toContain('View public passport')
-    expect(html).toContain('Request access')
-    for (const term of forbiddenPublicPayloadTerms) {
-      expect(html, `public page must not include ${term}`).not.toContain(term)
+  it('redirects the public passport route to the Command Centre genetics panel with the cultivar slug preserved', async () => {
+    // The standalone page now redirects into the CC genetics panel (see
+    // commit 73f8a851, "add cultivar passport detail view to desktop +
+    // mobile genetics panel"). The panel renders selectedPassport, which is
+    // populated from the same getPublicCultivarPassports() array already
+    // covered by the DTO-boundary tests above and below -- no new data path
+    // to verify here, just that the slug survives the redirect so the panel
+    // can resolve which passport to show.
+    capturedRedirectUrl = undefined
+    try {
+      await CultivarPassportPage({ params: Promise.resolve({ slug: 'demo-cultivar-alpha' }) })
+    } catch {
+      // redirect() throws by design; we only care about the captured target
     }
+    expect(capturedRedirectUrl).toBe('/dashboard?page=genetics&cultivar=demo-cultivar-alpha')
   })
 
   it('does not treat approved access requests as evidence access without explicit grants', () => {

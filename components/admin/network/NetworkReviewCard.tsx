@@ -9,9 +9,6 @@ export function NetworkReviewCard({ item }: { item: NetworkAdminReviewItem }) {
             {item.objectType.replaceAll('_', ' ')}
           </p>
           <h2 className="mt-2 text-xl font-semibold text-[#F5F1E8]">{item.title}</h2>
-          <p className="mt-2 text-sm text-[#F5F1E8]/65">
-            Static review-shell placeholder only. No persistence, routing or publication actions are active.
-          </p>
         </div>
 
         <div className="rounded-full border border-[#C6A55A]/30 px-4 py-2 text-xs uppercase tracking-[0.22em] text-[#C6A55A]">

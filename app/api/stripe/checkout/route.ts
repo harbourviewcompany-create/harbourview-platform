@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       user.user_metadata?.full_name
     )
 
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://harbourview.network'
+    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://harbourview.vercel.app'
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

@@ -37,7 +37,8 @@ export default async function RegulatorySignalReviewPage() {
         <h2 className="text-2xl font-semibold">Regulatory signal review queue</h2>
         <p className="mt-2 text-sm text-[#F5F1E8]/65">Draft watcher signals remain private until reviewed, marked public-safe, approved, and published.</p>
       </div>
-      <div className="flex gap-3 text-sm"><a className="text-[#C6A55A] underline" href="/admin/signals">Summary</a><a className="text-[#C6A55A] underline" href="/admin/signals/sources">Sources</a></div>
+      <div className="flex gap-3 text-sm"><a className="text-[#C6A55A] underline" href="/admin/signals">Summary</a><a className="text-[#C6A55A] underline" href="/admin/signals/sources">Sources</a><a className="text-[#C6A55A] underline" href="/admin/signals/queue">Engine queue (automated pipeline)</a></div>
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-[#F5F1E8]/55">This queue reviews manually-curated regulatory signals. The automated crawler pipeline (source_registry → signals, cat=SOURCE_ENGINE) has its own separate review queue — see &quot;Engine queue&quot; above.</div>
       {queue.length === 0 ? <div className="rounded-2xl border border-[#C6A55A]/10 bg-[#0B1A2F] p-10 text-center"><p className="text-sm text-[#F5F1E8]/55">No regulatory signals pending review.</p></div> : (
         <div className="space-y-5">
           {queue.map((signal) => (
@@ -52,7 +53,7 @@ export default async function RegulatorySignalReviewPage() {
                 <textarea name="public_implication" defaultValue={signal.public_implication || ''} rows={2} className="rounded-xl border border-white/10 bg-black/30 p-3 text-[#F5F1E8]" placeholder="Public-safe implication" />
                 <input name="reviewer_note" className="rounded-xl border border-white/10 bg-black/30 p-3 text-[#F5F1E8]" placeholder="Internal review note" />
                 <div className="flex flex-wrap gap-4 text-sm text-[#F5F1E8]/65"><label><input name="public_safe" type="checkbox" defaultChecked={signal.public_safe} /> Public safe</label><label><input name="publish_to_public" type="checkbox" defaultChecked={signal.publish_to_public} /> Eligible public feed</label></div>
-                <div className="flex flex-wrap gap-3"><button name="review_status" value="in_review" className="rounded-full border border-white/15 px-4 py-2 text-sm">Save</button><button name="review_status" value="approved_private" className="rounded-full border border-[#C6A55A]/35 px-4 py-2 text-sm text-[#C6A55A]">Approve admin-only</button><button name="review_status" value="approved_public" className="rounded-full border border-[#C6A55A]/35 px-4 py-2 text-sm text-[#C6A55A]">Approve public</button><button name="review_status" value="rejected" className="rounded-full border border-red-300/35 px-4 py-2 text-sm text-red-200">Reject</button></div>
+                <div className="flex flex-wrap gap-3"><button name="review_status" value="in_review" className="rounded-full border border-white/15 px-4 py-2 text-sm">Save</button><button name="review_status" value="rejected" className="rounded-full border border-red-300/35 px-4 py-2 text-sm text-red-200">Reject</button></div>
               </form>
               <form action={publishSignal} className="mt-3"><input type="hidden" name="signal_id" value={signal.id} /><input type="hidden" name="reviewer_note" value="Published from regulatory signal review queue." /><button className="rounded-full bg-[#C6A55A] px-4 py-2 text-sm font-semibold text-[#071423]">Publish approved public signal</button></form>
             </article>

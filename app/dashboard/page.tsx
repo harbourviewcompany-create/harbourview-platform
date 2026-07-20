@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
+import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
+import { getOperatorLicenceMatrix } from '@/lib/intelligence/operatorIntelligence'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
@@ -197,6 +199,7 @@ export default async function DashboardPage({
   let userEmail:        string | null = null
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
+  let hasOrg: boolean = true // default true so unauthenticated/unknown state never shows the banner
 
   try {
     const supabase = await createClient()
@@ -211,6 +214,14 @@ export default async function DashboardPage({
         .single()
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
+
+      const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single()
+      hasOrg = !!membership
     }
   } catch {
     // No auth or prefs table not yet migrated.
@@ -232,7 +243,7 @@ export default async function DashboardPage({
     recentEduModulesResult, localIntelResult, sourceCoverageResult, jurisdictionPlaybookResult,
     educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
     cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
-    mySubmissionsResult,
+    mySubmissionsResult, countryEducationOverlaysResult, pathwayMatrixResult,
   ] = await Promise.allSettled([
     fetchDashboardSignals(30),
     urlPage === 'digest' ? fetchDailyDigest(20, ALL_COUNTRIES.find(c => c.iso2 === countryIso2)?.displayName) : Promise.resolve({ signals: [], window: 'recent' as const }),
@@ -259,6 +270,8 @@ export default async function DashboardPage({
     getPublicServiceProviders(),
     getPublicCollaborationProjects(),
     getUserMarketplaceSubmissions(userId),
+    getCountryEducationOverlays(countryIso2, roleId),
+    getCountryPathwayMatrix(countryIso2),
   ])
 
   const signals               = settledOr(signalsResult, [], 'fetchDashboardSignals')
@@ -281,10 +294,14 @@ export default async function DashboardPage({
   const tradeFlows             = settledOr(tradeFlowsResult, undefined, 'getTradeFlows')
   const professionals          = settledOr(professionalsResult, undefined, 'getProfessionals')
   const cannabisOperators      = settledOr(cannabisOperatorsResult, undefined, 'getCannabisOperators')
+  const operatorLicenceMatrix  = await getOperatorLicenceMatrix((cannabisOperators ?? []).map(op => op.id))
+    .catch(() => ({ entitled: false as const }))
   const cultivarPassports      = settledOr(cultivarPassportsResult, [], 'getPublicCultivarPassports')
   const serviceProviders       = settledOr(serviceProvidersResult, [], 'getPublicServiceProviders')
   const collaborationProjects  = settledOr(collaborationProjectsResult, [], 'getPublicCollaborationProjects')
   const mySubmissions          = settledOr(mySubmissionsResult, [], 'getUserMarketplaceSubmissions')
+  const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
+  const pathwayMatrix          = settledOr(pathwayMatrixResult, undefined, 'getCountryPathwayMatrix')
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
@@ -292,6 +309,7 @@ export default async function DashboardPage({
   return (
     <DashboardResponsiveShell
       key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
+      hasOrg={hasOrg}
       signals={signals}
       digestSignals={dailyDigest.signals}
       digestWindow={dailyDigest.window}
@@ -312,16 +330,19 @@ export default async function DashboardPage({
       recentEduModules={recentEduModules}
       sourceCoverage={sourceCoverage}
       jurisdictionPlaybook={jurisdictionPlaybook ?? undefined}
+      pathwayMatrix={pathwayMatrix}
       educationTracks={educationTracks}
       marketMetrics={marketMetrics}
       tradeFlows={tradeFlows}
       professionals={professionals}
       cannabisOperators={cannabisOperators}
+      operatorLicenceMatrix={operatorLicenceMatrix}
       userEmail={userEmail}
       cultivarPassports={cultivarPassports}
       serviceProviders={serviceProviders}
       collaborationProjects={collaborationProjects}
       mySubmissions={mySubmissions}
+      countryEducationOverlays={countryEducationOverlays}
     />
   )
 }
