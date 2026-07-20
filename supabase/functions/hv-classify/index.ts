@@ -107,7 +107,12 @@ async function viaOpenAI(h: string, s: string) {
   });
   if (!res.ok) throw new Error(`openai_${res.status}: ${(await res.text()).slice(0, 160)}`);
   const d = await res.json();
-  return coerce(extractJson(d?.choices?.[0]?.message?.content ?? ""));
+  const content = d?.choices?.[0]?.message?.content ?? "";
+  const result = coerce(extractJson(content));
+  if (!result) {
+    console.log("openai_diag", JSON.stringify({ finish_reason: d?.choices?.[0]?.finish_reason, content_length: String(content).length }));
+  }
+  return result;
 }
 async function viaGemini(h: string, s: string) {
   const res = await fetch(
