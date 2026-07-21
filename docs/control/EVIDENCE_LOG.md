@@ -827,3 +827,27 @@ timelines to 14 published, customer-facing playbooks.
 **Files changed:** `supabase/migrations/20260721073000_fix_readonly_review_queue_rpcs_missing_authz.sql` (reconciliation file matching what was applied live), this entry, `docs/control/DATABASE_CONTROL.md`.
 
 **Rollback:** `CREATE OR REPLACE` each function without the authorization check (bodies preserved in the migration file's git history) — not recommended, restores the unauthenticated read-disclosure exposure. Note reverting `pool_rows_needing_classification`/`rows_needing_titles` to `language sql` is optional; the `plpgsql` rewrite is behaviorally identical.
+
+## 2026-07-21 — Production readiness audit: added Gate 15 (Reliability & Ops); refreshed Gate 9 with post-incident advisor state
+
+**Objective:** Close the two gaps a same-day production Data API outage exposed in `FINAL_PRODUCTION_READINESS_AUDIT.md`: (1) the audit's 14 gates certify correctness/leakage but nothing certifies availability; (2) Gate 9's advisor evidence was from 2026-06-23 and drifting.
+
+**Source authority:** live Supabase security/performance advisor re-run on `zvxdgdkukjrrwamdpqrg`; function-body verification via `pg_get_functiondef`; cross-check against this evidence log; the 2026-07-21 Data API outage (compute CPU-credit exhaustion → PostgREST `503` platform-wide).
+
+**Change type / scope:** docs-only (`docs/control/`). No runtime, schema, RLS, auth, or dependency changes.
+
+**Files changed:** `docs/control/FINAL_PRODUCTION_READINESS_AUDIT.md`, this entry.
+
+**What changed:**
+- Added **Gate 15 — Reliability, Capacity, and Operational Recovery** (HOLD): compute right-sizing, pipeline isolation/bounded work, read-path resilience/graceful degradation, availability alerting, tested backup/DR, capacity baseline. Motivated by the 2026-07-21 outage.
+- Refreshed **Gate 9** with a dated 2026-07-21 advisor re-run subsection and updated the header/GO-definition to include Gate 15.
+
+**Corrected finding (recorded to prevent re-triage):** the advisor's grant-level warnings on the signal-review RPC family were initially misread as a fresh unauthenticated-mutation P0. Body-level verification (`pg_get_functiondef`) confirmed all 11 functions carry the `is_genetics_admin_or_reviewer()` guard (service-role carve-out on the 3 with an `hv-classify` caller) — the exposure was closed same-day (see the two 2026-07-21 signal-review-RPC entries above). No reopened exposure. `api.get_github_pat` confirmed to have no `anon`/`authenticated`/`public` grant. Residual hardening (revoke stale `anon`/`authenticated` EXECUTE grants; `get_github_pat` search_path) is low-priority and deferred to a separate PR.
+
+**Tyler approval:** explicit ("Go") for the corrected, scoped docs-only PR after the P0 mischaracterization was surfaced and withdrawn.
+
+**Validation:** docs-only change (`docs/**` only). AGENTS.md docs-only gate: `lint:docs` — **no such script in `package.json`** (tooling gap, consistent with Gate 4's documented missing-script handling); `npm run test -- --passWithNoTests` — **not run** (`node_modules` absent; the `test` script is a code/DOM/route-leakage suite with no bearing on a `docs/**`-only markdown change — flagged, not claimed, per the docs-only precedent in this log). Structural verification performed instead: gate headers present and ordered (Gate 15 follows Gate 14), status line and GO-definition updated, evidence entry present, only the two intended `docs/control/` files changed (`git status`).
+
+**Rollback:** `git revert` this commit / close the PR. Additive documentation only; no runtime or data blast radius.
+
+**Status:** Current — draft PR, not merged; no merge/deploy sign-off given.
