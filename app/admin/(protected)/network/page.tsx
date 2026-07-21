@@ -6,6 +6,11 @@ import {
 } from '@/lib/network/adminReview'
 import { listNetworkReviewItems } from '@/lib/network/serverQueries'
 import type { NetworkReviewItemRow } from '@/lib/network/serverTypes'
+import {
+  approveNetworkReviewItem,
+  rejectNetworkReviewItem,
+  requestClarificationNetworkReviewItem,
+} from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +37,8 @@ function rowToReviewItem(row: NetworkReviewItemRow): NetworkAdminReviewItem {
         : 'Awaiting review',
   }
 }
+
+const PENDING_STATUSES = new Set(['submitted', 'under_review', 'needs_clarification']);
 
 export default async function NetworkAdminReviewPage() {
   const result = await listNetworkReviewItems()
@@ -85,7 +92,37 @@ export default async function NetworkAdminReviewPage() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         {items.map((item) => (
-          <NetworkReviewCard key={item.id} item={item} />
+          <div key={item.id} className="space-y-3">
+            <NetworkReviewCard item={item} />
+            {isLive && PENDING_STATUSES.has(item.reviewStatus) && (
+              <div className="flex flex-wrap gap-2">
+                <form action={approveNetworkReviewItem.bind(null, item.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-emerald-400/40 px-3 py-1.5 text-xs text-emerald-300 transition hover:bg-emerald-400/10"
+                  >
+                    Approve &amp; publish
+                  </button>
+                </form>
+                <form action={requestClarificationNetworkReviewItem.bind(null, item.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-amber-400/40 px-3 py-1.5 text-xs text-amber-300 transition hover:bg-amber-400/10"
+                  >
+                    Needs clarification
+                  </button>
+                </form>
+                <form action={rejectNetworkReviewItem.bind(null, item.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-red-400/40 px-3 py-1.5 text-xs text-red-300 transition hover:bg-red-400/10"
+                  >
+                    Reject
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </section>

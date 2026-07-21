@@ -52,7 +52,7 @@ function requestFailed(message: string): AdminDataError {
 
 async function callRpc<T>(name: string, args: Record<string, unknown>): Promise<AdminResult<T>> {
   const client = getAdminDataClient()
-  if (!client.ok) return client as any
+  if (!client.ok) return client as AdminResult<T>
 
   const response = await fetch(`${client.data.url}/rest/v1/rpc/${name}`, {
     method: 'POST',

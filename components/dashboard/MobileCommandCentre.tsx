@@ -44,6 +44,12 @@ type Props = {
   digestWindow?: DigestWindow
   eduCategories: { icon: string; title: string; desc: string }[]
   initialCountryIso2?: string | null
+  // Subnational selection carried from the globe router (e.g. "Illinois" for
+  // US-IL). country/COUNTRIES only model full countries, so this is threaded
+  // separately for display (title kicker) and to highlight the matching row
+  // in Local Intel's municipal watch list, rather than fabricating
+  // state-level Overview/Compliance data that doesn't exist in the DB.
+  regionLabel?: string | null
   initialRoleId?: string | null
   initialPage?: string | null
   wantedCount?: number
@@ -314,7 +320,7 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
         )}
       </section>
 
-      <div className="hvm-status-grid">
+      <div className="hvm-status-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         <SectionCard label="Import status" title={fieldValue(countryIntel?.import_status, 'Contact for status')} tone={countryIntel?.import_status === 'open' ? 'ok' : 'neutral'} />
         <SectionCard label="Export status" title={fieldValue(countryIntel?.export_status, 'Contact for status')} />
         <SectionCard label="Market access" title={fieldValue(countryIntel?.market_access_status, 'Review required')} />
@@ -372,7 +378,8 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
                     <span className="hvm-sig-time">{signal.timeAgo}</span>
                   </div>
                   <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-                  <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                  <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+                  {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
                   <div className="hvm-sig-footer">
                     <div className="hvm-sig-conf-bar">
                       <div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} />
@@ -477,12 +484,12 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub }: { country: CountryOption; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
       {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} />}
-      {sub === 'local-intel'    && <LocalIntelMobile country={country} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'local-intel'    && <LocalIntelMobile country={country} regionLabel={regionLabel} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
       {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
@@ -1498,7 +1505,8 @@ function SignalsFeed({ country, signals }: { country: CountryOption; signals: Da
                 <span className="hvm-sig-time">{signal.timeAgo}</span>
               </div>
               <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+              <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+              {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
               <div className="hvm-sig-footer">
                 <div className="hvm-sig-conf-bar">
                   <div className="hvm-sig-conf-fill" style={{
@@ -1693,7 +1701,8 @@ function DigestMobile({ country, roleLabel, digestSignals, digestWindow, signals
                 <span className="hvm-sig-time">{signal.timeAgo}</span>
               </div>
               <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-              <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+              <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+              {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
               <div className="hvm-sig-footer">
                 <div className="hvm-sig-conf-bar">
                   <div className="hvm-sig-conf-fill" style={{
@@ -2294,7 +2303,8 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
                   <span className="hvm-sig-time">{signal.timeAgo}</span>
                 </div>
                 <div className="hvm-sig-title">{signal.flag} {signal.title}</div>
-                <p className="hvm-signal-impact">{signal.commercialImpact}</p>
+                <p className="hvm-signal-impact">{signal.analysis?.what_changed || signal.commercialImpact}</p>
+                {signal.analysis?.recommended_action && (<p className="hvm-signal-impact" style={{ marginTop: 4, color: 'rgba(212,168,75,.85)', fontSize: 12.5 }}>&rarr; {signal.analysis.recommended_action}</p>)}
                 <div className="hvm-sig-footer">
                   <div className="hvm-sig-conf-bar"><div className="hvm-sig-conf-fill" style={{ width: `${signal.confidence}%`, background: confColor }} /></div>
                   <span className="hvm-sig-conf-val" style={{ color: confColor }}>{signal.confidence}%</span>
@@ -2420,7 +2430,7 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
   )
 }
 
-function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryIntel }: { country: CountryOption; roleLabel: string; signals: DashboardSignal[]; localIntel?: LocalIntelData | null; countryIntel?: CountryIntelProfile | null }) {
+function LocalIntelMobile({ country, regionLabel, roleLabel, signals, localIntel, countryIntel }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; signals: DashboardSignal[]; localIntel?: LocalIntelData | null; countryIntel?: CountryIntelProfile | null }) {
   const constraints = useMemo(() => {
     if (localIntel?.constraints && localIntel.constraints.length > 0) return localIntel.constraints
     if (countryIntel) {
@@ -2453,7 +2463,7 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <h2>Local Intel</h2>
-        <p>{country.label} · {roleLabel}</p>
+        <p>{country.label}{regionLabel ? ` · ${regionLabel}` : ''} · {roleLabel}</p>
         {localIntel?.coverageStatus && (
           <blockquote>Coverage: {localIntel.coverageStatus.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</blockquote>
         )}
@@ -2471,19 +2481,26 @@ function LocalIntelMobile({ country, roleLabel, signals, localIntel, countryInte
       </MobileAccordion>
 
       {municipalities.length > 0 && (
-        <MobileAccordion title={`Municipal watch (${municipalities.length})`}>
+        <MobileAccordion title={`Municipal watch (${municipalities.length})`} defaultOpen={Boolean(regionLabel)}>
           <div className="hvm-list-stack">
-            {municipalities.map((m, i) => (
-              <div className="hvm-signal-card hvm-muni-row" key={i}>
-                <div style={{ flex: 1 }}>
-                  <strong style={{ fontSize: 15 }}>{m.name}</strong>
-                  {m.note && <p className="hvm-signal-impact">{m.note}</p>}
+            {municipalities.map((m, i) => {
+              const isSelectedRegion = Boolean(regionLabel) && m.name.trim().toLowerCase() === regionLabel!.trim().toLowerCase()
+              return (
+                <div
+                  className="hvm-signal-card hvm-muni-row"
+                  key={i}
+                  style={isSelectedRegion ? { borderColor: 'rgba(212,168,75,0.6)', background: 'rgba(212,168,75,0.08)' } : undefined}
+                >
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 15 }}>{m.name}{isSelectedRegion ? ' · Selected market' : ''}</strong>
+                    {m.note && <p className="hvm-signal-impact">{m.note}</p>}
+                  </div>
+                  <span className={`hvm-muni-badge hvm-muni-badge--${m.status}`}>
+                    {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
+                  </span>
                 </div>
-                <span className={`hvm-muni-badge hvm-muni-badge--${m.status}`}>
-                  {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </MobileAccordion>
       )}
@@ -3365,7 +3382,7 @@ function OrganizationDashboardMobile({ countryOptions, justCreated }: { countryO
   if (!org) {
     return (
       <div className="hvm-page-stack">
-        <section className="hvm-hero-card compact"><p>Couldn't load your organization. Try refreshing.</p></section>
+        <section className="hvm-hero-card compact"><p>Couldn&apos;t load your organization. Try refreshing.</p></section>
       </div>
     )
   }
@@ -3588,6 +3605,7 @@ export default function MobileCommandCentre({
   digestWindow,
   eduCategories,
   initialCountryIso2,
+  regionLabel,
   initialRoleId,
   initialPage,
   wantedCount = 0,
@@ -3733,7 +3751,7 @@ export default function MobileCommandCentre({
       case 'briefing':
         return (
           <BriefingMobile
-            country={country} roleLabel={roleLabel} roleId={role}
+            country={country} regionLabel={regionLabel} roleLabel={roleLabel} roleId={role}
             countryIntel={countryIntel} signals={signals}
             pathwayData={pathwayData} localIntel={localIntel}
             countryOptions={countryOptions} roleOptions={roleOptions}
@@ -3784,7 +3802,7 @@ export default function MobileCommandCentre({
       <section className="hvm-titlebar">
         <div className="hvm-titlebar-top">
           <div className="hvm-titlebar-text">
-            <span className="hvm-title-kicker">{country.label} · {roleLabel}</span>
+            <span className="hvm-title-kicker">{country.label}{regionLabel ? ` · ${regionLabel}` : ''} · {roleLabel}</span>
             <h1>{pageTitle}</h1>
           </div>
           <div className="hvm-titlebar-actions">

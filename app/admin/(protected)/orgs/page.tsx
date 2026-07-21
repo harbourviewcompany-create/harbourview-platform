@@ -55,7 +55,7 @@ export default async function OrgReviewPage() {
         <div>
           <h2 className="text-2xl font-semibold">Verification queue</h2>
           <p className="mt-2 text-sm text-[#F5F1E8]/65">
-            Only items that couldn't be auto-verified reach this queue — most licences match the public
+            Only items that couldn&apos;t be auto-verified reach this queue — most licences match the public
             regulator registry automatically and never need a human.
           </p>
         </div>

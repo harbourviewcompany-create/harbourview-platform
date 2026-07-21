@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { RegulatoryTier } from '@/lib/globe/globe-materials'
 
 /**
@@ -53,15 +54,59 @@ const SWATCHES: Record<RegulatoryTier, string> = {
 }
 
 export function GlobeRegulatoryLegend() {
+  // Collapsed by default: on a small viewport the full panel can eat close to
+  // half the visible globe before a user has done anything. The globe itself
+  // is the point; the legend is reference material a user pulls up, not a
+  // permanent fixture.
+  const [expanded, setExpanded] = useState(false)
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        aria-expanded={false}
+        aria-controls="globe-regulatory-legend-panel"
+        onClick={() => setExpanded(true)}
+        className="pointer-events-auto absolute bottom-6 left-4 z-20 flex items-center gap-2 rounded-full border border-[#c6a55a]/18 bg-[#020814]/88 px-3.5 py-2 backdrop-blur-xl transition hover:border-[#c6a55a]/32 sm:left-6"
+      >
+        <span aria-hidden="true" className="flex items-center gap-1">
+          {TIER_ORDER.map((tier) => (
+            <span
+              key={tier}
+              className="h-2.5 w-2.5 shrink-0 rounded-[2px] ring-1 ring-inset ring-white/12"
+              style={{ background: SWATCHES[tier] }}
+            />
+          ))}
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d8be76]/80">
+          Market access
+        </span>
+      </button>
+    )
+  }
+
   return (
     <aside
+      id="globe-regulatory-legend-panel"
       aria-label="Regulatory access legend"
       className="pointer-events-auto absolute bottom-6 left-4 z-20 w-[248px] rounded-xl border border-[#c6a55a]/18 bg-[#020814]/88 p-3.5 backdrop-blur-xl sm:left-6"
     >
-      <div className="mb-2.5">
+      <div className="mb-2.5 flex items-start justify-between gap-2">
         <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d8be76]/80">
           Market access
         </h2>
+        <button
+          type="button"
+          aria-expanded={true}
+          aria-controls="globe-regulatory-legend-panel"
+          aria-label="Collapse legend"
+          onClick={() => setExpanded(false)}
+          className="-mt-1 -mr-1 rounded-md p-1 text-white/40 transition hover:text-white/70"
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+          </svg>
+        </button>
       </div>
 
       <ul className="grid gap-1.5">

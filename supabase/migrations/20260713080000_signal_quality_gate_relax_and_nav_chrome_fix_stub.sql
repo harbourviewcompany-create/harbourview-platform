@@ -50,10 +50,12 @@
 -- the source's registered country. Flagged for a future pass, much
 -- smaller in scale than the reviewed-gate and nav-chrome issues.
 
-CREATE OR REPLACE VIEW public.signals_quality AS
-SELECT id, date, cat, pri, score, headline, summary, source, url,
-       verification, tier, lang, company, country, in_network,
-       lane_r, lane_e, lane_t, top_lane, query_pack, commercial_impact,
-       reviewed, action, created_at, embedding_1024, embedding_model, embedded_at
-FROM public.signals
-WHERE cat <> 'SOURCE_ENGINE' OR (cat = 'SOURCE_ENGINE' AND score >= 50 AND score < 90);
+-- Converted to a no-op stub on 2026-07-19: re-running the CREATE OR REPLACE
+-- VIEW above fails ("cannot drop columns from view") because a later
+-- migration added analysis/analysis_generated_at/analysis_backend columns
+-- to the live view that this file's SELECT list predates -- confirmed live
+-- that public.signals_quality already has all 29 columns including those
+-- 3, and its WHERE clause already matches what's described above (score<90
+-- exclusion for SOURCE_ENGINE), matching this file's own claim of already
+-- being applied directly to production.
+SELECT 1;
