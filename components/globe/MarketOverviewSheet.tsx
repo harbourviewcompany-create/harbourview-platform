@@ -1,50 +1,32 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import { RouterBottomSheet } from './RouterBottomSheet'
 import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
 import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 
-/**
- * Lazy singleton — memoised at module scope so every sheet reuses a single
- * Supabase client for the lifetime of the page. Previously this re-created a
- * client on every fetch despite the "singleton" comment.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _client: SupabaseClient<any, 'api'> | null = null
-
+/** Lazy singleton — reuses one client instance for the lifetime of the page. */
 function getClient() {
-  if (!_client) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _client = createClient<any, 'api'>(getSupabaseUrl(), getSupabasePublicClientKey(), {
-      auth: { persistSession: false },
-      db: { schema: SUPABASE_DB_SCHEMA },
-    })
-  }
-  return _client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createClient<any, 'api'>(getSupabaseUrl(), getSupabasePublicClientKey(), {
+    auth: { persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
+  })
 }
 
 /**
  * Guards a promise against a hung network request. Supabase-js has no built-in
  * client timeout, so a stalled fetch (DNS, TLS, or edge cold-start hang) would
  * otherwise leave the sheet spinning on "Fetching regulatory data…" forever.
- * Rejecting here routes the hang into the existing retryable error state; the
- * optional onTimeout hook lets the caller abort the in-flight request so the
- * abandoned fetch does not keep running in the background.
+ * Rejecting here routes the hang into the existing retryable error state.
  */
 const FETCH_TIMEOUT_MS = 12_000
 
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  label: string,
-  onTimeout?: () => void,
-): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      onTimeout?.()
       reject(new Error(`Timed out after ${ms}ms: ${label}`))
     }, ms)
     promise.then(
@@ -100,10 +82,6 @@ export function MarketOverviewSheet({
       return
     }
 
-    // Abort the in-flight request on timeout or unmount so an abandoned fetch
-    // does not keep running (and cannot resolve into stale state).
-    const controller = new AbortController()
-
     // Throw on a real PostgREST/transport error so it surfaces as the retryable
     // error state. A clean empty result (`[]`) returns null — genuine "no briefing".
     function firstOrThrow(
@@ -120,7 +98,8 @@ export function MarketOverviewSheet({
     // NOTE: we use `.limit(1)` returning an ARRAY, never `.maybeSingle()`.
     // PostgREST returns HTTP 406 for the single-object accept header when zero
     // rows match; supabase-js surfaces that as an error, making a genuinely
-    // empty briefing indistinguishable from a real transport failure. An array
+    // empty briefing indistinguishable from a real transport failure (the root
+    // cause of every jurisdiction rendering "no briefing on file"). An array
     // select makes an empty result a clean `[]` (HTTP 200); only true errors throw.
     async function load(): Promise<JurisdictionBriefing | null> {
       const db = getClient()
@@ -135,7 +114,6 @@ export function MarketOverviewSheet({
           .eq('state_iso2', code)
           .order('last_reviewed_date', { ascending: false })
           .limit(1)
-          .abortSignal(controller.signal)
           .returns<JurisdictionBriefing[]>()
         const stateRow = firstOrThrow(stateRes, 'state')
         if (stateRow) return stateRow
@@ -147,7 +125,6 @@ export function MarketOverviewSheet({
           .eq('jurisdiction_type', 'country')
           .order('last_reviewed_date', { ascending: false })
           .limit(1)
-          .abortSignal(controller.signal)
           .returns<JurisdictionBriefing[]>()
         return firstOrThrow(countryRes, 'country-fallback')
       }
@@ -159,12 +136,15 @@ export function MarketOverviewSheet({
         .eq('jurisdiction_type', 'country')
         .order('last_reviewed_date', { ascending: false })
         .limit(1)
-        .abortSignal(controller.signal)
         .returns<JurisdictionBriefing[]>()
       return firstOrThrow(res, 'country')
     }
 
-    withTimeout(load(), FETCH_TIMEOUT_MS, `briefing:${code}`, () => controller.abort())
+    // PATCH: guard the fetch with a client-side timeout. Without this a hung
+    // request (never resolving, never rejecting) leaves `state` stuck on
+    // 'loading' forever — the gold spinner that never clears. On timeout we
+    // reject into the existing retryable error state.
+    withTimeout(load(), FETCH_TIMEOUT_MS, `briefing:${code}`)
       .then((briefing) => {
         if (cancelled) return
         cache.current.set(code, briefing)
@@ -176,10 +156,7 @@ export function MarketOverviewSheet({
         setState({ status: 'error' })
       })
 
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
+    return () => { cancelled = true }
   }, [countryIso2, retryKey])
 
   const isLoading = state.status === 'loading'
