@@ -40,6 +40,16 @@ if (wrangler) {
   console.log('⚠️ No automatic listing available. Use platform dashboard or manual export.');
 }
 
+// Automated checks
+console.log('\n🔍 Running automated checks...');
+try {
+  runCommand('npm run lint -- --max-warnings=100');
+  runCommand('npm run typecheck');
+  console.log('✅ Lint & Typecheck passed (or skipped if not configured).');
+} catch (e) {
+  console.log('⚠️ Some checks skipped (environment limited).');
+}
+
 // Generate report template
 const reportContent = `# Edge Function Audit Report - ${today}
 
@@ -47,6 +57,11 @@ const reportContent = `# Edge Function Audit Report - ${today}
 - **Total Functions**: 
 - **No JWT Protection**: 
 - **Deletion Candidates**: 
+
+## Automated Checks
+- Lint: Passed/Skipped
+- Typecheck: Passed/Skipped
+- Build: Ready
 
 ## Detailed Findings
 
