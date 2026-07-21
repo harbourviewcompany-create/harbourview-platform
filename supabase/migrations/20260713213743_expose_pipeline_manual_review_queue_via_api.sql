@@ -1,0 +1,15 @@
+-- Exposes public.pipeline_manual_review_queue (added in
+-- 20260713213101_digest_llm_fallback_and_manual_review_queue.sql) to
+-- PostgREST via the api schema, mirroring api.daily_digest
+-- (security_invoker view, service_role only -- this is internal ops data,
+-- not a public/authenticated surface). Used by
+-- app/api/cron/pipeline-manual-review-notify.
+--
+-- Converted to a no-op stub on 2026-07-19: the actual work here was
+-- already applied to production under the neighboring version
+-- 20260713213759 (16 seconds later, same filename) -- confirmed live via
+-- information_schema.columns that api.pipeline_manual_review_queue exists
+-- with exactly the 9 columns this file's SELECT list defines. Re-running
+-- `create view` (no OR REPLACE) against the already-existing view fails
+-- with "relation already exists".
+SELECT 1;

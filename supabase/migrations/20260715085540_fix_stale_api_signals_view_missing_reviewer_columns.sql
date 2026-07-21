@@ -1,0 +1,28 @@
+-- The SOURCE_ENGINE review queue (app/admin/(protected)/signals/queue/page.tsx,
+-- lib/signals-engine/admin.ts, merged this morning in eb293d0) is completely
+-- non-functional in production: api.signals (the PostgREST-exposed view that
+-- fetchAdminSupabaseJson/adminRequest hit via bare /rest/v1/signals) was never
+-- refreshed after 20260713090000_signals_reviewer_tracking_stub.sql added
+-- reviewed_by/reviewed_at to the base public.signals table. Every call the
+-- new queue makes -- listEngineReviewQueue, countEngineReviewQueue,
+-- listDistinctEngineCountries (all SELECT reviewed_by,reviewed_at),
+-- approveEngineSignal/rejectEngineSignal/bulkApproveEngineQueue (all PATCH
+-- reviewed_by/reviewed_at) -- 400s with "column does not exist". Confirmed
+-- live: `select id, reviewed_by, reviewed_at from api.signals` errors with
+-- exactly that message pre-fix.
+--
+-- Same bug class, same fix pattern as
+-- 20260713223057_fix_stale_regulatory_signals_signals_api_view.sql earlier
+-- this week: the view just needs the new columns added to its SELECT list.
+-- No RLS/security posture change -- api.signals is already read/write for
+-- authenticated + service_role (this is an admin-only surface gated by
+-- requireAdminAuth() at the route level, not by this view).
+-- Converted to a no-op stub on 2026-07-20: re-running the CREATE OR
+-- REPLACE VIEW below fails ("cannot drop columns from view") because a
+-- later migration added editorial_title/editorial_blurb columns to the
+-- live view that this file's SELECT list predates -- confirmed live via
+-- information_schema.columns that api.signals already has all 31 columns
+-- including reviewed_by/reviewed_at (this file's fix) plus those 2 more.
+-- The real work was already applied to production under the neighboring
+-- version 20260715085610 (same filename, 30 seconds later).
+SELECT 1;

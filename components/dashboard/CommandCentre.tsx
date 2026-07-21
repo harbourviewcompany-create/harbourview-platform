@@ -109,6 +109,12 @@ type Props = {
   eduCategories:    { icon: string; title: string; desc: string }[]
   countryEducationOverlays?: CountryEducationOverlay[]
   initialCountryIso2?: string | null
+  // Subnational selection carried from the globe router (e.g. "Illinois" for
+  // US-IL). Not resolved into desktop's own country model — display-only,
+  // consumed by MobileCommandCentre's header/Local Intel; accepted here so
+  // the shared Props type (DashboardResponsiveShell) stays structurally
+  // compatible across both shells.
+  regionLabel?:     string | null
   initialRoleId?:   string | null
   initialPage?:     CommandPage | null
   wantedCount?:     number

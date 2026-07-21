@@ -225,16 +225,23 @@ export async function fetchDashboardSignals(
       const all = feed.signals
 
       if (countryName) {
-        // Prioritise: country match → no country set → everything else
+        // Prioritise: country match, then genuinely global/multilateral
+        // content only (no country set, or explicitly tagged 'Global' --
+        // e.g. WHO/INCB signals relevant to every importing country).
+        // Deliberately do NOT pad with other NAMED countries' local
+        // business news (a Florida dispensary opening, a Missouri research
+        // program) just to fill the requested count -- that reads as noise
+        // to a user viewing an unrelated country and erodes trust in the
+        // feed. Better to show fewer, genuinely relevant signals than pad
+        // with irrelevant ones.
         const nameLower = countryName.toLowerCase()
         const countryMatch = all.filter(
           s => s.country_name?.toLowerCase() === nameLower,
         )
-        const noCountry = all.filter(s => !s.country_name)
-        const others    = all.filter(
-          s => s.country_name && s.country_name.toLowerCase() !== nameLower,
+        const globallyRelevant = all.filter(
+          s => !s.country_name || s.country_name.toLowerCase() === 'global',
         )
-        const prioritised = [...countryMatch, ...noCountry, ...others]
+        const prioritised = [...countryMatch, ...globallyRelevant]
         return prioritised.slice(0, limit).map(regulatoryToSignal)
       }
 
@@ -294,11 +301,15 @@ export async function fetchDashboardSignals(
       const toSignal = (s: CuratedSignalRow) => curatedToSignal(s, confidenceMap.get(s.id) ?? null)
 
       if (countryName) {
+        // Same principle as the regulatory feed above: only pad with
+        // genuinely global/multilateral content (no country tag, or
+        // explicitly 'Global'), never another named country's local news.
         const nameLower = countryName.toLowerCase()
         const countryMatch = all.filter(s => s.country?.toLowerCase() === nameLower)
-        const noCountry    = all.filter(s => !s.country)
-        const others       = all.filter(s => s.country && s.country.toLowerCase() !== nameLower)
-        const prioritised  = [...countryMatch, ...noCountry, ...others]
+        const globallyRelevant = all.filter(
+          s => !s.country || s.country.toLowerCase() === 'global',
+        )
+        const prioritised = [...countryMatch, ...globallyRelevant]
         return prioritised.slice(0, limit).map(toSignal)
       }
 
@@ -313,11 +324,14 @@ export async function fetchDashboardSignals(
       const all = result.data.filter(s => s.stage !== 'archived')
 
       if (countryName) {
+        // ia_signals has no global/multilateral concept in its data (every
+        // row is tagged to a specific named country) -- so unlike the two
+        // feeds above, there's no safe "genuinely relevant" bucket to pad
+        // with. Return country matches only, even if fewer than the
+        // requested limit, rather than filling with unrelated countries.
         const nameLower = countryName.toLowerCase()
         const countryMatch = all.filter(s => s.market?.toLowerCase().includes(nameLower))
-        const others       = all.filter(s => !s.market?.toLowerCase().includes(nameLower))
-        const prioritised  = [...countryMatch, ...others]
-        return shapeSignals(prioritised, limit)
+        return shapeSignals(countryMatch, limit)
       }
 
       return shapeSignals(all, limit)

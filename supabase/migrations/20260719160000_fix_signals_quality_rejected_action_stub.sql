@@ -1,0 +1,31 @@
+-- Applied directly to production via Supabase MCP (Jul 19 2026 session).
+-- Found via live screenshot review of the actual Intel tab (Australia).
+--
+-- 1. List-view analysis rendering gap: the analysis layer built earlier
+--    this session was only wired into the signal DETAIL view. The scrollable
+--    LIST of stacked cards -- what a user sees first -- only ever rendered
+--    commercialImpact (generic templated filler: "Likely trade or
+--    market-access relevance"). Confirmed via SQL: signals visible in the
+--    screenshots already had real analysis in the database, invisible on
+--    screen. Fixed in the same session's app-code commits (4 list-card
+--    render sites in MobileCommandCentre.tsx).
+--
+-- 2. Truncation/nav-fragment pollution within the passing score range:
+--    11 SOURCE_ENGINE signals matching a "Read More / View Report /
+--    truncated mid-sentence" pattern were passing the score>=50 gate
+--    (scores 52-62) despite being blog-roll fragments, board-meeting nav
+--    menus, and cut-off market-report numbers, not real headlines.
+--    Reviewed all 11 directly, confirmed genuinely bad, rejected via the
+--    review queue's action field.
+--
+-- 3. CRITICAL: rejecting them via action='rejected' had NO EFFECT on
+--    visibility. signals_quality's SOURCE_ENGINE/GAZETTE branches checked
+--    only score, never action/reviewed -- meaning the review queue's
+--    reject button (built earlier this session, thought complete) has
+--    been non-functional for any signal whose score already fell in the
+--    passing range, this whole time. Two features that looked complete
+--    independently but never actually composed together. Fixed by adding
+--    "(action IS NULL OR action <> 'rejected')" as a blanket condition
+--    across every branch of the view. Verified: the 11 truncated signals
+--    are now gone from signals_quality.
+SELECT 1;
