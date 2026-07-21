@@ -2,9 +2,10 @@
  * components/globe/GlobeProvider.tsx
  *
  * Wires the real schema (countries / signals / market_metrics) into context.
- * Realtime deltas are merged into state here rather than in the hook, since
- * merging requires the current `countries` list (for the country-name→iso2
- * lookup used by `signals` inserts).
+ * Realtime deltas are merged into state here. `signals.country_iso2` is
+ * resolved server-side by the `trg_signals_resolve_geo` trigger before the
+ * row commits, so `payload.new.country_iso2` is already correct — no
+ * client-side country→iso2 lookup needed.
  */
 'use client'
 
@@ -24,7 +25,6 @@ import {
   type GlobeCountryMarker,
   type GlobeSignal,
 } from '@/lib/globe/supabaseGlobeData'
-import { resolveCountryToIso2 } from '@/lib/globe/countryAlias'
 
 type GlobeContextType = {
   liveData: GlobeLiveData
@@ -63,11 +63,6 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [])
-
-  const iso2ByName = useMemo(
-    () => new Map(liveData.countries.map((c) => [c.name.toLowerCase(), c.iso2])),
-    [liveData.countries]
-  )
 
   const handleRealtimeChange = useCallback(
     (payload: {
@@ -114,10 +109,11 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
             score: number | null
             cat: string | null
             country: string | null
+            country_iso2: string | null
             created_at: string
           }
 
-          const iso2 = resolveCountryToIso2(row.country, iso2ByName)
+          const iso2 = row.country_iso2
           const signal: GlobeSignal = {
             id: row.id,
             headline: row.headline,
@@ -154,7 +150,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         return prev
       })
     },
-    [iso2ByName]
+    []
   )
 
   const { status, reconnect } = useGlobeRealtime(handleRealtimeChange)
