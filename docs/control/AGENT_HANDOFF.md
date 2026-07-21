@@ -1,7 +1,28 @@
 # Harbourview Agent Handoff
 
 Last updated: 2026-05-28
-Status: Pass 1.5 working-alpha handoff
+Status: **SUPERSEDED — historical record only, not current authority**
+
+> ⚠️ **Do not use this file as onboarding authority.** It is frozen at 2026-05-28
+> ("Pass 1.5 working-alpha"). The live, actively-maintained operating handoff is
+> the repo-root `HANDOFF.md` — read that first, not this one. Its own header
+> says the same: "New agent? Read the top four sections before touching
+> anything," referring to itself.
+>
+> The `docs/control/` packet this file names below as authority
+> (`SOURCE_OF_TRUTH.md`, `CURRENT_STATE.md`, `FINISH_LINE_BACKLOG.md`) is
+> likewise stale — none have been updated since 2026-05-28 / 2026-05-28 /
+> 2026-06-29 respectively, versus root `HANDOFF.md`'s 2026-07-19. Treat those
+> three, and this file, as historical background on the Pass 1.5 alpha push,
+> not current state or current instructions. `AGENTS.md` (repo root) is the
+> current source for process/merge-discipline rules; this file's "HOLD Only
+> For" list and "Universal Agent Prompt" below predate it and do not reflect
+> its merge-discipline or QA-command requirements.
+>
+> Flagged during a handoff/AGENTS.md review session, 2026-07-21 — see
+> `docs/control/EVIDENCE_LOG.md` for the entry.
+
+---
 
 ## Current Target
 
