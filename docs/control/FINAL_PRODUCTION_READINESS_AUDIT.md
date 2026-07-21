@@ -661,13 +661,13 @@ Status: HOLD (added 2026-07-21 following a production Data API outage — see `E
 
 Objective: prove the platform stays available under normal steady-state pipeline load and recovers from failure without full user-facing downtime. Every other gate certifies *correctness and leakage*; none certifies *availability*. This gate closes that gap. A green build, clean leakage probe, and passing RLS matrix do not satisfy it.
 
-Motivating incident (2026-07-21): the intelligence pipeline (heavy cron/tick functions on a burstable Micro compute) exhausted the database's CPU credits; PostgREST readiness failed and the entire Data API returned `503`, taking the globe/heat map, market overview, and Command Centre fully dark for users. No gate would have caught this, and there was no alerting — it was discovered from a user's phone. Recovery required manually shedding cron load. Root enabler is shared with Gate 3 (no branch protection): a pipeline/config change reached production with nothing gating availability impact.
+Motivating incident (2026-07-21): heavy, uncoordinated pipeline cron/tick functions on a burstable Micro compute drove the database into **verified CPU starvation** — PostgREST's readiness probe could no longer complete and the entire Data API returned `503`, taking the globe/heat map, market overview, and Command Centre fully dark for users. (The specific mechanism — burstable CPU-credit exhaustion — is the leading but **unconfirmed** hypothesis; the CPU-credit metric was not read. See `EVIDENCE_LOG.md`.) No gate would have caught this, and there was no alerting — it was discovered from a user's phone. Recovery required manually shedding cron load. Root enabler is shared with Gate 3 (no branch protection): a pipeline/config change reached production with nothing gating availability impact.
 
 Owner: operator and verification agent.
 
 Required checks:
 
-- **Compute right-sizing.** DB compute tier is sized for steady-state pipeline + serving load and is not burstable-credit-starved under normal operation. Record tier and a latency/CPU baseline.
+- **Compute right-sizing.** DB compute tier is sized for steady-state pipeline + serving load and is not CPU-starved under normal operation. Record tier and a latency/CPU baseline. (Interim: the 2026-07-21 operator decision is no paid upgrade pre-revenue, so this is met via low-duty-cycle re-cadencing on Micro rather than scaling — see `INTEL_CRON_REENABLE_RUNBOOK.md`.)
 - **Pipeline isolation and bounded work.** Background cron/tick functions do bounded, idempotent work per run (per `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §9-5); no unbounded ticks or in-DB `pg_sleep` loops that can starve the serving path; cron cadence is rationalized toward a single orchestrator (§8). No background job can saturate the compute that serves user reads.
 - **Read-path resilience.** The public serving path (globe/country/briefing reads) degrades gracefully and/or serves cached last-known-good data when the DB/Data API is unavailable. A DB or PostgREST blip must not black out the whole product.
 - **Observability and alerting.** Alerting on Data API 5xx rate, PostgREST/readiness health, and DB CPU/credit exhaustion, such that an outage is detected in minutes, not by a user. The existing `client_error_reports` path is functional (it was itself `500`-ing during the incident).
@@ -691,10 +691,10 @@ GO criteria:
 
 HOLD criteria:
 
-- Compute is burstable-credit-starved under normal load.
+- Compute is CPU-starved under normal load.
 - Any background job can starve the serving path.
 - No read-path fallback exists.
-- No availability alerting exists.
+- Availability failures do not alert.
 - No tested restore exists.
 
 ## Final Production GO Definition

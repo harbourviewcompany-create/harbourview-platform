@@ -304,12 +304,12 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 | 26 | airtable-tier-pull | `*/2 * * * *` | airtable tier pull |
 
 - Impact while disabled: scoring, promotion, signal extraction, and embeddings are not running → intelligence data goes stale and a backlog accrues. Monitor `hv_processing_jobs` (pending) and snapshot `pending`.
-- **Re-enable checklist — do NOT blindly restore (restoring `*/2` cadence on Micro reproduces the outage):**
-  1. **Gate on the compute upgrade first** — Micro → Small (`FINAL_PRODUCTION_READINESS_AUDIT.md` Gate 15). Do not re-enable 47 / 48 on Micro.
-  2. **Re-cadence the every-2-min jobs:** 47 (`hv-quality-pipeline`) and 26 (`airtable-tier-pull`) must NOT return to `*/2` — propose `*/15` or `*/30`. 48 (`hv-quality-promote`, 41 s/call) → hourly until its tick function is bounded.
-  3. **Bound the tick functions** (`hv_pipeline_tick`, `hv_quality_promote_tick`) to bounded, idempotent work per run per `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §9-5 before restoring frequent cadence.
-  4. **Re-enable one at a time**, watching `pg_stat_activity` / CPU between each. 14 and 13 (30-min cadence, lower risk) can go first after the upgrade.
-  5. Command: `SELECT cron.alter_job(job_id := N, active := true);` (add `schedule := '<new>'` when re-cadencing).
+- **Re-enable plan — the authoritative procedure is `INTEL_CRON_REENABLE_RUNBOOK.md`; this summary must stay in sync with it.** Do NOT blindly restore (`*/2` cadence reproduces the outage). Per the 2026-07-21 operator decision there is **no compute upgrade** — target Micro-sustainable, staggered cadences instead:
+  1. **No Small upgrade.** Keep the pipeline on Micro; make it sustainable via low duty cycle + staggering, not more compute.
+  2. **Target cadences (identical to the runbook):** 14 → `0,30 * * * *`; 13 → `25,55 * * * *`; 47 (`hv-quality-pipeline`) → `10,40 * * * *`; 48 (`hv-quality-promote`, 41 s/call) → `20 * * * *` (hourly); 26 (`airtable-tier-pull`) → `50 */3 * * *`. No two heavy jobs (14/47/48) share a firing minute.
+  3. **Re-enable one at a time**, waiting ~15 min between each and watching for latency creep (the burstable-CPU early warning); 14 and 13 first, then 47, 48, 26.
+  4. **Durable no-spend fix:** Stage 5 orchestrator consolidation (`docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §8) + bounding the tick functions (§9-5) — do before tightening cadence.
+  5. Command: `SELECT cron.alter_job(job_id := N, schedule := '<new>', active := true);`.
 - RLS / service-role paths: unaffected.
 - Rollback (of the load-shed itself): `SELECT cron.alter_job(job_id := N, active := true)` per job — but follow the checklist above; do not restore on Micro.
 - Human approval status: Tyler approved the disables live during the incident ("Go" / "Fix it") and approved this record ("Go").

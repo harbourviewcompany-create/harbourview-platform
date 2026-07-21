@@ -882,4 +882,25 @@ After these were disabled the compute recovered and PostgREST returned to `200` 
 
 **Related:** `FINAL_PRODUCTION_READINESS_AUDIT.md` Gate 15 (added same day, references this entry) and Gate 3 (branch protection, HOLD). PR #1113.
 
-**Rollback:** N/A — documentation of an event. Re-enabling the crons is tracked separately and gated on the compute upgrade (see `DATABASE_CONTROL.md`).
+**Rollback:** N/A — documentation of an event. Re-enabling the crons is tracked separately (see `DATABASE_CONTROL.md` and `INTEL_CRON_REENABLE_RUNBOOK.md`); per the 2026-07-21 operator decision it is re-cadenced for Micro, **not** gated on a compute upgrade.
+
+## 2026-07-21 — Revision: Micro-sustainable re-enable (no compute upgrade); CodeRabbit review fixes
+
+**Context:** operator decision — **no paid Supabase compute upgrade until the platform is revenue-generating.** This supersedes the earlier "gate on Micro→Small" framing in the re-enable plan and folds in the CodeRabbit review of PR #1113.
+
+**Changes (docs-only):**
+- `INTEL_CRON_REENABLE_RUNBOOK.md` rewritten to a **Micro-sustainable** plan: staggered ≥30-min cadences (47 `10,40`; 48 `20` hourly; 26 `50 */3`; 14 `0,30`; 13 `25,55`), no two heavy jobs sharing a firing minute, one-at-a-time re-enable watching latency creep as the burstable-CPU early warning. No upgrade precondition.
+- `DATABASE_CONTROL.md` re-enable summary synchronized to the runbook's exact cadences.
+- `FINAL_PRODUCTION_READINESS_AUDIT.md` Gate 15: CPU-credit exhaustion reworded from stated-as-fact to **verified CPU starvation + unconfirmed credit-exhaustion hypothesis**, consistent with the outage entry above; minor style/markdownlint fixes.
+
+**CodeRabbit comment dispositions (PR #1113):**
+- Cross-doc cadence consistency (Major) — **fixed** (runbook is authoritative; `DATABASE_CONTROL.md` mirrors its exact cadences).
+- Gate 15 credit-exhaustion overstated (Major) — **fixed**.
+- MD031 blank line before the SQL fence (Minor) — **fixed** in the runbook rewrite.
+- Run `npm run test -- --passWithNoTests` and record output (Minor) — **skipped, with reason (deliberate final status, not an oversight):** this repo's `test` script is a compound app/DOM/route suite (`test:globe-router && test:country-role && vitest …`); `--passWithNoTests` does not make it a no-op, and `node_modules` is absent. Running a full vitest suite for a Markdown-only change is disproportionate and unrelated to the diff — consistent with the docs-only precedent in this log.
+
+**Tyler approval:** explicit ("Go").
+
+**Rollback:** `git revert` the revision commit; additive/edit documentation only, no runtime impact.
+
+**Status:** Current — PR #1113, awaiting review/merge.
