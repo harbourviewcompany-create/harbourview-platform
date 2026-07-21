@@ -993,21 +993,25 @@ export async function getRegistryCoverageSummary(countryIso2: string | null): Pr
   if (!countryIso2) return null
   try {
     const supabase = await createClient()
+    // Goes through api.get_source_registry_coverage() rather than querying
+    // source_registry directly. source_registry's RLS only admits internal
+    // user_roles admin/operator staff, and the api.source_registry view is an
+    // unfiltered `select *` (source_url, adapter, notes, last_error_log,
+    // locked_by, etc. -- crawler internals). Broadening that RLS to logged-in
+    // dashboard users would hand every one of those columns to any
+    // authenticated caller. The RPC returns only the three aggregate fields
+    // this stat card needs and is grantable to `authenticated` without
+    // touching the raw table's access surface.
     const { data, error } = await supabase
-      .from('source_registry')
-      .select('tier, language')
-      .eq('iso', countryIso2.toUpperCase())
-      .eq('is_active', true)
-    if (error || !data || data.length === 0) return null
-
-    const languages = Array.from(new Set(
-      data.map(r => (typeof r.language === 'string' ? r.language : null)).filter((l): l is string => !!l),
-    )).sort()
+      .rpc('get_source_registry_coverage', { p_iso2: countryIso2.toUpperCase() })
+      .maybeSingle()
+    const row = data as { total_active: number; tier1_count: number; languages: string[] | null } | null
+    if (error || !row || row.total_active === 0) return null
 
     return {
-      totalActive: data.length,
-      tier1Count:  data.filter(r => r.tier === 1).length,
-      languages,
+      totalActive: row.total_active,
+      tier1Count:  row.tier1_count,
+      languages:   (row.languages ?? []).slice().sort(),
     }
   } catch {
     return null
