@@ -173,12 +173,24 @@ function priToCommercial(pri: string | null, lane: string, country: string): str
 }
 
 // ── Map curated public.signals row → DashboardSignal ──────────────────────────
-function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
+// confidence: prefers the real Stage-2/3 classifier confidence (signal_classifications.confidence,
+// 0-1 scale from an LLM judging actual content) when available. `s.score` is the legacy
+// keyword-density scorer from before the classifier rework and is KNOWN INVERTED
+// (rates nav/cookie-banner chrome ~99, genuine headlines <40 -- see
+// docs/INTELLIGENCE_ARCHITECTURE_SPEC.md) -- it must never be shown to users as a
+// confidence figure. Rows with no classifier row (mostly the earlier manually-approved
+// batch) get a flat 90: they passed human editorial review, which is a legitimate --
+// if different-in-kind -- confidence signal, and is strictly more honest than the old
+// inverted score.
+function curatedToSignal(s: CuratedSignalRow, classifierConfidence?: number | null): DashboardSignal {
   const laneKey = (s.top_lane ?? s.cat ?? '').toLowerCase()
   const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
   const tag     = laneKey in LANE_TO_TAG ? (SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change)
     : INTEL_TAG_FALLBACK
   const market = s.country ?? ''
+  const confidence = typeof classifierConfidence === 'number'
+    ? Math.round(classifierConfidence * 100)
+    : 90
   return {
     id:               s.id,
     slug:             undefined,    // public.signals has no slug; route uses /signals feed
@@ -187,7 +199,7 @@ function curatedToSignal(s: CuratedSignalRow): DashboardSignal {
     market,
     tag,
     timeAgo:          timeAgo(s.date ?? s.created_at),
-    confidence:       typeof s.score === 'number' ? s.score : 50,
+    confidence,
     commercialImpact: priToCommercial(s.pri, laneKey, market),
     sourceLabel:      'Harbourview Regulatory Watch',
     flag:             flagForMarket(market),
@@ -268,6 +280,26 @@ export async function fetchDashboardSignals(
     if (!error && data && data.length > 0) {
       const all = data as CuratedSignalRow[]
 
+      // Best-effort fetch of real classifier confidence for these ids. Service-role
+      // only (signal_classifications RLS blocks anon reads) -- falls back to an
+      // empty map so the anon-client path degrades to the flat-90 default above
+      // rather than erroring.
+      const confidenceMap = new Map<string, number>()
+      try {
+        const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
+        const svc = await createSupabaseServiceClient()
+        const ids = all.map(s => s.id)
+        const { data: classifications } = await svc
+          .from('signal_classifications')
+          .select('signal_id, confidence')
+          .in('signal_id', ids)
+        for (const row of classifications ?? []) {
+          if (typeof row.confidence === 'number') confidenceMap.set(row.signal_id, row.confidence)
+        }
+      } catch { /* leave confidenceMap empty -- callers fall back to flat 90 */ }
+
+      const toSignal = (s: CuratedSignalRow) => curatedToSignal(s, confidenceMap.get(s.id) ?? null)
+
       if (countryName) {
         // Same principle as the regulatory feed above: only pad with
         // genuinely global/multilateral content (no country tag, or
@@ -278,10 +310,10 @@ export async function fetchDashboardSignals(
           s => !s.country || s.country.toLowerCase() === 'global',
         )
         const prioritised = [...countryMatch, ...globallyRelevant]
-        return prioritised.slice(0, limit).map(curatedToSignal)
+        return prioritised.slice(0, limit).map(toSignal)
       }
 
-      return all.slice(0, limit).map(curatedToSignal)
+      return all.slice(0, limit).map(toSignal)
     }
   } catch { /* fall through */ }
 
@@ -713,4 +745,5 @@ export async function getWantedRequestsCount(countryIso2?: string | null): Promi
   } catch { /* Supabase unavailable */ }
   return 0
 }
+
 

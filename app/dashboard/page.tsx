@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
+import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getRegistryCoverageSummary, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
 import { getOperatorLicenceMatrix } from '@/lib/intelligence/operatorIntelligence'
@@ -240,7 +240,7 @@ export default async function DashboardPage({
     signalsResult, dailyDigestResult, wantedCountResult, marketplaceRowsResult,
     pipelineResult, wantedListingsResult, countryIntelResult, liveEduTilesResult,
     pathwayDataResult, , watchlistDataResult, evidenceDataResult,
-    recentEduModulesResult, localIntelResult, sourceCoverageResult, jurisdictionPlaybookResult,
+    recentEduModulesResult, localIntelResult, sourceCoverageResult, registryCoverageSummaryResult, jurisdictionPlaybookResult,
     educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
     cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
     mySubmissionsResult, countryEducationOverlaysResult, pathwayMatrixResult,
@@ -260,6 +260,7 @@ export default async function DashboardPage({
     getRecentEduModules(3),
     getLocalIntel(countryIso2),
     getSourceCoverage(countryIso2),
+    getRegistryCoverageSummary(countryIso2),
     getJurisdictionPlaybook(countryIso2),
     getEducationTracks(),
     getMarketMetrics(countryIso2),
@@ -288,6 +289,7 @@ export default async function DashboardPage({
   const recentEduModules       = settledOr(recentEduModulesResult, [], 'getRecentEduModules')
   const localIntel             = settledOr(localIntelResult, null, 'getLocalIntel')
   const sourceCoverage         = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
+  const registryCoverageSummary = settledOr(registryCoverageSummaryResult, undefined, 'getRegistryCoverageSummary')
   const jurisdictionPlaybook   = settledOr(jurisdictionPlaybookResult, null, 'getJurisdictionPlaybook')
   const educationTracks        = settledOr(educationTracksResult, [], 'getEducationTracks')
   const marketMetrics          = settledOr(marketMetricsResult, undefined, 'getMarketMetrics')
@@ -329,6 +331,7 @@ export default async function DashboardPage({
       evidenceData={evidenceData}
       recentEduModules={recentEduModules}
       sourceCoverage={sourceCoverage}
+      registryCoverageSummary={registryCoverageSummary ?? undefined}
       jurisdictionPlaybook={jurisdictionPlaybook ?? undefined}
       pathwayMatrix={pathwayMatrix}
       educationTracks={educationTracks}
@@ -346,3 +349,4 @@ export default async function DashboardPage({
     />
   )
 }
+

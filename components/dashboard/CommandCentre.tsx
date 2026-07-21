@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, RegistryCoverageSummary, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -129,6 +129,7 @@ type Props = {
   liveTiles?:           LiveEduTile[]
   recentEduModules?:    RecentEduModule[]
   sourceCoverage?:      SourceCoverageRow[]
+  registryCoverageSummary?: RegistryCoverageSummary
   jurisdictionPlaybook?: JurisdictionPlaybook
   pathwayMatrix?:       import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   educationTracks?:     EducationTrack[]
@@ -4829,7 +4830,7 @@ function SyncEmbeddingsPanel() {
 // ── EvidenceSourcesPage ───────────────────────────────────────────────────────
 
 const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
-  country, region, role, evidenceData, pathwayData, professionals = [], onPageChange,
+  country, region, role, evidenceData, pathwayData, professionals = [], registryCoverageSummary, onPageChange,
 }: {
   country:        { iso2: string; label: string }
   region:         string
@@ -4837,6 +4838,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   evidenceData?:  EvidenceData
   pathwayData?:   PathwayData
   professionals?: HvProfessional[]
+  registryCoverageSummary?: RegistryCoverageSummary
   onPageChange?:  (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
@@ -4991,6 +4993,17 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             <div className="cc-ev-stat-big unknown">{unknownAreas}</div>
             <small>Areas</small>
           </div>
+
+          {registryCoverageSummary && (
+            <div className="cc-ev-stat-card">
+              <div className="cc-rw-card-lbl">REGISTRY COVERAGE</div>
+              <div className="cc-ev-stat-big verified">{registryCoverageSummary.totalActive}</div>
+              <small>
+                {registryCoverageSummary.tier1Count} tier-1 · {registryCoverageSummary.languages.length}{' '}
+                language{registryCoverageSummary.languages.length === 1 ? '' : 's'}
+              </small>
+            </div>
+          )}
 
           <div className="cc-ev-stat-card">
             <div className="cc-rw-card-lbl">📅 LAST REVIEWED</div>
@@ -10674,6 +10687,7 @@ export default function CommandCentre({
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  registryCoverageSummary,
   jurisdictionPlaybook,
   pathwayMatrix,
   educationTracks = [],
@@ -10849,7 +10863,7 @@ export default function CommandCentre({
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} operatorLicenceMatrix={operatorLicenceMatrix} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'evidence':
-        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} onPageChange={handlePageChange} />
+        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} registryCoverageSummary={registryCoverageSummary} onPageChange={handlePageChange} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} countryEducationOverlays={countryEducationOverlays} onPageChange={handlePageChange} />
       case 'regulatory':
@@ -11026,6 +11040,7 @@ export default function CommandCentre({
     </div>
   )
 }
+
 
 
 
