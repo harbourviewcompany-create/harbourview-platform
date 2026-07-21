@@ -765,3 +765,41 @@ timelines to 14 published, customer-facing playbooks.
 **Rollback:** Delete the two new files / close PR #1093. No blast radius (additive only).
 
 **Status:** Current — awaiting review (PR marked ready for review, not merged; no sign-off given).
+
+## 2026-07-21 — Five SECURITY DEFINER signal-review RPCs found with no authorization check (live, unexploited); fixed
+
+**Finding:** proactive `get_advisors` security scan (run as part of an "is anything missing" follow-up pass) flagged `api.approve_engine_signal`, `api.reject_engine_signal`, `api.bulk_approve_engine_queue`, `api.apply_editorial_title`, and `api.save_signal_analysis` as SECURITY DEFINER functions callable by `anon`/`authenticated` roles. Read each function body via `pg_get_functiondef` and confirmed all five had **zero internal authorization check** — only PostgREST grants gated them, and all five were granted to `anon` and `authenticated`. Same vulnerability class as the `api.set_regulatory_tier`/`api.accept_classifier_tier` gap found and fixed on 2026-07-11 (see that entry above): the caller (`lib/signals-engine/admin.ts`) is only ever invoked from an internal admin page, but nothing enforced that at the database layer.
+
+**Exposure:** any caller with the public `anon` key (embedded in the client bundle) could, via `/rest/v1/rpc/...`:
+- `approve_engine_signal` / `reject_engine_signal` — mark any signal reviewed/approved or rejected, with a fully spoofable `reviewed_by`
+- `bulk_approve_engine_queue` — called with zero arguments, mass-approves the *entire* SOURCE_ENGINE review queue platform-wide
+- `apply_editorial_title` — rewrite any signal's public-facing headline/title/blurb
+- `save_signal_analysis` — inject arbitrary JSON into the "analysis" shown to dashboard users as commercial intelligence guidance
+
+**Exploitation check (before fixing):** queried `public.signals.reviewed_by` and `analysis_backend` distinct values. All `reviewed_by` values are internal pipeline identifiers (`auto:v1`, `automated-truncation-pattern-cleanup`); `analysis_backend` is uniformly `openai`. No spoofed, anomalous, or externally-attributable values found. No evidence of prior exploitation.
+
+**Fix:** added `public.is_genetics_admin_or_reviewer()` (existing helper, checks `user_roles.role in ('admin','operator','analyst')` — chosen over `is_regulatory_tier_admin()`'s admin-only check since these are ordinary day-to-day review actions, not admin-restricted ones) as the first statement in all five functions via `CREATE OR REPLACE`.
+
+**Service-role carve-out:** grepped the repo and found `supabase/functions/hv-classify/index.ts` calls `apply_editorial_title` using `SUPABASE_SERVICE_ROLE_KEY` as part of the automated titling pipeline. Service-role JWTs have no `user_roles` row, so the plain admin/operator/analyst check would have broken that pipeline. Caught this before it shipped broken — first apply used the plain check on all five, verified live, then immediately re-checked whether any of the five had a service-role caller, found the one case, and re-applied `apply_editorial_title` with `(select auth.role()) is distinct from 'service_role' and not is_genetics_admin_or_reviewer()`, admitting both callers. Confirmed via grep that none of the other four functions have any service-role caller anywhere in the repo.
+
+**Validation:** live-tested `api.approve_engine_signal('...', 'test-attacker')` directly via `execute_sql` (no privileged session) — raised `42501: insufficient privileges: admin/operator/analyst role required` as expected. Confirmed via `pg_proc.prosrc` inspection that all 5 functions carry the check and only `apply_editorial_title` carries the service-role carve-out.
+
+**Tyler approval:** explicit ("Go"), per the security/auth-change confirmation rule, before the fix was applied.
+
+**Files changed:** `supabase/migrations/20260721063000_fix_signal_review_rpcs_missing_authz.sql` (reconciliation file matching what was applied live), this entry, `docs/control/DATABASE_CONTROL.md`.
+
+**Rollback:** re-apply each function without the authorization check (original bodies preserved in this entry's context above) — not recommended, restores the unauthenticated-write exposure.
+
+## 2026-07-21 — Daily Digest: hardcoded flat 80% confidence on every signal card
+
+**Finding:** Tyler shared mobile screenshots of the live Daily Digest showing every card (a US federal bill, a CA tax pause, an FDA hearing, a facility closure, a seizure report — unrelated content) with an identical 80% confidence bar. Traced to `fetchDailyDigest()` in `lib/dashboard/dashboardServerData.ts` (its "editorial edition" branch, reading `daily_digest.headlines`): `confidence: 80` was a hardcoded literal for every item, independent of content. Distinct code path from `curatedToSignal()` (the `signals_quality` per-country fallback fixed in PR #1081) — this is a separate, pre-existing bug, not something introduced or missed by that PR.
+
+**Fix:** each `daily_digest.headlines` item carries a `signal_id`; added the same real-confidence idiom as #1081 — service-role fetch of `signal_classifications.confidence` keyed by `signal_id`, `round(confidence*100)` when present, flat 90 fallback (consistent with the rest of the codebase's convention for classifier-less rows) when a signal_id has no classifier row or the fetch fails.
+
+**Tyler approval:** "Go" (same message approving the security fix above).
+
+**Files changed:** `lib/dashboard/dashboardServerData.ts`, this entry.
+
+**Validation:** `npx tsc --noEmit` clean; `npm run lint` clean (0 errors, 151 pre-existing warnings, same baseline). No test suite covers this function's return shape directly — manual verification pending post-merge (confirm digest cards show varying confidence values, not a uniform 80/90).
+
+**Rollback:** `git revert` this commit — restores the flat-80 literal, no data impact (read-only display change).

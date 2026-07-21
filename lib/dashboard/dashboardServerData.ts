@@ -432,6 +432,27 @@ export async function fetchDailyDigest(
       const todayUtc  = new Date().toISOString().slice(0, 10)
       const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
 
+      // Real per-signal classifier confidence (same source/idiom as curatedToSignal
+      // above) instead of a flat 80 for every card regardless of content. Service-role
+      // only (signal_classifications RLS blocks anon reads) -- falls back to a flat 90
+      // per id (passed human editorial review) if the fetch fails or a signal_id has no
+      // classifier row.
+      const digestConfidenceMap = new Map<string, number>()
+      try {
+        const signalIds = signalItems.map(h => h.signal_id).filter((id): id is string => !!id)
+        if (signalIds.length > 0) {
+          const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
+          const svc = await createSupabaseServiceClient()
+          const { data: classifications } = await svc
+            .from('signal_classifications')
+            .select('signal_id, confidence')
+            .in('signal_id', signalIds)
+          for (const row of classifications ?? []) {
+            if (typeof row.confidence === 'number') digestConfidenceMap.set(row.signal_id, row.confidence)
+          }
+        }
+      } catch { /* leave digestConfidenceMap empty -- callers fall back to flat 90 */ }
+
       const signalSignals: DashboardSignal[] = signalItems.map((h, i) => ({
         id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
         slug:             undefined,
@@ -440,7 +461,9 @@ export async function fetchDailyDigest(
         market:           h.market ?? 'Global',
         tag:              { label: 'REGULATION', color: '#D9A441', bg: 'rgba(217,164,65,0.15)', border: 'rgba(217,164,65,0.35)' },
         timeAgo:          'Today',
-        confidence:       80,
+        confidence:       h.signal_id && digestConfidenceMap.has(h.signal_id)
+          ? Math.round(digestConfidenceMap.get(h.signal_id)! * 100)
+          : 90,
         commercialImpact: h.why_it_matters ?? '',
         sourceLabel:      'Harbourview Daily',
         flag:             flagForMarket(h.market ?? 'Global'),
