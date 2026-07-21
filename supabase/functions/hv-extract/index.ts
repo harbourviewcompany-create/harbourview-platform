@@ -152,10 +152,14 @@ async function extractOpenAI(snapshot: Snapshot): Promise<ExtractionResult> {
 }
 
 async function extractSignal(snapshot: Snapshot): Promise<{ result: ExtractionResult; backend: string } | null> {
+  // 2026-07-21: OpenAI tried first. Anthropic/Gemini keys exist but are
+  // billing-blocked (won't be funded until the product makes money --
+  // Tyler's call); trying them first wasted a guaranteed-fail round trip
+  // on every single extraction. See matching note in hv-classify/index.ts.
   const attempts: Array<[string, () => Promise<ExtractionResult>]> = [];
+  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractOpenAI(snapshot)]);
   if (ANTHROPIC_API_KEY) attempts.push(["anthropic", () => extractAnthropic(snapshot)]);
   if (GEMINI_API_KEY)    attempts.push(["gemini",    () => extractGemini(snapshot)]);
-  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractOpenAI(snapshot)]);
 
   const errors: string[] = [];
   for (const [backend, fn] of attempts) {
@@ -224,10 +228,11 @@ async function extractEditorialOpenAI(snapshot: Snapshot): Promise<EditorialResu
 }
 
 async function extractEditorial(snapshot: Snapshot): Promise<{ result: EditorialResult; backend: string } | null> {
+  // 2026-07-21: OpenAI first -- see extractSignal above for why.
   const attempts: Array<[string, () => Promise<EditorialResult>]> = [];
+  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractEditorialOpenAI(snapshot)]);
   if (ANTHROPIC_API_KEY) attempts.push(["anthropic", () => extractEditorialAnthropic(snapshot)]);
   if (GEMINI_API_KEY)    attempts.push(["gemini",    () => extractEditorialGemini(snapshot)]);
-  if (OPENAI_API_KEY)    attempts.push(["openai",    () => extractEditorialOpenAI(snapshot)]);
 
   const errors: string[] = [];
   for (const [backend, fn] of attempts) {

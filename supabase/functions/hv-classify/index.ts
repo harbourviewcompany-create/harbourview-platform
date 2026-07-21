@@ -6,7 +6,14 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
-const PROVIDER_ORDER = (Deno.env.get("CLASSIFY_PROVIDER_ORDER") ?? "openai,gemini,anthropic").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+// 2026-07-21: default changed from "openai,gemini,anthropic" to "openai"
+// only. Gemini and Anthropic keys exist in vault but are billing-blocked
+// ("prepayment credits depleted" / "credit balance too low") and won't be
+// funded until the product is making money (Tyler's call, 2026-07-21) --
+// cascading through them on every OpenAI failure was pure wasted latency
+// against two guaranteed-fail calls. Set CLASSIFY_PROVIDER_ORDER to
+// re-include them the moment they're funded again; no code change needed.
+const PROVIDER_ORDER = (Deno.env.get("CLASSIFY_PROVIDER_ORDER") ?? "openai").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const MODELS = { anthropic: "claude-haiku-4-5", gemini: "gemini-3.5-flash", openai: "gpt-4o-mini" };
 const QUALITY = ["signal", "boilerplate", "spam", "nav", "duplicate"];
@@ -44,7 +51,7 @@ function extractJson(text) {
   try { return JSON.parse(m[0]); } catch { return null; }
 }
 
-async function rawProvider(name, system, user) {
+async function rawProvider(name, system, user, opts = {}) {
   if (name === "anthropic") {
     if (!ANTHROPIC_API_KEY) return null;
     const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "content-type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model: MODELS.anthropic, max_tokens: 350, temperature: 0, system, messages: [{ role: "user", content: user }] }) });
@@ -53,9 +60,33 @@ async function rawProvider(name, system, user) {
   }
   if (name === "openai") {
     if (!OPENAI_API_KEY) return null;
-    const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_API_KEY}` }, body: JSON.stringify({ model: MODELS.openai, temperature: 0, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: user }] }) });
+    const body = { model: MODELS.openai, temperature: 0, messages: [{ role: "system", content: system }, { role: "user", content: user }] };
+    if (!opts.noJsonMode) body.response_format = { type: "json_object" };
+    let res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_API_KEY}` }, body: JSON.stringify(body) });
+    if (res.status === 429) {
+      // 2026-07-21: with Anthropic/Gemini billing-blocked, OpenAI carries
+      // 100% of classification traffic -- a burst of sequential calls (eval
+      // batches, or this function's own noJsonMode re-attempt below) can
+      // now trip its rate limit where it previously never would have,
+      // since load used to spread across 3 providers. One backoff-retry
+      // before giving up.
+      await new Promise((r) => setTimeout(r, 1500));
+      res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_API_KEY}` }, body: JSON.stringify(body) });
+    }
     if (!res.ok) throw new Error(`openai_${res.status}`);
-    const d = await res.json(); return extractJson(d?.choices?.[0]?.message?.content ?? "");
+    const d = await res.json();
+    const parsed = extractJson(d?.choices?.[0]?.message?.content ?? "");
+    if (parsed) return parsed;
+    // 2026-07-21: same-provider retry, once, without forced JSON mode.
+    // Observed a persistent (not transient -- same rows failed identically
+    // across repeated invocations over 2 days) empty/unparseable response
+    // from OpenAI's response_format=json_object path on a subset of inputs.
+    // Plain chat-completion mode + our own regex extraction is a genuinely
+    // different code path that can succeed where json_object mode returns
+    // empty content. With Anthropic/Gemini billing-blocked, this retry is
+    // the real fallback now, not a formality.
+    if (!opts.noJsonMode) return rawProvider(name, system, user, { noJsonMode: true });
+    return null;
   }
   if (name === "gemini") {
     if (!GEMINI_API_KEY) return null;
