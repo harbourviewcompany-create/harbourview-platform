@@ -20,15 +20,33 @@ insert into public.excluded_source_domains(domain, reason) values
   ('en.wikipedia.org','aggregator')
 on conflict (domain) do nothing;
 
--- Un-publish anything already auto-promoted from an excluded domain (only auto rows; never human).
+-- Robust host extraction: strips scheme, optional www., and everything from the
+-- first '/', '?' or '#' onward, so subdomains and URLs with query params/anchors
+-- resolve to their registrable host instead of producing false negatives.
+create or replace function public.hv_extract_host(p_url text)
+returns text
+language sql
+immutable
+as $fn$
+  select lower(regexp_replace(coalesce(p_url, ''), '^[a-zA-Z]+://(www\.)?([^/?#]+).*$', '\2'));
+$fn$;
+
+-- Un-publish anything already auto-promoted from an excluded domain.
+-- Targets all non-human-reviewed rows (auto:v1 AND legacy seed rows that
+-- predate reviewed_by metadata), not just reviewed_by = 'auto:v1'.
 update public.signals s
 set reviewed = false, reviewed_by = null, reviewed_at = null
-where s.reviewed_by = 'auto:v1'
-  and regexp_replace(s.url, '^https?://(www\.)?([^/]+).*', '\2') in (select domain from public.excluded_source_domains);
+where (s.reviewed_by = 'auto:v1' or s.reviewed_by is null)
+  and (s.reviewed_by is null or s.reviewed_by not like 'human:%')
+  and exists (
+    select 1 from public.excluded_source_domains d
+    where d.domain = public.hv_extract_host(s.url)
+  );
 
 -- Promote now refuses excluded domains outright.
 create or replace function public.hv_promote_signals(p_min_conf numeric default 0.0)
-returns int language plpgsql security definer set search_path to 'public' as $fn$
+returns int
+language plpgsql security definer set search_path to 'public' as $fn$
 declare n int;
 begin
   update public.signals s set
@@ -38,8 +56,10 @@ begin
     and coalesce(s.quality_confidence, 1) >= p_min_conf
     and s.reviewed is distinct from true
     and (s.reviewed_by is null or s.reviewed_by not like 'human:%')
-    and regexp_replace(coalesce(s.url,''), '^https?://(www\.)?([^/]+).*', '\2')
-        not in (select domain from public.excluded_source_domains);
+    and not exists (
+      select 1 from public.excluded_source_domains d
+      where d.domain = public.hv_extract_host(s.url)
+    );
   get diagnostics n = row_count;
   return n;
 end$fn$;
