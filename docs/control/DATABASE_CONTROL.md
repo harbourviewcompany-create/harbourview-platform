@@ -287,3 +287,29 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - Rollback: `CREATE OR REPLACE` each function without the authorization check (bodies preserved in the migration file's git history) — not recommended, restores the unauthenticated read-disclosure exposure.
 - Required tests: none applicable (no test suite covers these RPCs). Verified live: `select * from api.list_engine_review_countries();` with no privileged session raised `42501` as expected; `pg_proc.prosrc` inspection confirmed all 6 carry the check and only the two `hv-classify` callers carry the service-role carve-out.
 - Human approval status: Tyler approved explicitly ("Close it"), per the security/auth-change confirmation rule, before the migration was applied.
+
+## 2026-07-21 — Emergency cron load-shed: 5 pipeline jobs disabled (pipeline DEGRADED)
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`)
+- Trigger: Data API outage from compute CPU starvation under pipeline load. Full incident timeline, root cause, and load ranking: `EVIDENCE_LOG.md` (2026-07-21 outage entry).
+- Change: 5 `cron.job` rows set `active = false` via `SELECT cron.alter_job(job_id := N, active := false)`. No schema / function / RLS / grant change. Fully reversible.
+- Jobs disabled (all confirmed `active = false` via `cron.job`):
+
+| jobid | jobname | original schedule | function / worker |
+|---|---|---|---|
+| 47 | hv-quality-pipeline | `*/2 * * * *` | `public.hv_pipeline_tick()` |
+| 48 | hv-quality-promote | `*/10 * * * *` | `public.hv_quality_promote_tick()` |
+| 14 | claude-signal-extraction | `*/30 * * * *` | `run_signal_extraction(25)` |
+| 13 | hv-embed-every-30min | `25,55 * * * *` | embed queue worker (`hv_processing_jobs`) |
+| 26 | airtable-tier-pull | `*/2 * * * *` | airtable tier pull |
+
+- Impact while disabled: scoring, promotion, signal extraction, and embeddings are not running → intelligence data goes stale and a backlog accrues. Monitor `hv_processing_jobs` (pending) and snapshot `pending`.
+- **Re-enable checklist — do NOT blindly restore (restoring `*/2` cadence on Micro reproduces the outage):**
+  1. **Gate on the compute upgrade first** — Micro → Small (`FINAL_PRODUCTION_READINESS_AUDIT.md` Gate 15). Do not re-enable 47 / 48 on Micro.
+  2. **Re-cadence the every-2-min jobs:** 47 (`hv-quality-pipeline`) and 26 (`airtable-tier-pull`) must NOT return to `*/2` — propose `*/15` or `*/30`. 48 (`hv-quality-promote`, 41 s/call) → hourly until its tick function is bounded.
+  3. **Bound the tick functions** (`hv_pipeline_tick`, `hv_quality_promote_tick`) to bounded, idempotent work per run per `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §9-5 before restoring frequent cadence.
+  4. **Re-enable one at a time**, watching `pg_stat_activity` / CPU between each. 14 and 13 (30-min cadence, lower risk) can go first after the upgrade.
+  5. Command: `SELECT cron.alter_job(job_id := N, active := true);` (add `schedule := '<new>'` when re-cadencing).
+- RLS / service-role paths: unaffected.
+- Rollback (of the load-shed itself): `SELECT cron.alter_job(job_id := N, active := true)` per job — but follow the checklist above; do not restore on Micro.
+- Human approval status: Tyler approved the disables live during the incident ("Go" / "Fix it") and approved this record ("Go").

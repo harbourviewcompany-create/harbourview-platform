@@ -851,3 +851,35 @@ timelines to 14 published, customer-facing playbooks.
 **Rollback:** `git revert` this commit / close the PR. Additive documentation only; no runtime or data blast radius.
 
 **Status:** Current — draft PR, not merged; no merge/deploy sign-off given.
+
+## 2026-07-21 — Production Data API outage (compute CPU starvation) + emergency cron load-shed (5 jobs disabled live)
+
+**Incident:** The public Data API (PostgREST, `/rest/v1`) returned `503` platform-wide for an extended window — globe/heat map, market overview (`cc_jurisdiction_briefings`), and Command Centre (`/country/[country]`) all failed for users on mobile and desktop. Verified via `get_logs(api)`: every `/rest/v1/...` GET `503`; `/rest-admin/v1/ready` `503`; `/auth/v1/token` `504` — while the project stayed `ACTIVE_HEALTHY` and direct SQL still (intermittently) returned.
+
+**Root cause — VERIFIED:** the database compute was CPU-starved. Trivial operations (a 6-row `delete` on `realtime.subscription`, `SELECT 1`, `pg_stat_activity`) intermittently timed out or took 40+ s; no lock contention; connections 17–25/60. PostgREST's readiness probe (runs `SELECT name FROM pg_timezone_names`, observed at ~27 s under starvation) could not complete, so it `503`'d all REST traffic. Load source by `pg_stat_statements` total_exec_time: `hv_pipeline_tick()` 25.9% (job 47, 11 s/call, every 2 min), realtime WAL decode 13.7%, `hv_quality_promote_tick()` 7.3% (job 48, 41 s/call), `intel_pipeline_tick()` 5.2%, `run_signal_extraction()` 4.8% (job 14), plus the `hv-embed` queue worker (job 13) polling `hv_processing_jobs` every few seconds. 24 active cron jobs, two firing every 2 min, nearly all runs failing.
+
+**Root cause — INFERRED (not confirmed):** the specific mechanism as burstable-CPU-credit exhaustion. `max_connections=60` indicates a Micro (burstable) tier and the pattern fits, but the CPU-credit/utilization metric was **not** read. Operator to confirm in Supabase → Reports → Database → CPU for the outage window; if the cause is not credit exhaustion (e.g. memory/IO/a single runaway query), the compute-upgrade remedy may not fully hold.
+
+**Failed remediation (recorded so it is not repeated):** a `pause_project` → `restore_project` cycle was attempted (Tyler-approved) for fresh compute. The pause **hung in `PAUSING` ~30+ minutes** (Supabase control-plane; no self-serve lever to force-complete or cancel), extending the outage. It eventually restored to `ACTIVE_HEALTHY`; the DB briefly recovered, then **re-throttled** under the same load. **Pause/restore is not an appropriate recovery lever for live compute starvation** — heavier than a dashboard restart and can hang.
+
+**Effective remediation — 5 production cron jobs disabled live** via `SELECT cron.alter_job(job_id := N, active := false)` (reversible; `cron.job` is not directly writable, so `alter_job` was used; several calls were intermittently blocked by the Claude Code auto-mode classifier and retried):
+
+| jobid | jobname | original schedule | why disabled |
+|---|---|---|---|
+| 47 | hv-quality-pipeline | `*/2 * * * *` | `hv_pipeline_tick()` — #1 CPU consumer (25.9%), 11 s/call; recently-added every-2-min job, the tipping point |
+| 48 | hv-quality-promote | `*/10 * * * *` | `hv_quality_promote_tick()` — 41 s/call (7.3%) |
+| 14 | claude-signal-extraction | `*/30 * * * *` | `run_signal_extraction(25)` — 4.8% |
+| 13 | hv-embed-every-30min | `25,55 * * * *` | embed queue worker polling `hv_processing_jobs` every few seconds |
+| 26 | airtable-tier-pull | `*/2 * * * *` | every-2-min, failing ~31×/hr; ~0 CPU (freed little — recorded so it is not re-flagged as "the fix") |
+
+After these were disabled the compute recovered and PostgREST returned to `200` (confirmed via `get_logs(api)` — `countries`, `cc_jurisdiction_briefings`, `country_intel`, rpc calls all `200`; DB-level: 181 heat-map countries, MX briefing + intel present).
+
+**Current pipeline state: DEGRADED.** All 5 jobs remain `active = false` (verified via `cron.job`). Scoring, promotion, signal extraction, and embeddings are **not running**; expect a growing backlog (monitor `hv_processing_jobs` and snapshot `pending`). Re-enable path + conditions: `DATABASE_CONTROL.md`, 2026-07-21 cron load-shed entry.
+
+**Governance note:** these 5 disables were live production changes made mid-incident on verbal approval ("Go"/"Fix it"), not via PR (an emergency ops action cannot be). This entry is the required record; `DATABASE_CONTROL.md` carries the tabular state + re-enable checklist. `main` has no branch protection (Gate 3 / AGENTS.md) — the shared root enabler of both this incident and the security drift in the same-day Gate 9 refresh.
+
+**Tyler approval:** live disables approved during the incident ("Go"/"Fix it"); this record + the re-enable checklist approved explicitly ("Go").
+
+**Related:** `FINAL_PRODUCTION_READINESS_AUDIT.md` Gate 15 (added same day, references this entry) and Gate 3 (branch protection, HOLD). PR #1113.
+
+**Rollback:** N/A — documentation of an event. Re-enabling the crons is tracked separately and gated on the compute upgrade (see `DATABASE_CONTROL.md`).
