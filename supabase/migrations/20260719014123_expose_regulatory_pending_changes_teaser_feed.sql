@@ -2,6 +2,13 @@
 -- Teaser (always visible): country, change_type, entity_type, confidence, coarse year,
 --   and that details exist + whether they're locked. Drives signups.
 -- Specifics (current/expected value, note, exact effective date, source) gated to intel/operator.
+--
+-- Resolution note (merge conflict, 2026-07-20): a separate concurrent session's
+-- migration-ledger reconciliation pass created a stub version of this same
+-- filename ("Applied directly to production... No DDL executed. SELECT 1;")
+-- without the real function body. This version is the real, live-verified
+-- function -- confirmed via pg_get_functiondef against production to match
+-- exactly what is currently deployed. Kept over the stub.
 
 create or replace function api.regulatory_pending_changes_feed()
 returns table (

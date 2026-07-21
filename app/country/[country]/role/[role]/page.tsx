@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getSafeCountryRoleRedirect, resolveCountryRoleDashboard } from '@/lib/roles/country-role-resolver'
+import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays, getJurisdictionEvidenceStatus } from '@/lib/dashboard/dashboardLiveData'
@@ -162,7 +163,25 @@ async function getCountryRoleMarketplaceRows(
   return buckets
 }
 
-type Props = { params: Promise<{ country: string; role: string }> }
+type Props = {
+  params: Promise<{ country: string; role: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+// The globe router normalizes a subnational selection (e.g. US-IL) to its
+// parent country for routing, but still appends the original code as
+// ?region=US-IL — previously read by nothing, so "Illinois" silently
+// disappeared and the dashboard showed "United States" regardless of what
+// was picked. country_intel/jurisdiction_playbooks have no state-level data
+// to show, so this only resolves a safe display label (verified against the
+// resolved country's iso2) rather than fabricating state-level content.
+function resolveRegionLabel(regionParam: string | string[] | undefined, countryIso2: string): string | null {
+  const raw = Array.isArray(regionParam) ? regionParam[0] : regionParam
+  if (!raw) return null
+  const resolved = resolveCountryRouteParam(raw) as { displayName?: string; parentIso2?: string } | undefined
+  if (!resolved?.parentIso2 || resolved.parentIso2 !== countryIso2) return null
+  return resolved.displayName ?? null
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { country: countrySlug, role: roleSlug } = await params
@@ -185,8 +204,9 @@ function buildEvidenceGapModule(message?: string) {
   }
 }
 
-export default async function CountryRoleCommandCenterPage({ params }: Props) {
+export default async function CountryRoleCommandCenterPage({ params, searchParams }: Props) {
   const { country: countrySlug, role: roleSlug } = await params
+  const query = await searchParams
   const preDashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest')
   if (!preDashboard) {
     const safeHref = getSafeCountryRoleRedirect(countrySlug, roleSlug)
@@ -203,6 +223,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
   const dashboard = resolveCountryRoleDashboard(countrySlug, roleSlug, 'public_guest', evidenceStatus.verified)!
 
   const countryIso2 = dashboard.country.countryIso2
+  const regionLabel = resolveRegionLabel(query.region, countryIso2)
   const roleId = resolveDashboardRoleId(dashboard.role.slug)
   const baseEduCategories = roleId ? ROLE_EDU[roleId] ?? DEFAULT_EDU : DEFAULT_EDU
   const eduCategories = dashboard.evidence.confidence === 'evidence_gap'
@@ -284,6 +305,7 @@ export default async function CountryRoleCommandCenterPage({ params }: Props) {
       countryEducationOverlays={countryEducationOverlays}
       initialCountryIso2={countryIso2}
       initialRoleId={roleId}
+      regionLabel={regionLabel}
       wantedCount={wantedCount}
       marketplaceRows={marketplaceRows}
       pipeline={pipeline}

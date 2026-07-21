@@ -135,7 +135,18 @@ export async function insertCandidates(
       raw_payload: raw as unknown as Record<string, unknown>,
       ai_normalised: normalised as unknown as Record<string, unknown>,
       confidence: normalised.confidence,
-      status: 'needs_review',
+      // A scraped candidate only ever reaches the human review queue once it has
+      // the basics a reviewer needs to make a call on: a real price and a real
+      // title. Before this, ~527 of 529 pending candidates had no price at all --
+      // review work was actually enrichment work wearing a review-queue costume.
+      // Anything short of that goes to 'captured' -- lib/marketplace/candidates.ts's
+      // own CANDIDATE_STATUSES/ALLOWED_TRANSITIONS state machine already defines
+      // this as the pre-review entry point (captured -> needs_review once ready),
+      // so this reuses the existing status rather than inventing a new one that
+      // the admin UI's transition logic wouldn't recognize.
+      status: (normalised.priceAmount != null && normalised.title && normalised.title.trim().length >= 5)
+        ? 'needs_review'
+        : 'captured',
       discovered_at: raw.discoveredAt,
     }
 
