@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-07-22 (part 3) -- CodeRabbit review remediation on PR #1126 (6 findings, all fixed)
+
+**What changed:** CodeRabbit's automated review (`changes_requested`, ASSERTIVE profile) on PR #1126 flagged 6 issues across the part 1/2 changes. All 6 verified as legitimate and fixed:
+
+1. **Pipeline A wording overstated deprecation** (`STAGE3_PROMOTION.md`, deprecation migration) -- "never wired to anything" could read as "safe to assume empty," but `signal_classifications` holds 929 real rows and `hv-classify mode=pool` is still callable code. Reworded in both the doc and the live `COMMENT ON` text to "not wired to live promotion/cron automation," explicit that rows remain.
+2. **Stale "INACTIVE" cron status left in `STAGE3_PROMOTION.md`'s Pipeline B section** after the Owner Decisions section was updated to say the crons are now active -- genuine documentation drift within the same file. Fixed with an explicit pointer to the current-state section. Also fixed `DATABASE_CONTROL.md` calling the cron activation "additive/restrictive only," which undersold it -- now explicitly called out as a behavioral production change requiring monitoring.
+3. **Rollback section claimed "blast radius: none" for a `DROP TABLE` that would delete 929 real rows** -- direct internal inconsistency (the same document states the row count elsewhere). Fixed to require a snapshot and dependency check, explicitly marked destructive.
+4. **Confidence floor not structurally enforced** -- `coalesce(s.quality_confidence, 1) >= p_min_conf` treats a NULL confidence (a real possible classifier output) as 1.0, so an unscored row would still auto-promote; and no caller was actually prevented from passing a floor below 0.65 despite the default being raised. Fixed: `quality_confidence is not null and quality_confidence >= greatest(coalesce(p_min_conf, 0.65), 0.65)`.
+5. **Cron-enable migration hardcoded jobid 47/48** -- database-local IDs, fragile across a recreated/differently-provisioned database. Rewritten to resolve by `jobname` via `select ... into strict` (which itself asserts exactly one match). No change to actual production behavior -- same two jobs, now resolved safely.
+6. **`rows_needing_titles` had no `reviewed` filter** -- confirms a gap already surfaced informally in the part-2 entry (the 3,519-row unpromoted backlog was "not part of what was approved" but nothing in the code actually stopped a caller, including `hv-classify`'s own paid-LLM `mode=titles`, from reaching it). Fixed: added `and s.reviewed = true`, making the previously-manual scope boundary structural.
+
+**Scope:** 2 files rewritten in place (`20260722021500`, `20260722021600` -- both created this same PR, not yet part of any merged history, so editing in place rather than superseding was appropriate), 2 new migrations (`20260722022000`, `20260722022100`), plus doc corrections to `STAGE3_PROMOTION.md` and `DATABASE_CONTROL.md`. No new tables, no RLS change, no schema change.
+
+**Validation:** all 4 corrected/new migrations applied live successfully on first attempt (no classifier blocks this round). Post-apply: `cron.job.active=true` confirmed for both jobs via name lookup (unchanged from part 2); `pg_get_functiondef` confirms `hv_promote_signals` now contains the null-guard and `rows_needing_titles` now contains `s.reviewed = true`.
+
+**Tyler approval:** not separately sought -- these are accuracy/robustness corrections to already-approved work (matching or tightening previously stated intent, e.g. the `reviewed=true` fix makes true what was already described as the approved scope), not new production behavior or new decisions. Consistent with the subscription instructions to fix small, confident, non-ambiguous review findings directly.
+
+**Files changed:** `supabase/migrations/20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql` (rewritten), `supabase/migrations/20260722021600_deprecate_unused_stage3_pipeline_a.sql` (rewritten), `supabase/migrations/20260722022000_hv_promote_signals_structural_confidence_floor.sql` (new), `supabase/migrations/20260722022100_rows_needing_titles_promoted_only.sql` (new), `docs/control/STAGE3_PROMOTION.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** see each migration file's own header for its specific rollback statement. Not recommended for any.
+
+---
+
 ## 2026-07-22 (part 2) -- Pipeline B canonicalized: crons enabled, Pipeline A deprecated, rows_needing_titles fixed; title backfill blocked
 
 **What changed:** Activated the two Stage 3 promotion crons (`hv-quality-pipeline` */2min, `hv-quality-promote` */10min) that had existed inactive since before this session. Marked the unused sibling promotion path (`signal_classifications` / `api.promote_classified_signals`) deprecated via `COMMENT ON`, not dropped. Fixed `api.rows_needing_titles`, discovered mid-task to still be joined against the now-deprecated `signal_classifications` table and therefore only able to reach 9 of 919 target rows -- now matches `signals.quality_label` directly.

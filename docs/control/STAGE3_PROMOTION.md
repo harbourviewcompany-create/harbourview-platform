@@ -27,19 +27,25 @@ classify→promote systems, not two disconnected source registries.**
 - Promotion = deciding which `reviewed=false` rows become `reviewed=true`. Two separate
   mechanisms exist for that decision:
 
-### Pipeline A — documented, effectively unused
+### Pipeline A — documented, not wired to live promotion
+
 - `public.signal_classifications` (staging table) populated by `hv-classify`'s `pool`
-  mode (synchronous, one HTTP call per row via `supabase.rpc`).
+  mode (synchronous, one HTTP call per row via `supabase.rpc`). This mode is real code
+  that can still write here if invoked — "unused" below means "not on any promotion
+  path or cron schedule," not "has no producer" or "is safe to assume empty."
 - `api.promote_classified_signals(p_min_confidence=0.65, p_dry_run=true, p_limit=500)` —
   requires `editorial_title` set, source tier in `gov`/`press`, `date` within 30 days.
   Dry-run by default.
-- Verified state: `signal_classifications` holds only 929 rows, all from a single test
-  window (2026-07-19 to 2026-07-20). No evidence `promote_classified_signals` was ever
-  invoked with `p_dry_run => false` — its output signature (`action = 'Promoted by
-  classifier (Stage 3)'`, no `reviewed_by` write) does not match any row in `signals`.
-- **Status: not wired to anything, not the pipeline actually promoting rows. Kept as-is
-  for now (not dropped) pending Tyler's confirmation of pipeline B below as canonical —
-  see Owner decisions.**
+- Verified state: `signal_classifications` holds 929 real rows, all from a single test
+  window (2026-07-19 to 2026-07-20) — these are live staged data, not placeholder rows.
+  No evidence `promote_classified_signals` was ever invoked with `p_dry_run => false` —
+  its output signature (`action = 'Promoted by classifier (Stage 3)'`, no `reviewed_by`
+  write) does not match any row in `signals`.
+- **Status: not wired to live promotion or cron automation — the 929 staged rows remain
+  and pool mode could still populate more if someone invokes it directly. Deprecated via
+  `COMMENT ON` (not dropped) in `20260722021600_deprecate_unused_stage3_pipeline_a.sql`,
+  narrowly worded to "not the production promotion path," not "has never been used or
+  written to." See Owner decisions.**
 
 ### Pipeline B — undocumented until this rewrite, the one actually used
 - `hv_classify_corpus_dispatch(p_limit, p_scope_days)` / `hv_classify_corpus_harvest()` —
@@ -59,7 +65,12 @@ classify→promote systems, not two disconnected source registries.**
   reviewed_at=now()`. **Promotion-only invariant intact** — the `WHERE` clause only ever
   flips `false -> true`, matching guardrail #3.
 - `hv_pipeline_tick()` and `hv_quality_promote_tick()` chain the above. Both corresponding
-  crons (`hv-quality-pipeline` */2min, `hv-quality-promote` */10min) are **INACTIVE**.
+  crons (`hv-quality-pipeline` */2min, `hv-quality-promote` */10min) were inactive as of
+  the initial 2026-07-22 rewrite of this document; **both are now ACTIVE as of later the
+  same day** — see Owner decisions below, "Enabling continuous automation — RESOLVED."
+  (This sentence is intentionally kept as a historical note of the pre-activation state;
+  do not read anything in this "Pipeline B" section as reflecting current cron status —
+  Owner decisions is the current-state source of truth.)
 - **Verified live run:** `hv_promote_signals` (almost certainly via a manual call to
   `hv_quality_promote_tick()` or directly) executed once, 2026-07-20 02:24–13:50 UTC,
   promoting 1,102 rows. At the time, the tick's hardcoded call was
@@ -117,8 +128,12 @@ classify→promote systems, not two disconnected source registries.**
 
 ## Rollback
 
-Pipeline A (if abandoned): `drop function api.promote_classified_signals(numeric,boolean,int); drop table public.signal_classifications;` — blast radius: none, not wired, not applied.
+Pipeline A (if abandoned): `drop function api.promote_classified_signals(numeric,boolean,int); drop table public.signal_classifications;` — **this is destructive, not zero-blast-radius**: `signal_classifications` holds 929 real rows (see Pipeline A above) and the drop would delete them permanently and could break any remaining pool-mode or ad-hoc test consumer that still reads or writes that table. Do not run without first taking a snapshot (`create table public.signal_classifications_backup_<date> as select * from public.signal_classifications;` or equivalent) and confirming via grep/logs that nothing currently depends on it. Not currently planned — Pipeline A is deprecated-in-place (comment marker only), not scheduled for removal.
 
-Pipeline B confidence-floor fix: see `20260722020100_hv_quality_promote_explicit_confidence_floor.sql`.
+Pipeline B confidence-floor fix: see `20260722020100_hv_quality_promote_explicit_confidence_floor.sql`, hardened further in `20260722022000_hv_promote_signals_structural_confidence_floor.sql` (closes a NULL-confidence auto-promotion gap and prevents callers from passing a floor below 0.65).
 
 RPC grant hardening: see `20260722020000_harden_signal_review_rpc_grants_revoke_public.sql`.
+
+Cron activation: see `20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql` (rewritten 2026-07-22 to resolve jobs by name instead of hardcoded IDs — see that file's header).
+
+`rows_needing_titles` promoted-only scope: see `20260722022100_rows_needing_titles_promoted_only.sql`.
