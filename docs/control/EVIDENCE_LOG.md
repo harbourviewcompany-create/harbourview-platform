@@ -2,6 +2,26 @@
 
 ---
 
+## 2026-07-22 (part 5) -- Security: 12 public.hv_* pipeline functions callable by anon/authenticated with zero authorization, fixed
+
+**What changed:** CodeRabbit flagged `public.hv_promote_signals` for a missing `PUBLIC EXECUTE` revoke. Checking further found the same gap on the entire Pipeline B function family -- `hv_promote_signals`, `hv_dedup_assign`, `hv_pipeline_tick`, `hv_quality_promote_tick`, `hv_classify_corpus_dispatch`, `hv_classify_corpus_harvest`, `hv_translate_dispatch`, `hv_translate_harvest`, `hv_embed_dispatch`, `hv_embed_harvest`, `hv_entities_dispatch`, `hv_entities_harvest` -- all 12 SECURITY DEFINER, all reachable via the `PUBLIC` grant, none with any internal authorization check. Unlike the 11 `api.*` signal-review RPCs hardened 2026-07-21/22, these `public.*` pipeline internals were never touched by that pass.
+
+**Why this matters:** these aren't read-only or narrowly-scoped functions. `hv_classify_corpus_dispatch(p_limit, p_scope_days)` accepts arbitrary caller-supplied parameters and dispatches paid LLM calls -- an anon caller could invoke it repeatedly with large limits to run up cost with no rate limit. `hv_pipeline_tick`/`hv_quality_promote_tick`/`hv_promote_signals`/`hv_dedup_assign` could all be triggered on demand, bypassing cron scheduling entirely (including the DoS-prone dedup query, on-demand instead of its normal 10-minute cadence, and only currently disabled at the cron level -- not blocked from direct invocation).
+
+**Fix:** revoke `EXECUTE` from `PUBLIC` on all 12. No legitimate external caller exists for any of them -- both cron jobs that invoke this pipeline (`hv-quality-pipeline`, `hv-quality-promote`) run as the `postgres` role, which keeps its own explicit grant, so nothing that actually works today is affected. Verified live before and after: `postgres`/`service_role` grants intact, `anon`/`authenticated` (and the `PUBLIC` grant they were inheriting from) gone; `cron.job.username='postgres'` confirmed for both jobs.
+
+**Self-correction, recorded rather than hidden:** the first applied version of this fix revoked `EXECUTE` from `anon, authenticated` explicitly -- which did *not* work, because both roles still inherited access via the untouched `PUBLIC` grant (`=X/postgres`). This is the identical trap `INTELLIGENCE_ARCHITECTURE_SPEC.md` guardrail #6 names, and the same mistake already caught and correctly fixed once earlier this session for the `api.*` RPCs (part 5's predecessor, the "RPC grant hardening" entry above) -- repeated here on a different function family, caught immediately via a live post-apply grant re-check before moving on, corrected to `REVOKE ... FROM PUBLIC`, and re-verified.
+
+**Also fixed in this round (doc accuracy, CodeRabbit flagged):** `STAGE3_PROMOTION.md`'s title-backfill section still described `rows_needing_titles` as reaching "904 promoted + 3,519 backlog" rows -- stale since the prior round's `s.reviewed = true` fix structurally excludes the backlog now. Corrected to state the RPC can only ever return the promoted pool.
+
+**Tyler approval:** obtained explicitly ("Confirming") after the finding, its severity, and the exact fix were laid out in detail, per the security/auth-change confirmation rule.
+
+**Files changed:** `supabase/migrations/20260722031500_revoke_anon_authenticated_hv_pipeline_functions.sql`, `docs/control/STAGE3_PROMOTION.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** `grant execute on function <fn> to public;` per function in the migration file -- not recommended, restores the unauthenticated exposure.
+
+---
+
 ## 2026-07-22 (part 4) -- Incident: hv-quality-pipeline/promote crons failing on nearly every run, caught and fixed same session
 
 **What happened:** After enabling the Stage 3 promotion crons (part 2 of this log) and pushing CodeRabbit-driven hardening fixes (part 3), a follow-up "is anything materially important missing" check found both crons had been failing on nearly every run since activation -- not caught at enablement time because verification then only checked `cron.job.active=true`, not actual run outcomes.

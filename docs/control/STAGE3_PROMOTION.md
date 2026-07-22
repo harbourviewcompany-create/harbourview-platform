@@ -130,10 +130,13 @@ classify→promote systems, not two disconnected source registries.**
   Tyler approved running this 2026-07-22. While scoping it, found `api.rows_needing_titles`
   was still joined against the deprecated Pipeline A staging table and could only reach 9
   of 919 target rows — fixed in `20260722021700_fix_rows_needing_titles_pipeline_b.sql`
-  to match `signals.quality_label` directly (now correctly reaches the full pool: 904 live
-  promoted rows missing a title, plus a separately-discovered 3,519-row unpromoted-backlog
-  population also missing titles — the backlog was NOT part of what was approved and
-  hasn't been run). The RPC fix is live and verified; the actual title-generation calls
+  to match `signals.quality_label` directly. That first fix reached the full pool (904 live
+  promoted rows plus a separately-discovered 3,519-row unpromoted backlog also missing
+  titles) — the backlog was not part of what was approved, so a second fix,
+  `20260722022100_rows_needing_titles_promoted_only.sql`, added `s.reviewed = true`.
+  **Current live behavior: the RPC can only ever return the promoted (~904-row) pool —
+  the 3,519-row unpromoted backlog is now structurally excluded, not just manually
+  avoided.** Both RPC fixes are live and verified; the actual title-generation calls
   (`hv-classify` in `mode=titles`, which calls paid LLM providers) were **blocked by the
   Claude Code Auto Mode classifier** on every attempt (consistently, not transiently) when
   invoked via `curl` — no MCP tool exists to invoke an edge function directly, and routing
