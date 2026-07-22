@@ -79,3 +79,43 @@
 **Files changed:** `supabase/migrations/20260710170000_jurisdiction_playbooks_batch20a_sources.sql`, `20260710170100_jurisdiction_playbooks_batch20b_content.sql`, this entry.
 
 **Rollback:** as above -- not recommended, no known defect. Content across all four batches (16 countries total) is web-sourced, cited, and cross-verified against 2+ independent sources per country minimum.
+
+
+## 2026-07-19 — Frontend dashboard optimization plan filed for agent pickup (docs only; branch rebased same day)
+
+**Summary:** A Claude (chat) session audited `CommandCentre.tsx`, `MobileCommandCentre.tsx`, and
+`lib/dashboard/dashboardLiveData.ts` against the full Supabase schema, at Tyler's request for a
+frontend/IA optimization pass. Findings filed to `docs/control/FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md`
+and `docs/control/PRICE_CROSSCHECK_SPEC.md` on branch `docs/frontend-dashboard-optimization-plan`
+(docs-only, no application code touched), PR #1083.
+
+**Key findings:** several "intelligence" panels (banking/insurance/logistics providers, job board,
+industry events, price benchmarks) are static TypeScript constant arrays with no backing Supabase
+table. The corridor panel was initially misidentified as belonging to this list — corrected same
+session after finding it fetches live data on-demand from `/api/corridors/data` and a
+`get_corridor_stats` RPC, both confirmed populated. Also noted: 19 tables with RLS disabled;
+`CommandCentre.tsx` is ~626KB/16,000+ lines as a single file; previously-logged orphaned tables
+(`opportunities`, `engagements`, `projects`, `jurisdiction_briefings`) carried forward, not
+re-verified. A scoped, additive (not replacing) implementation spec for a `PRICE_BENCHMARKS`
+live cross-check against `market_metrics` was written and filed alongside the plan doc.
+
+**Branch rebase note:** the branch was originally forked from `main` earlier the same day; `main`
+picked up an unrelated `package-lock.json` regeneration afterward, which surfaced as an unintended
+file in PR #1083's diff. Rather than merge that drift in, the branch was force-updated to `main`'s
+new tip (`update_ref`, added to `github-bridge` v12 for this purpose) and all four doc files
+re-pushed byte-identical (two via their existing blob shas, two — this file and `HANDOFF.md` —
+re-applied fresh against the new `main` state). PR #1083's diff is docs-only again as a result.
+
+**Process note:** `github-bridge` gained `update_pr` (v10) and `update_ref` (v12) this session,
+both scoped to exactly one endpoint each, to support editing an already-open PR body and resetting
+a drifted branch respectively — see the function's own header comments for full rationale.
+
+**Commands run:** none applicable — no application code, schema, or migration touched. No local
+checkout or npm environment is available from this chat session; documented per AGENTS.md's
+fallback clause. Whoever merges should confirm the docs-only QA tier first.
+
+**Files changed:** `docs/control/FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md`,
+`docs/control/PRICE_CROSSCHECK_SPEC.md`, `HANDOFF.md` (pointer), this entry.
+
+**Rollback:** Revert the commits on `docs/frontend-dashboard-optimization-plan` — docs-only, no
+data/schema/runtime risk either direction.
