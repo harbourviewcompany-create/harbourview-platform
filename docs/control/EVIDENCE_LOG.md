@@ -2,6 +2,30 @@
 
 ---
 
+## 2026-07-22 (part 4) -- Incident: hv-quality-pipeline/promote crons failing on nearly every run, caught and fixed same session
+
+**What happened:** After enabling the Stage 3 promotion crons (part 2 of this log) and pushing CodeRabbit-driven hardening fixes (part 3), a follow-up "is anything materially important missing" check found both crons had been failing on nearly every run since activation -- not caught at enablement time because verification then only checked `cron.job.active=true`, not actual run outcomes.
+
+**Scope of the failure (3-hour window in `cron.job_run_details`):** 30 `canceling statement due to statement timeout` errors on `hv_classify_corpus_harvest()` (called by `hv-quality-pipeline`), 7 on `hv_dedup_assign()` (called by `hv-quality-promote`), 2 `job startup timeout` errors, 1 apparent success.
+
+**Cost exposure check (done before acting, not assumed):** because both tick functions run their steps in sequence and abort entirely on the first unhandled error, and harvest/dedup run *before* the paid-LLM dispatch steps in their respective functions, the failures were aborting before reaching dispatch on nearly every run. Verified via `hv_classify_jobs` joined to `net._http_response`: only one dispatch batch (120 requests, all HTTP 200, fully harvested) went out in the whole session. Lifetime harvest success rate: 99.86% (88,892 of 89,013). This was a reliability/performance incident, not a runaway-spend incident -- corrected an overstated cost-urgency claim made earlier in the same conversation before verifying it.
+
+**Immediate action:** both crons disabled (`cron.alter_job(..., active => false)`, by name) as a precaution while diagnosing -- cheap, fully reversible, stops wasted cycles regardless of root cause.
+
+**Root cause 1 (harvest, FIXED):** `public.hv_classify_jobs` (89,013 rows, 2,689 dead tuples) had `last_autoanalyze = null` and a stale manual analyze from earlier the same morning. Stale statistics led the planner to estimate 1 unharvested row (actual ~107-121) for the join against `net._http_response`, producing a Nested Loop that re-scanned `net._http_response` sequentially once per outer row (cost ~24,656 each time) instead of a single Hash Join. Confirmed `net._http_response` itself is tiny (243 live rows, no index on `id`, only on `created`) -- not a missing-index problem, a stale-statistics-driven bad plan. Fix: `ANALYZE public.hv_classify_jobs; ANALYZE net._http_response;` (migration `20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql`). Verified live: query plan changed from Nested Loop to Hash Join after analyzing; a manual `select hv_classify_corpus_harvest();` call then completed cleanly (120 rows, no timeout). `hv-quality-pipeline` (jobid 47) re-enabled.
+
+**Root cause 2 (dedup, NOT FIXED, left disabled):** `hv_dedup_assign()` is a genuine O(n²) self-join over embedded signals (5,080 rows in the current 400-day scope ≈ 25.8M pairwise comparisons), expressed as a threshold filter (`1 - (a.embedding_1024 <=> b.embedding_1024) >= p_tau`) rather than an indexable ANN/KNN query -- pgvector's HNSW index supports `ORDER BY ... LIMIT` nearest-neighbor queries, not arbitrary pairwise threshold filtering, so no amount of `ANALYZE` or indexing fixes this shape of query. It will keep timing out and get worse as the corpus grows. `hv-quality-promote` (jobid 48) deliberately left INACTIVE -- since `hv_quality_promote_tick()` calls dedup before promote in the same function body, dedup's failure was also silently blocking promotion, even though `hv_promote_signals` itself (a straightforward UPDATE) would very likely run fine on its own. Needs a real design fix before re-enabling: batching, a narrower time scope, or rewriting to use pgvector's index properly. Not attempted in this session -- redesigning a clustering algorithm under an incident-response fix was judged too risky to do without more care.
+
+**Net effect:** classify/translate/embed/entity work (`hv-quality-pipeline`) is running continuously again and verified working. Auto-promotion of newly-classified rows is NOT happening continuously -- `hv-quality-promote` is off pending the dedup fix. The 1,102 rows promoted 2026-07-20 and the confidence-floor/grant hardening from earlier today are unaffected either way.
+
+**Tyler approval:** disabling both crons and re-enabling the pipeline-only job were done under an explicit "Go" in response to a detailed proposal (disable → diagnose → fix → validate → re-enable) laid out in the same turn. The dedup fix itself was not proposed or attempted -- flagged as a distinct follow-up requiring its own scoping.
+
+**Files changed:** `supabase/migrations/20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql`, `docs/control/STAGE3_PROMOTION.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** the `ANALYZE` migration needs no rollback (statistics-only, no data/schema change). To fully revert to the pre-incident state: `select cron.alter_job((select jobid from cron.job where jobname='hv-quality-pipeline'), active => false);` -- not recommended, that's the job that's now confirmed working.
+
+---
+
 ## 2026-07-22 (part 3) -- CodeRabbit review remediation on PR #1126 (6 findings, all fixed)
 
 **What changed:** CodeRabbit's automated review (`changes_requested`, ASSERTIVE profile) on PR #1126 flagged 6 issues across the part 1/2 changes. All 6 verified as legitimate and fixed:

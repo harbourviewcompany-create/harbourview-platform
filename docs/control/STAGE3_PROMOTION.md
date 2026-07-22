@@ -66,11 +66,12 @@ classify→promote systems, not two disconnected source registries.**
   flips `false -> true`, matching guardrail #3.
 - `hv_pipeline_tick()` and `hv_quality_promote_tick()` chain the above. Both corresponding
   crons (`hv-quality-pipeline` */2min, `hv-quality-promote` */10min) were inactive as of
-  the initial 2026-07-22 rewrite of this document; **both are now ACTIVE as of later the
-  same day** — see Owner decisions below, "Enabling continuous automation — RESOLVED."
-  (This sentence is intentionally kept as a historical note of the pre-activation state;
-  do not read anything in this "Pipeline B" section as reflecting current cron status —
-  Owner decisions is the current-state source of truth.)
+  the initial 2026-07-22 rewrite of this document, briefly both active, then
+  `hv-quality-promote` was taken back offline after an incident (timeouts caused by an
+  O(n²) query in `hv_dedup_assign`) — see Owner decisions below, "Enabling continuous
+  automation," for the current, accurate state. Do not read anything in this "Pipeline B"
+  section as reflecting current cron status — Owner decisions is the current-state
+  source of truth.
 - **Verified live run:** `hv_promote_signals` (almost certainly via a manual call to
   `hv_quality_promote_tick()` or directly) executed once, 2026-07-20 02:24–13:50 UTC,
   promoting 1,102 rows. At the time, the tick's hardcoded call was
@@ -92,11 +93,35 @@ classify→promote systems, not two disconnected source registries.**
   deprecated via `COMMENT ON` in
   `20260722021600_deprecate_unused_stage3_pipeline_a.sql` — not dropped, no data
   touched, fully reversible, just carries a "do not use" marker now.
-- **Enabling continuous automation — RESOLVED, now ON.** Both `hv-quality-pipeline`
-  (jobid 47, */2min) and `hv-quality-promote` (jobid 48, */10min) were activated
-  2026-07-22 via `20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql`.
-  The live public feed now gets written continuously and unattended on this schedule.
-  Monitor `cron.job_run_details` for the first several runs.
+- **Enabling continuous automation — RESOLVED, PARTIALLY ON, one incident along the way.**
+  Both `hv-quality-pipeline` (jobid 47, */2min) and `hv-quality-promote` (jobid 48,
+  */10min) were activated 2026-07-22 via
+  `20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql`. **This is where
+  the "monitor the first several runs" advice above turned out to matter**: both jobs
+  were failing on nearly every run (30 statement-timeout errors on
+  `hv_classify_corpus_harvest()`, 7 on `hv_dedup_assign()`, 2 job-startup timeouts, in a
+  3-hour window) -- caught during a follow-up "is anything materially important missing"
+  check, not by design.
+  - **`hv_classify_corpus_harvest()` timeout — FIXED.** Root cause: stale planner
+    statistics on `hv_classify_jobs` (89,013 rows, never auto-analyzed) caused a bad
+    query plan (Nested Loop re-scanning `net._http_response` once per outer row instead
+    of a single Hash Join). Fixed by `ANALYZE` in
+    `20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql` -- verified live,
+    plan now uses Hash Join, a manual harvest call completed cleanly. **`hv-quality-pipeline`
+    (jobid 47) is back ACTIVE.**
+  - **`hv_dedup_assign()` timeout — NOT FIXED, `hv-quality-promote` left INACTIVE.**
+    This is a genuine O(n²) self-join over embedded signals (5,080 rows in the current
+    400-day scope ≈ 25.8M pairwise comparisons), expressed as a threshold filter rather
+    than an indexable ANN/KNN query -- `ANALYZE` cannot fix this, and it gets worse as
+    the corpus grows. Needs a real design fix (batching, a narrower scope, or rewriting
+    to use pgvector's index via an `ORDER BY ... LIMIT` KNN pattern instead of a full
+    self-join) before this cron runs continuously. Since `hv_quality_promote_tick()`
+    calls dedup before promote in the same function, dedup's failure was also blocking
+    promotion entirely -- the two are wired together even though they're separable.
+    **jobid 48 stays INACTIVE until dedup gets a proper fix.**
+  - Net effect right now: classify/translate/embed/entity work is proceeding
+    continuously again; auto-promotion of new rows is not, until the dedup query is
+    redesigned.
 - **Confidence threshold value.** Set to 0.65 (2026-07-22 fix, matching the
   never-applied Pipeline A default). Revisit against real eval-set precision/recall data
   if/when Stage 0's `intel_eval_set` labeling work happens — 0.65 is a carried-over
