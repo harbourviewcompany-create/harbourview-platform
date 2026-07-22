@@ -26,6 +26,29 @@ import {
 } from '@/lib/globe/supabaseGlobeData'
 import { resolveCountryToIso2 } from '@/lib/globe/countryAlias'
 
+/**
+ * Retries a promise-returning fn with backoff. The diagnosed cause of the
+ * "Could not load regulatory data" / uncoloured-gold globe was transient
+ * database latency that recovers within seconds; a retry turns a blip into a
+ * brief reload instead of a dead-end. Each attempt is independently
+ * timeout-guarded by the caller where applicable.
+ */
+async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly number[]): Promise<T> {
+  let lastErr: unknown
+  for (let i = 0; i <= backoffsMs.length; i++) {
+    try {
+      return await attempt()
+    } catch (err) {
+      lastErr = err
+      if (i < backoffsMs.length) {
+        await new Promise((resolve) => setTimeout(resolve, backoffsMs[i]))
+      }
+    }
+  }
+  throw lastErr
+}
+const FETCH_RETRY_BACKOFFS_MS = [800, 2000] as const
+
 type GlobeContextType = {
   liveData: GlobeLiveData
   status: RealtimeStatus
@@ -49,7 +72,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    getGlobeLiveData()
+    withRetry(() => getGlobeLiveData(), FETCH_RETRY_BACKOFFS_MS)
       .then((data) => {
         if (!cancelled) setLiveData(data)
       })
