@@ -73,28 +73,47 @@ classify→promote systems, not two disconnected source registries.**
   they are live on the public feed showing raw scraped headlines, not the cleaned
   editorial titles `rows_needing_titles`/`apply_editorial_title` exist to produce.
 
-## Owner decisions (spec §10) — still open, not resolved by this rewrite
+## Owner decisions (spec §10) — resolved 2026-07-22, except the title backfill
 
-- **Which pipeline is canonical.** Recommendation: Pipeline B (`hv_classify_corpus_*` /
-  `hv_promote_signals` / `hv_dedup_assign`) — it's the one actually proven in production
-  and the more complete one (translate + classify + embed + dedup + promote in one
-  chain). If confirmed, Pipeline A (`signal_classifications` /
-  `promote_classified_signals`) should be formally deprecated (dropped or left inert with
-  a clear "do not use" marker) to remove the duplicate-system risk this rewrite exists to
-  document. **Not decided yet — do not drop Pipeline A until Tyler confirms.**
-- **Enabling continuous automation.** `hv-quality-pipeline` and `hv-quality-promote`
-  remain inactive. Turning them on means the live public feed gets written every 2–10
-  minutes without a human in the loop each time — a deliberate go/no-go, not bundled into
-  this documentation or the confidence-floor fix.
-- **Confidence threshold value.** Set to 0.65 (this rewrite's fix, matching the
+- **Which pipeline is canonical — RESOLVED.** Pipeline B (`hv_classify_corpus_*` /
+  `hv_promote_signals` / `hv_dedup_assign`) confirmed canonical by Tyler 2026-07-22.
+  Pipeline A (`signal_classifications` / `api.promote_classified_signals`) marked
+  deprecated via `COMMENT ON` in
+  `20260722021600_deprecate_unused_stage3_pipeline_a.sql` — not dropped, no data
+  touched, fully reversible, just carries a "do not use" marker now.
+- **Enabling continuous automation — RESOLVED, now ON.** Both `hv-quality-pipeline`
+  (jobid 47, */2min) and `hv-quality-promote` (jobid 48, */10min) were activated
+  2026-07-22 via `20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql`.
+  The live public feed now gets written continuously and unattended on this schedule.
+  Monitor `cron.job_run_details` for the first several runs.
+- **Confidence threshold value.** Set to 0.65 (2026-07-22 fix, matching the
   never-applied Pipeline A default). Revisit against real eval-set precision/recall data
   if/when Stage 0's `intel_eval_set` labeling work happens — 0.65 is a carried-over
   proposal, not a freshly validated number.
-- **Editorial title backfill for the 919 untitled live rows.** Mechanically ready
-  (`rows_needing_titles` + `apply_editorial_title`, already RPC-hardened as of
-  2026-07-21/22) but not run — it calls out to paid LLM providers (OpenAI first per
-  `CLASSIFY_PROVIDER_ORDER`), so needs an explicit cost-aware go before running, per
-  CLAUDE.md's cost-gate rule.
+- **Editorial title backfill — STILL OPEN, blocked on tooling, not on decision.**
+  Tyler approved running this 2026-07-22. While scoping it, found `api.rows_needing_titles`
+  was still joined against the deprecated Pipeline A staging table and could only reach 9
+  of 919 target rows — fixed in `20260722021700_fix_rows_needing_titles_pipeline_b.sql`
+  to match `signals.quality_label` directly (now correctly reaches the full pool: 904 live
+  promoted rows missing a title, plus a separately-discovered 3,519-row unpromoted-backlog
+  population also missing titles — the backlog was NOT part of what was approved and
+  hasn't been run). The RPC fix is live and verified; the actual title-generation calls
+  (`hv-classify` in `mode=titles`, which calls paid LLM providers) were **blocked by the
+  Claude Code Auto Mode classifier** on every attempt (consistently, not transiently) when
+  invoked via `curl` — no MCP tool exists to invoke an edge function directly, and routing
+  around the block via `net.http_post` from SQL was deliberately not attempted, since it's
+  the same paid-API-spend action through a different door. **Needs Tyler to either run it
+  directly or grant the specific permission.** Command, once permitted (16 calls covers
+  the originally-approved ~919-row scope; each call processes up to 60 rows):
+  ```bash
+  curl -X POST "https://zvxdgdkukjrrwamdpqrg.supabase.co/functions/v1/hv-classify" \
+    -H "Authorization: Bearer <anon key, via get_publishable_keys>" \
+    -H "Content-Type: application/json" \
+    -d '{"mode":"titles","limit":60}'
+  ```
+  Repeat until the response's `requested` field is 0. Estimated cost: low single-digit
+  dollars at most for the full ~4,400-row pool (gpt-4o-mini per `CLASSIFY_PROVIDER_ORDER`),
+  a small fraction of that for the originally-approved ~919-row scope.
 
 ## Rollback
 

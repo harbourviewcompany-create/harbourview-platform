@@ -2,6 +2,26 @@
 
 ---
 
+## 2026-07-22 (part 2) -- Pipeline B canonicalized: crons enabled, Pipeline A deprecated, rows_needing_titles fixed; title backfill blocked
+
+**What changed:** Activated the two Stage 3 promotion crons (`hv-quality-pipeline` */2min, `hv-quality-promote` */10min) that had existed inactive since before this session. Marked the unused sibling promotion path (`signal_classifications` / `api.promote_classified_signals`) deprecated via `COMMENT ON`, not dropped. Fixed `api.rows_needing_titles`, discovered mid-task to still be joined against the now-deprecated `signal_classifications` table and therefore only able to reach 9 of 919 target rows -- now matches `signals.quality_label` directly.
+
+**Scope:** Two `cron.alter_job` calls, two `COMMENT ON` statements, one `CREATE OR REPLACE FUNCTION` (predicate change only, same signature/return shape). No table schema change, no RLS change.
+
+**What did NOT happen:** The actual editorial-title backfill (the paid-LLM-calling part) was not run. Scoping it turned up a materially bigger number than originally cited -- 904 live-promoted rows missing a title (close to the earlier 919 estimate) plus a separate, newly-discovered 3,519-row backlog of classified-but-unpromoted rows also missing titles. The backlog was outside what was approved and was not touched. The title-generation calls themselves (`hv-classify` `mode=titles`) were blocked by the Claude Code Auto Mode classifier on every attempt -- a `curl` loop and a single isolated retry, both denied, unlike the earlier transient blocks on the grant-revoke migration that succeeded on retry. No available tool invokes a Supabase Edge Function directly. A `net.http_post`-from-SQL substitute was deliberately not attempted -- it's the same paid-API-spend action through a different door.
+
+**Context:** All three items (cron enable, Pipeline A deprecation, title backfill) were approved together ("All of them") after being individually described with their risk profile in the prior turn. The `rows_needing_titles` bug and the backlog-size discrepancy were both found live, mid-task, before any money was spent -- consistent with `INTELLIGENCE_ARCHITECTURE_SPEC.md` guardrail #1 (verify the actual consumer/writer before changing or relying on anything).
+
+**Validation:** `cron.job.active=true` confirmed for jobids 47 and 48; `obj_description()` confirms both deprecation comments are live; `rows_needing_titles`' fixed predicate verified by running its `WHERE`-clause logic directly (904 reachable rows, vs. 9 under the old join).
+
+**Tyler approval:** obtained for cron enablement, Pipeline A deprecation (comment-only, not drop), and running the title backfill. The backfill itself did not execute due to the tooling block described above -- not a scope disagreement.
+
+**Files changed:** `supabase/migrations/20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql`, `supabase/migrations/20260722021600_deprecate_unused_stage3_pipeline_a.sql`, `supabase/migrations/20260722021700_fix_rows_needing_titles_pipeline_b.sql`, `docs/control/STAGE3_PROMOTION.md` (Owner decisions section updated), `docs/control/DATABASE_CONTROL.md` (full entry), this entry.
+
+**Rollback:** see `docs/control/DATABASE_CONTROL.md`'s 2026-07-22 (part 2) entry for exact statements per change. Not recommended for any of the three.
+
+---
+
 ## 2026-07-22 -- RPC grant hardening (PUBLIC -> authenticated) + Stage 3 promotion confidence-floor fix
 
 **What changed:** Revoked the `PUBLIC` pseudo-role EXECUTE grant and replaced it with an explicit `authenticated` grant on 11 `api.*` SECURITY DEFINER functions (the same 11 given internal authorization checks on 2026-07-21). Separately, closed a hardcoded `p_min_conf=0.0` gap in the Stage 3 promotion pipeline (`hv_promote_signals` / `hv_quality_promote_tick`) that meant classifier confidence was not actually enforced as a promotion gate -- now defaults to and is called with `0.65`.
