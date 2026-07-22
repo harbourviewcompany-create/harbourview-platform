@@ -121,3 +121,50 @@ export async function getGlobeLiveData(): Promise<GlobeLiveData> {
 
   return { countries, signalsByIso2, unmappedSignalCountries }
 }
+
+export type SignalRealtimeRow = {
+  id: string
+  headline: string
+  score: number | null
+  cat: string | null
+  country: string | null
+  country_iso2: string | null
+  created_at: string
+}
+
+/**
+ * Merges one realtime INSERT/UPDATE `signals` row into live data. Pulled out of
+ * GlobeProvider so the merge logic (iso2 bucketing, unmapped tracking, per-country
+ * cap) is unit-testable without rendering the provider.
+ */
+export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeRow): GlobeLiveData {
+  const iso2 = row.country_iso2
+  const signal: GlobeSignal = {
+    id: row.id,
+    headline: row.headline,
+    score: row.score,
+    cat: row.cat,
+    createdAt: row.created_at,
+    countryIso2: iso2,
+  }
+
+  if (!iso2) {
+    const key = row.country ?? '(null)'
+    return {
+      ...prev,
+      unmappedSignalCountries: {
+        ...prev.unmappedSignalCountries,
+        [key]: (prev.unmappedSignalCountries[key] ?? 0) + 1,
+      },
+    }
+  }
+
+  const existing = prev.signalsByIso2[iso2] ?? []
+  return {
+    ...prev,
+    signalsByIso2: {
+      ...prev.signalsByIso2,
+      [iso2]: [signal, ...existing].slice(0, 50), // cap per-country
+    },
+  }
+}

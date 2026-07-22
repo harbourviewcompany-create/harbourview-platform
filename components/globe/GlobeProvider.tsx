@@ -21,9 +21,10 @@ import {
 import { useGlobeRealtime, type RealtimeStatus } from './useGlobeRealtime'
 import {
   getGlobeLiveData,
+  mergeSignalRealtimeRow,
   type GlobeLiveData,
   type GlobeCountryMarker,
-  type GlobeSignal,
+  type SignalRealtimeRow,
 } from '@/lib/globe/supabaseGlobeData'
 
 type GlobeContextType = {
@@ -103,45 +104,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         if (payload.table === 'signals') {
           if (payload.eventType === 'DELETE') return prev // out of scope for this pass
 
-          const row = payload.new as unknown as {
-            id: string
-            headline: string
-            score: number | null
-            cat: string | null
-            country: string | null
-            country_iso2: string | null
-            created_at: string
-          }
-
-          const iso2 = row.country_iso2
-          const signal: GlobeSignal = {
-            id: row.id,
-            headline: row.headline,
-            score: row.score,
-            cat: row.cat,
-            createdAt: row.created_at,
-            countryIso2: iso2,
-          }
-
-          if (!iso2) {
-            const key = row.country ?? '(null)'
-            return {
-              ...prev,
-              unmappedSignalCountries: {
-                ...prev.unmappedSignalCountries,
-                [key]: (prev.unmappedSignalCountries[key] ?? 0) + 1,
-              },
-            }
-          }
-
-          const existing = prev.signalsByIso2[iso2] ?? []
-          return {
-            ...prev,
-            signalsByIso2: {
-              ...prev.signalsByIso2,
-              [iso2]: [signal, ...existing].slice(0, 50), // cap per-country
-            },
-          }
+          return mergeSignalRealtimeRow(prev, payload.new as unknown as SignalRealtimeRow)
         }
 
         // market_metrics: currently loaded on init only; live updates here
