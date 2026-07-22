@@ -10,6 +10,9 @@
 -- writes are hand-authored migrations — so there is no code-level guard to add. This
 -- CHECK constraint makes a future zero-value batch fail loudly at migration time
 -- instead of silently landing on a published, customer-facing table.
-ALTER TABLE public.jurisdiction_playbooks
-  ADD CONSTRAINT jurisdiction_playbooks_timeline_months_positive_check
-  CHECK (typical_timeline_months IS NULL OR typical_timeline_months > 0);
+-- Converted to a no-op stub on 2026-07-22: re-running the ALTER TABLE
+-- below fails ("constraint already exists"). Confirmed live via
+-- pg_constraint that jurisdiction_playbooks_timeline_months_positive_check
+-- already exists -- the real work was already applied to production under
+-- the neighboring version 20260720090637 (same filename, ~5 hours later).
+SELECT 1;
