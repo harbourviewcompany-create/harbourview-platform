@@ -156,7 +156,14 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
       if (data.type !== 'file') return { ok: false, error: 'Not a file', type: data.type }
-      return { ok: true, content: atob((data.content as string).replace(/\n/g, '')), sha: data.sha, path: data.path }
+      // Fixed 2026-07-20: was `atob(...)` directly, which treats each decoded byte as
+      // one UTF-16 code unit instead of reassembling multi-byte UTF-8 sequences --
+      // mangled every em-dash, curly quote, and other non-ASCII character on the way
+      // out (confirmed: corrupted HANDOFF.md via an edit-and-push-back). Decoding through
+      // a real UTF-8-aware TextDecoder fixes it for every caller, not just ones that
+      // know to use get_blob instead.
+      const bytes = Uint8Array.from(atob((data.content as string).replace(/\n/g, '')), c => c.charCodeAt(0))
+      return { ok: true, content: new TextDecoder().decode(bytes), sha: data.sha, path: data.path }
     }
 
     case 'get_file_sha': {
