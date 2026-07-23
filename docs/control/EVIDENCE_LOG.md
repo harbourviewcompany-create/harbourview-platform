@@ -1001,3 +1001,56 @@ After these were disabled the compute recovered and PostgREST returned to `200` 
 **Rollback:** `git revert` the revision commit; additive/edit documentation only, no runtime impact.
 
 **Status:** Current — PR #1113, awaiting review/merge.
+
+---
+
+## 2026-07-23 — Lock down RLS + anon/authenticated grants on 21 public-schema tables
+
+**Context:** raised while answering a "is this production grade" question during the PR #1083
+remediation session. Original framing (in that chat reply, not committed anywhere) overstated the
+finding as "confirmed anon-readable, no auth needed" based on `information_schema.role_table_grants`
+alone. Before implementing, checked further and that framing was **too strong** — corrected here:
+
+**What was actually true:** 21 `public`-schema tables had RLS disabled and broad anon/authenticated
+grants (126 non-`SELECT` grants alone across the set — i.e. not just read access). But PostgREST on
+this project is configured to expose only the `api` schema, not `public` (`lib/supabase/client.ts`
+sets `db: { schema: 'api' }`, with a comment noting `public` queries 406 with `PGRST106`); `pg_graphql`
+is not installed; and none of the 21 are in the `supabase_realtime` publication. So this was **not
+reachable through any of Supabase's client-facing APIs today** — not an active breach. It was a
+defense-in-depth gap: exposure depended entirely on the `api`-only schema-exposure setting never
+changing, with no independent second control (RLS) backing it up. Confirmed via repo-wide grep
+(app code + `supabase/migrations` + `supabase/functions`) that none of the 21 have any client-code
+read path; the two that looked most likely to (`country_name_aliases`, `signal_geo_labels`, used by
+the globe feature per `lib/globe/supabaseGlobeData.ts`'s comment trail) are actually read only by
+`resolve_signal_geo()`/`signals_resolve_geo()`, both `security definer` — verified live by running
+`set role anon; select * from resolve_signal_geo('usa');` before and after the fix, both returning
+the correct resolved row, confirming the RLS change doesn't touch this path.
+
+**Fix applied (`Supabase:apply_migration`, name `lock_down_21_anon_exposed_public_tables`):**
+`ALTER TABLE ... ENABLE ROW LEVEL SECURITY` + `REVOKE ALL ... FROM anon, authenticated` on all 21
+tables. 10 of the 21 were already in `schema_drift_allowlist`; added the other 11 (which the
+schema-drift-monitor cron had been alerting on, unresolved, since as early as 2026-07-08 per
+`schema_drift_alerts`) with accurate reasons, and marked those 11 alerts resolved.
+
+**Tables:** `_claude_push_staging`, `_claude_scratch`, `_counterparty_enrich_jobs`,
+`_counterparty_jobs`, `_country_enrich_jobs`, `_digest_jobs`, `_editorial_digest_jobs`,
+`_education_gen_jobs`, `_education_regen_jobs`, `_hv_branch_audit`, `_hv_file_stage`,
+`_hv_file_stage2`, `_hv_push_stage`, `_sig_extract_jobs`, `country_name_aliases`,
+`education_module_sections_backup_20260705`, `hv_reclassify_jobs`,
+`jurisdiction_playbooks_research_queue`, `legislative_bills`, `schema_drift_allowlist`,
+`signal_geo_labels`.
+
+**Verification:** re-ran the grants/RLS query post-fix — all 21 now show `rls_enabled = true`,
+`anon_can_select = false`, `authenticated` has zero grants. `npm run test -- --passWithNoTests`
+re-run on this branch: 5 files / 57 tests / all passed (no app code touched by this change).
+
+**Tyler approval:** explicit ("Implement", following an explicit question in-chat about whether to
+scope and lock this down).
+
+**Files changed:** `supabase/migrations/20260723190000_lock_down_21_anon_exposed_public_tables.sql`
+(ledger-parity stub, per the `20260722203608` precedent — DDL applied live via MCP, not replayed
+from this file), this entry.
+
+**Rollback:** re-enable would mean re-granting `anon`/`authenticated` and disabling RLS on these 21
+tables — there's no legitimate reason to do that; if something unexpected breaks, the fix is to add
+a scoped policy for the specific access pattern, not revert wholesale.
