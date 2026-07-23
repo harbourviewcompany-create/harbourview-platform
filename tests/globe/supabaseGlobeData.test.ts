@@ -3,7 +3,7 @@
 // Regression coverage for the country_iso2 wiring fix: `signals.country_iso2`
 // is resolved server-side by the `trg_signals_resolve_geo` trigger (migration
 // 20260716195743_signals_country_iso_resolution) and re-exposed through the
-// `api.signals` view (migration 20260721_expose_signals_country_iso2_via_api_view).
+// `api.signals` view (migration 20260722103428_expose_signals_country_iso2_via_api_view).
 // This file guards the two places that read it: the initial batch load
 // (getGlobeLiveData) and the realtime merge (mergeSignalRealtimeRow, called
 // from GlobeProvider's postgres_changes handler).
@@ -135,6 +135,35 @@ describe('mergeSignalRealtimeRow', () => {
     expect(state.signalsByIso2.US).toHaveLength(1)
     expect(state.signalsByIso2.US[0].id).toBe('r1')
     expect(state.unmappedSignalCountries).toEqual({})
+  })
+
+  it('replaces (not duplicates) an existing signal on UPDATE of the same id', async () => {
+    const { mergeSignalRealtimeRow } = await import('@/lib/globe/supabaseGlobeData')
+
+    const afterInsert = mergeSignalRealtimeRow(emptyState, {
+      id: 'r1',
+      headline: 'Original headline',
+      score: 60,
+      cat: 'GAZETTE',
+      country: 'United States',
+      country_iso2: 'US',
+      created_at: '2026-07-22T00:00:00Z',
+    })
+
+    // Simulates an editorial curation UPDATE on the same row (e.g. reviewed/
+    // editorial_title set) -- GlobeProvider calls this merge fn for UPDATE too.
+    const afterUpdate = mergeSignalRealtimeRow(afterInsert, {
+      id: 'r1',
+      headline: 'Curated headline',
+      score: 85,
+      cat: 'GAZETTE',
+      country: 'United States',
+      country_iso2: 'US',
+      created_at: '2026-07-22T00:00:00Z',
+    })
+
+    expect(afterUpdate.signalsByIso2.US).toHaveLength(1)
+    expect(afterUpdate.signalsByIso2.US[0]).toMatchObject({ id: 'r1', headline: 'Curated headline', score: 85 })
   })
 
   it('caps signals at 50 per country, dropping the oldest', async () => {

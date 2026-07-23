@@ -136,6 +136,10 @@ export type SignalRealtimeRow = {
  * Merges one realtime INSERT/UPDATE `signals` row into live data. Pulled out of
  * GlobeProvider so the merge logic (iso2 bucketing, unmapped tracking, per-country
  * cap) is unit-testable without rendering the provider.
+ *
+ * Called for both INSERT and UPDATE (GlobeProvider only skips DELETE), so a row
+ * already present — e.g. an editorial curation edit setting `reviewed`/
+ * `editorial_title` — must replace its old entry, not duplicate it.
  */
 export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeRow): GlobeLiveData {
   const iso2 = row.country_iso2
@@ -150,6 +154,10 @@ export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeR
 
   if (!iso2) {
     const key = row.country ?? '(null)'
+    // Known imprecision: an UPDATE to a signal that was already unmapped (id
+    // already counted) still increments this bucket, since the counter alone
+    // can't tell INSERT from UPDATE. Not fixed here — unmappedSignalCountries
+    // is a diagnostic surfaced nowhere in the UI yet; revisit if that changes.
     return {
       ...prev,
       unmappedSignalCountries: {
@@ -164,7 +172,7 @@ export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeR
     ...prev,
     signalsByIso2: {
       ...prev.signalsByIso2,
-      [iso2]: [signal, ...existing].slice(0, 50), // cap per-country
+      [iso2]: [signal, ...existing.filter((s) => s.id !== signal.id)].slice(0, 50), // cap per-country
     },
   }
 }
