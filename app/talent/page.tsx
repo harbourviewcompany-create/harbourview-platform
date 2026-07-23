@@ -74,3 +74,5 @@ export default async function TalentPage() {
     </main>
   )
 }
+
+// ci-trigger-diagnostic: no functional change
