@@ -1,3 +1,32 @@
+# Harbourview Evidence Log
+
+> **Note (2026-07-23):** commit `8925a55` on `main` (2026-07-22) deleted this
+> file's header, Evidence Rule, Current Evidence Status table, and the entire
+> dated Build Evidence table (784 lines, back through 2026-07-19) while adding
+> four retroactive playbook-batch entries. Whether that deletion was
+> intentional is unconfirmed. A separate PR restores the removed structure and
+> content for review — see that PR for the full history; this file is not
+> being unilaterally restored here to avoid overwriting a decision that may
+> have been deliberate. New entries below follow the dated-section format this
+> file was left in.
+
+---
+
+## 2026-07-21/22 -- Globe `signals.country_iso2` wiring + `api.signals` view exposure
+
+**What changed:** `lib/globe/countryAlias.ts` carried a TODO flagging its client-side country-name alias map as a stopgap "until `country_iso2` is backfilled on `signals` at ingestion time." Verified against the live DB first (per `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md`'s "verify the consumer/writer before changing anything" guardrail) and found the backfill already shipped — migration `20260716195743_signals_country_iso_resolution` added `signals.country_iso2`, populated on every insert/update by trigger `trg_signals_resolve_geo`. Repointed `lib/globe/supabaseGlobeData.ts` (initial batch load) and `components/globe/GlobeProvider.tsx` (realtime `signals` INSERT/UPDATE handler) to read `country_iso2` directly instead of re-deriving it client-side; deleted the now-dead `countryAlias.ts`. Extracted the realtime merge branch into a pure, exported `mergeSignalRealtimeRow` for unit-testability.
+
+**Follow-up fix (found via dev-server browser check, not just lint/typecheck/build):** the browser Supabase client queries the `api` schema (the only one PostgREST exposes on this project), and `api.signals` — a fixed-column `security_invoker=true` view — had never been updated to include `country_iso2`. Without a DB change the app fix would 404 at runtime. Added migration `20260722105000_expose_signals_country_iso2_via_api_view.sql`: appends `country_iso2` to the view's `SELECT` list, additive only, same `security_invoker=true`, no grant/RLS change (verified with `get_advisors`: zero new findings; confirmed `country_iso2` already in the `supabase_realtime` publication's column list for `signals`).
+
+**Scope:** App code (`lib/globe/supabaseGlobeData.ts`, `components/globe/GlobeProvider.tsx`) + one additive Supabase view migration. No RLS/grant change, no data migration.
+
+**Validation:** `npm run typecheck` (0 errors), `npm run lint` (0 new issues), `npm run test` (64/64 passed, incl. 7 new tests in `tests/globe/supabaseGlobeData.test.ts` covering `country_iso2` passthrough, unmapped bucketing, error path, realtime merge iso2 bucketing/cap/null handling — wired into `test:globe-data` and the main `test` script), `npm run build` (clean). Live-queried `api.signals` directly post-migration to confirm real rows return resolved `country_iso2`. A full browser network trace of the live REST/realtime path was attempted but blocked by this session's sandbox egress allowlist (no `*.supabase.co` access) — verified the equivalent path directly via SQL against `api.signals` instead.
+
+**Tyler approval:** via PR review (not a direct-to-main push) — PR #1124.
+
+**Files changed:** `lib/globe/supabaseGlobeData.ts`, `components/globe/GlobeProvider.tsx`, `lib/globe/countryAlias.ts` (deleted), `supabase/migrations/20260722105000_expose_signals_country_iso2_via_api_view.sql`, `tests/globe/supabaseGlobeData.test.ts`, `package.json`.
+
+**Rollback:** App-code changes are a plain revert. The view migration is reversible with `CREATE OR REPLACE VIEW api.signals ...` dropping the `country_iso2` column from the `SELECT` list (previous definition preserved in migration history).
 
 
 ---
