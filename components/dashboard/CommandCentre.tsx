@@ -3783,6 +3783,7 @@ type CorridorAlert = {
   id: string; alert_date: string; severity: 'major' | 'minor' | 'watch'
   summary: string; detail: string; source: string
 }
+type CorridorAlertFeedItem = CorridorAlert & { corridor_key: string }
 const ALERT_SEVERITY_COLOR: Record<string, string> = { major: '#e05c5c', minor: '#d4a84b', watch: '#5b9bd5' }
 function parseLogisticsRange(s: string): { currency: string; lo: number; hi: number } | null {
   const m = s.match(/^(€|£|CAD\s?|AUD\s?|USD\s?)([\d,]+)[–\-]([\d,]+)/)
@@ -3804,6 +3805,19 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
   const [submitErr,   setSubmitErr]   = useState<string | null>(null)
   const [modelKey,    setModelKey]    = useState('')
   const [modelKg,     setModelKg]     = useState('10')
+  const [feed,        setFeed]        = useState<CorridorAlertFeedItem[] | null>(null)
+  const [feedError,   setFeedError]   = useState(false)
+
+  // Cross-corridor regulatory-alert feed — standing view, loaded once on mount, independent
+  // of the per-corridor alerts fetched on row-expand below.
+  useEffect(() => {
+    let live = true
+    fetch('/api/corridors/alerts?limit=20')
+      .then(r => r.json())
+      .then((d: { alerts?: CorridorAlertFeedItem[] }) => { if (live) setFeed(d.alerts ?? []) })
+      .catch(() => { if (live) { setFeed([]); setFeedError(true) } })
+    return () => { live = false }
+  }, [])
 
   const roleIsImporter = role.toLowerCase().includes('import') || role.toLowerCase().includes('buyer') || role.toLowerCase().includes('pharma')
   const roleIsExporter = role.toLowerCase().includes('export') || role.toLowerCase().includes('supplier') || role.toLowerCase().includes('cultivat')
@@ -3941,6 +3955,66 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
         </div>
       ) : (
         <>
+          {/* Regulatory alerts feed — live cross-corridor signal, standing view */}
+          {feed !== null && feed.length > 0 && (
+            <div style={{
+              border: '1px solid rgba(212,168,75,.18)', borderRadius: '10px',
+              background: 'rgba(212,168,75,.04)', padding: '12px 14px',
+              display: 'flex', flexDirection: 'column', gap: '10px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#d4a84b' }}>◈</span>
+                <span style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#d4a84b', fontWeight: 700 }}>
+                  Regulatory Alerts
+                </span>
+                <span style={{ fontSize: '9px', color: 'rgba(245,240,232,.35)' }}>
+                  {feed.length} recent · across all corridors
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                {feed.map(a => (
+                  <details key={a.id} style={{
+                    background: 'rgba(255,255,255,.02)', borderRadius: '7px',
+                    border: '1px solid rgba(255,255,255,.06)', padding: '8px 11px',
+                  }}>
+                    <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', gap: '9px', alignItems: 'baseline' }}>
+                      <span style={{
+                        flexShrink: 0, width: '7px', height: '7px', borderRadius: '50%',
+                        background: ALERT_SEVERITY_COLOR[a.severity] ?? 'rgba(245,240,232,.4)',
+                        alignSelf: 'center',
+                      }} />
+                      <span style={{ flexShrink: 0, fontSize: '9px', color: 'rgba(245,240,232,.4)', minWidth: '58px' }}>
+                        {new Date(a.alert_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      </span>
+                      <span style={{ flexShrink: 0, fontSize: '9px', color: 'rgba(245,240,232,.5)', fontWeight: 600, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {a.corridor_key}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.85)', lineHeight: 1.35 }}>
+                        {a.summary}
+                      </span>
+                    </summary>
+                    {(a.detail || a.source) && (
+                      <div style={{ marginTop: '7px', paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {a.detail && <p style={{ margin: 0, fontSize: '11px', color: 'rgba(245,240,232,.6)', lineHeight: 1.5 }}>{a.detail}</p>}
+                        {a.source && <div style={{ fontSize: '9px', letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(245,240,232,.35)' }}>Source: {a.source}</div>}
+                      </div>
+                    )}
+                  </details>
+                ))}
+              </div>
+            </div>
+          )}
+          {feed !== null && feed.length === 0 && !feedError && (
+            <div style={{
+              border: '1px solid rgba(255,255,255,.06)', borderRadius: '10px',
+              background: 'rgba(255,255,255,.02)', padding: '12px 14px',
+              fontSize: '11px', color: 'rgba(245,240,232,.4)',
+            }}>
+              <span style={{ color: '#d4a84b', marginRight: '7px' }}>◈</span>
+              No regulatory alerts on record yet — this feed updates as corridor intelligence lands.
+            </div>
+          )}
+
           {/* Role context banner */}
           {(roleIsImporter || roleIsExporter) && (
             <div style={{

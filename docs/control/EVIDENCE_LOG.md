@@ -194,6 +194,24 @@ The entries below existed before the finish-line source-of-truth reset. They are
 
 ---
 
+## 2026-07-23 -- Regulatory Alerts feed: surface live corridor alerts as a standing dashboard panel
+
+**What changed:** Added a cross-corridor regulatory-alert feed to the Command Centre. New read-only API route `app/api/corridors/alerts/route.ts` (GET) queries `corridor_regulatory_alerts` across all corridors (ordered by `alert_date` desc, `limit` default 20, capped 100, optional `severity`/`key` filters) and returns public-safe columns only (`id, corridor_key, alert_date, severity, summary, detail, source`). `components/dashboard/CommandCentre.tsx` now loads this feed once on mount in `CorridorPlaybooksSection` and renders it as a standing panel at the top of the Corridor Playbooks tab (severity dot, date, corridor, summary; expand for detail + source).
+
+**Why:** The table holds live, populated regulatory intelligence (15 rows at time of writing, severity-graded) but was only reachable one corridor at a time on row-expand via `/api/corridors/data` -- effectively invisible. The prior frontend audit (`FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md`, IA rec #2) flagged surfacing this as high-value. No fabricated data: the panel renders exactly the live table rows.
+
+**Scope:** Additive UI + one new read-only API route. No schema change, no migration, no RLS change, no write path, no removal of the existing per-corridor expand behavior. Reuses the existing `CorridorAlert` type and `ALERT_SEVERITY_COLOR` map. Reversible by reverting the commit.
+
+**Validation:** `npx tsc --noEmit` clean (0 errors); `eslint` on changed files -- 0 errors (only pre-existing warnings, none in the added code); `next build` succeeded and `/api/corridors/alerts` is present in `routes-manifest.json`. Live query against the `api` schema confirmed 15 rows with the selected columns. Mobile parity (`MobileCommandCentre.tsx`) not included in this pass -- follow-up.
+
+**Tyler approval:** build directed by Tyler this session. Merge/deploy sign-off pending per CLAUDE.md 3c (no auto-deploy triggered by this PR).
+
+**Files changed:** `app/api/corridors/alerts/route.ts` (new), `components/dashboard/CommandCentre.tsx`, this entry.
+
+**Rollback:** Revert the commit -- additive, no data/schema/runtime-state risk either direction.
+
+---
+
 ## 2026-07-15 -- Jurisdiction playbooks batch 23: Laos, Malaysia, Saint Lucia, Puerto Rico (retroactive entry)
 
 **What changed:** Researched and wrote `jurisdiction_playbooks` content (legal_framework_summary, steps, key_regulators, common_pitfalls, difficulty, timeline, confidence_label), `market_metrics` rows (8 total), and `source_registry` entries (15 total, web-sourced) for LA/MY/LC/PR, pulled from `content_coverage_queue`. Updated `jurisdiction_playbooks_research_queue.playbook_status` to `published` for all four.
