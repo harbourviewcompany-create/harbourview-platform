@@ -1,11 +1,11 @@
-// Shared beacon logic for app/country/[country]/error.tsx and
-// app/global-error.tsx. Kept as one function so the stack-truncation length
-// and transport fallback stay in sync between the two boundaries instead of
-// drifting if edited independently.
+// Shared beacon logic for app/country/[country]/error.tsx,
+// app/admin/(protected)/error.tsx, and app/global-error.tsx. Kept as one
+// function so the stack-truncation length and transport fallback stay in
+// sync between boundaries instead of drifting if edited independently.
 
 const MAX_CLIENT_STACK_LENGTH = 4000
 
-export function reportClientError(boundary: 'country_role' | 'global', error: Error & { digest?: string }) {
+export function reportClientError(boundary: 'country_role' | 'global' | 'admin', error: Error & { digest?: string }) {
   const payload = JSON.stringify({
     boundary,
     route: window.location.pathname,
