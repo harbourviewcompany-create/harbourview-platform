@@ -1,4 +1,12 @@
 /**
+ * github-bridge v12 — fixed create_ref base-sha resolution (2026-07-23)
+ *   create_ref (v11) resolved the base branch's sha via GET /git/ref/heads/<ref>,
+ *   which returns a 422 ("sha wasn't supplied") when GitHub treats the ref as
+ *   ambiguous and responds with an array instead of a single ref object — this
+ *   repo hit that on its very first use, even for `main`. Switched to
+ *   GET /branches/<branch>, which always returns a single object for an exact
+ *   branch name.
+ *
  * github-bridge v11 — added create_ref (2026-07-23)
  *   No operation existed to create a branch, which blocks any edit-and-push-back
  *   workflow that needs to land work on a fresh branch + PR instead of committing
@@ -187,10 +195,18 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
     // Create a new branch (ref) from an existing ref's current commit sha.
     // op.branch: new branch name (without refs/heads/ prefix).
     // op.from_ref: base ref to branch from, defaults to 'main'.
+    //
+    // v12 fix (2026-07-23): originally resolved the base sha via
+    // GET /git/ref/heads/<ref>, which 422s ("sha wasn't supplied") whenever
+    // GitHub treats the ref as ambiguous and returns an array instead of a
+    // single object (observed in practice even for 'main' on this repo, which
+    // has many branches). Switched to GET /branches/<branch>, which always
+    // returns a single object for an exact branch name and is not subject to
+    // this ambiguity.
     case 'create_ref': {
       const fromRef = (op.from_ref as string) ?? 'main'
-      const baseRef = await gh(`${BASE}/git/ref/heads/${encodeURIComponent(fromRef)}`, h)
-      const baseSha = baseRef.object?.sha
+      const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseBranch.commit?.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,
