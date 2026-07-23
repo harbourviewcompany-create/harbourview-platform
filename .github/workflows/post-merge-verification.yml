@@ -43,7 +43,8 @@ jobs:
 
       - name: Record skipped production public visibility probe
         if: ${{ vars.HARBOURVIEW_PUBLIC_BASE_URL == '' }}
-        run: echo "HOLD: production public visibility probe skipped because HARBOURVIEW_PUBLIC_BASE_URL repository variable is not configured."
+        run: |
+          echo "HOLD: production public visibility probe skipped because HARBOURVIEW_PUBLIC_BASE_URL repository variable is not configured."
 
       - name: Record post-merge posture
         run: |
