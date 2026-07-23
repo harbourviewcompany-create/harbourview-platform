@@ -110,12 +110,73 @@ re-applied fresh against the new `main` state). PR #1083's diff is docs-only aga
 both scoped to exactly one endpoint each, to support editing an already-open PR body and resetting
 a drifted branch respectively — see the function's own header comments for full rationale.
 
-**Commands run:** none applicable — no application code, schema, or migration touched. No local
-checkout or npm environment is available from this chat session; documented per AGENTS.md's
-fallback clause. Whoever merges should confirm the docs-only QA tier first.
+**Commands run (2026-07-23, superseding the note below):** `npm run lint:docs` — not defined in
+`package.json`; per AGENTS.md's "when available" clause, skipped. `npm run test -- --passWithNoTests`
+— ran for real against a checkout of this branch: 5 test files, 57 tests, all passed (`test:globe-router`
+2 files/39 tests, `test:country-role` 1 file/7 tests, base `test` script's remaining 2 files/11 tests).
+No failures, no files outside `docs/`/`HANDOFF.md` touched by this branch.
+
+*Original note (2026-07-19), kept for history: "none applicable — no application code, schema, or
+migration touched. No local checkout or npm environment is available from this chat session;
+documented per AGENTS.md's fallback clause. Whoever merges should confirm the docs-only QA tier
+first." That fallback has now been resolved per the line above.*
 
 **Files changed:** `docs/control/FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md`,
 `docs/control/PRICE_CROSSCHECK_SPEC.md`, `HANDOFF.md` (pointer), this entry.
 
-**Rollback:** Revert the commits on `docs/frontend-dashboard-optimization-plan` — docs-only, no
+**Rollback:** Revert the squash-merge commit on `main` (or the commits directly on PR #1083's
+branch, if reverting before merge) — docs-only, no data/schema/runtime risk either direction.
+
+---
+
+## 2026-07-23 — PR #1083 CodeRabbit remediation pass (docs only)
+
+**Summary:** Resolved outstanding review feedback on PR #1083 (`docs/frontend-dashboard-optimization-plan`)
+across all three CodeRabbit passes, using a real checkout and live Supabase queries — not available
+to the chat session that originally filed the PR. Changes:
+
+- `FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md`: softened the "No work needed here" line so it no longer
+  contradicts the still-open `corridor_regulatory_alerts` surfacing recommendation; softened the
+  RLS finding's anon-exposure claim to "potentially exposed" pending a grants/API check (this audit
+  only checked `pg_tables`/`pg_policies`); split "Suggested order of pickup" item 1 into 1a (the
+  small, additive price cross-check spec) and 1b (the other six static panels, which are a materially
+  larger new-data-sourcing decision) so the "smallest blast radius" claim no longer covers both.
+- `PRICE_CROSSCHECK_SPEC.md`: added the omitted landed-cost panel to the out-of-scope list (six
+  panels, not five); made `PriceCrossCheck.sourceName`/`sourceDate` nullable in the type sketch to
+  match `market_metrics`' actual nullable columns, with matching null-handling guidance (exclude
+  null `source_date` from the freshness check; fall back to a generic label when `sourceName` is
+  null); corrected the `metric_name` matching guidance — queried live `market_metrics` data directly
+  and found the migration's documented canonical name (`avg_flower_price_per_gram_usd`) has zero
+  rows in production, so the spec's `ilike` approach is verified-correct (not an oversight to
+  "fix" toward the canonical name, which would return nothing) — tightened the match pattern to
+  `%pharmacy price%`/`%wholesale flower price%` so it no longer also catches an unrelated resin-export
+  price row; added a note that this PR's own merge gate is the docs-only tier, distinct from the QA
+  checklist for the future implementation PR.
+- `HANDOFF.md`: replaced the ephemeral branch-name reference ("on branch ..., not yet merged") with
+  the durable `PR #1083` reference, since the former goes stale once the branch is merged/deleted.
+- `EVIDENCE_LOG.md`: replaced the 2026-07-19 entry's "commands not run" fallback note with real
+  `npm run test -- --passWithNoTests` output (see above) now that a checkout is available.
+
+**Verification method:** cloned the repo, checked out this branch at its then-head commit (`3d0cec9`),
+read each flagged file's actual current content against every CodeRabbit comment from all three
+review passes (not just the most recent one — diff-scoped review comments don't always re-surface
+on a later pass if the flagged lines weren't touched in that pass's diff, so earlier unresolved
+comments can silently drop off a later review's list without being fixed). Queried `market_metrics`
+directly via Supabase (`zvxdgdkukjrrwamdpqrg`) rather than trusting either the original spec or
+CodeRabbit's suggestion at face value, since they disagreed and only live data could settle it.
+
+**Commands run:** `npm ci` (652 packages, clean install), `npm run test -- --passWithNoTests` (5
+files / 57 tests / all passed, see above). `lint:docs` is not defined in `package.json`.
+
+**Scope classification:** Documentation-only. No schema, migration, or application code touched.
+
+**Files changed:** `docs/control/FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md`,
+`docs/control/PRICE_CROSSCHECK_SPEC.md`, `HANDOFF.md`, this entry.
+
+**Merge status:** Not merged by this session — per `CLAUDE.md`'s operating rules, merging into
+`main` (auto-deploying: Vercel/Netlify/Cloudflare Pages & Workers all build from it) requires
+Tyler's explicit sign-off, distinct from the additive/reversible bar that covers committing and
+pushing to this feature branch. Pushed to `docs/frontend-dashboard-optimization-plan` for review.
+
+**Rollback:** Revert these commits on `docs/frontend-dashboard-optimization-plan` — docs-only, no
 data/schema/runtime risk either direction.

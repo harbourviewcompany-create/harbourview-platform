@@ -27,7 +27,10 @@ import block. The corridor UI actually fetches live data on-demand (on row expan
 a `get_corridor_stats` RPC (both confirmed to exist and be populated) — and there's a working
 submission form (`/api/corridors/submit`) that writes to `corridor_processing_times`. This is a
 fully live, two-way-wired feature sitting next to the static reference content (banking contacts,
-regulator emails, cost estimates), not a replacement for it. **No work needed here.**
+regulator emails, cost estimates), not a replacement for it. **No further data-wiring work is
+needed here** — the live plumbing already exists end-to-end. What's still open is a UX task, not a
+data task: `corridor_regulatory_alerts` isn't surfaced as a first-class alert feed yet (see IA/UX
+recommendation 2 below).
 
 The lesson for whoever audits the remaining panels below: a top-level-import check produces false
 negatives whenever live data is fetched on interaction (expand, tab switch, filter change) rather
@@ -63,10 +66,12 @@ so this would need real mapping/aggregation logic, not a straight swap. Scoped a
 ## Finding 2: RLS disabled on 19 tables (security, not UI, but found during this pass)
 
 Most are internal job-queue/pipeline tables (lower risk since not customer-facing), but at least
-`country_name_aliases` and `signal_geo_labels` are real reference data fully exposed to the anon
-key with no RLS policy. Needs its own audit + PR — out of scope for this doc, flagging so it isn't
-lost. Check `docs/control/EVIDENCE_LOG.md` to confirm whether this has already been addressed by
-the time you're reading this.
+`country_name_aliases` and `signal_geo_labels` are real reference data with RLS disabled — **potentially**
+exposed to the anon key. This audit checked `pg_tables`/`pg_policies` only; it did not check table
+grants or actual API-layer exposure, so treat "exposed" as unconfirmed until someone does that check.
+Needs its own audit + PR either way — out of scope for this doc, flagging so it isn't lost. Check
+`docs/control/EVIDENCE_LOG.md` to confirm whether this has already been addressed by the time you're
+reading this.
 
 ## Finding 3: `CommandCentre.tsx` is a ~637KB / 16,000+ line single file
 
@@ -107,7 +112,14 @@ Confirm still true before acting; HANDOFF.md's Session Log has the original cont
 
 ## Suggested order of pickup
 
-1. Finding 1 (static → live data) — clearest scope, highest trust impact, smallest blast radius.
+Finding 1 is really two separate tracks with very different blast radii — don't pick it up as one
+undifferentiated item:
+
+1a. `PRICE_BENCHMARKS` × `market_metrics` cross-check (`docs/control/PRICE_CROSSCHECK_SPEC.md`) —
+    clearest scope, additive/read-only, smallest blast radius of anything in this doc. Pick up first.
+1b. The other six static panels (banking, insurance, logistics, job board, industry events, landed
+    cost) — each is its own new data-sourcing decision (new table + ingestion path, or keep as
+    maintained static content). Larger and slower than 1a; scope each independently, don't batch them.
 2. Finding 2 (RLS) — security, should not wait long, but is independent of frontend work.
 3. Finding 4 — quick, mostly a deletion/cleanup PR once re-confirmed.
 4. Finding 3 (monolith split) — largest and riskiest, do last and in smaller sequenced PRs.

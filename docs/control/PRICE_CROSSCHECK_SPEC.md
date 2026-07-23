@@ -31,9 +31,22 @@ replacement.
 `PRICE_BENCHMARKS` entries have `country` (ISO2), `product`, `tier`, `minPrice`/`maxPrice`,
 `currency`, `unit`, `updatedQ` (e.g. `"Q2 2026"`).
 
-`market_metrics` rows relevant here have `country_iso2`, `metric_name` (free text, not a fixed enum
-— matches loosely via `ilike '%price%'` or `ilike '%wholesale%'`), `metric_value`, `metric_unit`,
-`source_date`.
+`market_metrics` rows relevant here have `country_iso2`, `metric_name`, `metric_value`,
+`metric_unit`, `source_date`.
+
+**On `metric_name`:** the migration (`supabase/migrations/20260622000001_market_metrics_time_series.sql`)
+documents this as a controlled vocabulary and lists `avg_flower_price_per_gram_usd` as the canonical
+price metric. Verified directly against live production data (2026-07-23): that canonical name has
+**zero** rows today. The actual price-bearing rows use free-text, human-written names instead —
+`Average Pharmacy Price 2025` (3 rows), `Average Pharmacy Price Q1 2026` (1 row), and
+`Average Wholesale Flower Price 2025` (1 row), 5 rows total, all with `source_name` and `source_date`
+populated. (A 6th `ilike '%price%'` match, `export_price_low_thc_resin_switzerland_2024`, is a
+resin-export price, not a retail/wholesale flower benchmark — exclude it from this cross-check by
+also requiring the metric name to mention "Pharmacy" or "Wholesale Flower", not just "price".)
+So: **keep the `ilike` matching approach** — matching on the documented canonical name would return
+nothing. This is a real data-quality gap (free-text drift from the documented vocabulary) worth its
+own follow-up to standardize price-metric naming upstream, but that's a separate task from this
+spec; re-verify this list against live data before implementing, since ingestion may have changed it.
 
 There is no reliable product/tier match between the two — `market_metrics`' price rows are one
 generic figure per country, not per product/tier. So the matching key is **country only**: if any
@@ -51,14 +64,17 @@ newer than the quarter implied by `updatedQ`, surface it as a cross-check, not a
      metricName: string
      metricValue: number
      metricUnit: string
-     sourceName: string
-     sourceDate: string
+     sourceName: string | null   // market_metrics.source_name is a nullable column
+     sourceDate: string | null   // market_metrics.source_date is a nullable column
    }
 
    export async function getPriceCrossChecks(countryIsos: string[]): Promise<Record<string, PriceCrossCheck[]>> {
      // .from('market_metrics').select(...).in('country_iso2', countryIsos)
-     //   .or(`metric_name.ilike.%price%,metric_name.ilike.%wholesale%`)
+     //   .or(`metric_name.ilike.%pharmacy price%,metric_name.ilike.%wholesale flower price%`)
      // group results by country_iso2 in the return value
+     // (narrower than a bare '%price%' match — excludes non-benchmark price rows like
+     // export_price_low_thc_resin_switzerland_2024; re-check this pattern against live data
+     // before shipping, since new metric_name values get added outside this migration)
    }
    ```
 
@@ -66,13 +82,17 @@ newer than the quarter implied by `updatedQ`, surface it as a cross-check, not a
    avoid an N+1 query pattern given there could be 100+ cards rendered at once.
 
 2. **Parse `updatedQ`** (`"Q2 2026"` → a comparable date, e.g. end of that quarter) to compare
-   against `source_date`. A small utility function, not a new dependency.
+   against `source_date`. A small utility function, not a new dependency. Since `source_date` is
+   nullable, **exclude rows where it's null before this comparison** — a row with no date can't be
+   shown to be "newer," so don't surface it as a cross-check at all rather than treating null as
+   either older or newer.
 
 3. **UI**: on each price benchmark card, if a cross-check exists and is newer, add a small
    secondary-style badge or icon (not a competing headline number — the curated min/max range stays
-   primary) with a tooltip showing the `market_metrics` figure, its source, and date. Follow
-   `DESIGN_SYSTEM.md` for the exact visual treatment; this spec intentionally doesn't prescribe
-   colors/spacing.
+   primary) with a tooltip showing the `market_metrics` figure, its source, and date. `sourceName`
+   is nullable — fall back to a generic label (e.g. "Harbourview market data") in the tooltip when
+   it's null rather than rendering a blank/undefined source. Follow `DESIGN_SYSTEM.md` for the exact
+   visual treatment; this spec intentionally doesn't prescribe colors/spacing.
 
 4. **No write path needed** — this is read-only, unlike the corridor feature's submission form.
 
@@ -81,11 +101,18 @@ newer than the quarter implied by `updatedQ`, surface it as a cross-check, not a
 - Building a proper structured live pricing table (would be a much larger effort: real ingestion,
   consistent units, product/tier granularity) — that's a separate, bigger decision for Tyler, not
   bundled into this.
-- Touching any of the other five confirmed-static panels (banking, insurance, logistics, job board,
-  industry events) — each needs its own scoping decision per the plan doc, not assumed to follow
-  this same pattern.
+- Touching any of the other six confirmed-static panels (banking, insurance, logistics, job board,
+  industry events, landed cost) — each needs its own scoping decision per the plan doc, not assumed
+  to follow this same pattern.
 
 ## QA (per `PR_REVIEW_CHECKLIST.md`'s UI PR gate)
+
+The list below is the gate for the **future PR that implements this spec** (real UI code touching
+`CommandCentre.tsx`/`MobileCommandCentre.tsx`). It does not apply to *this* PR, which only adds this
+spec document. This PR's own merge gate is the lighter docs-only tier per `AGENTS.md`: `npm run
+lint:docs` (not defined in `package.json` as of this writing — skip if still absent) and `npm run
+test -- --passWithNoTests`, with both commands' output quoted in `docs/control/EVIDENCE_LOG.md`
+before merge.
 
 - `DESIGN_SYSTEM.md` followed
 - Mobile and desktop behavior both checked (this dashboard has `MobileCommandCentre.tsx` as a

@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 19 2026 · Claude (Sonnet 5)
+> Last updated: Jul 23 2026 · Claude (Sonnet 5)
 
 ---
 
@@ -9,7 +9,7 @@
 
 A findings + task doc from a frontend/IA audit of the Command Centre dashboard is filed at
 `docs/control/FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md` and `docs/control/PRICE_CROSSCHECK_SPEC.md`
-(on branch `docs/frontend-dashboard-optimization-plan`, not yet merged). Headline finding: several
+(PR #1083). Headline finding: several
 "intelligence" panels (banking/insurance/logistics providers, job board, industry events, price
 benchmarks) are static mock arrays with no backing table — but the corridor panel, originally
 suspected of the same, is actually fully live (`/api/corridors/data`, `get_corridor_stats` RPC).
