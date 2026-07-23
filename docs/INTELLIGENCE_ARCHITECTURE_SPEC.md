@@ -511,6 +511,14 @@ with promotion still held pending a recall fix). Verify: a live test that
 `hv_promote_signals` is a no-op when the validation row is deliberately set to
 `gate_passed=false`.
 
+**Status: DONE (2026-07-23).** `public.classifier_validation` created, RLS-locked to
+service_role, backfilled with the live `v1-smoke` numbers
+(`n_eval_rows=181, signal_precision=1.000, signal_recall=0.559, gate_passed=false`).
+`hv_promote_signals` rewritten to require a `gate_passed=true` row for the row's
+`classifier_version` — verified live: `select hv_promote_signals(0.65)` returns `0`
+right now, gate closed, regardless of cron state. Gate stays closed until Tyler decides
+the open recall question below.
+
 ### Stage D — Resolve the content_type → surface routing gap
 Confirm or fix whether `content_type='story'`/`research` promoted signals actually reach
 Digest, or whether Digest's separate `daily_digest`/`editorial_items` tables need their
@@ -528,11 +536,29 @@ entities) across separate offsets rather than one function firing all four every
 Verify: a full day of `cron.job_run_details` with zero `job startup timeout` entries and
 Supabase's own Disk IO Budget advisory below 50% consumption.
 
+**Status: DESIGNED, NOT SCHEDULED (2026-07-23).** Recommended cadence, matching the
+30-minute pattern already proven safe elsewhere in this exact project
+(`hv-extract-every-30min`, `hv-score-every-30min`, `hv-signal-analysis-every-30min`):
+run `hv_pipeline_tick()` on `*/30` and `hv_quality_promote_tick()` staggered 10 minutes
+off it (e.g. `10,40 * * * *`) — 48 + 48 = 96 invocations/day total, down from the prior
+720 + 144 = 864/day that caused both incidents (~9x reduction). Deliberately not
+scheduled by this stage: re-adding either cron is Stage J and needs Tyler's explicit
+sign-off, plus a soak check against `cron.job_run_details` and the Disk IO Budget
+advisory per this section's verify criteria, before it goes live.
+
 ### Stage F — Cost and disk-I/O hard limits in the dispatch functions themselves
 Not a dashboard — a check inside `hv_classify_corpus_dispatch`/`hv_embed_dispatch`/
 `hv_translate_dispatch`/`hv_entities_dispatch` that refuses to fire more requests past a
 daily count/spend ceiling, logging and stopping rather than continuing. Verify: a
 deliberately-lowered test ceiling actually halts dispatch mid-run.
+
+**Status: DONE (2026-07-23).** Two layers: (1) hard per-call `LEAST()` ceilings on all
+four dispatch functions plus `hv_dedup_assign`'s scope/tau parameters, independent of
+caller-supplied limits; (2) `public.hv_dispatch_budget` — a real daily-call ceiling per
+stage (classify 500, translate 200, embed 300, entities 200/day), consumed via
+`hv_consume_dispatch_budget()` before each dispatch function's loop. Verified live: with
+`classify`'s ceiling deliberately set to 0, `hv_classify_corpus_dispatch(50,30)` returned
+`0` (halted, not throttled-but-still-firing), then restored to 500.
 
 ### Stage G — Active alerting, not passive dashboards
 A scheduled check (separate from the pipeline itself, so it can't be taken down by the
@@ -541,6 +567,15 @@ pipeline cron has failed N times in a row, or job-table backlog (`not harvested`
 exceeds a threshold. The 2026-07-21/22 incident ran 2+ hours undetected specifically
 because nothing did this. Verify: a deliberately-triggered test condition actually
 produces a notification.
+
+**Status: PARTIAL (2026-07-23).** `public.hv_pipeline_health()` built — one query
+surfacing job-table backlogs, both crons' live active/unscheduled state, and the
+classifier gate's current status, each with a plain-English note. This is checkable
+state, not active alerting: it is not itself scheduled (adding a new always-on cron to
+solve an always-on-cron problem seemed backwards) and produces no push notification.
+Full Stage G requires a delivery-channel decision (email/SMS/push — see open decisions
+below) that's Tyler's to make; wiring `hv_pipeline_health()` to a low-frequency cron
+(e.g. hourly) plus that channel is the remaining work once he picks one.
 
 ### Stage H — Retention policy on the job-tracking tables
 `hv_classify_jobs` alone has 89,013 rows with no cleanup. Define and implement a
@@ -555,6 +590,20 @@ already done by Stage C, confirm nothing still depends on `signal_classification
 `api.promote_classified_signals`/`intel_pipeline_tick`, then formally retire them
 (documented removal, not silent orphaning). **Requires explicit sign-off — this is the
 irreversible step, not the plan approval that preceded it.**
+
+**Status: DONE, by a concurrent session (2026-07-22), ahead of this plan's sequencing.**
+Migrations `deprecate_unused_stage3_pipeline_a` and `deprecate_pipeline_a_precise_wording`
+(both same day) mark `signal_classifications` and `api.promote_classified_signals` as
+deprecated via `COMMENT ON` only — no drop, fully reversible, per their own text citing
+"Tyler's decision (2026-07-22)". A companion fix (`fix_rows_needing_titles_pipeline_b`)
+corrected `api.rows_needing_titles` to stop joining the now-deprecated table (it was only
+reaching 9 of 919 rows through that join). This landed out of this plan's stated sequence
+(before C/E/F/G, not after) — flagged here for the record, not undone, since the decision
+itself was Tyler's and the change is non-destructive. **Known gap this created:**
+`docs/control/STAGE3_PROMOTION.md` (the doc these migrations cite for context) still
+describes the pre-deprecation state as of 2026-07-15 and was not updated alongside them —
+it now reads as though Pipeline A is still the intended path. Needs a follow-up edit;
+not made here to avoid two concurrent sessions editing the same doc.
 
 ### Stage J — Re-enable promotion, on purpose, with sign-off
 Only after Stage C (mechanical gate) is live and Stage E-G (cadence, cost caps,
