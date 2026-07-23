@@ -25,6 +25,7 @@ import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMa
 import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
 import { DealRoomsPanel } from '@/components/dashboard/pages/DealRoomsPanel'
 import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
+import ConfidentialIntakeForm from '@/app/intake/ConfidentialIntakeForm'
 
 
 type PublicServiceProvider = {
@@ -1083,6 +1084,19 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
 function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, countryEducationOverlays, professionals = [], initialSub = 'modules' }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; countryEducationOverlays?: CountryEducationOverlay[]; professionals?: HvProfessional[]; initialSub?: EduSub }) {
   const [sub, setSub] = useState<EduSub>(initialSub)
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
+  const [intakeSheet, setIntakeSheet] = useState<{ country: string; role: string; module: string } | null>(null)
+  const intakeSheetOverlay = intakeSheet && (
+    <div className="hvm-context-sheet" role="dialog" aria-modal="true" aria-label="Confidential intake">
+      <button className="hvm-sheet-backdrop" type="button" aria-label="Close intake sheet" onClick={() => setIntakeSheet(null)} />
+      <div className="hvm-sheet-panel hvm-intake-sheet-panel">
+        <div className="hvm-sheet-head">
+          <strong>Request briefing</strong>
+          <button type="button" onClick={() => setIntakeSheet(null)}>×</button>
+        </div>
+        <ConfidentialIntakeForm initialContext={intakeSheet} onClose={() => setIntakeSheet(null)} />
+      </div>
+    </div>
+  )
 
   const tiles: EduModule[] = liveTiles && liveTiles.length > 0
     ? liveTiles
@@ -1133,11 +1147,12 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             ))}
           </div>
         )}
-        <a href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
+        <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: selectedModule.title })} className="hvm-cta-card hvm-cta-card--btn">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>
-        </a>
+        </button>
+        {intakeSheetOverlay}
       </div>
     )
   }
@@ -1160,13 +1175,14 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           </section>
 
           {tiles.length > 0 && (
-            <a href="/intake" className="hvm-cta-card">
+            <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: tiles[0].title })} className="hvm-cta-card hvm-cta-card--btn">
               <span className="hvm-kicker">Next best action</span>
               <strong>{tiles[0].title} · {country.label}</strong>
               <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.62)', fontSize: 14, lineHeight: 1.45 }}>{tiles[0].desc}</p>
-              <span className="hvm-cta-arrow">Start module →</span>
-            </a>
+              <span className="hvm-cta-arrow">Request access →</span>
+            </button>
           )}
+          {intakeSheetOverlay}
 
           <div className="hvm-education-list">
             {tiles.map((module, index) => (
@@ -4366,6 +4382,8 @@ const MOBILE_CSS = `
 }
 .hvm-cta-card strong { font-size: 16px; color: rgba(245,240,232,.94); }
 .hvm-cta-arrow { font-size: 13px; color: rgba(96,165,250,.9); font-weight: 600; }
+.hvm-cta-card--btn { width: 100%; text-align: left; cursor: pointer; font: inherit; appearance: none; -webkit-appearance: none; }
+.hvm-intake-sheet-panel { max-height: 88vh; overflow-y: auto; }
 .hvm-signin-btn {
   display: block; width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(96,165,250,.4); background: rgba(96,165,250,.1);

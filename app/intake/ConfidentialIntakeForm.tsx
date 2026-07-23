@@ -6,6 +6,8 @@ import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
+type IntakeContext = { country: string; role: string; module: string } | null
+
 const discussionTypes = [
   'Acquisition or Investment Opportunity',
   'Sell-Side Advisory',
@@ -35,7 +37,21 @@ function buildIntakeMessage(fields: {
   ].join('\n')
 }
 
-export default function ConfidentialIntakeForm() {
+function defaultMessage(context: IntakeContext) {
+  if (!context) return ''
+  const parts = [`Requesting the \"${context.module}\" briefing`]
+  if (context.country) parts.push(`for ${context.country}`)
+  if (context.role) parts.push(`(${context.role})`)
+  return `${parts.join(' ')}.\n\n`
+}
+
+export default function ConfidentialIntakeForm({
+  initialContext = null,
+  onClose,
+}: {
+  initialContext?: IntakeContext
+  onClose?: () => void
+}) {
   const [state, setState] = useState<FormState>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -102,12 +118,24 @@ export default function ConfidentialIntakeForm() {
           intake requests and respond directly. All submissions are handled in
           confidence.
         </p>
+        {onClose && (
+          <button type="button" onClick={onClose} className="btn-marketplace mt-6 px-6 py-2 text-sm">
+            Close
+          </button>
+        )}
       </div>
     )
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      {initialContext && (
+        <div className="rounded-sm border border-gold/20 bg-gold/[0.06] px-4 py-3 text-xs leading-6 text-gold/85">
+          Carried over from Education: <strong>{initialContext.module}</strong>
+          {initialContext.country ? ` · ${initialContext.country}` : ''}
+          {initialContext.role ? ` · ${initialContext.role}` : ''}
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="name" className={labelClass}>
@@ -157,6 +185,7 @@ export default function ConfidentialIntakeForm() {
         <select
           id="discussionType"
           name="discussionType"
+          defaultValue={initialContext ? 'Market Intelligence Request' : ''}
           className={fieldClass}
         >
           <option value="">Select if applicable</option>
@@ -174,6 +203,7 @@ export default function ConfidentialIntakeForm() {
           id="message"
           name="message"
           rows={6}
+          defaultValue={defaultMessage(initialContext)}
           placeholder="Describe the nature of your enquiry. All submissions are handled in confidence."
           className={`${fieldClass} resize-none`}
         />
