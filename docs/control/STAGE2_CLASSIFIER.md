@@ -28,16 +28,23 @@ Per spec §6.2 / guardrail #2, the classifier drives no promotion. Its only writ
 It gets wired to promotion (Stage 3) **only after** it clears the bar on the eval set.
 
 ## Fallbacks (there is always a plan for fallbacks)
-Provider chain, configurable via `CLASSIFY_PROVIDER_ORDER` (default **`openai,gemini,anthropic`**):
+Provider chain, configurable via `CLASSIFY_PROVIDER_ORDER` (default **`openai`** as of 2026-07-24 —
+was `openai,gemini,anthropic`; changed per direction not to fund Anthropic/Gemini until the product
+makes money, since OpenAI now carries 100% of classification traffic. Set `CLASSIFY_PROVIDER_ORDER`
+explicitly to restore multi-provider fallback):
 1. Try each provider **whose key is set**, in order. A failing or credit-exhausted provider
    is caught and skipped — it never blocks the chain.
-2. **Anthropic is ordered LAST** so an unfunded Anthropic key is never hit first and never
-   blocks. (This is the fix for the flaw in `hv-extract`, which tries Anthropic first.)
-3. If **all** LLM providers fail, the row falls back to **manual review**: it is written to
-   `intel_classify_review_queue` for a human to label. Nothing is ever silently dropped.
+2. **Anthropic, if configured, is ordered LAST** so an unfunded Anthropic key is never hit first and
+   never blocks. (This is the fix for the flaw in `hv-extract`, which tries Anthropic first.)
+3. If **all** configured LLM providers fail, the row falls back to **manual review**: it is written
+   to `intel_classify_review_queue` for a human to label. Nothing is ever silently dropped.
+4. On an OpenAI-only chain, a same-provider retry (plain mode — `json_object` mode intermittently
+   returned unparseable empty content) plus 429 backoff-retry are the only fallback within the
+   provider itself before falling to manual review.
 
-So the classifier does not depend on any single paid provider, and specifically does not
-depend on Anthropic.
+So the classifier does not depend on any single paid provider when multi-provider mode is
+configured, and specifically does not depend on Anthropic — but as currently deployed (OpenAI-only),
+an OpenAI-wide outage falls straight to manual review with no LLM fallback.
 
 ## The gate
 `api.intel_eval_scoring` computes, per run:

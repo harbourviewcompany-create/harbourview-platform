@@ -1337,3 +1337,102 @@ files / 57 tests / all passed, see above). `lint:docs` is not defined in `packag
 
 **Rollback:** Revert the squash-merge commit on `main` — docs-only, no data/schema/runtime risk
 either direction.
+## 2026-07-21 (later) — `intel-classify-promote` cron paused (was auto-promoting off an unvalidated classifier); root-caused and fixed the actual gate failure; hardened for OpenAI-only operation
+
+**Trigger:** Resuming Stage 2/3 of `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` per Tyler's direction. Found `intel-classify-promote` (pg_cron, `*/4 * * * *` → `public.intel_pipeline_tick()`) already live and auto-promoting to the public Intel feed (`api.promote_classified_signals(0.65, false)`, `dry_run=false`) off a classifier that had never cleared its own proposed validation gate (`v1-smoke` eval run: precision 0.822, recall 0.526 against the spec §6.2 bar of ≥0.9/≥0.7) — 1,102 signals already promoted (`reviewed_by='auto:v1'`, 2026-07-20), zero evidence-log entry or PR trail. This is the exact failure mode spec guardrail #2 exists to prevent. Tyler approved pausing the cron immediately (`select cron.unschedule('intel-classify-promote')` — removes the job row entirely rather than a toggle, since this project's pg_cron has no disable-in-place; fully reversible via `cron.schedule('intel-classify-promote', '*/4 * * * *', 'select public.intel_pipeline_tick()')`). The 1,102 already-promoted rows were left as-is (promotion only ever promotes; nothing was un-published).
+
+**Root cause of the low precision/recall, found by tracing actual eval false positives/negatives rather than tuning blind:**
+1. **Eval-scoring bug inflating false positives:** `api.intel_eval_scoring` charged the classifier a false positive whenever it predicted `signal` on a `duplicate`-truth eval row. `hv-classify`'s own system prompt says `duplicate = only when explicitly told of a specific other item; otherwise do not use` — a single-document classifier structurally cannot detect duplicates (that's Stage 4 dedup/clustering, not built). Excluding duplicate-truth rows from the precision denominator: **precision 60/60 = 1.000** on the original 166-row sample, not 0.822.
+2. **Ingest bug causing most real false negatives:** ~1,221 unpublished (`reviewed=false`) signals had headline/summary text with the title duplicated verbatim, padded with raw `&nbsp;&nbsp;` and `<a>`/`<font>` markup (e.g. `"Title - Source Title &nbsp;&nbsp; Source"`) — traced to pre-2026-07-19 Google News RSS captures via `hv_extract_signals_from_captured_text`, which chunked `source_snapshots.captured_text` verbatim with no HTML-strip/entity-decode. `source-engine-fetch`'s own `decodeEntities` fix (already merged 2026-07-19, confirmed live on fresh captures) stops new captures from having this problem, but nothing had backfilled the existing backlog and the extraction function had no defense of its own. The classifier calling genuinely-duplicated text "boilerplate" was a *correct* read of malformed input, not a classifier defect.
+
+**Fixes applied (migrations, in order):**
+- `20260721115037_sanitize_captured_text_in_signal_extraction.sql` — `hv_extract_signals_from_captured_text` now strips HTML tags and decodes `&nbsp;`/`&amp;`/`&lt;`/`&gt;`/`&quot;`/`&#39;` before chunking, so any future malformed upstream capture (from this or any other ingestion path) is defended against, not just the known-fixed one.
+- `20260721115055_backfill_dedupe_malformed_signal_headlines.sql` + `20260721115255_backfill_truncated_html_tag_summaries.sql` — backfilled the ~1,221 affected rows (recurrence heuristic for ~94-97%, plain markup-strip fallback for the rest; verified 0 remaining malformed rows after both migrations). **Scope-checked before writing: 100% of affected rows had `reviewed=false`** — no published/public-feed content was touched.
+- `20260721115402_fix_intel_eval_scoring_duplicate_grading_v2.sql` — `api.intel_eval_scoring` now folds duplicate-truth rows into the signal bucket for precision/recall/content-type grading (not for `quality_accuracy`, which stays a strict 5-way metric so the duplicate-detection gap remains visible rather than hidden).
+
+**Also, per Tyler's explicit direction ("Until this is making money I'm not putting any more money into Anthropic or Gemini. Build it properly to work without those as a fallback"):** deployed `hv-classify` (v13) and `hv-extract` (v33):
+- `CLASSIFY_PROVIDER_ORDER` default changed from `openai,gemini,anthropic` to `openai` (env var still overrides — no code change needed to re-include the others once funded). `hv-extract`'s `extractSignal`/`extractEditorial` reordered to try OpenAI first instead of Anthropic first (previously wasted a guaranteed-fail round trip on every single extraction — this exact waste was flagged but not fixed in `docs/control/STAGE2_CLASSIFIER.md`'s 2026-07-15 note).
+- Added a same-provider retry on OpenAI: if `response_format:{type:"json_object"}` returns empty/unparseable content (observed as a persistent, not transient, failure on ~18% of eval rows across repeated runs), retry once in plain chat-completion mode.
+- Added a 429 backoff-retry: with 100% of traffic now on one provider, a burst of sequential calls can trip rate limits that previously never mattered when load spread across 3 providers.
+
+**Re-validation after fixes** (`v1-smoke` eval run, re-invoked via `hv-classify {mode:"eval"}`): **n=181/202 (up from 166/202 — capped by hitting OpenAI's account-tier rate limit mid-run, a real separate constraint surfaced by this pass, not a code defect), signal_precision=1.000 (was 0.822), signal_recall=0.559 (was 0.526), fp_signal=0, duplicate_truth_rows=19.** Precision now clears the spec's proposed ≥0.9 gate with room to spare. Recall remains below the proposed ≥0.7 gate — sampled the remaining false negatives: a residual handful of rows where the backfill's recurrence heuristic couldn't fully dedupe genuinely-repeated text (title has no `" - Source"` separator to anchor on), plus genuine classifier judgment misses on terse/foreign-language real news the prompt currently under-rates. Both are legitimate next-iteration targets, not re-litigated here — reported to Tyler for a decision on whether to continue tuning recall or proceed with the current numbers.
+
+**Not done / explicitly open:** `intel-classify-promote` cron stays paused pending Tyler's decision on the recall gap; the 1,102 already-promoted (pre-fix) signals were not re-reviewed or rolled back; full eval coverage (21 rows) still blocked on the OpenAI rate-limit ceiling, not re-attempted further this session.
+
+**Tyler approval:** explicit, for both the cron pause and the "build it to work without Anthropic/Gemini" direction, in the same conversation as this work.
+
+**Files changed:** `supabase/functions/hv-classify/index.ts`, `supabase/functions/hv-extract/index.ts`, the four migrations above, this entry.
+
+**Rollback:** cron — `select cron.schedule('intel-classify-promote', '*/4 * * * *', 'select public.intel_pipeline_tick()');`. Migrations — each is additive/corrective with no destructive DDL; the eval-scoring view and extraction function can be reverted via their prior `CREATE OR REPLACE` bodies (git history). Edge functions — redeploy the prior versions (`hv-classify` v11, `hv-extract` v32) if the provider-order/retry changes need to be undone; not recommended, restores the pre-fix waste and lack of resilience.
+
+## 2026-07-23 — Stage A/C/F/G production-grade hardening of the hv_* pipeline (Pipeline B); reconciled with a concurrent session's Pipeline A deprecation
+
+**Trigger:** Tyler: "Fix this and make it production grade" — executing the Stage A-G consolidation plan from `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` v2 §8, continuing directly from the prior session's Stage B (security/grants audit) completion.
+
+**Stage A — commit to git (closing the "zero paper trail" gap):** The four migration files written in the prior session (two grant-revocation captures from a concurrent session, one RLS/grants lockdown, one baseline capture of all 12 `hv_*` functions + 4 job tables) were committed and pushed. **Caught and fixed a Migration Drift Protocol violation in the process:** `apply_migration` assigns its own timestamp-based version at apply time — the baseline migration had already been applied live under version `20260723084446`, not the `20260722210000` filename it was originally written and committed under. Renamed the file to match before it could compound; all subsequent migration files in this entry were named directly from their actual `schema_migrations.version` at write time.
+
+**Reconciliation finding (read-only investigation, not a fix):** `list_migrations` surfaced 7 migrations from a concurrent session (18:29-18:50 UTC, 2026-07-22) with no prior visibility in this thread — including `enable_hv_quality_pipeline_and_promote_crons` and two migrations deprecating Pipeline A (`signal_classifications`/`api.promote_classified_signals`, comment-only, fully reversible). Their commit messages cite "Tyler's explicit go-ahead" / "Tyler's decision (2026-07-22)" and reference a new `docs/control/STAGE3_PROMOTION.md`. Verified this was not a rogue/unauthorized action: (1) live cron state confirmed `hv-quality-pipeline` (job 47) fully unscheduled (removed, not just deactivated — from this session's own earlier fix) and `hv-quality-promote` (job 48) `active=false`, so no outage risk despite the migration having flipped both active at one point; (2) the concurrent session's `hv_promote_signals` rewrite (structural 0.65 confidence floor) matched byte-for-byte what this session's own baseline capture had already recorded, so no drift to reconcile. **Gap found and flagged, not fixed:** `docs/control/STAGE3_PROMOTION.md` still describes the pre-deprecation 2026-07-15 state and was not updated alongside the migrations that cite it — left as-is to avoid two sessions editing the same doc; recorded in the spec's Stage I status note.
+
+**Stage C — mechanical validation gate:** `public.classifier_validation` table created (RLS-locked, service_role only), backfilled with the live `v1-smoke` numbers re-verified fresh from `api.intel_eval_scoring` (`n_eval_rows=181, signal_precision=1.000, signal_recall=0.559, gate_passed=false` — recall is below the proposed 0.70 bar, open decision for Tyler). `hv_promote_signals` rewritten to require a `gate_passed=true` row for the row's `classifier_version`, keyed dynamically (not hardcoded to v1) so any future unvalidated classifier version is blocked the same way. **Verified live:** `select hv_promote_signals(0.65)` returns `0` right now.
+
+**Stage F — hard dispatch ceilings, two layers:** (1) Per-call `LEAST()` clamps on all four dispatch functions and `hv_dedup_assign`, independent of caller-supplied arguments. (2) `public.hv_dispatch_budget` — a real daily-call ceiling per pipeline stage (classify 500/translate 200/embed 300/entities 200 per day), enforced via `hv_consume_dispatch_budget()` before each dispatch function's loop runs, resetting automatically at UTC midnight. **Verified live:** set `classify`'s ceiling to 0, confirmed `hv_classify_corpus_dispatch(50,30)` returned `0` (halted, not degraded), restored ceiling to 500.
+
+**Stage E — cadence redesign:** Designed, not scheduled. Recommendation recorded in the spec: 30-minute `hv_pipeline_tick` / staggered 10-minutes-off `hv_quality_promote_tick`, matching the cadence already proven safe elsewhere in this project (`hv-extract-every-30min` etc.) — ~9x fewer invocations/day than the cadence that caused both prior incidents. No cron was scheduled; re-enabling is Stage J and requires Tyler's explicit sign-off plus a soak check, per the spec's own guardrail.
+
+**Stage G — health check, partial:** `public.hv_pipeline_health()` built (service_role only) — one query surfacing job-table backlogs, both crons' live state, and the classifier gate's status, each with a plain-English note. Deliberately not itself scheduled (no new always-on cron) and produces no push notification yet — full "active alerting" needs a delivery-channel decision (email/SMS/push) that's Tyler's to make, flagged as an open decision, not assumed.
+
+**Verification:** `get_advisors(type='security')` re-run after all four migrations — only new finding is the expected `rls_enabled_no_policy` INFO on `classifier_validation` (correct, locked to service_role by design, same pattern as the other pipeline tables). No new WARN-level findings introduced. Pre-existing WARN findings (search_path-mutable on 2 unrelated functions, 3 extensions in public schema, several `api` schema SECURITY DEFINER functions callable by `authenticated`, leaked-password-protection disabled) are out of scope for this pipeline-specific hardening pass and were not touched.
+
+**Not done / explicitly open:** Stage D (content_type → Digest routing) not investigated this session. Stage H (job-table retention policy — `hv_classify_jobs` alone has ~89k rows) not started. Stage I is done (by the concurrent session, ahead of this plan's sequencing) but left `STAGE3_PROMOTION.md` stale — needs a follow-up edit. Stage J (re-enabling any cron) remains explicitly gated on Tyler's sign-off and is unaffected by any of this session's work — both dangerous crons remain off. The recall gate (Stage C) stays closed pending Tyler's decision on 0.559 vs. the proposed 0.70 bar.
+
+**Tyler approval:** "Fix this and make it production grade" — direct continuation of the previously-approved Stage A-G consolidation plan; no new consequential/hard-to-reverse action was taken beyond what that approval covers (RLS/grants changes were already covered by the prior session's Stage B approval; the promotion-gate and dispatch-ceiling changes make the pipeline strictly more conservative, not less).
+
+**Files changed:** `supabase/migrations/20260723084446_baseline_hv_intelligence_pipeline.sql` (renamed from `20260722210000_...`), `20260723084602_stage_c_classifier_validation_gate.sql`, `20260723084746_stage_f_hard_dispatch_ceilings.sql`, `20260723084824_stage_g_pipeline_health_check.sql`, `20260723085105_stage_f_daily_dispatch_budget_ceiling.sql`, `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` (Stage C/E/F/G/I status updates), this entry.
+
+**Rollback:** `classifier_validation` — `drop table public.classifier_validation;` and revert `hv_promote_signals` to the pre-gate `CREATE OR REPLACE` body (git history) — not recommended, removes the only mechanical block on promoting off an unvalidated classifier. Dispatch ceilings — revert each function to its pre-ceiling body (git history) or simply raise `hv_dispatch_budget.daily_ceiling` per stage if the ceilings prove too conservative in practice; no destructive DDL either way. `hv_pipeline_health()` — `drop function public.hv_pipeline_health();`, no dependents.
+
+---
+
+## 2026-07-24 — PR #1125 CodeRabbit remediation: entity-decode bug fixed; 2 items flagged, not fixed
+
+**Fixed: entity-decode blanking bug (`hv_extract_signals_from_captured_text`).** CodeRabbit
+correctly flagged that the 2026-07-21 sanitize step's comment says "decode" but the code replaced
+`&amp;`/`&lt;`/`&gt;`/`&quot;`/`&#39;` with a literal space each (same treatment as `&nbsp;`),
+turning e.g. `"A &amp; B"` into `"A  B"` and `"it&#39;s"` into `"it s"` — degrading exactly the
+headline/summary text the fix was meant to clean up, on every row processed since. Migration
+`20260724000000_fix_entity_decode_blanking_bug_in_signal_extraction.sql` (applied live) decodes
+each entity to its real character instead (`&amp;` decoded last, standard order). Verified live:
+`"A &amp; B said it&#39;s &quot;great&quot; &lt;tag&gt;&nbsp;here"` → `"A & B said it's "great" <tag> here"`.
+Confirmed via `cron.job` that the only related cron (`hv-embed-every-30min`) is inactive, so this
+was degrading text on every *active* classification pass but not compounding via an unattended cron.
+
+**Rollback made explicit (CodeRabbit finding).** The ~1,221-row backfill
+(`20260721115055`/`20260721115255`) cannot be undone by reverting function definitions or
+redeploying prior edge-function versions — those only change future behavior. The backfill itself
+is a one-way data change; the only way back is a pre-image restore from a database backup taken
+before 2026-07-21, which was not taken specifically for this change. Documenting as irreversible
+rather than implying a rollback path exists.
+
+**Flagged, not fixed — both confirmed non-live-risk today, not blocking this merge:**
+- **Migration ordering for a fresh bootstrap:** three security migrations (the `PUBLIC`-grant
+  revokes) have timestamps before `20260723084446_baseline_hv_intelligence_pipeline.sql`, which
+  defines the functions/tables they act on — replaying the migration history top-to-bottom against
+  an empty database would fail at the security migrations. Not an issue for this (already-running)
+  production database, only for a hypothetical disaster-recovery rebuild. Needs either a timestamp
+  reorder or making the early migrations no-ops with equivalent enforcement re-applied after
+  baseline — real work, not attempted here.
+- **Duplicate work on slow upstream response:** `hv_translate_dispatch`/`hv_embed_dispatch` don't
+  exclude already-dispatched-but-not-yet-harvested jobs the way classification/entity dispatch do,
+  so a slow upstream response would cause every subsequent tick to resend the same signal(s).
+  Confirmed via `cron.job` that no translate/embed/dispatch/harvest cron is currently active (only
+  `hv-embed-every-30min` exists in that family and it's disabled since the 2026-07-21 load-shed) —
+  so this is a real bug to fix before any of that family gets re-enabled, not a live risk today.
+
+**Commands run:** `npm run test` (full suite): `test:globe-router` 39/39, `test:globe-data` 8/8,
+`test:country-role` 7/7, base suite 11/11 — 65/65 passed. None of these cover the intel-pipeline
+SQL functions directly (no test suite does, per this repo's existing convention noted elsewhere in
+this log); verification for the SQL fix was the live before/after query shown above.
+
+**Human approval status:** not yet — this remediation pass was done as part of a broader
+"review and merge all open PRs" pass; flagging here for visibility rather than treating silently
+as approved.
