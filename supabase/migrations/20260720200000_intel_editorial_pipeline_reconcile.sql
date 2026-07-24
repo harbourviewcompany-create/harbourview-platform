@@ -35,7 +35,7 @@ create or replace view api.signals as
  SELECT id, date, cat, pri, score, headline, summary, source, url, verification, tier, lang,
     company, country, in_network, lane_r, lane_e, lane_t, top_lane, query_pack, commercial_impact,
     reviewed, action, created_at, embedding_1024, embedding_model, embedded_at, reviewed_by, reviewed_at,
-    editorial_title, editorial_blurb
+    editorial_title, editorial_blurb, country_iso2
    FROM public.signals;
 
 create or replace view api.signal_classifications as

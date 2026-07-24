@@ -1,6 +1,6 @@
 # Harbourview Final Production Readiness Audit
 
-Status: HOLD (Gates 1, 2, 4 GO; Gate 9 PARTIAL; Gates 3, 5–8, 10–14 remain HOLD)  
+Status: HOLD (Gates 1, 2, 4 GO; Gate 9 PARTIAL; Gates 3, 5–8, 10–15 remain HOLD)  
 Scope: no-code production-readiness control document for `harbourviewcompany-create/harbourview-platform` on current `main`  
 Task classification: verification / deployment / RLS-auth / public-private-leakage / admin / marketplace / intelligence  
 Change policy: this document does not authorize runtime changes, Supabase migrations, Vercel changes, Netlify changes, package/dependency changes, auth changes, marketplace data changes, workflow changes, production writes, branch-protection changes, or deletion of branches/projects. Each closure item that requires a change must be handled in a separate scoped PR.
@@ -445,6 +445,16 @@ Evidence collected 2026-06-23 via Supabase MCP security advisor on `zvxdgdkukjrr
 
 **Remaining for full Gate 9 closure:** operator to enable leaked password protection in Auth dashboard; run RLS role matrix smoke.
 
+**2026-07-21 advisor re-run (post Data API outage).** Security advisor re-run on `zvxdgdkukjrrwamdpqrg`; each flagged item cross-checked against function bodies (`pg_get_functiondef`) and `EVIDENCE_LOG.md` rather than taken at grant level:
+
+- **Signal-review RPC family — verified guarded, not a reopened exposure.** The advisor still lists `approve_engine_signal`, `reject_engine_signal`, `bulk_approve_engine_queue`, `apply_editorial_title`, `save_signal_analysis`, `list_engine_review_queue`, `count_engine_review_queue`, `list_engine_review_countries`, `get_signals_pending_analysis`, `pool_rows_needing_classification`, and `rows_needing_titles` under `anon_/authenticated_security_definer_function_executable`. All 11 were confirmed via `pg_get_functiondef` to carry the `is_genetics_admin_or_reviewer()` authorization guard (with a `service_role` carve-out on `apply_editorial_title`, `pool_rows_needing_classification`, `rows_needing_titles`) — the exposure was closed same-day; see the two 2026-07-21 signal-review-RPC entries in `EVIDENCE_LOG.md`. The advisor warns at the **grant** level only. Residual hardening: revoke the stale `anon`/`authenticated` EXECUTE grants so the lint clears and protection does not rely on the in-function check alone — **low priority, separate PR** (not launch-blocking).
+- **`api.get_github_pat` — not publicly reachable.** Confirmed no `anon`/`authenticated`/`public` EXECUTE grant. Residuals: `function_search_path_mutable` hardening, and a documented justification for a token-returning function residing in the exposed `api` schema. Low priority.
+- **New `rls_enabled_no_policy` (INFO), 6 tables:** `intel_classify_review_queue`, `intel_eval_predictions`, `intel_eval_set`, `pipeline_manual_review_queue`, `regulatory_tier_audit`, `signal_classifications` — server-side-only pipeline/review tables; deny-by-default is correct. Add to the accepted deny-by-default list. No anon/authenticated access intended.
+- **`auth_leaked_password_protection`** still disabled — carried forward, operator dashboard action.
+- **Performance advisor** unchanged in character from 2026-06-23 (`auth_rls_initplan`, `multiple_permissive_policies`, unindexed FKs, unused indexes) — still deferred to a dedicated performance PR.
+
+Correction note: an initial reading of this re-run mistook the grant-level warnings for a fresh unauthenticated-mutation exposure. Body-level verification showed the guards are in place (closed same-day). Recorded here so the advisor's grant-level warnings are not re-triaged as a reopened P0 on the next scan.
+
 Owner: operator and verification agent.
 
 Required checks:
@@ -645,9 +655,51 @@ HOLD criteria:
 
 - Evidence is stale, missing, manually asserted without steps, or tied to a different commit/deployment.
 
+### Gate 15 — Reliability, Capacity, and Operational Recovery
+
+Status: HOLD (added 2026-07-21 following a production Data API outage — see `EVIDENCE_LOG.md`).
+
+Objective: prove the platform stays available under normal steady-state pipeline load and recovers from failure without full user-facing downtime. Every other gate certifies *correctness and leakage*; none certifies *availability*. This gate closes that gap. A green build, clean leakage probe, and passing RLS matrix do not satisfy it.
+
+Motivating incident (2026-07-21): heavy, uncoordinated pipeline cron/tick functions on a burstable Micro compute drove the database into **verified CPU starvation** — PostgREST's readiness probe could no longer complete and the entire Data API returned `503`, taking the globe/heat map, market overview, and Command Centre fully dark for users. (The specific mechanism — burstable CPU-credit exhaustion — is the leading but **unconfirmed** hypothesis; the CPU-credit metric was not read. See `EVIDENCE_LOG.md`.) No gate would have caught this, and there was no alerting — it was discovered from a user's phone. Recovery required manually shedding cron load. Root enabler is shared with Gate 3 (no branch protection): a pipeline/config change reached production with nothing gating availability impact.
+
+Owner: operator and verification agent.
+
+Required checks:
+
+- **Compute right-sizing.** DB compute tier is sized for steady-state pipeline + serving load and is not CPU-starved under normal operation. Record tier and a latency/CPU baseline. (Interim: the 2026-07-21 operator decision is no paid upgrade pre-revenue, so this is met via low-duty-cycle re-cadencing on Micro rather than scaling — see `INTEL_CRON_REENABLE_RUNBOOK.md`.)
+- **Pipeline isolation and bounded work.** Background cron/tick functions do bounded, idempotent work per run (per `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §9-5); no unbounded ticks or in-DB `pg_sleep` loops that can starve the serving path; cron cadence is rationalized toward a single orchestrator (§8). No background job can saturate the compute that serves user reads.
+- **Read-path resilience.** The public serving path (globe/country/briefing reads) degrades gracefully and/or serves cached last-known-good data when the DB/Data API is unavailable. A DB or PostgREST blip must not black out the whole product.
+- **Observability and alerting.** Alerting on Data API 5xx rate, PostgREST/readiness health, and DB CPU/credit exhaustion, such that an outage is detected in minutes, not by a user. The existing `client_error_reports` path is functional (it was itself `500`-ing during the incident).
+- **Backup and disaster recovery.** PITR/backups enabled and a restore actually tested and dated. (Note: a pause→restore was used as an emergency lever during the 2026-07-21 incident and hung for ~35 minutes — pause/restore is not a substitute for a tested restore path.)
+- **Capacity baseline.** A documented load/latency baseline and known limits for the canonical compute tier.
+
+Required evidence:
+
+- Compute tier + latency/CPU baseline.
+- Cron inventory with cadence and bounded-work confirmation.
+- Read-path fallback proof (behavior with the Data API unavailable).
+- Alerting configuration and a test alert.
+- Backup configuration and a dated restore-test result.
+
+GO criteria:
+
+- Steady-state pipeline load does not degrade the serving path.
+- A Data API failure degrades gracefully rather than producing a full user-facing outage.
+- Availability failures alert within minutes.
+- A restore has been performed and dated.
+
+HOLD criteria:
+
+- Compute is CPU-starved under normal load.
+- Any background job can starve the serving path.
+- No read-path fallback exists.
+- Availability failures do not alert.
+- No tested restore exists.
+
 ## Final Production GO Definition
 
-Harbourview is production-ready only when all gates above are GO on the same release commit and canonical production deployment, with evidence recorded. A green build alone is not enough. A live Vercel deployment alone is not enough. Public route `200` responses alone are not enough. Final readiness requires build, deployment target, route map, admin denial, role matrix, RLS, marketplace smoke, public leakage, Network/intelligence projection, Supabase hardening, browser QA, and evidence-log closure.
+Harbourview is production-ready only when all gates above are GO on the same release commit and canonical production deployment, with evidence recorded. A green build alone is not enough. A live Vercel deployment alone is not enough. Public route `200` responses alone are not enough. Final readiness requires build, deployment target, route map, admin denial, role matrix, RLS, marketplace smoke, public leakage, Network/intelligence projection, Supabase hardening, browser QA, reliability and operational recovery, and evidence-log closure.
 
 ## Current Decision
 
