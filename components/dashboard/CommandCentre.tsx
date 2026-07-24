@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, RegistryCoverageSummary, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import { buildConfidenceLanes, overallConfidence as computeOverallConfidence, type ConfidenceLane } from '@/lib/dashboard/confidenceScoring'
+import { useDashboardSignalsRealtime } from '@/components/dashboard/useDashboardSignalsRealtime'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -10838,7 +10839,7 @@ const EventsPage = React.memo(function EventsPage({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CommandCentre({
-  signals,
+  signals: ssrSignals,
   digestSignals,
   digestWindow,
   eduCategories,
@@ -10908,6 +10909,11 @@ export default function CommandCentre({
   const [paletteOpen,      setPaletteOpen]     = useState(false)
   const [liveCountryIntel, setLiveCountryIntel] = useState<CountryIntelProfile | null>(countryIntel ?? null)
   const [intelLoading,     setIntelLoading]     = useState(false)
+
+  // Live, country-scoped signal feed. Seeds from the SSR list, re-scopes to the
+  // selected country, and refreshes on Realtime signal inserts (debounced). All
+  // pages below consume this `signals` rather than the static SSR prop.
+  const { signals } = useDashboardSignalsRealtime(ssrSignals, country.label)
 
   useEffect(() => {
     if (countryIntel?.country_code === country.iso2) {
