@@ -194,6 +194,24 @@ The entries below existed before the finish-line source-of-truth reset. They are
 
 ---
 
+## 2026-07-23 -- Price Intelligence: live independent cross-check from `market_metrics`
+
+**What changed:** Added an "Independent References" card to the Price Intelligence page right rail. New read-only API route `app/api/dashboard/price-references/route.ts` (GET) queries the `api.market_metrics` view for price-related rows (`metric_name ilike '%price%'/'%wholesale%'/'%retail%'`, ordered by `source_date` desc) and returns public-safe, sourced columns (`country_iso2, metric_name, metric_value, metric_unit, source_name, source_url, source_date`). `components/dashboard/CommandCentre.tsx` (`PriceIntelligencePage`) loads it once on mount and renders, for each country that also has a curated `PRICE_BENCHMARKS` entry, the live figure with its source + date, plus a subtle **NEWER** chip when the reference's `source_date` falls after the benchmark's own refresh quarter (`benchmarkQuarterEnd`).
+
+**Why:** Implements the cross-check in `docs/control/PRICE_CROSSCHECK_SPEC.md`. `market_metrics` holds live, sourced per-country price figures the Price Intelligence page ignored. This surfaces them as a **secondary** cross-check only -- the curated wholesale benchmarks stay primary. Verified against live data: 6 price rows across AT/CA/DE/IT/MA/PL, mostly pharmacy/retail (a different channel than the wholesale benchmarks) and in inconsistent units (EUR/g, CAD/g, PLN/g, EUR_per_kg) -- so this is deliberately a country-level context annotation, not a per-product/tier replacement, and the UI copy says so. Overlap with `PRICE_BENCHMARKS` countries: CA/DE/IT/PL. No fabricated data: renders exactly the live view rows.
+
+**Scope:** Additive UI + one new read-only API route. No schema change, no migration, no RLS change, no write path. Curated `PRICE_BENCHMARKS` unchanged and still primary. Reversible by reverting the commit.
+
+**Validation:** `npx tsc --noEmit` clean (0 errors); `eslint` on changed files -- 0 errors (only pre-existing warnings, none in the added code); `next build` succeeded and `/api/dashboard/price-references` is present in `routes-manifest.json`. Confirmed the `api.market_metrics` view exposes all seven selected columns before wiring. Mobile parity (`MobileCommandCentre.tsx`) not included in this pass -- follow-up.
+
+**Tyler approval:** build directed by Tyler this session ("build the price cross-check next"). Merge/deploy sign-off pending per CLAUDE.md 3c (no auto-deploy triggered by this PR).
+
+**Files changed:** `app/api/dashboard/price-references/route.ts` (new), `components/dashboard/CommandCentre.tsx`, this entry.
+
+**Rollback:** Revert the commit -- additive, no data/schema/runtime-state risk either direction.
+
+---
+
 ## 2026-07-23 -- Regulatory Alerts feed: surface live corridor alerts as a standing dashboard panel
 
 **What changed:** Added a cross-corridor regulatory-alert feed to the Command Centre. New read-only API route `app/api/corridors/alerts/route.ts` (GET) queries `corridor_regulatory_alerts` across all corridors (ordered by `alert_date` desc, `limit` default 20, capped 100, optional `severity`/`key` filters) and returns public-safe columns only (`id, corridor_key, alert_date, severity, summary, detail, source`). `components/dashboard/CommandCentre.tsx` now loads this feed once on mount in `CorridorPlaybooksSection` and renders it as a standing panel at the top of the Corridor Playbooks tab (severity dot, date, corridor, summary; expand for detail + source).

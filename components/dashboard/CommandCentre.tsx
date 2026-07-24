@@ -8458,6 +8458,28 @@ const PRICE_ROLE_CHANNEL_MAP: Record<string, string> = {
   'Logistics':   'wholesale',
 }
 
+// Live, sourced price figures from `market_metrics` (via /api/dashboard/price-references),
+// shown as a secondary cross-check against the curated PRICE_BENCHMARKS.
+type PriceReference = {
+  country_iso2: string
+  metric_name:  string
+  metric_value: number | string
+  metric_unit:  string | null
+  source_name:  string | null
+  source_url:   string | null
+  source_date:  string | null
+}
+
+// "Q2 2026" -> last day of that quarter (UTC). Used to decide whether an independent
+// reference is dated after the benchmark's own refresh quarter (i.e. genuinely newer).
+function benchmarkQuarterEnd(updatedQ: string): Date | null {
+  const m = updatedQ.match(/Q([1-4])\s+(\d{4})/)
+  if (!m) return null
+  const q = parseInt(m[1], 10)
+  const year = parseInt(m[2], 10)
+  return new Date(Date.UTC(year, q * 3, 0)) // day 0 of month (q*3) = last day of the quarter
+}
+
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
@@ -8468,6 +8490,17 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   const [sortBy,         setSortBy]         = useState<'country' | 'price-asc' | 'price-desc' | 'trend' | 'role'>('country')
   const [compareMode,    setCompareMode]    = useState(false)
   const [compareIds,     setCompareIds]     = useState<Set<string>>(new Set())
+  const [priceRefs,      setPriceRefs]      = useState<PriceReference[] | null>(null)
+
+  // Load live independent price references once on mount (cross-check vs curated benchmarks).
+  useEffect(() => {
+    let live = true
+    fetch('/api/dashboard/price-references')
+      .then(r => r.json())
+      .then((d: { references?: PriceReference[] }) => { if (live) setPriceRefs(d.references ?? []) })
+      .catch(() => { if (live) setPriceRefs([]) })
+    return () => { live = false }
+  }, [])
 
   const roleProducts  = useMemo(() => PRICE_ROLE_PRODUCTS_MAP[role] ?? [], [role])
   const roleChannel   = PRICE_ROLE_CHANNEL_MAP[role] ?? ''
@@ -8721,6 +8754,57 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
               >
                 {sortBy === 'role' ? '✓ Sorted by Role' : `Sort by ${role} Relevance`}
               </button>
+            </div>
+          )
+        })()}
+
+        {/* Independent price references — live cross-check vs curated benchmarks */}
+        {(() => {
+          if (!priceRefs || priceRefs.length === 0) return null
+          const benchCountries = new Set(PRICE_BENCHMARKS.map(b => b.country))
+          const benchQuarter   = new Map(PRICE_BENCHMARKS.map(b => [b.country, b.updatedQ]))
+          const shown = priceRefs
+            .filter(r => benchCountries.has(r.country_iso2))
+            .sort((a, b) =>
+              a.country_iso2 === country.iso2 ? -1
+              : b.country_iso2 === country.iso2 ? 1
+              : a.country_iso2.localeCompare(b.country_iso2))
+          if (shown.length === 0) return null
+          return (
+            <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+              <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Independent References</div>
+              <div style={{ fontSize: '.7rem', color: '#6b7280', marginBottom: 10, lineHeight: 1.5 }}>
+                Live sourced figures from market monitoring — a secondary cross-check on the curated wholesale benchmarks, not a replacement (often a different channel, e.g. pharmacy/retail).
+              </div>
+              {shown.map((r, i) => {
+                const qEnd    = benchmarkQuarterEnd(benchQuarter.get(r.country_iso2) ?? '')
+                const isNewer = !!(r.source_date && qEnd && new Date(r.source_date) > qEnd)
+                return (
+                  <div key={`${r.country_iso2}-${i}`} style={{ marginBottom: 8, padding: '7px 9px', background: 'rgba(255,255,255,.03)', borderRadius: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: '.9rem' }}>{flagEmoji(r.country_iso2)}</span>
+                      <span style={{ fontSize: '.72rem', color: '#b0b0c0', fontWeight: 600 }}>{r.country_iso2}</span>
+                      {isNewer && (
+                        <span title="Source dated after the current benchmark quarter"
+                          style={{ fontSize: '.58rem', padding: '1px 6px', borderRadius: 8, background: 'rgba(212,168,75,.18)', color: '#d4a84b', fontWeight: 700, letterSpacing: '.04em' }}>
+                          NEWER
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '.82rem', color: '#f5f0e8', fontWeight: 700 }}>
+                      {Number(r.metric_value).toLocaleString()}
+                      <span style={{ fontSize: '.66rem', color: '#6b7280', fontWeight: 400, marginLeft: 4 }}>{r.metric_unit}</span>
+                    </div>
+                    <div style={{ fontSize: '.68rem', color: '#8a8a9a', marginTop: 1 }}>{r.metric_name}</div>
+                    <div style={{ fontSize: '.64rem', color: '#6b7280', marginTop: 3 }}>
+                      {r.source_url
+                        ? <a href={r.source_url} target="_blank" rel="noopener noreferrer" style={{ color: '#8a8a9a', textDecoration: 'underline' }}>{r.source_name}</a>
+                        : r.source_name}
+                      {r.source_date ? ` · ${r.source_date}` : ''}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )
         })()}
