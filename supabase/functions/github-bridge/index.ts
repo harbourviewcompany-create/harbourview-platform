@@ -1,4 +1,11 @@
 /**
+ * github-bridge v11 — added create_ref (2026-07-23)
+ *   No operation existed to create a branch, which blocks any edit-and-push-back
+ *   workflow that needs to land work on a fresh branch + PR instead of committing
+ *   to an existing one. Added `create_ref` (POST /git/refs) so callers can create
+ *   `refs/heads/<branch>` from a base ref's current sha before calling `push_file`
+ *   with that branch. Purely additive; no existing case changed.
+ *
  * github-bridge v6 — added get_blob (raw base64, no lossy decode) (2026-07-11)
  *
  * SECURITY HISTORY — read before changing:
@@ -175,6 +182,23 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
         ok: true, sha: data.sha, truncated: data.truncated,
         tree: (data.tree as Record<string, unknown>[]).map(n => ({ path: n.path, type: n.type, size: n.size, sha: n.sha }))
       }
+    }
+
+    // Create a new branch (ref) from an existing ref's current commit sha.
+    // op.branch: new branch name (without refs/heads/ prefix).
+    // op.from_ref: base ref to branch from, defaults to 'main'.
+    case 'create_ref': {
+      const fromRef = (op.from_ref as string) ?? 'main'
+      const baseRef = await gh(`${BASE}/git/ref/heads/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseRef.object?.sha
+      if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
+      const res = await fetch(`${BASE}/git/refs`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ ref: `refs/heads/${op.branch}`, sha: baseSha })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub POST git/refs ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, ref: data.ref, sha: data.object?.sha }
     }
 
     case 'get_pr_files': {

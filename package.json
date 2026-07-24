@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
+    "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
@@ -33,7 +34,7 @@
     "probe:production-visibility": "node scripts/probe-public-leakage.mjs",
     "check:critical-env": "node scripts/check-critical-env.mjs",
     "test:security": "npx vitest run tests/security/public-leakage-fuzz.test.ts tests/harbourview/public-safety-fuzz.test.ts tests/harbourview/middleware-admin-matcher.test.ts tests/harbourview/middleware-redirects.test.ts tests/harbourview/middleware-signals-matcher.test.ts tests/harbourview/global-css-regression.test.ts tests/education/medical-guardrails.test.ts tests/education/dto-boundary.test.ts tests/dashboard/commercialDashboard.test.tsx tests/dashboard/routing.test.ts tests/actions/marketplaceSubmissionActions.test.ts tests/supabase/adminDataClient.test.ts tests/supabase/env.test.ts tests/globe-motion-preferences.test.ts tests/api/used-surplus-preview-route.test.ts tests/harbourview/globe-interactive-readiness.test.ts tests/globe-natural-earth-countries.test.ts",
-    "test": "npm run test:globe-router && npm run test:country-role && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
+    "test": "npm run test:globe-router && npm run test:globe-data && npm run test:country-role && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
     "intelligence:discover": "tsx scripts/engine/global-discovery.ts",
     "intelligence:ingest": "tsx scripts/engine/run-ingestion.ts",
@@ -42,16 +43,16 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.112.1",
+    "@anthropic-ai/sdk": "^0.112.4",
     "@google/genai": "^2.12.0",
     "@googleapis/drive": "^20.2.0",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
     "@react-three/postprocessing": "^3.0.4",
-    "@sentry/nextjs": "^10.66.0",
+    "@sentry/nextjs": "^10.67.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
-    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-query": "^5.101.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "class-variance-authority": "^0.7.1",
@@ -59,7 +60,7 @@
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react-dom": "^19.2.8",
     "server-only": "^0.0.1",
     "sonner": "^2.0.7",
     "stripe": "^22.3.2",
@@ -81,6 +82,6 @@
     "tsx": "^4.23.1",
     "typescript": "^5.4.5",
     "vitest": "^4.1.10",
-    "wrangler": "^4.111.0"
+    "wrangler": "^4.113.0"
   }
 }
