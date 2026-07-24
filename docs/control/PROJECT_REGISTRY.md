@@ -246,6 +246,12 @@ Control rule: no new writes until this project is classified. Export schema and 
 - Custom JWT claims are not verified; current evidence supports `user_roles` table lookup.
 - Verification defaults and docs must be checked for post-HAR-22 drift if they still target an older Harbourview production domain.
 
+## External Dependencies (Harbourview Marketplace / `zvxdgdkukjrrwamdpqrg`)
+
+| Dependency | Used by | Purpose | Auth | Noted |
+|---|---|---|---|---|
+| OpenAI `gpt-4o-mini` | `hv_entity_jobs` queue + `hv_entities_dispatch`/`hv_entities_harvest` functions, called via `pg_net` from `hv_pipeline_tick` | Named-entity extraction (operators/regulators/investors) from promoted signals, resolved/created into `ia_graph_entities`, linked via `signal_entities` | Vaulted `openai_api_key` (Supabase Vault, service_role-only) | 2026-07-23 — dependency was live in production prior to this entry; documented retroactively per the registry change policy flagged in PR #1095 |
+
 ## Immediate GO Items
 
 - Treat `harbourviewcompany-create/harbourview-platform` on `main` as the canonical Harbourview production app source.
