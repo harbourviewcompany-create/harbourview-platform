@@ -56,7 +56,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "class-variance-authority": "^0.7.1",
-    "googleapis-common": "^8.0.2",
+    "googleapis-common": "^8.0.3",
     "lucide-react": "^1.26.0",
     "next": "16.2.10",
     "react": "^19.2.8",
