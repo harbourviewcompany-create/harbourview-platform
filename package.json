@@ -57,7 +57,7 @@
     "@upstash/redis": "^1.38.0",
     "class-variance-authority": "^0.7.1",
     "googleapis-common": "^8.0.2",
-    "lucide-react": "^1.25.0",
+    "lucide-react": "^1.26.0",
     "next": "16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.8",
