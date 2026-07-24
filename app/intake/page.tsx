@@ -13,12 +13,36 @@ export const metadata: Metadata = {
     'Submit a confidential Harbourview inquiry for market access, commercial intelligence, and qualified introductions.',
 }
 
-export default function IntakePage() {
+type SearchParams = { [key: string]: string | string[] | undefined }
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? ''
+  return value ?? ''
+}
+
+export default async function IntakePage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const sp = await searchParams
+  const country = firstParam(sp.country)
+  const role = firstParam(sp.role)
+  const module_ = firstParam(sp.module)
+
+  const context = module_
+    ? { country, role, module: module_ }
+    : null
+
   return (
     <>
       <PublicHero
-        eyebrow="Confidential intake"
-        title="Route sensitive commercial and market-access requests for review."
+        eyebrow={context ? 'Briefing request' : 'Confidential intake'}
+        title={
+          context
+            ? `Request: ${context.module}${context.country ? ` · ${context.country}` : ''}`
+            : 'Route sensitive commercial and market-access requests for review.'
+        }
         compact
         aside={
           <PublicCard className="p-6">
@@ -31,9 +55,17 @@ export default function IntakePage() {
           </PublicCard>
         }
       >
-        <p>
-          Share qualified opportunities, commercial requirements, intelligence questions or confidential market-access inquiries without exposing sensitive details on public pages.
-        </p>
+        {context ? (
+          <p>
+            Carried over from your Education session: <strong>{context.module}</strong>
+            {context.country ? ` for ${context.country}` : ''}
+            {context.role ? ` (${context.role})` : ''}. Add any specifics below and Harbourview will follow up directly.
+          </p>
+        ) : (
+          <p>
+            Share qualified opportunities, commercial requirements, intelligence questions or confidential market-access inquiries without exposing sensitive details on public pages.
+          </p>
+        )}
         <p className="mt-4 text-sm leading-7 text-white/54">
           Harbourview does not publish intake details, private counterparties, document materials or route-sensitive context. {GENERIC_PUBLIC_DISCLAIMER}
         </p>
@@ -42,7 +74,7 @@ export default function IntakePage() {
       <PublicSection tone="navy">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
           <FormShell>
-            <ConfidentialIntakeForm />
+            <ConfidentialIntakeForm initialContext={context} />
           </FormShell>
 
           <aside className="space-y-6">

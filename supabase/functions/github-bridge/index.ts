@@ -1,4 +1,12 @@
 /**
+ * github-bridge v12 — fixed create_ref base-sha resolution (2026-07-23)
+ *   create_ref (v11) resolved the base branch's sha via GET /git/ref/heads/<ref>,
+ *   which returns a 422 ("sha wasn't supplied") when GitHub treats the ref as
+ *   ambiguous and responds with an array instead of a single ref object — this
+ *   repo hit that on its very first use, even for `main`. Switched to
+ *   GET /branches/<branch>, which always returns a single object for an exact
+ *   branch name.
+ *
  * github-bridge v11 — added create_ref (2026-07-23)
  *   No operation existed to create a branch, which blocks any edit-and-push-back
  *   workflow that needs to land work on a fresh branch + PR instead of committing
@@ -148,7 +156,14 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
       if (data.type !== 'file') return { ok: false, error: 'Not a file', type: data.type }
-      return { ok: true, content: atob((data.content as string).replace(/\n/g, '')), sha: data.sha, path: data.path }
+      // Fixed 2026-07-20: was `atob(...)` directly, which treats each decoded byte as
+      // one UTF-16 code unit instead of reassembling multi-byte UTF-8 sequences --
+      // mangled every em-dash, curly quote, and other non-ASCII character on the way
+      // out (confirmed: corrupted HANDOFF.md via an edit-and-push-back). Decoding through
+      // a real UTF-8-aware TextDecoder fixes it for every caller, not just ones that
+      // know to use get_blob instead.
+      const bytes = Uint8Array.from(atob((data.content as string).replace(/\n/g, '')), c => c.charCodeAt(0))
+      return { ok: true, content: new TextDecoder().decode(bytes), sha: data.sha, path: data.path }
     }
 
     case 'get_file_sha': {
@@ -187,10 +202,18 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
     // Create a new branch (ref) from an existing ref's current commit sha.
     // op.branch: new branch name (without refs/heads/ prefix).
     // op.from_ref: base ref to branch from, defaults to 'main'.
+    //
+    // v12 fix (2026-07-23): originally resolved the base sha via
+    // GET /git/ref/heads/<ref>, which 422s ("sha wasn't supplied") whenever
+    // GitHub treats the ref as ambiguous and returns an array instead of a
+    // single object (observed in practice even for 'main' on this repo, which
+    // has many branches). Switched to GET /branches/<branch>, which always
+    // returns a single object for an exact branch name and is not subject to
+    // this ambiguity.
     case 'create_ref': {
       const fromRef = (op.from_ref as string) ?? 'main'
-      const baseRef = await gh(`${BASE}/git/ref/heads/${encodeURIComponent(fromRef)}`, h)
-      const baseSha = baseRef.object?.sha
+      const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseBranch.commit?.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,
