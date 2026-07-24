@@ -1,13 +1,19 @@
 // Landing zone for the best-effort error beacon fired from
-// app/country/[country]/error.tsx and app/global-error.tsx. Those boundaries
-// previously only reached console.error, which nobody watches in production —
-// this route gives the next occurrence an actual queryable record instead of
-// requiring a fresh multi-hour forensic sweep.
+// app/country/[country]/error.tsx, app/admin/(protected)/error.tsx, and
+// app/global-error.tsx. Those boundaries previously only reached
+// console.error, which nobody watches in production — this route gives the
+// next occurrence an actual queryable record instead of requiring a fresh
+// multi-hour forensic sweep.
 //
 // Public, no auth required: unauthenticated visitors crash too. Writes go
 // through the normal session-aware client so the same RLS policy that
 // protects a direct-to-Supabase caller also applies here — this route adds
-// no privilege the anon key doesn't already have.
+// no privilege the anon key doesn't already have. For authenticated callers
+// (e.g. admin boundary), user_id is left unset in the insert deliberately:
+// the column defaults to auth.uid(), which the RLS WITH CHECK also compares
+// against, so both anonymous (null == null) and authenticated (real uuid ==
+// real uuid) callers pass without this route needing to know which case it's
+// in.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -39,7 +45,7 @@ export async function POST(request: Request) {
 
     const { boundary, route, digest, message, stack, viewportWidth, extra } = body as Record<string, unknown>
 
-    if (boundary !== 'country_role' && boundary !== 'global') {
+    if (boundary !== 'country_role' && boundary !== 'global' && boundary !== 'admin') {
       return NextResponse.json({ ok: false }, { status: 200 })
     }
     if (typeof message !== 'string' || message.trim().length === 0) {

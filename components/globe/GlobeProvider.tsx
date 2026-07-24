@@ -2,9 +2,10 @@
  * components/globe/GlobeProvider.tsx
  *
  * Wires the real schema (countries / signals / market_metrics) into context.
- * Realtime deltas are merged into state here rather than in the hook, since
- * merging requires the current `countries` list (for the country-name→iso2
- * lookup used by `signals` inserts).
+ * Realtime deltas are merged into state here. `signals.country_iso2` is
+ * resolved server-side by the `trg_signals_resolve_geo` trigger before the
+ * row commits, so `payload.new.country_iso2` is already correct — no
+ * client-side country→iso2 lookup needed.
  */
 'use client'
 
@@ -19,11 +20,11 @@ import {
 } from 'react'
 import { useGlobeRealtime, type RealtimeStatus } from './useGlobeRealtime'
 import {
+  mergeSignalRealtimeRow,
   type GlobeLiveData,
   type GlobeCountryMarker,
-  type GlobeSignal,
+  type SignalRealtimeRow,
 } from '@/lib/globe/supabaseGlobeData'
-import { resolveCountryToIso2 } from '@/lib/globe/countryAlias'
 
 /**
  * Fetches the globe payload from the cached server route (`/api/globe`) instead
@@ -105,11 +106,6 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const iso2ByName = useMemo(
-    () => new Map(liveData.countries.map((c) => [c.name.toLowerCase(), c.iso2])),
-    [liveData.countries]
-  )
-
   const handleRealtimeChange = useCallback(
     (payload: {
       table: 'signals' | 'countries' | 'market_metrics'
@@ -149,44 +145,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         if (payload.table === 'signals') {
           if (payload.eventType === 'DELETE') return prev // out of scope for this pass
 
-          const row = payload.new as unknown as {
-            id: string
-            headline: string
-            score: number | null
-            cat: string | null
-            country: string | null
-            created_at: string
-          }
-
-          const iso2 = resolveCountryToIso2(row.country, iso2ByName)
-          const signal: GlobeSignal = {
-            id: row.id,
-            headline: row.headline,
-            score: row.score,
-            cat: row.cat,
-            createdAt: row.created_at,
-            countryIso2: iso2,
-          }
-
-          if (!iso2) {
-            const key = row.country ?? '(null)'
-            return {
-              ...prev,
-              unmappedSignalCountries: {
-                ...prev.unmappedSignalCountries,
-                [key]: (prev.unmappedSignalCountries[key] ?? 0) + 1,
-              },
-            }
-          }
-
-          const existing = prev.signalsByIso2[iso2] ?? []
-          return {
-            ...prev,
-            signalsByIso2: {
-              ...prev.signalsByIso2,
-              [iso2]: [signal, ...existing].slice(0, 50), // cap per-country
-            },
-          }
+          return mergeSignalRealtimeRow(prev, payload.new as unknown as SignalRealtimeRow)
         }
 
         // market_metrics: currently loaded on init only; live updates here
@@ -195,7 +154,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         return prev
       })
     },
-    [iso2ByName]
+    []
   )
 
   const { status, reconnect } = useGlobeRealtime(handleRealtimeChange)
