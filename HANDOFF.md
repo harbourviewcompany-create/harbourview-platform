@@ -1,7 +1,20 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 19 2026 · Claude (Sonnet 5)
+> Last updated: Jul 23 2026 · Claude (Sonnet 5)
+
+---
+
+## OPEN — Frontend dashboard optimization plan (2026-07-19)
+
+A findings + task doc from a frontend/IA audit of the Command Centre dashboard is filed at
+`docs/control/FRONTEND_DASHBOARD_OPTIMIZATION_PLAN.md` and `docs/control/PRICE_CROSSCHECK_SPEC.md`
+(PR #1083). Headline finding: several
+"intelligence" panels (banking/insurance/logistics providers, job board, industry events, price
+benchmarks) are static mock arrays with no backing table — but the corridor panel, originally
+suspected of the same, is actually fully live (`/api/corridors/data`, `get_corridor_stats` RPC).
+Read the plan doc before starting any Command Centre frontend work — it also documents why the
+top-level-import check that produced these findings needs to be paired with a fetch-call check.
 
 ---
 
