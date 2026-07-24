@@ -20,12 +20,30 @@ import {
 } from 'react'
 import { useGlobeRealtime, type RealtimeStatus } from './useGlobeRealtime'
 import {
-  getGlobeLiveData,
   mergeSignalRealtimeRow,
   type GlobeLiveData,
   type GlobeCountryMarker,
   type SignalRealtimeRow,
 } from '@/lib/globe/supabaseGlobeData'
+
+/**
+ * Fetches the globe payload from the cached server route (`/api/globe`) instead
+ * of querying PostgREST directly from every visitor's browser. The route caches
+ * the query for 5 minutes, so this removes per-visitor load from the database
+ * and serves cached data through a transient DB blip. Realtime deltas below keep
+ * the view live after the initial load. A `degraded` payload (DB unreachable)
+ * is a normal empty result here — the sphere still renders, just without markers.
+ */
+async function fetchGlobeLiveData(): Promise<GlobeLiveData> {
+  const res = await fetch('/api/globe', { cache: 'no-store' })
+  if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
+  const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
+  return {
+    countries: data.countries ?? [],
+    signalsByIso2: data.signalsByIso2 ?? {},
+    unmappedSignalCountries: data.unmappedSignalCountries ?? {},
+  }
+}
 
 /**
  * Retries a promise-returning fn with backoff. The diagnosed cause of the
@@ -73,7 +91,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    withRetry(() => getGlobeLiveData(), FETCH_RETRY_BACKOFFS_MS)
+    withRetry(() => fetchGlobeLiveData(), FETCH_RETRY_BACKOFFS_MS)
       .then((data) => {
         if (!cancelled) setLiveData(data)
       })

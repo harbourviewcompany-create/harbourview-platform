@@ -17,6 +17,7 @@
  */
 import { createClient } from '@/lib/supabase/client'
 import type { RegulatoryTier } from './globe-materials'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type GlobeCountryMarker = {
   iso2: string
@@ -55,8 +56,14 @@ export type GlobeLiveData = {
   unmappedSignalCountries: Record<string, number>
 }
 
-export async function getGlobeLiveData(): Promise<GlobeLiveData> {
-  const supabase = createClient()
+/**
+ * Fetch the globe payload. Accepts an injected Supabase client so the same query
+ * can run under the browser client (default, client-side realtime path) or a
+ * server-side anon client (cached route handler — see lib/globe/globeDataServer.ts).
+ */
+export async function getGlobeLiveData(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeLiveData> {
 
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
