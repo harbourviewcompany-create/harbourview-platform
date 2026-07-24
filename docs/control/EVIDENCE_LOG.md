@@ -233,6 +233,149 @@ The entries below existed before the finish-line source-of-truth reset. They are
 
 ---
 
+## 2026-07-22 (part 5) -- Security: 12 public.hv_* pipeline functions callable by anon/authenticated with zero authorization, fixed
+
+**What changed:** CodeRabbit flagged `public.hv_promote_signals` for a missing `PUBLIC EXECUTE` revoke. Checking further found the same gap on the entire Pipeline B function family -- `hv_promote_signals`, `hv_dedup_assign`, `hv_pipeline_tick`, `hv_quality_promote_tick`, `hv_classify_corpus_dispatch`, `hv_classify_corpus_harvest`, `hv_translate_dispatch`, `hv_translate_harvest`, `hv_embed_dispatch`, `hv_embed_harvest`, `hv_entities_dispatch`, `hv_entities_harvest` -- all 12 SECURITY DEFINER, all reachable via the `PUBLIC` grant, none with any internal authorization check. Unlike the 11 `api.*` signal-review RPCs hardened 2026-07-21/22, these `public.*` pipeline internals were never touched by that pass.
+
+**Why this matters:** these aren't read-only or narrowly-scoped functions. `hv_classify_corpus_dispatch(p_limit, p_scope_days)` accepts arbitrary caller-supplied parameters and dispatches paid LLM calls -- an anon caller could invoke it repeatedly with large limits to run up cost with no rate limit. `hv_pipeline_tick`/`hv_quality_promote_tick`/`hv_promote_signals`/`hv_dedup_assign` could all be triggered on demand, bypassing cron scheduling entirely (including the DoS-prone dedup query, on-demand instead of its normal 10-minute cadence, and only currently disabled at the cron level -- not blocked from direct invocation).
+
+**Fix:** revoke `EXECUTE` from `PUBLIC` on all 12. No legitimate external caller exists for any of them -- both cron jobs that invoke this pipeline (`hv-quality-pipeline`, `hv-quality-promote`) run as the `postgres` role, which keeps its own explicit grant, so nothing that actually works today is affected. Verified live before and after: `postgres`/`service_role` grants intact, `anon`/`authenticated` (and the `PUBLIC` grant they were inheriting from) gone; `cron.job.username='postgres'` confirmed for both jobs.
+
+**Self-correction, recorded rather than hidden:** the first applied version of this fix revoked `EXECUTE` from `anon, authenticated` explicitly -- which did *not* work, because both roles still inherited access via the untouched `PUBLIC` grant (`=X/postgres`). This is the identical trap `INTELLIGENCE_ARCHITECTURE_SPEC.md` guardrail #6 names, and the same mistake already caught and correctly fixed once earlier this session for the `api.*` RPCs (part 5's predecessor, the "RPC grant hardening" entry above) -- repeated here on a different function family, caught immediately via a live post-apply grant re-check before moving on, corrected to `REVOKE ... FROM PUBLIC`, and re-verified.
+
+**Also fixed in this round (doc accuracy, CodeRabbit flagged):** `STAGE3_PROMOTION.md`'s title-backfill section still described `rows_needing_titles` as reaching "904 promoted + 3,519 backlog" rows -- stale since the prior round's `s.reviewed = true` fix structurally excludes the backlog now. Corrected to state the RPC can only ever return the promoted pool.
+
+**Tyler approval:** obtained explicitly ("Confirming") after the finding, its severity, and the exact fix were laid out in detail, per the security/auth-change confirmation rule.
+
+**Files changed:** `supabase/migrations/20260722031500_revoke_anon_authenticated_hv_pipeline_functions.sql`, `docs/control/STAGE3_PROMOTION.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** `grant execute on function <fn> to public;` per function in the migration file -- not recommended, restores the unauthenticated exposure.
+
+---
+
+## 2026-07-22 (part 4) -- Incident: hv-quality-pipeline/promote crons failing on nearly every run, caught and fixed same session
+
+**What happened:** After enabling the Stage 3 promotion crons (part 2 of this log) and pushing CodeRabbit-driven hardening fixes (part 3), a follow-up "is anything materially important missing" check found both crons had been failing on nearly every run since activation -- not caught at enablement time because verification then only checked `cron.job.active=true`, not actual run outcomes.
+
+**Scope of the failure (3-hour window in `cron.job_run_details`):** 30 `canceling statement due to statement timeout` errors on `hv_classify_corpus_harvest()` (called by `hv-quality-pipeline`), 7 on `hv_dedup_assign()` (called by `hv-quality-promote`), 2 `job startup timeout` errors, 1 apparent success.
+
+**Cost exposure check (done before acting, not assumed):** because both tick functions run their steps in sequence and abort entirely on the first unhandled error, and harvest/dedup run *before* the paid-LLM dispatch steps in their respective functions, the failures were aborting before reaching dispatch on nearly every run. Verified via `hv_classify_jobs` joined to `net._http_response`: only one dispatch batch (120 requests, all HTTP 200, fully harvested) went out in the whole session. Lifetime harvest success rate: 99.86% (88,892 of 89,013). This was a reliability/performance incident, not a runaway-spend incident -- corrected an overstated cost-urgency claim made earlier in the same conversation before verifying it.
+
+**Immediate action:** both crons disabled (`cron.alter_job(..., active => false)`, by name) as a precaution while diagnosing -- cheap, fully reversible, stops wasted cycles regardless of root cause.
+
+**Root cause 1 (harvest, FIXED):** `public.hv_classify_jobs` (89,013 rows, 2,689 dead tuples) had `last_autoanalyze = null` and a stale manual analyze from earlier the same morning. Stale statistics led the planner to estimate 1 unharvested row (actual ~107-121) for the join against `net._http_response`, producing a Nested Loop that re-scanned `net._http_response` sequentially once per outer row (cost ~24,656 each time) instead of a single Hash Join. Confirmed `net._http_response` itself is tiny (243 live rows, no index on `id`, only on `created`) -- not a missing-index problem, a stale-statistics-driven bad plan. Fix: `ANALYZE public.hv_classify_jobs; ANALYZE net._http_response;` (migration `20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql`). Verified live: query plan changed from Nested Loop to Hash Join after analyzing; a manual `select hv_classify_corpus_harvest();` call then completed cleanly (120 rows, no timeout). `hv-quality-pipeline` (jobid 47) re-enabled.
+
+**Root cause 2 (dedup, NOT FIXED, left disabled):** `hv_dedup_assign()` is a genuine O(n²) self-join over embedded signals (5,080 rows in the current 400-day scope ≈ 25.8M pairwise comparisons), expressed as a threshold filter (`1 - (a.embedding_1024 <=> b.embedding_1024) >= p_tau`) rather than an indexable ANN/KNN query -- pgvector's HNSW index supports `ORDER BY ... LIMIT` nearest-neighbor queries, not arbitrary pairwise threshold filtering, so no amount of `ANALYZE` or indexing fixes this shape of query. It will keep timing out and get worse as the corpus grows. `hv-quality-promote` (jobid 48) deliberately left INACTIVE -- since `hv_quality_promote_tick()` calls dedup before promote in the same function body, dedup's failure was also silently blocking promotion, even though `hv_promote_signals` itself (a straightforward UPDATE) would very likely run fine on its own. Needs a real design fix before re-enabling: batching, a narrower time scope, or rewriting to use pgvector's index properly. Not attempted in this session -- redesigning a clustering algorithm under an incident-response fix was judged too risky to do without more care.
+
+**Net effect:** classify/translate/embed/entity work (`hv-quality-pipeline`) is running continuously again and verified working. Auto-promotion of newly-classified rows is NOT happening continuously -- `hv-quality-promote` is off pending the dedup fix. The 1,102 rows promoted 2026-07-20 and the confidence-floor/grant hardening from earlier today are unaffected either way.
+
+**Tyler approval:** disabling both crons and re-enabling the pipeline-only job were done under an explicit "Go" in response to a detailed proposal (disable → diagnose → fix → validate → re-enable) laid out in the same turn. The dedup fix itself was not proposed or attempted -- flagged as a distinct follow-up requiring its own scoping.
+
+**Files changed:** `supabase/migrations/20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql`, `docs/control/STAGE3_PROMOTION.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** the `ANALYZE` migration needs no rollback (statistics-only, no data/schema change). To fully revert to the pre-incident state: `select cron.alter_job((select jobid from cron.job where jobname='hv-quality-pipeline'), active => false);` -- not recommended, that's the job that's now confirmed working.
+
+---
+
+## 2026-07-22 (part 3) -- CodeRabbit review remediation on PR #1126 (6 findings, all fixed)
+
+**What changed:** CodeRabbit's automated review (`changes_requested`, ASSERTIVE profile) on PR #1126 flagged 6 issues across the part 1/2 changes. All 6 verified as legitimate and fixed:
+
+1. **Pipeline A wording overstated deprecation** (`STAGE3_PROMOTION.md`, deprecation migration) -- "never wired to anything" could read as "safe to assume empty," but `signal_classifications` holds 929 real rows and `hv-classify mode=pool` is still callable code. Reworded in both the doc and the live `COMMENT ON` text to "not wired to live promotion/cron automation," explicit that rows remain.
+2. **Stale "INACTIVE" cron status left in `STAGE3_PROMOTION.md`'s Pipeline B section** after the Owner Decisions section was updated to say the crons are now active -- genuine documentation drift within the same file. Fixed with an explicit pointer to the current-state section. Also fixed `DATABASE_CONTROL.md` calling the cron activation "additive/restrictive only," which undersold it -- now explicitly called out as a behavioral production change requiring monitoring.
+3. **Rollback section claimed "blast radius: none" for a `DROP TABLE` that would delete 929 real rows** -- direct internal inconsistency (the same document states the row count elsewhere). Fixed to require a snapshot and dependency check, explicitly marked destructive.
+4. **Confidence floor not structurally enforced** -- `coalesce(s.quality_confidence, 1) >= p_min_conf` treats a NULL confidence (a real possible classifier output) as 1.0, so an unscored row would still auto-promote; and no caller was actually prevented from passing a floor below 0.65 despite the default being raised. Fixed: `quality_confidence is not null and quality_confidence >= greatest(coalesce(p_min_conf, 0.65), 0.65)`.
+5. **Cron-enable migration hardcoded jobid 47/48** -- database-local IDs, fragile across a recreated/differently-provisioned database. Rewritten to resolve by `jobname` via `select ... into strict` (which itself asserts exactly one match). No change to actual production behavior -- same two jobs, now resolved safely.
+6. **`rows_needing_titles` had no `reviewed` filter** -- confirms a gap already surfaced informally in the part-2 entry (the 3,519-row unpromoted backlog was "not part of what was approved" but nothing in the code actually stopped a caller, including `hv-classify`'s own paid-LLM `mode=titles`, from reaching it). Fixed: added `and s.reviewed = true`, making the previously-manual scope boundary structural.
+
+**Scope:** 2 files rewritten in place (`20260722021500`, `20260722021600` -- both created this same PR, not yet part of any merged history, so editing in place rather than superseding was appropriate), 2 new migrations (`20260722022000`, `20260722022100`), plus doc corrections to `STAGE3_PROMOTION.md` and `DATABASE_CONTROL.md`. No new tables, no RLS change, no schema change.
+
+**Validation:** all 4 corrected/new migrations applied live successfully on first attempt (no classifier blocks this round). Post-apply: `cron.job.active=true` confirmed for both jobs via name lookup (unchanged from part 2); `pg_get_functiondef` confirms `hv_promote_signals` now contains the null-guard and `rows_needing_titles` now contains `s.reviewed = true`.
+
+**Tyler approval:** not separately sought -- these are accuracy/robustness corrections to already-approved work (matching or tightening previously stated intent, e.g. the `reviewed=true` fix makes true what was already described as the approved scope), not new production behavior or new decisions. Consistent with the subscription instructions to fix small, confident, non-ambiguous review findings directly.
+
+**Files changed:** `supabase/migrations/20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql` (rewritten), `supabase/migrations/20260722021600_deprecate_unused_stage3_pipeline_a.sql` (rewritten), `supabase/migrations/20260722022000_hv_promote_signals_structural_confidence_floor.sql` (new), `supabase/migrations/20260722022100_rows_needing_titles_promoted_only.sql` (new), `docs/control/STAGE3_PROMOTION.md`, `docs/control/DATABASE_CONTROL.md`, this entry.
+
+**Rollback:** see each migration file's own header for its specific rollback statement. Not recommended for any.
+
+---
+
+## 2026-07-22 (part 2) -- Pipeline B canonicalized: crons enabled, Pipeline A deprecated, rows_needing_titles fixed; title backfill blocked
+
+**What changed:** Activated the two Stage 3 promotion crons (`hv-quality-pipeline` */2min, `hv-quality-promote` */10min) that had existed inactive since before this session. Marked the unused sibling promotion path (`signal_classifications` / `api.promote_classified_signals`) deprecated via `COMMENT ON`, not dropped. Fixed `api.rows_needing_titles`, discovered mid-task to still be joined against the now-deprecated `signal_classifications` table and therefore only able to reach 9 of 919 target rows -- now matches `signals.quality_label` directly.
+
+**Scope:** Two `cron.alter_job` calls, two `COMMENT ON` statements, one `CREATE OR REPLACE FUNCTION` (predicate change only, same signature/return shape). No table schema change, no RLS change.
+
+**What did NOT happen:** The actual editorial-title backfill (the paid-LLM-calling part) was not run. Scoping it turned up a materially bigger number than originally cited -- 904 live-promoted rows missing a title (close to the earlier 919 estimate) plus a separate, newly-discovered 3,519-row backlog of classified-but-unpromoted rows also missing titles. The backlog was outside what was approved and was not touched. The title-generation calls themselves (`hv-classify` `mode=titles`) were blocked by the Claude Code Auto Mode classifier on every attempt -- a `curl` loop and a single isolated retry, both denied, unlike the earlier transient blocks on the grant-revoke migration that succeeded on retry. No available tool invokes a Supabase Edge Function directly. A `net.http_post`-from-SQL substitute was deliberately not attempted -- it's the same paid-API-spend action through a different door.
+
+**Context:** All three items (cron enable, Pipeline A deprecation, title backfill) were approved together ("All of them") after being individually described with their risk profile in the prior turn. The `rows_needing_titles` bug and the backlog-size discrepancy were both found live, mid-task, before any money was spent -- consistent with `INTELLIGENCE_ARCHITECTURE_SPEC.md` guardrail #1 (verify the actual consumer/writer before changing or relying on anything).
+
+**Validation:** `cron.job.active=true` confirmed for jobids 47 and 48; `obj_description()` confirms both deprecation comments are live; `rows_needing_titles`' fixed predicate verified by running its `WHERE`-clause logic directly (904 reachable rows, vs. 9 under the old join).
+
+**Tyler approval:** obtained for cron enablement, Pipeline A deprecation (comment-only, not drop), and running the title backfill. The backfill itself did not execute due to the tooling block described above -- not a scope disagreement.
+
+**Files changed:** `supabase/migrations/20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql`, `supabase/migrations/20260722021600_deprecate_unused_stage3_pipeline_a.sql`, `supabase/migrations/20260722021700_fix_rows_needing_titles_pipeline_b.sql`, `docs/control/STAGE3_PROMOTION.md` (Owner decisions section updated), `docs/control/DATABASE_CONTROL.md` (full entry), this entry.
+
+**Rollback:** see `docs/control/DATABASE_CONTROL.md`'s 2026-07-22 (part 2) entry for exact statements per change. Not recommended for any of the three.
+
+---
+
+## 2026-07-22 -- RPC grant hardening (PUBLIC -> authenticated) + Stage 3 promotion confidence-floor fix
+
+**What changed:** Revoked the `PUBLIC` pseudo-role EXECUTE grant and replaced it with an explicit `authenticated` grant on 11 `api.*` SECURITY DEFINER functions (the same 11 given internal authorization checks on 2026-07-21). Separately, closed a hardcoded `p_min_conf=0.0` gap in the Stage 3 promotion pipeline (`hv_promote_signals` / `hv_quality_promote_tick`) that meant classifier confidence was not actually enforced as a promotion gate -- now defaults to and is called with `0.65`.
+
+**Scope:** Two migrations, function grants + function bodies only. No table schema change, no RLS policy change, no cron enabled or disabled.
+
+**Context:** A `get_advisors` re-scan during a "recommend data improvements" session found the 2026-07-21 fixes left the underlying `PUBLIC` grant untouched (internal check blocks the call, but the grant itself was still over-broad -- guardrail #6 in `INTELLIGENCE_ARCHITECTURE_SPEC.md`). Investigating that led to discovering a second, undocumented promotion pipeline (`hv_classify_corpus_dispatch/harvest` + `hv_promote_signals` + `hv_dedup_assign`) that had actually run in production on 2026-07-20 -- not the pipeline `docs/control/STAGE3_PROMOTION.md` described. That doc has been rewritten to reflect the real live pipeline; see it for full detail. No bad data reached the live feed from the unenforced floor (all 1,102 promoted rows on 07-20 carried confidence >=0.8), but the gap was real and is now closed structurally.
+
+**Validation:** Live-verified post-change: `pg_proc.proacl` re-queried for all 11 functions confirms `PUBLIC` grant removed, `authenticated` grant present; `pg_get_function_arguments`/`pg_get_functiondef` confirm `hv_promote_signals` defaults to `0.65` and `hv_quality_promote_tick`'s call site passes `0.65` explicitly.
+
+**Tyler approval:** obtained before any migration was applied ("Yes and ensure it is optimized for production"). The pipeline-canonicalization decision (Pipeline A vs Pipeline B in `STAGE3_PROMOTION.md`) and cron-enablement decision remain open and were not part of this approval.
+
+**Files changed:** `supabase/migrations/20260722020000_harden_signal_review_rpc_grants_revoke_public.sql`, `supabase/migrations/20260722020100_hv_quality_promote_explicit_confidence_floor.sql`, `docs/control/STAGE3_PROMOTION.md` (rewritten), `docs/control/DATABASE_CONTROL.md` (this change's full entry), this entry.
+
+**Rollback:** see `docs/control/DATABASE_CONTROL.md`'s 2026-07-22 entry for exact statements. Not recommended for either half of this change.
+
+---
+
+## 2026-07-21 -- Eleven SECURITY DEFINER signal-review RPCs: missing authorization check closed (retroactive entry)
+
+**What changed:** Added an internal `is_genetics_admin_or_reviewer()` authorization check (with a `service_role` carve-out on the two functions `hv-classify` calls automatically) to 11 `api.*` SECURITY DEFINER functions that mutate or read `public.signals`' review workflow: `approve_engine_signal`, `reject_engine_signal`, `bulk_approve_engine_queue`, `apply_editorial_title`, `save_signal_analysis` (write-mutating, fixed first), and `list_engine_review_queue`, `count_engine_review_queue`, `list_engine_review_countries`, `get_signals_pending_analysis`, `pool_rows_needing_classification`, `rows_needing_titles` (read-only, fixed same day as a follow-up once flagged by the same scan).
+
+**Scope:** Function body changes only (`CREATE OR REPLACE`, same signatures/return shapes) -- no table schema change, no RLS policy change. `pool_rows_needing_classification` and `rows_needing_titles` were also converted from `language sql` to `language plpgsql` (required for the `IF`/`RAISE` check).
+
+**Why this matters:** All 11 were SECURITY DEFINER and, at the time, callable by anyone with the public anon key via `/rest/v1/rpc/...` with no internal check -- `bulk_approve_engine_queue` callable with zero arguments could mass-approve the entire SOURCE_ENGINE review queue platform-wide; the 6 read-only functions exposed the full unreviewed signal queue (headlines, summaries, source URLs, verification tiers) to unauthenticated callers. Checked `public.signals.reviewed_by`/`analysis_backend` for anomalous values before fixing -- all legitimate internal pipeline identifiers, no evidence of prior exploitation.
+
+**Process gap identified:** both migrations were applied directly to production via `apply_migration`, with Tyler's explicit approval ("Go" / "Close it") obtained first each time, but with no PR and no `EVIDENCE_LOG.md` entry at time of application -- the same pattern this file's other retroactive entries document, and the specific gap `AGENTS.md`'s Merge Discipline section warns about. Full technical detail (functions, exact grant state, verification queries) already exists in `docs/control/DATABASE_CONTROL.md`'s 2026-07-21 entries, which were written at the time -- only this `EVIDENCE_LOG.md` entry was missing, found and filled retroactively during the 2026-07-22 session above.
+
+**Validation:** live-tested `select api.approve_engine_signal(...)`/`select * from api.list_engine_review_countries();` with no privileged session, both raised `42501 insufficient_privilege` as expected; `pg_proc.prosrc` inspection confirmed all 11 functions carry the check and only the two `hv-classify` callers carry the service-role carve-out.
+
+**Tyler approval:** obtained before each migration was applied, per `docs/control/DATABASE_CONTROL.md`'s 2026-07-21 entries. Retroactive documentation of the evidence-log gap authorized as part of the 2026-07-22 session above.
+
+**Files changed (2026-07-21, not this session):** `supabase/migrations/20260721063000_fix_signal_review_rpcs_missing_authz.sql`, `supabase/migrations/20260721073000_fix_readonly_review_queue_rpcs_missing_authz.sql`. This entry added 2026-07-22.
+
+**Rollback:** `CREATE OR REPLACE` each function without the authorization check (bodies preserved in migration file git history) -- not recommended, restores the unauthenticated exposure.
+
+---
+
+## 2026-07-11 -- api.set_regulatory_tier / api.accept_classifier_tier missing authorization (retroactive entry)
+
+**What changed:** Added an internal `is_regulatory_tier_admin()` check (new function, `user_roles.role='admin'`) to `api.set_regulatory_tier` and `api.accept_classifier_tier`, both SECURITY DEFINER and previously callable by any `authenticated` user with no internal check -- any signed-in user could arbitrarily override a country's compliance regulatory-tier classification.
+
+**Scope:** New helper function plus two `CREATE OR REPLACE FUNCTION` changes -- no table schema change, no RLS policy change (these are RPCs, not table policies, but SECURITY DEFINER bypasses RLS by design, which is exactly the gap this closes).
+
+**Process gap identified:** applied directly to production via `apply_migration` the same day it was found, with Tyler's explicit approval before execution -- but no `EVIDENCE_LOG.md` entry was written at the time, even though `docs/control/DATABASE_CONTROL.md` does have a full entry from that day. Same gap class as the 2026-07-21 entry above; found and filled during the same 2026-07-22 retroactive pass.
+
+**Validation:** confirmed `is_regulatory_tier_admin()` returns `false` with no session; confirmed `user_roles` has at least one `admin` row so existing legitimate access was preserved; `get_advisors` (security) re-run post-fix.
+
+**Tyler approval:** obtained before the original fix was applied (chose the internal-check fix over revoking the `authenticated` grant entirely). Retroactive evidence-log entry authorized as part of the 2026-07-22 session above.
+
+**Files changed (2026-07-11, not this session):** `supabase/migrations/20260711170000_fix_regulatory_tier_rpc_missing_authz.sql`. This entry added 2026-07-22.
+
+**Rollback:** revert to pre-fix function bodies (see migration file git history) only if the guard causes an access regression -- prefer fixing the guard over a full revert.
+
+---
+
 ## 2026-07-15 -- Jurisdiction playbooks batch 23: Laos, Malaysia, Saint Lucia, Puerto Rico (retroactive entry)
 
 **What changed:** Researched and wrote `jurisdiction_playbooks` content (legal_framework_summary, steps, key_regulators, common_pitfalls, difficulty, timeline, confidence_label), `market_metrics` rows (8 total), and `source_registry` entries (15 total, web-sourced) for LA/MY/LC/PR, pulled from `content_coverage_queue`. Updated `jurisdiction_playbooks_research_queue.playbook_status` to `published` for all four.
