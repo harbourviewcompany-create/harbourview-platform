@@ -1,6 +1,8 @@
 # Command Centre CSS: Design-System Token & Accessibility Fixes
 
-Status: proposed, unstarted. Scoped for direct pickup — no further audit needed.
+Status: proposed, unstarted. CSS audit complete, scoped for direct pickup — except Finding 5,
+which still needs the `CommandCentre.tsx`/`MobileCommandCentre.tsx` accessibility check noted below
+before implementation.
 Origin: findings from a Claude (chat) session reviewing `components/dashboard/CommandCentre.css`
 (80KB) against `docs/control/DESIGN_SYSTEM.md` and `docs/control/DASHBOARD_DESIGN_HANDOFF.md`,
 requested by Tc, 2026-07-23. Complements (does not duplicate) the data-wiring/monolith-split
