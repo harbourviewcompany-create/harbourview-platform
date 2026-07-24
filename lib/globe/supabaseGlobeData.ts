@@ -1,20 +1,23 @@
 /**
  * lib/globe/supabaseGlobeData.ts
  *
- * Real schema, verified live against the database on 2026-07-05:
+ * Real schema, verified live against the database on 2026-07-21:
  * - `countries` has lat/lng + iso_alpha2 — this is the actual marker source
  *   (there is no `suppliers` table with geo fields; do not reintroduce one).
- * - `signals` has no country_iso2 or intensity column, and `country` is free
- *   text — resolved via countryAlias.ts, with unmapped values surfaced
- *   explicitly rather than dropped.
+ * - `signals.country` is free text, but as of migration
+ *   `20260716195743_signals_country_iso_resolution`, `signals.country_iso2`
+ *   is resolved server-side by the `trg_signals_resolve_geo` trigger on every
+ *   insert/update (direct match, `country_name_aliases`, or a regional/global
+ *   bucket via `signal_geo_labels`) — read it directly, do not re-resolve
+ *   client-side.
  * - `market_metrics` has country_iso2 (real column) for market-size/opportunity
  *   overlays if needed later.
  * - There is no `realtime_metrics` table. If telemetry is wanted, that's a
  *   separate migration + decision, not assumed here.
  */
 import { createClient } from '@/lib/supabase/client'
-import { resolveCountryToIso2 } from './countryAlias'
 import type { RegulatoryTier } from './globe-materials'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type GlobeCountryMarker = {
   iso2: string
@@ -53,8 +56,14 @@ export type GlobeLiveData = {
   unmappedSignalCountries: Record<string, number>
 }
 
-export async function getGlobeLiveData(): Promise<GlobeLiveData> {
-  const supabase = createClient()
+/**
+ * Fetch the globe payload. Accepts an injected Supabase client so the same query
+ * can run under the browser client (default, client-side realtime path) or a
+ * server-side anon client (cached route handler — see lib/globe/globeDataServer.ts).
+ */
+export async function getGlobeLiveData(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeLiveData> {
 
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
@@ -80,13 +89,9 @@ export async function getGlobeLiveData(): Promise<GlobeLiveData> {
     regulatoryTier: (c.regulatory_tier as RegulatoryTier | null) ?? null,
   }))
 
-  const iso2ByName = new Map(
-    countries.map((c) => [c.name.toLowerCase(), c.iso2])
-  )
-
   const { data: signalRows, error: signalsError } = await supabase
     .from('signals')
-    .select('id, headline, score, cat, country, created_at')
+    .select('id, headline, score, cat, country, country_iso2, created_at')
     .gte(
       'created_at',
       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -102,7 +107,7 @@ export async function getGlobeLiveData(): Promise<GlobeLiveData> {
   const unmappedSignalCountries: Record<string, number> = {}
 
   for (const row of signalRows ?? []) {
-    const iso2 = resolveCountryToIso2(row.country, iso2ByName)
+    const iso2 = row.country_iso2
     const signal: GlobeSignal = {
       id: row.id,
       headline: row.headline,
@@ -122,4 +127,59 @@ export async function getGlobeLiveData(): Promise<GlobeLiveData> {
   }
 
   return { countries, signalsByIso2, unmappedSignalCountries }
+}
+
+export type SignalRealtimeRow = {
+  id: string
+  headline: string
+  score: number | null
+  cat: string | null
+  country: string | null
+  country_iso2: string | null
+  created_at: string
+}
+
+/**
+ * Merges one realtime INSERT/UPDATE `signals` row into live data. Pulled out of
+ * GlobeProvider so the merge logic (iso2 bucketing, unmapped tracking, per-country
+ * cap) is unit-testable without rendering the provider.
+ *
+ * Called for both INSERT and UPDATE (GlobeProvider only skips DELETE), so a row
+ * already present — e.g. an editorial curation edit setting `reviewed`/
+ * `editorial_title` — must replace its old entry, not duplicate it.
+ */
+export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeRow): GlobeLiveData {
+  const iso2 = row.country_iso2
+  const signal: GlobeSignal = {
+    id: row.id,
+    headline: row.headline,
+    score: row.score,
+    cat: row.cat,
+    createdAt: row.created_at,
+    countryIso2: iso2,
+  }
+
+  if (!iso2) {
+    const key = row.country ?? '(null)'
+    // Known imprecision: an UPDATE to a signal that was already unmapped (id
+    // already counted) still increments this bucket, since the counter alone
+    // can't tell INSERT from UPDATE. Not fixed here — unmappedSignalCountries
+    // is a diagnostic surfaced nowhere in the UI yet; revisit if that changes.
+    return {
+      ...prev,
+      unmappedSignalCountries: {
+        ...prev.unmappedSignalCountries,
+        [key]: (prev.unmappedSignalCountries[key] ?? 0) + 1,
+      },
+    }
+  }
+
+  const existing = prev.signalsByIso2[iso2] ?? []
+  return {
+    ...prev,
+    signalsByIso2: {
+      ...prev.signalsByIso2,
+      [iso2]: [signal, ...existing.filter((s) => s.id !== signal.id)].slice(0, 50), // cap per-country
+    },
+  }
 }

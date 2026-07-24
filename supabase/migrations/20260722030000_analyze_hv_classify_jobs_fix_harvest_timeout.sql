@@ -1,0 +1,35 @@
+-- Incident response: hv-quality-pipeline and hv-quality-promote (enabled earlier
+-- this session) were failing on nearly every run -- 30 statement-timeout errors on
+-- hv_classify_corpus_harvest() and 7 on hv_dedup_assign() in a 3-hour window, plus
+-- 2 outright job-startup timeouts. Both crons were disabled immediately as a
+-- precaution while diagnosing (see EVIDENCE_LOG.md for the full incident writeup).
+--
+-- Root cause for the harvest timeout: public.hv_classify_jobs (89,013 rows,
+-- 2,689 dead tuples) had last_autoanalyze = null and a last manual analyze from
+-- the morning of the same day -- stale enough that the planner estimated only 1
+-- unharvested row (actual: ~107-121) for the join against net._http_response.
+-- That misestimate produced a Nested Loop with net._http_response re-scanned
+-- sequentially once per outer row (cost ~24,656 each time) instead of a single
+-- Hash Join. Confirmed: net._http_response itself is tiny (243 live rows) and
+-- has no index on `id` (only on `created`) -- not a missing-index problem, a
+-- stale-statistics-driven bad plan.
+--
+-- Fix: ANALYZE the two tables feeding that join. Verified live: query plan
+-- changed from Nested Loop (repeated seq scan) to Hash Join (single scan) after
+-- this ran, and a manual `select hv_classify_corpus_harvest();` call then
+-- completed cleanly (120 rows) with no timeout.
+--
+-- hv_dedup_assign() is a SEPARATE, unresolved issue -- NOT fixed by this
+-- migration. It's a genuine O(n^2) self-join over embedded signals
+-- (5,080 rows in the current 400-day scope, ~25.8M pairwise comparisons),
+-- expressed as a threshold filter rather than an indexable ANN/KNN query, so
+-- pgvector's index cannot help it regardless of statistics. hv-quality-promote
+-- (jobid 48) is deliberately left INACTIVE pending a real fix (batching, a
+-- narrower scope, or rewriting to use an indexed KNN query) -- see
+-- docs/control/STAGE3_PROMOTION.md. hv-quality-pipeline (jobid 47) does not call
+-- hv_dedup_assign and has been re-enabled.
+--
+-- Rollback: none needed -- ANALYZE only updates planner statistics, no data or
+-- schema change. Re-running it is always safe.
+analyze public.hv_classify_jobs;
+analyze net._http_response;

@@ -700,11 +700,14 @@ volume.
 - Repo: `harbourviewcompany-create/harbourview-platform`
 - Live Intel feed query: `lib/regulatory-signals/public.ts` → PostgREST
   `/rest/v1/signals?reviewed=eq.true&order=date.desc&limit=300`
-- Canonical pipeline (Pipeline B, uncommitted as of this writing — Stage A fixes that):
+- Canonical pipeline (Pipeline B; Stage A baseline committed 2026-07-24 via
+  `supabase/migrations/20260723084446_baseline_hv_intelligence_pipeline.sql` — schema/function
+  definitions now match what's live, closing the prior "uncommitted" gap):
   `hv_pipeline_tick()`, `hv_quality_promote_tick()`, `hv_translate_*`,
   `hv_classify_corpus_*`, `hv_embed_*`, `hv_entities_*`, `hv_dedup_assign`,
   `hv_promote_signals`. Crons `hv-quality-pipeline` (jobid 47) and `hv-quality-promote`
-  (jobid 48), both currently disabled.
+  (jobid 48), both still currently disabled (unrelated to the baseline commit — see the
+  2026-07-21 load-shed entry in `EVIDENCE_LOG.md`).
 - Deprecated-pending pipeline (Pipeline A): `intel_eval_set`, `intel_eval_predictions`,
   `api.intel_eval_scoring`, `signal_classifications`, `api.promote_classified_signals`,
   `intel_pipeline_tick()`. Cron `intel-classify-promote`, unscheduled 2026-07-21.
