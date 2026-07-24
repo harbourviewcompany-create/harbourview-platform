@@ -3976,9 +3976,9 @@ const MOBILE_CSS = `
   min-height: 44px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.72);
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.02);
+  color: rgba(255,255,255,0.5);
   font-size: 16px;
   cursor: pointer;
 }
@@ -4021,7 +4021,7 @@ const MOBILE_CSS = `
 .hvm-hero-card { padding: 18px; }
 .hvm-hero-card.compact h2 { margin: 0 0 6px; }
 .hvm-country-row { display: flex; align-items: center; gap: 13px; }
-.hvm-country-mark { flex: 0 0 auto; font-size: 36px; }
+.hvm-country-mark { flex: 0 0 auto; font-size: 36px; line-height: 1; margin-top: -3px; }
 .hvm-hero-card h2 {
   margin: 0;
   color: #f5f0e8;
@@ -4125,6 +4125,8 @@ const MOBILE_CSS = `
   max-width: calc(100% + 32px);
   scrollbar-width: none;
   border-bottom: 1px solid rgba(255,255,255,.06);
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 32px), transparent 100%);
 }
 .hvm-titlebar .hvm-scroll-tabs {
   margin: 0;
