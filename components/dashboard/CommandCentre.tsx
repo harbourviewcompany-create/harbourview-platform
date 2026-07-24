@@ -6,6 +6,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, RegistryCoverageSummary, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
+import { buildConfidenceLanes, overallConfidence as computeOverallConfidence, type ConfidenceLane } from '@/lib/dashboard/confidenceScoring'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -248,10 +249,6 @@ function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: strin
   ]
 }
 
-function overallConfidence(bars: { pct: number }[]) {
-  return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
-}
-
 function fmtStatus(v: string | null | undefined, fallback = '—'): string {
   if (!v) return fallback
   return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -364,6 +361,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   signals,
   marketMetrics = [],
   tradeFlows = [],
+  confidence,
   onCountrySelect,
   onPageChange,
 }: {
@@ -375,6 +373,11 @@ const BriefingRoom = React.memo(function BriefingRoom({
   signals:          DashboardSignal[]
   marketMetrics?:   MarketMetric[]
   tradeFlows?:      TradeFlow[]
+  // Real, data-driven confidence lanes computed upstream in CommandCentre from
+  // the full per-lane data set. Optional: when absent (e.g. a caller that only
+  // has country intel in scope) BriefingRoom falls back to computing lanes from
+  // the country intel + signals it does have.
+  confidence?:      ConfidenceLane[]
   onCountrySelect?: (iso2: string) => void
   onPageChange?:    (page: CommandPage) => void
 }) {
@@ -382,8 +385,11 @@ const BriefingRoom = React.memo(function BriefingRoom({
   const [aiBriefing, setAiBriefing] = useState<string | null>(null)
   const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const [aiBriefingError, setAiBriefingError] = useState(false)
-  const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
-  const overall  = overallConfidence(confBars)
+  const confBars = useMemo<ConfidenceLane[]>(
+    () => confidence ?? buildConfidenceLanes({ countryIntel, signals, countryLabel: country.label }),
+    [confidence, countryIntel, signals, country.label],
+  )
+  const overall  = useMemo(() => computeOverallConfidence(confBars), [confBars])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -551,12 +557,19 @@ const BriefingRoom = React.memo(function BriefingRoom({
             </div>
             <div className="cc-confidence-bars">
               {confBars.map(bar => (
-                <div key={bar.label} className="cc-conf-bar-row">
+                <div
+                  key={bar.key}
+                  className={`cc-conf-bar-row${bar.available ? '' : ' cc-conf-bar-row-pending'}`}
+                  title={bar.basis}
+                >
                   <span className="cc-conf-bar-lbl">{bar.label}</span>
                   <div className="cc-conf-bar-track">
-                    <div className="cc-conf-bar-fill" style={{ width: `${bar.pct}%` }} />
+                    <div
+                      className="cc-conf-bar-fill"
+                      style={{ width: bar.available ? `${bar.pct}%` : '0%' }}
+                    />
                   </div>
-                  <span className="cc-conf-bar-pct">{bar.pct}%</span>
+                  <span className="cc-conf-bar-pct">{bar.available ? `${bar.pct}%` : '—'}</span>
                 </div>
               ))}
             </div>
@@ -10932,6 +10945,21 @@ export default function CommandCentre({
   )
   const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
 
+  // Real, data-driven BriefingRoom confidence — computed here where the full
+  // per-lane data set is in scope (regulatory sources, market metrics, pathway,
+  // local intel, education), rather than from a single completeness bucket.
+  const briefingConfidence = useMemo<ConfidenceLane[]>(() => buildConfidenceLanes({
+    countryIntel:     liveCountryIntel,
+    signals,
+    countryLabel:     country.label,
+    pathwayData,
+    localIntel,
+    sourceCoverage,
+    marketMetrics,
+    eduCategories,
+    recentEduModules,
+  }), [liveCountryIntel, signals, country.label, pathwayData, localIntel, sourceCoverage, marketMetrics, eduCategories, recentEduModules])
+
   // Per-role sidebar ordering: promote modules relevant to this role within each
   // nav section, without hiding anything. 'briefing' always stays first (it's the
   // default landing page). Items with no per-role signal keep their original order.
@@ -11013,7 +11041,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} confidence={briefingConfidence} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'digest':
         return <DigestPageLazy country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'access-pathway':
