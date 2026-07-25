@@ -69,6 +69,22 @@ export async function POST(request: Request) {
     return json('error', 'Name, email, and job are required.', 400)
   }
 
+  const EMAIL_RE = /^[^s@]+@[^s@]+.[^s@]+$/
+  if (!EMAIL_RE.test(email)) {
+    return json('error', 'Enter a valid email address.', 400)
+  }
+
+  if (resumeUrl) {
+    try {
+      const parsed = new URL(resumeUrl)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return json('error', 'Resume link must be a valid http/https URL.', 400)
+      }
+    } catch {
+      return json('error', 'Resume link must be a valid http/https URL.', 400)
+    }
+  }
+
   const identityLimit = await enforceRateLimit({ route: ROUTE_ID, ip, identity: email, limit: 8, windowMs: 60_000 })
   if (!identityLimit.allowed) {
     return json('error', 'Too many requests. Please try again shortly.', 429, identityLimit.retryAfterSeconds)
