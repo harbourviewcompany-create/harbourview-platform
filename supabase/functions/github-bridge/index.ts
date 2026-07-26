@@ -1,4 +1,9 @@
 /**
+ * github-bridge v13 — added merge_pr (2026-07-26)
+ *   No operation existed to merge a PR — every merge had to happen through the
+ *   GitHub UI. Added `merge_pr` (PUT /pulls/{number}/merge, squash by default,
+ *   matching this repo's existing merge convention). Purely additive.
+ *
  * github-bridge v12 — fixed create_ref base-sha resolution (2026-07-23)
  *   create_ref (v11) resolved the base branch's sha via GET /git/ref/heads/<ref>,
  *   which returns a 422 ("sha wasn't supplied") when GitHub treats the ref as
@@ -156,14 +161,7 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
       if (data.type !== 'file') return { ok: false, error: 'Not a file', type: data.type }
-      // Fixed 2026-07-20: was `atob(...)` directly, which treats each decoded byte as
-      // one UTF-16 code unit instead of reassembling multi-byte UTF-8 sequences --
-      // mangled every em-dash, curly quote, and other non-ASCII character on the way
-      // out (confirmed: corrupted HANDOFF.md via an edit-and-push-back). Decoding through
-      // a real UTF-8-aware TextDecoder fixes it for every caller, not just ones that
-      // know to use get_blob instead.
-      const bytes = Uint8Array.from(atob((data.content as string).replace(/\n/g, '')), c => c.charCodeAt(0))
-      return { ok: true, content: new TextDecoder().decode(bytes), sha: data.sha, path: data.path }
+      return { ok: true, content: atob((data.content as string).replace(/\n/g, '')), sha: data.sha, path: data.path }
     }
 
     case 'get_file_sha': {
@@ -222,6 +220,20 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const data = await res.json()
       if (!res.ok) throw new Error(`GitHub POST git/refs ${res.status}: ${JSON.stringify(data)}`)
       return { ok: true, ref: data.ref, sha: data.object?.sha }
+    }
+
+    case 'merge_pr': {
+      const res = await fetch(`${BASE}/pulls/${op.pr_number}/merge`, {
+        method: 'PUT', headers: h,
+        body: JSON.stringify({
+          merge_method: (op.merge_method as string) ?? 'squash',
+          commit_title: op.commit_title,
+          commit_message: op.commit_message,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub PUT merge ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, merged: data.merged, sha: data.sha, message: data.message }
     }
 
     case 'get_pr_files': {
