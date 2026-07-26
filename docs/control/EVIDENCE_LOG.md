@@ -1482,3 +1482,42 @@ above.
 **Not done here, flagged for follow-up:** Root cause of the two persistently-failing checks; no
 schema/registry change was made as part of this pass (all three PRs' own registry-impact sections
 already said none required).
+
+
+## 2026-07-26 — mobile nav restructure, Talent recovery, migration drift, evidence gaps (Claude/chat session)
+
+Worked a chain of related fixes across one long chat session, in this order:
+
+1. **#1152** — mobile bottom nav restructure per operator direction: folded Digest/Intel/Countries into
+   Briefing as sub-tabs, added a Talent nav slot. Merged by the automated process mid-session from a
+   stale head commit (see below), landing without a follow-up fix that was already pushed.
+2. **#1153** — re-applied the dropped follow-up: Intel's own internal sub-navigation (Signals feed /
+   Regulatory / Watchlist) had gone unreachable once nested under Briefing. First attempt had a real
+   bug (`onSignalsSubChange` added to the prop type but never destructured — caught via check-run
+   annotations, not by inspection). Second attempt fixed and merged clean.
+3. **#1154** — `check-drift` showed real drift (verified directly against
+   `supabase_migrations.schema_migrations`, not stale CI): 5 migrations applied straight to prod with
+   no committed file. Added all 5 using the exact DDL/DML from the ledger's `statements` column.
+   Separately confirmed 9 other flagged entries were version-number bookkeeping only (already live,
+   e.g. confirmed `hv_promote_signals` has zero PUBLIC/anon/authenticated grants matching its file) —
+   no action needed there.
+4. **#1155** — recovered the Talent public job board from #1122 (closed unmerged, schema already live).
+   Manual line-by-line review (no local build available) found a real bug in
+   `app/api/talent/apply/route.ts`: `EMAIL_RE = /^[^s@]+@[^s@]+.[^s@]+$/` — missing backslashes,
+   would reject almost every real email address (anything containing "s"). Fixed to
+   `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` before merging.
+5. **This entry' s own PR** — wired the mobile Talent tab to real data (was still showing a static
+   "Coming soon" placeholder after #1155 shipped the real backend) and backfilled this log for
+   #1152/#1153/#1155, which the automated merge process did not do on its own.
+
+**Notable process issue (flagged, not fully root-caused):** this session's branch-update pattern
+(delete ref, recreate pointing at a new commit — a workaround for the SQL bridge lacking HTTP
+PUT/PATCH) does not reliably register as a new head with GitHub's PR tracking. This caused #1152 to
+merge from a stale commit, and separately caused a PR to show as closed with a stale head after a
+similar ref update. Reopening the PR via the API reliably re-synced the head both times; new branches
+created via a single POST did not exhibit the problem. Worth avoiding delete+recreate on branches with
+an open PR against them until this is understood better.
+
+**Human approval status:** Directed turn-by-turn in chat ("go" / "continue" / "fix both" / "check to
+ make sure nothing is missing") rather than a single upfront approval; no step merged without an
+ explicit go-ahead in the conversation.
