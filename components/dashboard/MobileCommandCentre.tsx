@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
@@ -3033,20 +3034,74 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
 
 // ── Talent mobile page (placeholder — full board pending PR #1122 review/QA) ──
 
+type TalentJobRow = { id: string; title: string; department: string | null; location: string | null; operator_name: string | null; operator_verification_status: string | null }
+
 function TalentMobile() {
+  const [jobs, setJobs] = useState<TalentJobRow[] | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('talent_jobs_public')
+      .select('id, title, department, location, operator_name, operator_verification_status')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) { setLoadError(true); return }
+        setJobs((data as TalentJobRow[] | null) ?? [])
+      })
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <div className="hvm-page-stack">
       <section className="hvm-hero-card compact">
         <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>TALENT</div>
         <h2>Talent Hub</h2>
-        <p>Public job board for verified operators — reviewed roles, direct applications.</p>
+        <p>Open roles at operators Harbourview has already vetted.</p>
       </section>
-      <div className="hvm-empty-card">
-        <strong>Coming soon.</strong>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>
-          Job listings and candidate applications are built and in review before going live. Check back soon.
-        </p>
-      </div>
+
+      {loadError && (
+        <div className="hvm-empty-card">
+          <strong>Roles couldn&apos;t be loaded right now.</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>Please try again shortly.</p>
+        </div>
+      )}
+
+      {!loadError && jobs === null && (
+        <div className="hvm-empty-card">
+          <strong>Loading roles…</strong>
+        </div>
+      )}
+
+      {!loadError && jobs !== null && jobs.length === 0 && (
+        <div className="hvm-empty-card">
+          <strong>No open roles right now.</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>Check back soon.</p>
+        </div>
+      )}
+
+      {!loadError && jobs !== null && jobs.length > 0 && (
+        <div className="hvm-page-stack" style={{ gap: 10 }}>
+          {jobs.map(job => (
+            <a key={job.id} href={`/talent/${job.id}`} className="hvm-hero-card compact" style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: 15 }}>{job.title}</h3>
+                {job.operator_verification_status === 'verified' && (
+                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: 'rgba(52,199,89,.12)', color: '#34c759', border: '1px solid rgba(52,199,89,.3)' }}>Verified</span>
+                )}
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(245,240,232,.55)' }}>{job.operator_name ?? 'Harbourview network operator'}</p>
+              <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: 'rgba(245,240,232,.4)' }}>
+                {job.location && <span>{job.location}</span>}
+                {job.department && <span>{job.department}</span>}
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
