@@ -1,4 +1,9 @@
 /**
+ * github-bridge v14 — added comment_pr, close_pr (2026-07-26)
+ *   Added `comment_pr` (POST /issues/{number}/comments — PRs are issues in the
+ *   GitHub API) and `close_pr` (PATCH /pulls/{number}, state=closed). Purely
+ *   additive.
+ *
  * github-bridge v13 — added merge_pr (2026-07-26)
  *   No operation existed to merge a PR — every merge had to happen through the
  *   GitHub UI. Added `merge_pr` (PUT /pulls/{number}/merge, squash by default,
@@ -234,6 +239,26 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const data = await res.json()
       if (!res.ok) throw new Error(`GitHub PUT merge ${res.status}: ${JSON.stringify(data)}`)
       return { ok: true, merged: data.merged, sha: data.sha, message: data.message }
+    }
+
+    case 'comment_pr': {
+      const res = await fetch(`${BASE}/issues/${op.pr_number}/comments`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ body: op.body })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub POST issue comment ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, id: data.id, html_url: data.html_url }
+    }
+
+    case 'close_pr': {
+      const res = await fetch(`${BASE}/pulls/${op.pr_number}`, {
+        method: 'PATCH', headers: h,
+        body: JSON.stringify({ state: 'closed' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub PATCH pulls ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, state: data.state, number: data.number }
     }
 
     case 'get_pr_files': {
