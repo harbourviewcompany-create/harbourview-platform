@@ -16,7 +16,9 @@ jobs:
   migrate:
     name: Apply Supabase migrations
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -25,32 +27,96 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned to a known-good stable release. supabase/cli cuts several
+          # betas a day; `latest` had been resolving correctly but is an
+          # unnecessary source of version drift for a production pipeline.
+          # Bump deliberately, not automatically.
+          version: 2.109.1
+
+      - name: Install postgresql-client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
       - name: Link project
         run: supabase link --project-ref $SUPABASE_PROJECT_REF
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Repair migration drift
-        run: |
-          DB_URL="postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
-          # Mark any migrations applied directly to DB as applied in CLI history
-          while IFS= read -r version; do
-            supabase migration repair --status applied "$version" --db-url "$DB_URL" 2>/dev/null || true
-          done < <(
-            supabase migration list --db-url "$DB_URL" 2>/dev/null |
-            grep "^\s*[0-9]\{14\}\s*│\s*✔\s*│\s*✗" |
-            awk '{print $1}' || true
-          )
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-
-      - name: Push migrations
+      - name: Scan pending migrations for destructive statements
         run: |
           set +e
-          supabase db push --include-all --db-url "postgresql://postgres.zvxdgdkukjrrwamdpqrg:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-us-west-2.pooler.supabase.com:5432/postgres" > /tmp/push_output.log 2>&1
+          FLAGGED=""
+          for f in supabase/migrations/*.sql; do
+            # DROP TABLE / DROP SCHEMA / TRUNCATE-as-statement / naked DELETE FROM.
+            # Deliberately excludes REVOKE ... ON TABLE ... TRUNCATE (a privilege
+            # name, not a command) by requiring TRUNCATE to open the statement.
+            if grep -qiE '(^|;)\s*(DROP TABLE|DROP SCHEMA)\b' "$f" \
+               || grep -qiE '(^|;)\s*TRUNCATE\b' "$f" \
+               || grep -qiE '(^|;)\s*DELETE\s+FROM\s+[a-zA-Z0-9_."]+\s*;' "$f"; then
+              FLAGGED="$FLAGGED\n  $f"
+            fi
+          done
+          if [ -n "$FLAGGED" ]; then
+            echo "::error title=Destructive statement detected::The following migration file(s) contain DROP TABLE, DROP SCHEMA, TRUNCATE, or an unqualified DELETE FROM with no WHERE clause, and will NOT be auto-applied:${FLAGGED}\n\nReview and apply manually via Supabase MCP if intended, then convert the file to a documented no-op stub (see any existing stub in supabase/migrations/ for the convention) so this pipeline can proceed on subsequent pushes."
+            exit 1
+          fi
+          echo "No destructive statements found in pending migrations."
+
+      - name: Auto-reconcile remote-only migrations
+        id: reconcile
+        run: |
+          set +e
+          rm -f /tmp/reconcile_count
+          psql "$SUPABASE_DB_URL" -t -A -F'|' \
+            -c "select version, name from supabase_migrations.schema_migrations order by version;" \
+            | while IFS='|' read -r version name; do
+                [ -z "$version" ] && continue
+                if ! ls supabase/migrations/"${version}"_*.sql >/dev/null 2>&1; then
+                  FILE="supabase/migrations/${version}_${name}.sql"
+                  cat > "$FILE" <<EOF
+-- Applied directly to production via Supabase MCP or another session.
+-- Auto-generated placeholder by the supabase-migrate CI pipeline to
+-- satisfy local/remote migration history parity (see
+-- supabase_migrations.schema_migrations for the original application
+-- timestamp). No DDL executed by this file. If this represents real,
+-- reviewable work, replace this stub with the actual statements and a
+-- proper description before the next release.
+SELECT 1;
+EOF
+                  echo "Created placeholder: $FILE"
+                  echo 1 >> /tmp/reconcile_count
+                fi
+              done
+          COUNT=$(wc -l < /tmp/reconcile_count 2>/dev/null || echo 0)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$COUNT" -gt 200 ]; then
+            echo "::error title=Reconciliation cap exceeded::Found $COUNT remote-only migrations in one pass, which is far above the normal drift rate seen this week (single digits to low dozens). This likely indicates a bug in this step's query rather than genuine drift. Refusing to auto-commit -- investigate manually."
+            git checkout -- supabase/migrations/
+            exit 1
+          fi
+
+          if [ "$COUNT" -gt 0 ]; then
+            git config user.name "supabase-migrate-bot"
+            git config user.email "actions@github.com"
+            git add supabase/migrations/
+            git commit -m "chore(supabase): auto-reconcile $COUNT remote-only migration(s)"
+            for attempt in 1 2 3; do
+              if git push; then
+                break
+              fi
+              echo "Push rejected (attempt $attempt/3), rebasing onto latest main..."
+              git pull --rebase origin main
+            done
+            echo "Committed $COUNT placeholder file(s). This push will trigger a follow-up run against a clean tree."
+          fi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Push migrations
+        if: steps.reconcile.outputs.count == '0'
+        run: |
+          set +e
+          supabase db push --include-all --db-url "$SUPABASE_DB_URL" > /tmp/push_output.log 2>&1
           PUSH_EXIT_CODE=$?
           cat /tmp/push_output.log
           if [ $PUSH_EXIT_CODE -ne 0 ]; then
@@ -64,4 +130,3 @@ jobs:
           exit $PUSH_EXIT_CODE
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
