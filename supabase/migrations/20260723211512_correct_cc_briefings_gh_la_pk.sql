@@ -1,0 +1,38 @@
+-- Reconciliation: migration applied live via Supabase MCP on 20260723211512 but never committed to supabase/migrations/. Caught by .github/workflows/migration-drift-check.yml. Committing verbatim (exact SQL from supabase_migrations.schema_migrations.statements) to close the drift. Not re-applying anything -- this file documents SQL that is already live.
+
+-- Final three corrections closing out the jurisdiction_cross_table_conflicts queue from this
+-- audit cycle. GH independently re-verified via 9 sources including NACOC's own licensing portal
+-- and a named-official direct quote -- highest confidence of the batch. LA/PK rely on the
+-- existing professional-grade sourcing already in jurisdiction_playbooks (CMS Expert Guides,
+-- Tilleke & Gibbins, CCRA's own official site), consistent with how the rest of this cluster
+-- was handled.
+
+UPDATE public.cc_jurisdiction_briefings SET
+  program_status = 'Medical/Industrial Legal and Operational (Since Feb 2026); NACOC-Licensed',
+  public_summary = 'Ghana''s Interior Minister formally launched the Medicinal and Industrial Cannabis Program on 26 February 2026, activating a licensing regime under the Narcotics Control Commission (NACOC) pursuant to the Narcotics Control Commission (Amendment) Act, 2023 (Act 1100) and the Cultivation and Management of Cannabis Regulation, 2023 (L.I. 2475). NACOC opened licence applications in April 2026 across 11 categories (cultivation, processing, distribution, transport, research, import, export). Licences are restricted to Ghanaian citizens/permanent residents aged 18+ (individuals) or companies with at least 50% Ghanaian ownership and majority-Ghanaian directors, explicitly favoring the Ghanaian diaspora over foreign investors. Cultivated material is capped at 0.3% THC dry-weight. A named NACOC official has publicly stated that qualifying applicants are guaranteed a licence. Recreational cannabis remains illegal.',
+  regulatory_outlook = 'This is an actively operating program, not a proposal -- applications opened and licences were being processed as of April 2026. Near-term development is program scale-up and diaspora investment uptake, not further legislative change.',
+  data_source_summary = 'Ghana Ministry of the Interior official announcement; NACOC official licensing portal (ncc.gov.gh); Graphic Online (named NACOC official quote); Pulse Ghana; CitiNewsRoom; NewsGhana.',
+  confidence_score = 0.88, confidence_categories = '{"enforcement": 0.75, "market_access": 0.8, "regulatory_framework": 0.9}'::jsonb,
+  change_notes = change_notes || '[{"title": "Correction: prior entry said reform is merely under discussion; Ghana launched an operational licensing program in Feb 2026 and NACOC opened applications across 11 categories in April 2026", "market": "Ghana", "timeAgo": "20 July 2026", "direction": "up", "sourceRef": "Ghana Ministry of the Interior; NACOC official portal; Graphic Online", "reviewState": "reviewed"}]'::jsonb,
+  last_reviewed_date = '2026-07-20', updated_at = now()
+WHERE country_iso2 = 'GH';
+
+UPDATE public.cc_jurisdiction_briefings SET
+  program_status = 'Industrial Hemp Legal (Narrow, Since 2022); General Cannabis Remains Category I Narcotic',
+  public_summary = 'Laos legalized a narrow industrial hemp pathway via Ministry of Health Decision 3789/MOH (2022), permitting hemp with THC capped at 0.2% in raw material and 1% by weight in processed product, subject to authorized seed registration and traceable origin documentation. This carve-out is narrow and does not extend to cannabis broadly: any higher-THC material remains a Category I narcotic offense, with penalties up to death for large quantities. Multiple procedural elements (THC-testing methodology, reporting cadence, feasibility-study requirements) remain unclarified in public guidance; legal analysts expect gaps to be resolved through Ministry of Health administrative practice rather than further published rulemaking. No medical cannabis program exists; enforcement of the broader prohibition has historically been inconsistent, particularly in rural/tourism contexts, alongside documented traditional use in some hill-tribe communities.',
+  regulatory_outlook = 'The hemp carve-out is real but operationally underspecified; specialized local legal counsel with direct Ministry relationships is a practical prerequisite given the ambiguity, not merely a formality. No broader medical or recreational reform is signaled.',
+  data_source_summary = 'CMS Expert Guides; two Tilleke & Gibbins legal analyses (Laos/SE Asia-focused); WSR Law Group regulatory summary.',
+  confidence_score = 0.78, confidence_categories = '{"enforcement": 0.55, "market_access": 0.35, "regulatory_framework": 0.75}'::jsonb,
+  change_notes = change_notes || '[{"title": "Correction: prior entry said prohibited with no qualification; a narrow industrial hemp pathway (Decision 3789/MOH) has been legal since 2022, though general cannabis remains a Category I narcotic", "market": "Laos", "timeAgo": "20 July 2026", "direction": "up", "sourceRef": "CMS Expert Guides; Tilleke & Gibbins", "reviewState": "reviewed"}]'::jsonb,
+  last_reviewed_date = '2026-07-20', updated_at = now()
+WHERE country_iso2 = 'LA';
+
+UPDATE public.cc_jurisdiction_briefings SET
+  program_status = 'Regulatory Authority Established (CCRA); Building Toward Licensing, No Licences Confirmed Issued',
+  public_summary = 'Pakistan established the Cannabis Control & Regulatory Authority (CCRA) and has been actively building licensing infrastructure, including an E-Licensing Portal (ccra.gov.pk) designed around tiered capacity management from small test plots to large commercial operations; CCRA was still finalizing its physical headquarters as of May 2026 and has issued explicit public fraud warnings against third parties falsely claiming to offer CCRA licensing services. Licences, once issued, run five-year terms subject to regular inspection, with severe penalty exposure for unauthorized activity (PKR 1,000,000-10,000,000 for individuals; up to PKR 200,000,000 for companies). No independent source as of mid-2026 confirms any licence has actually been issued or that operational cultivation has begun -- this is real regulatory infrastructure under active construction, not yet an operating market. Separately, bhang (a traditional cannabis-infused drink) occupies a longstanding cultural/religious grey area, technically prohibited under the Control of Narcotic Substances Act 1997 but tolerated at some festival contexts (Basant, Holi-linked celebrations).',
+  regulatory_outlook = 'CCRA''s own institutional readiness -- not further legislation -- is the gating factor to watch; the regulator itself was still finalizing headquarters as of May 2026. Treat any claim of an already-operating Pakistani cannabis market with skepticism pending independent confirmation of actual issued licences.',
+  data_source_summary = 'Cannabis Control & Regulatory Authority Pakistan (ccra.gov.pk, official); Wikipedia.',
+  confidence_score = 0.78, confidence_categories = '{"enforcement": 0.55, "market_access": 0.3, "regulatory_framework": 0.75}'::jsonb,
+  change_notes = change_notes || '[{"title": "Correction: prior entry omitted the CCRA entirely; a real regulatory authority exists and is actively building licensing infrastructure (E-Licensing Portal, headquarters buildout), though no licences are independently confirmed issued yet", "market": "Pakistan", "timeAgo": "20 July 2026", "direction": "up", "sourceRef": "CCRA official site; Wikipedia", "reviewState": "reviewed"}]'::jsonb,
+  last_reviewed_date = '2026-07-20', updated_at = now()
+WHERE country_iso2 = 'PK';
