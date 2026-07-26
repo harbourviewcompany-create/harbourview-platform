@@ -102,12 +102,10 @@ const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',        label: 'Briefing',       icon: '◎' },
-  { id: 'digest',          label: 'Digest',         icon: '❑' },
   { id: 'marketplace',     label: 'Market',         icon: '⊞' },
-  { id: 'signals',         label: 'Intel',          icon: '≋' },
+  { id: 'talent',          label: 'Talent',         icon: '✦' },
   { id: 'education',       label: 'Education',      icon: '⬡' },
   { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
-  { id: 'countries',       label: 'Countries',      icon: '⊗' },
 ]
 
 
@@ -476,21 +474,27 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
   )
 }
 
-type BriefingSub = 'overview' | 'compliance' | 'local-intel' | 'access-pathway'
+type BriefingSub = 'overview' | 'digest' | 'intel' | 'compliance' | 'local-intel' | 'countries' | 'access-pathway'
 
 const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'overview',       label: 'Overview' },
+  { id: 'digest',         label: 'Digest' },
+  { id: 'intel',          label: 'Intel' },
   { id: 'compliance',     label: 'Compliance' },
   { id: 'local-intel',    label: 'Local Intel' },
+  { id: 'countries',      label: 'Countries' },
   { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub, digestSignals, digestWindow, watchlistData, sourceCoverage, signalsSub, onCountrySelect }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null; digestSignals?: DashboardSignal[]; digestWindow?: DigestWindow; watchlistData?: WatchlistData | null; sourceCoverage?: SourceCoverageRow[]; signalsSub: SignalSub; onCountrySelect: (iso2: string) => void }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
+      {sub === 'digest'         && <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />}
+      {sub === 'intel'          && <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />}
       {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} />}
       {sub === 'local-intel'    && <LocalIntelMobile country={country} regionLabel={regionLabel} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'countries'      && <CountriesDirectoryMobile signals={signals} onCountrySelect={onCountrySelect} />}
       {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
@@ -3016,6 +3020,26 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
   )
 }
 
+// ── Talent mobile page (placeholder — full board pending PR #1122 review/QA) ──
+
+function TalentMobile() {
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>TALENT</div>
+        <h2>Talent Hub</h2>
+        <p>Public job board for verified operators — reviewed roles, direct applications.</p>
+      </section>
+      <div className="hvm-empty-card">
+        <strong>Coming soon.</strong>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>
+          Job listings and candidate applications are built and in review before going live. Check back soon.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Compliance mobile page (per-country) ──────────────────────────────────────
 
 function countryToComplianceSlug(region?: string, subregion?: string): string {
@@ -3776,6 +3800,9 @@ export default function MobileCommandCentre({
             onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => handlePageChange('settings')}
             sub={briefingSub} userEmail={userEmail}
+            digestSignals={digestSignals} digestWindow={digestWindow}
+            watchlistData={watchlistData} sourceCoverage={sourceCoverage}
+            signalsSub={signalsSub} onCountrySelect={handleCountryChange}
           />
         )
       case 'marketplace':
@@ -3799,6 +3826,8 @@ export default function MobileCommandCentre({
         )
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+      case 'talent':
+        return <TalentMobile />
       case 'settings':
         return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} hasOrg={hasOrg} onOpenOrganization={() => handlePageChange('organization')} />
       case 'organization':

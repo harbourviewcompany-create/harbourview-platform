@@ -78,6 +78,7 @@ export type CommandPage =
   | 'licences'
   | 'trade-calc'
   | 'organization'
+  | 'talent'
 
 export type { DigestWindow }
 
