@@ -486,12 +486,23 @@ const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub, digestSignals, digestWindow, watchlistData, sourceCoverage, signalsSub, onCountrySelect }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null; digestSignals?: DashboardSignal[]; digestWindow?: DigestWindow; watchlistData?: WatchlistData | null; sourceCoverage?: SourceCoverageRow[]; signalsSub: SignalSub; onCountrySelect: (iso2: string) => void }) {
+function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub, digestSignals, digestWindow, watchlistData, sourceCoverage, signalsSub, onCountrySelect }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null; digestSignals?: DashboardSignal[]; digestWindow?: DigestWindow; watchlistData?: WatchlistData | null; sourceCoverage?: SourceCoverageRow[]; signalsSub: SignalSub; onSignalsSubChange: (id: SignalSub) => void; onCountrySelect: (iso2: string) => void }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
       {sub === 'digest'         && <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />}
-      {sub === 'intel'          && <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />}
+      {sub === 'intel' && (
+        <>
+          <div className="hvm-scroll-tabs" role="tablist" aria-label="Intel views">
+            {SIGNALS_TABS.map(t => (
+              <button key={t.id} type="button" className={signalsSub === t.id ? 'active' : ''} onClick={() => onSignalsSubChange(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
+        </>
+      )}
       {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} />}
       {sub === 'local-intel'    && <LocalIntelMobile country={country} regionLabel={regionLabel} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
       {sub === 'countries'      && <CountriesDirectoryMobile signals={signals} onCountrySelect={onCountrySelect} />}
@@ -3802,7 +3813,7 @@ export default function MobileCommandCentre({
             sub={briefingSub} userEmail={userEmail}
             digestSignals={digestSignals} digestWindow={digestWindow}
             watchlistData={watchlistData} sourceCoverage={sourceCoverage}
-            signalsSub={signalsSub} onCountrySelect={handleCountryChange}
+            signalsSub={signalsSub} onSignalsSubChange={setSignalsSub} onCountrySelect={handleCountryChange}
           />
         )
       case 'marketplace':
