@@ -80,7 +80,11 @@ export async function GET(_req: Request, { params }: Params) {
 
   const pdfBytes = doc.build()
 
-  return new NextResponse(pdfBytes, {
+  // Cast: this repo's TS/@types/node versions produce a generic
+  // `Uint8Array<ArrayBufferLike>` that lib.dom's `BufferSource`/`BodyInit`
+  // union doesn't structurally match, even though NextResponse accepts a
+  // Buffer/Uint8Array body correctly at runtime. Compile-time mismatch only.
+  return new NextResponse(pdfBytes as unknown as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
