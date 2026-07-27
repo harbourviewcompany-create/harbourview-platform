@@ -1,6 +1,6 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-07-19
+Last updated: 2026-07-27 (CI check-run snapshot appended below; see Build Evidence table + dated entry at end of file)
 Status: Gate 4 GO (2026-06-25); country/role white-screen defect + MOBILE_CSS class-collision defect fixed and verified 2026-07-07; branch-protection gap on `main` found and open; Intelligence Stage 2 classifier validation partially blocked (LLM provider billing + `hv-classify` schema bug, both open — see 2026-07-19 entry)
 Authority: Canonical evidence log for Harbourview finish-line execution
 
@@ -57,6 +57,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | 2026-07-23 | Fixed YAML syntax error in `.github/workflows/post-merge-verification.yml` | Docs/CI-only; workflow YAML re-validated by GitHub Actions on push | Corrected syntax so the post-merge-verification workflow parses and runs again | PR #1128 | Current |
 | 2026-07-24 | Command Centre "real implementation" of PR #1140's stubbed intent — (1) real data-driven BriefingRoom confidence scoring replacing the `base ± offset` heuristic; (2) live, country-scoped realtime signal feed | `npx tsc --noEmit` (clean, `--max-old-space-size=6144`); `node_modules/.bin/vitest run tests/dashboard/confidenceScoring.test.ts` (7/7 pass); `npm run build` deferred to the Vercel PR preview build (full build OOM-prone in this sandbox — documented substitute per AGENTS.md fallback clause) | New `lib/dashboard/confidenceScoring.ts` (pure, unit-tested) measures each of the 5 confidence lanes from real per-lane data (source coverage, market metrics, pathway, local intel, education); lanes with no data render as "pending" not a fake %. New `components/dashboard/useDashboardSignalsRealtime.ts` re-scopes the feed by country via the existing auth-gated DTO-safe `/api/dashboard/signals` endpoint and refreshes on Realtime signal inserts. No schema/DTO change; no new migration. | Branch `claude/harbourview-pr-review-uojqbj`; PR #1147 | Current |
 | 2026-07-24 | Command Centre de-dup: deleted 9 dead, unimported `components/dashboard/pages/*` fork modules (~2,889 lines) — the stale copies from the monolith's original 2026-07-20 commit that were never wired (only `DigestPage` completed the extract→`dynamic()` pattern) and had drifted behind the live inline versions. Verified as dead duplicates in HANDOFF.md / prior EVIDENCE_LOG entries. | `npx tsc --noEmit` (clean, `--max-old-space-size=6144`); `node_modules/.bin/vitest run tests/dashboard/confidenceScoring.test.ts` (7/7 pass); repo-wide reference scan (static + `dynamic()` + tests) = zero importers for each deleted file, re-confirmed on post-#1147 `main` before deletion | Removed `AccessPathwayPage, BriefingRoom, EducationPage, EvidencePage, LocalIntelPage, MarketplacePage, RegulatoryPage, SettingsPage, SignalsPage` from `components/dashboard/pages/`. Kept the 5 imported/live modules (`AssistantPage, DealRoomsPanel, DigestPage, RegulatoryRadar, WatchlistPage`). No behaviour change — the live inline versions inside `CommandCentre.tsx` are untouched. Pure deletion; revert restores the files. | Branch `claude/harbourview-pr-review-uojqbj`; PR #1150 | Current |
+| 2026-07-27 | CI check-run snapshot on `main` HEAD via github-bridge `list_check_runs` (NOT a re-run of Gate 4's local `npm run test:*` suite -- no local checkout/Node env this session) | Live GitHub check-runs API against current `main` HEAD | All previously-passing checks still green (Type Check, `tsc --noEmit`, Next.js Build, Install, Critical Env Secrets, Smoke Tests, Security/Leakage, Domain Logic, Intake & Listings, Signal Engine Runtime, `verify`, Dependabot, Production Route Audit, `check-drift` x3, `check-placeholder-landmines` x3, Post-merge verification, Cloudflare Pages). `E2E (Playwright)` confirmed still failing (matches existing HANDOFF.md note). Two NEW regressions not previously logged in this file: `production-runtime-verification` failing, and `Supabase Preview` failing (last noted green 2026-07-18 -- this is a change, not a persisting known issue). Pre-existing, expected failures also confirmed still failing: `Workers Builds: harbourview-platform`, two GCP Cloud Build triggers -- all three are open P0 items pending Tyler's dashboard/console access per HANDOFF.md. | See full narrative entry at end of file | Current -- CI-level snapshot only, not a Gate 4 refresh |
 
 ### Gate 4 Detailed Evidence — 2026-06-25
 
@@ -1521,3 +1522,28 @@ an open PR against them until this is understood better.
 **Human approval status:** Directed turn-by-turn in chat ("go" / "continue" / "fix both" / "check to
  make sure nothing is missing") rather than a single upfront approval; no step merged without an
  explicit go-ahead in the conversation.
+
+
+---
+
+## 2026-07-27 -- CI check-run snapshot on `main` HEAD + evidence-log header staleness fix (Claude/chat session)
+
+**What this is:** Not a re-run of the Gate 4 local test suite (19 `npm run test:*` scripts, 267 assertions) -- this session had no local checkout or Node environment, only Supabase MCP + `github-bridge` access. This is a live pull of GitHub's own check-run results for `main`'s current HEAD via `list_check_runs`, cross-checked against this file's and `HANDOFF.md`'s existing claims.
+
+**Findings:**
+- Confirms still-failing, as previously documented: `E2E (Playwright)` -- failure.
+- Two failures not previously documented anywhere in this file: `production-runtime-verification` -- failure; `Supabase Preview` -- failure. This file's most recent prior note on Supabase Preview described it as green as of 2026-07-18 -- this is a regression, not a persisting known issue, and has not been triaged.
+- Confirms still-failing/expected, per existing HANDOFF.md P0 items pending Tyler's dashboard access: `Workers Builds: harbourview-platform`, both GCP Cloud Build triggers (`rmgpgab-...`).
+- Passing: Type Check, `tsc --noEmit`, Next.js Build, Install, Critical Env Secrets, Smoke Tests, Security/Leakage, Domain Logic, Intake & Listings, Signal Engine Runtime, `verify`, Dependabot, Production Route Audit, `check-drift` (3 separate scheduled runs today), `check-placeholder-landmines` (3 runs), Post-merge verification, Cloudflare Pages.
+
+**What this does NOT verify:** the 19-script Gate 4 local suite itself was not re-run -- no `npm ci` / `npm run test:*` executed this session. CI's `verify` / `Type Check` / etc. jobs are a related but not identical check set to Gate 4's local suite. Treat this as CI-level evidence only, not a Gate 4 refresh. Full end-to-end / browser-level verification remains unconfirmed (E2E is the one suite that would cover that, and it's the one that's failing).
+
+**Also corrected in this entry:** this file's header line said \"Last updated: 2026-07-19\" while the file's own body already contained dated entries through 2026-07-26 that were never reflected in the header -- a staleness gap in the file's own metadata, separate from its content. Header date corrected.
+
+**Process note:** this branch/PR was created via `github-bridge`'s `create_ref`, which required diagnosing a live bug first -- an initial call using the wrong parameter name (`ref` instead of `branch`) was silently accepted by the function and created a real branch literally named `undefined` on this repo before the mistake was caught by reading the function's own source. That stray branch was deleted (`DELETE /git/refs/heads/undefined`, confirmed 204) before this branch was created correctly. Also: this session initially read `EVIDENCE_LOG.md` via `get_file`, then switched to `get_blob` + a proper UTF-8 decode for this edit specifically because `get_file`'s `atob()`-based decode is documented in `github-bridge`'s own source as lossy for non-ASCII characters (the exact bug that previously corrupted this repo's `HANDOFF.md`) -- `get_file` was fine for reading, not safe for this edit-and-push-back.
+
+**Tyler approval:** directed turn-by-turn in chat (\"Go\" / \"Continue\" / \"Use the key in the vault\") rather than a single upfront approval, consistent with this file's established pattern for chat-session work. Opened as a PR against a fresh branch rather than pushed directly to `main`, matching this session's own review finding (documented in this same conversation) against continuing the direct-to-main pattern this file already records happening repeatedly.
+
+**Files changed:** `docs/control/EVIDENCE_LOG.md` (this entry + header date correction only).
+
+**Rollback:** plain revert -- documentation-only change, no code/schema/runtime impact either direction.
