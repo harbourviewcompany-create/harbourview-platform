@@ -35,6 +35,8 @@ import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type
 import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
 import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
 import { WatchlistPage } from './pages/WatchlistPage'
+import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { DealRoomsPanel } from './pages/DealRoomsPanel'
@@ -128,6 +130,7 @@ type Props = {
   localIntel?:      LocalIntelData | null
   pathwayData?:     PathwayData
   watchlistData?:    WatchlistData
+  watchlistAccess?:  FeatureAccess
   evidenceData?:     EvidenceData
   liveTiles?:           LiveEduTile[]
   recentEduModules?:    RecentEduModule[]
@@ -10855,6 +10858,7 @@ export default function CommandCentre({
   countryIntel,
   pathwayData,
   watchlistData,
+  watchlistAccess,
   evidenceData,
   localIntel,
   liveTiles,
@@ -11066,6 +11070,9 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
+        if (watchlistAccess && !watchlistAccess.granted) {
+          return <WatchlistUpgradeGate access={watchlistAccess} />
+        }
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />

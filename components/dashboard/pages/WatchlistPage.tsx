@@ -394,7 +394,6 @@ export const WatchlistPage = React.memo(function WatchlistPage({
             ))}
           </div>
           <div className="wl-cta-group">
-            <a href="/intake" className="wl-cta-gold">Upgrade for Watchlist Access →</a>
             <a href="/intelligence" className="wl-cta-outline">Browse Markets to Add</a>
           </div>
         </div>
