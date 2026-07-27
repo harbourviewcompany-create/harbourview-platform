@@ -111,7 +111,6 @@ export function ClinicalPanel() {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Create failed')
 
-      // Core consents so downstream clinical actions are allowed
       const pid = body.patient.id as string
       for (const consent_type of ['treatment', 'data_processing'] as const) {
         await fetch(`/api/clinical/patients/${pid}/consent`, {
@@ -142,12 +141,14 @@ export function ClinicalPanel() {
     setError(null)
     setCalcResult(null)
     try {
+      const patientJur = patients.find((p) => p.id === calcPatientId)?.jurisdiction
+      const jurisdictionCode = patientJur || newJur || 'XX'
       const res = await fetch('/api/clinical/calculations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patient_id: calcPatientId,
-          jurisdiction: patients.find((p) => p.id === calcPatientId)?.jurisdiction ?? newJur || 'XX',
+          jurisdiction: jurisdictionCode,
           calculator_key: 'cannabinoid.weight_based.v1',
           inputs: {
             weightKg: Number(weightKg),
@@ -323,7 +324,7 @@ export function ClinicalPanel() {
         <section>
           <h2 style={{ fontSize: '1.05rem' }}>Dose calculator</h2>
           <p style={{ fontSize: '0.85rem', opacity: 0.75 }}>
-            Weight-based cannabinoid starting dose · algorithm {`2026.08.1`}. Requires consent +
+            Weight-based cannabinoid starting dose · algorithm 2026.08.1. Requires consent and
             jurisdiction authority.
           </p>
           {!me?.isVerifiedClinician && <p style={{ opacity: 0.75 }}>Verified clinician access required.</p>}
@@ -345,7 +346,7 @@ export function ClinicalPanel() {
               <input value={mgPerKg} onChange={(e) => setMgPerKg(e.target.value)} placeholder="mg/kg/day" style={fieldStyle} />
               <input value={dosesPerDay} onChange={(e) => setDosesPerDay(e.target.value)} placeholder="Doses per day" style={fieldStyle} />
               <button type="button" disabled={busy || !calcPatientId} onClick={() => void runCalculation()} style={btnStyle}>
-                Compute & save
+                Compute and save
               </button>
               {calcResult != null && (
                 <pre
