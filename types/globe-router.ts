@@ -154,7 +154,6 @@ export type GlobeRouterAction =
   | { type: 'ROLE_SELECT'; roleId: RoleId }
   | { type: 'ROLE_SEARCH_QUERY'; query: string }
   | { type: 'ROLE_SEARCH_SELECT'; roleId: RoleId }
-  | { type: 'NOT_SURE_ROLE' }
   | { type: 'INTENT_SELECT'; intentId: IntentId }
   | { type: 'CONTINUE' }
   | { type: 'ROUTE_RESOLVED'; href: string }

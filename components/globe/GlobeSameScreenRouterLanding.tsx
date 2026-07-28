@@ -263,7 +263,6 @@ export function GlobeSameScreenRouterLanding() {
             dispatch({ type: 'ROLE_SEARCH_SELECT', roleId })
             setSrAnnouncement(`Role selected: ${roleProfileMap[roleId]?.label ?? roleId}.`)
           }}
-          onNotSure={() => dispatch({ type: 'NOT_SURE_ROLE' })}
           onBack={() => dispatch({ type: 'BACK' })}
         />
       ) : null}
@@ -320,4 +319,3 @@ export function GlobeSameScreenRouterLanding() {
     </GlobeProvider>
   )
 }
-

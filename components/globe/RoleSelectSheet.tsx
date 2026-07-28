@@ -18,7 +18,6 @@ interface Props {
   onSearchQuery: (query: string) => void
   onSelectRole: (roleId: RoleId) => void
   onSearchSelectRole: (roleId: RoleId) => void
-  onNotSure: () => void
   onBack: () => void
 }
 
@@ -47,7 +46,6 @@ export function RoleSelectSheet({
   onSearchQuery,
   onSelectRole,
   onSearchSelectRole,
-  onNotSure,
   onBack,
 }: Props) {
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -64,8 +62,9 @@ export function RoleSelectSheet({
     return profile.primaryRoleIds
   }, [mode, countryIso2s, profile])
 
-  // 'not_sure' is always rendered as its own escape hatch in the footer, never
-  // as a chip competing with the real roles.
+  // 'not_sure' is not a selectable role — filtered from the chip list. There is
+  // no "I'm not sure" escape hatch on this step; the curated list plus search
+  // covers every real role, and a dead-end fallback screen isn't a real answer.
   const chipRoleIds = useMemo(
     () => primaryRoleIds.filter((roleId) => roleId !== 'not_sure'),
     [primaryRoleIds],
@@ -126,15 +125,6 @@ export function RoleSelectSheet({
       title="What is your role?"
       size="role"
       onBack={onBack}
-      footer={
-        <button
-          type="button"
-          onClick={onNotSure}
-          className="min-h-11 w-full rounded-full border border-[#c6a55a]/28 px-5 text-xs font-semibold uppercase tracking-[0.16em] text-[#f5f1e8]/78 transition hover:border-[#c6a55a]/60 hover:text-[#fff8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f1dfaa]"
-        >
-          I&apos;m not sure yet
-        </button>
-      }
     >
       <div className="grid gap-4">
         <p className="text-sm leading-6 text-white/60">
