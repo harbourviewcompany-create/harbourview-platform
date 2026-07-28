@@ -17,7 +17,7 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 | Public supplier directory | ✅ Complete | `/supplier-directory` list + `/supplier-directory/[id]` (`e0f87ff`) |
 | BNPL / financing inquiry | ✅ Complete (inquiry spine) | `/marketplace/financing` + `submitFinancingInquiry` → `marketplace_inquiries` with `inquiry_type=trade_financing` (no new table; avoids migration drift). Partner embed remains Phase 3. |
 | AI personalized briefings spine | ✅ Complete (spine) | `/dashboard/my-briefings` — authenticated; assembles active watch rules + published jurisdiction briefings. Full LLM synthesis / email delivery still Phase 2 depth. |
-| PROJECT_REGISTRY reconciliation | 🟡 Partial | Supplier directory + financing + my-briefings routes noted; full system-by-system re-verify still HOLD. |
+| PROJECT_REGISTRY reconciliation | ✅ Complete (scoped code-presence) | Supplier directory public surface, financing, my-briefings, watchlists routes registered in `docs/control/PROJECT_REGISTRY.md`. Full system-by-system live RLS/Vercel re-verify remains Phase 2 HOLD (requires operator production access). |
 
 ## Phase 2 remaining depth (not residual blockers)
 
@@ -29,8 +29,8 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 6. Genetics marketplace core beyond basic catalog  
 7. Education CPD / certificates / premium modules  
 8. Full BNPL partner embed  
-9. Full PROJECT_REGISTRY live re-verification pass  
+9. Full PROJECT_REGISTRY live re-verification pass (Vercel deployment IDs, production RLS, leakage probe, category routes)  
 
 ## Next Action
 
-Prefer production smoke on `/marketplace/financing`, `/dashboard/my-briefings`, `/supplier-directory`, and dashboard watchlist. Then either LLM briefing synthesis or registry reconciliation.
+Prefer production smoke on `/marketplace/financing`, `/dashboard/my-briefings`, `/supplier-directory`, and dashboard watchlist. Then either LLM briefing synthesis or full registry live re-verification.
