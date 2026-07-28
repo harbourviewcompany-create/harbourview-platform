@@ -17,6 +17,14 @@ export interface GlobeExtrusionConfig {
 // requested tolerance - see fix(globe): stop simplifying dense rings.
 const RING_SIMPLIFY_MAX_POINTS = 400
 
+/**
+ * Countries whose Natural Earth topology spans the antimeridian (or is otherwise
+ * pathologically dense). Medium/low LOD Douglas-Peucker still voids these in
+ * production even when RING_SIMPLIFY_MAX_POINTS protects individual dense rings —
+ * force full detail at the country level so the plate can never collapse to empty.
+ */
+const ANTIMERIDIAN_HEAVY_ISO2 = new Set(['RU', 'US', 'FJ', 'NZ', 'KI'])
+
 const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   radius: 2.35,
   plateLift: 0.024,
@@ -300,14 +308,59 @@ function createTinyCountryMarker(center: [number, number], radius: number, marke
   return projectRingVertices(ring, radius)
 }
 
+/** True when geometry would render as an ocean cutout (black void). */
+function isSparseOrEmptyGeometry(geometry: BufferGeometry): boolean {
+  if (geometry.userData?.empty || geometry.userData?.error) return true
+  const pos = geometry.getAttribute('position')
+  const idx = geometry.index
+  if (!pos || pos.count < 30) return true
+  if (!idx || idx.count < 45) return true
+  return false
+}
+
 export function createCountryBufferGeometry(
   country: HarbourviewCountryGeometry,
   config: Partial<GlobeExtrusionConfig> = {},
 ) {
+  return createCountryBufferGeometryOnce(country, config, /* allowRetry */ true)
+}
+
+function createCountryBufferGeometryOnce(
+  country: HarbourviewCountryGeometry,
+  config: Partial<GlobeExtrusionConfig>,
+  allowRetry: boolean,
+) {
   try {
-    return _createCountryBufferGeometryInner(country, config)
+    const geometry = _createCountryBufferGeometryInner(country, config)
+
+    // Hard safety net for Russia: empty/sparse mesh → ocean shows through as a
+    // black void shaped like the country. Retry once with zero simplification.
+    if (allowRetry && country?.iso2 === 'RU' && isSparseOrEmptyGeometry(geometry)) {
+      console.warn(
+        '[globe] RU geometry sparse/empty under config; retrying with simplifyTolerance=0',
+      )
+      geometry.dispose()
+      return createCountryBufferGeometryOnce(
+        country,
+        { ...config, simplifyTolerance: 0 },
+        /* allowRetry */ false,
+      )
+    }
+
+    return geometry
   } catch (err) {
     console.warn(`[globe] geometry failed for ${country?.iso2}:`, err)
+    if (allowRetry && country?.iso2 === 'RU') {
+      try {
+        return createCountryBufferGeometryOnce(
+          country,
+          { ...config, simplifyTolerance: 0 },
+          /* allowRetry */ false,
+        )
+      } catch (retryErr) {
+        console.warn('[globe] RU geometry retry also failed:', retryErr)
+      }
+    }
     const fallback = new BufferGeometry()
     fallback.userData = { iso2: country?.iso2, iso3: country?.iso3, empty: true, error: true }
     return fallback
@@ -319,6 +372,14 @@ function _createCountryBufferGeometryInner(
   config: Partial<GlobeExtrusionConfig> = {},
 ) {
   const cfg = { ...DEFAULT_CONFIG, ...config }
+
+  // Antimeridian-heavy countries must never enter Douglas-Peucker, even when
+  // the caller requests medium/low LOD. Prior medium-LOD simplification was a
+  // confirmed cause of the Russia black-void regression.
+  if (ANTIMERIDIAN_HEAVY_ISO2.has(country.iso2)) {
+    cfg.simplifyTolerance = 0
+  }
+
   const geometry = new BufferGeometry()
   const polygons = normalizePolygonTopology(country)
 
