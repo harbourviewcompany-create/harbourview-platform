@@ -1,2 +1,6 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard?page=marketplace') }
+
+/** Operator-owned submissions — not a public surface. */
+export default function MyListingsPage() {
+  redirect('/dashboard?page=marketplace')
+}
