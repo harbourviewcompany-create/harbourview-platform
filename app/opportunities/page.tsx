@@ -1,2 +1,6 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard?page=marketplace') }
+
+/** Legacy alias — public listings board. */
+export default function OpportunitiesPage() {
+  redirect('/marketplace/listings')
+}
