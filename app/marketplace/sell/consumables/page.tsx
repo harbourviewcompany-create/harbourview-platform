@@ -1,2 +1,11 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard?page=marketplace') }
+
+export const metadata: Metadata = {
+  title: 'Submit Consumables | Harbourview Exchange',
+  description: 'Submit consumables supply for Harbourview review.',
+}
+
+export default function SellConsumablesPage() {
+  redirect('/marketplace/sell')
+}
