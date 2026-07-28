@@ -75,6 +75,21 @@ const PROTECTED_PREFIXES = [
   '/marketplace/intake',
 ]
 
+/**
+ * Public marketing shells under otherwise-protected prefixes.
+ * These pages must not require auth or subscription tier — they deep-link
+ * into authenticated Command Centre / My Briefings for interactive work.
+ */
+const PUBLIC_AUTH_EXCEPTIONS = [
+  '/intelligence/watchlists',
+]
+
+function isPublicAuthException(pathname: string): boolean {
+  return PUBLIC_AUTH_EXCEPTIONS.some(
+    (path) => pathname === path || pathname.startsWith(path + '/'),
+  )
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -92,6 +107,11 @@ export async function proxy(request: NextRequest) {
     url.pathname = redirectTo
     url.search = ''
     return applyNoStoreHeaders(NextResponse.redirect(url, 308))
+  }
+
+  // Public marketing exceptions skip auth + tier gates entirely.
+  if (isPublicAuthException(normalizedPathname)) {
+    return NextResponse.next()
   }
 
   const isProtected = PROTECTED_PREFIXES.some(
