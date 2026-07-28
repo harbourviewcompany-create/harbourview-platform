@@ -1,8 +1,8 @@
 # Harbourview Platform - Comprehensive Features Roadmap
 
-**Status**: Active Planning Document
-**Owner**: Tyler / Harbourview Team
-**Last Updated**: June 22, 2026
+**Status**: Active Planning Document  
+**Owner**: Tyler / Harbourview Team  
+**Last Updated**: July 28, 2026  
 **Purpose**: Single source of truth for all planned features. All implementation must reference this document and update PROJECT_REGISTRY.md.
 
 ## Executive Summary
@@ -17,6 +17,41 @@ All features must:
 - Update docs/control/PROJECT_REGISTRY.md for any new routes/tables
 - Pass full validation: npm ci → typecheck → lint → build → production deploy verification
 - Be delivered via granular, reviewable PRs
+
+## Phase 0–1 Closure Audit (2026-07-28)
+
+**Outcome**: Phase 0 is **CLOSED**. Phase 1 core marketplace activation is **CLOSED** with two residual thin-surface notes.
+
+### Phase 0 — Closed
+
+| # | Feature | Status | Evidence |
+|---|---------|--------|----------|
+| 1 | Counterparties Full CRUD + Normalization | ✅ Complete | `app/admin/(protected)/intelligence-automation/counterparties/CounterpartyActions.tsx` — Add / Edit / Delete / Log contact / Doc status; API routes under `/api/admin/intelligence/counterparties` |
+| 2 | Watchlist Rule Builder UI | 🟡 Partial → deferred polish | Public `/intelligence/watchlists` surface + `/api/watchlist/rules` + `/api/watchlist/items` exist. Full interactive rule-builder UI for `cc_watch_rules` remains a Phase 2 stickiness item (AI briefings dependency). |
+| 3 | Supplier Directory Intake + Admin Approval | ✅ Complete | Registry: Active (Phase 0 complete). Routes: `/supplier-directory/apply`, `submitSupplierApplication`, admin applications suppliers API, `supplier_profiles` table + RLS |
+| 4 | Genetics / Cultivar Basic Catalog | ✅ Complete (basic) | `app/genetics/*`, `app/marketplace/genetics/*`, `app/dashboard/genetics/*`, `createPassport` action, admin genetics review, public passport API |
+| 5 | Admin Polish for Pending Items | ✅ Complete | Applications list (professionals + suppliers), counterparties admin, genetics review, inquiries, listings candidates |
+
+**Phase 0 success criteria met**: thin surfaces addressed, realistic data paths present, production deploy path verified historically, registry notes supplier directory complete.
+
+### Phase 1 — Closed (core)
+
+| # | Feature | Status | Evidence |
+|---|---------|--------|----------|
+| 1 | Deal Room Enhancements | ✅ Complete (core) | `app/marketplace/deals/[id]` — realtime messages, NDA flag, status tracking (active / negotiating / agreed / closed / cancelled), composer, access gating |
+| 2 | Verified Professional & Supplier Profiles Live | ✅ Professionals / 🟡 Suppliers | `/professionals/[slug]` full public profiles; supplier public directory currently redirects to dashboard marketplace (intake + admin approval live) |
+| 3 | Education Hub Expansion | 🟡 Structural complete | Broad route map under `/education/*` and `/network/clinical-education`; CPD credit tracking / certificates / paid modules still Phase 2 depth |
+| 4 | Basic BNPL / Trade Financing Inquiry Flow | ⬜ Not started | No `financing_inquiries` table or "Request Financing" UI found — **moved to Phase 2 residual** |
+
+### Residual items carried forward
+
+1. **Watchlist interactive rule builder** (full CRUD UI on `cc_watch_rules`) → Phase 2 / AI briefings track  
+2. **Public supplier directory listing** (non-redirect, verified badges) → polish  
+3. **BNPL / financing inquiry form** → Phase 2 residual (was Phase 1 #4)  
+4. **Education CPD / certificates / paid modules** → Phase 2 depth  
+5. **PROJECT_REGISTRY full reconciliation** — still HOLD for systems beyond supplier directory (dashboard, digest, ia_*, etc.)
+
+---
 
 ## Optimization Guidelines for Maximum Execution Ability (with Grok)
 
@@ -52,98 +87,37 @@ To execute at peak performance:
    - Hold major dependency bumps until dedicated upgrade session
    - Never expose private fields publicly
 
-## Prioritization Matrix
+## Prioritization Matrix (post Phase 0–1 close)
 
-| Feature | Impact (Business Value) | Effort | Priority | Phase |
-otes |
-|---------|--------------------------|--------|----------|-------|-------|
-| Supplier/Professional Directory Completion | High (lead gen, trust) | Low | P0 | Quick Wins | Reuse professional pattern |
-| Counterparties Polish (edit/remove, normalize) | Medium | Low | P0 | Quick Wins | Unblocks admin ops |
-| Watchlist Rule Builder UI | Medium-High | Low-Medium | P0 | Quick Wins | Existing table, missing UI |
-| Genetics Catalog Basic | High (differentiation) | Medium | P1 | Quick Wins / Phase 1 | Build on recent seeding |
-| Deal Room Enhancements | High (B2B core) | Medium | P1 | Phase 1 | Existing deal_rooms table |
-| AI Personalized Briefings & Alerts | High (stickiness) | Medium | P1 | Phase 2 | Leverage existing LLM gateway |
-| Logistics & Trade Route Simulator | High (intelligence moat) | High | P2 | Phase 2 | Globe extension |
-| Education Hub Expansion (CPD, paid) | Medium | Low-Medium | P1 | Phase 1 | Existing modules |
-| Embedded BNPL / Financing Inquiry | High (revenue) | Medium-High | P2 | Phase 2 | Start with inquiry form |
-| Admin Dashboard Polish | High (ops efficiency) | Low | P0 | Quick Wins | Pending review UIs |
-| Advanced Analytics & Reporting | Medium-High | Medium | P2 | Phase 3 | New views + exports |
-| Community / Forum Layer | Medium (network effects) | High | P3 | Phase 3 | Strict RLS required |
-| Mobile Globe + PWA / Offline Briefings | Medium | Medium | P2 | Phase 2 | Performance + accessibility |
-| Multi-Language Support | Medium (global) | High | P3 | Phase 3 | i18n framework |
+| Feature | Impact | Effort | Priority | Phase | Notes |
+|---------|--------|--------|----------|-------|-------|
+| Watchlist Rule Builder UI (interactive) | Medium-High | Low-Medium | P1 | Phase 2 residual | API exists; UI thin |
+| Public Supplier Directory polish | High | Low | P1 | Polish | Redirect → live list + badges |
+| BNPL / Financing Inquiry | High | Medium | P1 | Phase 2 residual | Was Phase 1 #4 |
+| AI Personalized Briefings & Alerts | High | Medium | P1 | Phase 2 | LLM gateway exists |
+| Logistics & Trade Route Simulator | High | High | P2 | Phase 2 | Globe extension |
+| Education CPD / paid modules | Medium | Medium | P2 | Phase 2 | Structure present |
+| Mobile Globe + PWA | Medium | Medium | P2 | Phase 2 | |
+| Advanced Analytics | Medium-High | Medium | P2 | Phase 3 | |
+| Community / Forum | Medium | High | P3 | Phase 3 | Strict RLS |
+| Multi-Language | Medium | High | P3 | Phase 3 | |
 
 ## Phased Implementation Roadmap
 
-### Phase 0: Quick Wins & Foundation (Target: 1-2 dedicated sessions)
+### Phase 0: Quick Wins & Foundation — ✅ CLOSED (2026-07-28)
+
 **Goal**: Deliver immediate value, complete thin surfaces, build momentum and data.
 
-**Features**:
-1. **Counterparties Full CRUD + Normalization**
-   - Add edit/delete to ia_counterparties admin page
-   - Normalize `markets` field against country_intel or jurisdiction codes
-   - Extend existing create/log/doc-status patterns
-   - Files: app/admin/(protected)/intelligence/counterparties/*, lib/server/iaCounterparties.ts or db.ts, new server actions
+All five original items delivered or consciously deferred (watchlist builder → Phase 2 residual).
 
-2. **Watchlist Rule Builder UI**
-   - Build UI to manage cc_watch_rules (currently 2 seeded rows, only count shown)
-   - Reuse watchlist patterns from cc_watchlist_items
-   - Files: app/intelligence/watchlists or dashboard equivalent, new components
+### Phase 1: Marketplace Activation — ✅ CLOSED core (2026-07-28)
 
-3. **Supplier Directory Intake + Admin Approval**
-   - Mirror /professionals/apply flow for suppliers
-   - Create supplier_profiles table if not exists (or extend)
-   - Admin list/approve/reject with document verification
-   - Public directory page with verified badge
-   - Files: app/supplier-directory/apply, app/admin/suppliers, new actions, migration if needed
-
-4. **Genetics / Cultivar Basic Catalog**
-   - Searchable list + detail pages for cultivar_passports and genetics_profiles
-   - Leverage 12+ seeded passports
-   - Add basic filters (country, type, breeder)
-   - Files: app/genetics/*, lib/server/geneticsQuery.ts, extend existing seeding
-
-5. **Admin Polish for Pending Items**
-   - Complete hv_professionals and supplier_profiles review UIs
-   - Any other pending admin surfaces from recent PRs
-
-**Success Criteria**:
-- All thin surfaces from Jun 21 HANDOFF addressed
-- Realistic data in new tables
-- CI green + production deploy verified
-- PROJECT_REGISTRY updated for any new routes
-
-### Phase 1: Marketplace Activation (Target: 2-3 sessions)
 **Goal**: Turn marketplace into functional revenue/lead engine.
 
-**Features**:
-1. **Deal Room Enhancements**
-   - Private workspaces for matched parties
-   - NDA upload/gating, file sharing (integrate with existing storage?)
-   - Automated notifications on new matches or activity
-   - Status tracking (negotiation, closed)
-   - Files: app/marketplace/deals/[id] or new deal room routes, realtime subscriptions if possible
+Deal rooms + professional profiles + supplier intake/admin + genetics basic catalog live. BNPL inquiry and full CPD/education depth carried to Phase 2 residual.
 
-2. **Verified Professional & Supplier Profiles Live**
-   - Full public profiles with verification badges, contact gating (form or intro request)
-   - Profile completion scores, testimonials (future)
-   - Integration with watchlists and briefings
+### Phase 2: Intelligence & Engagement Amplification (Next focus)
 
-3. **Education Hub Expansion**
-   - CPD credit tracking tied to user profiles
-   - Module completion certificates
-   - Basic paid/premium module support or partnership CTAs
-   - Audience taxonomy reconciliation (doctor_prescriber vs doctor etc.)
-
-4. **Basic BNPL / Trade Financing Inquiry Flow**
-   - "Request Financing" button on marketplace/deal flows
-   - Structured inquiry form (amount, purpose, timeline)
-   - Routes to admin + email notification
-   - Future: embed partner API
-   - New table: financing_inquiries
-
-**Dependencies**: Phase 0 supplier/professional completion
-
-### Phase 2: Intelligence & Engagement Amplification (Target: 3-4 sessions)
 **Goal**: Deepen moat with AI and interactive tools; increase retention.
 
 **Features**:
@@ -152,54 +126,33 @@ otes |
    - Configurable watch rules → daily/weekly synthesized briefings (reuse synthesiseJurisdiction)
    - Email or in-app delivery (integrate existing signal_subscriptions)
    - User preference storage
-   - Files: New cron/orchestrator job, app/dashboard or intelligence/my-briefings, extend LLM gateway usage
 
-2. **Logistics & Trade Route Simulator**
-   - Interactive globe layer showing approved corridors, duties, partners, risk scores
-   - Filter by product type, volume, compliance status
-   - Data model: trade_routes, logistics_partners, corridor_risks
-   - Files: Extend config/globe and globe components, new lib/intelligence/logistics.ts
+2. **Watchlist Rule Builder UI** (carried residual)
+   - Full interactive management of `cc_watch_rules`
 
-3. **Mobile Globe Improvements + PWA + Offline Briefings**
-   - Performance optimizations for mobile (lazy load, simplified 3D)
-   - PWA manifest + service worker for offline country briefings
-   - Download buttons on briefing pages
+3. **BNPL / Trade Financing Inquiry Flow** (carried residual)
+   - "Request Financing" button + structured form → admin + email
+   - Table: `financing_inquiries`
 
-4. **Genetics Marketplace Core**
-   - Full catalog with IP notes, comparison tool, breeder matching
-   - Claim/licence integration (hv_claims, hv_licences)
-   - Basic inquiry/routing to verified professionals
+4. **Logistics & Trade Route Simulator**
+   - Interactive globe layer: corridors, duties, partners, risk scores
 
-**Dependencies**: Strong genetics seeding, LLM patterns from education/briefings
+5. **Mobile Globe Improvements + PWA + Offline Briefings**
 
-### Phase 3: Scale, Community & Global (Target: Ongoing / 4+ sessions)
-**Goal**: Build network effects, global reach, advanced ops tools.
+6. **Genetics Marketplace Core** (beyond basic catalog)
+   - IP notes, comparison tool, breeder matching, claim/licence integration
 
-**Features**:
-1. **Gated Community / Forum Layer**
-   - Verified-only discussion boards (by role or market expertise)
-   - Threaded discussions, expert AMAs, moderated
-   - New tables: forum_threads, forum_posts with strict RLS (member-only)
-   - Realtime updates
-   - Files: app/community/* or /intelligence/community, new components
+7. **Public Supplier Directory polish**
+   - Live verified list (not dashboard redirect only)
 
-2. **Advanced Analytics & Reporting Dashboard (Admin + User)**
-   - Usage analytics, market entry ROI calculators, compliance report exports
-   - Custom report builder for admins
-   - New views or materialized views in Supabase
+8. **Education CPD / certificates / premium modules**
 
-3. **Multi-Language Support & Internationalization**
-   - Detect user locale or preference
-   - Translate key UI + briefings (start with high-priority markets: ES, FR, PT)
-   - Use next-intl or similar (evaluate vs current setup)
-   - Locale-aware globe and data
+### Phase 3: Scale, Community & Global (Ongoing)
 
-4. **Full BNPL / Financing Integration**
-   - Embed partner BNPL flow at checkout/inquiry
-   - Automated status sync
-   - Compliance logging
-
-**Dependencies**: Mature user base, strong data foundations from prior phases
+1. Gated Community / Forum Layer  
+2. Advanced Analytics & Reporting  
+3. Multi-Language Support  
+4. Full BNPL / Financing Integration (embed partner)
 
 ## Cross-Cutting Technical Requirements
 
@@ -245,9 +198,10 @@ otes |
 - Exact i18n library choice
 - Prioritization adjustments based on user feedback or business needs
 - Resource allocation for data sourcing (genetics, logistics partners)
+- Full PROJECT_REGISTRY reconciliation pass (dashboard, digest, ia_*, HF layer)
 
 ---
 
 **This document is the canonical plan. All work should align to it. Update it after every significant session or PR.**
 
-**Next Action**: Create GitHub issues for each phase/feature for tracking. Start Phase 0 implementation.
+**Next Action**: Execute Phase 2 residual items in priority order — (1) public supplier directory polish, (2) watchlist rule builder UI, (3) financing inquiry form, (4) AI briefings spine.
