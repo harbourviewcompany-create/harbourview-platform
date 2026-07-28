@@ -60,7 +60,9 @@ SELECT
 FROM public.hv_professionals p
 WHERE p.user_id = (SELECT auth.uid());
 
-GRANT SELECT ON api.clinical_patients TO authenticated;
+-- NOTE: previously had a duplicate, weaker grant on api.clinical_patients
+-- (SELECT-only) immediately before this one -- removed. Only the grant
+-- below applies.
 GRANT SELECT, INSERT, UPDATE ON api.clinical_patients TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON api.clinical_care_team TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON api.clinical_consent_records TO authenticated;
@@ -202,7 +204,13 @@ $$;
 REVOKE ALL ON FUNCTION api.clinical_request_verification(text, text, text, uuid) FROM public;
 GRANT EXECUTE ON FUNCTION api.clinical_request_verification(text, text, text, uuid) TO authenticated, service_role;
 
--- Admin approve (requires user_roles admin/operator)
+-- Admin approve. Requires the 'admin' role specifically -- NOT the generic
+-- 'operator' role. Approving a clinician's medical/pharmacy licence is a
+-- clinical-governance action, not a commercial/marketplace-admin action;
+-- reusing the broad 'operator' role would let non-clinical ops staff
+-- approve clinical credentials. If a dedicated clinical-admin role is
+-- introduced later, add it here explicitly rather than widening back to
+-- 'operator'.
 CREATE OR REPLACE FUNCTION api.clinical_admin_verify_professional(
   p_professional_id uuid,
   p_approve boolean,
@@ -223,11 +231,11 @@ BEGIN
 
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles
-    WHERE user_id = v_uid AND role IN ('admin', 'operator')
+    WHERE user_id = v_uid AND role = 'admin'
   ) INTO v_ok;
 
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'admin or operator required' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'admin role required for clinical verification approval' USING ERRCODE = '42501';
   END IF;
 
   IF p_approve THEN
