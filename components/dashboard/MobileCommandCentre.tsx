@@ -106,7 +106,6 @@ const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',        label: 'Briefing',       icon: '◎' },
   { id: 'marketplace',     label: 'Market',         icon: '⊞' },
   { id: 'talent',          label: 'Talent',         icon: '✦' },
-  { id: 'education',       label: 'Education',      icon: '⬡' },
   { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
   { id: 'clinical',        label: 'Clinical',       icon: '⚕' },
 ]
