@@ -1613,3 +1613,88 @@ that verification was real, not just as a instruction to keep building without m
 **Files changed:** `docs/control/EVIDENCE_LOG.md` (this entry + header date correction only).
 
 **Rollback:** plain revert -- documentation-only change, no code/schema/runtime impact either direction.
+
+
+## 2026-07-29 — Merged PR #1178 (professional services directory) — found and fixed a real production-breaking bug via live REST testing
+
+**Context:** Third of three "build the missing platform features" PRs this session. Schema
+(`professional_service_providers` / renamed to `professional_service_provider_listings`),
+RLS-gated submission flow, and a public browsing page, replacing a dead one-line redirect stub at
+`app/marketplace/professional-services/page.tsx`. Launches with zero seeded listings deliberately —
+see the migration's own header comment for why (this repo already has one instance of fake provider
+fixtures, `lib/enterprise/fixtures.ts`, that were never wired to anything real; repeating that
+mistake customer-facing instead of admin-only would be worse).
+
+**Everything passed conventional verification and was still broken in production.** `tsc --noEmit`
+clean, `next build` exit 0, all grants correct per `information_schema.role_table_grants`, existing
+test suites passing. Only actually calling the live REST endpoint as anon (`GET
+/rest/v1/professional_service_providers`) revealed a 401 — the directory was unreadable by anyone
+despite every static check being green.
+
+**Root cause:** this Supabase project enforces `security_invoker = true` on every view in the `api`
+schema via a DDL event trigger (`enforce_api_view_security_invoker_trigger`) — a deliberate,
+project-wide guardrail, confirmed by dropping and recreating the view with no `WITH` clause at all
+and re-checking `pg_class.reloptions`, which still came back `true`. With that mode forced,
+PostgREST executes the view as the *calling* role, so the underlying base table's own grants/RLS
+must independently permit that role — the view's own `WHERE status='approved'` clause is not a
+sufficient security boundary on its own. The base table intentionally had zero anon/authenticated
+SELECT (the right instinct), which meant nobody could read through the view at all.
+
+**Why this matters beyond this one PR:** the existing same-name-across-schemas precedent this repo
+follows (`public.client_error_reports` / `api.client_error_reports`,
+`20260710190200_client_error_reports.sql`) never surfaced this, because that table grants identical
+permissions (insert) in both schemas — masking the same underlying requirement. Any other
+`api`-schema SELECT view added under the assumption that the view's own grant is sufficient should
+be treated as unverified until live-tested the same way. Not audited in this pass — flagged
+strongly for follow-up.
+
+**Fix (two follow-up migrations, both applied live and committed, matching what's actually live —
+no drift):**
+- `20260728010000` — renamed the base table (`professional_service_providers` →
+  `professional_service_provider_listings`) while ruling out a same-name-collision theory that
+  turned out not to be the actual cause (disproven by testing `cc_jurisdiction_briefings`, which has
+  the identical naming pattern and works fine) — kept anyway since it removes one source of
+  confusion.
+- `20260728020000` — the actual fix: an RLS SELECT policy (`status = 'approved'`) plus a table-level
+  SELECT grant to anon/authenticated on the base table, so the view's invoker-mode requirement is
+  satisfied. Column-level restriction (hiding `contact_email`, `submitted_by`, `status`, review
+  fields) continues to be enforced by the view's own column list, unaffected by the broader
+  table-level grant — safe because `public` is not a PostgREST-exposed schema in this project
+  (confirmed live: a public-only object name returns `PGRST205` "not found", not a permission
+  error), so the base table is never reachable by name via REST regardless of its grants.
+
+**Live end-to-end verification (anon key, real REST calls):**
+- `GET /rest/v1/professional_service_providers` → `200 []` before any listings existed.
+- Inserted one `pending` + one `approved` test row directly, confirmed GET returned **only** the
+  approved row with **only** the public column set, confirmed the pending row and restricted
+  columns were both absent, deleted the test rows after.
+- `POST /rest/v1/professional_service_provider_applications` as **anon** → correctly `401` (only
+  `authenticated` should be able to submit).
+
+**Separate bug found and fixed in the same pass:** a transmission corruption during an earlier
+`push_file` call silently dropped one `)` character from `app/marketplace/professional-services/page.tsx`,
+breaking CI's `Type Check`/`tsc --noEmit` (which had passed locally before the push — the corruption
+happened in transit, not in source). Diagnosed via `get_check_run_output` (a github-bridge operation
+added specifically for this — v16, 2026-07-26) pointing at the exact line/column, located the exact
+broken bytes by fetching the file back and inspecting it directly rather than guessing, and fixed via
+a Postgres `regexp_replace` + `push_file` round-trip (not the new `patch_file` operation — its
+JS-side `string.split()` matching didn't match text that Postgres's own regex engine matched
+correctly against the identical content; not root-caused further, flagged as a `github-bridge`
+follow-up). Proactively checked all other files pushed this session for the same class of paren/brace
+imbalance — none found.
+
+**Result:**
+| PR | Title | Merge commit |
+|---|---|---|
+| #1178 | feat(marketplace): professional services directory | `75c2ea9` |
+
+**Human approval status:** Given — same standing instruction as #1168/#1173 ("build everything fully
+and complete... optimize for production"), applied here after live REST verification specifically
+because static checks alone had already been shown (by this exact bug) to be insufficient proof for
+this class of schema change.
+
+**Not done here, flagged for follow-up:**
+- Audit other `api`-schema SELECT views for the same invoker-mode assumption (see above).
+- Admin review UI for pending applications (currently requires a direct DB update to approve).
+- `patch_file`'s matching discrepancy vs. Postgres regex on identical input — not root-caused.
+- Mobile/country-role Watchlist gating gap noted in the prior entry remains open.
