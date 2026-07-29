@@ -182,7 +182,6 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'digest',      label: 'Daily Digest',  icon: '❑' },
       { id: 'marketplace', label: 'Marketplace',   icon: '⊞' },
       { id: 'signals',     label: 'Intelligence',  icon: '≋' },
-      { id: 'education',   label: 'Education',     icon: '⬛' },
       { id: 'watchlist',   label: 'Watchlist',     icon: '◈' },
     ],
   },
