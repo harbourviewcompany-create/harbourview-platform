@@ -78,7 +78,7 @@ function normalizeRoleParam(raw: string | null): string | null {
 const VALID_COMMAND_PAGES: readonly CommandPage[] = [
   'briefing', 'digest', 'access-pathway', 'marketplace', 'evidence', 'education',
   'regulatory', 'local-intel', 'signals', 'watchlist', 'settings',
-  'genetics', 'compliance', 'countries',
+  'genetics', 'clinical', 'compliance', 'countries',
 ]
 
 function normalizePageParam(raw: string | null): CommandPage | null {

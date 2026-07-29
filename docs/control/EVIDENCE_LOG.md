@@ -57,6 +57,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | 2026-07-23 | Fixed YAML syntax error in `.github/workflows/post-merge-verification.yml` | Docs/CI-only; workflow YAML re-validated by GitHub Actions on push | Corrected syntax so the post-merge-verification workflow parses and runs again | PR #1128 | Current |
 | 2026-07-24 | Command Centre "real implementation" of PR #1140's stubbed intent — (1) real data-driven BriefingRoom confidence scoring replacing the `base ± offset` heuristic; (2) live, country-scoped realtime signal feed | `npx tsc --noEmit` (clean, `--max-old-space-size=6144`); `node_modules/.bin/vitest run tests/dashboard/confidenceScoring.test.ts` (7/7 pass); `npm run build` deferred to the Vercel PR preview build (full build OOM-prone in this sandbox — documented substitute per AGENTS.md fallback clause) | New `lib/dashboard/confidenceScoring.ts` (pure, unit-tested) measures each of the 5 confidence lanes from real per-lane data (source coverage, market metrics, pathway, local intel, education); lanes with no data render as "pending" not a fake %. New `components/dashboard/useDashboardSignalsRealtime.ts` re-scopes the feed by country via the existing auth-gated DTO-safe `/api/dashboard/signals` endpoint and refreshes on Realtime signal inserts. No schema/DTO change; no new migration. | Branch `claude/harbourview-pr-review-uojqbj`; PR #1147 | Current |
 | 2026-07-24 | Command Centre de-dup: deleted 9 dead, unimported `components/dashboard/pages/*` fork modules (~2,889 lines) — the stale copies from the monolith's original 2026-07-20 commit that were never wired (only `DigestPage` completed the extract→`dynamic()` pattern) and had drifted behind the live inline versions. Verified as dead duplicates in HANDOFF.md / prior EVIDENCE_LOG entries. | `npx tsc --noEmit` (clean, `--max-old-space-size=6144`); `node_modules/.bin/vitest run tests/dashboard/confidenceScoring.test.ts` (7/7 pass); repo-wide reference scan (static + `dynamic()` + tests) = zero importers for each deleted file, re-confirmed on post-#1147 `main` before deletion | Removed `AccessPathwayPage, BriefingRoom, EducationPage, EvidencePage, LocalIntelPage, MarketplacePage, RegulatoryPage, SettingsPage, SignalsPage` from `components/dashboard/pages/`. Kept the 5 imported/live modules (`AssistantPage, DealRoomsPanel, DigestPage, RegulatoryRadar, WatchlistPage`). No behaviour change — the live inline versions inside `CommandCentre.tsx` are untouched. Pure deletion; revert restores the files. | Branch `claude/harbourview-pr-review-uojqbj`; PR #1150 | Current |
+| 2026-07-27 | CI check-run snapshot on `main` HEAD via github-bridge `list_check_runs` (NOT a re-run of Gate 4's local `npm run test:*` suite -- no local checkout/Node env this session) | Live GitHub check-runs API against current `main` HEAD | All previously-passing checks still green (Type Check, `tsc --noEmit`, Next.js Build, Install, Critical Env Secrets, Smoke Tests, Security/Leakage, Domain Logic, Intake & Listings, Signal Engine Runtime, `verify`, Dependabot, Production Route Audit, `check-drift` x3, `check-placeholder-landmines` x3, Post-merge verification, Cloudflare Pages). `E2E (Playwright)` confirmed still failing (matches existing HANDOFF.md note). Two regressions logged: `production-runtime-verification` failing, and `Supabase Preview` failing (last noted green 2026-07-18). Pre-existing, expected failures also confirmed still failing: `Workers Builds: harbourview-platform`, two GCP Cloud Build triggers -- all three are open P0 items pending Tyler's dashboard/console access per HANDOFF.md. Also: #1176 (clinical schema/API) and #1177 (clinical nav) reviewed and merged this session with two safety/scope fixes applied first (dosing hard ceiling, admin-verify role scoping). | See full narrative entry at end of file | Current -- CI-level snapshot only, not a Gate 4 refresh |
 
 ### Gate 4 Detailed Evidence — 2026-06-25
 
@@ -1585,3 +1586,157 @@ that verification was real, not just as a instruction to keep building without m
 - No dedicated automated test for the new watchlist tier gate (relied on adjacent existing tests).
 - Mobile dashboard (`MobileCommandCentre.tsx`) and `app/country/[country]/role/[role]/page.tsx`
   still render Watchlist ungated — PR #1173 only gated the desktop `CommandCentre.tsx` path.
+
+
+---
+
+## 2026-07-27 -- CI check-run snapshot on `main` HEAD + evidence-log header staleness fix (Claude/chat session)
+
+**What this is:** Not a re-run of the Gate 4 local test suite (19 `npm run test:*` scripts, 267 assertions) -- this session had no local checkout or Node environment, only Supabase MCP + `github-bridge` access. This is a live pull of GitHub's own check-run results for `main`'s current HEAD via `list_check_runs`, cross-checked against this file's and `HANDOFF.md`'s existing claims.
+
+**Findings:**
+- Confirms still-failing, as previously documented: `E2E (Playwright)` -- failure.
+- Two failures not previously documented anywhere in this file: `production-runtime-verification` -- failure; `Supabase Preview` -- failure. This file's most recent prior note on Supabase Preview described it as green as of 2026-07-18 -- this is a regression, not a persisting known issue, and has not been triaged.
+- Confirms still-failing/expected, per existing HANDOFF.md P0 items pending Tyler's dashboard access: `Workers Builds: harbourview-platform`, both GCP Cloud Build triggers (`rmgpgab-...`).
+- Passing: Type Check, `tsc --noEmit`, Next.js Build, Install, Critical Env Secrets, Smoke Tests, Security/Leakage, Domain Logic, Intake & Listings, Signal Engine Runtime, `verify`, Dependabot, Production Route Audit, `check-drift` (3 separate scheduled runs today), `check-placeholder-landmines` (3 runs), Post-merge verification, Cloudflare Pages.
+
+**What this does NOT verify:** the 19-script Gate 4 local suite itself was not re-run -- no `npm ci` / `npm run test:*` executed this session. Treat this as CI-level evidence only, not a Gate 4 refresh.
+
+**Also this session (2026-07-27, later same day):** reviewed and merged two clinical-feature PRs (#1176, #1177 -- originally #1170/#1171, closed and reopened to satisfy the `Enforce registry impact discipline` check). Fixes applied before merge: a hard safety ceiling added to the weight-based dosing calculator (`HARD_MAX_MG_PER_KG_PER_DAY = 15`, previously accepted up to 50 with only a soft caution above 10 -- see `lib/clinical/dosing.ts`), and `api.clinical_admin_verify_professional` restricted to the `admin` role only (previously also accepted the generic `operator` role). Both are interim/conservative fixes pending real clinical and legal review, not clinical determinations.
+
+**Process note on this PR itself:** initially failed to merge with a real conflict after `main` advanced past this branch's original base commit (the #1176/#1177 merges happened while this branch was open). First rebase attempt (content-only, same branch) still conflicted because the branch's underlying merge-base commit was still stale even though the file content matched -- git's 3-way merge compares against the merge-base commit, not just current content. Fixed properly by deleting and recreating the branch directly at `main`'s current HEAD (`a25ed391...`), then reapplying this same edit on top -- so the merge-base is now `main` itself and the diff is a clean single-file addition.
+
+**Also corrected in this entry:** this file's header line said "Last updated: 2026-07-19" while the file's own body already contained dated entries through 2026-07-26 that were never reflected in the header. Header date corrected.
+
+**Tyler approval:** directed turn-by-turn in chat ("Go" / "Continue" / "Use the key in the vault" / "Yes and fix all" / "Merge"). Opened as a PR against a fresh branch rather than pushed directly to `main`.
+
+**Files changed:** `docs/control/EVIDENCE_LOG.md` (this entry + header date correction only).
+
+**Rollback:** plain revert -- documentation-only change, no code/schema/runtime impact either direction.
+
+
+## 2026-07-29 — Merged PR #1178 (professional services directory) — found and fixed a real production-breaking bug via live REST testing
+
+**Context:** Third of three "build the missing platform features" PRs this session. Schema
+(`professional_service_providers` / renamed to `professional_service_provider_listings`),
+RLS-gated submission flow, and a public browsing page, replacing a dead one-line redirect stub at
+`app/marketplace/professional-services/page.tsx`. Launches with zero seeded listings deliberately —
+see the migration's own header comment for why (this repo already has one instance of fake provider
+fixtures, `lib/enterprise/fixtures.ts`, that were never wired to anything real; repeating that
+mistake customer-facing instead of admin-only would be worse).
+
+**Everything passed conventional verification and was still broken in production.** `tsc --noEmit`
+clean, `next build` exit 0, all grants correct per `information_schema.role_table_grants`, existing
+test suites passing. Only actually calling the live REST endpoint as anon (`GET
+/rest/v1/professional_service_providers`) revealed a 401 — the directory was unreadable by anyone
+despite every static check being green.
+
+**Root cause:** this Supabase project enforces `security_invoker = true` on every view in the `api`
+schema via a DDL event trigger (`enforce_api_view_security_invoker_trigger`) — a deliberate,
+project-wide guardrail, confirmed by dropping and recreating the view with no `WITH` clause at all
+and re-checking `pg_class.reloptions`, which still came back `true`. With that mode forced,
+PostgREST executes the view as the *calling* role, so the underlying base table's own grants/RLS
+must independently permit that role — the view's own `WHERE status='approved'` clause is not a
+sufficient security boundary on its own. The base table intentionally had zero anon/authenticated
+SELECT (the right instinct), which meant nobody could read through the view at all.
+
+**Why this matters beyond this one PR:** the existing same-name-across-schemas precedent this repo
+follows (`public.client_error_reports` / `api.client_error_reports`,
+`20260710190200_client_error_reports.sql`) never surfaced this, because that table grants identical
+permissions (insert) in both schemas — masking the same underlying requirement. Any other
+`api`-schema SELECT view added under the assumption that the view's own grant is sufficient should
+be treated as unverified until live-tested the same way. Not audited in this pass — flagged
+strongly for follow-up.
+
+**Fix (two follow-up migrations, both applied live and committed, matching what's actually live —
+no drift):**
+- `20260728010000` — renamed the base table (`professional_service_providers` →
+  `professional_service_provider_listings`) while ruling out a same-name-collision theory that
+  turned out not to be the actual cause (disproven by testing `cc_jurisdiction_briefings`, which has
+  the identical naming pattern and works fine) — kept anyway since it removes one source of
+  confusion.
+- `20260728020000` — the actual fix: an RLS SELECT policy (`status = 'approved'`) plus a table-level
+  SELECT grant to anon/authenticated on the base table, so the view's invoker-mode requirement is
+  satisfied. Column-level restriction (hiding `contact_email`, `submitted_by`, `status`, review
+  fields) continues to be enforced by the view's own column list, unaffected by the broader
+  table-level grant — safe because `public` is not a PostgREST-exposed schema in this project
+  (confirmed live: a public-only object name returns `PGRST205` "not found", not a permission
+  error), so the base table is never reachable by name via REST regardless of its grants.
+
+**Live end-to-end verification (anon key, real REST calls):**
+- `GET /rest/v1/professional_service_providers` → `200 []` before any listings existed.
+- Inserted one `pending` + one `approved` test row directly, confirmed GET returned **only** the
+  approved row with **only** the public column set, confirmed the pending row and restricted
+  columns were both absent, deleted the test rows after.
+- `POST /rest/v1/professional_service_provider_applications` as **anon** → correctly `401` (only
+  `authenticated` should be able to submit).
+
+**Separate bug found and fixed in the same pass:** a transmission corruption during an earlier
+`push_file` call silently dropped one `)` character from `app/marketplace/professional-services/page.tsx`,
+breaking CI's `Type Check`/`tsc --noEmit` (which had passed locally before the push — the corruption
+happened in transit, not in source). Diagnosed via `get_check_run_output` (a github-bridge operation
+added specifically for this — v16, 2026-07-26) pointing at the exact line/column, located the exact
+broken bytes by fetching the file back and inspecting it directly rather than guessing, and fixed via
+a Postgres `regexp_replace` + `push_file` round-trip (not the new `patch_file` operation — its
+JS-side `string.split()` matching didn't match text that Postgres's own regex engine matched
+correctly against the identical content; not root-caused further, flagged as a `github-bridge`
+follow-up). Proactively checked all other files pushed this session for the same class of paren/brace
+imbalance — none found.
+
+**Result:**
+| PR | Title | Merge commit |
+|---|---|---|
+| #1178 | feat(marketplace): professional services directory | `75c2ea9` |
+
+**Human approval status:** Given — same standing instruction as #1168/#1173 ("build everything fully
+and complete... optimize for production"), applied here after live REST verification specifically
+because static checks alone had already been shown (by this exact bug) to be insufficient proof for
+this class of schema change.
+
+**Not done here, flagged for follow-up:**
+- Audit other `api`-schema SELECT views for the same invoker-mode assumption (see above).
+- Admin review UI for pending applications (currently requires a direct DB update to approve).
+- `patch_file`'s matching discrepancy vs. Postgres regex on identical input — not root-caused.
+- Mobile/country-role Watchlist gating gap noted in the prior entry remains open.
+
+
+## 2026-07-29 — crawler/pipeline data-quality pass (Claude/chat session)
+
+Followed up on the original QUALITY_PIPELINE_HANDOFF.md concerns by checking cron health and live
+data directly rather than re-reading the doc. Found and fixed four real, verified production bugs:
+
+1. **#1169** — `promote_snapshot_to_signals()` had no guard for an orphaned `source_id`; one bad
+   snapshot aborted the entire daily promotion batch (confirmed via `cron.job_run_details`, a real
+   error, not stale CI). Added the guard, plus per-snapshot exception handling in the batch loop as
+   defense in depth. Fixed 21 orphaned snapshots that had been blocking ~4,097 legitimate ones.
+2. **#1174** — `ia_graph_entities` had 8 exact-duplicate labels (e.g. "Australia" existed as two
+   separate graph nodes with connection/signal counts split roughly in half). Root cause: an old
+   hand-seeded set (`ge-XXX`, 2026-05-31) never got reconciled against the real entity-resolution
+   pipeline's output (`gr-ent-<hash>`, 2026-07-04). Deleted the 8 old rows after confirming zero live
+   references in `hv_entity_mentions`/`signal_entities` — did not merge counts, since the old numbers
+   were static seed data, not live-computed telemetry.
+3. **#1184** — headline extraction preferred the keyword-matched candidate snippet over the real page
+   `<title>`. For several source templates (Wikipedia navboxes, related-articles sidebars, menu
+   widgets) the keyword scanner matched page chrome instead of the article, so the same boilerplate
+   string got promoted as "the headline" for many unrelated countries at once — this is what the
+   original handoff doc's "US bill tagged as Pakistan" note was actually describing. Verified
+   `captured_title` held the correct title in every case checked before fixing. Considered backfilling
+   ~1,558 historically-affected signals; sampled 12 before running anything and found the only
+   available join (`captured_at` + source name) produces false matches when a source's crawl batch
+   shares one timestamp across many snapshots — would have overwritten correct headlines with wrong
+   ones. Abandoned the backfill; shipped the forward-only fix.
+4. **#1198** — `processing_status` never advanced past `'extracted'` after promotion, so the daily
+   batch re-scanned the entire historical pool every run forever (harmless, since `signal_id` is a
+   deterministic hash with `ON CONFLICT DO NOTHING`, but wasteful, and made "backlog remaining" a
+   meaningless number). Also explains why some snapshots sat unpromoted despite a real-time trigger
+   existing: `trg_promote_snapshot` only fires on a transition *into* `'extracted'`, not on a later
+   update that populates `signal_candidates` without touching status. Added a terminal `'promoted'`
+   status. Verified end-to-end: ran the batch twice, first cleared the full 4,140-snapshot backlog,
+   second processed exactly 0.
+
+**Not fixed, flagged for a deliberate look:** `hv_pipeline_tick()` (an earlier in-DB SQL pipeline
+generation) appears to have zero live callers now that cron drives a newer edge-function-based system
+(`hv_trigger_extract` → `hv-extract`, etc.) instead — likely safe dead code, not removed here.
+
+**Human approval status:** Directed turn-by-turn in chat ("continue" / "fix it" / "go" / "is anything
+else missing") rather than a single upfront approval.
