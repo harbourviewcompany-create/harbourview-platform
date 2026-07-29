@@ -65,7 +65,7 @@ export default async function ProfessionalServicesPage() {
             </div>
           </PublicSection>
         ))
-      }
+      )}
 
       <PublicSection tone="dark">
         <SectionHeader eyebrow="Get listed" title="Apply to be listed">
