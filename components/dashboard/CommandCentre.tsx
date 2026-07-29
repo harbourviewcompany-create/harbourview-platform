@@ -26,6 +26,7 @@ import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 import { DealRoomsPanel as DealRoomsSidebarWidget } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
+import ClinicalPage from './pages/ClinicalPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
@@ -35,6 +36,8 @@ import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type
 import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
 import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
 import { WatchlistPage } from './pages/WatchlistPage'
+import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { DealRoomsPanel } from './pages/DealRoomsPanel'
@@ -62,6 +65,7 @@ export type CommandPage =
   | 'watchlist'
   | 'settings'
   | 'genetics'
+  | 'clinical'
   | 'compliance'
   | 'countries'
   | 'assistant'
@@ -128,6 +132,7 @@ type Props = {
   localIntel?:      LocalIntelData | null
   pathwayData?:     PathwayData
   watchlistData?:    WatchlistData
+  watchlistAccess?:  FeatureAccess
   evidenceData?:     EvidenceData
   liveTiles?:           LiveEduTile[]
   recentEduModules?:    RecentEduModule[]
@@ -177,7 +182,6 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'digest',      label: 'Daily Digest',  icon: '❑' },
       { id: 'marketplace', label: 'Marketplace',   icon: '⊞' },
       { id: 'signals',     label: 'Intelligence',  icon: '≋' },
-      { id: 'education',   label: 'Education',     icon: '⬛' },
       { id: 'watchlist',   label: 'Watchlist',     icon: '◈' },
     ],
   },
@@ -212,6 +216,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Compliance & Legal',
     items: [
       { id: 'genetics',   label: 'Genetics',    icon: '⊕' },
+      { id: 'clinical',   label: 'Clinical',    icon: '⚕' },
       { id: 'compliance', label: 'Compliance',  icon: '◫' },
       { id: 'licences',   label: 'Licences',    icon: '◨' },
       { id: 'kyb',        label: 'KYB / Verify', icon: '◫' },
@@ -10855,6 +10860,7 @@ export default function CommandCentre({
   countryIntel,
   pathwayData,
   watchlistData,
+  watchlistAccess,
   evidenceData,
   localIntel,
   liveTiles,
@@ -11066,11 +11072,16 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
+        if (watchlistAccess && !watchlistAccess.granted) {
+          return <WatchlistUpgradeGate access={watchlistAccess} />
+        }
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
+      case 'clinical':
+        return <ClinicalPage countryLabel={country.label} countryIso2={country.iso2} roleLabel={roleLabel} />
       case 'compliance':
         return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':

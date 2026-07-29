@@ -23,6 +23,7 @@ export const FEATURE_TIER_MAP: Record<string, SubscriptionTier> = {
   vault:                    'starter',
   opportunities:            'starter',
   'reviewed-connections':   'starter',
+  watchlist:                'starter',
   professionals:            'starter',
   assessments:              'starter',
   compliance:               'starter',

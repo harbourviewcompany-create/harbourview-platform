@@ -42,6 +42,7 @@ const NAV_MODULE_KEYS: Record<string, ModuleKey[]> = {
   marketplace:      ['service_marketplace', 'verified_suppliers', 'procurement_watchlist', 'operator_demand'],
   watchlist:        ['procurement_watchlist'],
   'access-pathway': ['clinical_pathway', 'patient_access', 'pharmacy_checklist', 'dispensing_controls'],
+  clinical:         ['clinical_pathway', 'patient_access', 'evidence_coverage', 'evidence_gap', 'research_collaboration'],
   regulatory:       ['policy_queue', 'licensing_tracker', 'compliance_demand'],
   'local-intel':    ['market_intelligence', 'country_status'],
   evidence:         ['evidence_coverage', 'evidence_gap', 'coa_review', 'verification_services'],

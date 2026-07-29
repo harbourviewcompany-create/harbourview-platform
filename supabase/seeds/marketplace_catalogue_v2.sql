@@ -1,0 +1,383 @@
+-- Harbourview Marketplace Catalogue V2
+-- Cannabis format SKUs + consumables to make public marketplace look active.
+--
+-- Rules:
+-- - Illustrative catalogue inventory (not tied to a named licensed company)
+-- - status=published + public_visibility=true so rows appear in marketplace_public_listings_v1
+-- - verification_status=unverified (no fabricated "verified supplier" claims)
+-- - seller_type=catalogue_slot / controlled_review
+-- - ON CONFLICT (slug) upsert for safe re-runs
+--
+-- Apply in Supabase SQL editor or via migration after review.
+
+insert into public.listings (
+  title, slug, listing_type, category, subcategory,
+  status, public_visibility, description, public_summary,
+  marketplace_section, product_type, region,
+  condition, location_country, price_display, price_currency,
+  seller_type, is_featured, high_level_specs, review_status,
+  verification_status, seller_authorization_status, monetization_path,
+  published_at
+) values
+
+-- ── CANNABIS FORMATS / SKUs ──────────────────────────────────────────────────
+(
+  'Dried Flower — Indoor Premium Lot (18–22% THC)',
+  'sku-dried-flower-indoor-premium-001',
+  'supply', 'cannabis-inventory', 'flower',
+  'published', true,
+  'Illustrative catalogue SKU for indoor dried flower. Format and potency band shown for market-fit screening. Availability, COA and import documentation are confirmed only after qualification.',
+  'Indoor dried flower catalogue SKU. Qualification required before lot details.',
+  'cannabis', 'Dried Flower', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', true,
+  '{"format":"dried_flower","thc_band":"18-22%","cbd_band":"<1%","pack_options":"1kg, 5kg, bulk","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Dried Flower — Greenhouse Commercial Grade',
+  'sku-dried-flower-greenhouse-commercial-001',
+  'supply', 'cannabis-inventory', 'flower',
+  'published', true,
+  'Greenhouse commercial-grade flower SKU for volume programs. Public listing shows format only; seller, price and jurisdiction docs stay private until review.',
+  'Greenhouse flower SKU for volume programs. Qualification required.',
+  'cannabis', 'Dried Flower', 'Global',
+  null, null, 'Volume pricing on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"dried_flower","grade":"commercial","cultivation":"greenhouse","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Trim / Biomass — Extraction Feedstock',
+  'sku-biomass-trim-extraction-001',
+  'supply', 'cannabis-inventory', 'biomass',
+  'published', true,
+  'Biomass and trim feedstock SKU for licensed extractors. Moisture, method fit and inspection path confirmed after qualification.',
+  'Extraction feedstock SKU. Inspection and docs after qualification.',
+  'cannabis', 'Biomass', 'Global',
+  null, null, 'Wholesale on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"biomass_trim","use":"extraction","moisture_target":"<12%","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Full-Spectrum CO₂ Oil — Crude',
+  'sku-oil-co2-crude-001',
+  'supply', 'cannabis-inventory', 'extract',
+  'published', true,
+  'Full-spectrum CO₂ crude oil catalogue SKU. Potency, residual solvents and batch COA are reviewed privately before any introduction.',
+  'CO₂ crude oil SKU. COA and specs after qualification.',
+  'cannabis', 'Extract', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', true,
+  '{"format":"full_spectrum_oil","method":"CO2","grade":"crude","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Distillate — Refined THC Concentrate',
+  'sku-distillate-thc-refined-001',
+  'supply', 'cannabis-inventory', 'extract',
+  'published', true,
+  'Refined THC distillate SKU for formulation and finished-goods programs. Purity band and fill-format options disclosed after qualification.',
+  'THC distillate SKU for formulation programs.',
+  'cannabis', 'Distillate', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', true,
+  '{"format":"distillate","cannabinoid":"THC","grade":"refined","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'CBD Isolate — ≥98% Purity Band',
+  'sku-cbd-isolate-98-001',
+  'supply', 'cannabis-inventory', 'isolate',
+  'published', true,
+  'CBD isolate catalogue SKU. Purity, residual solvents and packaging unit sizes confirmed after commercial qualification.',
+  'CBD isolate SKU (≥98% band). Specs after qualification.',
+  'cannabis', 'Isolate', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"isolate","cannabinoid":"CBD","purity_band":">=98%","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'THC Isolate — Research / Formulation Grade',
+  'sku-thc-isolate-formulation-001',
+  'supply', 'cannabis-inventory', 'isolate',
+  'published', true,
+  'THC isolate SKU for licensed formulation channels. Jurisdiction and licence checks required before any routing.',
+  'THC isolate SKU for licensed formulators.',
+  'cannabis', 'Isolate', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"isolate","cannabinoid":"THC","use":"formulation","illustrative":true,"cta_label":"Request qualification"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Softgel Capsules — Standardised THC:CBD',
+  'sku-softgels-thc-cbd-001',
+  'supply', 'new-products', 'formulation',
+  'published', true,
+  'Standardised softgel capsule SKU for pharmacy-channel evaluation. Ratio, dose strength and dossier path confirmed after qualification. Illustrative catalogue entry.',
+  'Softgel SKU (THC:CBD). Dossier path after qualification.',
+  'new-products', 'Softgels', 'Global',
+  null, null, 'Private-label / on enquiry', 'USD',
+  'catalogue_slot', true,
+  '{"format":"softgel","ratio":"THC:CBD","channel":"pharmacy_evaluation","illustrative":true,"cta_label":"Request product details"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Oral Solution / Tincture — Dropper Format',
+  'sku-oral-tincture-dropper-001',
+  'supply', 'new-products', 'formulation',
+  'published', true,
+  'Oral solution / tincture SKU in dropper format. Carrier oil, potency and labelling requirements confirmed after review.',
+  'Oral tincture SKU. Specs after qualification.',
+  'new-products', 'Oral Solution', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"oral_solution","pack":"dropper","illustrative":true,"cta_label":"Request product details"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Topical Balm — Non-Inhaled Format',
+  'sku-topical-balm-001',
+  'supply', 'new-products', 'formulation',
+  'published', true,
+  'Topical balm catalogue SKU. Cannabinoid load and packaging options discussed after commercial screening.',
+  'Topical balm SKU. Screening before commercial details.',
+  'new-products', 'Topical', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"topical_balm","route":"non_inhaled","illustrative":true,"cta_label":"Request product details"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Pre-Roll Units — Finished Goods (Unbranded)',
+  'sku-preroll-finished-unbranded-001',
+  'supply', 'new-products', 'finished_goods',
+  'published', true,
+  'Unbranded finished pre-roll SKU for wholesale evaluation. Count, weight and compliance labelling confirmed after qualification. Not a consumer retail listing.',
+  'Unbranded pre-roll finished-goods SKU.',
+  'new-products', 'Pre-Roll', 'Global',
+  null, null, 'Wholesale on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"pre_roll","branding":"unbranded","channel":"wholesale","illustrative":true,"cta_label":"Request product details"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Vape Hardware Shell — Empty Cartridge Components',
+  'sku-vape-empty-cartridge-001',
+  'supply', 'new-products', 'devices',
+  'published', true,
+  'Empty vape cartridge / hardware component SKU. No filled product. Specs and packaging options after commercial review.',
+  'Empty vape hardware components only.',
+  'new-products', 'Device Components', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"vape_hardware","filled":false,"illustrative":true,"cta_label":"Request product details"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Feminised Seed Lot — Commercial Cultivar Band',
+  'sku-seeds-feminised-commercial-001',
+  'supply', 'new-products', 'genetics',
+  'published', true,
+  'Feminised seed catalogue SKU. Phytosanitary and transfer docs confirmed only for qualified licensed buyers.',
+  'Feminised seed SKU. Docs after licence check.',
+  'new-products', 'Genetics', 'Global',
+  null, null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"feminised_seeds","illustrative":true,"cta_label":"Request genetics access review"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Tissue-Culture Cuttings — Pathogen-Screened Slot',
+  'sku-cuttings-tissue-culture-001',
+  'supply', 'new-products', 'genetics',
+  'published', true,
+  'Tissue-culture cutting SKU slot. Pathogen screening and phytosanitary path confirmed after qualification.',
+  'Tissue-culture cuttings SKU. Qualification required.',
+  'new-products', 'Genetics', 'Global',
+  null, null, 'Minimum order on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"tissue_culture_cuttings","illustrative":true,"cta_label":"Request genetics access review"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+
+-- ── CONSUMABLES ──────────────────────────────────────────────────────────────
+(
+  'King-Size Pre-Roll Cones — Bulk Cartons',
+  'sku-consumable-preroll-cones-king-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Unbranded king-size pre-roll cones in bulk cartons. Formats and MOQ confirmed by quote. Illustrative consumables catalogue entry.',
+  'King-size pre-roll cones. Quote-based MOQ.',
+  'consumables', 'Pre-Roll Cones', 'Global',
+  'New', null, 'Volume pricing on enquiry', 'USD',
+  'catalogue_slot', true,
+  '{"format":"pre_roll_cones","sizes":"84/98/109mm","moq":"quote","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Matte Child-Resistant Stand-Up Pouches',
+  'sku-consumable-cr-pouches-matte-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Matte CR stand-up pouches for finished goods. Print options and compliance variants by quote.',
+  'Matte CR pouches. Custom print available.',
+  'consumables', 'Pouches', 'Global',
+  'New', null, 'In stock / volume pricing', 'USD',
+  'catalogue_slot', true,
+  '{"format":"cr_standup_pouch","finish":"matte","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Premium Glass Jars — Clear & Amber',
+  'sku-consumable-glass-jars-premium-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Premium clear and amber glass jars with matched closures. Empty packaging only.',
+  'Premium glass jars with matched lids.',
+  'consumables', 'Jars', 'Global',
+  'New', null, 'Case pricing on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"glass_jar","colors":"clear,amber","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Opaque Flower Jars — 2g / 3.5g / 7g',
+  'sku-consumable-opaque-jars-sizes-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Opaque black/white/amber jars in common retail sizes with CR closures. Empty packaging only.',
+  'Opaque jars in 2g / 3.5g / 7g sizes.',
+  'consumables', 'Jars', 'Global',
+  'New', null, 'Supplier quote', 'USD',
+  'catalogue_slot', false,
+  '{"format":"opaque_jar","sizes":"2g,3.5g,7g","closure":"CR","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Child-Resistant Pre-Roll Tubes — Unbranded',
+  'sku-consumable-preroll-tubes-cr-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Unbranded CR pre-roll tubes for commercial packaging programs. Bulk case quantities by inquiry.',
+  'Unbranded CR pre-roll tubes.',
+  'consumables', 'Tubes', 'Global',
+  'New', null, 'Quoted after specification review', 'USD',
+  'catalogue_slot', true,
+  '{"format":"cr_preroll_tube","branding":"unbranded","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Roll Labels & Tamper Seals',
+  'sku-consumable-labels-tamper-001',
+  'supply', 'consumables', 'labels',
+  'published', true,
+  'Blank roll labels and tamper seals for batch runs and compliance panels. Proof required before production.',
+  'Roll labels and tamper seals. Proof required.',
+  'consumables', 'Labels', 'Global',
+  'New', null, 'Quote after artwork review', 'USD',
+  'catalogue_slot', false,
+  '{"format":"roll_labels_tamper","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Custom Retail Cartons & Sleeves',
+  'sku-consumable-retail-cartons-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Blank retail cartons and sleeves for multipacks and display packaging. Design and die-line review before production.',
+  'Custom retail cartons. Design review required.',
+  'consumables', 'Cartons', 'Global',
+  'New', null, 'Design quote', 'USD',
+  'catalogue_slot', false,
+  '{"format":"retail_carton","options":"foil,emboss","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Corrugated Shipping Cartons — Master Cases',
+  'sku-consumable-shipping-cartons-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Plain corrugated master cases for fulfillment. Pallet and case-level supply considered.',
+  'Corrugated shipping cartons. Pallet supply available.',
+  'consumables', 'Shipping', 'Global',
+  'New', null, 'Pallet pricing on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"corrugated_carton","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Sterile Gloves & Facility Wipes',
+  'sku-consumable-facility-gloves-wipes-001',
+  'supply', 'consumables', 'facility',
+  'published', true,
+  'Facility consumables for clean production environments. Recurring or spot-lot procurement.',
+  'Gloves and wipes for production environments.',
+  'consumables', 'Facility Supplies', 'Global',
+  'New', null, 'Recurring supply on enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"facility_consumables","items":"gloves,wipes","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Sterile Substrate & Growth Media — Bulk',
+  'sku-consumable-substrate-media-bulk-001',
+  'supply', 'consumables', 'media',
+  'published', true,
+  'Bulk growth media and substrate inputs. Specification and certification path confirmed by quote.',
+  'Bulk substrate and growth media.',
+  'consumables', 'Growth Media', 'Global',
+  'New', null, 'Bulk volume pricing', 'USD',
+  'catalogue_slot', false,
+  '{"format":"growth_media","packaging":"bulk","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Nutrient Concentrates — Commercial Pack Sizes',
+  'sku-consumable-nutrients-commercial-001',
+  'supply', 'consumables', 'nutrients',
+  'published', true,
+  'Liquid nutrient concentrates in commercial pack sizes. Formulation and compliance docs after review.',
+  'Commercial nutrient concentrates.',
+  'consumables', 'Nutrients', 'Global',
+  'New', null, 'Commercial pricing', 'USD',
+  'catalogue_slot', false,
+  '{"format":"nutrient_concentrate","sizes":"5L,20L,200L","illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+),
+(
+  'Empty Softgel Shells & Capsule Components',
+  'sku-consumable-softgel-shells-001',
+  'supply', 'consumables', 'packaging',
+  'published', true,
+  'Empty softgel shells and capsule components for licensed fill programs. No filled product.',
+  'Empty softgel/capsule components only.',
+  'consumables', 'Capsule Components', 'Global',
+  'New', null, 'On enquiry', 'USD',
+  'catalogue_slot', false,
+  '{"format":"empty_softgel_shell","filled":false,"illustrative":true,"cta_label":"Request quote"}'::jsonb,
+  'published', 'unverified', 'unknown', 'quote_routing', now()
+)
+
+on conflict (slug) do update set
+  title = excluded.title,
+  description = excluded.description,
+  public_summary = excluded.public_summary,
+  status = excluded.status,
+  public_visibility = excluded.public_visibility,
+  review_status = excluded.review_status,
+  high_level_specs = excluded.high_level_specs,
+  product_type = excluded.product_type,
+  category = excluded.category,
+  subcategory = excluded.subcategory,
+  marketplace_section = excluded.marketplace_section,
+  price_display = excluded.price_display,
+  is_featured = excluded.is_featured,
+  seller_type = excluded.seller_type,
+  verification_status = excluded.verification_status,
+  monetization_path = excluded.monetization_path,
+  published_at = coalesce(public.listings.published_at, excluded.published_at),
+  updated_at = now();

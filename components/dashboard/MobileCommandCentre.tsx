@@ -8,6 +8,7 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, W
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { RegulatoryRadar } from './pages/RegulatoryRadar'
+import ClinicalPage from './pages/ClinicalPage'
 
 const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
   permitted: '#5fb87a',
@@ -105,8 +106,8 @@ const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',        label: 'Briefing',       icon: '◎' },
   { id: 'marketplace',     label: 'Market',         icon: '⊞' },
   { id: 'talent',          label: 'Talent',         icon: '✦' },
-  { id: 'education',       label: 'Education',      icon: '⬡' },
   { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
+  { id: 'clinical',        label: 'Clinical',       icon: '⚕' },
 ]
 
 
@@ -3892,6 +3893,8 @@ export default function MobileCommandCentre({
         )
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+      case 'clinical':
+        return <ClinicalPage countryLabel={country.label} countryIso2={country.iso2} roleLabel={roleLabel} />
       case 'talent':
         return <TalentMobile />
       case 'settings':
