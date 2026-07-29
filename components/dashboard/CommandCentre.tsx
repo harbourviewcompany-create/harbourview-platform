@@ -26,6 +26,7 @@ import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 import { DealRoomsPanel as DealRoomsSidebarWidget } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
+import ClinicalPage from './pages/ClinicalPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
@@ -64,6 +65,7 @@ export type CommandPage =
   | 'watchlist'
   | 'settings'
   | 'genetics'
+  | 'clinical'
   | 'compliance'
   | 'countries'
   | 'assistant'
@@ -215,6 +217,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Compliance & Legal',
     items: [
       { id: 'genetics',   label: 'Genetics',    icon: '⊕' },
+      { id: 'clinical',   label: 'Clinical',    icon: '⚕' },
       { id: 'compliance', label: 'Compliance',  icon: '◫' },
       { id: 'licences',   label: 'Licences',    icon: '◨' },
       { id: 'kyb',        label: 'KYB / Verify', icon: '◫' },
@@ -11078,6 +11081,8 @@ export default function CommandCentre({
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
+      case 'clinical':
+        return <ClinicalPage countryLabel={country.label} countryIso2={country.iso2} roleLabel={roleLabel} />
       case 'compliance':
         return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
