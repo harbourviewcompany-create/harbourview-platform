@@ -35,36 +35,27 @@ The Intelligence Engine already routes `source_registry.adapter = 'api'` to `API
 - **`timeout_ms`** — capped at 60 s; default 15 s.
 - **`accept`** — overrides the default `application/json`.
 
-## Recommended Tier-1 seeds (public or easily licensed)
+## Seeded public API rows (migration `20260729130000`)
 
-Insert via SQL or admin tooling. Verify each URL at load time; regulators change paths.
+All no-auth. Idempotent inserts via `source_url` uniqueness check.
+
+| Name | URL | Cadence | Tier |
+|------|-----|---------|------|
+| Texas COA — 50-state hemp compliance matrix | `https://texascoa.com/api/v1/coa/public/states` | daily | 1 |
+| Texas COA — TX flower state-check | `https://texascoa.com/api/v1/compliance/state-check?state=TX&product_type=flower` | daily | 1 |
+| Nabis UCAPI well-known | `https://platform-api.nabis.pro/ucapi/.well-known/cannabis-api.json` | weekly | 2 |
+| Colorado CIM — Marijuana Sales Revenue | `https://data.colorado.gov/resource/j7a3-jgd3.json?$limit=5000` | weekly | 1 |
+| Colorado CIM — Marijuana tax retained-by-state | `https://data.colorado.gov/resource/v9m8-x8dh.json?$limit=5000` | weekly | 1 |
+| Open Definition — open licenses catalog | `https://licenses.opendefinition.org/licenses/groups/all.json` | monthly | 3 |
+
+## Additional seeds (manual / after contract)
 
 ```sql
--- Example: California-style public license directory (replace with live URL)
-INSERT INTO public.source_registry (
-  source_name, source_url, iso, adapter, crawl_cadence, tier,
-  content_type, language, requires_translation, is_active, crawl_allowed,
-  metadata
-) VALUES (
-  'CA DCC License Directory API',
-  'https://example-dcc-api.example/v1/licenses',  -- replace with real endpoint
-  'US',
-  'api',
-  'daily',
-  1,
-  ARRAY['regulatory'],
-  'en',
-  false,
-  true,
-  true,
-  '{}'::jsonb
-);
-
 -- Example: env-backed commercial verification API
 INSERT INTO public.source_registry (
   source_name, source_url, iso, adapter, crawl_cadence, tier,
   content_type, language, requires_translation, is_active, crawl_allowed,
-  metadata
+  metadata, source_type
 ) VALUES (
   'Cannabiz Media License Verification',
   'https://api.example.com/v1/verify',  -- replace after contract
@@ -77,7 +68,8 @@ INSERT INTO public.source_registry (
   false,
   true,
   true,
-  '{"auth_env": "CANNABIZ_API_KEY", "timeout_ms": 20000}'::jsonb
+  '{"auth_env": "CANNABIZ_API_KEY", "timeout_ms": 20000}'::jsonb,
+  'regulatory'
 );
 ```
 
@@ -104,3 +96,4 @@ After insert, the next `intelligence-ingest` cron run will pick the row up via `
 - `lib/intelligence-engine/orchestrator.ts` (`selectAdapter` → `'api'`)
 - `lib/intelligence-engine/queue/task-queue.ts` (passes `metadata`)
 - `docs/SOURCE_EXPANSION_PLAN.md` (Tier-1 primary sources)
+- Migration: `supabase/migrations/20260729130000_source_registry_metadata_and_api_seeds.sql`
