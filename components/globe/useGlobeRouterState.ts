@@ -38,7 +38,7 @@ export function globeRouterReducer(
       // `step: 'routing'` with `selectedRoleId: 'importer'` hardcoded, which
       // silently routed EVERY visitor — doctors, regulators, investors,
       // cultivators — into the importer role's destination. The reducer already
-      // had working ROLE_SELECT / ROLE_SEARCH_SELECT / NOT_SURE_ROLE cases and a
+      // had working ROLE_SELECT / ROLE_SEARCH_SELECT cases and a
       // BACK transition out of `step: 'role'`; the step was simply never
       // reachable because nothing dispatched into it.
       return {
@@ -116,14 +116,6 @@ export function globeRouterReducer(
       }
     case 'ROLE_SEARCH_QUERY':
       return { ...state, roleSearchQuery: action.query }
-    case 'NOT_SURE_ROLE':
-      return {
-        ...state,
-        step: 'routing',
-        routeStatus: 'resolving',
-        selectedRoleId: 'not_sure',
-        selectedIntentId: undefined,
-      }
     // INTENT_SELECT and CONTINUE are kept for legacy compatibility but no longer
     // reachable from the primary flow (intent step removed).
     case 'INTENT_SELECT':
@@ -163,4 +155,3 @@ export function globeRouterReducer(
 export function useGlobeRouterState() {
   return useReducer(globeRouterReducer, initialGlobeRouterState)
 }
-

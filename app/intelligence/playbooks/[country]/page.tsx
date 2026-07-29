@@ -35,7 +35,10 @@ export default async function PlaybookDetailPage({ params }: Props) {
       <PublicHero
         eyebrow={`Intelligence / Playbooks / ${playbook.country_name}`}
         title={`${playbook.country_name} licensing pathway`}
-        actions={[{ label: 'All jurisdictions', href: '/intelligence/playbooks', variant: 'secondary' }]}
+        actions={[
+          { label: 'All jurisdictions', href: '/intelligence/playbooks', variant: 'secondary' },
+          { label: 'Export PDF', href: `/api/intelligence/playbooks/${playbook.country_iso2}/export` },
+        ]}
       >
         {playbook.legal_framework_summary ?? 'Detailed licensing pathway context for this jurisdiction.'}
       </PublicHero>
