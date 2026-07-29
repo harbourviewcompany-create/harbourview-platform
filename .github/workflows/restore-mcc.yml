@@ -2,7 +2,8 @@ name: Restore MobileCommandCentre
 
 on:
   push:
-    branches: [fix/restore-mobile-command-centre]
+    branches:
+      - fix/restore-mobile-command-centre
   workflow_dispatch:
 
 permissions:
@@ -12,100 +13,24 @@ jobs:
   restore:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Restore file + wire AccessPathwayMobile
+      - name: Restore MobileCommandCentre from pre-merge commit
+        env:
+          PRE_MERGE: 94f7165ca9e123e981d307d84739fa44477bfc6b
+          FILE: components/dashboard/MobileCommandCentre.tsx
         run: |
           set -euo pipefail
-          PRE_MERGE=94f7165ca9e123e981d307d84739fa44477bfc6b
-          FILE=components/dashboard/MobileCommandCentre.tsx
-
-          # Restore full component from parent of #1203 merge
           git checkout "$PRE_MERGE" -- "$FILE"
-
-          python3 <<'PY'
-          from pathlib import Path
-          path = Path("components/dashboard/MobileCommandCentre.tsx")
-          text = path.read_text()
-
-          # 1) Ensure import of extracted module
-          needle = "import ClinicalPage from './pages/ClinicalPage'"
-          import_line = "import { AccessPathwayMobile } from './AccessPathwayMobile'"
-          if import_line not in text:
-              if needle not in text:
-                  raise SystemExit("import anchor not found")
-              text = text.replace(needle, needle + "\n" + import_line, 1)
-
-          # 2) Remove the local function AccessPathwayMobile(...) { ... } block
-          start = text.find("\nfunction AccessPathwayMobile(")
-          if start == -1:
-              start = text.find("\nfunction AccessPathwayMobile {")
-          if start == -1:
-              print("No local AccessPathwayMobile function found — import-only restore")
-          else:
-              # Find the next top-level function after AccessPathwayMobile
-              rest = text[start + 1:]
-              # Match from 'function AccessPathwayMobile' through the closing brace of that function
-              # by tracking brace depth after the first '{'
-              fn_start = start
-              brace = text.find("{", fn_start)
-              if brace == -1:
-                  raise SystemExit("no opening brace for AccessPathwayMobile")
-              depth = 0
-              i = brace
-              while i < len(text):
-                  c = text[i]
-                  if c == "{":
-                      depth += 1
-                  elif c == "}":
-                      depth -= 1
-                      if depth == 0:
-                          end = i + 1
-                          # swallow trailing newlines
-                          while end < len(text) and text[end] in "\r\n":
-                              end += 1
-                          text = text[:fn_start] + "\n" + text[end:]
-                          break
-                  i += 1
-              else:
-                  raise SystemExit("failed to find end of AccessPathwayMobile function")
-
-          path.write_text(text)
-          print(f"Restored {path} ({path.stat().st_size} bytes)")
-          PY
-
-          # Guard: must not still be the stub
-          if grep -q "TEMPORARY STUB" "$FILE"; then
-            echo "ERROR: file still contains TEMPORARY STUB" >&2
+          if grep -q 'TEMPORARY STUB' "$FILE"; then
+            echo 'Still a stub' >&2
             exit 1
           fi
-          # Guard: import present
-          grep -q "AccessPathwayMobile" "$FILE"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          wc -l "$FILE"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$FILE"
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "fix(dashboard): restore MobileCommandCentre + wire AccessPathwayMobile
-
-Restores the full component from pre-#1203 commit ${PRE_MERGE},
-removes the inline AccessPathwayMobile (~120 lines), and imports the
-extracted module that counts in_review toward met, shows status chips,
-and overall readiness."
-            git push origin HEAD:fix/restore-mobile-command-centre
-          fi
-
-          # Clean up this one-shot workflow so it does not linger on main
-          if [ -f .github/workflows/restore-mcc.yml ]; then
-            git rm -f .github/workflows/restore-mcc.yml || true
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: remove one-shot restore-mcc workflow"
-              git push origin HEAD:fix/restore-mobile-command-centre
-            fi
-          fi
+          git commit -m 'fix(dashboard): restore full MobileCommandCentre from pre-#1203'
+          git push origin HEAD:fix/restore-mobile-command-centre
