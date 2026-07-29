@@ -1698,3 +1698,45 @@ this class of schema change.
 - Admin review UI for pending applications (currently requires a direct DB update to approve).
 - `patch_file`'s matching discrepancy vs. Postgres regex on identical input — not root-caused.
 - Mobile/country-role Watchlist gating gap noted in the prior entry remains open.
+
+
+## 2026-07-29 — crawler/pipeline data-quality pass (Claude/chat session)
+
+Followed up on the original QUALITY_PIPELINE_HANDOFF.md concerns by checking cron health and live
+data directly rather than re-reading the doc. Found and fixed four real, verified production bugs:
+
+1. **#1169** — `promote_snapshot_to_signals()` had no guard for an orphaned `source_id`; one bad
+   snapshot aborted the entire daily promotion batch (confirmed via `cron.job_run_details`, a real
+   error, not stale CI). Added the guard, plus per-snapshot exception handling in the batch loop as
+   defense in depth. Fixed 21 orphaned snapshots that had been blocking ~4,097 legitimate ones.
+2. **#1174** — `ia_graph_entities` had 8 exact-duplicate labels (e.g. "Australia" existed as two
+   separate graph nodes with connection/signal counts split roughly in half). Root cause: an old
+   hand-seeded set (`ge-XXX`, 2026-05-31) never got reconciled against the real entity-resolution
+   pipeline's output (`gr-ent-<hash>`, 2026-07-04). Deleted the 8 old rows after confirming zero live
+   references in `hv_entity_mentions`/`signal_entities` — did not merge counts, since the old numbers
+   were static seed data, not live-computed telemetry.
+3. **#1184** — headline extraction preferred the keyword-matched candidate snippet over the real page
+   `<title>`. For several source templates (Wikipedia navboxes, related-articles sidebars, menu
+   widgets) the keyword scanner matched page chrome instead of the article, so the same boilerplate
+   string got promoted as "the headline" for many unrelated countries at once — this is what the
+   original handoff doc's "US bill tagged as Pakistan" note was actually describing. Verified
+   `captured_title` held the correct title in every case checked before fixing. Considered backfilling
+   ~1,558 historically-affected signals; sampled 12 before running anything and found the only
+   available join (`captured_at` + source name) produces false matches when a source's crawl batch
+   shares one timestamp across many snapshots — would have overwritten correct headlines with wrong
+   ones. Abandoned the backfill; shipped the forward-only fix.
+4. **#1198** — `processing_status` never advanced past `'extracted'` after promotion, so the daily
+   batch re-scanned the entire historical pool every run forever (harmless, since `signal_id` is a
+   deterministic hash with `ON CONFLICT DO NOTHING`, but wasteful, and made "backlog remaining" a
+   meaningless number). Also explains why some snapshots sat unpromoted despite a real-time trigger
+   existing: `trg_promote_snapshot` only fires on a transition *into* `'extracted'`, not on a later
+   update that populates `signal_candidates` without touching status. Added a terminal `'promoted'`
+   status. Verified end-to-end: ran the batch twice, first cleared the full 4,140-snapshot backlog,
+   second processed exactly 0.
+
+**Not fixed, flagged for a deliberate look:** `hv_pipeline_tick()` (an earlier in-DB SQL pipeline
+generation) appears to have zero live callers now that cron drives a newer edge-function-based system
+(`hv_trigger_extract` → `hv-extract`, etc.) instead — likely safe dead code, not removed here.
+
+**Human approval status:** Directed turn-by-turn in chat ("continue" / "fix it" / "go" / "is anything
+else missing") rather than a single upfront approval.
