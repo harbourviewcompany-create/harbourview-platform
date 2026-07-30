@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
-    "@google/genai": "^2.13.0",
+    "@google/genai": "^2.14.0",
     "@googleapis/drive": "^20.2.0",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
