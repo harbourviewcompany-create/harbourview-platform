@@ -32,6 +32,38 @@ These fields are disallowed in `hv_public` views and typed public DTOs:
 
 ## Public Eligibility Rules
 
+### Regulatory Signals (`PublicRegulatorySignal`)
+
+Public regulatory-signal DTO rows require `reviewed=true` **and** a
+`quality_label` outside `('spam','boilerplate','nav','duplicate')`. The label
+filter is applied at read time in `lib/regulatory-signals/public.ts` and
+`lib/signals/quality.ts#EXCLUDED_QUALITY_LABELS`, because a pre-gate promotion
+batch left classifier-rejected rows flagged `reviewed=true` in the live feed.
+Rows with a NULL `quality_label` (classified before Pipeline B existed) remain
+eligible — they passed the earlier human-review pass.
+
+**Quality-brain fields cleared for public exposure.** These are Pipeline B
+classifier/translator/dedup outputs. Each describes the signal's own quality or
+provenance; none exposes counterparty, marketplace, analyst, or internal-review
+material, so all are public-safe:
+
+| Field | Source column | Notes |
+|---|---|---|
+| `content_type` | `signals.content_type` | Route taxonomy (spec §4.3); `noise` is mapped to null and never surfaced |
+| `confidence_score` | `signals.quality_confidence` | 0–100. **The only permitted confidence instrument.** |
+| `corroboration_count` | `signals.cluster_rep_id` | Count of same-cluster rows in the current feed window; a lower bound |
+| `original_language` / `original_language_label` | `signals.lang_detected` | Source-document language when not English |
+| `translated` | derived | True when the shown headline/summary is machine-translated |
+| `country_slug` | derived | Canonical country slug for cross-linking |
+
+**Never public, and never a confidence instrument:** `signals.score`. It is the
+legacy keyword-density scorer, known inverted (see
+`docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` §2.5 and
+`docs/PLATFORM_OPTIMIZATION_REVIEW_2026-07-30.md` §1.5). It must not be selected
+into, ordered by, or rendered on any user-facing path. `lib/signals/quality.ts`
+is the single approved read path for signal quality; `tests/signals/quality.test.ts`
+asserts the scorer cannot leak through it.
+
 ### Sources
 
 Public source DTO rows require:

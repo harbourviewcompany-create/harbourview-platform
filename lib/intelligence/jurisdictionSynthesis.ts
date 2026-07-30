@@ -2,6 +2,14 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
+import {
+  SIGNAL_QUALITY_SELECT,
+  QUALITY_LABEL_NOT_IN,
+  resolveConfidence,
+  type SignalQualityRow,
+} from '@/lib/signals/quality'
+
+const SYNTH_SELECT = `headline, country, date, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
 // ── Active markets to synthesise weekly ──────────────────────────────────────
 export const SYNTHESIS_MARKETS: { iso2: string; name: string }[] = [
@@ -42,7 +50,9 @@ type SignalRow = {
   headline: string
   country: string | null
   date: string | null
-  score: number | null
+  quality_confidence: number | string | null
+  quality_label?: string | null
+  reviewed?: boolean | null
   top_lane: string | null
   cat: string | null
   commercial_impact: string | null
@@ -61,11 +71,12 @@ async function fetchSignalsForCountry(
   // Primary: curated signals table, last 30 days
   const { data: primary } = await svc
     .from('signals')
-    .select('headline, country, date, score, top_lane, cat, commercial_impact, pri')
+    .select(SYNTH_SELECT)
     .eq('reviewed', true)
     .gte('date', cutoff)
     .ilike('country', countryName)
-    .order('score', { ascending: false })
+    .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+    .order('quality_confidence', { ascending: false, nullsFirst: false })
     .limit(30)
 
   if (primary && primary.length >= 3) return primary as SignalRow[]
@@ -73,10 +84,11 @@ async function fetchSignalsForCountry(
   // Fallback: any reviewed signals for this country regardless of date
   const { data: fallback } = await svc
     .from('signals')
-    .select('headline, country, date, score, top_lane, cat, commercial_impact, pri')
+    .select(SYNTH_SELECT)
     .eq('reviewed', true)
     .ilike('country', countryName)
-    .order('score', { ascending: false })
+    .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+    .order('quality_confidence', { ascending: false, nullsFirst: false })
     .limit(20)
 
   return (fallback ?? []) as SignalRow[]
@@ -87,7 +99,10 @@ function formatSignalsForPrompt(signals: SignalRow[]): string {
   if (signals.length === 0) return 'No recent signals available for this jurisdiction.'
   return signals
     .map((s, i) => {
-      const score  = s.score ? ` [score: ${s.score}]` : ''
+      // Feed the validated classifier confidence, not the legacy inverted
+      // keyword score — the old value actively misinformed the synthesis.
+      const conf   = resolveConfidence(s as SignalQualityRow)
+      const score  = conf !== null ? ` [confidence: ${conf}]` : ''
       const lane   = s.top_lane ? ` | lane: ${s.top_lane}` : ''
       const impact = s.commercial_impact ? `\n   Impact: ${s.commercial_impact}` : ''
       return `${i + 1}. ${s.headline}${score}${lane}${impact}`
