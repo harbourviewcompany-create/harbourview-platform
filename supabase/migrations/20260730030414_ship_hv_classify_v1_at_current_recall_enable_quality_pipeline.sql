@@ -1,0 +1,8 @@
+-- Ships the hv-classify/openai/v1 classifier at its current measured quality\n-- (precision 1.000, recall 0.559, n=181 eval rows, validated 2026-07-23) rather than\n-- holding for further prompt-tuning against the 0.70 recall bar proposed in spec\n-- Section 6.2. Decision made and confirmed directly by Tyler (2026-07-29).\n--\n-- This flips classifier_gate_hv_v1 to passed and re-enables the two crons that were\n-- deliberately held inactive pending exactly this decision (see hv_pipeline_health()):\n-- hv-quality-pipeline (public.hv_pipeline_tick -- translate/classify/embed/entity-\n-- resolve dispatch+harvest) and hv-quality-promote (public.hv_quality_promote_tick).\n-- Both scheduled every 10 minutes, matching this pipeline generation's existing cadence.\n--\n-- Applied directly to production via Supabase MCP; committed here per\n-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).\n\nUPDATE public.classifier_validation
+SET gate_passed = true,
+    notes = notes || E'\n\nDecision (2026-07-29): Tyler confirmed ship-as-is. Precision (1.000) clears the bar with no false positives; recall (0.559) accepted rather than holding for further prompt-tuning. Gate flipped, hv-quality-pipeline and hv-quality-promote crons re-enabled.'
+WHERE classifier_version = 'hv-classify/openai/v1';
+
+SELECT cron.alter_job(48, schedule := '*/10 * * * *', active := true); -- hv-quality-promote
+
+SELECT cron.schedule('hv-quality-pipeline', '*/10 * * * *', 'select public.hv_pipeline_tick();');
