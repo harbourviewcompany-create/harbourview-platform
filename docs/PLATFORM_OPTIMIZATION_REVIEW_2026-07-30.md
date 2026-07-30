@@ -155,6 +155,7 @@ This is exactly the failure mode Stage G was written to prevent, occurring in a 
 - `api.regulatory_pending_changes_feed()` is a `SECURITY DEFINER` function **executable by `anon`**.
 - 9 functions with mutable `search_path`; `pg_trgm`, `pg_net` and `vector` installed in `public`.
 - Leaked-password protection is disabled in Supabase Auth.
+- **Deploy-integration sprawl outlived the Jul 1 consolidation.** Five git integrations still fire on every PR against a repo whose canonical target is Vercel: Vercel (✅), Cloudflare Pages on account `c9bde393…` (✅), Cloudflare Workers Builds on account **`4a7c450c…`** (❌ perpetually failing), Cloudflare Workers Builds on `c9bde393…` (skipped), and Netlify `harbourviewns` (✅, building previews despite `netlify.toml` having been removed). `HANDOFF.md:552` names the Workers disconnect without an account ID — it is `4a7c450c…`; disconnecting `c9bde393…` instead would remove the passing Pages check and leave the failure. This is dashboard-side work only Tyler can do.
 - `npm run test` exists and aggregates four groups (`test:globe-router`, `test:globe-data`, `test:country-role`, plus the public-surface leakage suite). It could not be executed in this session because `node_modules` is not installed in the review sandbox — the same environment gap recorded in the 2026-07-18 and 2026-07-21 evidence-log entries. Worth noting the aggregate covers 4 of the 20+ `test:*` scripts, so "tests pass" in a PR body is a narrower claim than it reads.
 
 ### 1.10 The business context that reframes everything
@@ -293,6 +294,7 @@ These should be applied so the next session starts from truth:
 | §8 Stage H | Retention = "drop harvested rows older than N days" | **Not implementable** — job tables have no timestamp column |
 | §6.4 | Corroboration "not yet surfaced in any UI" | Confirmed — **zero references to `is_representative`/`cluster_rep_id` in the entire app** |
 | §2.1 | "Two disconnected scraping estates" | **Four** — add `ia_signals` (640 rows) and the `editorial_items`→`daily_digest` estate |
+| `HANDOFF.md:147` (Jul 1 decision 8) | `netlify.toml` "+ ignore script" removed | `netlify.toml` is gone, but `scripts/netlify-ignore-branch-policy.sh` remains, and Netlify `harbourviewns` still builds a preview on every PR |
 
 ---
 
