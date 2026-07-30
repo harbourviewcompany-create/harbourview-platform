@@ -1763,3 +1763,23 @@ of deleting or skipping them.
 
 **Commands run:** `npm run test`: 65/65 passed (was 63/65 before the test update — the 2 failures
 were the stale assertions above, not app bugs).
+
+---
+
+## 2026-07-30 — PR #1202: legal-tech API adapter, applied + verified
+
+**Reviewed and applied live** (`source_registry_metadata_and_api_seeds`): adds `source_registry.metadata`
+jsonb column and seeds 6 public, no-auth-required JSON API sources (Texas COA hemp compliance x2,
+Nabis UCAPI discovery doc, Colorado Socrata open-data x2, Open Definition licenses catalog).
+Idempotent (`WHERE NOT EXISTS` guards), verified live: all 6 rows inserted alongside pre-existing
+`adapter='api'` rows without conflict.
+
+**Code review (`api-fetcher.ts`):** secrets stay in `process.env` via `auth_env` indirection, never
+persisted to `source_registry`; timeout clamped to 60s max; validates JSON parses before reporting
+success (guards against an HTML error/login page on HTTP 200 being staged as good data). Fails
+clearly rather than silently unauthenticated if a referenced `auth_env` var is missing.
+
+**Verified the seed URLs are real, not hallucinated:** spot-checked `texascoa.com` — confirmed a real,
+free, public hemp/cannabis COA-lookup API (60 req/min, no key required).
+
+**Commands run:** `npm run test`: 65/65 passed.
