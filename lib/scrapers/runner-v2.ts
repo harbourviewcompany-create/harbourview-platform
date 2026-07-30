@@ -6,13 +6,17 @@
 // runScrapeEngine({ partitionCount: 4, partitionIndex: N })
 
 import { getEnabledSources } from './sources'
-import { fetchSourceHtml } from './fetcher'
 import { parseSource } from './parser'
 import { normaliseWithAI, normaliseWithFallback } from './normaliser-v2'
 import { deduplicateItemsV2 } from './deduplication-v2'
-import { fetchExistingFingerprintsV2, insertCandidates, fetchSourceStates, persistSourceState } from './ingestor'
-import { structuredLog, ScraperMetrics } from '@/lib/observability/structuredLog'
-import type { ScrapeRunResult, ScrapeRunSummary, ScraperSource } from './types'
+import {
+  fetchExistingFingerprints,
+  insertCandidates,
+  fetchSourceStates,
+  persistSourceState,
+} from './ingestor'
+import { structuredLog, type ScraperMetrics } from '@/lib/observability/structuredLog'
+import type { ScrapeRunResult, ScrapeRunSummary } from './types'
 
 const MAX_ITEMS_PER_SOURCE = 10
 const INTER_SOURCE_DELAY_MS = 800
@@ -59,7 +63,6 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
   const startedAt = new Date().toISOString()
   const id = runId()
 
-  // Shard sources by partition
   const allSources = getEnabledSources()
   const sources = allSources.filter((s) => hashString(s.id) % partitionCount === partitionIndex)
 
@@ -71,8 +74,10 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
     shardSources: sources.length,
   })
 
+  // Existing fingerprint set is global; source id list is reserved for a future
+  // per-source batch fetch once the ingestor supports it.
   const [existingFingerprints, sourceStates] = await Promise.all([
-    fetchExistingFingerprintsV2(sources.map((s) => s.id)),
+    fetchExistingFingerprints(),
     fetchSourceStates(),
   ])
 
@@ -133,7 +138,6 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
     let normaliseLatency = 0
 
     try {
-      // Fetch with retry
       const url = source.searchUrl ?? source.url
       const fetchResult = await withTimeout(
         fetchWithRetry(url, 3),
@@ -143,8 +147,8 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
       fetchLatency = Date.now() - t0
 
       if (!fetchResult.ok) {
-        const error = fetchResult.error
-        const isHardFailure = fetchResult.status && fetchResult.status < 500
+        const error = fetchResult.error ?? 'fetch_failed'
+        const isHardFailure = !!(fetchResult.status && fetchResult.status < 500)
         sourceResults.push({
           source,
           status: fetchResult.status === 429 ? 'rate_limited' : 'failed',
@@ -161,11 +165,9 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
         continue
       }
 
-      // Parse
       const rawItems = parseSource(fetchResult.html!, source).slice(0, MAX_ITEMS_PER_SOURCE)
 
-      // Deduplicate (SHA-256 + semantic)
-      const { fresh, duplicateCount } = deduplicateItemsV2(rawItems, existingFingerprints)
+      const { fresh, duplicateCount } = await deduplicateItemsV2(rawItems, existingFingerprints)
 
       if (fresh.length === 0) {
         sourceResults.push({
@@ -181,7 +183,6 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
         continue
       }
 
-      // Normalise via AI (batched) with circuit breaker
       const normT0 = Date.now()
       let normalisedItems
 
@@ -196,30 +197,29 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
           )
           consecutiveAiFailures = 0
           metrics.aiApiCalls += Math.ceil(fresh.length / AI_BATCH_SIZE)
-        } catch (err) {
+        } catch {
           consecutiveAiFailures++
           if (consecutiveAiFailures >= CIRCUIT_BREAKER_THRESHOLD) {
             aiCircuitOpen = true
-            structuredLog('scraper.ai.circuit_open', { runId: id, consecutiveFailures: consecutiveAiFailures })
+            structuredLog('scraper.ai.circuit_open', {
+              runId: id,
+              consecutiveFailures: consecutiveAiFailures,
+            })
           }
           normalisedItems = await normaliseWithFallback(fresh, 'ai_failure')
         }
       }
       normaliseLatency = Date.now() - normT0
 
-      // Pair and filter by confidence
       const pairs = fresh
         .slice(0, normalisedItems.length)
         .map((raw, i) => ({ raw, normalised: normalisedItems[i] }))
         .filter(({ normalised }) =>
-          normalised.isPassthrough
-            ? true
-            : (normalised.confidence ?? 0) >= 0.4,
+          normalised.isPassthrough ? true : (normalised.confidence ?? 0) >= 0.4,
         )
 
       const passthroughCount = pairs.filter((p) => p.normalised.isPassthrough).length
 
-      // Ingest
       const { inserted, errors } = await insertCandidates(pairs)
       const runSuccess = !(errors > 0 && inserted === 0)
 
@@ -241,9 +241,14 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
       }
 
       metrics.processed++
-      metrics.avgFetchLatencyMs = (metrics.avgFetchLatencyMs * (metrics.processed - 1) + fetchLatency) / metrics.processed
-      metrics.avgNormaliseLatencyMs = (metrics.avgNormaliseLatencyMs * (metrics.processed - 1) + normaliseLatency) / metrics.processed
-      metrics.passthroughRate = (metrics.passthroughRate * (metrics.processed - 1) + passthroughCount / fresh.length) / metrics.processed
+      metrics.avgFetchLatencyMs =
+        (metrics.avgFetchLatencyMs * (metrics.processed - 1) + fetchLatency) / metrics.processed
+      metrics.avgNormaliseLatencyMs =
+        (metrics.avgNormaliseLatencyMs * (metrics.processed - 1) + normaliseLatency) /
+        metrics.processed
+      metrics.passthroughRate =
+        (metrics.passthroughRate * (metrics.processed - 1) + passthroughCount / fresh.length) /
+        metrics.processed
 
       await persistSourceState(
         source.id,
@@ -297,7 +302,6 @@ export async function runScrapeEngine(options: RunnerOptions = {}): Promise<Scra
   }
 }
 
-/** Fetch with exponential backoff retry for transient failures */
 async function fetchWithRetry(url: string, maxRetries: number) {
   const { fetchSourceHtml } = await import('./fetcher')
   for (let i = 0; i <= maxRetries; i++) {
@@ -309,5 +313,5 @@ async function fetchWithRetry(url: string, maxRetries: number) {
     }
     return result
   }
-  return { ok: false, error: 'Max retries exceeded' }
+  return { ok: false as const, error: 'Max retries exceeded' }
 }

@@ -7,20 +7,40 @@ import { z } from 'zod'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
-const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+const GEMINI_API =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
 const NormalisedSchema = z.object({
   title: z.string().max(300),
   description: z.string().max(1000),
   category: z.enum([
-    'used_surplus', 'processing_equipment', 'cultivation_equipment', 'packaging',
-    'consumables', 'labs_testing', 'logistics', 'professional_services',
-    'genetics', 'cannabis_inventory', 'new_products', 'services',
-    'business_opportunities', 'export_ready', 'import_demand',
-    'distressed_inventory', 'distressed_businesses',
+    'used_surplus',
+    'processing_equipment',
+    'cultivation_equipment',
+    'packaging',
+    'consumables',
+    'labs_testing',
+    'logistics',
+    'professional_services',
+    'genetics',
+    'cannabis_inventory',
+    'new_products',
+    'services',
+    'business_opportunities',
+    'export_ready',
+    'import_demand',
+    'distressed_inventory',
+    'distressed_businesses',
   ]),
   productType: z.string(),
-  region: z.enum(['north_america', 'europe', 'asia_pacific', 'latin_america', 'middle_east_africa', 'global']),
+  region: z.enum([
+    'north_america',
+    'europe',
+    'asia_pacific',
+    'latin_america',
+    'middle_east_africa',
+    'global',
+  ]),
   locationCountry: z.string().nullable().optional(),
   priceAmount: z.number().nullable().optional(),
   priceCurrency: z.enum(['USD', 'EUR', 'CAD', 'GBP']).nullable().optional(),
@@ -33,6 +53,26 @@ const NormalisedSchema = z.object({
 })
 
 type NormalisedOutput = z.infer<typeof NormalisedSchema>
+
+function toAINormalisedListing(item: NormalisedOutput, isPassthrough: boolean): AINormalisedListing {
+  return {
+    title: item.title,
+    description: item.description,
+    category: item.category as ScraperCategory,
+    productType: item.productType,
+    region: item.region,
+    locationCountry: item.locationCountry ?? undefined,
+    priceAmount: item.priceAmount ?? undefined,
+    priceCurrency: item.priceCurrency ?? undefined,
+    condition: item.condition ?? undefined,
+    sellerType: item.sellerType,
+    tags: item.tags,
+    confidence: item.confidence,
+    publicSafe: item.publicSafe,
+    redactionNote: item.redactionNote ?? undefined,
+    isPassthrough,
+  }
+}
 
 const SYSTEM_PROMPT = `You are a listing normalisation engine for Harbourview, a regulated cannabis market intelligence platform.
 Your job is to take raw scraped text and return clean, public-safe listing records.
@@ -52,7 +92,9 @@ function sanitiseForPrompt(text: string): string {
 }
 
 function buildBatchPrompt(items: RawScrapedItem[]): string {
-  const itemPrompts = items.map((item, i) => `
+  const itemPrompts = items
+    .map(
+      (item, i) => `
 --- ITEM ${i + 1} ---
 Title: ${sanitiseForPrompt(item.rawTitle)}
 Description: ${sanitiseForPrompt(item.rawDescription)}
@@ -60,7 +102,9 @@ Price: ${item.rawPrice ?? 'not specified'}
 Location: ${item.rawLocation ?? 'not specified'}
 Condition: ${item.rawCondition ?? 'not specified'}
 Category hint: ${item.sourceId}
-`).join('\n')
+`,
+    )
+    .join('\n')
 
   return `Normalise ${items.length} scraped listings into valid JSON array.
 Each object must match this exact schema:
@@ -71,7 +115,6 @@ ${itemPrompts}
 Return ONLY a JSON array. No other text.`
 }
 
-/** Heuristic category mapping for passthrough fallback */
 function inferCategory(sourceId: string): ScraperCategory {
   if (sourceId.includes('packaging')) return 'packaging'
   if (sourceId.includes('lab')) return 'labs_testing'
@@ -92,8 +135,16 @@ function rawPassthrough(items: RawScrapedItem[], reason: string): AINormalisedLi
     productType: item.rawTitle.split(' ').slice(0, 5).join(' '),
     region: 'north_america',
     locationCountry: item.rawLocation ?? undefined,
-    priceAmount: item.rawPrice ? parseFloat(item.rawPrice.replace(/[^0-9.]/g, '')) || undefined : undefined,
-    priceCurrency: item.rawPrice?.includes('CAD') ? 'CAD' : item.rawPrice?.includes('EUR') ? 'EUR' : item.rawPrice ? 'USD' : undefined,
+    priceAmount: item.rawPrice
+      ? parseFloat(item.rawPrice.replace(/[^0-9.]/g, '')) || undefined
+      : undefined,
+    priceCurrency: item.rawPrice?.includes('CAD')
+      ? 'CAD'
+      : item.rawPrice?.includes('EUR')
+        ? 'EUR'
+        : item.rawPrice
+          ? 'USD'
+          : undefined,
     condition: item.rawCondition ?? undefined,
     sellerType: 'other',
     tags: [],
@@ -111,7 +162,6 @@ function validateAndParse(jsonText: string): NormalisedOutput[] {
   return arr.map((item) => NormalisedSchema.parse(item))
 }
 
-/** Primary: Claude with structured output / tools */
 async function normaliseWithClaude(items: RawScrapedItem[]): Promise<AINormalisedListing[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set')
@@ -128,39 +178,49 @@ async function normaliseWithClaude(items: RawScrapedItem[]): Promise<AINormalise
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: buildBatchPrompt(items) }],
-      tools: [{
-        name: 'normalise_listings',
-        description: 'Normalise scraped listings',
-        input_schema: {
-          type: 'object',
-          properties: {
-            listings: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  title: { type: 'string' },
-                  description: { type: 'string' },
-                  category: { type: 'string', enum: ['used_surplus', 'processing_equipment', 'cultivation_equipment', 'packaging', 'consumables', 'labs_testing', 'logistics', 'professional_services', 'genetics', 'cannabis_inventory', 'new_products', 'services', 'business_opportunities', 'export_ready', 'import_demand', 'distressed_inventory', 'distressed_businesses'] },
-                  productType: { type: 'string' },
-                  region: { type: 'string', enum: ['north_america', 'europe', 'asia_pacific', 'latin_america', 'middle_east_africa', 'global'] },
-                  locationCountry: { type: ['string', 'null'] },
-                  priceAmount: { type: ['number', 'null'] },
-                  priceCurrency: { type: ['string', 'null'] },
-                  condition: { type: ['string', 'null'] },
-                  sellerType: { type: 'string' },
-                  tags: { type: 'array', items: { type: 'string' } },
-                  confidence: { type: 'number' },
-                  publicSafe: { type: 'boolean' },
-                  redactionNote: { type: ['string', 'null'] },
+      tools: [
+        {
+          name: 'normalise_listings',
+          description: 'Normalise scraped listings',
+          input_schema: {
+            type: 'object',
+            properties: {
+              listings: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    description: { type: 'string' },
+                    category: { type: 'string' },
+                    productType: { type: 'string' },
+                    region: { type: 'string' },
+                    locationCountry: { type: ['string', 'null'] },
+                    priceAmount: { type: ['number', 'null'] },
+                    priceCurrency: { type: ['string', 'null'] },
+                    condition: { type: ['string', 'null'] },
+                    sellerType: { type: 'string' },
+                    tags: { type: 'array', items: { type: 'string' } },
+                    confidence: { type: 'number' },
+                    publicSafe: { type: 'boolean' },
+                    redactionNote: { type: ['string', 'null'] },
+                  },
+                  required: [
+                    'title',
+                    'description',
+                    'category',
+                    'productType',
+                    'region',
+                    'confidence',
+                    'publicSafe',
+                  ],
                 },
-                required: ['title', 'description', 'category', 'productType', 'region', 'confidence', 'publicSafe'],
               },
             },
+            required: ['listings'],
           },
-          required: ['listings'],
         },
-      }],
+      ],
       tool_choice: { type: 'tool', name: 'normalise_listings' },
     }),
   })
@@ -174,11 +234,10 @@ async function normaliseWithClaude(items: RawScrapedItem[]): Promise<AINormalise
   const toolUse = data.content?.find((c: { type: string }) => c.type === 'tool_use')
   if (!toolUse) throw new Error('No tool_use in Claude response')
 
-  const listings = toolUse.input?.listings ?? []
-  return listings.map((item: NormalisedOutput) => ({ ...item, isPassthrough: false }))
+  const listings = (toolUse.input?.listings ?? []) as NormalisedOutput[]
+  return listings.map((item) => toAINormalisedListing(item, false))
 }
 
-/** Fallback 1: Gemini 2.5 Flash */
 async function normaliseWithGemini(items: RawScrapedItem[]): Promise<AINormalisedListing[]> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY not set')
@@ -190,28 +249,6 @@ async function normaliseWithGemini(items: RawScrapedItem[]): Promise<AINormalise
       contents: [{ role: 'user', parts: [{ text: buildBatchPrompt(items) }] }],
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              title: { type: 'string' },
-              description: { type: 'string' },
-              category: { type: 'string' },
-              productType: { type: 'string' },
-              region: { type: 'string' },
-              locationCountry: { type: 'string' },
-              priceAmount: { type: 'number' },
-              priceCurrency: { type: 'string' },
-              condition: { type: 'string' },
-              sellerType: { type: 'string' },
-              tags: { type: 'array', items: { type: 'string' } },
-              confidence: { type: 'number' },
-              publicSafe: { type: 'boolean' },
-              redactionNote: { type: 'string' },
-            },
-          },
-        },
       },
     }),
   })
@@ -224,10 +261,9 @@ async function normaliseWithGemini(items: RawScrapedItem[]): Promise<AINormalise
   const data = await response.json()
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]'
   const parsed = validateAndParse(text)
-  return parsed.map((item) => ({ ...item, isPassthrough: false }))
+  return parsed.map((item) => toAINormalisedListing(item, false))
 }
 
-/** Fallback 2: Local HF endpoint */
 async function normaliseWithHF(items: RawScrapedItem[]): Promise<AINormalisedListing[]> {
   const endpoint = process.env.HF_ENDPOINT_EXTRACT_QWEN3_4B
   const token = process.env.HF_TOKEN_SERVER
@@ -249,13 +285,12 @@ async function normaliseWithHF(items: RawScrapedItem[]): Promise<AINormalisedLis
     throw new Error(`HF API ${response.status}`)
   }
 
-  const data = await response.json() as Array<{ generated_text?: string }>
+  const data = (await response.json()) as Array<{ generated_text?: string }>
   const text = data[0]?.generated_text ?? '[]'
   const parsed = validateAndParse(text)
-  return parsed.map((item) => ({ ...item, isPassthrough: false }))
+  return parsed.map((item) => toAINormalisedListing(item, false))
 }
 
-/** Full fallback chain */
 export async function normaliseWithAI(
   items: RawScrapedItem[],
   options: { batchSize?: number } = {},
@@ -290,7 +325,6 @@ export async function normaliseWithAI(
   return results
 }
 
-/** Passthrough fallback for circuit breaker or known failures */
 export async function normaliseWithFallback(
   items: RawScrapedItem[],
   reason: string,

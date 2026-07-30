@@ -1,13 +1,10 @@
 // lib/scrapers/fetcher-v2.ts
-// Enhanced fetcher with Playwright fallback for JS-rendered sites.
-// Primary: fast fetch() → Fallback: Playwright for SPA/content-heavy pages.
+// Enhanced fetcher with optional Playwright-style fallback for JS-rendered sites.
+// Primary: fast fetch() → optional heavy fetch when jsRendered / minimal content.
 
 import { fetchSourceHtml } from './fetcher'
-import { fetchWithPlaywright } from '@/lib/intelligence-engine/adapters/playwright-fetcher'
 import type { ScraperSource } from './types'
 import { structuredLog } from '@/lib/observability/structuredLog'
-
-const PLAYWRIGHT_CACHE_TTL_MS = 4 * 60 * 60 * 1000 // 4 hours
 
 interface FetchResult {
   ok: boolean
@@ -17,30 +14,51 @@ interface FetchResult {
   usedPlaywright: boolean
 }
 
-/** Check if we have a recent cached Playwright result */
-async function getCachedPlaywright(url: string): Promise<string | null> {
-  // Simple in-memory cache; replace with Redis/Upstash for multi-instance
-  // For now, always fetch fresh — caching layer to be added in v2.1
-  return null
+/**
+ * Heavy-render fallback. Playwright adapter is not always present in this repo;
+ * keep a safe stub so the rest of the pipeline typechecks and degrades cleanly.
+ */
+async function fetchHeavyRender(url: string, waitForSelector: string): Promise<string | null> {
+  void waitForSelector
+  try {
+    // Prefer a dynamic import if the adapter lands later without breaking typecheck.
+    const mod = await import('@/lib/intelligence-engine/adapters/playwright-fetcher').catch(
+      () => null,
+    )
+    const fn =
+      mod &&
+      'fetchWithPlaywright' in mod &&
+      typeof (mod as { fetchWithPlaywright?: unknown }).fetchWithPlaywright === 'function'
+        ? (mod as { fetchWithPlaywright: (u: string, o?: { waitForSelector?: string; timeout?: number }) => Promise<string> })
+            .fetchWithPlaywright
+        : null
+    if (!fn) return null
+    return await fn(url, { waitForSelector, timeout: 20000 })
+  } catch {
+    return null
+  }
 }
 
-/** Enhanced fetch with Playwright fallback for JS-rendered sources */
+/** Enhanced fetch with optional heavy-render fallback for JS-rendered sources */
 export async function fetchSourceHtmlV2(
   source: ScraperSource,
   options: { usePlaywright?: boolean } = {},
 ): Promise<FetchResult> {
   const url = source.searchUrl ?? source.url
 
-  // Step 1: Always try fast fetch first
   const fastResult = await fetchSourceHtml(url)
   if (fastResult.ok && fastResult.html && fastResult.html.length > 500) {
-    return { ok: true, html: fastResult.html, status: fastResult.status, usedPlaywright: false }
+    return {
+      ok: true,
+      html: fastResult.html,
+      status: fastResult.status,
+      usedPlaywright: false,
+    }
   }
 
-  // Step 2: If source is tagged JS-rendered or fast fetch returned minimal content, use Playwright
   const shouldUsePlaywright =
     options.usePlaywright ||
-    source.jsRendered ||
+    !!source.jsRendered ||
     (fastResult.ok && (!fastResult.html || fastResult.html.length < 500))
 
   if (!shouldUsePlaywright) {
@@ -60,16 +78,10 @@ export async function fetchSourceHtmlV2(
   })
 
   try {
-    const cached = await getCachedPlaywright(url)
-    if (cached) {
-      structuredLog('fetcher.playwright.cache_hit', { sourceId: source.id, url })
-      return { ok: true, html: cached, usedPlaywright: true }
-    }
-
-    const playwrightHtml = await fetchWithPlaywright(url, {
-      waitForSelector: source.selectors?.container ?? 'body',
-      timeout: 20000,
-    })
+    const playwrightHtml = await fetchHeavyRender(
+      url,
+      source.selectors?.container ?? 'body',
+    )
 
     if (playwrightHtml && playwrightHtml.length > 500) {
       return { ok: true, html: playwrightHtml, usedPlaywright: true }
