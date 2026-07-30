@@ -422,10 +422,34 @@ failure, so a broken stage looks like a busy one.
    independent implementations of the same stage is itself the failure"), which this
    project has already been burned by twice.
 
-Option 1 needs: the key's identity and scope confirmed (the browser-safe anon/publishable
-key, not `service_role`), and explicit sign-off to write it to Vault under
-`hv_edge_anon_key`. Until then classification stays at zero and feed content stays ~8
-days old, regardless of everything else fixed above.
+**RESOLVED 2026-07-30, with Tyler's explicit approval.** Option 1 taken.
+`hv_edge_anon_key` now holds the Supabase **legacy anon JWT** (`role=anon`). The newer
+`sb_publishable_*` keys were deliberately not used: `hv-classify` runs `verify_jwt=true`,
+which validates a JWT, and those keys are not JWTs. `service_role` was explicitly not
+used -- the anon key is sufficient and correctly scoped for an edge function whose only
+job is classifying text.
+
+Verified end-to-end, live:
+
+```
+hv_classify_corpus_dispatch(20, 400)  -> 20 dispatched
+net._http_response                    -> 200 x20
+  {"ok":true,"backend":"openai","classification":{"quality_label":"spam",
+   "content_type":"noise","impact":"low","confidence":0.9,"reason":"..."}}
+hv_pipeline_tick()                    -> classify_harvested: 20, then 120
+```
+
+Classified count moved 8,804 -> 8,824 and is now harvesting at the full 120/tick.
+Embedding resumed alongside it. This is the first completed classify loop since
+2026-07-22.
+
+**Follow-on fixed in the same pass:** signals stranded behind the pre-fix 401 dispatches
+could never be re-queued, because `hv_classify_corpus_dispatch` skips any signal holding
+an unharvested job row. Those dead jobs were marked harvested so their signals re-enter
+the queue; the signal rows themselves were untouched (`quality_label` left null).
+
+At 120/tick x 48 ticks/day under the 3,000/day ceiling, the remaining ~3,600-row backlog
+clears in roughly a day, after which feed content tracks ingestion.
 
 ---
 
