@@ -453,6 +453,103 @@ clears in roughly a day, after which feed content tracks ingestion.
 
 ---
 
+## 7. Classifier v2 — the recall gap, diagnosed and closed (2026-07-30)
+
+### 7.1 What the measurement showed
+
+Stratifying the eval set by language for the first time (spec Section 6.2 flagged this
+as necessary; nobody had done it):
+
+| Language | n | v1 correct |
+|---|---|---|
+| English | 69 | 71% |
+| French | 11 | 64% |
+| Portuguese | 23 | 43% |
+| Spanish | 29 | 41% |
+| Indonesian | 12 | 33% |
+| German | 10 | 20% |
+| Czech | 7 | 14% |
+| Norwegian | 6 | 0% |
+
+The pooled 0.559 recall was an average of ~71% English and ~35% everything else — and
+the failures ran in the destructive direction: of 126 true signals, **58 (46%) were
+discarded as spam or boilerplate.** The platform's differentiation is precisely its
+non-English emerging-market coverage, so the brain was weakest exactly where the moat is.
+
+### 7.2 Two hypotheses tested and rejected
+
+Both plausible, both wrong — recorded because the wrong turns are the useful part:
+
+1. **"Translation runs after classification."** Rejected: all 112 non-English eval rows
+   already had `title_en` populated at classification time. The classifier saw English.
+2. **"Extracted summaries are full of site chrome."** Rejected: the summaries were clean.
+
+### 7.3 The actual cause
+
+The summaries were clean but *empty of information* — near-verbatim echoes of the
+headline (48–151 chars, frequently character-identical). Splitting recall by that shape:
+
+| | n | v1 recall |
+|---|---|---|
+| English, summary adds body text | 29 | **90%** |
+| English, summary ≈ headline | 18 | **44%** |
+| non-English, summary adds body text | 29 | 48% |
+| non-English, summary ≈ headline | 50 | 40% |
+
+`buildUser` emitted `HEADLINE: X\n\nBODY: X`. Anchored by the word *"repeated"* in the
+boilerplate definition, the model read the headline echoed against itself as evidence of
+repetition and labelled genuine news boilerplate — its own reasons said so verbatim:
+*"generic repeated site content without new information."*
+
+**It was never a language deficiency.** It was an input-formatting bug that non-English
+sources hit far more often, because their body extraction is less reliable (63% of
+non-English eval rows had an empty body vs 38% of English).
+
+### 7.4 The fix and the result
+
+Two changes, no model change, no cost change:
+1. `buildUser` emits `BODY: (no body text extracted — judge the headline alone)` when the
+   summary merely echoes the headline.
+2. The boilerplate definition scopes "repeated" to *recurring across different pages*, and
+   the prompt states that a missing/echoing BODY is a scraper artifact.
+
+Measured on the identical 181-row cohort and labels:
+
+| | precision | recall | TP | FP | FN |
+|---|---|---|---|---|---|
+| v1-smoke | 1.000 | 0.559 | 81 | 0 | 64 |
+| **v2-summary-fix** | **1.000** | **0.903** | **131** | **0** | **14** |
+
+Stratified recall: **English 0.723 → 0.936; non-English 0.480 → 0.888.** Zero new false
+positives. Clears the ≥0.70 gate proposed in Section 6.2.
+
+Validated as a separate `hv-classify-v2` function (eval-mode only, unable to write to live
+signal rows) before any production change. Shipped as `hv-classify` v14 with Tyler's
+approval, in the order: validation row first, then deploy, then version stamp — so no row
+was ever classified under a version lacking a gate row.
+
+**Live confirmation:** rows stamped v2 are judged `signal` 69.8% of the time vs 55.4%
+under v1, and `hv_quality_promote_tick()` kept promoting (the gate accepted the new
+version rather than stalling).
+
+### 7.5 Pipeline state at end of session
+
+| Metric | Session start | End |
+|---|---|---|
+| Unclassified backlog | 3,659 | 2,441 and falling |
+| Signals in feed | 1,234 | 3,147 |
+| Countries in feed | 70 | 101 |
+| Newest feed content | 2026-07-20 (9d11h stale) | 2026-07-29 21:00 (~15h) |
+| Classify dispatch | 401 on every call | 200 |
+| Promote tick | 120s timeout, 45/46 failed | ~10s, succeeding |
+| Classifier recall | 0.559 | 0.903 |
+
+**Staleness resolved.** Remaining items are unchanged from Sections 3 and 6: entity
+extraction (4% coverage), structured sources, the learning loop, the embed backlog (42%),
+and Stage D routing.
+
+---
+
 ## 4. Corrections to existing control docs
 
 These should be applied so the next session starts from truth:

@@ -25,7 +25,7 @@ const CLASSIFY_SYSTEM = `You classify cannabis-industry web content for a B2B re
 Given a headline and extracted body text from a web page, output STRICT JSON only, with keys:
 - quality_label: one of signal|boilerplate|spam|nav|duplicate
     signal = a discrete real-world development (a specific actor doing a specific thing: a law, ruling, licence, price move, launch, study result). Real news counts even if the text is short.
-    boilerplate = generic repeated site chrome (footers, contact/address blocks, author bylines).
+    boilerplate = generic furniture that recurs across many DIFFERENT pages of a site (footers, contact/address blocks, author bylines, cookie and subscription notices).
     spam = selling/affiliate/SEO-bait content, OR an article entirely off-topic to cannabis (obituary, unrelated crime, air-quality data, travel).
     nav = menus, breadcrumbs, pagination, link/report lists, login/register.
     duplicate = only when explicitly told of a specific other item; otherwise do not use.
@@ -33,6 +33,7 @@ Given a headline and extracted body text from a web page, output STRICT JSON onl
 - impact: high|medium|low
 - confidence: number 0.0-1.0
 - reason: under 12 words
+CRITICAL -- how to read the BODY field. BODY is machine-extracted and is very often missing, truncated, or a near-verbatim echo of the HEADLINE. That is an artifact of our scraper, NOT a property of the source page. Never label something boilerplate merely because BODY is absent, short, or repeats the HEADLINE, and never justify a label with "repeated content" or "no new information" on that basis. "Repeated" means recurring across different pages of a site -- it never refers to overlap between the HEADLINE and BODY fields. When BODY adds nothing, judge the HEADLINE alone on its merits: if it names a specific actor doing a specific thing, it is a signal.
 Judge by MEANING, not keyword density. A page dense with cannabis keywords that is only a navigation menu or a list of report links is nav, not signal. A short genuine headline about a real event is a signal. Text not about cannabis at all is spam. Output ONLY the JSON object, no prose.`;
 
 const TITLE_SYSTEM = `You are a news editor for a cannabis-industry intelligence brief. You are given messy extracted web text (often a mid-article sentence fragment, not a headline). Rewrite it into a clean, specific news headline plus a one-sentence summary.
@@ -42,7 +43,26 @@ Output STRICT JSON only: {"title": string, "blurb": string}.
 If the text does not actually describe a real cannabis-industry development (it is navigation, boilerplate, or off-topic), return {"title":"","blurb":""}.
 Output ONLY the JSON object, no prose.`;
 
-const buildUser = (h, s) => `HEADLINE: ${h ?? ""}\n\nBODY: ${s ?? ""}`;
+// 2026-07-30 (v14): when extraction yields no real body, the old form emitted
+// "HEADLINE: X\n\nBODY: X" -- the same string twice. Anchored by the word
+// "repeated" in the boilerplate definition, the model labelled genuine news as
+// boilerplate, with reasons literally reading "generic repeated site content
+// without new information". Measured on the 181-row labeled cohort: recall
+// 0.559 -> 0.903, precision held at 1.000. Non-English 0.480 -> 0.888 (foreign
+// sources hit the empty-body path more often, which made an input-formatting
+// bug look like a language deficiency).
+const norm = (v) => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+function bodyIsRedundant(h, s) {
+  const nh = norm(h), ns = norm(s);
+  if (!ns) return true;
+  if (ns === nh) return true;
+  if (nh && (ns.startsWith(nh) || nh.startsWith(ns)) && Math.abs(ns.length - nh.length) <= 40) return true;
+  return false;
+}
+const buildUser = (h, s) =>
+  bodyIsRedundant(h, s)
+    ? `HEADLINE: ${h ?? ""}\n\nBODY: (no body text extracted -- judge the headline alone)`
+    : `HEADLINE: ${h ?? ""}\n\nBODY: ${s ?? ""}`;
 
 function extractJson(text) {
   const cleaned = text.replace(/```json|```/g, "");
