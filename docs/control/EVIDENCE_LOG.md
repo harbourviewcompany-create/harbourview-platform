@@ -1742,3 +1742,22 @@ generation) appears to have zero live callers now that cron drives a newer edge-
 
 **Human approval status:** Directed turn-by-turn in chat ("continue" / "fix it" / "go" / "is anything
 else missing") rather than a single upfront approval.
+
+---
+
+## 2026-07-30 — PR #1179: fixed a real regression risk + updated stale tests
+
+**Resolved a genuine conflict, not just a text merge:** `app/marketplace/professional-services/page.tsx`
+had been independently rebuilt into a real feature (live `getApprovedProviders()` data + an
+application form) by PR #1178 after this branch forked. This branch's own version was a static
+placeholder. Kept main's real version — merging this branch's version as written would have been a
+silent regression, undoing #1178. Spot-checked the other ~27 marketplace pages this PR touches:
+main's versions were all still 2-line redirect stubs, so no other instance of this existed.
+
+**Updated two stale tests:** `public-route-smoke.test.ts` asserted that the listing detail page and
+9 category pages must redirect to Command Centre — encoding the *old* product decision this PR
+reverses. Rewrote both to assert the pages are public (no redirect, real `export default`) instead
+of deleting or skipping them.
+
+**Commands run:** `npm run test`: 65/65 passed (was 63/65 before the test update — the 2 failures
+were the stale assertions above, not app bugs).

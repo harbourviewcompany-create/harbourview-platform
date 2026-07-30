@@ -86,24 +86,14 @@ const nextConfig = {
   compress: true,
   productionBrowserSourceMaps: false,
 
-  // Marketplace consolidation into Command Centre (/dashboard?page=marketplace).
-  // Phase 1 (pilot): pure browse/category routes, covered by MKT_TABS +
-  // VIEW_SECTIONS (app/dashboard/page.tsx). Phase 2: Submit/Quote/Deal Rooms/
-  // My Listings, now covered by the marketplace panel's action sub-views
-  // (components/dashboard/CommandCentre.tsx MKT_ACTION_TABS + DealRoomsPanel) —
-  // reusing the same form/list components the standalone routes used
-  // (DynamicMarketplaceIntakeForm, QuoteRequestForm, MyListingsClient), just
-  // re-hosted inside the shell instead of on their own page. 308s so
-  // bookmarks/SEO links land in the shell instead of 404ing.
+  // Public marketplace surfaces stay on their own routes (HTTP 200).
+  // Command Centre still hosts authenticated operator workflows at
+  // /dashboard?page=marketplace. Do not permanently redirect public
+  // browse/intake paths into the private shell — production verification
+  // and SEO require public 200s.
   //
-  // Deliberately NOT redirected — no in-shell equivalent exists yet:
-  // /marketplace/consumables/[id] (dedicated request form),
-  // /marketplace/listings/[slug] (individual listing detail),
-  // /marketplace/genetics/[slug|request-access|submit-program].
-  // /marketplace/deals/[id] specifically: deal room selection is now
-  // client-side panel state, not a URL — a shared/bookmarked link to a
-  // specific room can't be deep-linked into that state, so it lands on the
-  // Deal Rooms list instead of erroring.
+  // Authenticated-only flows (my-listings, deals) may still soft-redirect
+  // from page components when session is required.
   async headers() {
     return [
       {
@@ -115,34 +105,10 @@ const nextConfig = {
 
   async redirects() {
     return [
-      { source: '/marketplace', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/sell', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/sell/consumables', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/quote', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/deals', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/deals/new', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/deals/:id', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/my-listings', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/listings', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/wanted', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/import-demand', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/export-ready', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/services', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/consumables', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/distressed-businesses', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/distressed-inventory', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/business-opportunities', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/qualified-access', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/cannabis-inventory', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/cultivation-equipment', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/processing-equipment', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/used-surplus', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/labs-testing', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/logistics', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/packaging', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/new-products', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/professional-services', destination: '/dashboard?page=marketplace', permanent: true },
-      { source: '/marketplace/genetics', destination: '/dashboard?page=genetics', permanent: true },
+      // Legacy aliases only — no permanent funnel of public marketplace → dashboard
+      { source: '/marketplace/submit-listing', destination: '/marketplace/sell', permanent: true },
+      { source: '/marketplace/wanted-requests', destination: '/marketplace/wanted', permanent: true },
+      { source: '/commercial-intelligence', destination: '/intelligence', permanent: true },
     ];
   },
 };
