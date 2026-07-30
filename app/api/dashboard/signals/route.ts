@@ -25,9 +25,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import {
+  SIGNAL_QUALITY_SELECT,
+  QUALITY_LABEL_NOT_IN,
+  resolveConfidence,
+  type SignalQualityRow,
+} from '@/lib/signals/quality'
 
 // ── DTO: exact columns returned — nothing else ─────────────────────────────────
-const SAFE_SELECT = 'id, headline, cat, top_lane, pri, score, country, date, created_at'
+// `score` is excluded on purpose — legacy inverted keyword scorer (spec §2.5).
+// Quality judgment comes from the Pipeline B columns in SIGNAL_QUALITY_SELECT.
+const SAFE_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
 // ── Lane → top_lane DB values ─────────────────────────────────────────────────
 const LANE_TOP_LANES: Record<string, string[]> = {
@@ -99,7 +107,9 @@ type SignalRow = {
   cat: string | null
   top_lane: string | null
   pri: string | null
-  score: number | null
+  quality_label?: string | null
+  quality_confidence?: number | string | null
+  reviewed?: boolean | null
   country: string | null
   date: string | null
   created_at: string
@@ -124,7 +134,7 @@ function rowToSignal(s: SignalRow): DashboardSignal {
     market,
     tag,
     timeAgo:         timeAgo(s.date ?? s.created_at),
-    confidence:      typeof s.score === 'number' ? s.score : 50,
+    confidence:      resolveConfidence(s as SignalQualityRow) ?? 50,
     commercialImpact:`${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}.`,
     sourceLabel:     'Harbourview Regulatory Watch',
     flag:            '🌐',
@@ -158,7 +168,8 @@ export async function GET(req: NextRequest) {
       .from('signals_quality')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
-      .order('score',        { ascending: false })
+      .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+      .order('quality_confidence', { ascending: false, nullsFirst: false })
       .order('date',         { ascending: false })
 
     if (isCountryFiltered) {

@@ -22,6 +22,7 @@ interface SourceRegistryRow {
   adapter: string | null;
   crawl_cadence: string | null;
   consecutive_failures: number | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 // source_registry.crawl_cadence holds either a named cadence label or a raw
@@ -82,6 +83,7 @@ export class DistributedTaskQueue {
       adapter_type:  (row.adapter || 'html_snapshot') as "html_snapshot" | "rss" | "api" | "playwright_full",
       cadence_hours: parseCadenceHours(row.crawl_cadence),
       consecutive_failures: row.consecutive_failures ?? 0,
+      metadata: row.metadata ?? undefined,
     };
   }
 
@@ -106,7 +108,7 @@ export class DistributedTaskQueue {
       .from('source_registry')
       .update({ locked_by: workerId, locked_until: leaseTime })
       .in('id', ids)
-      .select('id, source_url, iso, source_name, adapter, crawl_cadence, consecutive_failures');
+      .select('id, source_url, iso, source_name, adapter, crawl_cadence, consecutive_failures, metadata');
 
     if (error || !locked) return [];
     return (locked as SourceRegistryRow[]).map(this.mapRow);

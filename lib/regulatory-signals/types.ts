@@ -101,6 +101,9 @@ export type RegulatorySignalRecord = {
   updated_at: string
 }
 
+/** Classifier content taxonomy — drives which surface a signal routes to. */
+export type RegulatoryContentType = 'regulatory' | 'market' | 'story' | 'research'
+
 export type PublicRegulatorySignal = {
   id: string
   slug: string
@@ -121,6 +124,37 @@ export type PublicRegulatorySignal = {
   public_implication: string
   published_at: string | null
   last_reviewed_at: string | null
+
+  // ── Quality-brain fields ────────────────────────────────────────────────────
+  // Outputs of the Pipeline B classifier / translator / dedup stages. These were
+  // computed and stored but referenced nowhere in the app; see
+  // `docs/PLATFORM_OPTIMIZATION_REVIEW_2026-07-30.md` §1.4. All are public-safe:
+  // they describe the signal's own quality, not any private counterparty,
+  // marketplace, or analyst material. Registered in
+  // `docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md`.
+
+  /** Route destination taxonomy (spec §4.3). Null when unclassified. */
+  content_type: RegulatoryContentType | null
+  /**
+   * Validated classifier confidence, 0–100. Sourced from
+   * `signals.quality_confidence` (precision 1.000 against the labeled eval set),
+   * never from the inverted legacy `signals.score`. Null when unrated.
+   */
+  confidence_score: number | null
+  /**
+   * How many signals in the same dedup cluster are present in this feed —
+   * i.e. how many independent sources reported the same development.
+   * 1 means uncorroborated within the current window. Lower bound, not a total.
+   */
+  corroboration_count: number
+  /** ISO-639-1 code of the source document when it was not English. */
+  original_language: string | null
+  /** Display name of {@link original_language}, e.g. "Portuguese". */
+  original_language_label: string | null
+  /** True when headline/summary shown are machine-translated to English. */
+  translated: boolean
+  /** Canonical country slug for cross-linking to the country detail route. */
+  country_slug: string | null
 }
 
 export type RegulatorySource = {

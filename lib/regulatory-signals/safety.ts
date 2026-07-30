@@ -142,6 +142,16 @@ export function toPublicRegulatorySignal(record: RegulatorySignalRecord): Public
     public_implication: record.public_implication,
     published_at: record.published_at,
     last_reviewed_at: record.last_reviewed_at,
+
+    // Editorial records are human-authored and carry no Pipeline B classifier
+    // output; see the equivalent note in `public.ts#mapApprovedRow`.
+    content_type: 'regulatory',
+    confidence_score: null,
+    corroboration_count: 1,
+    original_language: null,
+    original_language_label: null,
+    translated: false,
+    country_slug: null,
   }
 
   assertPublicRegulatorySignalSafe(signal)
