@@ -1,5 +1,25 @@
 import 'server-only'
-import type { PublicRegulatorySignal, RegulatorySignalType } from './types'
+import type { PublicRegulatorySignal, RegulatorySignalType, RegulatoryContentType } from './types'
+import {
+  SIGNAL_QUALITY_SELECT,
+  QUALITY_LABEL_NOT_IN,
+  buildCorroborationIndex,
+  corroborationCount,
+  displayHeadline,
+  displaySummary,
+  feedAgeHours,
+  freshnessBand,
+  isSurfaceable,
+  isTranslated,
+  originalLanguage,
+  originalLanguageLabel,
+  resolveConfidence,
+  resolveConfidenceBand,
+  resolveContentType,
+  resolveCountry,
+  resolveImpact,
+  type SignalQualityRow,
+} from '@/lib/signals/quality'
 
 // ── Map public.signals.cat → RegulatorySignalType ─────────────────────────────
 const CAT_TO_TYPE: Record<string, RegulatorySignalType> = {
@@ -21,31 +41,44 @@ const CAT_TO_TYPE: Record<string, RegulatorySignalType> = {
 //   source, url, verification, tier, lang, company, country, in_network,
 //   lane_r, lane_e, lane_t, top_lane, query_pack, commercial_impact,
 //   reviewed, action, created_at
-function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null {
-  const headline = typeof r.headline === 'string' ? r.headline.trim() : null
+// `signals.score` is DELIBERATELY NOT READ HERE. It is the legacy keyword-density
+// scorer, known inverted (spec §2.5), and deriving the user-visible confidence and
+// impact badges from it rendered 84% of validated signals as "low confidence".
+// All quality judgment now comes from `lib/signals/quality.ts`, which reads the
+// Pipeline B classifier columns.
+function mapSignalRow(
+  r: Record<string, unknown>,
+  corroboration: Map<string, number>,
+): PublicRegulatorySignal | null {
+  const row = r as SignalQualityRow
+
+  // Classifier verdicts of spam/boilerplate/nav/duplicate never reach a surface.
+  if (!isSurfaceable(row)) return null
+
+  // Prefer the machine-translated title so non-English coverage is legible.
+  const headline = displayHeadline(row)
   if (!headline) return null
 
   const id = typeof r.id === 'string' ? r.id : String(r.id ?? '')
-  const score  = typeof r.score === 'number' ? r.score : 0
-  const cat    = typeof r.cat === 'string' ? r.cat : 'SOURCE_ENGINE'
+  const cat = typeof r.cat === 'string' ? r.cat : 'SOURCE_ENGINE'
   const dateStr = typeof r.date === 'string' ? r.date.slice(0, 10)
                 : typeof r.created_at === 'string' ? r.created_at.slice(0, 10)
                 : new Date().toISOString().slice(0, 10)
 
-  const confidence: PublicRegulatorySignal['confidence'] =
-    score >= 80 ? 'high' : score >= 55 ? 'medium' : 'low'
-
-  const impactLevel: PublicRegulatorySignal['impact_level'] =
-    score >= 75 ? 'critical'
-    : score >= 60 ? 'high'
-    : score >= 40 ? 'moderate'
-    : 'low'
+  const band = resolveConfidenceBand(row)
+  const confidence: PublicRegulatorySignal['confidence'] = band ?? 'low'
+  const impactLevel: PublicRegulatorySignal['impact_level'] = resolveImpact(row) ?? 'moderate'
 
   const tierStr = typeof r.tier === 'string' ? r.tier.toLowerCase() : ''
   const sourceTier: PublicRegulatorySignal['source_tier'] =
     tierStr.includes('1') ? 'tier_1_official'
     : tierStr.includes('2') ? 'tier_2_professional'
     : 'tier_3_secondary'
+
+  // Resolve free-text country into canonical identity so the feed can actually be
+  // filtered and grouped geographically (previously hard-coded null).
+  const country = resolveCountry(r.country)
+  const contentType = resolveContentType(row)
 
   return {
     id,
@@ -54,21 +87,29 @@ function mapSignalRow(r: Record<string, unknown>): PublicRegulatorySignal | null
     signal_type: CAT_TO_TYPE[cat] ?? 'regulatory_guidance',
     confidence,
     impact_level: impactLevel,
-    country_code: null,
-    country_name: typeof r.country === 'string' ? r.country : null,
-    region: null,
+    country_code: country?.code ?? null,
+    country_name: country?.name ?? (typeof r.country === 'string' ? r.country : null),
+    region: country?.region ?? null,
     jurisdiction: '',
     regulator_name: typeof r.source === 'string' ? r.source : '',
     signal_date: dateStr,
     source_tier: sourceTier,
     source_type: 'specialist_publication' as const,
     canonical_source_url: typeof r.url === 'string' ? r.url : null,
-    public_summary: typeof r.summary === 'string' ? r.summary : 'No summary available.',
+    public_summary: displaySummary(row) ?? 'No summary available.',
     public_implication: typeof r.commercial_impact === 'string' && r.commercial_impact
       ? r.commercial_impact
       : 'Review this signal for commercial relevance to your jurisdiction.',
     published_at: dateStr,
     last_reviewed_at: dateStr,
+
+    content_type: contentType === 'noise' ? null : (contentType as RegulatoryContentType | null),
+    confidence_score: resolveConfidence(row),
+    corroboration_count: corroborationCount(row, corroboration),
+    original_language: originalLanguage(row),
+    original_language_label: originalLanguageLabel(row),
+    translated: isTranslated(row),
+    country_slug: country?.slug ?? null,
   }
 }
 
@@ -113,6 +154,18 @@ function mapApprovedRow(r: Record<string, unknown>): PublicRegulatorySignal | nu
     public_implication:   typeof r.public_implication === 'string'    ? r.public_implication    : 'Review for commercial relevance.',
     published_at:         typeof r.published_at === 'string'          ? r.published_at.slice(0,10) : new Date().toISOString().slice(0,10),
     last_reviewed_at:     typeof r.last_reviewed_at === 'string'      ? r.last_reviewed_at.slice(0,10) : new Date().toISOString().slice(0,10),
+
+    // The editorial `public_signals` view is human-curated and predates the
+    // Pipeline B classifier, so it carries none of the quality-brain columns.
+    // These stay null//default rather than being inferred — an editorially
+    // published signal is already `confidence`-rated by its reviewer above.
+    content_type:            'regulatory',
+    confidence_score:        null,
+    corroboration_count:     1,
+    original_language:       null,
+    original_language_label: null,
+    translated:              false,
+    country_slug:            resolveCountry(r.country_name)?.slug ?? null,
   }
 }
 
@@ -158,11 +211,17 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
 
   try {
     const params = new URLSearchParams({
-      select: 'id,date,cat,headline,summary,score,country,commercial_impact,source,url,tier,created_at',
+      // `score` is intentionally absent: nothing downstream may read it.
+      select: `id,date,cat,headline,summary,country,commercial_impact,source,url,tier,created_at,reviewed,${SIGNAL_QUALITY_SELECT}`,
       reviewed: 'eq.true',
       order:    'date.desc',
       limit:    '300',
     })
+    // Drop classifier-rejected rows server-side. A pre-gate promotion batch left
+    // spam/boilerplate rows flagged reviewed=true in the live feed; this removes
+    // them for every consumer without mutating rows a human may own.
+    params.append('quality_label', `not.in.${QUALITY_LABEL_NOT_IN}`)
+
     const res = await fetch(`${url}/rest/v1/signals?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
       next: { revalidate: 300 },
@@ -170,7 +229,13 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
     if (!res.ok) return []
     const rows: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(rows)) return []
-    return rows.map(mapSignalRow).filter((s): s is PublicRegulatorySignal => s !== null)
+
+    // Corroboration is counted across the whole fetched window, so it must be
+    // built before mapping any individual row.
+    const corroboration = buildCorroborationIndex(rows as Array<SignalQualityRow & { id?: unknown }>)
+    return rows
+      .map(r => mapSignalRow(r, corroboration))
+      .filter((s): s is PublicRegulatorySignal => s !== null)
   } catch {
     return []
   }
@@ -188,6 +253,8 @@ const FALLBACK_PUBLIC_SIGNALS: PublicRegulatorySignal[] = [
     public_summary: 'Public-safe review of import pathway conditions and quality expectations relevant to regulated medical supply access.',
     public_implication: 'Commercial participants should maintain validated quality and route-review discipline before engagement.',
     published_at: '2026-05-01', last_reviewed_at: '2026-05-02',
+    content_type: 'regulatory', confidence_score: null, corroboration_count: 1,
+    original_language: null, original_language_label: null, translated: false, country_slug: 'germany',
   },
   {
     id: 'fallback-au-001', slug: 'australia-patient-access-review',
@@ -199,6 +266,8 @@ const FALLBACK_PUBLIC_SIGNALS: PublicRegulatorySignal[] = [
     public_summary: 'Reviewed public summary focused on prescription access frameworks and compliance-sensitive market participation.',
     public_implication: 'Operators should confirm jurisdiction-specific access controls and prescribing requirements.',
     published_at: '2026-04-29', last_reviewed_at: '2026-04-30',
+    content_type: 'regulatory', confidence_score: null, corroboration_count: 1,
+    original_language: null, original_language_label: null, translated: false, country_slug: 'australia',
   },
   {
     id: 'fallback-pl-001', slug: 'poland-market-access-monitoring',
@@ -210,14 +279,34 @@ const FALLBACK_PUBLIC_SIGNALS: PublicRegulatorySignal[] = [
     public_summary: 'Controlled publication summary regarding reviewed licensing and commercial pathway considerations.',
     public_implication: 'Participants should avoid assuming route certainty based on preliminary market visibility.',
     published_at: '2026-04-22', last_reviewed_at: '2026-04-23',
+    content_type: 'regulatory', confidence_score: null, corroboration_count: 1,
+    original_language: null, original_language_label: null, translated: false, country_slug: 'poland',
   },
 ]
+
+function freshnessOf(signals: PublicRegulatorySignal[]): {
+  ageHours: number | null
+  freshness: PublicRegulatorySignalFeed['freshness']
+} {
+  const ageHours = feedAgeHours(signals.map(s => s.signal_date))
+  return { ageHours, freshness: freshnessBand(ageHours) }
+}
 
 export type PublicRegulatorySignalFeed = {
   signals: PublicRegulatorySignal[]
   source: 'live-approved' | 'fallback-fixture'
   publicLabel: string
   reviewBoundary: string
+  /**
+   * Hours since the newest signal in the feed, or null if unknown.
+   *
+   * Surfaced so a stale feed is never *silently* stale. The Intel feed went nine
+   * days without a new promotion while every monitor reported green, and a reader
+   * had no way to tell -- see
+   * `docs/PLATFORM_OPTIMIZATION_REVIEW_2026-07-30.md` section 1.2.
+   */
+  ageHours: number | null
+  freshness: 'live' | 'recent' | 'stale' | 'unknown'
 }
 
 export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatorySignalFeed> {
@@ -230,6 +319,7 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
       source: 'live-approved',
       publicLabel: 'Editorially reviewed public-safe signals',
       reviewBoundary: 'Signals sourced from the reviewed regulatory signals pipeline. Private captures, analyst notes and internal review material remain excluded.',
+      ...freshnessOf(approved),
     }
   }
 
@@ -241,6 +331,7 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
       source: 'live-approved',
       publicLabel: 'Published public-safe signals',
       reviewBoundary: 'Signals sourced from reviewed entries in the public signals table. Private captures, analyst notes and internal review material remain excluded.',
+      ...freshnessOf(published),
     }
   }
 
@@ -249,6 +340,8 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
     source: 'fallback-fixture',
     publicLabel: 'Fallback signal orientation',
     reviewBoundary: 'No reviewed signals are currently available. These entries are fallback orientation only and should not be treated as live intelligence or current route clearance.',
+    ageHours: null,
+    freshness: 'unknown',
   }
 }
 
