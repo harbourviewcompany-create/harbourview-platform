@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getRegistryCoverageSummary, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
+import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
 import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
 import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
 import { checkFeatureAccess } from '@/lib/billing/entitlements'
@@ -242,7 +243,7 @@ export default async function DashboardPage({
   const [
     signalsResult, dailyDigestResult, wantedCountResult, marketplaceRowsResult,
     pipelineResult, wantedListingsResult, countryIntelResult, liveEduTilesResult,
-    pathwayDataResult, , watchlistDataResult, evidenceDataResult,
+    orgPathwayResult, publicPathwayResult, watchlistDataResult, evidenceDataResult,
     recentEduModulesResult, localIntelResult, sourceCoverageResult, registryCoverageSummaryResult, jurisdictionPlaybookResult,
     educationTracksResult, marketMetricsResult, tradeFlowsResult, professionalsResult,
     cannabisOperatorsResult, cultivarPassportsResult, serviceProvidersResult, collaborationProjectsResult,
@@ -286,7 +287,8 @@ export default async function DashboardPage({
   const wantedListings         = settledOr(wantedListingsResult, [], 'getWantedListings')
   const countryIntel           = settledOr(countryIntelResult, null, 'getCountryIntelProfile')
   const liveEduTiles           = settledOr(liveEduTilesResult, [], 'getLiveEduTiles')
-  const pathwayData            = settledOr(pathwayDataResult, undefined, 'getOrgPathwayProgress')
+  const orgPathway             = settledOr(orgPathwayResult, undefined, 'getOrgPathwayProgress')
+  const publicPathway          = settledOr(publicPathwayResult, undefined, 'getPublicPathwayTemplate')
   const watchlistData          = settledOr(watchlistDataResult, undefined, 'getWatchlistData')
   const watchlistAccess        = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
   const evidenceData           = settledOr(evidenceDataResult, undefined, 'getEvidenceData')
@@ -308,6 +310,13 @@ export default async function DashboardPage({
   const mySubmissions          = settledOr(mySubmissionsResult, [], 'getUserMarketplaceSubmissions')
   const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
   const pathwayMatrix          = settledOr(pathwayMatrixResult, undefined, 'getCountryPathwayMatrix')
+
+  // Merge org progress with public/generic template, then derive readiness
+  // from country intel when no saved org statuses exist.
+  const pathwayData = deriveRequirementStatusesFromIntel(
+    mergePathwayData(orgPathway, publicPathway),
+    countryIntel,
+  )
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
@@ -354,4 +363,3 @@ export default async function DashboardPage({
     />
   )
 }
-

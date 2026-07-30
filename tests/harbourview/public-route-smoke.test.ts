@@ -105,16 +105,20 @@ describe('public route smoke coverage', () => {
     }
   })
 
-  it('redirects the individual marketplace listing page to Command Centre', () => {
+  it('serves the individual marketplace listing page publicly (no redirect)', () => {
     const detailPage = readRepoFile('app/marketplace/listings/[slug]/page.tsx')
 
-    expect(detailPage).toContain("redirect('/dashboard?page=marketplace')")
+    expect(detailPage).not.toContain("redirect('/dashboard?page=marketplace')")
+    expect(detailPage).toContain('export default')
   })
 
-  it('redirects live category listing pages to Command Centre', () => {
+  it('serves category listing pages publicly (no redirect)', () => {
     for (const pagePath of liveCategoryPages) {
       const source = readRepoFile(pagePath)
-      expect(source, `${pagePath} must redirect to Command Centre`).toContain("redirect('/dashboard?page=marketplace')")
+      expect(source, `${pagePath} must not redirect to Command Centre`).not.toContain(
+        "redirect('/dashboard?page=marketplace')",
+      )
+      expect(source, `${pagePath} must export a page component`).toContain('export default')
     }
   })
 
