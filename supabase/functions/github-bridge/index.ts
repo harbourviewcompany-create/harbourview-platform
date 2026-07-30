@@ -1,4 +1,62 @@
 /**
+ * github-bridge v17 — added grep_file, patch_file (2026-07-28)
+ *   Editing a small section of a huge file (CommandCentre.tsx / MobileCommandCentre.tsx,
+ *   600KB+) previously meant fetching and reconstructing the WHOLE file through
+ *   the calling agent's limited text channel just to change a few lines —
+ *   expensive and error-prone. Added two server-side operations that never
+ *   transfer full file content back to the caller:
+ *     - grep_file: fetch a file, search line-by-line (substring or regex),
+ *       return only matching lines with context. Use this to find exact,
+ *       unique anchor text before patching.
+ *     - patch_file: fetch a file, do a single str_replace-style old_str ->
+ *       new_str substitution (old_str must match exactly once, same
+ *       uniqueness contract as Claude's own str_replace tool), push the
+ *       result back. The full file content never leaves GitHub/this function.
+ *   Both decode with the same UTF-8-safe method as get_blob (byte array ->
+ *   TextDecoder), not get_file's lossy atob().
+ *
+ * github-bridge v16 — added get_check_run_output (2026-07-26)
+ *   list_check_runs slims out each run's `output` field (summary/text), which
+ *   is where the actual failure reason lives for checks like a drift-detector.
+ *   Added `get_check_run_output` (GET /check-runs/{id}) to fetch it. Purely
+ *   additive.
+ *
+ * github-bridge v15 — GITHUB_PAT moved to vault (2026-07-26)
+ *   The env-var GITHUB_PAT secret went bad ("Bad credentials" from GitHub) and
+ *   could only be fixed via the Supabase dashboard, which the calling agent has
+ *   no tool access to — a rotation dead end. Moved the token into Postgres
+ *   Vault (secret name `hv_github_pat`), fetched via a new SECURITY DEFINER RPC
+ *   `api.hv_get_github_pat()` (service_role-only execute, same pattern as
+ *   `hv_bridge_key_matches`). Rotation is now a `select vault.update_secret(...)`
+ *   away instead of a dashboard trip. Falls back to Deno.env.get('GITHUB_PAT')
+ *   if the vault lookup returns nothing, so this is non-breaking if the vault
+ *   secret isn't set yet.
+ *
+ * github-bridge v14 — added comment_pr, close_pr (2026-07-26)
+ *   Added `comment_pr` (POST /issues/{number}/comments — PRs are issues in the
+ *   GitHub API) and `close_pr` (PATCH /pulls/{number}, state=closed). Purely
+ *   additive.
+ *
+ * github-bridge v13 — added merge_pr (2026-07-26)
+ *   No operation existed to merge a PR — every merge had to happen through the
+ *   GitHub UI. Added `merge_pr` (PUT /pulls/{number}/merge, squash by default,
+ *   matching this repo's existing merge convention). Purely additive.
+ *
+ * github-bridge v12 — fixed create_ref base-sha resolution (2026-07-23)
+ *   create_ref (v11) resolved the base branch's sha via GET /git/ref/heads/<ref>,
+ *   which returns a 422 ("sha wasn't supplied") when GitHub treats the ref as
+ *   ambiguous and responds with an array instead of a single ref object — this
+ *   repo hit that on its very first use, even for `main`. Switched to
+ *   GET /branches/<branch>, which always returns a single object for an exact
+ *   branch name.
+ *
+ * github-bridge v11 — added create_ref (2026-07-23)
+ *   No operation existed to create a branch, which blocks any edit-and-push-back
+ *   workflow that needs to land work on a fresh branch + PR instead of committing
+ *   to an existing one. Added `create_ref` (POST /git/refs) so callers can create
+ *   `refs/heads/<branch>` from a base ref's current sha before calling `push_file`
+ *   with that branch. Purely additive; no existing case changed.
+ *
  * github-bridge v6 — added get_blob (raw base64, no lossy decode) (2026-07-11)
  *
  * SECURITY HISTORY — read before changing:
@@ -79,6 +137,38 @@ async function callerKeyIsValid(req: Request): Promise<boolean> {
   }
 }
 
+/**
+ * Fetch the GitHub PAT from Postgres Vault via the service-role-only RPC
+ * api.hv_get_github_pat(). Falls back to the GITHUB_PAT env var if the vault
+ * lookup fails or returns nothing, so this stays non-breaking during the
+ * migration to vault-based rotation.
+ */
+async function getGithubPat(): Promise<string | null> {
+  if (SUPABASE_URL && SERVICE_ROLE_KEY) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/hv_get_github_pat`, {
+        method: 'POST',
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+          'Content-Profile': 'api',
+        },
+        body: JSON.stringify({}),
+      })
+      if (res.ok) {
+        const token = await res.json()
+        if (typeof token === 'string' && token.length > 0) return token
+      } else {
+        console.error(`[github-bridge] vault PAT lookup returned ${res.status}`)
+      }
+    } catch (e) {
+      console.error('[github-bridge] vault PAT lookup threw:', e)
+    }
+  }
+  return Deno.env.get('GITHUB_PAT') ?? null
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return json(null, 204)
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -89,8 +179,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Unauthorized' }, 401)
   }
 
-  const token = Deno.env.get('GITHUB_PAT')
-  if (!token) return json({ error: 'No GitHub token. Set GITHUB_PAT secret.' }, 500)
+  const token = await getGithubPat()
+  if (!token) return json({ error: 'No GitHub token. Set hv_github_pat vault secret or GITHUB_PAT env secret.' }, 500)
 
   const h: Record<string, string> = {
     'Authorization': `Bearer ${token}`,
@@ -177,6 +267,131 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       }
     }
 
+    // Create a new branch (ref) from an existing ref's current commit sha.
+    // op.branch: new branch name (without refs/heads/ prefix).
+    // op.from_ref: base ref to branch from, defaults to 'main'.
+    //
+    // v12 fix (2026-07-23): originally resolved the base sha via
+    // GET /git/ref/heads/<ref>, which 422s ("sha wasn't supplied") whenever
+    // GitHub treats the ref as ambiguous and returns an array instead of a
+    // single object (observed in practice even for 'main' on this repo, which
+    // has many branches). Switched to GET /branches/<branch>, which always
+    // returns a single object for an exact branch name and is not subject to
+    // this ambiguity.
+    case 'create_ref': {
+      const fromRef = (op.from_ref as string) ?? 'main'
+      const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseBranch.commit?.sha
+      if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
+      const res = await fetch(`${BASE}/git/refs`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ ref: `refs/heads/${op.branch}`, sha: baseSha })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub POST git/refs ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, ref: data.ref, sha: data.object?.sha }
+    }
+
+    case 'merge_pr': {
+      const res = await fetch(`${BASE}/pulls/${op.pr_number}/merge`, {
+        method: 'PUT', headers: h,
+        body: JSON.stringify({
+          merge_method: (op.merge_method as string) ?? 'squash',
+          commit_title: op.commit_title,
+          commit_message: op.commit_message,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub PUT merge ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, merged: data.merged, sha: data.sha, message: data.message }
+    }
+
+    case 'comment_pr': {
+      const res = await fetch(`${BASE}/issues/${op.pr_number}/comments`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ body: op.body })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub POST issue comment ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, id: data.id, html_url: data.html_url }
+    }
+
+    case 'close_pr': {
+      const res = await fetch(`${BASE}/pulls/${op.pr_number}`, {
+        method: 'PATCH', headers: h,
+        body: JSON.stringify({ state: 'closed' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub PATCH pulls ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, state: data.state, number: data.number }
+    }
+
+    case 'get_check_run_output': {
+      const data = await gh(`${BASE}/check-runs/${op.check_run_id}`, h)
+      let annotations: unknown[] = []
+      if (data.output?.annotations_url) {
+        try { annotations = await gh(data.output.annotations_url, h) } catch { /* best-effort */ }
+      }
+      return { ok: true, name: data.name, conclusion: data.conclusion, output: data.output, annotations, html_url: data.html_url }
+    }
+
+    // Server-side search — never returns the whole file. Use before patch_file
+    // to find exact, unique anchor text in a large file without paying the
+    // cost of transferring it all back to the caller.
+    // op.pattern: substring (default) or regex source if op.regex is true.
+    // op.context: lines of context above/below each match (default 2).
+    case 'grep_file': {
+      const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
+      const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
+      if (data.type !== 'file') return { ok: false, error: 'Not a file', type: data.type }
+      const bytes = Uint8Array.from(atob((data.content as string).replace(/\n/g, '')), c => c.charCodeAt(0))
+      const text = new TextDecoder('utf-8').decode(bytes)
+      const lines = text.split('\n')
+      const pattern = op.pattern as string
+      const contextLines = (op.context as number) ?? 2
+      const re = op.regex ? new RegExp(pattern) : null
+      const matches: { line: number; text: string; context: string[] }[] = []
+      lines.forEach((line, i) => {
+        const isMatch = re ? re.test(line) : line.includes(pattern)
+        if (isMatch) {
+          const start = Math.max(0, i - contextLines)
+          const end = Math.min(lines.length, i + contextLines + 1)
+          matches.push({ line: i + 1, text: line, context: lines.slice(start, end) })
+        }
+      })
+      return { ok: true, totalLines: lines.length, matchCount: matches.length, matches: matches.slice(0, 30), sha: data.sha }
+    }
+
+    // Server-side patch — fetches, applies ONE old_str -> new_str replacement,
+    // pushes back. old_str must match exactly once (same contract as Claude's
+    // own str_replace tool); zero or multiple matches is rejected rather than
+    // guessing. Full file content never crosses back to the caller.
+    case 'patch_file': {
+      const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
+      const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
+      if (data.type !== 'file') return { ok: false, error: 'Not a file', type: data.type }
+      const bytes = Uint8Array.from(atob((data.content as string).replace(/\n/g, '')), c => c.charCodeAt(0))
+      const text = new TextDecoder('utf-8').decode(bytes)
+      const oldStr = op.old_str as string
+      const newStr = op.new_str as string
+      const occurrences = text.split(oldStr).length - 1
+      if (occurrences !== 1) {
+        return { ok: false, error: `old_str matched ${occurrences} times, expected exactly 1`, occurrences }
+      }
+      const patchedText = text.split(oldStr).join(newStr)
+      const patchedBytes = new TextEncoder().encode(patchedText)
+      let binary = ''
+      for (const byte of patchedBytes) binary += String.fromCharCode(byte)
+      const newB64 = btoa(binary)
+      const res = await fetch(`${BASE}/contents/${op.path}`, {
+        method: 'PUT', headers: h,
+        body: JSON.stringify({ message: op.message, content: newB64, branch: op.branch ?? 'main', sha: data.sha })
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(`GitHub PUT ${res.status}: ${JSON.stringify(result)}`)
+      return { ok: true, sha: result.content?.sha, commit: result.commit?.sha }
+    }
+
     case 'get_pr_files': {
       const data = await gh(`${BASE}/pulls/${op.pr_number}/files?per_page=100`, h)
       return {
@@ -253,5 +468,5 @@ function json(data: unknown, status = 200) {
   return new Response(data === null ? null : JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
-  })
+  }))
 }

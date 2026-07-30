@@ -16,6 +16,50 @@ function getClient() {
   })
 }
 
+/**
+ * Guards a promise against a hung network request. Supabase-js has no built-in
+ * client timeout, so a stalled fetch (DNS, TLS, or edge cold-start hang) would
+ * otherwise leave the sheet spinning on "Fetching regulatory data…" forever.
+ * Rejecting here routes the hang into the existing retryable error state.
+ */
+const FETCH_TIMEOUT_MS = 7_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out after ${ms}ms: ${label}`))
+    }, ms)
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value) },
+      (err) => { clearTimeout(timer); reject(err) },
+    )
+  })
+}
+
+
+/**
+ * Retries a promise-returning fn with backoff. The diagnosed cause of the
+ * "Could not load regulatory data" / uncoloured-gold globe was transient
+ * database latency that recovers within seconds; a retry turns a blip into a
+ * brief reload instead of a dead-end. Each attempt is independently
+ * timeout-guarded by the caller where applicable.
+ */
+async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly number[]): Promise<T> {
+  let lastErr: unknown
+  for (let i = 0; i <= backoffsMs.length; i++) {
+    try {
+      return await attempt()
+    } catch (err) {
+      lastErr = err
+      if (i < backoffsMs.length) {
+        await new Promise((resolve) => setTimeout(resolve, backoffsMs[i]))
+      }
+    }
+  }
+  throw lastErr
+}
+const FETCH_RETRY_BACKOFFS_MS = [800, 2000] as const
+
 interface Props {
   countryIso2: string
   countryName: string
@@ -39,7 +83,7 @@ function BriefingSection({ label, text }: { label: string; text: string }) {
   )
 }
 
-// ── Main component ──────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────
 
 export function MarketOverviewSheet({
   countryIso2,
@@ -120,7 +164,11 @@ export function MarketOverviewSheet({
       return firstOrThrow(res, 'country')
     }
 
-    load()
+    // PATCH: guard the fetch with a client-side timeout. Without this a hung
+    // request (never resolving, never rejecting) leaves `state` stuck on
+    // 'loading' forever — the gold spinner that never clears. On timeout we
+    // reject into the existing retryable error state.
+    withRetry(() => withTimeout(load(), FETCH_TIMEOUT_MS, `briefing:${code}`), FETCH_RETRY_BACKOFFS_MS)
       .then((briefing) => {
         if (cancelled) return
         cache.current.set(code, briefing)
@@ -128,7 +176,7 @@ export function MarketOverviewSheet({
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        console.error('[MarketOverviewSheet] unexpected error:', err)
+        console.error('[MarketOverviewSheet] fetch failed:', err)
         setState({ status: 'error' })
       })
 

@@ -28,6 +28,7 @@ export type JurisdictionPlaybook = {
   key_regulators: PlaybookRegulator[]
   common_pitfalls: string[]
   last_reviewed: string
+  last_verified_at: string | null
 }
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -61,6 +62,7 @@ const PLAYBOOK_COLUMNS = [
   'key_regulators',
   'common_pitfalls',
   'last_reviewed',
+  'last_verified_at',
 ].join(',')
 
 export async function getPlaybook(iso2: string): Promise<JurisdictionPlaybook | null> {

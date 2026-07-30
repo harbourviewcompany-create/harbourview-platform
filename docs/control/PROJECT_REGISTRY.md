@@ -1,4 +1,4 @@
-Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; Vercel team ID and project ID corrected by operator confirmation 2026-06-23.  
+Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; Vercel team ID and project ID corrected by operator confirmation 2026-06-23. Scoped residual systems catch-up 2026-07-28 (code-presence only). Phase 2 personal briefings slice started 2026-07-28.  
 Scope: GitHub, Vercel and Supabase assets visible in connected audits, plus the 2026-05-17 verified Vercel connector state recorded in Notion dispatch `DSP-10` / `HAR-16 / HAR-22`.  
 Change policy: This document is a control register. It is not approval to delete, pause, merge, deploy, reconfigure domains, change branch protection, change secrets, modify Supabase, modify runtime code, modify middleware, modify auth, modify dependencies or migrate anything without a separate approved cleanup PR or operator confirmation.
 
@@ -6,10 +6,33 @@ Change policy: This document is a control register. It is not approval to delete
 
 | Area | Routes / Tables | Status |
 |------|------------------|--------|
-| Public | `/supplier-directory`, `/supplier-directory/apply`, `/supplier-directory/[slug]` | Active (Phase 0 complete) |
-| Data | `supplier_profiles` | Active — RLS: public read (active + verified), service write |
-| Intake | Server action + form | Complete |
-| Admin | Pending review flow (via applicationsQuery) | Partial — align status to 'pending' if needed |
+| Public | `/supplier-directory`, `/supplier-directory/apply`, `/supplier-directory/[id]` | Active (Phase 0 complete; public list + detail closed 2026-07-28) |
+| Data | `supplier_profiles` | Active — RLS: public read (approved/active + verified), service write |
+| Intake | Server action `submitSupplierApplication` + form | Complete |
+| Admin | Pending review flow (via applicationsQuery + `/admin/(protected)/applications`) | Active |
+
+## Residual systems catch-up — 2026-07-28 (code-presence)
+
+**Status:** Scoped registry rows for systems closed in the Phase 0–1 residual pass. Confirmed paths exist on `main` at commit `03f1f3ea`. This is **not** a full live RLS / production-deployment re-verification.
+
+| System | Routes / key files | Tables / data | Status |
+|--------|--------------------|---------------|--------|
+| Public supplier directory | `/supplier-directory`, `/supplier-directory/[id]`, `/supplier-directory/apply` | `supplier_profiles` | Active — public approved-only surface |
+| Trade financing inquiry | `/marketplace/financing`, `app/actions/submitFinancingInquiry.ts`, `FinancingInquiryForm` | `marketplace_inquiries` (`inquiry_type=trade_financing`) | Active — inquiry spine; partner embed Phase 3 |
+| My Briefings spine | `/dashboard/my-briefings`, `lib/intelligence/personalBriefing.ts` | Uses `getWatchlistData` + `getJurisdictionBriefing` + `getLatestBriefing` (`jurisdiction_briefings`) + on-demand `generatePersonalBriefing` via LLM gateway | Active — Phase 2 personal synthesis wired 2026-07-28; scheduled email delivery still deferred |
+| Watchlists (public + Command Centre) | `/intelligence/watchlists`, dashboard WatchlistPage | `cc_watch_rules`, `cc_watchlist_items` | Active — rule builder live; public surface CTAs to Command Centre + My Briefings |
+| Professionals directory (pattern mirror) | `/professionals`, `/professionals/[slug]`, `/professionals/apply` | `hv_professionals` (or equivalent) | Active — reference pattern for supplier directory |
+
+**Still HOLD (full live re-verify):** production deployment ID freshness, live Supabase RLS per table, anonymous `/admin` denial, public leakage probe, marketplace category route 200s, GitHub secret mapping for Vercel IDs, branch-protection stale contexts. See sections below.
+
+## Phase 2 — Personal briefings (2026-07-28)
+
+| Component | Path | Notes |
+|-----------|------|-------|
+| Personal synthesis helper | `lib/intelligence/personalBriefing.ts` | On-demand LLM paragraph from watch keywords + published `jurisdiction_briefings`; deterministic fallback when gateway disabled |
+| Weekly LLM market cards | `getLatestBriefing` from `lib/intelligence/jurisdictionSynthesis.ts` | Surfaces existing weekly Claude synthesis on My Briefings |
+| Delivery | Existing `signal_subscriptions` + `/api/cron/intelligence-notify` | Cadence/market filters already live; watch-rule-driven personal email is next depth item |
+| Schema | None | No new tables or migrations in this slice |
 
 ## Registry catch-up note — 2026-07-07
 
@@ -18,6 +41,8 @@ Change policy: This document is a control register. It is not approval to delete
 **Why this exists:** the registry above dates to 2026-05-17 and documents only Supplier Directory. Six weeks of `HANDOFF.md` session-log entries (Jun 23 – Jul 7) describe substantial systems with no corresponding registry rows: Command Centre dashboard (`app/dashboard`, `components/dashboard/CommandCentre.tsx`, `components/dashboard/MobileCommandCentre.tsx`), country/role intel routes (`app/country/[country]/role/[role]`), the Digest pipeline (`app/api/dashboard/digest`, `app/daily`, editorial content pipeline), the HF Intelligence Layer (`lib/hf/`), and the intelligence automation layer (`ia_*` tables). Confirmed only that these paths exist on disk (`test -e`) — did not re-verify their production/RLS/deployment state, which is what this registry is actually supposed to certify.
 
 **What this note is NOT:** it is not a GO for any of the systems listed above, and it does not supersede or update the "Current Canonical Decisions," "Confirmed Vercel Production Mapping," or "Supabase Control Notes" sections below — those require live re-verification (current production deployment ID, current Supabase RLS per table, current branch-protection required checks) that wasn't performed this pass. Per this document's own Change policy, that re-verification is a separate approved cleanup task, not something to fold into an unrelated PR review/merge session.
+
+**2026-07-28 update:** Residual Phase 0–1 systems (supplier public surface, financing, my-briefings, watchlists) are now registered above under "Residual systems catch-up." Phase 2 personal briefings slice updates the My Briefings row (on-demand LLM synthesis + weekly `jurisdiction_briefings` cards). Broader Command Centre / Digest / HF / ia_* systems remain in the 2026-07-07 HOLD scope until a dedicated full pass.
 
 **Recommended next step:** a dedicated registry-reconciliation pass — list every system live in `main` today, add a row per system with actual verified routes/tables/RLS state, and re-run the full Vercel/Supabase verification block (mirroring the rigor of the original 2026-05-17 pass) rather than patching this document incrementally.
 
@@ -125,6 +150,10 @@ Prior operator-pasted runtime logs confirmed successful requests against the pre
 | `/legal/terms` | 200 | Re-verify against `https://harbourview.vercel.app`. |
 | `/legal/privacy` | 200 | Re-verify against `https://harbourview.vercel.app`. |
 | `/marketplace/sell` | 200 | Re-verify against `https://harbourview.vercel.app`. |
+| `/supplier-directory` | — | Code-present on main (2026-07-28); production smoke recommended. |
+| `/marketplace/financing` | — | Code-present on main (2026-07-28); production smoke recommended. |
+| `/dashboard/my-briefings` | — | Code-present on main (2026-07-28); auth-gated; Phase 2 personal synthesis on branch; production smoke recommended after merge. |
+| `/intelligence/watchlists` | — | Code-present on main (2026-07-28); production smoke recommended. |
 
 ## Active Preview Branch Evidence
 
@@ -194,10 +223,12 @@ Known table groups:
 
 | Group | Tables | Control Read |
 |---|---|---|
-| Marketplace public/core | `listings`, `buyer_requests`, `supplier_profiles`, `marketplace_inquiries` | Active marketplace data and inquiry capture |
+| Marketplace public/core | `listings`, `buyer_requests`, `supplier_profiles`, `marketplace_inquiries` | Active marketplace data and inquiry capture (includes `inquiry_type=trade_financing`) |
 | Admin/server workflow | `matches`, `disclosure_requests`, `status_history`, `internal_admin_notes`, `audit_events` | Intended server-only/admin-only workflow tables |
 | Authorization | `user_roles` | Harbourview role model anchor |
 | Source/intelligence intake | `source_registry`, `source_snapshots`, `marketplace_candidates`, `candidate_review_events` | Evidence/source watching and candidate review foundation |
+| Watchlist / Command Centre | `cc_watch_rules`, `cc_watchlist_items` | Authenticated watch rules + items (My Briefings + dashboard rule builder) |
+| Weekly LLM briefings | `jurisdiction_briefings` | Published weekly synthesis from `synthesiseJurisdiction` (surfaced on My Briefings Phase 2) |
 | Experimental/local lead capture | `wurx_ottawa_leads` | Needs classification and policy hardening |
 
 Known cleanup items:
@@ -245,6 +276,12 @@ Control rule: no new writes until this project is classified. Export schema and 
 - Playfair Display is not verified as an implemented/imported runtime font.
 - Custom JWT claims are not verified; current evidence supports `user_roles` table lookup.
 - Verification defaults and docs must be checked for post-HAR-22 drift if they still target an older Harbourview production domain.
+
+## External Dependencies (Harbourview Marketplace / `zvxdgdkukjrrwamdpqrg`)
+
+| Dependency | Used by | Purpose | Auth | Noted |
+|---|---|---|---|---|
+| OpenAI `gpt-4o-mini` | `hv_entity_jobs` queue + `hv_entities_dispatch`/`hv_entities_harvest` functions, called via `pg_net` from `hv_pipeline_tick` | Named-entity extraction (operators/regulators/investors) from promoted signals, resolved/created into `ia_graph_entities`, linked via `signal_entities` | Vaulted `openai_api_key` (Supabase Vault, service_role-only) | 2026-07-23 — dependency was live in production prior to this entry; documented retroactively per the registry change policy flagged in PR #1095 |
 
 ## Immediate GO Items
 

@@ -977,6 +977,47 @@ export async function getSourceCoverage(countryIso2: string | null): Promise<Sou
   }
 }
 
+// ── Registry coverage summary (total active sources + language spread) ────────
+// Surfaces the actual source_registry footprint for a country -- previously
+// invisible to users, who only ever saw the small ia_sources fixture table (12
+// rows platform-wide) in the Evidence & Sources page. source_registry is the
+// real, live registry (1,700+ rows platform-wide as of 2026-07) that the
+// crawler and intelligence pipeline actually run against.
+export type RegistryCoverageSummary = {
+  totalActive:     number
+  tier1Count:      number
+  languages:       string[]   // distinct active source languages for this country
+}
+
+export async function getRegistryCoverageSummary(countryIso2: string | null): Promise<RegistryCoverageSummary | null> {
+  if (!countryIso2) return null
+  try {
+    const supabase = await createClient()
+    // Goes through api.get_source_registry_coverage() rather than querying
+    // source_registry directly. source_registry's RLS only admits internal
+    // user_roles admin/operator staff, and the api.source_registry view is an
+    // unfiltered `select *` (source_url, adapter, notes, last_error_log,
+    // locked_by, etc. -- crawler internals). Broadening that RLS to logged-in
+    // dashboard users would hand every one of those columns to any
+    // authenticated caller. The RPC returns only the three aggregate fields
+    // this stat card needs and is grantable to `authenticated` without
+    // touching the raw table's access surface.
+    const { data, error } = await supabase
+      .rpc('get_source_registry_coverage', { p_iso2: countryIso2.toUpperCase() })
+      .maybeSingle()
+    const row = data as { total_active: number; tier1_count: number; languages: string[] | null } | null
+    if (error || !row || row.total_active === 0) return null
+
+    return {
+      totalActive: row.total_active,
+      tier1Count:  row.tier1_count,
+      languages:   (row.languages ?? []).slice().sort(),
+    }
+  } catch {
+    return null
+  }
+}
+
 // ── Country-specific education overlay ────────────────────────────────────
 export type CountryEducationOverlay = {
   moduleKey:    string
@@ -1286,3 +1327,4 @@ export async function getUserMarketplaceSubmissions(userId: string | null): Prom
     return data ?? []
   } catch { return [] }
 }
+

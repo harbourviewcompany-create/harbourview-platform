@@ -2,10 +2,13 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { CountryIntelProfile, PipelineCounts, WantedListing, PathwayData, WatchlistData, LocalIntelData, SourceCoverageRow, EvidenceData, LiveEduTile, RecentEduModule, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { RegulatoryRadar } from './pages/RegulatoryRadar'
+import ClinicalPage from './pages/ClinicalPage'
 
 const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
   permitted: '#5fb87a',
@@ -24,6 +27,7 @@ import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMa
 import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
 import { DealRoomsPanel } from '@/components/dashboard/pages/DealRoomsPanel'
 import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
+import ConfidentialIntakeForm from '@/app/intake/ConfidentialIntakeForm'
 
 
 type PublicServiceProvider = {
@@ -100,12 +104,10 @@ const COUNTRIES: CountryOption[] = ALL_COUNTRIES.map(c => ({ iso2: c.iso2, label
 
 const MOBILE_NAV: { id: CommandPage; label: string; icon: string }[] = [
   { id: 'briefing',        label: 'Briefing',       icon: '◎' },
-  { id: 'digest',          label: 'Digest',         icon: '❑' },
   { id: 'marketplace',     label: 'Market',         icon: '⊞' },
-  { id: 'signals',         label: 'Intel',          icon: '≋' },
-  { id: 'education',       label: 'Education',      icon: '⬡' },
+  { id: 'talent',          label: 'Talent',         icon: '✦' },
   { id: 'genetics',        label: 'Genetics',       icon: '⊕' },
-  { id: 'countries',       label: 'Countries',      icon: '⊗' },
+  { id: 'clinical',        label: 'Clinical',       icon: '⚕' },
 ]
 
 
@@ -474,21 +476,38 @@ function BriefingOverview({ country, roleLabel, countryIntel, signals, marketMet
   )
 }
 
-type BriefingSub = 'overview' | 'compliance' | 'local-intel' | 'access-pathway'
+type BriefingSub = 'overview' | 'digest' | 'intel' | 'compliance' | 'local-intel' | 'countries' | 'access-pathway'
 
 const BRIEF_TABS: { id: BriefingSub; label: string }[] = [
   { id: 'overview',       label: 'Overview' },
+  { id: 'digest',         label: 'Digest' },
+  { id: 'intel',          label: 'Intel' },
   { id: 'compliance',     label: 'Compliance' },
   { id: 'local-intel',    label: 'Local Intel' },
+  { id: 'countries',      label: 'Countries' },
   { id: 'access-pathway', label: 'Access Pathway' },
 ]
 
-function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null }) {
+function BriefingMobile({ country, regionLabel, roleLabel, countryIntel, signals, pathwayData, localIntel, marketMetrics, tradeFlows, jurisdictionPlaybook, pathwayMatrix, onOpenSettings, sub, digestSignals, digestWindow, watchlistData, sourceCoverage, signalsSub, onSignalsSubChange, onCountrySelect }: { country: CountryOption; regionLabel?: string | null; roleLabel: string; roleId: string; countryIntel?: CountryIntelProfile | null; signals: DashboardSignal[]; pathwayData?: PathwayData | null; localIntel?: LocalIntelData | null; countryOptions: SelectOption[]; roleOptions: SelectOption[]; marketMetrics?: MarketMetric[]; tradeFlows?: TradeFlow[]; jurisdictionPlaybook?: JurisdictionPlaybook; pathwayMatrix?: import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix; onCountryChange: (iso2: string) => void; onRoleChange: (r: string) => void; onOpenSettings: () => void; sub: BriefingSub; userEmail?: string | null; digestSignals?: DashboardSignal[]; digestWindow?: DigestWindow; watchlistData?: WatchlistData | null; sourceCoverage?: SourceCoverageRow[]; signalsSub: SignalSub; onSignalsSubChange: (id: SignalSub) => void; onCountrySelect: (iso2: string) => void }) {
   return (
     <div className="hvm-page-stack">
       {sub === 'overview'       && <BriefingOverview country={country} roleLabel={roleLabel} countryIntel={countryIntel} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onOpenSettings={onOpenSettings} />}
+      {sub === 'digest'         && <DigestMobile country={country} roleLabel={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />}
+      {sub === 'intel' && (
+        <>
+          <div className="hvm-scroll-tabs" role="tablist" aria-label="Intel views">
+            {SIGNALS_TABS.map(t => (
+              <button key={t.id} type="button" className={signalsSub === t.id ? 'active' : ''} onClick={() => onSignalsSubChange(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <SignalsMobile country={country} signals={signals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} sub={signalsSub} />
+        </>
+      )}
       {sub === 'compliance'     && <ComplianceMobile country={country} countryIntel={countryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} />}
       {sub === 'local-intel'    && <LocalIntelMobile country={country} regionLabel={regionLabel} roleLabel={roleLabel} signals={signals} localIntel={localIntel} countryIntel={countryIntel} />}
+      {sub === 'countries'      && <CountriesDirectoryMobile signals={signals} onCountrySelect={onCountrySelect} />}
       {sub === 'access-pathway' && <AccessPathwayMobile country={country} roleLabel={roleLabel} countryIntel={countryIntel} pathwayData={pathwayData} jurisdictionPlaybook={jurisdictionPlaybook} />}
     </div>
   )
@@ -1082,6 +1101,19 @@ const EDU_TABS: { id: EduSub; label: string }[] = [
 function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentEduModules, educationTracks = [], evidenceData, sourceCoverage, countryEducationOverlays, professionals = [], initialSub = 'modules' }: { country: CountryOption; roleLabel: string; eduCategories: { icon: string; title: string; desc: string }[]; liveTiles?: LiveEduTile[]; recentEduModules?: RecentEduModule[]; educationTracks?: EducationTrack[]; evidenceData?: EvidenceData; sourceCoverage?: SourceCoverageRow[]; countryEducationOverlays?: CountryEducationOverlay[]; professionals?: HvProfessional[]; initialSub?: EduSub }) {
   const [sub, setSub] = useState<EduSub>(initialSub)
   const [selectedModule, setSelectedModule] = useState<EduModule | null>(null)
+  const [intakeSheet, setIntakeSheet] = useState<{ country: string; role: string; module: string } | null>(null)
+  const intakeSheetOverlay = intakeSheet && (
+    <div className="hvm-context-sheet" role="dialog" aria-modal="true" aria-label="Confidential intake">
+      <button className="hvm-sheet-backdrop" type="button" aria-label="Close intake sheet" onClick={() => setIntakeSheet(null)} />
+      <div className="hvm-sheet-panel hvm-intake-sheet-panel">
+        <div className="hvm-sheet-head">
+          <strong>Request briefing</strong>
+          <button type="button" onClick={() => setIntakeSheet(null)}>×</button>
+        </div>
+        <ConfidentialIntakeForm initialContext={intakeSheet} onClose={() => setIntakeSheet(null)} />
+      </div>
+    </div>
+  )
 
   const tiles: EduModule[] = liveTiles && liveTiles.length > 0
     ? liveTiles
@@ -1132,11 +1164,12 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
             ))}
           </div>
         )}
-        <a href={`/intake?country=${country.iso2}&role=${encodeURIComponent(roleLabel)}&module=${encodeURIComponent(selectedModule.title)}`} className="hvm-cta-card">
+        <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: selectedModule.title })} className="hvm-cta-card hvm-cta-card--btn">
           <span className="hvm-kicker">Next step</span>
           <strong>{action} · {country.label}</strong>
           <span className="hvm-cta-arrow">Get briefing →</span>
-        </a>
+        </button>
+        {intakeSheetOverlay}
       </div>
     )
   }
@@ -1159,13 +1192,14 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
           </section>
 
           {tiles.length > 0 && (
-            <a href="/intake" className="hvm-cta-card">
+            <button type="button" onClick={() => setIntakeSheet({ country: country.iso2, role: roleLabel, module: tiles[0].title })} className="hvm-cta-card hvm-cta-card--btn">
               <span className="hvm-kicker">Next best action</span>
               <strong>{tiles[0].title} · {country.label}</strong>
               <p style={{ margin: '6px 0 0', color: 'rgba(245,240,232,.62)', fontSize: 14, lineHeight: 1.45 }}>{tiles[0].desc}</p>
-              <span className="hvm-cta-arrow">Start module →</span>
-            </a>
+              <span className="hvm-cta-arrow">Request access →</span>
+            </button>
           )}
+          {intakeSheetOverlay}
 
           <div className="hvm-education-list">
             {tiles.map((module, index) => (
@@ -2270,6 +2304,8 @@ function RegulatoryMobile({ country, roleLabel, signals, watchlistData, countryI
         )}
       </section>
 
+      <RegulatoryRadar countryIso={country.iso2} />
+
       {/* Status matrix */}
       <MobileAccordion title="Market status matrix" defaultOpen>
         <div className="hvm-reg-matrix-grid">
@@ -2993,6 +3029,80 @@ function CountriesDirectoryMobile({ signals, onCountrySelect }: { signals: Dashb
         <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.65)', lineHeight: 1.6 }}>Select any country to load its briefing, market data, and access pathway into the Command Centre panels.</p>
         <Link href="/countries" style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#d4a84b', fontWeight: 600, textDecoration: 'none' }}>Full country profiles →</Link>
       </div>
+    </div>
+  )
+}
+
+// ── Talent mobile page (placeholder — full board pending PR #1122 review/QA) ──
+
+type TalentJobRow = { id: string; title: string; department: string | null; location: string | null; operator_name: string | null; operator_verification_status: string | null }
+
+function TalentMobile() {
+  const [jobs, setJobs] = useState<TalentJobRow[] | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('talent_jobs_public')
+      .select('id, title, department, location, operator_name, operator_verification_status')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) { setLoadError(true); return }
+        setJobs((data as TalentJobRow[] | null) ?? [])
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <div className="hvm-page-stack">
+      <section className="hvm-hero-card compact">
+        <div style={{ fontSize: 11, color: 'rgba(245,240,232,.38)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em', marginBottom: 8 }}>TALENT</div>
+        <h2>Talent Hub</h2>
+        <p>Open roles at operators Harbourview has already vetted.</p>
+      </section>
+
+      {loadError && (
+        <div className="hvm-empty-card">
+          <strong>Roles couldn&apos;t be loaded right now.</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>Please try again shortly.</p>
+        </div>
+      )}
+
+      {!loadError && jobs === null && (
+        <div className="hvm-empty-card">
+          <strong>Loading roles…</strong>
+        </div>
+      )}
+
+      {!loadError && jobs !== null && jobs.length === 0 && (
+        <div className="hvm-empty-card">
+          <strong>No open roles right now.</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(245,240,232,.6)', lineHeight: 1.6 }}>Check back soon.</p>
+        </div>
+      )}
+
+      {!loadError && jobs !== null && jobs.length > 0 && (
+        <div className="hvm-page-stack" style={{ gap: 10 }}>
+          {jobs.map(job => (
+            <a key={job.id} href={`/talent/${job.id}`} className="hvm-hero-card compact" style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: 15 }}>{job.title}</h3>
+                {job.operator_verification_status === 'verified' && (
+                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: 'rgba(52,199,89,.12)', color: '#34c759', border: '1px solid rgba(52,199,89,.3)' }}>Verified</span>
+                )}
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(245,240,232,.55)' }}>{job.operator_name ?? 'Harbourview network operator'}</p>
+              <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: 'rgba(245,240,232,.4)' }}>
+                {job.location && <span>{job.location}</span>}
+                {job.department && <span>{job.department}</span>}
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -3757,6 +3867,9 @@ export default function MobileCommandCentre({
             onCountryChange={handleCountryChange} onRoleChange={handleRoleChange}
             onOpenSettings={() => handlePageChange('settings')}
             sub={briefingSub} userEmail={userEmail}
+            digestSignals={digestSignals} digestWindow={digestWindow}
+            watchlistData={watchlistData} sourceCoverage={sourceCoverage}
+            signalsSub={signalsSub} onSignalsSubChange={setSignalsSub} onCountrySelect={handleCountryChange}
           />
         )
       case 'marketplace':
@@ -3780,6 +3893,10 @@ export default function MobileCommandCentre({
         )
       case 'genetics':
         return <GeneticsMobile country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} />
+      case 'clinical':
+        return <ClinicalPage countryLabel={country.label} countryIso2={country.iso2} roleLabel={roleLabel} />
+      case 'talent':
+        return <TalentMobile />
       case 'settings':
         return <SettingsMobile country={country} role={role} roleLabel={roleLabel} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} userEmail={userEmail} hasOrg={hasOrg} onOpenOrganization={() => handlePageChange('organization')} />
       case 'organization':
@@ -3957,9 +4074,9 @@ const MOBILE_CSS = `
   min-height: 44px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.72);
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.02);
+  color: rgba(255,255,255,0.5);
   font-size: 16px;
   cursor: pointer;
 }
@@ -4002,7 +4119,7 @@ const MOBILE_CSS = `
 .hvm-hero-card { padding: 18px; }
 .hvm-hero-card.compact h2 { margin: 0 0 6px; }
 .hvm-country-row { display: flex; align-items: center; gap: 13px; }
-.hvm-country-mark { flex: 0 0 auto; font-size: 36px; }
+.hvm-country-mark { flex: 0 0 auto; font-size: 36px; line-height: 1; margin-top: -3px; }
 .hvm-hero-card h2 {
   margin: 0;
   color: #f5f0e8;
@@ -4106,6 +4223,8 @@ const MOBILE_CSS = `
   max-width: calc(100% + 32px);
   scrollbar-width: none;
   border-bottom: 1px solid rgba(255,255,255,.06);
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 32px), transparent 100%);
 }
 .hvm-titlebar .hvm-scroll-tabs {
   margin: 0;
@@ -4363,6 +4482,8 @@ const MOBILE_CSS = `
 }
 .hvm-cta-card strong { font-size: 16px; color: rgba(245,240,232,.94); }
 .hvm-cta-arrow { font-size: 13px; color: rgba(96,165,250,.9); font-weight: 600; }
+.hvm-cta-card--btn { width: 100%; text-align: left; cursor: pointer; font: inherit; appearance: none; -webkit-appearance: none; }
+.hvm-intake-sheet-panel { max-height: 88vh; overflow-y: auto; }
 .hvm-signin-btn {
   display: block; width: 100%; min-height: 50px; border-radius: 14px;
   border: 1px solid rgba(96,165,250,.4); background: rgba(96,165,250,.1);

@@ -5,7 +5,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
+import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, EvidenceSource, OrgEvidenceDoc, LiveEduTile, RecentEduModule, WatchlistData, PathwayData, SourceCoverageRow, RegistryCoverageSummary, LocalIntelData, JurisdictionPlaybook, EducationTrack, MarketMetric, TradeFlow, HvProfessional, CannabisOperator, CountryEducationOverlay, MySubmission } from '@/lib/dashboard/dashboardLiveData'
+import { buildConfidenceLanes, overallConfidence as computeOverallConfidence, type ConfidenceLane } from '@/lib/dashboard/confidenceScoring'
+import { useDashboardSignalsRealtime } from '@/components/dashboard/useDashboardSignalsRealtime'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -24,6 +26,7 @@ import { MySubmissionsPanel } from './MySubmissionsPanel'
 import { ConsumablesRequestModal } from './ConsumablesRequestModal'
 import { DealRoomsPanel as DealRoomsSidebarWidget } from './DealRoomsPanel'
 import { AssistantPage } from './pages/AssistantPage'
+import ClinicalPage from './pages/ClinicalPage'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
@@ -33,6 +36,8 @@ import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type
 import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
 import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
 import { WatchlistPage } from './pages/WatchlistPage'
+import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { DealRoomsPanel } from './pages/DealRoomsPanel'
@@ -60,6 +65,7 @@ export type CommandPage =
   | 'watchlist'
   | 'settings'
   | 'genetics'
+  | 'clinical'
   | 'compliance'
   | 'countries'
   | 'assistant'
@@ -76,6 +82,7 @@ export type CommandPage =
   | 'licences'
   | 'trade-calc'
   | 'organization'
+  | 'talent'
 
 export type { DigestWindow }
 
@@ -125,10 +132,12 @@ type Props = {
   localIntel?:      LocalIntelData | null
   pathwayData?:     PathwayData
   watchlistData?:    WatchlistData
+  watchlistAccess?:  FeatureAccess
   evidenceData?:     EvidenceData
   liveTiles?:           LiveEduTile[]
   recentEduModules?:    RecentEduModule[]
   sourceCoverage?:      SourceCoverageRow[]
+  registryCoverageSummary?: RegistryCoverageSummary
   jurisdictionPlaybook?: JurisdictionPlaybook
   pathwayMatrix?:       import('@/lib/intelligence/regulatoryPathways').CountryPathwayMatrix
   educationTracks?:     EducationTrack[]
@@ -173,7 +182,6 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'digest',      label: 'Daily Digest',  icon: '❑' },
       { id: 'marketplace', label: 'Marketplace',   icon: '⊞' },
       { id: 'signals',     label: 'Intelligence',  icon: '≋' },
-      { id: 'education',   label: 'Education',     icon: '⬛' },
       { id: 'watchlist',   label: 'Watchlist',     icon: '◈' },
     ],
   },
@@ -208,6 +216,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Compliance & Legal',
     items: [
       { id: 'genetics',   label: 'Genetics',    icon: '⊕' },
+      { id: 'clinical',   label: 'Clinical',    icon: '⚕' },
       { id: 'compliance', label: 'Compliance',  icon: '◫' },
       { id: 'licences',   label: 'Licences',    icon: '◨' },
       { id: 'kyb',        label: 'KYB / Verify', icon: '◫' },
@@ -245,10 +254,6 @@ function buildConfidenceBars(intel?: CountryIntelProfile | null): { label: strin
     { label: 'Local Intel',       pct: Math.max(20, base - 12) },
     { label: 'Education Content', pct: Math.min(94, base + 4) },
   ]
-}
-
-function overallConfidence(bars: { pct: number }[]) {
-  return Math.round(bars.reduce((s, b) => s + b.pct, 0) / bars.length)
 }
 
 function fmtStatus(v: string | null | undefined, fallback = '—'): string {
@@ -363,6 +368,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   signals,
   marketMetrics = [],
   tradeFlows = [],
+  confidence,
   onCountrySelect,
   onPageChange,
 }: {
@@ -374,6 +380,11 @@ const BriefingRoom = React.memo(function BriefingRoom({
   signals:          DashboardSignal[]
   marketMetrics?:   MarketMetric[]
   tradeFlows?:      TradeFlow[]
+  // Real, data-driven confidence lanes computed upstream in CommandCentre from
+  // the full per-lane data set. Optional: when absent (e.g. a caller that only
+  // has country intel in scope) BriefingRoom falls back to computing lanes from
+  // the country intel + signals it does have.
+  confidence?:      ConfidenceLane[]
   onCountrySelect?: (iso2: string) => void
   onPageChange?:    (page: CommandPage) => void
 }) {
@@ -381,8 +392,11 @@ const BriefingRoom = React.memo(function BriefingRoom({
   const [aiBriefing, setAiBriefing] = useState<string | null>(null)
   const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const [aiBriefingError, setAiBriefingError] = useState(false)
-  const confBars = useMemo(() => buildConfidenceBars(countryIntel), [countryIntel])
-  const overall  = overallConfidence(confBars)
+  const confBars = useMemo<ConfidenceLane[]>(
+    () => confidence ?? buildConfidenceLanes({ countryIntel, signals, countryLabel: country.label }),
+    [confidence, countryIntel, signals, country.label],
+  )
+  const overall  = useMemo(() => computeOverallConfidence(confBars), [confBars])
   const recentChanges = useMemo(() =>
     signals.slice(0, 3).map(s => ({
       market:  s.market,
@@ -550,12 +564,19 @@ const BriefingRoom = React.memo(function BriefingRoom({
             </div>
             <div className="cc-confidence-bars">
               {confBars.map(bar => (
-                <div key={bar.label} className="cc-conf-bar-row">
+                <div
+                  key={bar.key}
+                  className={`cc-conf-bar-row${bar.available ? '' : ' cc-conf-bar-row-pending'}`}
+                  title={bar.basis}
+                >
                   <span className="cc-conf-bar-lbl">{bar.label}</span>
                   <div className="cc-conf-bar-track">
-                    <div className="cc-conf-bar-fill" style={{ width: `${bar.pct}%` }} />
+                    <div
+                      className="cc-conf-bar-fill"
+                      style={{ width: bar.available ? `${bar.pct}%` : '0%' }}
+                    />
                   </div>
-                  <span className="cc-conf-bar-pct">{bar.pct}%</span>
+                  <span className="cc-conf-bar-pct">{bar.available ? `${bar.pct}%` : '—'}</span>
                 </div>
               ))}
             </div>
@@ -3782,6 +3803,7 @@ type CorridorAlert = {
   id: string; alert_date: string; severity: 'major' | 'minor' | 'watch'
   summary: string; detail: string; source: string
 }
+type CorridorAlertFeedItem = CorridorAlert & { corridor_key: string }
 const ALERT_SEVERITY_COLOR: Record<string, string> = { major: '#e05c5c', minor: '#d4a84b', watch: '#5b9bd5' }
 function parseLogisticsRange(s: string): { currency: string; lo: number; hi: number } | null {
   const m = s.match(/^(€|£|CAD\s?|AUD\s?|USD\s?)([\d,]+)[–\-]([\d,]+)/)
@@ -3803,6 +3825,19 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
   const [submitErr,   setSubmitErr]   = useState<string | null>(null)
   const [modelKey,    setModelKey]    = useState('')
   const [modelKg,     setModelKg]     = useState('10')
+  const [feed,        setFeed]        = useState<CorridorAlertFeedItem[] | null>(null)
+  const [feedError,   setFeedError]   = useState(false)
+
+  // Cross-corridor regulatory-alert feed — standing view, loaded once on mount, independent
+  // of the per-corridor alerts fetched on row-expand below.
+  useEffect(() => {
+    let live = true
+    fetch('/api/corridors/alerts?limit=20')
+      .then(r => r.json())
+      .then((d: { alerts?: CorridorAlertFeedItem[] }) => { if (live) setFeed(d.alerts ?? []) })
+      .catch(() => { if (live) { setFeed([]); setFeedError(true) } })
+    return () => { live = false }
+  }, [])
 
   const roleIsImporter = role.toLowerCase().includes('import') || role.toLowerCase().includes('buyer') || role.toLowerCase().includes('pharma')
   const roleIsExporter = role.toLowerCase().includes('export') || role.toLowerCase().includes('supplier') || role.toLowerCase().includes('cultivat')
@@ -3940,6 +3975,66 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
         </div>
       ) : (
         <>
+          {/* Regulatory alerts feed — live cross-corridor signal, standing view */}
+          {feed !== null && feed.length > 0 && (
+            <div style={{
+              border: '1px solid rgba(212,168,75,.18)', borderRadius: '10px',
+              background: 'rgba(212,168,75,.04)', padding: '12px 14px',
+              display: 'flex', flexDirection: 'column', gap: '10px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#d4a84b' }}>◈</span>
+                <span style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: '#d4a84b', fontWeight: 700 }}>
+                  Regulatory Alerts
+                </span>
+                <span style={{ fontSize: '9px', color: 'rgba(245,240,232,.35)' }}>
+                  {feed.length} recent · across all corridors
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                {feed.map(a => (
+                  <details key={a.id} style={{
+                    background: 'rgba(255,255,255,.02)', borderRadius: '7px',
+                    border: '1px solid rgba(255,255,255,.06)', padding: '8px 11px',
+                  }}>
+                    <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', gap: '9px', alignItems: 'baseline' }}>
+                      <span style={{
+                        flexShrink: 0, width: '7px', height: '7px', borderRadius: '50%',
+                        background: ALERT_SEVERITY_COLOR[a.severity] ?? 'rgba(245,240,232,.4)',
+                        alignSelf: 'center',
+                      }} />
+                      <span style={{ flexShrink: 0, fontSize: '9px', color: 'rgba(245,240,232,.4)', minWidth: '58px' }}>
+                        {new Date(a.alert_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      </span>
+                      <span style={{ flexShrink: 0, fontSize: '9px', color: 'rgba(245,240,232,.5)', fontWeight: 600, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {a.corridor_key}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'rgba(245,240,232,.85)', lineHeight: 1.35 }}>
+                        {a.summary}
+                      </span>
+                    </summary>
+                    {(a.detail || a.source) && (
+                      <div style={{ marginTop: '7px', paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {a.detail && <p style={{ margin: 0, fontSize: '11px', color: 'rgba(245,240,232,.6)', lineHeight: 1.5 }}>{a.detail}</p>}
+                        {a.source && <div style={{ fontSize: '9px', letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(245,240,232,.35)' }}>Source: {a.source}</div>}
+                      </div>
+                    )}
+                  </details>
+                ))}
+              </div>
+            </div>
+          )}
+          {feed !== null && feed.length === 0 && !feedError && (
+            <div style={{
+              border: '1px solid rgba(255,255,255,.06)', borderRadius: '10px',
+              background: 'rgba(255,255,255,.02)', padding: '12px 14px',
+              fontSize: '11px', color: 'rgba(245,240,232,.4)',
+            }}>
+              <span style={{ color: '#d4a84b', marginRight: '7px' }}>◈</span>
+              No regulatory alerts on record yet — this feed updates as corridor intelligence lands.
+            </div>
+          )}
+
           {/* Role context banner */}
           {(roleIsImporter || roleIsExporter) && (
             <div style={{
@@ -4829,7 +4924,7 @@ function SyncEmbeddingsPanel() {
 // ── EvidenceSourcesPage ───────────────────────────────────────────────────────
 
 const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
-  country, region, role, evidenceData, pathwayData, professionals = [], onPageChange,
+  country, region, role, evidenceData, pathwayData, professionals = [], registryCoverageSummary, onPageChange,
 }: {
   country:        { iso2: string; label: string }
   region:         string
@@ -4837,6 +4932,7 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
   evidenceData?:  EvidenceData
   pathwayData?:   PathwayData
   professionals?: HvProfessional[]
+  registryCoverageSummary?: RegistryCoverageSummary
   onPageChange?:  (page: CommandPage) => void
 }) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('regulatory')
@@ -4991,6 +5087,17 @@ const EvidenceSourcesPage = React.memo(function EvidenceSourcesPage({
             <div className="cc-ev-stat-big unknown">{unknownAreas}</div>
             <small>Areas</small>
           </div>
+
+          {registryCoverageSummary && (
+            <div className="cc-ev-stat-card">
+              <div className="cc-rw-card-lbl">REGISTRY COVERAGE</div>
+              <div className="cc-ev-stat-big verified">{registryCoverageSummary.totalActive}</div>
+              <small>
+                {registryCoverageSummary.tier1Count} tier-1 · {registryCoverageSummary.languages.length}{' '}
+                language{registryCoverageSummary.languages.length === 1 ? '' : 's'}
+              </small>
+            </div>
+          )}
 
           <div className="cc-ev-stat-card">
             <div className="cc-rw-card-lbl">📅 LAST REVIEWED</div>
@@ -8371,6 +8478,28 @@ const PRICE_ROLE_CHANNEL_MAP: Record<string, string> = {
   'Logistics':   'wholesale',
 }
 
+// Live, sourced price figures from `market_metrics` (via /api/dashboard/price-references),
+// shown as a secondary cross-check against the curated PRICE_BENCHMARKS.
+type PriceReference = {
+  country_iso2: string
+  metric_name:  string
+  metric_value: number | string
+  metric_unit:  string | null
+  source_name:  string | null
+  source_url:   string | null
+  source_date:  string | null
+}
+
+// "Q2 2026" -> last day of that quarter (UTC). Used to decide whether an independent
+// reference is dated after the benchmark's own refresh quarter (i.e. genuinely newer).
+function benchmarkQuarterEnd(updatedQ: string): Date | null {
+  const m = updatedQ.match(/Q([1-4])\s+(\d{4})/)
+  if (!m) return null
+  const q = parseInt(m[1], 10)
+  const year = parseInt(m[2], 10)
+  return new Date(Date.UTC(year, q * 3, 0)) // day 0 of month (q*3) = last day of the quarter
+}
+
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
@@ -8381,6 +8510,17 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   const [sortBy,         setSortBy]         = useState<'country' | 'price-asc' | 'price-desc' | 'trend' | 'role'>('country')
   const [compareMode,    setCompareMode]    = useState(false)
   const [compareIds,     setCompareIds]     = useState<Set<string>>(new Set())
+  const [priceRefs,      setPriceRefs]      = useState<PriceReference[] | null>(null)
+
+  // Load live independent price references once on mount (cross-check vs curated benchmarks).
+  useEffect(() => {
+    let live = true
+    fetch('/api/dashboard/price-references')
+      .then(r => r.json())
+      .then((d: { references?: PriceReference[] }) => { if (live) setPriceRefs(d.references ?? []) })
+      .catch(() => { if (live) setPriceRefs([]) })
+    return () => { live = false }
+  }, [])
 
   const roleProducts  = useMemo(() => PRICE_ROLE_PRODUCTS_MAP[role] ?? [], [role])
   const roleChannel   = PRICE_ROLE_CHANNEL_MAP[role] ?? ''
@@ -8634,6 +8774,57 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
               >
                 {sortBy === 'role' ? '✓ Sorted by Role' : `Sort by ${role} Relevance`}
               </button>
+            </div>
+          )
+        })()}
+
+        {/* Independent price references — live cross-check vs curated benchmarks */}
+        {(() => {
+          if (!priceRefs || priceRefs.length === 0) return null
+          const benchCountries = new Set(PRICE_BENCHMARKS.map(b => b.country))
+          const benchQuarter   = new Map(PRICE_BENCHMARKS.map(b => [b.country, b.updatedQ]))
+          const shown = priceRefs
+            .filter(r => benchCountries.has(r.country_iso2))
+            .sort((a, b) =>
+              a.country_iso2 === country.iso2 ? -1
+              : b.country_iso2 === country.iso2 ? 1
+              : a.country_iso2.localeCompare(b.country_iso2))
+          if (shown.length === 0) return null
+          return (
+            <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,.08)' }}>
+              <div style={{ fontSize: '.72rem', color: '#8a8a9a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Independent References</div>
+              <div style={{ fontSize: '.7rem', color: '#6b7280', marginBottom: 10, lineHeight: 1.5 }}>
+                Live sourced figures from market monitoring — a secondary cross-check on the curated wholesale benchmarks, not a replacement (often a different channel, e.g. pharmacy/retail).
+              </div>
+              {shown.map((r, i) => {
+                const qEnd    = benchmarkQuarterEnd(benchQuarter.get(r.country_iso2) ?? '')
+                const isNewer = !!(r.source_date && qEnd && new Date(r.source_date) > qEnd)
+                return (
+                  <div key={`${r.country_iso2}-${i}`} style={{ marginBottom: 8, padding: '7px 9px', background: 'rgba(255,255,255,.03)', borderRadius: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: '.9rem' }}>{flagEmoji(r.country_iso2)}</span>
+                      <span style={{ fontSize: '.72rem', color: '#b0b0c0', fontWeight: 600 }}>{r.country_iso2}</span>
+                      {isNewer && (
+                        <span title="Source dated after the current benchmark quarter"
+                          style={{ fontSize: '.58rem', padding: '1px 6px', borderRadius: 8, background: 'rgba(212,168,75,.18)', color: '#d4a84b', fontWeight: 700, letterSpacing: '.04em' }}>
+                          NEWER
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '.82rem', color: '#f5f0e8', fontWeight: 700 }}>
+                      {Number(r.metric_value).toLocaleString()}
+                      <span style={{ fontSize: '.66rem', color: '#6b7280', fontWeight: 400, marginLeft: 4 }}>{r.metric_unit}</span>
+                    </div>
+                    <div style={{ fontSize: '.68rem', color: '#8a8a9a', marginTop: 1 }}>{r.metric_name}</div>
+                    <div style={{ fontSize: '.64rem', color: '#6b7280', marginTop: 3 }}>
+                      {r.source_url
+                        ? <a href={r.source_url} target="_blank" rel="noopener noreferrer" style={{ color: '#8a8a9a', textDecoration: 'underline' }}>{r.source_name}</a>
+                        : r.source_name}
+                      {r.source_date ? ` · ${r.source_date}` : ''}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )
         })()}
@@ -10654,7 +10845,7 @@ const EventsPage = React.memo(function EventsPage({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CommandCentre({
-  signals,
+  signals: ssrSignals,
   digestSignals,
   digestWindow,
   eduCategories,
@@ -10669,11 +10860,13 @@ export default function CommandCentre({
   countryIntel,
   pathwayData,
   watchlistData,
+  watchlistAccess,
   evidenceData,
   localIntel,
   liveTiles,
   recentEduModules,
   sourceCoverage,
+  registryCoverageSummary,
   jurisdictionPlaybook,
   pathwayMatrix,
   educationTracks = [],
@@ -10724,6 +10917,11 @@ export default function CommandCentre({
   const [liveCountryIntel, setLiveCountryIntel] = useState<CountryIntelProfile | null>(countryIntel ?? null)
   const [intelLoading,     setIntelLoading]     = useState(false)
 
+  // Live, country-scoped signal feed. Seeds from the SSR list, re-scopes to the
+  // selected country, and refreshes on Realtime signal inserts (debounced). All
+  // pages below consume this `signals` rather than the static SSR prop.
+  const { signals } = useDashboardSignalsRealtime(ssrSignals, country.label)
+
   useEffect(() => {
     if (countryIntel?.country_code === country.iso2) {
       setLiveCountryIntel(countryIntel ?? null)
@@ -10759,6 +10957,21 @@ export default function CommandCentre({
     [role],
   )
   const pageTitle = useMemo(() => NAV_ITEMS_FLAT.find(n => n.id === activePage)?.label ?? 'Command Centre', [activePage])
+
+  // Real, data-driven BriefingRoom confidence — computed here where the full
+  // per-lane data set is in scope (regulatory sources, market metrics, pathway,
+  // local intel, education), rather than from a single completeness bucket.
+  const briefingConfidence = useMemo<ConfidenceLane[]>(() => buildConfidenceLanes({
+    countryIntel:     liveCountryIntel,
+    signals,
+    countryLabel:     country.label,
+    pathwayData,
+    localIntel,
+    sourceCoverage,
+    marketMetrics,
+    eduCategories,
+    recentEduModules,
+  }), [liveCountryIntel, signals, country.label, pathwayData, localIntel, sourceCoverage, marketMetrics, eduCategories, recentEduModules])
 
   // Per-role sidebar ordering: promote modules relevant to this role within each
   // nav section, without hiding anything. 'briefing' always stays first (it's the
@@ -10841,7 +11054,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} confidence={briefingConfidence} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'digest':
         return <DigestPageLazy country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'access-pathway':
@@ -10849,7 +11062,7 @@ export default function CommandCentre({
       case 'marketplace':
         return <MarketplacePage country={country} region={region} role={roleLabel} marketplaceRows={marketplaceRows} wantedListings={wantedListings} wantedCount={wantedCount} pathwayData={pathwayData} cannabisOperators={cannabisOperators} operatorLicenceMatrix={operatorLicenceMatrix} pipeline={pipeline} onPageChange={handlePageChange} mySubmissions={mySubmissions} userEmail={userEmail} />
       case 'evidence':
-        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} onPageChange={handlePageChange} />
+        return <EvidenceSourcesPage country={country} region={region} role={roleLabel} evidenceData={evidenceData} pathwayData={pathwayData} professionals={professionals} registryCoverageSummary={registryCoverageSummary} onPageChange={handlePageChange} />
       case 'education':
         return <EducationPage country={country} region={region} role={roleLabel} eduCategories={eduCategories} liveTiles={liveTiles} recentEduModules={recentEduModules} signals={signals} pathwayData={pathwayData} educationTracks={educationTracks} countryEducationOverlays={countryEducationOverlays} onPageChange={handlePageChange} />
       case 'regulatory':
@@ -10859,11 +11072,16 @@ export default function CommandCentre({
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
       case 'watchlist':
+        if (watchlistAccess && !watchlistAccess.granted) {
+          return <WatchlistUpgradeGate access={watchlistAccess} />
+        }
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
         return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
+      case 'clinical':
+        return <ClinicalPage countryLabel={country.label} countryIso2={country.iso2} roleLabel={roleLabel} />
       case 'compliance':
         return <CompliancePage country={country} countryIntel={liveCountryIntel} jurisdictionPlaybook={jurisdictionPlaybook} pathwayMatrix={pathwayMatrix} role={roleLabel} onPageChange={handlePageChange} />
       case 'countries':
@@ -11026,6 +11244,7 @@ export default function CommandCentre({
     </div>
   )
 }
+
 
 
 

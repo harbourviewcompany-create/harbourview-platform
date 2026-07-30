@@ -52,6 +52,7 @@ create policy pathway_format_rules_public_read on public.pathway_format_rules fo
 grant select on public.pathway_format_rules to anon, authenticated;
 
 drop policy if exists operator_licences_tier_read on public.operator_licences;
+drop policy if exists operator_licences_public_read on public.operator_licences;
 create policy operator_licences_public_read on public.operator_licences for select using (true);
 grant select on public.operator_licences to anon, authenticated;
 

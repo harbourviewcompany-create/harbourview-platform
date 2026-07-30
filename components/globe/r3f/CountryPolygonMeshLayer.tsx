@@ -35,6 +35,10 @@ import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicG
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
 
+// Idle plates for these iso2s must use full-detail geometry. Medium LOD was
+// still voiding Russia in production despite per-polygon antimeridian unwrap.
+const FULL_DETAIL_IDLE_ISO2 = new Set(['RU', 'US'])
+
 const SPECULAR_CAP = 0.42
 
 // Countries whose bbox area (lon-span × lat-span) is below this threshold get an
@@ -292,7 +296,9 @@ export function CountryPolygonMeshLayer({
           plateLift: PLATE_LIFT,
           extrusionHeight: IDLE_EXTRUSION,
           geometryMode: 'extruded',
-          simplifyTolerance: LOD_SIMPLIFY_TOLERANCE.medium,
+          simplifyTolerance: FULL_DETAIL_IDLE_ISO2.has(entry.iso2)
+            ? LOD_SIMPLIFY_TOLERANCE.high
+            : LOD_SIMPLIFY_TOLERANCE.medium,
         }),
         hitGeometry:
           bboxArea(entry.bbox) < SMALL_COUNTRY_BBOX_THRESHOLD_DEG2

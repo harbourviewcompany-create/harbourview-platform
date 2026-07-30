@@ -102,28 +102,154 @@ function ringAreaDeg2(ring) {
   return Math.abs(area / 2)
 }
 
+/**
+ * Antimeridian ring split — durable fix for Russia / Fiji / NZ / US Alaska tails.
+ *
+ * Natural Earth 50m sometimes emits outer rings whose consecutive vertices jump
+ * across ±180°. Those rings are valid on a sphere but self-intersecting in the
+ * planar lon/lat domain earcut uses. Result: empty or inverted plate → ocean void.
+ */
+function lonDelta(a, b) {
+  let d = b - a
+  while (d > 180) d -= 360
+  while (d < -180) d += 360
+  return d
+}
+
+function crossesAntimeridian(a, b) {
+  return Math.abs(lonDelta(a[0], b[0])) > 180
+}
+
+function interpolateAntimeridianCrossing(a, b) {
+  const dLon = lonDelta(a[0], b[0])
+  const targetLon = a[0] + dLon > 0 ? 180 : -180
+  const unwrappedB = a[0] + dLon
+  const t = (targetLon - a[0]) / (unwrappedB - a[0] || 1)
+  const lat = a[1] + t * (b[1] - a[1])
+  return {
+    lat: Math.round(lat * 1000) / 1000,
+    leaveLon: targetLon,
+    enterLon: -targetLon,
+  }
+}
+
+function splitRingAtAntimeridian(ring) {
+  if (!Array.isArray(ring) || ring.length < 4) return [ring]
+
+  const pts = ring.slice()
+  if (
+    pts.length >= 2 &&
+    pts[0][0] === pts[pts.length - 1][0] &&
+    pts[0][1] === pts[pts.length - 1][1]
+  ) {
+    pts.pop()
+  }
+  if (pts.length < 3) return [ring]
+
+  let hasCrossing = false
+  for (let i = 0; i < pts.length; i++) {
+    if (crossesAntimeridian(pts[i], pts[(i + 1) % pts.length])) {
+      hasCrossing = true
+      break
+    }
+  }
+  if (!hasCrossing) return [ring]
+
+  const path = []
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]
+    const b = pts[(i + 1) % pts.length]
+    path.push(a)
+    if (crossesAntimeridian(a, b)) {
+      const { lat, leaveLon, enterLon } = interpolateAntimeridianCrossing(a, b)
+      path.push([leaveLon, lat])
+      path.push([enterLon, lat])
+    }
+  }
+
+  const runs = []
+  let current = [path[0]]
+  for (let i = 1; i < path.length; i++) {
+    const prev = current[current.length - 1]
+    const next = path[i]
+    if (crossesAntimeridian(prev, next)) {
+      if (current.length >= 2) runs.push(current)
+      current = [next]
+    } else {
+      current.push(next)
+    }
+  }
+  if (current.length >= 2) runs.push(current)
+
+  const closed = []
+  for (const run of runs) {
+    if (run.length < 3) continue
+    const first = run[0]
+    const last = run[run.length - 1]
+    const out = run.map((p) => [p[0], p[1]])
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      out.push([first[0], first[1]])
+    }
+    if (out.length >= 4) closed.push(out)
+  }
+
+  return closed.length > 0 ? closed : [ring]
+}
+
+function splitPolygonAtAntimeridian(polygonRings) {
+  const outer = polygonRings.find((r) => r.kind === 'outer')
+  if (!outer) return [{ rings: polygonRings }]
+
+  const splitOuters = splitRingAtAntimeridian(outer.points)
+  if (splitOuters.length <= 1) return [{ rings: polygonRings }]
+
+  const holes = polygonRings.filter((r) => r.kind === 'hole')
+
+  return splitOuters.map((outerPoints) => {
+    const lons = outerPoints.map((p) => p[0])
+    const minLon = Math.min(...lons)
+    const maxLon = Math.max(...lons)
+    const assignedHoles = holes.filter((hole) => {
+      const meanLon =
+        hole.points.reduce((s, p) => s + p[0], 0) / Math.max(1, hole.points.length)
+      return meanLon >= minLon - 1e-6 && meanLon <= maxLon + 1e-6
+    })
+    return {
+      rings: [{ kind: 'outer', points: outerPoints }, ...assignedHoles],
+    }
+  })
+}
+
 function normalizePolygons(geometry, tolerance) {
   const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
 
-  return polygons
-    .map((polygon) => {
-      const rings = []
+  const normalized = []
 
-      polygon.forEach((ring, index) => {
-        const simplified = simplifyRing(ring, tolerance)
-        if (!simplified) return
+  for (const polygon of polygons) {
+    const rings = []
 
-        if (index === 0 && ringAreaDeg2(simplified) < MIN_POLYGON_AREA_DEG2) return
+    polygon.forEach((ring, index) => {
+      const simplified = simplifyRing(ring, tolerance)
+      if (!simplified) return
 
-        rings.push({
-          kind: index === 0 ? 'outer' : 'hole',
-          points: simplified,
-        })
+      if (index === 0 && ringAreaDeg2(simplified) < MIN_POLYGON_AREA_DEG2) return
+
+      rings.push({
+        kind: index === 0 ? 'outer' : 'hole',
+        points: simplified,
       })
-
-      return rings.some((ring) => ring.kind === 'outer') ? { rings } : null
     })
-    .filter(Boolean)
+
+    if (!rings.some((ring) => ring.kind === 'outer')) continue
+
+    // Durable antimeridian split: one self-crossing outer → N clean outers
+    const split = splitPolygonAtAntimeridian(rings)
+    for (const part of split) {
+      if (part.rings.some((r) => r.kind === 'outer')) normalized.push(part)
+    }
+  }
+
+  return normalized
 }
 
 function computeBoundingBox(polygons) {
@@ -288,8 +414,8 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
     boundaryModel: 'Natural Earth de facto boundaries',
     generatedAt: '${new Date().toISOString()}',
     generatedBy: 'scripts/generate-natural-earth-countries.mjs',
-    harbourviewTransformVersion: '1.1.0-natural-earth-50m',
-    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; Douglas-Peucker simplified at ${SIMPLIFY_TOLERANCE_DEG}\u00b0 tolerance; coordinates rounded to 3 decimal places. Source upgraded to 1:50m for higher polygon fidelity.',
+    harbourviewTransformVersion: '1.2.0-natural-earth-50m-antimeridian-split',
+    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; Douglas-Peucker simplified at ${SIMPLIFY_TOLERANCE_DEG}\u00b0 tolerance; coordinates rounded to 3 decimal places; outer rings that cross ±180 are split into contiguous parts (fixes Russia / Fiji plate voids). Source upgraded to 1:50m for higher polygon fidelity.',
   },
   countries: [
 ${countries.map(serializeCountry).join('\n')}

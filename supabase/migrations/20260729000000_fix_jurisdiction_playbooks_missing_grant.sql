@@ -1,0 +1,22 @@
+-- CRITICAL PRODUCTION FIX. Found while auditing all api-schema views for the
+-- same class of bug fixed in 20260728020000 (view granted SELECT, but the
+-- underlying base table wasn't, so the security_invoker=true enforcement
+-- trigger on api-schema views blocks every read regardless of the view's
+-- own grant).
+--
+-- public.jurisdiction_playbooks already has a correct RLS policy
+-- (`public_read_published_playbooks`, `status = 'published'`, applies to
+-- all roles) but had ZERO grants for anon or authenticated -- only postgres
+-- and service_role. Confirmed live: GET /rest/v1/jurisdiction_playbooks as
+-- anon returned 401 "permission denied for table jurisdiction_playbooks".
+--
+-- This is the table backing the public jurisdiction playbook pages
+-- (/intelligence/playbooks/[country]) and the PDF export route added in
+-- PR #1168 -- meaning those pages have likely been non-functional for
+-- anonymous AND authenticated visitors in production. The RLS policy
+-- already does the correct row-level restriction (published rows only), so
+-- granting SELECT broadly here is safe and matches existing table design
+-- intent -- this is purely restoring a missing grant, not a new access
+-- decision.
+
+grant select on public.jurisdiction_playbooks to anon, authenticated;

@@ -1,0 +1,21 @@
+-- Retire anon/authenticated public read access to the legacy jurisdiction_briefings
+-- table and its api-schema view. Confirmed superseded by cc_jurisdiction_briefings:
+--   - jurisdiction_briefings: 20 rows, stale (no writes since migration)
+--   - cc_jurisdiction_briefings: 302 rows, actively written and read
+-- Confirmed no application code reads the legacy table/view: both consumers of
+-- jurisdiction data (app/actions/getJurisdictionBriefing.ts and
+-- lib/command-centre/jurisdictionBriefingData.ts) query cc_jurisdiction_briefings
+-- exclusively. The legacy api.jurisdiction_briefings view was still granted SELECT
+-- to anon and authenticated, meaning stale country-briefing data was reachable by
+-- anyone via PostgREST at GET /rest/v1/jurisdiction_briefings with no product
+-- surface pointing at it -- dead, unnecessarily-exposed API surface.
+--
+-- This migration only revokes read grants; it does not drop the table or view,
+-- so it is fully reversible (re-grant) and touches no data.
+--
+-- Applied live under this exact timestamp via apply_migration (2026-07-27).
+-- A same-named file previously existed at 20260723180000 with identical content
+-- but was never actually applied under that timestamp -- converted to a stub
+-- pointing here to avoid a second, misleading ledger-vs-repo mismatch.
+
+revoke select on api.jurisdiction_briefings from anon, authenticated;

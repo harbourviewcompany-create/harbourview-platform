@@ -330,6 +330,9 @@
 .cc-conf-bar-track     { flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden; }
 .cc-conf-bar-fill      { height:100%;background:var(--cc-gold);border-radius:2px; }
 .cc-conf-bar-pct       { font-family:var(--cc-mono);font-size:9px;color:var(--cc-muted);width:28px;text-align:right; }
+/* Lane with no recorded data yet — rendered honestly as "pending" rather than a fabricated %. */
+.cc-conf-bar-row-pending          { opacity:.5; }
+.cc-conf-bar-row-pending .cc-conf-bar-fill { background:rgba(255,255,255,.18); }
 
 .cc-watch-regions     { display:flex;flex-direction:column;gap:6px; }
 .cc-watch-region-row  { display:flex;align-items:center;gap:8px; }
