@@ -1740,3 +1740,24 @@ generation) appears to have zero live callers now that cron drives a newer edge-
 
 **Human approval status:** Directed turn-by-turn in chat ("continue" / "fix it" / "go" / "is anything
 else missing") rather than a single upfront approval.
+
+---
+
+## 2026-07-24 — PR #1095 CodeRabbit remediation: tick counters exposed; registry-impact format fixed
+
+**Fixed:** `hv_pipeline_tick()` computed `v_tr_h`/`v_cl_h`/`v_em_h`/`v_tr_d` (translate/classify/embed
+harvest counts, translate dispatch count) but only returned 4 of 8 counters, leaving those stages
+invisible to monitoring. Migration `20260724010000_expose_all_pipeline_tick_counters_in_json.sql`
+(applied live) returns all eight. Everything else CodeRabbit flagged on this PR (unbounded
+zero-entity re-dispatch loop, signal_count over-increment, silently-swallowed exceptions, non-200
+responses wrongly marked harvested) had already been fixed in this branch's own later commits, each
+with an explicit comment crediting the CodeRabbit/Sourcery finding it addresses — confirmed by
+reading the current migration file directly rather than trusting the review-comment thread alone.
+
+**Also fixed:** the PR body had a `## Registry Impact` section but as prose, not the checkbox format
+`scripts/check-project-registry-discipline.mjs` actually parses (needs a checked affected-row line
+and a checked decision line) — that's why the "Enforce registry impact discipline" check was
+failing. Reformatted with `Harbourview Platform` and `No — no registry change required` checked,
+keeping the same substantive reasoning.
+
+**Commands run:** `npm run test` (full suite): 65/65 passed.
