@@ -6,6 +6,17 @@ import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import type { PublicRegulatorySignal } from '@/lib/regulatory-signals/types'
 import { SIGNAL_TAG_MAP, REG_TYPE_TO_TAG, INTEL_TAG_FALLBACK } from '@/lib/regulatory-signals/signalTags'
 import { flagEmoji, flagForMarket } from '@/lib/utils/flagEmoji'
+import {
+  SIGNAL_QUALITY_SELECT,
+  QUALITY_LABEL_NOT_IN,
+  resolveConfidence,
+  type SignalQualityRow,
+} from '@/lib/signals/quality'
+
+// Literal select strings: supabase-js infers row shape from the select string as a
+// template literal type, so these must not be built at runtime.
+const CURATED_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, analysis, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const DIGEST_SELECT  = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
 
 // ── HTML stripping for scraper-sourced titles ────────────────────────────────
@@ -150,11 +161,15 @@ type CuratedSignalRow = {
   cat: string | null
   top_lane: string | null
   pri: string | null
-  score: number | null
   country: string | null
   date: string | null
   created_at: string
   analysis?: SignalAnalysis | null
+  // Pipeline B quality columns — the canonical confidence source.
+  // `score` is deliberately absent: see `lib/signals/quality.ts`.
+  quality_label?: string | null
+  quality_confidence?: number | string | null
+  reviewed?: boolean | null
 }
 
 const LANE_TO_TAG: Record<string, string> = {
@@ -173,12 +188,12 @@ function priToCommercial(pri: string | null, lane: string, country: string): str
 }
 
 // ── Map curated public.signals row → DashboardSignal ──────────────────────────
-// confidence: prefers the real Stage-2/3 classifier confidence (signal_classifications.confidence,
-// 0-1 scale from an LLM judging actual content) when available. `s.score` is the legacy
+// confidence: comes from `lib/signals/quality.ts#resolveConfidence`, which reads
+// Pipeline B's `signals.quality_confidence` (0-1, scaled to 0-100 there). The legacy
 // keyword-density scorer from before the classifier rework and is KNOWN INVERTED
 // (rates nav/cookie-banner chrome ~99, genuine headlines <40 -- see
 // docs/INTELLIGENCE_ARCHITECTURE_SPEC.md) -- it must never be shown to users as a
-// confidence figure. Rows with no classifier row (mostly the earlier manually-approved
+// confidence figure. Rows with no classifier verdict (the earlier manually-approved
 // batch) get a flat 90: they passed human editorial review, which is a legitimate --
 // if different-in-kind -- confidence signal, and is strictly more honest than the old
 // inverted score.
@@ -188,9 +203,8 @@ function curatedToSignal(s: CuratedSignalRow, classifierConfidence?: number | nu
   const tag     = laneKey in LANE_TO_TAG ? (SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change)
     : INTEL_TAG_FALLBACK
   const market = s.country ?? ''
-  const confidence = typeof classifierConfidence === 'number'
-    ? Math.round(classifierConfidence * 100)
-    : 90
+  // Already a 0-100 integer from resolveConfidence(); null means genuinely unrated.
+  const confidence = typeof classifierConfidence === 'number' ? classifierConfidence : 90
   return {
     id:               s.id,
     slug:             undefined,    // public.signals has no slug; route uses /signals feed
@@ -260,18 +274,22 @@ export async function fetchDashboardSignals(
         const svc = await createSupabaseServiceClient()
         return svc
           .from('signals_quality')
-          .select('id, headline, cat, top_lane, pri, score, country, date, created_at, analysis')
+          .select(CURATED_SELECT)
           .eq('reviewed', true)
-          .order('score', { ascending: false })
+          .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+          .order('quality_confidence', { ascending: false, nullsFirst: false })
+          .order('date', { ascending: false, nullsFirst: false })
           .limit(200)
       } catch {
         const { createClient } = await import('@/lib/supabase/server')
         const anon = await createClient()
         return anon
           .from('signals_quality')
-          .select('id, headline, cat, top_lane, pri, score, country, date, created_at, analysis')
+          .select(CURATED_SELECT)
           .eq('reviewed', true)
-          .order('score', { ascending: false })
+          .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+          .order('quality_confidence', { ascending: false, nullsFirst: false })
+          .order('date', { ascending: false, nullsFirst: false })
           .limit(200)
       }
     }
@@ -280,25 +298,12 @@ export async function fetchDashboardSignals(
     if (!error && data && data.length > 0) {
       const all = data as CuratedSignalRow[]
 
-      // Best-effort fetch of real classifier confidence for these ids. Service-role
-      // only (signal_classifications RLS blocks anon reads) -- falls back to an
-      // empty map so the anon-client path degrades to the flat-90 default above
-      // rather than erroring.
-      const confidenceMap = new Map<string, number>()
-      try {
-        const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
-        const svc = await createSupabaseServiceClient()
-        const ids = all.map(s => s.id)
-        const { data: classifications } = await svc
-          .from('signal_classifications')
-          .select('signal_id, confidence')
-          .in('signal_id', ids)
-        for (const row of classifications ?? []) {
-          if (typeof row.confidence === 'number') confidenceMap.set(row.signal_id, row.confidence)
-        }
-      } catch { /* leave confidenceMap empty -- callers fall back to flat 90 */ }
-
-      const toSignal = (s: CuratedSignalRow) => curatedToSignal(s, confidenceMap.get(s.id) ?? null)
+      // Confidence comes from Pipeline B's `signals.quality_confidence`, already
+      // selected above -- no second query, and no dependency on
+      // `signal_classifications`, which is Pipeline A's table (formally deprecated
+      // 2026-07-22) and covered only ~23% of reviewed signals, leaving the other
+      // ~77% on a fabricated flat 90. `quality_confidence` covers ~97%.
+      const toSignal = (s: CuratedSignalRow) => curatedToSignal(s, resolveConfidence(s as SignalQualityRow))
 
       if (countryName) {
         // Same principle as the regulatory feed above: only pad with
@@ -366,10 +371,13 @@ type DigestRow = {
   cat: string | null
   top_lane: string | null
   pri: string | null
-  score: number | null
   country: string | null
   date: string | null
   created_at: string
+  // Pipeline B quality columns; `score` deliberately absent (see lib/signals/quality.ts).
+  quality_label?: string | null
+  quality_confidence?: number | string | null
+  reviewed?: boolean | null
 }
 
 const DIGEST_WINDOWS: { key: DigestWindow; hours: number }[] = [
@@ -494,10 +502,11 @@ export async function fetchDailyDigest(
 
     let query = supabase
       .from('signals_quality')
-      .select('id, headline, cat, top_lane, pri, score, country, date, created_at')
+      .select(DIGEST_SELECT)
       .eq('reviewed', true)
+      .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
       .order('created_at', { ascending: false })
-      .order('score', { ascending: false })
+      .order('quality_confidence', { ascending: false, nullsFirst: false })
       .limit(200)
 
     if (countryName) {
