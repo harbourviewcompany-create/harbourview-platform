@@ -1763,3 +1763,34 @@ of deleting or skipping them.
 
 **Commands run:** `npm run test`: 65/65 passed (was 63/65 before the test update — the 2 failures
 were the stale assertions above, not app bugs).
+
+---
+
+## 2026-07-30 — PR #1215: fixed the duplicate-dispatch bug this PR made live again
+
+**Context:** PR #1125 (2026-07-24) flagged that `hv_translate_dispatch`/the embed-dispatch selection
+in `hv_pipeline_tick` don't exclude signals with an existing dispatched-but-unharvested job, and
+documented it as a real bug but non-live-risk since `hv-quality-pipeline`/`hv-quality-promote` were
+inactive. PR #1215 re-enables exactly those crons (confirmed live: `hv-quality-promote` jobid 48
+active on `10,40 * * * *`, `hv-quality-pipeline` jobid 52 active on `*/30 * * * *` — schedules differ
+slightly from what the migration's own header comment claims, "every 10 minutes" for both; not
+investigated further, not a correctness issue, just noting the discrepancy).
+
+**Fixed live** (migration `20260730040000_fix_duplicate_dispatch_translate_and_embed.sql`): both
+functions now exclude candidates with an existing `not harvested` job row, mirroring the pattern
+`hv_classify_corpus_dispatch`/`hv_entities_dispatch` already use. Confirmed the bug was actively live,
+not theoretical: querying `hv_embed_jobs` before the fix showed all 58 currently-eligible signals
+already had an in-flight unharvested job (one batched request, 58 signal_ids, dispatched recently and
+still normal-latency pending) — the old code would have re-dispatched all 58 again on the very next
+tick. Re-ran the same query post-fix: 0 candidates (correctly excluded).
+
+**PR #1215's own 2 CodeRabbit findings, checked against what actually ran (already applied live, not
+re-run):** (1) "fail closed unless exactly one row updated" on the `classifier_validation` UPDATE —
+valid defensive-coding concern for future migrations of this shape, but verified no harm here: exactly
+one row was updated (`gate_passed` confirmed `true`, `notes` confirmed appended, not null-clobbered).
+(2) "resolve `hv-quality-promote` by job ID 48" hardcoded rather than by name — also a valid future
+concern, but verified job 48 is in fact `hv-quality-promote` in this database, so no harm resulted.
+Not rewriting the already-applied migration file to retroactively claim different SQL ran; noting both
+as good patterns for whoever writes the next cron-enabling migration.
+
+**Commands run:** `npm run test`: 65/65 passed (no app code touched, DB-only fix).
