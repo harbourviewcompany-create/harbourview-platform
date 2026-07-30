@@ -7,6 +7,8 @@ import {
   corroborationCount,
   displayHeadline,
   displaySummary,
+  feedAgeHours,
+  freshnessBand,
   isSurfaceable,
   isTranslated,
   originalLanguage,
@@ -282,11 +284,29 @@ const FALLBACK_PUBLIC_SIGNALS: PublicRegulatorySignal[] = [
   },
 ]
 
+function freshnessOf(signals: PublicRegulatorySignal[]): {
+  ageHours: number | null
+  freshness: PublicRegulatorySignalFeed['freshness']
+} {
+  const ageHours = feedAgeHours(signals.map(s => s.signal_date))
+  return { ageHours, freshness: freshnessBand(ageHours) }
+}
+
 export type PublicRegulatorySignalFeed = {
   signals: PublicRegulatorySignal[]
   source: 'live-approved' | 'fallback-fixture'
   publicLabel: string
   reviewBoundary: string
+  /**
+   * Hours since the newest signal in the feed, or null if unknown.
+   *
+   * Surfaced so a stale feed is never *silently* stale. The Intel feed went nine
+   * days without a new promotion while every monitor reported green, and a reader
+   * had no way to tell -- see
+   * `docs/PLATFORM_OPTIMIZATION_REVIEW_2026-07-30.md` section 1.2.
+   */
+  ageHours: number | null
+  freshness: 'live' | 'recent' | 'stale' | 'unknown'
 }
 
 export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatorySignalFeed> {
@@ -299,6 +319,7 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
       source: 'live-approved',
       publicLabel: 'Editorially reviewed public-safe signals',
       reviewBoundary: 'Signals sourced from the reviewed regulatory signals pipeline. Private captures, analyst notes and internal review material remain excluded.',
+      ...freshnessOf(approved),
     }
   }
 
@@ -310,6 +331,7 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
       source: 'live-approved',
       publicLabel: 'Published public-safe signals',
       reviewBoundary: 'Signals sourced from reviewed entries in the public signals table. Private captures, analyst notes and internal review material remain excluded.',
+      ...freshnessOf(published),
     }
   }
 
@@ -318,6 +340,8 @@ export async function getPublicRegulatorySignalFeed(): Promise<PublicRegulatoryS
     source: 'fallback-fixture',
     publicLabel: 'Fallback signal orientation',
     reviewBoundary: 'No reviewed signals are currently available. These entries are fallback orientation only and should not be treated as live intelligence or current route clearance.',
+    ageHours: null,
+    freshness: 'unknown',
   }
 }
 
