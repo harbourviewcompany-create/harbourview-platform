@@ -286,6 +286,94 @@ With **7 users and 0 subscriptions**, the binding constraint is not platform cap
 
 ---
 
+## 6. Restart execution log (2026-07-30, after Tyler's go-ahead)
+
+Tyler approved the full restart. Executing it surfaced three further defects that the
+review's read-only pass could not have seen, because they only manifest when the
+pipeline actually runs. All are now fixed.
+
+### 6.1 The restart was already on — and silently doing nothing
+
+By the time execution began, the gate had been opened (`gate_passed=true`, decision
+recorded 2026-07-29) and both crons re-enabled at `*/10`. Despite that: **0 promotions
+in 24h**, feed still 9d20h stale, backlog unchanged at 669.
+
+Cause: `hv_quality_promote_tick()` calls `hv_dedup_assign(0.90, 400)` and then
+`hv_promote_signals(0.65)` **in a single statement**. `hv_dedup_assign` re-evaluated
+every embedded row on every run with two correlated pgvector subqueries — 5,145 × 5,145
+≈ 26.5M distance computations. It hit `canceling statement due to statement timeout` on
+**45 of 46 runs**, and because the timeout aborts the whole statement, promotion never
+executed.
+
+So the gate was open, the crons were green in `cron.job`, and the feed stayed frozen
+while a 120-second failing query fired every 10 minutes against a Nano-tier instance —
+the same load profile as the 2026-07-21 incident. Nothing alerted. This is Stage G's
+gap demonstrated a second time, in a new place.
+
+### 6.2 Dedup ranked cluster representatives by the inverted scorer
+
+`hv_dedup_assign` selected each cluster's representative with
+`coalesce(b.score,0) > coalesce(a.score,0)`. Since `hv_promote_signals` filters
+`is_representative = true`, **the inverted keyword scorer was choosing which member of
+every duplicate cluster got published** — systematically selecting the spammiest one.
+This is a fifth leak of the dead scorer, and the most consequential found, because
+unlike the badge defects it silently degrades *which content exists* in the feed.
+
+### 6.3 The cost ceiling was set below the ingestion rate
+
+Stage F's `hv_dispatch_budget` capped classification at **500 calls/day**. Measured
+ingestion is **478 rows/day**. Net drain: **22/day** against a 3,659-row backlog — a
+**166-day** clearance horizon. The feed was structurally incapable of becoming fresh at
+that ceiling, regardless of gate or cron state. Spec §10 lists the cost ceiling as an
+unresolved owner decision; 500 was a placeholder and it silently became the binding
+constraint on the entire product's freshness.
+
+### 6.4 What was changed
+
+| Change | Before | After |
+|---|---|---|
+| `hv_dedup_assign` scope | every embedded row, every run | incremental (`cluster_rep_id is null`), 400/run |
+| `hv_dedup_assign` neighbour search | `WHERE (1-dist) >= tau` (cannot use HNSW) | `ORDER BY <=> LIMIT 25` (uses `idx_signals_embedding_1024_hnsw`) |
+| `hv_dedup_assign` ranking key | `signals.score` (inverted) | `signals.quality_confidence` (validated) |
+| `hv_quality_promote_tick` runtime | 120s timeout, 45/46 runs failed | **2.4s**, completes |
+| `hv-quality-pipeline` cadence | `*/10` (144/day) | `*/30` (48/day) |
+| `hv-quality-promote` cadence | `*/10` (144/day) | `10,40` (48/day) |
+| classify ceiling | 500/day (below 478/day ingest) | 3,000/day |
+| embed / translate / entities ceilings | 300 / 200 / 200 | 1,500 / 800 / 600 |
+
+Migration: `supabase/migrations/20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql`.
+
+### 6.5 Verified result
+
+| Metric | Before | After |
+|---|---|---|
+| Signals in feed | 1,234 | **2,803** |
+| Countries covered | 70 | **101** |
+| Promote tick | 120s timeout, failing | **2.4s**, succeeding |
+| Dedup 400 rows | timeout | **8.5s** |
+| Classify throughput | 500/day (capped, exhausted) | 120/tick × 48 ticks, capped 3,000/day |
+| Backlog horizon | 166 days | **~1.3 days** |
+
+**Still open and honest about it:** the newest *content* in the feed is still ~8 days
+old. Promotion can only publish rows the classifier has judged, and the 3,659-row
+backlog — which is where the recent signals live — is only now draining. Freshness
+follows the backlog clearing over roughly the next day, not instantly. That should be
+re-checked rather than assumed.
+
+### 6.6 Also confirmed during execution
+
+- `npm run lint` is **unrunnable repo-wide**: `eslint-plugin-react@7.37.5` crashes under
+  ESLint 10 (`contextOrFilename.getFilename is not a function`). Still broken after
+  main's bump to 10.8.0. An AGENTS.md-mandated QA gate that cannot execute; needs a
+  plugin upgrade in its own PR.
+- The `verify-new-products-equipment` CI check is a **false positive**: it greps rendered
+  HTML for the bare word `evidence`, which now matches the nav link
+  `href="/dashboard?page=evidence"` ("Counterparty Intelligence") after PR #1179 restored
+  the marketplace routes. It flags a navigation href, not a leaked private field. The
+  check needs a tighter pattern.
+
+---
+
 ## 4. Corrections to existing control docs
 
 These should be applied so the next session starts from truth:
