@@ -372,6 +372,61 @@ re-checked rather than assumed.
   the marketplace routes. It flags a navigation href, not a leaked private field. The
   check needs a tighter pattern.
 
+### 6.7 The actual classification blocker: a missing vault secret (BLOCKED — needs Tyler)
+
+Raising the Stage F ceiling (§6.3) was necessary but **not sufficient, and my earlier
+framing of it as "the single structural cause of staleness" was wrong.** With the
+ceiling raised, classification still made zero progress. Diagnosis:
+
+```
+select r.status_code, count(*) from hv_classify_jobs j
+  join net._http_response r on r.id = j.request_id where not j.harvested group by 1;
+
+ 401 | 120 | {"code":"UNAUTHORIZED_NO_AUTH_HEADER","message":"Missing authorization header"}
+```
+
+**Every classify dispatch returns HTTP 401.** `hv_classify_corpus_dispatch` builds its
+header as:
+
+```sql
+'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                               where name = 'hv_edge_anon_key' limit 1)
+```
+
+`hv_edge_anon_key` **does not exist in the vault**. The vault holds `anthropic_api_key`,
+`gemini_api_key`, `hv_airtable_sync_key`, `hv1_api_key_id`, `openai_api_key`,
+`stripe_secret_key_live`, `stripe_secret_key_sandbox` — and no edge key. In Postgres
+`'Bearer ' || NULL` evaluates to `NULL`, so the Authorization header is omitted
+entirely, and the `hv-classify` edge function (which enforces `verify_jwt`) rejects it.
+
+This is why the backlog never drained regardless of gate, cron, or budget state.
+
+Contrast `hv_entities_dispatch`, which works: it calls the OpenAI API **directly** using
+`openai_api_key`, a secret that does exist. Only the stages routed through the
+`hv-classify` edge function are broken.
+
+**Secondary defect this exposed:** `hv_consume_dispatch_budget` counts *dispatches*, not
+*successes*. A stage failing 100% of calls still burns its entire daily ceiling — today's
+first 500 classify "calls" were all 401s. The budget guard cannot distinguish work from
+failure, so a broken stage looks like a busy one.
+
+**Why this is not fixed here.** Two options:
+
+1. **Add `hv_edge_anon_key` to the vault.** Correct fix — the edge function is the
+   canonical classifier (spec §6.1: prompt, provider chain, retry, 429 backoff). But
+   this *persists a credential*, which `CLAUDE.md` Rule 3b requires be flagged and
+   approved before it happens, without exception. **Not done. Awaiting Tyler.**
+2. Rewrite `hv_classify_corpus_dispatch` to call OpenAI directly like the entities
+   stage. **Rejected**: it would duplicate the classifier prompt and provider logic in
+   SQL, creating a second classifier implementation — precisely Guardrail #10 ("two
+   independent implementations of the same stage is itself the failure"), which this
+   project has already been burned by twice.
+
+Option 1 needs: the key's identity and scope confirmed (the browser-safe anon/publishable
+key, not `service_role`), and explicit sign-off to write it to Vault under
+`hv_edge_anon_key`. Until then classification stays at zero and feed content stays ~8
+days old, regardless of everything else fixed above.
+
 ---
 
 ## 4. Corrections to existing control docs
