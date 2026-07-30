@@ -1844,3 +1844,92 @@ retroactive QA run — the missing commands above remain genuinely missing, not 
 who owns that. We need to understand how everything works..." / "Keep going") rather than a single
 upfront spec approval — consistent with Rule 2's exemption for diagnostic/exploratory work under an
 already-approved objective (the Market Routing investigation).
+
+---
+
+## 2026-07-30 — PR #1218: pipeline alerting, Stage D routing, classifier learning loop
+
+**Scope:** four applied-to-production migrations captured into files, one Stage D read-side fix in
+app code, and two defects found in this session's own work and corrected before merge.
+
+**Migrations captured (applied live via MCP before being written to files — the files reproduce the
+same end state on a fresh database):**
+- `20260730222221_hv_pipeline_alerts_outcome_assertions.sql` — nine assertions over pipeline
+  *outputs* rather than job exit codes. Consolidates applied migrations `20260730222127` and
+  `20260730222221`; the file carries only the corrected definitions, since the superseded
+  intermediate has no value on a fresh database. Two checks were rewritten because they could not
+  do their job: `extraction_rescan` measured a lifetime dispatch ratio (56.4x) that could never
+  clear once tripped, and `classifier_gate` checked only the newest signal's classifier_version
+  rather than every version in use.
+- `20260730222314_hv_alert_tick_record_and_notify.sql` — `hv_alert_log` incident history plus
+  email delivery, scheduled hourly at `47 * * * *`. Degrades to detection-only when the Vault
+  secrets are absent; detection deliberately does not depend on email being configured.
+- `20260730222508_stage_d_route_story_research_to_digest.sql` — bridges reviewed story/research
+  signals into `editorial_items` at stage `qualified`, deduped on `source_url`.
+- `20260730222849_add_signal_to_eval_set_learning_loop.sql` — `api.add_signal_to_eval_set`.
+  Consolidates applied `20260730222807` and `20260730222849`; the first seeded
+  `label_status = 'pending'`, which is not in `intel_eval_set_label_status_check`, so every call
+  raised 23514.
+
+**Why the learning loop was needed:** `intel_eval_set` had been frozen at 202 rows since
+2026-07-18 and structurally could not grow — `api.save_intel_eval_label` raises for any signal not
+in the original stratified sample, so a misclassification spotted in the live feed (the
+highest-value label there is) had nowhere to go. Rows now enter with
+`sample_stratum = 'live_correction'`; they are error-biased by construction and must be scored
+separately from the original sample.
+
+**Falsifiable verification of the learning loop (live, production):** called
+`api.add_signal_to_eval_set` on a `spam`-labelled signal absent from the eval set. Returned
+`added: true`, `label_status: 'corrected'`, `classifier_said: {quality_label: spam, content_type:
+noise, impact: low}`, `eval_set_size: 203` — proving the set can finally grow. **The probe row was
+then deleted**, because it applied a deliberately fabricated `signal`/`regulatory` label to a
+genuine spam row and would otherwise have poisoned the cohort that gates promotion. Eval set
+verified back at 202 clean rows.
+
+**Two defects found in this session's own work and fixed before merge:**
+
+1. *Unintended anon/PUBLIC EXECUTE on SECURITY DEFINER operator functions.* `hv_alert_tick()`,
+   `hv_pipeline_alerts()` and `hv_route_signals_to_digest(integer)` were created without overriding
+   Postgres' default `PUBLIC` EXECUTE grant. Because all three are SECURITY DEFINER, an
+   unauthenticated PostgREST caller could read `vault.decrypted_secrets` and send email via Resend
+   (`hv_alert_tick`), enumerate internal pipeline state, or insert up to 300 `editorial_items` rows.
+   Verified by repo grep that no application code calls any of them. Revoked from `public`, `anon`
+   and `authenticated`; granted to `service_role` only. pg_cron is unaffected — jobs execute as
+   their owner, confirmed by running `hv_alert_tick()` after the revoke (`ok: true, open: 0`).
+   Applied as `revoke_anon_execute_on_pipeline_operator_functions` and
+   `restrict_pipeline_operator_functions_to_service_role`; folded into the function files above.
+   `api.add_signal_to_eval_set` deliberately retains `authenticated` — it is the signed-in
+   labelling affordance.
+
+2. *Stage D server-side filter silently dropped NULL rows.* The first version appended
+   `content_type=not.in.(story,research,noise)`. SQL evaluates `NULL NOT IN (...)` to NULL rather
+   than TRUE, so it dropped all 40 reviewed rows with no `content_type` — the exact silent shrink
+   `belongsOnSignalsFeed` exists to prevent, and it made the query disagree with the mapper about
+   the same rows. The existing unit test passed against the broken filter because it only asserted
+   on the value list. Replaced with an explicit or-group,
+   `or=(content_type.is.null,content_type.not.in.(story,research,noise))`, and a new test added that
+   fails against the bare `not.in` form. Confirmed live: bare `not.in` returns 2812 reviewed rows,
+   the or-filter returns 2852 — exactly the 40 recovered.
+
+**Commands run (this session, this environment — `node_modules` is installed here, unlike the
+2026-07-18/21 entries):**
+- `npx tsc --noEmit` — clean, no output.
+- `npm run test` — 5 suites, all passing: 39 + 8 + 7 + 39 + 11 = 104 tests.
+- `npm run build` — succeeded, full route manifest emitted.
+- `npm run lint` — **still unrunnable**, unchanged and unrelated to this diff:
+  `eslint-plugin-react@7.37.5` crashes in `getReactVersionFromContext` under ESLint 10.8.0. Not
+  worked around, not silenced; recorded as a genuine gap.
+
+**Test wiring gap closed:** `tests/signals/quality.test.ts` existed but was not referenced by any
+npm script, so its 38 (now 39) assertions never ran in the gate. Added `test:signal-quality` and
+chained it into `npm run test`.
+
+**Human approval status:** built under Tyler's "Build all" instruction covering the four
+improvements identified in the preceding review. The two grant migrations were applied without a
+separate confirmation as corrections to defects introduced earlier in this same session, not as a
+discretionary security-posture change; both are reversible with a single GRANT and are flagged in
+the PR for review. No merge or deploy performed — Rule 3c sign-off is outstanding.
+
+**Unrelated finding, not actioned:** the `hv-signal-analysis-every-30min` cron job stores a
+Supabase anon JWT inline in plaintext in its `cron.job.command`. Pre-existing, not introduced here,
+and not modified — flagged for a decision rather than changed unilaterally.
