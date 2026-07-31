@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Playwright package and Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.0
+          npx playwright install --with-deps chromium
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -46,15 +51,12 @@ jobs:
           cat /tmp/harbourview-next.log
           exit 1
 
-      - name: Install Playwright Chromium
-        run: npx -y -p playwright@1.54.0 playwright install --with-deps chromium
-
       - name: Capture supply screenshots
         env:
           BASE_URL: http://127.0.0.1:3000
         run: |
           mkdir -p verification-results/pr1222-supply
-          cat > /tmp/capture-pr1222.mjs <<'EOF'
+          cat > scripts/capture-pr1222-supply.mjs <<'EOF'
           import { chromium } from 'playwright'
           import fs from 'node:fs/promises'
 
@@ -76,11 +78,11 @@ jobs:
             for (const viewport of viewports) {
               const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 })
               const page = await context.newPage()
+              await page.emulateMedia({ reducedMotion: 'reduce' })
               for (const route of routes) {
                 const url = `${base}${route.path}`
                 const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 })
                 if (!response || !response.ok()) throw new Error(`${url} returned ${response?.status() ?? 'no response'}`)
-                await page.emulateMedia({ reducedMotion: 'reduce' })
                 const filename = `${out}/${route.name}-${viewport.name}.png`
                 await page.screenshot({ path: filename, fullPage: true })
                 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
@@ -94,7 +96,8 @@ jobs:
           }
           await fs.writeFile(`${out}/manifest.json`, JSON.stringify(manifest, null, 2))
           EOF
-          npx -y -p playwright@1.54.0 node /tmp/capture-pr1222.mjs
+          node scripts/capture-pr1222-supply.mjs
+          rm scripts/capture-pr1222-supply.mjs
 
       - name: Upload visual evidence
         if: always()
