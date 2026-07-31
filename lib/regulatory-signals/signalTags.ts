@@ -1,5 +1,4 @@
 // Signal type → display tag mapping — single source of truth for signal UI colours/labels.
-// Imported by dashboardServerData.ts; previously duplicated inline there.
 
 export type SignalTag = { label: string; color: string; bg: string; border: string }
 
@@ -16,12 +15,11 @@ export const SIGNAL_TAG_MAP: Record<string, SignalTag> = {
   equipment_surplus:        { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
   distressed_asset:         { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
   facility_expansion:       { label: 'INVESTMENT',   color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
+  // Pipeline B content_type routes (digest-primary)
+  story:                    { label: 'STORY',        color: '#E8C87A', bg: 'rgba(232,200,122,0.12)', border: 'rgba(232,200,122,0.30)' },
+  research:                 { label: 'RESEARCH',     color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
 }
 
-// Maps regulatory signal types → the tag key above.
-// Keys must match the live `regulatory_signals_type_check` CHECK constraint
-// values (see lib/regulatory-signals/types.ts) or the lookup silently misses
-// and falls back to INTEL_TAG_FALLBACK.
 export const REG_TYPE_TO_TAG: Record<string, string> = {
   regulatory_guidance:              'regulatory_change',
   policy_consultation:              'regulatory_change',
@@ -40,7 +38,7 @@ export const REG_TYPE_TO_TAG: Record<string, string> = {
   professional_access:              'importer_activity',
   enforcement_action:               'documentation_readiness',
   enforcement_risk:                 'documentation_readiness',
-  research_access:                  'documentation_readiness',
+  research_access:                  'research',
 }
 
 export const INTEL_TAG_FALLBACK: SignalTag = {
