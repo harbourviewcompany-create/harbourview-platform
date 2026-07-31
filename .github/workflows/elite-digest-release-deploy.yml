@@ -9,6 +9,11 @@ on:
 
 permissions:
   contents: read
+  issues: write
+
+concurrency:
+  group: elite-digest-production-release
+  cancel-in-progress: true
 
 env:
   CI: true
@@ -111,9 +116,41 @@ jobs:
           echo "Deployment did not reach READY within verification window"
           exit 1
 
-      - name: Release evidence summary
+      - name: Report successful release to PR 1228
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
         run: |
-          echo "## Elite Digest production release" >> "$GITHUB_STEP_SUMMARY"
-          echo "Source SHA: 4227d70df46c20e556fb537d3bacd38823d54033" >> "$GITHUB_STEP_SUMMARY"
-          echo "Deployment ID: ${{ steps.deploy.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Deployment URL: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
+          body=$(cat <<EOF
+          Elite Digest production release: **GO**
+
+          - Source SHA: `4227d70df46c20e556fb537d3bacd38823d54033`
+          - Deployment ID: `${DEPLOYMENT_ID}`
+          - Deployment URL: `${DEPLOYMENT_URL}`
+          - Typecheck: PASS
+          - Targeted tests: PASS
+          - Full tests: PASS
+          - Production build: PASS
+          - Vercel readiness: READY
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+          )
+          gh api repos/${GITHUB_REPOSITORY}/issues/1228/comments -f body="$body"
+
+      - name: Report failed release to PR 1228
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body=$(cat <<EOF
+          Elite Digest production release: **HOLD**
+
+          The one-use release workflow failed before confirmed Vercel readiness.
+
+          - Source SHA: `4227d70df46c20e556fb537d3bacd38823d54033`
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+          )
+          gh api repos/${GITHUB_REPOSITORY}/issues/1228/comments -f body="$body"
