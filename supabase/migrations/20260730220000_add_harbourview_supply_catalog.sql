@@ -1,10 +1,6 @@
--- Harbourview-direct supply catalog: schema additions.
--- NOTE: these statements were already applied directly against the live
--- project this session via Supabase migration tooling (see PR description
--- for disclosure). This file exists so repo history matches production
--- schema and future environments can be provisioned from migration history.
--- All statements are idempotent (IF NOT EXISTS / CREATE OR REPLACE) and are
--- safe to re-run.
+-- Harbourview Supply catalog schema.
+-- The supply surface uses a dedicated public DTO and does not replace or
+-- expand the canonical marketplace_public_listings_v1 contract.
 
 alter table public.listings
   add column if not exists sold_by_harbourview boolean not null default false,
@@ -19,65 +15,84 @@ create index if not exists listings_sold_by_harbourview_idx
   on public.listings (sold_by_harbourview)
   where sold_by_harbourview = true;
 
-comment on column public.listings.sold_by_harbourview is 'True for Harbourview''s own direct-sale supply catalog (consumables/equipment), false for third-party P2P marketplace listings.';
-comment on column public.listings.compliance_flags is 'Per-jurisdiction compliance metadata, e.g. {"CA": {"child_resistant": true, "csa_z76_1": true, "plain_packaging": true}}';
-comment on column public.listings.target_countries is 'ISO country codes this SKU is compliant/available for (e.g. {CA,DE,AU}).';
+-- These partial natural keys make the two seed migrations deterministic.
+-- Their existing ON CONFLICT DO NOTHING clauses now prevent duplicate rows
+-- when a migration is replayed against an environment containing the catalog.
+create unique index if not exists listings_supply_slug_unique_idx
+  on public.listings (slug)
+  where sold_by_harbourview = true and slug is not null;
 
--- Extend the canonical public listings view (used by every /marketplace/*
--- public page via lib/server/listingsQuery.ts) with the new supply-catalog
--- columns, and fix pre-existing schema drift: api.marketplace_public_listings_v1
--- was missing average_rating/review_count that the frontend's SELECT_COLS
--- already requests (silent PostgREST failure -> queryListings() catches and
--- returns [], so this was already quietly breaking ratings on every public
--- marketplace page before this PR).
-create or replace view public.marketplace_public_listings_v1 as
+create unique index if not exists listings_supply_sku_unique_idx
+  on public.listings (sku)
+  where sold_by_harbourview = true and sku is not null;
+
+comment on column public.listings.sold_by_harbourview is
+  'Internal catalog discriminator. Public supply access is provided only through api.supply_catalog_public_v1.';
+comment on column public.listings.compliance_flags is
+  'Internal structured attributes requiring review. Raw values are not exposed by the public supply DTO.';
+comment on column public.listings.target_countries is
+  'ISO country codes proposed for jurisdiction review; not a public compliance conclusion.';
+
+create or replace view api.supply_catalog_public_v1 as
 select
-  id,
-  slug,
-  title,
-  description,
-  category::text as category,
-  null::text as subcategory,
-  coalesce(marketplace_section, category::text) as marketplace_section,
-  product_type,
-  region::text as region,
-  condition,
-  location_country,
-  null::text as location_region,
-  price_amount,
-  coalesce(price_currency, 'USD'::text) as price_currency,
-  case
-    when price_amount is not null then concat(coalesce(price_currency, 'USD'::text), ' ', price_amount::text)
-    else null::text
-  end as price_display,
-  coalesce(seller_type::text, 'controlled_review'::text) as seller_type,
-  is_featured,
-  high_level_specs,
-  created_at,
-  average_rating,
-  review_count,
-  sold_by_harbourview,
-  sku,
-  brand,
-  model,
-  quantity,
-  unit,
-  stock_qty,
-  lead_time_days,
-  moq,
-  compliance_flags,
-  target_countries
-from listings l
-where status = 'approved'::listing_status and public_visibility = true and archived_at is null;
+  l.id,
+  l.slug,
+  l.title,
+  case l.category::text
+    when 'packaging' then 'Unbranded packaging format available for commercial review and quotation.'
+    when 'consumables' then 'Commercial consumable available for specification review and quotation.'
+    when 'cultivation_equipment' then 'Generic cultivation equipment available for configuration review and quotation.'
+    when 'processing_equipment' then 'Generic processing equipment available for configuration review and quotation.'
+    when 'labs_testing' then 'Laboratory or testing equipment available for specification review and quotation.'
+    else 'Supply catalog item available for specification review and quotation.'
+  end::text as description,
+  l.category::text as category,
+  coalesce(l.marketplace_section, l.category::text)::text as marketplace_section,
+  l.product_type,
+  l.region::text as region,
+  coalesce(l.price_currency, 'CAD')::text as price_currency,
+  'Quote required'::text as price_display,
+  coalesce(l.is_featured, false) as is_featured,
+  l.created_at,
+  l.sku,
+  l.unit,
+  null::text as moq_display,
+  null::text as lead_time_display,
+  'Subject to confirmation'::text as availability_status,
+  coalesce(l.target_countries, '{}'::text[]) as target_countries,
+  coalesce(
+    (
+      select jsonb_agg(attribute order by attribute->>'label')
+      from (
+        select jsonb_build_object(
+          'key', allowed.attribute_key,
+          'label', allowed.attribute_label,
+          'value', 'Review required'
+        ) as attribute
+        from (values
+          ('child_resistant', 'Child-resistant format'),
+          ('tamper_evident', 'Tamper-evident format'),
+          ('opaque', 'Opaque format')
+        ) allowed(attribute_key, attribute_label)
+        where exists (
+          select 1
+          from jsonb_each(coalesce(l.compliance_flags, '{}'::jsonb)) country_entry
+          where coalesce((country_entry.value ->> allowed.attribute_key)::boolean, false) = true
+        )
+      ) attributes
+    ),
+    '[]'::jsonb
+  ) as public_attributes,
+  'Attributes, availability, pricing, lead time and jurisdiction fit require Harbourview review before reliance or purchase.'::text as review_note
+from public.listings l
+where l.sold_by_harbourview = true
+  and l.status = 'approved'::listing_status
+  and l.public_visibility = true
+  and l.archived_at is null
+  and l.slug is not null
+  and l.sku is not null;
 
-create or replace view api.marketplace_public_listings_v1
-with (security_invoker = on) as
-select
-  id, slug, title, description, category, subcategory, marketplace_section, product_type,
-  region, condition, location_country, location_region, price_amount, price_currency,
-  price_display, seller_type, is_featured, high_level_specs, created_at, average_rating,
-  review_count, sold_by_harbourview, sku, brand, model, quantity, unit, stock_qty,
-  lead_time_days, moq, compliance_flags, target_countries
-from public.marketplace_public_listings_v1;
+comment on view api.supply_catalog_public_v1 is
+  'Allowlisted public supply DTO excluding exact stock, raw compliance metadata, supplier identity, brand/model and internal review data.';
 
-grant select on api.marketplace_public_listings_v1 to anon, authenticated;
+grant select on api.supply_catalog_public_v1 to anon, authenticated;
