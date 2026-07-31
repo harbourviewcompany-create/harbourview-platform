@@ -1072,8 +1072,12 @@ export type JurisdictionPlaybook = {
   typical_timeline_months: number | null
   estimated_cost_range:   string | null
   legal_framework_summary: string | null
-  steps:                  { step: number; title: string; description: string }[]
-  key_regulators:         { name: string; role: string }[]
+  // NOTE: matches the actual jurisdiction_playbooks column shapes. The previous
+  // { step, title, description }[] / { name, role }[] types never matched any row --
+  // steps is written as a flat string[], key_regulators as { primary, secondary }.
+  // See CommandCentre.tsx CompliancePage for the corresponding render fix.
+  steps:                  string[]
+  key_regulators:         { primary: string; secondary: string[] } | null
   common_pitfalls:        string[]
 }
 
@@ -1095,8 +1099,10 @@ export async function getJurisdictionPlaybook(iso2: string | null): Promise<Juri
       typical_timeline_months: data.typical_timeline_months,
       estimated_cost_range:    data.estimated_cost_range,
       legal_framework_summary: data.legal_framework_summary,
-      steps:                   Array.isArray(data.steps)         ? data.steps         : [],
-      key_regulators:          Array.isArray(data.key_regulators) ? data.key_regulators : [],
+      steps:                   Array.isArray(data.steps) ? data.steps : [],
+      key_regulators:          (data.key_regulators && typeof data.key_regulators === 'object' && !Array.isArray(data.key_regulators))
+                                  ? data.key_regulators
+                                  : null,
       common_pitfalls:         Array.isArray(data.common_pitfalls) ? data.common_pitfalls : [],
     }
   } catch { return null }

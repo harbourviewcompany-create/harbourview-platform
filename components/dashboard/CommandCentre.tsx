@@ -5942,26 +5942,32 @@ const CompliancePage = React.memo(function CompliancePage({
             {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
               <div className="cc-sig-group">
                 <div className="cc-sig-group-hd"><span>Market Entry Steps</span><span>{jurisdictionPlaybook.steps.length}</span></div>
-                {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
-                  <div key={s.step} className="cc-sig-row">
+                {jurisdictionPlaybook.steps.slice(0, 5).map((s, i) => (
+                  <div key={i} className="cc-sig-row">
                     <div className="cc-sig-dot low" />
                     <div className="cc-sig-body">
-                      <strong>{s.step}. {s.title}</strong>
-                      <small>{s.description}</small>
+                      <strong>{i + 1}. {s}</strong>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
+            {jurisdictionPlaybook?.key_regulators && (
               <div className="cc-sig-group">
                 <div className="cc-sig-group-hd"><span>Key Regulators</span></div>
-                {jurisdictionPlaybook.key_regulators.map(r => (
-                  <div key={r.name} className="cc-sig-row">
+                <div className="cc-sig-row">
+                  <div className="cc-sig-dot low" />
+                  <div className="cc-sig-body">
+                    <strong>{jurisdictionPlaybook.key_regulators.primary}</strong>
+                    <small>Primary Regulator</small>
+                  </div>
+                </div>
+                {(jurisdictionPlaybook.key_regulators.secondary ?? []).map((name, i) => (
+                  <div key={i} className="cc-sig-row">
                     <div className="cc-sig-dot low" />
                     <div className="cc-sig-body">
-                      <strong>{r.name}</strong>
-                      <small>{r.role}</small>
+                      <strong>{name}</strong>
+                      <small>Secondary Regulator</small>
                     </div>
                   </div>
                 ))}
