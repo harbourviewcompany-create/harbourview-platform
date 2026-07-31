@@ -1,6 +1,55 @@
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals'
 import nextTypescript from 'eslint-config-next/typescript'
 
+/**
+ * ESLint 10 removed legacy rule-context helper methods that are still used by
+ * the version of eslint-plugin-react currently supplied through
+ * eslint-config-next. Bridge those read-only helpers until the upstream plugin
+ * publishes its ESLint 10-compatible implementation.
+ */
+function withLegacyRuleContext(rule) {
+  if (!rule || typeof rule.create !== 'function') return rule
+
+  return {
+    ...rule,
+    create(context) {
+      const compatibleContext = new Proxy(context, {
+        get(target, property, receiver) {
+          if (property === 'getFilename') return () => target.filename
+          if (property === 'getPhysicalFilename') return () => target.physicalFilename ?? target.filename
+          if (property === 'getCwd') return () => target.cwd
+          if (property === 'getSourceCode') return () => target.sourceCode
+          return Reflect.get(target, property, receiver)
+        },
+      })
+      return rule.create(compatibleContext)
+    },
+  }
+}
+
+function withCompatiblePlugins(configs) {
+  return configs.map((config) => {
+    if (!config.plugins) return config
+
+    const plugins = Object.fromEntries(
+      Object.entries(config.plugins).map(([pluginName, plugin]) => {
+        if (!plugin?.rules) return [pluginName, plugin]
+        return [
+          pluginName,
+          {
+            ...plugin,
+            rules: Object.fromEntries(
+              Object.entries(plugin.rules).map(([ruleName, rule]) => [ruleName, withLegacyRuleContext(rule)]),
+            ),
+          },
+        ]
+      }),
+    )
+
+    return { ...config, plugins }
+  })
+}
+
 const eslintConfig = [
   {
     // Separate sub-projects / generated output — not part of the root app lint.
@@ -17,8 +66,8 @@ const eslintConfig = [
       '.claude/**',
     ],
   },
-  ...nextCoreWebVitals,
-  ...nextTypescript,
+  ...withCompatiblePlugins(nextCoreWebVitals),
+  ...withCompatiblePlugins(nextTypescript),
   {
     // Admin routes and internal lib files use `as any` to work around TypeScript's
     // inability to narrow AdminResult<T> generics past noreturn functions (redirect).
