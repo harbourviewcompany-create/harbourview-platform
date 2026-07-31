@@ -77,7 +77,7 @@ All required workflows completed successfully against application-content head `
 
 The visual workflow independently passed typecheck, production build, route startup, browser capture, HTTP status validation, and horizontal-overflow validation.
 
-Subsequent evidence-only commits must receive their normal latest-head checks before merge. They do not modify application code, SQL, dependencies, or workflow execution logic.
+Evidence-only descendants must receive their normal latest-head checks before merge. They do not modify application code, SQL, dependencies, or workflow execution logic.
 
 ## Responsive screenshot evidence
 
