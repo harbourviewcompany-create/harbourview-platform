@@ -1,0 +1,119 @@
+name: Elite Digest Production Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/elite-digest-release-deploy.yml
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  verify-and-deploy:
+    name: Verify exact merge and deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout exact Elite Digest squash commit
+        uses: actions/checkout@v4
+        with:
+          ref: 4227d70df46c20e556fb537d3bacd38823d54033
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Targeted Elite Digest tests
+        run: npx vitest run tests/signals/eliteDigestHardening.test.ts tests/signals/digestRank.test.ts
+
+      - name: Full tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Create Vercel production deployment from exact Git SHA
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
+          PROJECT_ID: prj_Zp8HBDstqAAOCN6W7LAElahsq3qS
+          SOURCE_SHA: 4227d70df46c20e556fb537d3bacd38823d54033
+        run: |
+          set -euo pipefail
+          payload=$(python3 - <<'PY'
+          import json, os
+          print(json.dumps({
+            "name": "harbourview",
+            "project": os.environ["PROJECT_ID"],
+            "target": "production",
+            "gitSource": {
+              "type": "github",
+              "repoId": 1214598473,
+              "ref": "main",
+              "sha": os.environ["SOURCE_SHA"]
+            }
+          }))
+          PY
+          )
+          response=$(curl -sS -w '\nHTTP_STATUS:%{http_code}' -X POST \
+            "https://api.vercel.com/v13/deployments?teamId=${TEAM_ID}&forceNew=1" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "$payload")
+          status=$(printf '%s\n' "$response" | sed -n 's/^HTTP_STATUS://p')
+          body=$(printf '%s\n' "$response" | sed '/^HTTP_STATUS:/d')
+          echo "HTTP $status"
+          echo "$body" | head -c 1200; echo
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            exit 1
+          fi
+          deployment_id=$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id", ""))')
+          deployment_url=$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("url", ""))')
+          test -n "$deployment_id"
+          echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Vercel deployment readiness
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            body=$(curl -fsS \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              "https://api.vercel.com/v13/deployments/${DEPLOYMENT_ID}?teamId=${TEAM_ID}")
+            state=$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("readyState") or d.get("state") or "")')
+            echo "attempt=$attempt state=$state"
+            case "$state" in
+              READY) exit 0 ;;
+              ERROR|CANCELED) printf '%s\n' "$body" | head -c 2000; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Deployment did not reach READY within verification window"
+          exit 1
+
+      - name: Release evidence summary
+        run: |
+          echo "## Elite Digest production release" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source SHA: 4227d70df46c20e556fb537d3bacd38823d54033" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment ID: ${{ steps.deploy.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment URL: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
