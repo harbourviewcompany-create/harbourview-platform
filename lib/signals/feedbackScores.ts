@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
 
 export async function loadFeedbackScores(
-  _userClient: AnySchemaSupabaseClient,
+  userClient: unknown,
   signalIds: string[],
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>()
@@ -22,10 +22,10 @@ export async function loadFeedbackScores(
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString()
 
   try {
-    let client: AnySchemaSupabaseClient = _userClient
+    let client = userClient as AnySchemaSupabaseClient
     try {
       const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
-      client = await createSupabaseServiceClient()
+      client = (await createSupabaseServiceClient()) as unknown as AnySchemaSupabaseClient
     } catch {
       /* fall back to caller client */
     }
