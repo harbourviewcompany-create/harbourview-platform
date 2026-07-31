@@ -9,8 +9,10 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
+
 export async function loadFeedbackScores(
-  _userClient: SupabaseClient,
+  _userClient: AnySchemaSupabaseClient,
   signalIds: string[],
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>()
@@ -20,7 +22,7 @@ export async function loadFeedbackScores(
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString()
 
   try {
-    let client: SupabaseClient = _userClient
+    let client: AnySchemaSupabaseClient = _userClient
     try {
       const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
       client = await createSupabaseServiceClient()
