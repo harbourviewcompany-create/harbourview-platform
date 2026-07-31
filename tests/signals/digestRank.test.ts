@@ -68,6 +68,20 @@ describe('digestRankScore', () => {
     )
     expect(strong).toBeGreaterThan(weak)
   })
+
+  it('soft-boosts helpful feedback and penalizes not_helpful', () => {
+    const base = digestRankScore(row({ id: 'a', feedback_score: 0 }))
+    const boosted = digestRankScore(row({ id: 'b', feedback_score: 16 }))
+    const penalized = digestRankScore(row({ id: 'c', feedback_score: -24 }))
+    expect(boosted).toBeGreaterThan(base)
+    expect(penalized).toBeLessThan(base)
+  })
+
+  it('clamps extreme feedback so votes cannot dominate classifier', () => {
+    const clampedHigh = digestRankScore(row({ id: 'h', feedback_score: 999 }))
+    const normalHigh = digestRankScore(row({ id: 'n', feedback_score: 25 }))
+    expect(clampedHigh).toBe(normalHigh)
+  })
 })
 
 describe('rankDigestCandidates', () => {
@@ -107,5 +121,29 @@ describe('rankDigestCandidates', () => {
         row({ id: 'x', quality_label: 'boilerplate', content_type: 'noise' }),
       ]),
     ).toEqual([])
+  })
+
+  it('surfaces highly rated non-US items over flat US volume when feedback is strong', () => {
+    const rows: DigestCandidate[] = [
+      row({
+        id: 'us-mediocre',
+        country: 'United States',
+        quality_confidence: 0.82,
+        content_type: 'story',
+        impact: 'medium',
+        feedback_score: -12,
+      }),
+      row({
+        id: 'br-strong',
+        country: 'Brazil',
+        quality_confidence: 0.88,
+        content_type: 'market',
+        impact: 'high',
+        feedback_score: 20,
+        corroboration_count: 3,
+      }),
+    ]
+    const ranked = rankDigestCandidates(rows, { maxPerCountry: 3, limit: 5 })
+    expect(ranked[0].id).toBe('br-strong')
   })
 })
