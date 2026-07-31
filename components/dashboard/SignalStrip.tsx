@@ -14,18 +14,9 @@ const TYPE_COLORS: Record<string, string> = {
   'SUPPLY CHAIN':'border-orange-500/30 text-orange-400  bg-orange-500/[0.06]',
   INVESTMENT:   'border-blue-500/30    text-blue-400    bg-blue-500/[0.06]',
   INTEL:        'border-yellow-500/30  text-yellow-400  bg-yellow-500/[0.06]',
-}
-
-const IMPACT_COLOR: Record<string, string> = {
-  high:   '#5dcaa5',
-  medium: '#f4d27a',
-  low:    'rgba(243,240,234,0.28)',
-}
-
-const IMPACT_ICON: Record<string, string> = {
-  high:   '↗',
-  medium: '→',
-  low:    '→',
+  STORY:        'border-amber-400/30   text-amber-300   bg-amber-400/[0.06]',
+  RESEARCH:     'border-sky-400/30     text-sky-300     bg-sky-400/[0.06]',
+  NEWS:         'border-stone-400/30   text-stone-300   bg-stone-400/[0.06]',
 }
 
 function PulseDot() {
@@ -37,21 +28,29 @@ function PulseDot() {
   )
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+function qualityMeta(s: DashboardSignal): string {
+  const parts: string[] = []
+  if (s.corroborationCount && s.corroborationCount > 1) {
+    parts.push(`${s.corroborationCount} sources`)
+  }
+  if (s.translated && s.originalLanguageLabel) {
+    parts.push(`via ${s.originalLanguageLabel}`)
+  }
+  return parts.length ? ` · ${parts.join(' · ')}` : ''
+}
+
 export interface SignalStripProps {
   signals?: DashboardSignal[]
   /** True when signals come from the live database (not fixtures) */
   isLive?: boolean
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) {
   return (
     <aside
       className="flex flex-col overflow-y-auto px-3.5 py-4"
       style={{ borderLeft: '1px solid rgba(198,165,90,0.1)', background: 'rgba(4,9,18,0.6)' }}
     >
-      {/* Header */}
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
           Market signals
@@ -68,7 +67,6 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
         )}
       </div>
 
-      {/* Signal cards */}
       {signals.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-center text-[10px]" style={{ color: 'rgba(243,240,234,0.28)' }}>
@@ -79,36 +77,28 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
         <div className="flex flex-col gap-2">
           {signals.map((s) => {
             const tagClass = TYPE_COLORS[s.tag.label] ?? TYPE_COLORS.INTEL
-            const impactColor = IMPACT_COLOR[s.commercialImpact] ?? IMPACT_COLOR.low
-            const impactIcon  = IMPACT_ICON[s.commercialImpact]  ?? '→'
             return (
               <div
                 key={s.id}
                 className="cursor-pointer rounded-xl p-2.5 transition-all hover:border-[rgba(198,165,90,0.2)]"
                 style={{ background: 'rgba(10,20,38,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                {/* Market + tag row */}
                 <div className="mb-1.5 flex items-center justify-between gap-1.5">
                   <span className="truncate text-[9px] font-semibold uppercase tracking-[0.1em]" style={{ color: '#f0d39a' }}>
-                    {s.market}
+                    {s.flag ? `${s.flag} ` : ''}{s.market}
                   </span>
                   <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[7px] uppercase tracking-[0.06em] ${tagClass}`}>
                     {s.tag.label}
                   </span>
                 </div>
 
-                {/* Headline */}
                 <p className="mb-1.5 text-[10px] leading-snug" style={{ color: 'rgba(243,240,234,0.72)' }}>
                   {s.title}
                 </p>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className="text-[9px]" style={{ color: 'rgba(243,240,234,0.25)' }}>
-                    {s.market} · confidence {s.confidence} · {s.timeAgo}
-                  </span>
-                  <span className="text-[9px] font-medium" style={{ color: impactColor }}>
-                    {impactIcon} {s.commercialImpact}
+                    {s.confidence}% conf{qualityMeta(s)} · {s.timeAgo}
                   </span>
                 </div>
               </div>
@@ -117,7 +107,6 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
         </div>
       )}
 
-      {/* Footer link */}
       <Link
         href="/signals"
         className="mt-3 block text-center text-[10px] transition-opacity hover:opacity-80"
