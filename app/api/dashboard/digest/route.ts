@@ -253,7 +253,6 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // ── Elite fallback: Pipeline B ranked window + feedback ───────────────────
     let query = supabase
       .from('signals_quality')
       .select(SAFE_SELECT, { count: 'exact' })
