@@ -2077,9 +2077,23 @@ mismatch was about to cause a silent production regression.
 **Mechanism.** `.github/workflows/supabase-migrate.yml` runs on pushes to `main` touching
 `supabase/migrations/**`. It (a) writes a `SELECT 1;` placeholder for every *remote* version with no
 local file, then (b) runs `supabase db push --include-all`, which applies every *local* file whose
-version is absent from the remote history, in version order. PR #1220 had just repaired this
-workflow ("URL-encode DB password to fix connection string corruption"), so it was about to run
-properly for the first time in a while, against an accumulated set of mismatched versions.
+version is absent from the remote history, in version order.
+
+**Correction to this entry's first draft.** It originally said PR #1220's connection-string repair
+meant the workflow "was about to run properly for the first time in a while." That was inference, and
+checking the run history disproved it: `supabase-migrate` has **never** successfully applied a
+migration. Every run, including [30617992730](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30617992730)
+from #1218's merge, fails at the auto-reconcile step's push —
+
+```
+remote: error: GH006: Protected branch update failed for refs/heads/main.
+remote: - 4 of 4 required status checks are expected.
+```
+
+— because the bot cannot push to a protected `main`. It retries 3×, exits non-zero, and the
+`Push migrations` step (gated on `if: steps.reconcile.outputs.count == '0'`) is therefore never
+reached. #1220's fix was real but was not the binding constraint. **The hazard below is latent, not
+imminent:** it fires whenever that push is unblocked, not on the next merge.
 
 **The regression it would have caused.** `hv_dedup_assign` was fixed twice on 2026-07-30: first to
 cut the comparison count (`20260730104444`, written to the repo as
@@ -2124,3 +2138,20 @@ afterwards with a hand-picked timestamp means the two histories drift by constru
 pair is a latent replay hazard of exactly this shape. Worth deciding on a convention — either always
 let CI apply from files, or always copy the MCP-assigned version into the filename — rather than
 continuing to reconcile case by case.
+
+**Follow-on finding, larger than the one migration.** Because that push has never succeeded, *no*
+migration has ever reached production through this workflow — every one got there via MCP. The files
+in `supabase/migrations/` have not been the deployment path, so nothing has been validating them.
+When the push is unblocked, the entire accumulated backlog of unrecorded local files applies at once
+in version order, which is precisely when the `hv_dedup_assign` revert — and anything else that has
+drifted in files nobody has been checking — would fire.
+
+Three options, flagged for Tyler rather than actioned, because branch protection and the deploy path
+are consequential and hard to reverse:
+1. give the reconcile bot a branch-protection bypass, or have it open a PR instead of pushing to `main`;
+2. drop auto-reconcile and adopt a convention that keeps the two histories aligned by construction —
+   either always apply from files via CI, or always name files with the MCP-assigned version;
+3. leave it off deliberately and treat MCP as the sanctioned path, removing the auto-reconcile step
+   rather than leaving it to fail on every push.
+
+Recommendation: (2). The drift is what creates the hazard; the other two only manage it.
