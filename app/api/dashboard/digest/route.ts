@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
       let confidenceBySignalId = new Map<string, number>()
       if (sourceSignalIds.length > 0) {
         const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
-          .from('signals')
+          .from('signals_quality')
           .select('id, quality_confidence')
           .in('id', sourceSignalIds)
 
