@@ -3,7 +3,6 @@
 Date: 2026-07-31
 Branch: `feature/supply-catalog`
 Merge status: not merged
-Evidence commit: `4111de35a8cd9a4f36f776b37e2c8c544b7423c8`
 Verified application-content head: `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`
 
 ## Scope
@@ -78,7 +77,7 @@ All required workflows completed successfully against application-content head `
 
 The visual workflow independently passed typecheck, production build, route startup, browser capture, HTTP status validation, and horizontal-overflow validation.
 
-The evidence-only commit must receive its own normal latest-head checks before merge. Its content does not modify application code, SQL, dependencies, or workflow execution logic.
+Subsequent evidence-only commits must receive their normal latest-head checks before merge. They do not modify application code, SQL, dependencies, or workflow execution logic.
 
 ## Responsive screenshot evidence
 
@@ -116,7 +115,7 @@ The stable branch alias exists:
 
 The alias currently resolves to READY deployment `dpl_TCPcAc6YTCeS1YucrfNh4DVstZje`, commit `bcfd2421c8fea7b4c25bd28c2507a8b8447e1fdb`, which predates the hardening and latest-main reconciliation.
 
-No READY Vercel preview matching application-content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be` or evidence commit `4111de35a8cd9a4f36f776b37e2c8c544b7423c8` was present in the project deployment list at verification time. The local production build and browser evidence are green, but current-head Vercel deployment identity remains unverified.
+No READY Vercel preview matching application-content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be` or a subsequent evidence-only descendant was present in the project deployment list at verification time. The local production build and browser evidence are green, but current-head Vercel deployment identity remains unverified.
 
 ## Decision
 
@@ -124,5 +123,5 @@ No READY Vercel preview matching application-content head `f622ef638f3fe526d11e5
 
 Code, database, DTO, leakage, build, test, and responsive browser gates are green. Do not merge PR #1222 until:
 
-1. the evidence-only head completes its latest GitHub checks; and
+1. the latest evidence-only head completes its GitHub checks; and
 2. Vercel produces a READY preview whose `githubCommitSha` matches the current PR head or a content-equivalent descendant, with `/supply` and `/supply/cr-mylar-pouch-3-5g-matte-black` confirmed operational.
