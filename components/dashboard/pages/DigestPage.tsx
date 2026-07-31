@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import Link from 'next/link'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
+import { SignalFeedbackButtons } from '@/components/dashboard/SignalFeedbackButtons'
 
 type SignalGroup = 'REGULATORY' | 'MARKET ACCESS' | 'SUPPLY CHAIN' | 'TESTING & COMPLIANCE' | 'EXPORT / BUYER MOVEMENT' | 'EVIDENCE UPDATES'
 
@@ -149,7 +150,11 @@ export const DigestPage = React.memo(function DigestPage({
     <div className="cc-page">
       <div className="cc-inner-header">
         <h2>Daily Digest — {country.label}{region ? ` · ${region}` : ''}{role ? ` · ${role}` : ''}</h2>
-        <p>Your once-a-day read on the freshest quality-gated intelligence for the resolved jurisdiction. {copy.sub}</p>
+        <p>
+          Your once-a-day commercial brief for {country.label || 'this market'}.
+          Ranked by quality, impact, and multi-source corroboration — not keyword noise.
+          {' '}{copy.sub}
+        </p>
       </div>
 
       <div className={`cc-digest-banner${isStale ? ' stale' : ''}`}>
@@ -188,6 +193,7 @@ export const DigestPage = React.memo(function DigestPage({
           <strong>{topSignal.title}</strong>
           <p>{topSignal.commercialImpact}</p>
           <QualityChips s={topSignal} />
+          <SignalFeedbackButtons signalId={topSignal.id} surface="digest" />
           <div className="cc-digest-lead-meta">
             <span>{topSignal.market || country.label}</span>
             <span>·</span>
@@ -206,7 +212,9 @@ export const DigestPage = React.memo(function DigestPage({
       <div className="cc-sig-feed">
         {effectiveSignals.length === 0 ? (
           <div className="cc-empty-state">
-            No reviewed intelligence available yet. New quality-gated items appear here as the daily pipeline publishes.
+            <strong style={{ display: 'block', marginBottom: 6 }}>Nothing in this window yet</strong>
+            The brief fills as quality-gated signals are classified and published.
+            If this persists past a day, outcome monitoring will flag a stale digest.
           </div>
         ) : (
           effectiveSignals.map((s, i) => {
@@ -243,6 +251,7 @@ export const DigestPage = React.memo(function DigestPage({
                     {s.translated && s.originalLanguageLabel ? ` · from ${s.originalLanguageLabel}` : ''}
                   </small>
                   <QualityChips s={s} />
+                  <SignalFeedbackButtons signalId={s.id} surface="digest" />
                 </div>
                 <div className="cc-sig-why">
                   <em>Why it matters</em>
@@ -269,7 +278,7 @@ export const DigestPage = React.memo(function DigestPage({
       </div>
 
       <div className="cc-feed-footer">
-        <span>Digest window: {copy.kicker.toLowerCase()} · {effectiveSignals.length} shown</span>
+        <span>Digest window: {copy.kicker.toLowerCase()} · {effectiveSignals.length} shown · mark items useful to improve ranking</span>
         <span className="cc-auto-refresh">
           {isFetching
             ? <><span className="cc-refresh-dot" style={{ background: 'var(--cc-amber)' }}/>Refreshing…</>
