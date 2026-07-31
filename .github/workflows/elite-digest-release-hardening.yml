@@ -53,6 +53,19 @@ jobs:
       - name: Apply asserted hardening patch
         run: node scripts/apply-elite-digest-hardening.mjs
 
+      - name: Repair generated regression-test string literal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/signals/eliteDigestHardening.test.ts')
+          text = path.read_text()
+          old = ").toBe('AT&T \"policy\" 'shift' — next')"
+          new = ').toBe(`AT&T "policy" \'shift\' — next`)'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one test-literal target, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
+
       - name: Apply schema-generic feedback client type repair
         run: |
           python3 - <<'PY'
