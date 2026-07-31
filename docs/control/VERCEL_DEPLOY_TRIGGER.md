@@ -12,15 +12,4 @@ Connector evidence before the 2026-05-19 follow-up trigger: the Vercel project d
 
 Connector/dashboard evidence before the 2026-05-20 trigger: PR #426 was merged into main at eba6092f3e43a7942220b44ab4e9e85d8386e775, but Vercel production remained on an older deployment. Attempting to redeploy the older Vercel deployment failed because its source SHA c0fa7cab814a22a47699dd553e48c686efb0a576 no longer represents the current main tip. This metadata commit exists so Vercel receives a fresh main-branch production source commit that includes the PR #426 globe dataset.
 
-## Elite Digest release trigger — 2026-07-31
-
-Purpose: trigger a fresh Vercel production deployment after the verified squash merge of PR #1228.
-
-- Required runtime source commit: `4227d70df46c20e556fb537d3bacd38823d54033`
-- Trigger timestamp: `2026-07-31T15:10:00Z`
-- Scope: deployment-control metadata only
-- Runtime code/config/database changes in this trigger commit: none
-
-The connected Vercel action does not expose a project/ref-scoped Git deployment and rejected an empty file payload. This metadata update intentionally triggers the existing Vercel Git integration from `main` without changing application behavior.
-
 This file is deployment-control metadata only. It does not change runtime behavior, environment variables, domains, aliases, Supabase, RLS, auth, package files, marketplace DTO allowlists, Vercel config, secrets, or production data.
