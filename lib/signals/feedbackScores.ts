@@ -9,6 +9,10 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// The caller and service-role clients may be instantiated against different
+// PostgREST schemas. SupabaseClient's schema generics are invariant, so this
+// boundary intentionally accepts any generated database/schema combination.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
 
 export async function loadFeedbackScores(
