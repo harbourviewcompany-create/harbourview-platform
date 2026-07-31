@@ -70,6 +70,9 @@ const eslintConfig = [
       '**/node_modules/**',
       'supabase/functions/**',
       '.claude/**',
+      // Legacy operator utility invokes lint/typecheck and creates reports/PRs;
+      // it is not part of the application or root lint target.
+      'scripts/audit-edge-functions.js',
     ],
   },
   ...withCompatiblePlugins(nextCoreWebVitals),
