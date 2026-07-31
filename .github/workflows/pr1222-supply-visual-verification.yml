@@ -27,10 +27,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright package and Chromium
-        run: |
-          npm install --no-save --ignore-scripts playwright@1.54.0
-          npx playwright install --with-deps chromium
+      - name: Install Playwright package
+        run: npm install --no-save --ignore-scripts playwright@1.54.0
 
       - name: Typecheck
         run: npm run typecheck
@@ -72,7 +70,11 @@ jobs:
           ]
 
           await fs.mkdir(out, { recursive: true })
-          const browser = await chromium.launch({ headless: true })
+          const browser = await chromium.launch({
+            headless: true,
+            executablePath: '/usr/bin/google-chrome',
+            args: ['--no-sandbox'],
+          })
           const manifest = []
           try {
             for (const viewport of viewports) {
