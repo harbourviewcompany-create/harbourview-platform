@@ -3,16 +3,19 @@
 Date: 2026-07-31
 Branch: `feature/supply-catalog`
 Merge status: not merged
+Verified content head: `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`
 
 ## Scope
 
-Verification and hardening of `/supply`, `/supply/[slug]`, the dedicated public supply DTO, production migration history, natural-key protections, and current-main TypeScript failures inherited when the branch was synchronized with `main`.
+Verification and hardening of `/supply`, `/supply/[slug]`, the dedicated public supply DTO, production migration history, natural-key protections, current-main TypeScript compatibility, public leakage controls, production build, and responsive browser rendering.
 
 ## Code repairs
 
-- `lib/signals/feedbackScores.ts` now accepts Supabase clients whose exposed schema is `api` or `public`; this removes the schema-generic mismatch reported from `app/api/dashboard/digest/route.ts` and the feedback loader.
+- `lib/signals/feedbackScores.ts` accepts Supabase clients whose exposed schema is `api` or `public`, removing the schema-generic mismatch reported from `app/api/dashboard/digest/route.ts` and the feedback loader.
 - No runtime change was required in `app/api/dashboard/digest/route.ts` after the shared helper type was corrected.
-- The latest Type check workflow passed after the repair.
+- `components/dashboard/MobileCommandCentre.tsx` was reconciled through current `main`; it is not part of the final supply-specific diff.
+- `.github/workflows/pr166-new-products-equipment-verification.yml` now scans exact private-field markers rather than the generic word `evidence`, eliminating a confirmed false positive while preserving leakage coverage.
+- `.github/workflows/pr1222-supply-visual-verification.yml` builds the branch, starts the production server with the repository Supabase public environment, captures the required responsive routes, rejects non-2xx responses, and rejects horizontal overflow.
 
 ## Production migration reconciliation
 
@@ -37,7 +40,7 @@ Only the missing hardening migration was applied. Supabase registered it as:
 
 - `20260731145108` — `harden_supply_catalog_public_projection`
 
-The repository repair migration filename was aligned to the applied production version.
+The repository repair migration filename is aligned to the applied production version.
 
 ## Database verification
 
@@ -55,28 +58,65 @@ An anonymous-role query against `api.supply_catalog_public_v1` succeeded and ret
 
 The dedicated DTO remains `api.supply_catalog_public_v1`. The supply implementation does not depend on expanding the shared `marketplace_public_listings_v1` DTO.
 
-## Automated checks
+## Latest-head automated checks
 
-Confirmed on the repaired branch during this pass:
+All required GitHub workflows completed successfully against content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`:
 
-- Type check: passed on the post-helper-repair head.
-- Migration Drift Check: passed before the final migration filename reconciliation; a final run was triggered after reconciliation.
-- HAR-39 HAR-40 Public Surfaces: passed before the final migration filename reconciliation; a final run was triggered after reconciliation.
-- Install Only Verification: passed before the final migration filename reconciliation; a final run was triggered after reconciliation.
+| Workflow | Run ID | Conclusion |
+|---|---:|---|
+| Install Only Verification | `30657376233` | success |
+| Project Registry Discipline | `30657376307` | success |
+| Type check | `30657376769` | success |
+| Migration Drift Check | `30657376683` | success |
+| HAR-39 HAR-40 Public Surfaces | `30657376213` | success |
+| PR 166 New Products Equipment Verification | `30657377051` | success |
+| Regulatory Signals Verify | `30657376338` | success |
+| Branch Verification | `30657376284` | success |
+| CI | `30657376289` | success |
+| PR 1222 Supply Visual Verification | `30657376474` | success |
 
-Final workflow conclusions must be read from the latest branch head before merge.
+The visual workflow independently passed typecheck, production build, route startup, browser capture, HTTP status validation, and horizontal-overflow validation.
 
-## Screenshots
+## Responsive screenshot evidence
 
-Required browser captures:
+GitHub Actions artifact:
 
-- `/supply` at 375px
-- `/supply` at 1440px
-- one `/supply/[slug]` route at 375px
-- one `/supply/[slug]` route at 1440px
+- Name: `pr1222-supply-responsive-screenshots`
+- Artifact ID: `8803821009`
+- Source run: `30657376474`
+- Archive SHA-256: `838220f44d24ea6221347d92fbeb0f23c0a04950894818de0458fd9522e52055`
+- Retention expiry: 2026-08-30
 
-Screenshot capture was not available through the connected GitHub and Supabase execution tools used for this pass. This remains a release evidence blocker rather than an inferred pass.
+Artifact paths:
+
+- `verification-results/pr1222-supply/catalog-375.png`
+- `verification-results/pr1222-supply/catalog-1440.png`
+- `verification-results/pr1222-supply/detail-cr-mylar-pouch-3-5g-matte-black-375.png`
+- `verification-results/pr1222-supply/detail-cr-mylar-pouch-3-5g-matte-black-1440.png`
+- `verification-results/pr1222-supply/manifest.json`
+
+Visual review result:
+
+- Both routes returned HTTP 200 at 375px and 1440px.
+- No horizontal overflow was detected.
+- Mobile catalog cards remain readable and single-column.
+- Desktop catalog uses a coherent three-column grid.
+- The detail route reflows from stacked mobile sections to a two-column desktop information layout.
+- Navigation, CTAs, review language, product attributes, disclaimers, and footer rendered without clipping.
+- The screenshots correctly show the current text-first catalog state; product imagery is not part of PR #1222.
+
+## Vercel preview verification
+
+The stable branch alias exists:
+
+- `harbourview-git-feature-supply-catalog-harbourview.vercel.app`
+
+The alias currently resolves to READY deployment `dpl_TCPcAc6YTCeS1YucrfNh4DVstZje`, commit `bcfd2421c8fea7b4c25bd28c2507a8b8447e1fdb`, which predates the hardening and latest-main reconciliation.
+
+No READY Vercel preview matching content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be` was present in the project deployment list at verification time. The local production build and browser evidence are green, but current-head Vercel deployment identity remains unverified.
 
 ## Decision
 
-HOLD until the final latest-head workflow set completes and the four required browser screenshots are captured and reviewed. Do not merge PR #1222 before those gates are closed.
+**HOLD.**
+
+Code, database, DTO, leakage, build, test, and responsive browser gates are green. Do not merge PR #1222 until Vercel produces a READY preview whose `githubCommitSha` matches the current PR head or a content-equivalent descendant, and that deployment is confirmed to serve `/supply` and `/supply/cr-mylar-pouch-3-5g-matte-black` successfully.
