@@ -58,7 +58,6 @@ export type CommandPage =
   | 'access-pathway'
   | 'marketplace'
   | 'evidence'
-  | 'education'
   | 'regulatory'
   | 'local-intel'
   | 'signals'
