@@ -3,7 +3,8 @@
 Date: 2026-07-31
 Branch: `feature/supply-catalog`
 Merge status: not merged
-Verified content head: `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`
+Evidence commit: `4111de35a8cd9a4f36f776b37e2c8c544b7423c8`
+Verified application-content head: `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`
 
 ## Scope
 
@@ -14,7 +15,7 @@ Verification and hardening of `/supply`, `/supply/[slug]`, the dedicated public 
 - `lib/signals/feedbackScores.ts` accepts Supabase clients whose exposed schema is `api` or `public`, removing the schema-generic mismatch reported from `app/api/dashboard/digest/route.ts` and the feedback loader.
 - No runtime change was required in `app/api/dashboard/digest/route.ts` after the shared helper type was corrected.
 - `components/dashboard/MobileCommandCentre.tsx` was reconciled through current `main`; it is not part of the final supply-specific diff.
-- `.github/workflows/pr166-new-products-equipment-verification.yml` now scans exact private-field markers rather than the generic word `evidence`, eliminating a confirmed false positive while preserving leakage coverage.
+- `.github/workflows/pr166-new-products-equipment-verification.yml` scans exact private-field markers rather than the generic word `evidence`, eliminating a confirmed false positive while preserving leakage coverage.
 - `.github/workflows/pr1222-supply-visual-verification.yml` builds the branch, starts the production server with the repository Supabase public environment, captures the required responsive routes, rejects non-2xx responses, and rejects horizontal overflow.
 
 ## Production migration reconciliation
@@ -58,9 +59,9 @@ An anonymous-role query against `api.supply_catalog_public_v1` succeeded and ret
 
 The dedicated DTO remains `api.supply_catalog_public_v1`. The supply implementation does not depend on expanding the shared `marketplace_public_listings_v1` DTO.
 
-## Latest-head automated checks
+## Automated checks
 
-All required GitHub workflows completed successfully against content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`:
+All required workflows completed successfully against application-content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be`:
 
 | Workflow | Run ID | Conclusion |
 |---|---:|---|
@@ -76,6 +77,8 @@ All required GitHub workflows completed successfully against content head `f622e
 | PR 1222 Supply Visual Verification | `30657376474` | success |
 
 The visual workflow independently passed typecheck, production build, route startup, browser capture, HTTP status validation, and horizontal-overflow validation.
+
+The evidence-only commit must receive its own normal latest-head checks before merge. Its content does not modify application code, SQL, dependencies, or workflow execution logic.
 
 ## Responsive screenshot evidence
 
@@ -113,10 +116,13 @@ The stable branch alias exists:
 
 The alias currently resolves to READY deployment `dpl_TCPcAc6YTCeS1YucrfNh4DVstZje`, commit `bcfd2421c8fea7b4c25bd28c2507a8b8447e1fdb`, which predates the hardening and latest-main reconciliation.
 
-No READY Vercel preview matching content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be` was present in the project deployment list at verification time. The local production build and browser evidence are green, but current-head Vercel deployment identity remains unverified.
+No READY Vercel preview matching application-content head `f622ef638f3fe526d11e5aa5b0b350cc7a94f6be` or evidence commit `4111de35a8cd9a4f36f776b37e2c8c544b7423c8` was present in the project deployment list at verification time. The local production build and browser evidence are green, but current-head Vercel deployment identity remains unverified.
 
 ## Decision
 
 **HOLD.**
 
-Code, database, DTO, leakage, build, test, and responsive browser gates are green. Do not merge PR #1222 until Vercel produces a READY preview whose `githubCommitSha` matches the current PR head or a content-equivalent descendant, and that deployment is confirmed to serve `/supply` and `/supply/cr-mylar-pouch-3-5g-matte-black` successfully.
+Code, database, DTO, leakage, build, test, and responsive browser gates are green. Do not merge PR #1222 until:
+
+1. the evidence-only head completes its latest GitHub checks; and
+2. Vercel produces a READY preview whose `githubCommitSha` matches the current PR head or a content-equivalent descendant, with `/supply` and `/supply/cr-mylar-pouch-3-5g-matte-black` confirmed operational.
