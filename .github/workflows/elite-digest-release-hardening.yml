@@ -106,7 +106,7 @@ jobs:
           git config user.name "harbourview-release-bot"
           git config user.email "harbourviewcompany@gmail.com"
           git rm .github/workflows/elite-digest-release-hardening.yml
-          git rm scripts/apply-elite-digest-hardening.mjs
+          git rm -f scripts/apply-elite-digest-hardening.mjs
           git add \
             app/api/dashboard/digest/route.ts \
             components/dashboard/MobileCommandCentre.tsx \
