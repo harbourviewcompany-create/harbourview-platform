@@ -2065,3 +2065,62 @@ rather than folded into it.
 **Human approval status:** Tyler took PR #1218 out of draft and enabled squash auto-merge himself —
 the Rule 3c sign-off. This merge-and-reconcile pass was performed to make that auto-merge able to
 proceed, which it could not while the PR was conflicted.
+
+---
+
+## 2026-07-31 — CI migration replay would have reverted the dedup HNSW fix
+
+**Found by** checking, after PR #1218 merged, whether the local migration files and
+`supabase_migrations.schema_migrations` actually agree — not by a failure. They do not, and the
+mismatch was about to cause a silent production regression.
+
+**Mechanism.** `.github/workflows/supabase-migrate.yml` runs on pushes to `main` touching
+`supabase/migrations/**`. It (a) writes a `SELECT 1;` placeholder for every *remote* version with no
+local file, then (b) runs `supabase db push --include-all`, which applies every *local* file whose
+version is absent from the remote history, in version order. PR #1220 had just repaired this
+workflow ("URL-encode DB password to fix connection string corruption"), so it was about to run
+properly for the first time in a while, against an accumulated set of mismatched versions.
+
+**The regression it would have caused.** `hv_dedup_assign` was fixed twice on 2026-07-30: first to
+cut the comparison count (`20260730104444`, written to the repo as
+`20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql`), then to use the HNSW index
+(`20260730104633_hv_dedup_assign_use_hnsw_index`, applied via MCP and **never written to a file**).
+Since the HNSW version has no file, CI would stub it as `SELECT 1;` — carrying none of its DDL — and
+then apply the stale `20260730110000`, whose version is absent from the remote history and whose
+body is the pre-HNSW form. Final state: the `WHERE (1 - (a <=> b)) >= p_tau` predicate, which
+pgvector cannot serve from `idx_signals_embedding_1024_hnsw`, reinstated — reintroducing the 120s
+statement timeout that had made dedup unrunnable (45 of 46 runs cancelled over ~8h) and that was
+fixed to ~2.4s.
+
+**Verified, not assumed:**
+- Live `pg_get_functiondef(hv_dedup_assign)` reads back the k-NN form
+  (`order by t.embedding_1024 <=> b.embedding_1024 limit c_neighbours`), so production is currently
+  correct and this is a prevented regression, not an active one.
+- The repo file contains `and (1 - (t.embedding_1024 <=> b.embedding_1024)) >= p_tau` — confirmed
+  the superseded body, not a formatting difference.
+- `20260730104633` is present in `schema_migrations` and absent from `supabase/migrations/`.
+
+**Fix.** `20260731090000_hv_dedup_assign_restore_hnsw_knn.sql` — a verbatim copy of the live
+definition, at a version that sorts *after* the stale file so it wins regardless of replay order.
+Correcting the stale file alone was rejected: that would leave the outcome dependent on file
+ordering rather than guaranteed by it. The stale file's body is left untouched so the history stays
+an honest record of what was applied when; only a `SUPERSEDED` header was added.
+
+**Deliberately not applied via MCP.** Applying it would mint a *new* remote version with no matching
+local file — recreating the exact class of drift this entry is about. It is left for CI to apply
+from the file, which is the path that needs to be proven working.
+
+**Other files checked for the same staleness, all clean:**
+- `20260730222000_entities_dispatch_ungated_and_reaping.sql` carries the `resp` alias fix; live
+  `hv_entities_dispatch` and `hv_entities_harvest` both confirmed using it.
+- `20260730180000_search_public_signals_rpc.sql` *is* stale (pre-Stage-D), but
+  `20260731013000_search_public_signals_stage_d_consistency.sql` sorts after it and restores the
+  correct definition, so the end state is right. Noted because it is right by ordering rather than
+  by design.
+- `20260730123000_harvest_stamp_classifier_v2_summary_fix.sql` matches the live v2 stamp.
+
+**Standing risk this exposes, not fixed here:** applying migrations through MCP and writing the file
+afterwards with a hand-picked timestamp means the two histories drift by construction. Every such
+pair is a latent replay hazard of exactly this shape. Worth deciding on a convention — either always
+let CI apply from files, or always copy the MCP-assigned version into the filename — rather than
+continuing to reconcile case by case.
