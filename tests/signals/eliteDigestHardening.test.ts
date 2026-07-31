@@ -67,6 +67,7 @@ describe('Elite Digest release hardening', () => {
     expect(confidence.get('a')).toBe(91)
     expect(confidence.get('b')).toBe(64)
     expect(confidence.has('invalid')).toBe(false)
+    expect(digestRoute).toContain(".from('signals_quality')")
     expect(digestRoute).toContain(".select('id, quality_confidence')")
     expect(digestRoute).toContain('confidenceBySignalId.get(h.signal_id)')
   })
