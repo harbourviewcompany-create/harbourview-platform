@@ -6,7 +6,10 @@ import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardSha
 
 type SignalGroup = 'REGULATORY' | 'MARKET ACCESS' | 'SUPPLY CHAIN' | 'TESTING & COMPLIANCE' | 'EXPORT / BUYER MOVEMENT' | 'EVIDENCE UPDATES'
 
-function deriveSignalGroup(title: string): SignalGroup {
+function deriveSignalGroup(title: string, contentType?: string | null): SignalGroup {
+  const ct = (contentType ?? '').toLowerCase()
+  if (ct === 'research') return 'EVIDENCE UPDATES'
+  if (ct === 'market') return 'MARKET ACCESS'
   const t = title.toLowerCase()
   if (/export|import|buyer|gacp|eu.gmp|international/.test(t)) return 'EXPORT / BUYER MOVEMENT'
   if (/test|coa|compliance|qa|quality|lab|microbial|pesticide|threshold/.test(t)) return 'TESTING & COMPLIANCE'
@@ -41,6 +44,41 @@ const DIGEST_WINDOW_COPY: Record<DigestWindow, { kicker: string; sub: string }> 
   'recent': { kicker: 'Most recent',               sub: 'No new intel in the recent window — showing the latest reviewed signals.' },
 }
 
+function QualityChips({ s }: { s: DashboardSignal }) {
+  const chips: string[] = []
+  if (s.corroborationCount && s.corroborationCount > 1) {
+    chips.push(`${s.corroborationCount} sources reporting`)
+  }
+  if (s.translated && s.originalLanguageLabel) {
+    chips.push(`Translated from ${s.originalLanguageLabel}`)
+  }
+  if (s.signalContentType && s.signalContentType !== 'regulatory') {
+    chips.push(s.signalContentType)
+  }
+  if (!chips.length) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {chips.map((c) => (
+        <span
+          key={c}
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: '#C6A55A',
+            border: '1px solid rgba(198,165,90,0.35)',
+            background: 'rgba(198,165,90,0.08)',
+            borderRadius: 999,
+            padding: '2px 8px',
+          }}
+        >
+          {c}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export type DigestPageProps = {
   country: { iso2: string; label: string }
   region:  string
@@ -58,7 +96,6 @@ export const DigestPage = React.memo(function DigestPage({
   const [liveTotal,   setLiveTotal]   = useState<number | null>(null)
   const [isFetching,  setIsFetching]  = useState(false)
 
-  // SSR props → instant paint; effect hydrates the country-filtered live set.
   const effectiveSignals = liveSignals ?? digestSignals ?? signals.slice(0, 20)
   const effectiveWindow: DigestWindow = liveWindow ?? digestWindow ?? 'recent'
 
@@ -90,18 +127,21 @@ export const DigestPage = React.memo(function DigestPage({
   const copy = DIGEST_WINDOW_COPY[effectiveWindow]
   const isStale = effectiveWindow !== '24h'
 
-  // Category rollup for the summary strip.
   const rollup = useMemo(() => {
     const map: Partial<Record<SignalGroup, number>> = {}
     effectiveSignals.forEach(s => {
-      const g = deriveSignalGroup(s.title)
+      const g = deriveSignalGroup(s.title, s.signalContentType)
       map[g] = (map[g] ?? 0) + 1
     })
     return SIG_GROUP_ORDER.filter(g => map[g]).map(g => ({ group: g, n: map[g]! }))
   }, [effectiveSignals])
 
   const topSignal = useMemo(
-    () => [...effectiveSignals].sort((a, b) => b.confidence - a.confidence)[0] ?? null,
+    () => [...effectiveSignals].sort((a, b) => {
+      const corr = (b.corroborationCount ?? 1) - (a.corroborationCount ?? 1)
+      if (corr !== 0) return corr
+      return b.confidence - a.confidence
+    })[0] ?? null,
     [effectiveSignals],
   )
 
@@ -109,10 +149,9 @@ export const DigestPage = React.memo(function DigestPage({
     <div className="cc-page">
       <div className="cc-inner-header">
         <h2>Daily Digest — {country.label}{region ? ` · ${region}` : ''}{role ? ` · ${role}` : ''}</h2>
-        <p>Your once-a-day read on the freshest reviewed intelligence for the resolved jurisdiction. {copy.sub}</p>
+        <p>Your once-a-day read on the freshest quality-gated intelligence for the resolved jurisdiction. {copy.sub}</p>
       </div>
 
-      {/* Window banner */}
       <div className={`cc-digest-banner${isStale ? ' stale' : ''}`}>
         <span className={`cc-digest-live-dot${isStale ? '' : ' active'}`} aria-hidden="true" />
         <div className="cc-digest-banner-body">
@@ -135,14 +174,20 @@ export const DigestPage = React.memo(function DigestPage({
         )}
       </div>
 
-      {/* Lead item */}
       {topSignal && (
         <div className="cc-digest-lead">
           <div className="cc-digest-lead-tag">
-            {topSignal.contentType === 'editorial' ? 'Featured this week' : `Lead signal · ${topSignal.confidence}% confidence`}
+            {topSignal.contentType === 'editorial'
+              ? 'Featured this week'
+              : `Lead signal · ${topSignal.confidence}% confidence${
+                  topSignal.corroborationCount && topSignal.corroborationCount > 1
+                    ? ` · ${topSignal.corroborationCount} sources`
+                    : ''
+                }`}
           </div>
           <strong>{topSignal.title}</strong>
           <p>{topSignal.commercialImpact}</p>
+          <QualityChips s={topSignal} />
           <div className="cc-digest-lead-meta">
             <span>{topSignal.market || country.label}</span>
             <span>·</span>
@@ -158,12 +203,10 @@ export const DigestPage = React.memo(function DigestPage({
         </div>
       )}
 
-      {/* Recency list */}
       <div className="cc-sig-feed">
         {effectiveSignals.length === 0 ? (
           <div className="cc-empty-state">
-            No reviewed intelligence available yet. Automated promotion of fresh signals is being wired up —
-            new items will appear here daily once it goes live.
+            No reviewed intelligence available yet. New quality-gated items appear here as the daily pipeline publishes.
           </div>
         ) : (
           effectiveSignals.map((s, i) => {
@@ -194,11 +237,16 @@ export const DigestPage = React.memo(function DigestPage({
                 <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                 <div className="cc-sig-body">
                   <strong>{s.title}</strong>
-                  <small>{s.market ? `${s.market} · ` : ''}{s.timeAgo}</small>
+                  <small>
+                    {s.market ? `${s.market} · ` : ''}{s.timeAgo}
+                    {s.corroborationCount && s.corroborationCount > 1 ? ` · ${s.corroborationCount} sources` : ''}
+                    {s.translated && s.originalLanguageLabel ? ` · from ${s.originalLanguageLabel}` : ''}
+                  </small>
+                  <QualityChips s={s} />
                 </div>
                 <div className="cc-sig-why">
                   <em>Why it matters</em>
-                  <span>Affects operations in {s.market || country.label}</span>
+                  <span>{s.commercialImpact || `Affects operations in ${s.market || country.label}`}</span>
                 </div>
                 <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
                 <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>
