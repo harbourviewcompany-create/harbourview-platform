@@ -2,6 +2,7 @@
  * Load soft ranking boosts from signal_relevance_feedback.
  * Uses service role so aggregates include all operators — user-scoped
  * RLS only returns the caller's own rows and would under-weight the loop.
+ * Accepts clients configured for either the public or exposed API schema.
  * Fails open (empty map) so a missing table never breaks the digest.
  */
 
