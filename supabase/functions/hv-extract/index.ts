@@ -53,7 +53,7 @@ type EditorialResult = {
 const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object -- no prose, no markdown, no explanation, no code fences.
 
 Return exactly this structure:
-{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
+{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":"integer 0-100. 80-100 = binding regulatory or enforcement action; 50-79 = material policy, licensing, or market development; 30-49 = substantive cannabis coverage with no specific action; 0-29 = incidental mention, stock promotion, listicle, SEO filler, or not cannabis-related. Score the CONTENT -- do not copy this description.","confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
 
 If the content contains no cannabis-relevant signal, return: {"signal_type":"none","relevance_score":0,"confidence":"high","summary":"","key_entities":[],"keywords_matched":[],"jurisdiction":null,"country_iso":null,"effective_date":null}`;
 
@@ -275,7 +275,12 @@ Deno.serve(async (req: Request) => {
   const rawLimit    = Number(url.searchParams.get("limit") ?? "10");
   const limit       = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 10, 25));
   const minRelevance = Number(url.searchParams.get("min_relevance") ?? "30");
-  const llmBackend  = ANTHROPIC_API_KEY ? "claude-haiku-4-5" : GEMINI_API_KEY ? "gemini-3.5-flash" : "gpt-4o-mini";
+  // Report the backend that will actually be TRIED FIRST, which is OpenAI (see
+  // extractSignal's attempt order). Keying this off ANTHROPIC_API_KEY's mere
+  // presence reported "claude-haiku-4-5" on every run while OpenAI did all the
+  // work -- actively misleading during the 2026-07-31 dark-feed diagnosis, since
+  // the Anthropic key exists but is billing-blocked.
+  const llmBackend  = OPENAI_API_KEY ? "gpt-4o-mini" : ANTHROPIC_API_KEY ? "claude-haiku-4-5" : "gemini-3.5-flash";
 
   let query = supabase
     .from("source_snapshots")
@@ -393,7 +398,7 @@ Deno.serve(async (req: Request) => {
             source_record_id: snapshot.id,
             source_url: snapshot.captured_url,
             import_batch_id: batchId,
-            importer_version: "hv-extract@1.6.1+needs_review",
+            importer_version: "hv-extract@1.7.0+needs_review",
             transform_version: "none",
             raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
             raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
@@ -439,7 +444,7 @@ Deno.serve(async (req: Request) => {
           source_record_id: snapshot.id,
           source_url: snapshot.captured_url,
           import_batch_id: batchId,
-          importer_version: `hv-extract@1.6.1+${outcome.backend}`,
+          importer_version: `hv-extract@1.7.0+${outcome.backend}`,
           transform_version: BACKEND_MODEL[outcome.backend] ?? outcome.backend,
           raw_payload: rawPayload,
           raw_payload_hash: rawPayloadHash,
@@ -471,5 +476,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.6.1", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.7.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });

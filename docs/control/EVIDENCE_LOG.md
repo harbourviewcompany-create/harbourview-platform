@@ -2155,3 +2155,81 @@ are consequential and hard to reverse:
    rather than leaving it to fail on every push.
 
 Recommendation: (2). The drift is what creates the hazard; the other two only manage it.
+
+---
+
+## 2026-07-31 — The dark feed: hv-extract scored every snapshot 0 because the prompt told it to
+
+**Symptom.** 2 signals created in 24h against ~175 snapshots/day fetched. `hv_import_staging` had
+received nothing since 2026-07-25. 1,180 snapshots sat at `processing_status='pending'`.
+
+**Ruled out first.** Crawl volume was the obvious suspect and it was wrong. Fetching is healthy —
+175-477 snapshots/day, 175 on the day of diagnosis. The pending corpus is substantive, not nav
+chrome: median word count 1,287, 84.1% (992/1,180) containing cannabis keywords, only 46 rows under
+100 words. The content was real; something downstream was discarding it.
+
+**Root cause.** `hv-extract`'s `EXTRACTION_SYSTEM` prompt gives every response field a descriptive
+placeholder — except one:
+
+```
+"summary":"1-2 sentence plain English summary of the cannabis-relevant signal",
+"relevance_score":0,                            <-- literal value, no range, no meaning
+"confidence":"high|medium|low",
+```
+
+The model copies the literal `0`, exactly as the schema instructs. The function then gates on
+`extraction.relevance_score < minRelevance` with `minRelevance` defaulting to 30, so **every**
+snapshot exits via the `low_relevance` skip path and is marked `fetch_status='extracted'`, never to
+be reconsidered. Deterministic, content-independent starvation.
+
+**Measured, not inferred.** Ran the live prompt against 20 real pending snapshots via `pg_net` ->
+OpenAI `gpt-4o-mini` (identical model, prompt, and user-content shape as the function). No writes to
+`source_snapshots`; scratch table dropped afterwards.
+
+| variant | n | scored >= 30 | avg score | max |
+|---|---|---|---|---|
+| v1 (deployed) | 20 | **0 (0.0%)** | 4.4 | 8 |
+| v2 (scored range) | 20 | **12 (60.0%)** | 39.5 | 85 |
+
+v1 never came within 22 points of its own threshold. Note it was *identifying* signals correctly —
+`regulatory_change`, `policy_update`, `enforcement_action` on 15 of 20 — and then scoring them 0.
+
+**v2 discriminates rather than inflates**, which is the test that mattered:
+
+- 85: Trump weighs marijuana decriminalization; Wyoming prosecutor crackdown; congressional hemp bill
+- 80: cricket player punished for THC
+- 70: UK plain-packaging policy; California cannabis-drink market entry
+- 50: hospital drug-testing bill; US cannabis milestone; South America drug supply
+- 30: cannabis trailblazer nomination (borderline, correctly at the line)
+- 0: **all seven "3 Top Marijuana Stocks" SEO listicles**, a carbon/water erratum, a fentanyl piece
+
+Under v1 all twenty were indistinguishable at 0-8.
+
+**Fix shipped.** `hv-extract` v1.7.0: `relevance_score` given an explicit 0-100 rubric with banded
+meanings and "Score the CONTENT -- do not copy this description."
+
+**Second, smaller fix in the same deploy.** `llm_backend` in the response was derived from
+`ANTHROPIC_API_KEY`'s mere *presence*, so every run reported `claude-haiku-4-5` while `extractSignal`
+actually tries OpenAI first (the Anthropic key exists but is billing-blocked). This actively
+misdirected the diagnosis — a dry run reported a Claude backend for work OpenAI did. Now derived from
+the real attempt order.
+
+**Same failure class as the classifier defect fixed earlier the same day** (recall 0.559 -> 0.903):
+prompt formatting causing systematic rejection of genuine content, invisible because the stage
+reported success on every run while discarding everything.
+
+**Hypothesis, explicitly not established:** the bug is latent in the prompt but may only have bitten
+when the provider order changed on 2026-07-21 (OpenAI moved first because Anthropic/Gemini are
+billing-blocked) — Claude may have read the `0` as a placeholder where `gpt-4o-mini` copies it. Not
+testable here; the Anthropic key is billing-blocked. Recorded as a hypothesis, not a finding.
+
+**Left open deliberately, needs a decision:**
+- The 1,180 pending snapshots are recoverable, but only by resetting their `fetch_status` — they were
+  already marked `'extracted'` on the way through. That is a deliberate backfill, not folded in here.
+- Two extractors still race for `fetch_status='success'`: `hv-extract` (48x/day) and
+  `hv_extract_signals_from_captured_text` (1x/day). hv-extract wins and flips the status, so the
+  keyword path — and `hv_ingest_snapshot_to_staging`, which needs the `signal_candidates` it
+  populates — are starved. Guardrail #10 says two implementations of one stage is itself the failure.
+  Resolving it means retiring one; that is an architecture decision for Tyler.
+- Crawl ramp deliberately NOT done. Ramping into a stage that discarded 100% of input would have
+  multiplied the waste and hidden the real fault.
