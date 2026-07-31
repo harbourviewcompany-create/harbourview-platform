@@ -1874,7 +1874,6 @@ const EducationPage = React.memo(function EducationPage({
                 </div>
               </div>
             ))}
-            <button className="cc-right-link" onClick={() => onPageChange?.('education')}>Browse all tracks →</button>
           </div>
         )}
 
