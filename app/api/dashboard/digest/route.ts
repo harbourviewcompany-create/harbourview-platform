@@ -25,9 +25,12 @@ import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
   resolveConfidence,
+  resolveContentType,
   displayHeadline,
   buildCorroborationIndex,
   corroborationCount,
+  isTranslated,
+  originalLanguageLabel,
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 import { rankDigestCandidates, type DigestCandidate } from '@/lib/signals/digestRank'
@@ -149,6 +152,10 @@ function rowToSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSig
     sourceLabel:      'Harbourview Intelligence',
     flag:             flagForMarket(market),
     contentType:      'signal',
+    corroborationCount: corr,
+    translated: isTranslated(s),
+    originalLanguageLabel: originalLanguageLabel(s),
+    signalContentType: resolveContentType(s),
   }
 }
 
