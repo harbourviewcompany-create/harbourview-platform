@@ -1,0 +1,92 @@
+name: Elite Digest Confidence Relation
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: elite-digest-confidence-relation
+  cancel-in-progress: true
+
+jobs:
+  verify-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/elite-digest-release-hardening
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Target confidence lookup to exposed API relation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          route = Path('app/api/dashboard/digest/route.ts')
+          text = route.read_text()
+          old = """        const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
+          .from('signals')
+          .select('id, quality_confidence')
+          .in('id', sourceSignalIds)
+"""
+          new = """        const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
+          .from('signals_quality')
+          .select('id, quality_confidence')
+          .in('id', sourceSignalIds)
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one confidence lookup block, found {text.count(old)}')
+          route.write_text(text.replace(old, new))
+
+          tests = Path('tests/signals/eliteDigestHardening.test.ts')
+          test_text = tests.read_text()
+          old_test = "    expect(digestRoute).toContain(\".select('id, quality_confidence')\")\n"
+          new_test = (
+              "    expect(digestRoute).toContain(\".from('signals_quality')\")\n"
+              "    expect(digestRoute).toContain(\".select('id, quality_confidence')\")\n"
+          )
+          if test_text.count(old_test) != 1:
+              raise SystemExit(f'expected one confidence assertion, found {test_text.count(old_test)}')
+          tests.write_text(test_text.replace(old_test, new_test))
+          PY
+
+      - name: Run TypeScript check
+        run: npm run typecheck
+
+      - name: Run targeted Elite Digest tests
+        run: npx vitest run tests/signals/eliteDigestHardening.test.ts tests/signals/digestRank.test.ts
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Commit verified relation correction
+        run: |
+          git config user.name "harbourview-release-bot"
+          git config user.email "harbourviewcompany@gmail.com"
+          git rm .github/workflows/elite-digest-confidence-relation.yml
+          git add app/api/dashboard/digest/route.ts tests/signals/eliteDigestHardening.test.ts
+          git diff --cached --check
+          git commit -m "fix: use exposed Digest confidence relation"
+          git push origin HEAD:agent/elite-digest-release-hardening
