@@ -1,6 +1,9 @@
 name: Elite Digest Confidence Relation
 
 on:
+  push:
+    branches:
+      - agent/elite-digest-release-hardening
   pull_request:
     branches:
       - main
