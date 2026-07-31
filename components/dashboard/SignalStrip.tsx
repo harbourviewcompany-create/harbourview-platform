@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { SignalFeedbackButtons } from '@/components/dashboard/SignalFeedbackButtons'
 
 export type { DashboardSignal }
 
-// ── Visual mappings ───────────────────────────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
   REGULATION:   'border-amber-500/30   text-amber-400   bg-amber-500/[0.06]',
   MARKET:       'border-emerald-500/30 text-emerald-400 bg-emerald-500/[0.06]',
@@ -41,7 +41,6 @@ function qualityMeta(s: DashboardSignal): string {
 
 export interface SignalStripProps {
   signals?: DashboardSignal[]
-  /** True when signals come from the live database (not fixtures) */
   isLive?: boolean
 }
 
@@ -68,10 +67,13 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
       </div>
 
       {signals.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-center text-[10px]" style={{ color: 'rgba(243,240,234,0.28)' }}>
-            No signals available
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-2">
+          <p className="text-center text-[10px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.35)' }}>
+            No quality-gated signals in this view yet. New items appear after classify + promote.
           </p>
+          <Link href="/signals" className="text-[10px]" style={{ color: 'rgba(198,165,90,0.45)' }}>
+            Browse all signals →
+          </Link>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -80,7 +82,7 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
             return (
               <div
                 key={s.id}
-                className="cursor-pointer rounded-xl p-2.5 transition-all hover:border-[rgba(198,165,90,0.2)]"
+                className="rounded-xl p-2.5 transition-all hover:border-[rgba(198,165,90,0.2)]"
                 style={{ background: 'rgba(10,20,38,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
                 <div className="mb-1.5 flex items-center justify-between gap-1.5">
@@ -101,19 +103,22 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
                     {s.confidence}% conf{qualityMeta(s)} · {s.timeAgo}
                   </span>
                 </div>
+                <SignalFeedbackButtons signalId={s.id} surface="signals" />
               </div>
             )
           })}
         </div>
       )}
 
-      <Link
-        href="/signals"
-        className="mt-3 block text-center text-[10px] transition-opacity hover:opacity-80"
-        style={{ color: 'rgba(198,165,90,0.38)' }}
-      >
-        All signals →
-      </Link>
+      {signals.length > 0 && (
+        <Link
+          href="/signals"
+          className="mt-3 block text-center text-[10px] transition-opacity hover:opacity-80"
+          style={{ color: 'rgba(198,165,90,0.38)' }}
+        >
+          All signals →
+        </Link>
+      )}
     </aside>
   )
 }
