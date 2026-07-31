@@ -3194,25 +3194,30 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook, pathway
       {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
         <div className="hvm-signal-card hvm-signal-card--rich">
           <div className="hvm-kicker">MARKET ENTRY STEPS</div>
-          {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
-            <div key={s.step} style={{ marginTop: s.step === 1 ? 4 : 10, paddingTop: s.step === 1 ? 0 : 10, borderTop: s.step === 1 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {s.step}: {s.title}</div>
-              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{s.description}</div>
+          {jurisdictionPlaybook.steps.slice(0, 5).map((step, i) => (
+            <div key={`${i}-${step}`} style={{ marginTop: i === 0 ? 4 : 10, paddingTop: i === 0 ? 0 : 10, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {i + 1}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{step}</div>
             </div>
           ))}
         </div>
       )}
-      {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
-        <div className="hvm-signal-card hvm-signal-card--rich">
-          <div className="hvm-kicker">KEY REGULATORS</div>
-          {jurisdictionPlaybook.key_regulators.map((r, i) => (
-            <div key={r.name} style={{ marginTop: i === 0 ? 4 : 8, paddingTop: i === 0 ? 0 : 8, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{r.name}</div>
-              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', marginTop: 2 }}>{r.role}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {jurisdictionPlaybook?.key_regulators && (() => {
+        const regulators = jurisdictionPlaybook.key_regulators
+        const regulatorNames = [regulators.primary, ...regulators.secondary].filter(Boolean)
+        if (regulatorNames.length === 0) return null
+        return (
+          <div className="hvm-signal-card hvm-signal-card--rich">
+            <div className="hvm-kicker">KEY REGULATORS</div>
+            {regulatorNames.map((name, i) => (
+              <div key={name} style={{ marginTop: i === 0 ? 4 : 8, paddingTop: i === 0 ? 0 : 8, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', marginTop: 2 }}>{i === 0 ? 'Primary regulator' : 'Secondary regulator'}</div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
       {jurisdictionPlaybook?.common_pitfalls && jurisdictionPlaybook.common_pitfalls.length > 0 && (
         <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(229,115,115,.2)' }}>
           <div className="hvm-kicker" style={{ color: 'rgba(229,115,115,.7)' }}>COMMON PITFALLS</div>

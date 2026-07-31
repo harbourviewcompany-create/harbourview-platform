@@ -7,17 +7,10 @@ import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import type { PublicRegulatorySignal } from '@/lib/regulatory-signals/types'
 import { SIGNAL_TAG_MAP, REG_TYPE_TO_TAG } from '@/lib/regulatory-signals/signalTags'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { cleanPlainText } from '@/lib/utils/htmlEntities'
 
 function stripHtml(raw: string): string {
-  return raw
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/"/g, '"')
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/'|&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+  return cleanPlainText(raw, 240)
     .replace(/\/?\$[A-Z]{2,8}(?:\.[A-Z]{2,4})?/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
