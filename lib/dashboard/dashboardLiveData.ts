@@ -1099,8 +1099,10 @@ export async function getJurisdictionPlaybook(iso2: string | null): Promise<Juri
       typical_timeline_months: data.typical_timeline_months,
       estimated_cost_range:    data.estimated_cost_range,
       legal_framework_summary: data.legal_framework_summary,
-      steps:                   Array.isArray(data.steps)         ? data.steps         : [],
-      key_regulators:          Array.isArray(data.key_regulators) ? data.key_regulators : [],
+      steps:                   Array.isArray(data.steps) ? data.steps : [],
+      key_regulators:          (data.key_regulators && typeof data.key_regulators === 'object' && !Array.isArray(data.key_regulators))
+                                  ? data.key_regulators
+                                  : null,
       common_pitfalls:         Array.isArray(data.common_pitfalls) ? data.common_pitfalls : [],
     }
   } catch { return null }
