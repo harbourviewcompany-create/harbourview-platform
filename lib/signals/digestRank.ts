@@ -1,17 +1,9 @@
 /**
  * Elite digest ranking — pure functions, unit-testable.
  *
- * Mirrors the SQL ranking in
- * `supabase/migrations/20260730230000_elite_digest_from_pipeline_b.sql`
- * so the dashboard fallback path and any future TS-side composer share one
- * definition of "what belongs in a world-class daily brief".
- *
- * Design goals vs typical industry digests:
- *   - Quality-gated (classifier confidence, not keyword density)
- *   - Content-type aware (story/research/market primary; high-impact regulatory secondary)
- *   - Corroboration-aware (multi-source clusters rank higher)
- *   - Geographically diversified (cap per country so US does not dominate)
- *   - Prefer representatives (dedup already done upstream)
+ * Mirrors the SQL ranking in elite_digest_from_pipeline_b migration
+ * and accepts optional operator feedback scores so the product improves
+ * continuously from real use.
  */
 
 import {
@@ -29,6 +21,8 @@ export type DigestCandidate = SignalQualityRow & {
   created_at?: string | null
   country?: string | null
   corroboration_count?: number
+  /** Soft score from signal_feedback_score() — may be negative. */
+  feedback_score?: number
 }
 
 export type RankedDigestItem = {
@@ -57,7 +51,6 @@ const IMPACT_BOOST: Record<string, number> = {
   low: 0,
 }
 
-/** True when this row is eligible for the commercial daily digest. */
 export function isDigestEligible(row: DigestCandidate): boolean {
   if (!isSurfaceable(row)) return false
   if (row.is_representative === false) return false
@@ -65,7 +58,6 @@ export function isDigestEligible(row: DigestCandidate): boolean {
   const ct = resolveContentType(row)
   if (ct === 'story' || ct === 'research' || ct === 'market') return true
 
-  // High-impact regulatory still belongs in a commercial brief.
   if (ct === 'regulatory' || ct === null) {
     const impact = resolveImpact(row)
     const conf = resolveConfidence(row)
@@ -74,26 +66,23 @@ export function isDigestEligible(row: DigestCandidate): boolean {
   return false
 }
 
-/** Single-item rank score (higher = more digest-worthy). */
 export function digestRankScore(row: DigestCandidate): number {
   const conf = resolveConfidence(row) ?? 0
   const ct = resolveContentType(row)
   const impact = resolveImpact(row)
   const corr = Math.max(1, row.corroboration_count ?? 1)
+  const feedback = typeof row.feedback_score === 'number' ? row.feedback_score : 0
 
   return (
     conf +
     (IMPACT_BOOST[impact ?? ''] ?? 0) +
     (CONTENT_TYPE_BOOST[ct ?? ''] ?? 0) +
-    Math.min(20, (corr - 1) * 4)
+    Math.min(20, (corr - 1) * 4) +
+    // Clamp feedback influence so a few votes cannot dominate the classifier.
+    Math.max(-25, Math.min(25, feedback))
   )
 }
 
-/**
- * Rank and diversify candidates for a digest edition.
- * @param maxPerCountry default 3 — prevents major-market domination
- * @param limit default 24 — LLM input batch size
- */
 export function rankDigestCandidates(
   rows: DigestCandidate[],
   opts: { maxPerCountry?: number; limit?: number } = {},
