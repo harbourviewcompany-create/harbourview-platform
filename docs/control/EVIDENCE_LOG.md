@@ -1842,3 +1842,72 @@ retroactive QA run — the missing commands above remain genuinely missing, not 
 who owns that. We need to understand how everything works..." / "Keep going") rather than a single
 upfront spec approval — consistent with Rule 2's exemption for diagnostic/exploratory work under an
 already-approved objective (the Market Routing investigation).
+
+## 2026-07-30 — Rebuild signal search on Pipeline B (PR #NNNN)
+
+**Context:** directed to wire the UI following the 2026-07-30 platform review. Four of the five
+items identified as still-open (`confidence`/`impact` off the classifier, translated headlines,
+corroboration counts, spam exclusion) turned out to already be shipped by PR #1214, merged the same
+day, before this work started — verified live against `lib/regulatory-signals/public.ts` rather than
+assumed from the review doc. Not duplicated.
+
+The fifth item, `app/api/signals/search/route.ts`, was confirmed still broken: it queried
+`ia_signals` (the disconnected "Intelligence OS" table, 640 rows) via a Google
+text-embedding-004 (768-dim) embedder, while every other customer-facing surface now reads
+`public.signals` (Pipeline B, 3,260 rows) per PR #1214. Confirmed via GitHub code search that
+nothing in the app called this route — genuinely dead code, not merely stale. Gated behind an
+`intel`/`operator` paid tier, which HarbourView currently has 0 subscribers to (7 users total) —
+flagged to Tyler before building; he chose to build it now rather than leave it documented.
+
+**What changed:**
+- New RPC `api.search_public_signals(vector(1024), int, text, text)` — semantic search over
+  `public.signals`, matching `lib/signals/quality.ts`'s exclusion set
+  (`spam`/`boilerplate`/`nav`/`duplicate`) and `reviewed=true` gate. Uses the existing
+  `idx_signals_embedding_1024_hnsw` index via `ORDER BY <=> LIMIT` (no threshold filter, which the
+  index can't serve). Verified live before any app code was written: a self-similarity probe
+  (querying with a stored row's own embedding) returned that row at similarity 1.0, followed by
+  genuinely semantically related results at descending similarity (0.89, 0.69) — confirms the
+  embedding space and index are coherent, not just that the SQL runs.
+- New `lib/ai/embedSearchQuery1024.ts` — OpenAI `text-embedding-3-small` at `dimensions=1024`.
+  Deliberately not reusing `lib/ai/embeddings.ts` (Google text-embedding-004, 768-dim, a different
+  vector space entirely) or the backfill route's OpenAI call (no `dimensions` param, defaults to
+  1536). Confirmed live which model/dimension actually populated `signals.embedding_1024` before
+  writing this — `atttypmod=1024`, `embedding_model='text-embedding-3-small'` on all 6,441 embedded
+  rows — rather than assume.
+- Retargeted `app/api/signals/search/route.ts` to the new RPC + embedder, with a keyword fallback
+  against `public.signals` (was `ia_signals`). Auth/tier gating byte-for-byte unchanged — a
+  monetisation decision, not this pass's to make.
+- **Caught before shipping**: the service client was initially scoped to `db: { schema: 'api' }`
+  (matching this session's own earlier convention for other RPCs). Live check showed `api.signals`
+  does **not** expose the Pipeline B quality columns PR #1214 added
+  (`quality_label`/`title_en`/etc.) — only `embedding_1024`. Cross-checked against
+  `lib/regulatory-signals/public.ts`'s currently-working `fetchReviewedSignals()`, which queries
+  `signals` with no schema override at all and gets those columns fine: PostgREST's exposed default
+  on this project is `public`, not `api`, contradicting an assumption this session had carried from
+  much earlier context. Fixed: default (public) client for table reads, `.schema('api')` scoped
+  specifically to the RPC call.
+- New standalone page `app/dashboard/signals/search/page.tsx` + component
+  `components/dashboard/SignalSemanticSearch.tsx`. Deliberately **not** injected into
+  `components/dashboard/MobileCommandCentre.tsx` (4,807 lines; per
+  `docs/control/AGENT_PREFLIGHT_CHECKLIST.md`, its `<style>` block is an unscoped global string
+  where a duplicate class silently wins/loses the cascade instead of erroring — the exact mechanism
+  behind a real 2026-07-07 production bug cited in that doc). The new page/component are wholly
+  additive and independently reversible.
+
+**Not done, flagged rather than silently skipped:** the new page has no entry point from primary
+navigation — `app/dashboard/country/[country]/signals/page.tsx` is a 3-line redirect into
+`MobileCommandCentre.tsx`'s internal router, and adding a nav link there means editing that file.
+Reachable today only by direct URL (`/dashboard/signals/search`). Left as a follow-up rather than
+touch that file under this pass's risk budget.
+
+**Commands run:** none of `npm run test`/`qa:*` — `node_modules` unavailable in this session's
+environment, same limitation as every other 2026-07 entry in this log. No live end-to-end HTTP test
+of the Next.js route itself (would need a running dev server + a real `OPENAI_API_KEY` call, neither
+available here); verification was: (a) the RPC tested directly in SQL against a real stored
+embedding, described above, and (b) the schema-scoping bug caught by cross-referencing live
+`information_schema` output against another file's already-working, already-verified-live behavior,
+not by running this code.
+
+**Human approval status:** explicit go-ahead via the "Build it now (new RPC + retarget + UI box)"
+choice, after the paid-tier/dead-code tradeoff was surfaced and the alternative ("just document the
+gap") was offered.
