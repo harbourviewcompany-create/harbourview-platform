@@ -1072,8 +1072,12 @@ export type JurisdictionPlaybook = {
   typical_timeline_months: number | null
   estimated_cost_range:   string | null
   legal_framework_summary: string | null
-  steps:                  { step: number; title: string; description: string }[]
-  key_regulators:         { name: string; role: string }[]
+  // NOTE: matches the actual jurisdiction_playbooks column shapes. The previous
+  // { step, title, description }[] / { name, role }[] types never matched any row --
+  // steps is written as a flat string[], key_regulators as { primary, secondary }.
+  // See CommandCentre.tsx CompliancePage for the corresponding render fix.
+  steps:                  string[]
+  key_regulators:         { primary: string; secondary: string[] } | null
   common_pitfalls:        string[]
 }
 
