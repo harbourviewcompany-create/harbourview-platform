@@ -341,8 +341,7 @@ const BRIEFING_ROLE_MODULES: Record<string, Array<{ page: CommandPage; icon: str
     { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'Standards and SOPs across regulated jurisdictions' },
   ],
   'Patient Ed.': [
-    { page: 'education',      icon: '⊞', label: 'Education',          why: 'Patient-facing resources, dosing guides, and product info' },
-    { page: 'experts',        icon: '⊛', label: 'Expert Directory',   why: 'Find qualified patient educators and healthcare professionals' },
+        { page: 'experts',        icon: '⊛', label: 'Expert Directory',   why: 'Find qualified patient educators and healthcare professionals' },
     { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Patient access framework for your jurisdiction' },
   ],
   'GMP/QA':      [
