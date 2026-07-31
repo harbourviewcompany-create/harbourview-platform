@@ -1,20 +1,10 @@
 /**
  * GET /api/dashboard/digest
  *
- * Daily digest endpoint for the CommandCentre DigestPage.
- *
- * Two content types are merged into one feed, distinguished by `contentType`:
- *   - 'signal'    — trade/regulatory intelligence, curated by run_daily_digest()
- *                   from Pipeline B public.signals (story/research/market +
- *                   high-impact regulatory). Rendered with confidence + chip.
- *   - 'editorial' — mainstream-media cannabis news, curated by run_editorial_digest()
- *                   from editorial_items. No confidence score — headline + why-it-matters.
- *
- * Fallback (no published edition yet): ROLLING WINDOW over signals_quality,
- * ranked by lib/signals/digestRank (quality confidence, impact, content type,
- * corroboration, max 3 per country) — not raw recency alone.
- *
- * Query params: country, limit (1–40, default 20).
+ * Daily digest for CommandCentre DigestPage.
+ * Curated edition first; else Pipeline B quality window ranked by
+ * digestRank (confidence, impact, content type, corroboration,
+ * operator feedback, max 3 per country).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -34,6 +24,7 @@ import {
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 import { rankDigestCandidates, type DigestCandidate } from '@/lib/signals/digestRank'
+import { loadFeedbackScores } from '@/lib/signals/feedbackScores'
 
 const SAFE_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
@@ -262,7 +253,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // ── Elite fallback: Pipeline B ranked window ──────────────────────────────
+    // ── Elite fallback: Pipeline B ranked window + feedback ───────────────────
     let query = supabase
       .from('signals_quality')
       .select(SAFE_SELECT, { count: 'exact' })
@@ -287,6 +278,7 @@ export async function GET(req: NextRequest) {
 
     let rows = (data ?? []) as SignalRow[]
     const corrIndex = buildCorroborationIndex(rows)
+    const feedbackMap = await loadFeedbackScores(supabase, rows.map((r) => r.id))
 
     if (isCountryFiltered) {
       const needle = countryParam.toLowerCase()
@@ -313,6 +305,7 @@ export async function GET(req: NextRequest) {
     const candidates: DigestCandidate[] = windowed.map((r) => ({
       ...r,
       corroboration_count: corroborationCount(r, corrIndex),
+      feedback_score: feedbackMap.get(r.id) ?? 0,
     }))
 
     const ranked = rankDigestCandidates(candidates, {
@@ -336,6 +329,7 @@ export async function GET(req: NextRequest) {
         totalReviewed: count ?? finalRows.length,
         source: 'live',
         mode: 'elite-ranked-fallback',
+        feedbackApplied: feedbackMap.size > 0,
       },
       {
         headers: {
