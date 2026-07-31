@@ -6,46 +6,35 @@ import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
 import type { PublicRegulatorySignal } from '@/lib/regulatory-signals/types'
 import { SIGNAL_TAG_MAP, REG_TYPE_TO_TAG, INTEL_TAG_FALLBACK } from '@/lib/regulatory-signals/signalTags'
 import { flagEmoji, flagForMarket } from '@/lib/utils/flagEmoji'
+import { mapPublicToDashboardSignal } from '@/lib/dashboard/mapPublicToDashboardSignal'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
   resolveConfidence,
+  resolveContentType,
+  displayHeadline,
+  buildCorroborationIndex,
+  corroborationCount,
+  isTranslated,
+  originalLanguageLabel,
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 
-// Literal select strings: supabase-js infers row shape from the select string as a
-// template literal type, so these must not be built at runtime.
 const CURATED_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, analysis, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 const DIGEST_SELECT  = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
-
-// ── HTML stripping for scraper-sourced titles ────────────────────────────────
 function stripHtml(raw: string): string {
   return raw
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&apos;|&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/"/g, '"').replace(/&/g, '&')
+    .replace(/</g, '<').replace(/>/g, '>')
+    .replace(/'|&#39;/g, "'").replace(/&nbsp;/g, ' ')
     .replace(/\/?\$[A-Z]{2,8}(?:\.[A-Z]{2,4})?/g, '')
     .replace(/\s{2,}/g, ' ').trim().slice(0, 180)
 }
 
-// SIGNAL_TAG_MAP, REG_TYPE_TO_TAG, and INTEL_TAG_FALLBACK are now imported from
-// @/lib/regulatory-signals/signalTags (single source of truth).
-// flagEmoji and flagForMarket are imported from @/lib/utils/flagEmoji.
-
-// Re-export SIGNAL_TAG_MAP so existing callers that import it from this file continue to work.
 export { SIGNAL_TAG_MAP } from '@/lib/regulatory-signals/signalTags'
-
-function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
-  switch (c) {
-    case 'verified':           return 99
-    case 'high':               return 85
-    case 'medium':             return 65
-    case 'low':                return 42
-  }
-}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -57,10 +46,6 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(d / 7)}w ago`
 }
 
-// See matching comment in app/api/dashboard/digest/route.ts — editorial
-// content spans a much wider age range than same-day trade signals, so it
-// needs its own age label rather than being shown as "Today" regardless of
-// how old the underlying story actually is.
 function publishedLabel(dateStr: string | null | undefined): string {
   if (!dateStr) return 'Recently'
   try {
@@ -73,32 +58,13 @@ function publishedLabel(dateStr: string | null | undefined): string {
   }
 }
 
-// ── Map PublicRegulatorySignal → DashboardSignal ──────────────────────────────
+/** Prefer shared mapper so SSR first-paint carries quality-brain fields. */
 function regulatoryToSignal(s: PublicRegulatorySignal): DashboardSignal {
-  const tagKey = REG_TYPE_TO_TAG[s.signal_type] ?? 'regulatory_change'
-  const tag    = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
-  const market = s.country_name ?? s.region ?? ''
-  return {
-    id:               s.id,
-    slug:             s.slug,
-    title:            stripHtml(s.headline),
-    type:             tagKey,
-    market,
-    tag,
-    timeAgo:          timeAgo(s.published_at ?? s.signal_date),
-    confidence:       confidenceToScore(s.confidence),
-    commercialImpact: s.public_implication,
-    sourceLabel:      s.regulator_name || 'Harbourview Intelligence',
-    flag:             flagEmoji(s.country_code),
-  }
+  return mapPublicToDashboardSignal(s)
 }
 
 export type { DashboardSignal } from './dashboardShared'
 
-// ── Round-robin signals across countries so the global feed reflects genuinely
-// global coverage rather than being dominated by whichever country has the
-// most ingested rows (and thus the most recent dates). Within each country,
-// original order (most-recent-first) is preserved.
 function diversifyByCountry<T>(rows: T[], limit: number, getCountry: (r: T) => string | null | undefined): T[] {
   if (rows.length <= limit) return rows
   const byCountry = new Map<string, T[]>()
@@ -126,8 +92,6 @@ function diversifyByCountry<T>(rows: T[], limit: number, getCountry: (r: T) => s
   return result
 }
 
-
-// ── Map AutomationSignal → DashboardSignal ────────────────────────────────────
 function shapeSignals(signals: AutomationSignal[], limit: number): DashboardSignal[] {
   return signals
     .filter(s => s.stage !== 'archived')
@@ -155,7 +119,7 @@ type SignalAnalysis = {
   confidence_rationale?: string
 }
 
-type CuratedSignalRow = {
+type CuratedSignalRow = SignalQualityRow & {
   id: string
   headline: string
   cat: string | null
@@ -165,11 +129,6 @@ type CuratedSignalRow = {
   date: string | null
   created_at: string
   analysis?: SignalAnalysis | null
-  // Pipeline B quality columns — the canonical confidence source.
-  // `score` is deliberately absent: see `lib/signals/quality.ts`.
-  quality_label?: string | null
-  quality_confidence?: number | string | null
-  reviewed?: boolean | null
 }
 
 const LANE_TO_TAG: Record<string, string> = {
@@ -178,76 +137,62 @@ const LANE_TO_TAG: Record<string, string> = {
   market:       'importer_activity',
   supply:       'distressed_asset',
   financial:    'facility_expansion',
+  story:        'story',
+  research:     'research',
 }
 
-function priToCommercial(pri: string | null, lane: string, country: string): string {
+function priToCommercial(pri: string | null, lane: string, country: string, corr: number): string {
   const p = (pri ?? '').toLowerCase()
   const urgency = p === 'urgent' ? 'Urgent' : p === 'high' ? 'High-priority' : p === 'medium' ? 'Medium-priority' : 'Monitoring-level'
   const laneLabel = lane ? `${lane} signal` : 'signal'
-  return `${urgency} ${laneLabel}${country ? ` for ${country}` : ''} -- review for relevance to current operations and pathway status.`
+  const corrNote = corr > 1 ? ` · ${corr} sources reporting` : ''
+  return `${urgency} ${laneLabel}${country ? ` for ${country}` : ''}${corrNote} -- review for relevance to current operations and pathway status.`
 }
 
-// ── Map curated public.signals row → DashboardSignal ──────────────────────────
-// confidence: comes from `lib/signals/quality.ts#resolveConfidence`, which reads
-// Pipeline B's `signals.quality_confidence` (0-1, scaled to 0-100 there). The legacy
-// keyword-density scorer from before the classifier rework and is KNOWN INVERTED
-// (rates nav/cookie-banner chrome ~99, genuine headlines <40 -- see
-// docs/INTELLIGENCE_ARCHITECTURE_SPEC.md) -- it must never be shown to users as a
-// confidence figure. Rows with no classifier verdict (the earlier manually-approved
-// batch) get a flat 90: they passed human editorial review, which is a legitimate --
-// if different-in-kind -- confidence signal, and is strictly more honest than the old
-// inverted score.
-function curatedToSignal(s: CuratedSignalRow, classifierConfidence?: number | null): DashboardSignal {
-  const laneKey = (s.top_lane ?? s.cat ?? '').toLowerCase()
+function curatedToSignal(
+  s: CuratedSignalRow,
+  corrIndex?: Map<string, number>,
+): DashboardSignal {
+  const contentType = typeof s.content_type === 'string' ? s.content_type.toLowerCase() : ''
+  const laneKey = (contentType || s.top_lane || s.cat || '').toLowerCase()
   const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
   const tag     = laneKey in LANE_TO_TAG ? (SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change)
     : INTEL_TAG_FALLBACK
   const market = s.country ?? ''
-  // Already a 0-100 integer from resolveConfidence(); null means genuinely unrated.
-  const confidence = typeof classifierConfidence === 'number' ? classifierConfidence : 90
+  const confidence = resolveConfidence(s) ?? 90
+  const corr = corrIndex ? corroborationCount(s, corrIndex) : 1
+  const title = displayHeadline(s) ?? s.headline
   return {
     id:               s.id,
-    slug:             undefined,    // public.signals has no slug; route uses /signals feed
-    title:            stripHtml(s.headline),
+    slug:             undefined,
+    title:            stripHtml(title),
     type:             tagKey,
     market,
     tag,
     timeAgo:          timeAgo(s.date ?? s.created_at),
     confidence,
-    commercialImpact: priToCommercial(s.pri, laneKey, market),
-    sourceLabel:      'Harbourview Regulatory Watch',
+    commercialImpact: priToCommercial(s.pri, laneKey, market, corr),
+    sourceLabel:      'Harbourview Intelligence',
     flag:             flagForMarket(market),
     contentType:      'signal',
     analysis:         s.analysis ?? undefined,
+    corroborationCount: corr,
+    translated: isTranslated(s),
+    originalLanguageLabel: originalLanguageLabel(s),
+    signalContentType: resolveContentType(s),
   }
 }
 
-// ── fetchDashboardSignals ─────────────────────────────────────────────────────
-// Priority: regulatory_signals (published + public_safe) → curated public.signals
-//           → IA signals → fixtures
-//
-// When countryName is provided, country-relevant signals are surfaced first,
-// with global / other-country signals filling remaining slots.
 export async function fetchDashboardSignals(
   limit = 8,
   countryName?: string | null,
 ): Promise<DashboardSignal[]> {
-  // 1. Regulatory signals — the properly reviewed, publication-grade source
   try {
     const feed = await getPublicRegulatorySignalFeed()
     if (feed.source === 'live-approved' && feed.signals.length > 0) {
       const all = feed.signals
 
       if (countryName) {
-        // Prioritise: country match, then genuinely global/multilateral
-        // content only (no country set, or explicitly tagged 'Global' --
-        // e.g. WHO/INCB signals relevant to every importing country).
-        // Deliberately do NOT pad with other NAMED countries' local
-        // business news (a Florida dispensary opening, a Missouri research
-        // program) just to fill the requested count -- that reads as noise
-        // to a user viewing an unrelated country and erodes trust in the
-        // feed. Better to show fewer, genuinely relevant signals than pad
-        // with irrelevant ones.
         const nameLower = countryName.toLowerCase()
         const countryMatch = all.filter(
           s => s.country_name?.toLowerCase() === nameLower,
@@ -263,10 +208,6 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
-  // 2. Curated public.signals — 165+ reviewed rows across 30+ countries,
-  //    the output of the global regulatory ingestion + analyst review pass.
-  //    This is what powers the "Mexico Importer Signals" etc. country pages.
-  //    Tries service-role client first (bypasses RLS); falls back to anon client.
   try {
     const signalQuery = async () => {
       try {
@@ -297,18 +238,10 @@ export async function fetchDashboardSignals(
 
     if (!error && data && data.length > 0) {
       const all = data as CuratedSignalRow[]
-
-      // Confidence comes from Pipeline B's `signals.quality_confidence`, already
-      // selected above -- no second query, and no dependency on
-      // `signal_classifications`, which is Pipeline A's table (formally deprecated
-      // 2026-07-22) and covered only ~23% of reviewed signals, leaving the other
-      // ~77% on a fabricated flat 90. `quality_confidence` covers ~97%.
-      const toSignal = (s: CuratedSignalRow) => curatedToSignal(s, resolveConfidence(s as SignalQualityRow))
+      const corrIndex = buildCorroborationIndex(all)
+      const toSignal = (s: CuratedSignalRow) => curatedToSignal(s, corrIndex)
 
       if (countryName) {
-        // Same principle as the regulatory feed above: only pad with
-        // genuinely global/multilateral content (no country tag, or
-        // explicitly 'Global'), never another named country's local news.
         const nameLower = countryName.toLowerCase()
         const countryMatch = all.filter(s => s.country?.toLowerCase() === nameLower)
         const globallyRelevant = all.filter(
@@ -322,18 +255,12 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
-  // 3. Intelligence-automation signals table
   try {
     const result = await listIaSignals()
     if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
       const all = result.data.filter(s => s.stage !== 'archived')
 
       if (countryName) {
-        // ia_signals has no global/multilateral concept in its data (every
-        // row is tagged to a specific named country) -- so unlike the two
-        // feeds above, there's no safe "genuinely relevant" bucket to pad
-        // with. Return country matches only, even if fewer than the
-        // requested limit, rather than filling with unrelated countries.
         const nameLower = countryName.toLowerCase()
         const countryMatch = all.filter(s => s.market?.toLowerCase().includes(nameLower))
         return shapeSignals(countryMatch, limit)
@@ -343,20 +270,8 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
-  // 4. No live signals yet — return empty array; dashboard shows empty state
   return []
 }
-
-// ── Daily digest ──────────────────────────────────────────────────────────────
-// SSR first-paint for the DigestPage. Same public-safe source as the signals
-// feed (reviewed rows from signals_quality), but ordered strictly by recency
-// and returned alongside the window label the rows actually fall in, so the UI
-// can say "New in the last 24h" vs "Most recent — nothing new in 24h" honestly.
-//
-// The reviewed feed can go quiet for stretches, so this uses a rolling window:
-// 24h → 7d → 30d → most-recent-N. The client route (/api/dashboard/digest)
-// hydrates with the full country-filtered set on mount; this just gives an
-// instant, correctly-labelled first paint.
 
 export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
 
@@ -365,7 +280,7 @@ export type DailyDigest = {
   window: DigestWindow
 }
 
-type DigestRow = {
+type DigestRow = SignalQualityRow & {
   id: string
   headline: string
   cat: string | null
@@ -374,10 +289,6 @@ type DigestRow = {
   country: string | null
   date: string | null
   created_at: string
-  // Pipeline B quality columns; `score` deliberately absent (see lib/signals/quality.ts).
-  quality_label?: string | null
-  quality_confidence?: number | string | null
-  reviewed?: boolean | null
 }
 
 const DIGEST_WINDOWS: { key: DigestWindow; hours: number }[] = [
@@ -399,9 +310,6 @@ export async function fetchDailyDigest(
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
 
-    // ── Editorial edition first ───────────────────────────────────────────────
-    // Published daily_digest (same content as the public /daily page). When an
-    // edition exists it IS the digest; the rolling window below is fallback.
     const { data: edition, error: editionError } = await supabase
       .from('daily_digest')
       .select('digest_date, headlines, editorial_headlines, generated_at')
@@ -440,26 +348,23 @@ export async function fetchDailyDigest(
       const todayUtc  = new Date().toISOString().slice(0, 10)
       const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
 
-      // Real per-signal classifier confidence (same source/idiom as curatedToSignal
-      // above) instead of a flat 80 for every card regardless of content. Service-role
-      // only (signal_classifications RLS blocks anon reads) -- falls back to a flat 90
-      // per id (passed human editorial review) if the fetch fails or a signal_id has no
-      // classifier row.
+      // Pipeline B confidence from public.signals (not deprecated signal_classifications).
       const digestConfidenceMap = new Map<string, number>()
       try {
         const signalIds = signalItems.map(h => h.signal_id).filter((id): id is string => !!id)
         if (signalIds.length > 0) {
           const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
           const svc = await createSupabaseServiceClient()
-          const { data: classifications } = await svc
-            .from('signal_classifications')
-            .select('signal_id, confidence')
-            .in('signal_id', signalIds)
-          for (const row of classifications ?? []) {
-            if (typeof row.confidence === 'number') digestConfidenceMap.set(row.signal_id, row.confidence)
+          const { data: signalRows } = await svc
+            .from('signals')
+            .select('id, quality_confidence, reviewed')
+            .in('id', signalIds)
+          for (const row of signalRows ?? []) {
+            const conf = resolveConfidence(row as SignalQualityRow)
+            if (typeof conf === 'number' && row.id) digestConfidenceMap.set(String(row.id), conf)
           }
         }
-      } catch { /* leave digestConfidenceMap empty -- callers fall back to flat 90 */ }
+      } catch { /* leave empty — flat 90 fallback */ }
 
       const signalSignals: DashboardSignal[] = signalItems.map((h, i) => ({
         id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
@@ -470,7 +375,7 @@ export async function fetchDailyDigest(
         tag:              { label: 'REGULATION', color: '#D9A441', bg: 'rgba(217,164,65,0.15)', border: 'rgba(217,164,65,0.35)' },
         timeAgo:          'Today',
         confidence:       h.signal_id && digestConfidenceMap.has(h.signal_id)
-          ? Math.round(digestConfidenceMap.get(h.signal_id)! * 100)
+          ? digestConfidenceMap.get(h.signal_id)!
           : 90,
         commercialImpact: h.why_it_matters ?? '',
         sourceLabel:      'Harbourview Daily',
@@ -510,8 +415,6 @@ export async function fetchDailyDigest(
       .limit(200)
 
     if (countryName) {
-      // Strip PostgREST filter delimiters ( , ( ) ) before interpolating into
-      // the .or() clause, so a crafted country value can't inject conditions.
       const safeCountry = countryName.replace(/[,()]/g, '')
       query = query.or(`country.ilike.%${safeCountry}%,country.eq.Global`)
     }
@@ -520,6 +423,7 @@ export async function fetchDailyDigest(
     if (error || !data || data.length === 0) return { signals: [], window: 'recent' }
 
     let rows = data as DigestRow[]
+    const corrIndex = buildCorroborationIndex(rows)
 
     if (countryName) {
       const needle = countryName.toLowerCase()
@@ -549,7 +453,7 @@ export async function fetchDailyDigest(
     }
 
     return {
-      signals: windowed.slice(0, limit).map(curatedToSignal),
+      signals: windowed.slice(0, limit).map(r => curatedToSignal(r, corrIndex)),
       window: windowKey,
     }
   } catch (err) {
@@ -558,10 +462,8 @@ export async function fetchDailyDigest(
   }
 }
 
-// ── Role display mapping ──────────────────────────────────────────────────────
 export { ROLE_PROFILES } from './dashboardShared'
 
-// ── Education categories per role ─────────────────────────────────────────────
 const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: string }[]> = {
   doctor_prescriber: [
     { icon: '🩺', title: 'Prescribing Pathways',  desc: 'Clinical protocols & authorisation' },
@@ -738,9 +640,6 @@ export function getEduCategoriesForRole(roleId?: string) {
   return ROLE_EDU_CATEGORIES[roleId ?? ''] ?? DEFAULT_EDU
 }
 
-// ── Country status bar data ─────────────────────────────────────────────────────
-// Full ~195-country dataset lives in lib/dashboard/countryStatusData.ts
-// This file re-exports the public surface so callers need no extra imports.
 import {
   getCountryStatusBar as _getStatusBar,
   type CountryStatusBar,
@@ -761,7 +660,6 @@ export function getEmptyCountryStatusBar(): CountryStatusBar {
   return EMPTY_STATUS
 }
 
-// ── Wanted Requests count ─────────────────────────────────────────────────────
 export async function getWantedRequestsCount(countryIso2?: string | null): Promise<number> {
   try {
     const { createClient } = await import('@/lib/supabase/server')
@@ -777,5 +675,3 @@ export async function getWantedRequestsCount(countryIso2?: string | null): Promi
   } catch { /* Supabase unavailable */ }
   return 0
 }
-
-

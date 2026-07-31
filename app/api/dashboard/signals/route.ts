@@ -1,50 +1,36 @@
 /**
  * GET /api/dashboard/signals
  *
- * Live paginated signals endpoint for the CommandCentre SignalsPage.
- * Queries the `signals` table (803 rows) with DTO-safe columns only.
- * Supports country filtering, lane filtering, and pagination.
- *
- * Query params:
- *   country  — country name (e.g. "Germany"). Optional. Omit or "all" for global.
- *   lane     — "all" | "regulatory" | "economic" | "trade". Default: "all".
- *   limit    — max results, capped at 100. Default: 25.
- *   offset   — pagination offset. Default: 0.
- *
- * Returns:
- *   { signals: DashboardSignal[], total: number, source: "live" | "error" }
- *
- * Security:
- *   - Auth-gated: requires an authenticated Supabase session (401 if not signed in).
- *   - DTO: only safe public columns — never exposes summary, source_url,
- *     analyst_notes, in_network, company, query_pack, or action.
- *   - Filters to reviewed=true rows only (public-safe subset of the table).
- *   - Cache-Control: private, max-age=60 (browser-only, not CDN cached).
+ * Live paginated signals for CommandCentre. Reads signals_quality with
+ * Pipeline B quality columns; returns DashboardSignal including
+ * corroboration, translation, and content-type fields.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { flagForMarket } from '@/lib/utils/flagEmoji'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
   resolveConfidence,
+  resolveContentType,
+  displayHeadline,
+  buildCorroborationIndex,
+  corroborationCount,
+  isTranslated,
+  originalLanguageLabel,
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 
-// ── DTO: exact columns returned — nothing else ─────────────────────────────────
-// `score` is excluded on purpose — legacy inverted keyword scorer (spec §2.5).
-// Quality judgment comes from the Pipeline B columns in SIGNAL_QUALITY_SELECT.
 const SAFE_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
-// ── Lane → top_lane DB values ─────────────────────────────────────────────────
 const LANE_TOP_LANES: Record<string, string[]> = {
   regulatory: ['regulatory', 'REGULATORY', 'GAZETTE', 'PARLIAMENTARY', 'PRESS_RELEASE'],
   economic:   ['market', 'financial', 'intelligence', 'MARKET', 'FINANCIAL', 'MDB_PROJECT'],
   trade:      ['trade', 'supply', 'SOURCE_ENGINE', 'TRADE', 'SUPPLY', 'LICENSING'],
 }
 
-// ── Signal tag display map (mirrors dashboardServerData.ts) ───────────────────
 const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   regulatory_change:    { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
   importer_activity:    { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
@@ -52,6 +38,8 @@ const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string;
   new_product_category: { label: 'TRADE',        color: '#B07ED4', bg: 'rgba(139,95,168,0.15)',  border: 'rgba(139,95,168,0.30)'  },
   distressed_asset:     { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
   facility_expansion:   { label: 'INVESTMENT',   color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
+  story:                { label: 'STORY',        color: '#E8C87A', bg: 'rgba(232,200,122,0.12)', border: 'rgba(232,200,122,0.30)' },
+  research:             { label: 'RESEARCH',     color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
 }
 
 const LANE_TO_TAG: Record<string, string> = {
@@ -67,19 +55,19 @@ const LANE_TO_TAG: Record<string, string> = {
   supply:     'distressed_asset',
   source_engine: 'regulatory_change',
   licensing:  'importer_activity',
+  story:      'story',
+  research:   'research',
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function stripHtml(raw: string): string {
   return raw
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&apos;|&#39;/g, "'")
+    .replace(/"/g, '"')
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/'|&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim()
@@ -101,22 +89,20 @@ function timeAgo(dateStr: string | null | undefined): string {
   }
 }
 
-type SignalRow = {
+type SignalRow = SignalQualityRow & {
   id: string
   headline: string
   cat: string | null
   top_lane: string | null
   pri: string | null
-  quality_label?: string | null
-  quality_confidence?: number | string | null
-  reviewed?: boolean | null
   country: string | null
   date: string | null
   created_at: string
 }
 
-function rowToSignal(s: SignalRow): DashboardSignal {
-  const laneKey = (s.top_lane ?? s.cat ?? '').toLowerCase()
+function rowToSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSignal {
+  const contentType = typeof s.content_type === 'string' ? s.content_type.toLowerCase() : ''
+  const laneKey = (contentType || s.top_lane || s.cat || '').toLowerCase()
   const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
   const tag     = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
   const market  = s.country ?? ''
@@ -125,23 +111,29 @@ function rowToSignal(s: SignalRow): DashboardSignal {
                 : pri === 'high'   ? 'High-priority'
                 : pri === 'medium' ? 'Medium-priority'
                 : 'Monitoring-level'
+  const corr = corroborationCount(s, corrIndex)
+  const corrNote = corr > 1 ? ` · ${corr} sources reporting` : ''
+  const title = displayHeadline(s) ?? s.headline
 
   return {
-    id:              s.id,
-    slug:            undefined,
-    title:           stripHtml(s.headline),
-    type:            tagKey,
+    id:               s.id,
+    slug:             undefined,
+    title:            stripHtml(title),
+    type:             tagKey,
     market,
     tag,
-    timeAgo:         timeAgo(s.date ?? s.created_at),
-    confidence:      resolveConfidence(s as SignalQualityRow) ?? 50,
-    commercialImpact:`${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}.`,
-    sourceLabel:     'Harbourview Regulatory Watch',
-    flag:            '🌐',
+    timeAgo:          timeAgo(s.date ?? s.created_at),
+    confidence:       resolveConfidence(s) ?? 50,
+    commercialImpact: `${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}${corrNote}.`,
+    sourceLabel:      'Harbourview Intelligence',
+    flag:             flagForMarket(market),
+    contentType:      'signal',
+    corroborationCount: corr,
+    translated: isTranslated(s),
+    originalLanguageLabel: originalLanguageLabel(s),
+    signalContentType: resolveContentType(s),
   }
 }
-
-// ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -159,9 +151,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    // When a country is requested, fetch country-specific signals first.
-    // If they don't fill the requested limit, supplement with Global signals
-    // so every country always has intelligence to display.
     const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
 
     let query = supabase
@@ -173,16 +162,13 @@ export async function GET(req: NextRequest) {
       .order('date',         { ascending: false })
 
     if (isCountryFiltered) {
-      // Include country-specific AND global signals; sort country-specific first in app code
       query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
     }
 
-    // Lane filter — maps dashboard lane → DB top_lane values
     if (lane !== 'all' && LANE_TOP_LANES[lane]) {
       query = query.in('top_lane', LANE_TOP_LANES[lane])
     }
 
-    // Fetch enough rows to fill limit after country-priority sorting
     const fetchLimit = isCountryFiltered ? Math.min(limit * 4, 400) : limit
     query = query.range(offset, offset + fetchLimit - 1)
 
@@ -197,8 +183,8 @@ export async function GET(req: NextRequest) {
     }
 
     let rows = (data ?? []) as SignalRow[]
+    const corrIndex = buildCorroborationIndex(rows)
 
-    // Country-priority sort: exact/partial country match first, Global second
     if (isCountryFiltered) {
       const needle = countryParam.toLowerCase()
       const countrySpecific = rows.filter(r => r.country?.toLowerCase().includes(needle))
@@ -206,14 +192,12 @@ export async function GET(req: NextRequest) {
       rows = [...countrySpecific, ...global].slice(0, limit)
     }
 
-    const signals = rows.map(r => rowToSignal(r))
+    const signals = rows.map(r => rowToSignal(r, corrIndex))
 
     return NextResponse.json(
       { signals, total: count ?? signals.length, source: 'live' },
       {
         headers: {
-          // Private cache: served to the browser only (not CDN)
-          // 60s is appropriate for a signals feed
           'Cache-Control': 'private, max-age=60, stale-while-revalidate=30',
         },
       },

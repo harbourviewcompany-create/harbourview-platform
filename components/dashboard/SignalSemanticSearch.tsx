@@ -1,13 +1,8 @@
 'use client'
 
 // components/dashboard/SignalSemanticSearch.tsx
-// Self-contained search box + results list for POST /api/signals/search.
-//
-// Deliberately built as its own standalone component rather than injected
-// into MobileCommandCentre.tsx (4,800+ lines, an unscoped global <style>
-// string per docs/control/AGENT_PREFLIGHT_CHECKLIST.md) -- keeps this
-// additive and independently reversible: delete this file and its page,
-// nothing else changes.
+// Self-contained search box + results for POST /api/signals/search
+// (public.signals + quality brain).
 
 import { useState, useCallback } from 'react'
 import type { SignalSearchResult } from '@/app/api/signals/search/route'
@@ -70,7 +65,7 @@ export default function SignalSemanticSearch() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search regulatory signals, e.g. 'import licensing Germany'"
+          placeholder="Search global signals — e.g. 'import licensing Germany' or 'Lesotho export'"
           aria-label="Search signals"
           style={{
             flex: 1,
@@ -110,7 +105,8 @@ export default function SignalSemanticSearch() {
         <div style={{ marginTop: 20 }}>
           <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
             {state.results.length} result{state.results.length === 1 ? '' : 's'}
-            {state.mode === 'keyword' && ' (keyword match — semantic search found nothing closer)'}
+            {' · '}
+            {state.mode === 'semantic' ? 'semantic match over quality-gated corpus' : 'keyword match'}
           </p>
           {state.results.map((r) => (
             <article
@@ -135,9 +131,13 @@ export default function SignalSemanticSearch() {
               <p style={{ margin: '6px 0', color: '#aaa', fontSize: 14 }}>{r.summary}</p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#888' }}>
                 {r.country && <span>{r.country}</span>}
+                {r.content_type && <span style={{ color: '#c9a24b' }}>{r.content_type}</span>}
                 {r.confidence && <span>{CONFIDENCE_LABEL[r.confidence] ?? r.confidence}</span>}
+                {typeof r.confidence_score === 'number' && <span>{r.confidence_score}%</span>}
                 {r.impact_level && <span>{IMPACT_LABEL[r.impact_level] ?? r.impact_level}</span>}
-                {r.translated && r.original_language_label && <span>Translated from {r.original_language_label}</span>}
+                {r.translated && r.original_language_label && (
+                  <span>Translated from {r.original_language_label}</span>
+                )}
                 {typeof r.similarity === 'number' && <span>{Math.round(r.similarity * 100)}% match</span>}
               </div>
             </article>

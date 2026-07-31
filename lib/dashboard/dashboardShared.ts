@@ -33,6 +33,17 @@ export type DashboardSignal = {
     recommended_action?: string
     confidence_rationale?: string
   }
+
+  // ── Quality-brain display fields (Pipeline B) ───────────────────────────────
+  // Computed upstream; optional so older/fixture rows keep working.
+  /** How many independent sources in this feed report the same development. */
+  corroborationCount?: number
+  /** True when headline/summary shown are machine-translated. */
+  translated?: boolean
+  /** e.g. "Portuguese" when source language was not English. */
+  originalLanguageLabel?: string | null
+  /** Classifier route taxonomy: regulatory | market | story | research */
+  signalContentType?: string | null
 }
 
 export type DigestWindow = '24h' | '7d' | '30d' | 'recent'
