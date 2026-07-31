@@ -1,0 +1,62 @@
+name: PR 1230 Temporary Lint and Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'lib/signals/feedbackScores.ts'
+      - '.github/workflows/pr1230-temporary-lint-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Run ESLint
+        run: npm run lint 2>&1 | tee lint-node-${{ matrix.node }}.log
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-node-${{ matrix.node }}
+          path: lint-node-${{ matrix.node }}.log
+          retention-days: 14
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Full audit JSON
+        run: npm audit --json > npm-audit.json || true
+      - name: Production-only audit JSON
+        run: npm audit --omit=dev --json > npm-audit-production.json || true
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-reports
+          path: |
+            npm-audit.json
+            npm-audit-production.json
+          retention-days: 14
