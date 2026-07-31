@@ -1,0 +1,106 @@
+name: PR 1222 Supply Visual Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supply-visual:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/supply-catalog'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Start built app
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-next.log 2>&1 &
+          echo $! > /tmp/harbourview-next.pid
+          for i in {1..45}; do
+            if curl -fsS http://127.0.0.1:3000/supply >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/harbourview-next.log
+          exit 1
+
+      - name: Install Playwright Chromium
+        run: npx -y -p playwright@1.54.0 playwright install --with-deps chromium
+
+      - name: Capture supply screenshots
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          mkdir -p verification-results/pr1222-supply
+          cat > /tmp/capture-pr1222.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          import fs from 'node:fs/promises'
+
+          const base = process.env.BASE_URL
+          const out = 'verification-results/pr1222-supply'
+          const routes = [
+            { name: 'catalog', path: '/supply' },
+            { name: 'detail-cr-mylar-pouch-3-5g-matte-black', path: '/supply/cr-mylar-pouch-3-5g-matte-black' },
+          ]
+          const viewports = [
+            { name: '375', width: 375, height: 812 },
+            { name: '1440', width: 1440, height: 1100 },
+          ]
+
+          await fs.mkdir(out, { recursive: true })
+          const browser = await chromium.launch({ headless: true })
+          const manifest = []
+          try {
+            for (const viewport of viewports) {
+              const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 })
+              const page = await context.newPage()
+              for (const route of routes) {
+                const url = `${base}${route.path}`
+                const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 })
+                if (!response || !response.ok()) throw new Error(`${url} returned ${response?.status() ?? 'no response'}`)
+                await page.emulateMedia({ reducedMotion: 'reduce' })
+                const filename = `${out}/${route.name}-${viewport.name}.png`
+                await page.screenshot({ path: filename, fullPage: true })
+                const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+                if (overflow) throw new Error(`${url} has horizontal overflow at ${viewport.width}px`)
+                manifest.push({ route: route.path, viewport, filename, status: response.status(), title: await page.title() })
+              }
+              await context.close()
+            }
+          } finally {
+            await browser.close()
+          }
+          await fs.writeFile(`${out}/manifest.json`, JSON.stringify(manifest, null, 2))
+          EOF
+          npx -y -p playwright@1.54.0 node /tmp/capture-pr1222.mjs
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr1222-supply-responsive-screenshots
+          path: verification-results/pr1222-supply/
+          if-no-files-found: error
+          retention-days: 30
