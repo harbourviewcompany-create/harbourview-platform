@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 type Verdict = 'helpful' | 'not_helpful' | 'stale'
 
@@ -41,38 +41,20 @@ export function SignalFeedbackButtons({
 
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void send('helpful')}
-        title="This is useful for my work"
-        style={btnStyle}
-      >
+      <button type="button" disabled={busy} onClick={() => void send('helpful')} title="This is useful for my work" style={btnStyle}>
         Useful
       </button>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void send('not_helpful')}
-        title="Not relevant or low quality"
-        style={btnStyle}
-      >
+      <button type="button" disabled={busy} onClick={() => void send('not_helpful')} title="Not relevant or low quality" style={btnStyle}>
         Not useful
       </button>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void send('stale')}
-        title="Already known or outdated"
-        style={btnStyle}
-      >
+      <button type="button" disabled={busy} onClick={() => void send('stale')} title="Already known or outdated" style={btnStyle}>
         Stale
       </button>
     </div>
   )
 }
 
-const btnStyle: React.CSSProperties = {
+const btnStyle: CSSProperties = {
   fontSize: 10,
   letterSpacing: '0.04em',
   textTransform: 'uppercase',
