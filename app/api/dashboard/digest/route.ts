@@ -25,6 +25,8 @@ import {
 } from '@/lib/signals/quality'
 import { rankDigestCandidates, type DigestCandidate } from '@/lib/signals/digestRank'
 import { loadFeedbackScores } from '@/lib/signals/feedbackScores'
+import { buildDigestConfidenceMap } from '@/lib/signals/digestPresentation'
+import { cleanPlainText } from '@/lib/utils/htmlEntities'
 
 const SAFE_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
@@ -63,18 +65,7 @@ const WINDOWS = [
 ]
 
 function stripHtml(raw: string): string {
-  return raw
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/"/g, '"')
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/'|&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, 200)
+  return cleanPlainText(raw, 200)
 }
 
 function timeAgo(dateStr: string | null | undefined): string {
@@ -208,6 +199,28 @@ export async function GET(req: NextRequest) {
         newsItems   = prioritize(newsItems)
       }
 
+      const sourceSignalIds = [...new Set(
+        signalItems
+          .map((item) => typeof item.signal_id === 'string' ? item.signal_id : '')
+          .filter(Boolean),
+      )]
+      let confidenceBySignalId = new Map<string, number>()
+      if (sourceSignalIds.length > 0) {
+        const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
+          .from('signals')
+          .select('id, quality_confidence')
+          .in('id', sourceSignalIds)
+
+        if (sourceConfidenceError) {
+          console.error(
+            '[/api/dashboard/digest] source confidence query failed:',
+            sourceConfidenceError.message,
+          )
+        } else {
+          confidenceBySignalId = buildDigestConfidenceMap(sourceConfidenceRows)
+        }
+      }
+
       const todayUtc  = new Date().toISOString().slice(0, 10)
       const windowKey = edition!.digest_date === todayUtc ? '24h' as const : 'recent' as const
       const tag       = SIGNAL_TAG_MAP.regulatory_change
@@ -216,13 +229,13 @@ export async function GET(req: NextRequest) {
       const signalSignals: DashboardSignal[] = signalItems.slice(0, limit).map((h, i) => ({
         id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
         slug:             undefined,
-        title:            h.headline!,
+        title:            stripHtml(h.headline!),
         type:             'regulatory_change',
         market:           h.market ?? 'Global',
         tag,
         timeAgo:          timeAgo(edition!.generated_at),
-        confidence:       80,
-        commercialImpact: h.why_it_matters ?? '',
+        confidence:       h.signal_id ? (confidenceBySignalId.get(h.signal_id) ?? 80) : 80,
+        commercialImpact: stripHtml(h.why_it_matters ?? ''),
         sourceLabel:      'Harbourview Daily',
         flag:             flagForMarket(h.market ?? 'Global'),
         contentType:      'signal',
@@ -231,13 +244,13 @@ export async function GET(req: NextRequest) {
       const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
         id:               h.item_id ?? `editorial-${edition!.digest_date}-${i}`,
         slug:             undefined,
-        title:            h.headline!,
+        title:            stripHtml(h.headline!),
         type:             'editorial',
         market:           h.market ?? 'Global',
         tag:              editorialTag,
         timeAgo:          publishedLabel(h.published_at),
         confidence:       0,
-        commercialImpact: h.why_it_matters ?? '',
+        commercialImpact: stripHtml(h.why_it_matters ?? ''),
         sourceLabel:      h.outlet_name ?? 'Global Cannabis News',
         sourceUrl:        h.source_url,
         flag:             flagForMarket(h.market ?? 'Global'),
