@@ -3,6 +3,8 @@ import type { PublicRegulatorySignal, RegulatorySignalType, RegulatoryContentTyp
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
+  SIGNALS_FEED_CONTENT_TYPE_OR_FILTER,
+  belongsOnSignalsFeed,
   buildCorroborationIndex,
   corroborationCount,
   displayHeadline,
@@ -54,6 +56,10 @@ function mapSignalRow(
 
   // Classifier verdicts of spam/boilerplate/nav/duplicate never reach a surface.
   if (!isSurfaceable(row)) return null
+
+  // Stage D: story/research route to the Digest instead. Enforced here as well as in
+  // the query so a caller assembling its own PostgREST params still routes correctly.
+  if (!belongsOnSignalsFeed(row)) return null
 
   // Prefer the machine-translated title so non-English coverage is legible.
   const headline = displayHeadline(row)
@@ -221,6 +227,13 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
     // spam/boilerplate rows flagged reviewed=true in the live feed; this removes
     // them for every consumer without mutating rows a human may own.
     params.append('quality_label', `not.in.${QUALITY_LABEL_NOT_IN}`)
+    // Stage D routing (spec §4.3): story/research belong on the Digest, not here.
+    // They are bridged across by hv_route_signals_to_digest(). Without this filter
+    // 395 promoted story/research rows presented as regulatory intelligence.
+    // NULL content_type is kept — pre-Pipeline-B rows predate the taxonomy — which
+    // is why this is an `or` against is.null and not a bare `not.in`; see the
+    // constant's own note on NULL NOT IN evaluating to NULL.
+    params.append('or', SIGNALS_FEED_CONTENT_TYPE_OR_FILTER)
 
     const res = await fetch(`${url}/rest/v1/signals?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },

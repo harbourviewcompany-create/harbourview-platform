@@ -22,6 +22,7 @@ import { cookies } from 'next/headers'
 import { embedSearchQuery1024, toVectorLiteral } from '@/lib/ai/embedSearchQuery1024'
 import {
   QUALITY_LABEL_NOT_IN,
+  SIGNALS_FEED_CONTENT_TYPE_NOT_IN,
   displayHeadline,
   displaySummary,
   resolveConfidence,
@@ -130,7 +131,17 @@ async function keywordSearch(
     .limit(limit)
 
   if (country) q = q.ilike('country', country)
-  if (contentType) q = q.eq('content_type', contentType)
+
+  // Stage D, kept in step with api.search_public_signals so both search modes
+  // return the same set. `noise` never surfaces anywhere; story/research are
+  // digest-bound and only appear when explicitly asked for. Both filters spell
+  // out the NULL case because `NULL not in (...)` is NULL, not TRUE, and would
+  // silently drop every pre-Pipeline-B row.
+  if (contentType) {
+    q = q.eq('content_type', contentType).neq('content_type', 'noise')
+  } else {
+    q = q.or(`content_type.is.null,content_type.not.in.${SIGNALS_FEED_CONTENT_TYPE_NOT_IN}`)
+  }
 
   return q
 }
