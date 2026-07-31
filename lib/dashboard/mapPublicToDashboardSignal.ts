@@ -12,11 +12,16 @@ function stripHtml(raw: string): string {
   return raw
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/"/g, '"').replace(/&/g, '&')
-    .replace(/</g, '<').replace(/>/g, '>')
-    .replace(/'|&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/"/g, '"')
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/'|&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
     .replace(/\/?\$[A-Z]{2,8}(?:\.[A-Z]{2,4})?/g, '')
-    .replace(/\s{2,}/g, ' ').trim().slice(0, 180)
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, 180)
 }
 
 function confidenceToScore(c: PublicRegulatorySignal['confidence']): number {
