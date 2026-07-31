@@ -1928,8 +1928,140 @@ chained it into `npm run test`.
 improvements identified in the preceding review. The two grant migrations were applied without a
 separate confirmation as corrections to defects introduced earlier in this same session, not as a
 discretionary security-posture change; both are reversible with a single GRANT and are flagged in
-the PR for review. No merge or deploy performed — Rule 3c sign-off is outstanding.
+the PR for review. No merge or deploy performed by this session; Tyler subsequently took PR #1218
+out of draft and enabled squash auto-merge himself, which is the Rule 3c sign-off.
 
 **Unrelated finding, not actioned:** the `hv-signal-analysis-every-30min` cron job stores a
 Supabase anon JWT inline in plaintext in its `cron.job.command`. Pre-existing, not introduced here,
 and not modified — flagged for a decision rather than changed unilaterally.
+
+---
+
+## 2026-07-30 — Rebuild signal search on Pipeline B (PR #NNNN)
+
+**Context:** directed to wire the UI following the 2026-07-30 platform review. Four of the five
+items identified as still-open (`confidence`/`impact` off the classifier, translated headlines,
+corroboration counts, spam exclusion) turned out to already be shipped by PR #1214, merged the same
+day, before this work started — verified live against `lib/regulatory-signals/public.ts` rather than
+assumed from the review doc. Not duplicated.
+
+The fifth item, `app/api/signals/search/route.ts`, was confirmed still broken: it queried
+`ia_signals` (the disconnected "Intelligence OS" table, 640 rows) via a Google
+text-embedding-004 (768-dim) embedder, while every other customer-facing surface now reads
+`public.signals` (Pipeline B, 3,260 rows) per PR #1214. Confirmed via GitHub code search that
+nothing in the app called this route — genuinely dead code, not merely stale. Gated behind an
+`intel`/`operator` paid tier, which HarbourView currently has 0 subscribers to (7 users total) —
+flagged to Tyler before building; he chose to build it now rather than leave it documented.
+
+**What changed:**
+- New RPC `api.search_public_signals(vector(1024), int, text, text)` — semantic search over
+  `public.signals`, matching `lib/signals/quality.ts`'s exclusion set
+  (`spam`/`boilerplate`/`nav`/`duplicate`) and `reviewed=true` gate. Uses the existing
+  `idx_signals_embedding_1024_hnsw` index via `ORDER BY <=> LIMIT` (no threshold filter, which the
+  index can't serve). Verified live before any app code was written: a self-similarity probe
+  (querying with a stored row's own embedding) returned that row at similarity 1.0, followed by
+  genuinely semantically related results at descending similarity (0.89, 0.69) — confirms the
+  embedding space and index are coherent, not just that the SQL runs.
+- New `lib/ai/embedSearchQuery1024.ts` — OpenAI `text-embedding-3-small` at `dimensions=1024`.
+  Deliberately not reusing `lib/ai/embeddings.ts` (Google text-embedding-004, 768-dim, a different
+  vector space entirely) or the backfill route's OpenAI call (no `dimensions` param, defaults to
+  1536). Confirmed live which model/dimension actually populated `signals.embedding_1024` before
+  writing this — `atttypmod=1024`, `embedding_model='text-embedding-3-small'` on all 6,441 embedded
+  rows — rather than assume.
+- Retargeted `app/api/signals/search/route.ts` to the new RPC + embedder, with a keyword fallback
+  against `public.signals` (was `ia_signals`). Auth/tier gating byte-for-byte unchanged — a
+  monetisation decision, not this pass's to make.
+- **Caught before shipping**: the service client was initially scoped to `db: { schema: 'api' }`
+  (matching this session's own earlier convention for other RPCs). Live check showed `api.signals`
+  does **not** expose the Pipeline B quality columns PR #1214 added
+  (`quality_label`/`title_en`/etc.) — only `embedding_1024`. Cross-checked against
+  `lib/regulatory-signals/public.ts`'s currently-working `fetchReviewedSignals()`, which queries
+  `signals` with no schema override at all and gets those columns fine: PostgREST's exposed default
+  on this project is `public`, not `api`, contradicting an assumption this session had carried from
+  much earlier context. Fixed: default (public) client for table reads, `.schema('api')` scoped
+  specifically to the RPC call.
+- New standalone page `app/dashboard/signals/search/page.tsx` + component
+  `components/dashboard/SignalSemanticSearch.tsx`. Deliberately **not** injected into
+  `components/dashboard/MobileCommandCentre.tsx` (4,807 lines; per
+  `docs/control/AGENT_PREFLIGHT_CHECKLIST.md`, its `<style>` block is an unscoped global string
+  where a duplicate class silently wins/loses the cascade instead of erroring — the exact mechanism
+  behind a real 2026-07-07 production bug cited in that doc). The new page/component are wholly
+  additive and independently reversible.
+
+**Not done, flagged rather than silently skipped:** the new page has no entry point from primary
+navigation — `app/dashboard/country/[country]/signals/page.tsx` is a 3-line redirect into
+`MobileCommandCentre.tsx`'s internal router, and adding a nav link there means editing that file.
+Reachable today only by direct URL (`/dashboard/signals/search`). Left as a follow-up rather than
+touch that file under this pass's risk budget.
+
+**Commands run:** none of `npm run test`/`qa:*` — `node_modules` unavailable in this session's
+environment, same limitation as every other 2026-07 entry in this log. No live end-to-end HTTP test
+of the Next.js route itself (would need a running dev server + a real `OPENAI_API_KEY` call, neither
+available here); verification was: (a) the RPC tested directly in SQL against a real stored
+embedding, described above, and (b) the schema-scoping bug caught by cross-referencing live
+`information_schema` output against another file's already-working, already-verified-live behavior,
+not by running this code.
+
+**Human approval status:** explicit go-ahead via the "Build it now (new RPC + retarget + UI box)"
+choice, after the paid-tier/dead-code tradeoff was surfaced and the alternative ("just document the
+gap") was offered.
+
+---
+
+## 2026-07-31 — PR #1218: merging `main` and reconciling Stage D with the new signal search
+
+**Trigger:** PR #1218 went `mergeable_state: dirty`. `main` had advanced by two commits —
+`bd5f4bb` (Rebuild signal search on Pipeline B, PR #1220) and `f170d37` (CI: URL-encode DB
+password).
+
+**Textual conflict:** `docs/control/EVIDENCE_LOG.md` only — both branches appended a new section at
+the end. Resolved by keeping both, in date order, with a separator. No content from either side was
+dropped.
+
+**Semantic conflict git could not see, found by reading the merged code:** PR #1220 added
+`app/api/signals/search/route.ts` and `api.search_public_signals`, whose own header states its
+filters "mirror `lib/signals/quality.ts` ... so search results obey the same surfacing rules as the
+rest of the site." PR #1218 then removed `story`/`research`/`noise` from the Signals feed. The two
+landed within hours of each other, so neither knew about the other, and merging them as-is would
+have shipped a search over `/dashboard/signals/search` returning rows that do not appear in the feed
+being searched — including `noise`, which `routeContentType` routes to no surface at all.
+
+Reconciled in both search paths (semantic RPC and keyword fallback), so the two modes cannot drift:
+- `noise` excluded unconditionally — there is no caller for whom returning it is correct. Verified:
+  an explicit `p_content_type = 'noise'` now returns 0 rows.
+- `story`/`research` excluded by default to match the feed, but still returned on an explicit
+  `p_content_type`, preserving deliberate cross-surface search.
+- NULL `content_type` retained, spelled out explicitly in both paths — the same `NULL NOT IN (...)`
+  trap documented in the previous entry.
+
+**Live verification of the new predicate** (`zvxdgdkukjrrwamdpqrg`, embedded+reviewed+surfaceable
+cohort): default returns **3089** rows, excluding **582** story/research and **1** noise; explicit
+`story` returns **208**; explicit `noise` returns **0**.
+
+**Migration:** `20260731013000_search_public_signals_stage_d_consistency.sql`, applied live.
+
+**Commands run after the merge:**
+- `npx tsc --noEmit` — clean.
+- `npm run test` — 104 passing across 5 suites.
+- `npm run build` — succeeded.
+- `npm run lint` — still unrunnable, same pre-existing `eslint-plugin-react` / ESLint 10 crash.
+
+**Pipeline health at this check-in** (baseline in parentheses, 12:20 UTC):
+- classify backlog **41** (2441) — 98% drained
+- `reviewed_total` **3725** (3147)
+- unharvested classify jobs returning 4xx/5xx: **none** — the 401 that broke this stage for eight
+  days has not recurred
+- classifier v2 now **2282 rows at 69.2% judged signal**, against v1's 10,142 at 55.4%. Holding in
+  the expected 65–70% band, so the shipped recall gain is real at scale and not a small-sample
+  artifact. No regression, no rollback needed.
+- `hv_pipeline_alerts()` — **zero breaching assertions**
+- cron failures in the last 2h: **0**
+
+**Observation, not actioned:** only 2 new signals were created in the preceding 24h. The pipeline is
+healthy and the backlog is nearly drained, so throughput is now bounded by *ingestion* volume rather
+than by classification. That is a different problem from the one this PR addressed and is left open
+rather than folded into it.
+
+**Human approval status:** Tyler took PR #1218 out of draft and enabled squash auto-merge himself —
+the Rule 3c sign-off. This merge-and-reconcile pass was performed to make that auto-merge able to
+proceed, which it could not while the PR was conflicted.
