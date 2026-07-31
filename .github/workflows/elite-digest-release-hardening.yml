@@ -1,0 +1,84 @@
+name: Elite Digest Release Hardening
+
+on:
+  push:
+    branches:
+      - agent/elite-digest-release-hardening
+
+permissions:
+  contents: write
+
+concurrency:
+  group: elite-digest-release-hardening
+  cancel-in-progress: false
+
+jobs:
+  harden-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[elite-hardening-applied]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Check out hardening branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/elite-digest-release-hardening
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Correct escaped JSX template literal in one-use patcher
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-elite-digest-hardening.mjs')
+          text = path.read_text()
+          old = r'<div key={\`${i}-\${step}\`}'
+          new = r'<div key={\`\${i}-\${step}\`}'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one escaped-template target, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
+
+      - name: Apply asserted hardening patch
+        run: node scripts/apply-elite-digest-hardening.mjs
+
+      - name: Run TypeScript check
+        run: npm run typecheck
+
+      - name: Run targeted Elite Digest tests
+        run: npx vitest run tests/signals/eliteDigestHardening.test.ts tests/signals/digestRank.test.ts
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Commit verified branch changes
+        run: |
+          git config user.name "harbourview-release-bot"
+          git config user.email "harbourviewcompany@gmail.com"
+          git rm .github/workflows/elite-digest-release-hardening.yml
+          git rm scripts/apply-elite-digest-hardening.mjs
+          git add \
+            app/api/dashboard/digest/route.ts \
+            components/dashboard/MobileCommandCentre.tsx \
+            lib/dashboard/mapPublicToDashboardSignal.ts \
+            lib/signals/digestPresentation.ts \
+            lib/utils/htmlEntities.ts \
+            supabase/migrations/20260731130000_elite_digest_release_hardening.sql \
+            tests/signals/eliteDigestHardening.test.ts
+          git diff --cached --check
+          git commit -m "fix: harden Elite Digest release [elite-hardening-applied]"
+          git push origin HEAD:agent/elite-digest-release-hardening
