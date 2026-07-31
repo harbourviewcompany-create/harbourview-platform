@@ -1,11 +1,15 @@
 // app/api/admin/intelligence-health/route.ts
 // Operations dashboard for the intelligence pipeline.
-// Returns: snapshot backlog, circuit breaker state, source coverage, failure counts.
+// Infrastructure metrics + product-outcome check (Stage G).
 // Secured by CRON_SECRET (ops-team access only).
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
+import {
+  summarizeOutcome,
+  type IntelligenceOutcome,
+} from '@/lib/signals/intelligenceHealth'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +23,13 @@ export async function GET(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } },
+  )
+
+  // Product outcomes use public schema RPC (service role, no schema override).
+  const publicClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
   )
 
   const stale24h = new Date(Date.now() - 24 * 3_600_000).toISOString()
@@ -36,6 +47,7 @@ export async function GET(request: Request) {
     { data: coverageRows },
     { data: trajectoryRows },
     { count: signalCount7d },
+    outcomeRpc,
   ] = await Promise.all([
     supabase.from('source_snapshots').select('*', { count: 'exact', head: true })
       .eq('processing_status', 'pending_extraction'),
@@ -68,12 +80,11 @@ export async function GET(request: Request) {
       .limit(50),
     supabase.from('ia_signals').select('*', { count: 'exact', head: true })
       .gte('detected_at', stale7d.slice(0, 10)),
+    publicClient.rpc('hv_intelligence_outcome_check'),
   ])
 
-  // Derive jurisdiction coverage
   const isoSet = new Set((coverageRows ?? []).map((r: { iso: string | null }) => r.iso).filter(Boolean))
 
-  // Last crawl metrics from source_registry
   const { data: crawlTimes } = await supabase
     .from('source_registry')
     .select('next_crawl_at, network_status')
@@ -84,8 +95,18 @@ export async function GET(request: Request) {
 
   const lastCrawlAt = crawlTimes?.[0]?.next_crawl_at ?? null
 
+  let product_outcome: IntelligenceOutcome | null = null
+  let product_summary: string | null = null
+  if (!outcomeRpc.error && outcomeRpc.data) {
+    product_outcome = outcomeRpc.data as IntelligenceOutcome
+    product_summary = summarizeOutcome(product_outcome)
+  }
+
   return NextResponse.json({
     ok: true,
+    product_outcome,
+    product_summary,
+    product_outcome_error: outcomeRpc.error?.message ?? null,
     snapshot_backlog: {
       pending_extraction: pendingExtraction ?? 0,
       stale_over_24h:     staleExtraction ?? 0,
