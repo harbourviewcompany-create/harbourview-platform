@@ -62,6 +62,8 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 | 2026-07-30 | Wire the Pipeline B quality brain into every customer-facing read path; stop the inverted legacy scorer reaching users | `npx tsc --noEmit` → **0 errors**. `npm run test` → **26/26 pass** (globe-router 4, globe-data 8, country-role 7, public-surface 11 across 2 files). New `tests/signals/quality.test.ts` → **33/33 pass**. DTO leakage suites (`public-projection-leakage`, `cannabis-data-contract/dto`, `public-route-smoke`) → **13/13 pass**. `npm run build` → **clean** (all `/signals*` routes emitted). `npm run lint` → **could not run**: `eslint-plugin-react@7.37.5` crashes under `eslint@10.7.0` (`contextOrFilename.getFilename is not a function`); reproduced identically on untouched files with a clean tree, so pre-existing and unrelated to this change. | New `lib/signals/quality.ts` is now the single approved read path for signal quality. Confidence/impact derive from `signals.quality_confidence` + `impact` (classifier, precision 1.000) instead of `signals.score` (inverted, spec §2.5). Live verification over the top-300 feed window: the old logic rendered **5 high / 251 low**; the new logic renders **168 verified / 129 high / 3 unrated-fallback** — i.e. **251 validated signals no longer mislabelled "low confidence"**. 13 `spam`/`boilerplate` rows excluded at read time (no data mutation). Translated `title_en`/`summary_en` now preferred; `lang_detected` surfaced. `cluster_rep_id` surfaced as `corroboration_count` (270/300 rows clustered). `country_code`/`region`/`country_slug` resolved from the canonical UN identity table (previously hard-coded null). Also fixed two further leaks found during the work: `/api/dashboard/signals` and `/api/dashboard/digest` rendered raw `score` as confidence, and `jurisdictionSynthesis` fed the inverted score into an LLM prompt as a quality hint. Dashboard confidence switched off Pipeline A's deprecated `signal_classifications` (288/1,234 = 23% coverage, rest fabricated flat 90) onto `quality_confidence` (1,194/1,234 = 97%). | Branch `claude/platform-optimization-review-2th2ek` | Current |
 | 2026-07-30 | Pipeline restart executed under Tyler's explicit go-ahead: unblocked promotion, fixed `hv_dedup_assign` timeout + inverted ranking, re-cadenced crons to Stage E, raised Stage F ceilings above the ingestion rate | Live Supabase MCP against `zvxdgdkukjrrwamdpqrg`. `apply_migration` (2 passes) + `cron.alter_job` + budget UPDATE. Falsifiable checks run live and quoted below. Repo QA after merging `origin/main`: `npx tsc --noEmit` 0 errors; `npm run test` 65/65 across 4 groups; `tests/signals/quality.test.ts` 33/33. `npm run lint` still unrunnable (`eslint-plugin-react@7.37.5` crashes on ESLint 10.8.0). | **Found on execution, invisible to the read-only pass:** gate was already open and both crons active at `*/10`, yet 0 promotions in 24h -- `hv_quality_promote_tick` runs dedup and promote in one statement, and `hv_dedup_assign` (5,145x5,145 = 26.5M pgvector comparisons) timed out on **45 of 46 runs**, aborting the statement before promotion could run. A 120s failing query fired every 10 min on Nano tier, unalerted. Separately, dedup ranked cluster representatives by `coalesce(score,...)` -- the inverted scorer was choosing which duplicate got **published**. And the Stage F classify ceiling (500/day) sat below measured ingestion (478/day), a net drain of 22/day against a 3,659 backlog = **166-day** clearance horizon. **Fixed:** dedup made incremental (`cluster_rep_id is null`, 400/run) and switched to an HNSW-backed `ORDER BY <=> LIMIT 25` probe ranked by `quality_confidence`; crons re-cadenced `*/30` and `10,40` (864 -> 96 runs/day); ceilings raised to classify 3,000 / embed 1,500 / translate 800 / entities 600. **Verified live:** `hv_dedup_assign(0.90,400)` 400 rows in **8.5s** (was timeout); `hv_quality_promote_tick()` **2.4s** (was 120s timeout); `hv_promote_signals(0.65)` returned **1,569**; feed 1,234 -> **2,803** signals and 70 -> **101** countries; `hv_pipeline_tick()` dispatched 120 classify + 40 entities. **Open:** newest feed *content* still ~8 days old until the 3,659 classify backlog drains (~1.3 days at the new ceiling) -- re-check, do not assume. Migration `supabase/migrations/20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql` committed. | Branch `claude/platform-optimization-review-2th2ek`; PR #1214 | Current |
 | 2026-07-30 | Created Vault secret `hv_edge_anon_key`; classify loop restored end-to-end | `vault.create_secret()` on `zvxdgdkukjrrwamdpqrg`, with Tyler's explicit in-session approval (asked and granted; CLAUDE.md Rule 3b). Value = Supabase **legacy anon JWT** (`role=anon`), chosen because `hv-classify` runs `verify_jwt=true` and the newer `sb_publishable_*` keys are not JWTs. `service_role` deliberately NOT used -- over-scoped for a text-classification edge function. Secret value never echoed to chat, commit, or doc. | Root cause: `hv_classify_corpus_dispatch` built `'Bearer '||(select decrypted_secret ... where name='hv_edge_anon_key')`, but that secret had never existed; `'Bearer '||NULL` is NULL, so the header was omitted and every dispatch returned **401 UNAUTHORIZED_NO_AUTH_HEADER**. Classification had produced nothing since 2026-07-22. **Verified live after the fix:** `hv_classify_corpus_dispatch(20,400)` -> 20 dispatched -> **200 x20** with valid classifier JSON; `hv_pipeline_tick()` -> `classify_harvested: 20`, then **120** at full rate; embed resumed (12 harvested / 47 dispatched); classified 8,804 -> 8,824 and climbing. Also released signals stranded behind dead 401 job rows (marked those jobs harvested so dispatch re-queues the signals; signal rows untouched). Backlog ~3,600 clears in ~1 day at 120/tick x 48 ticks under the 3,000/day ceiling. | Branch `claude/platform-optimization-review-2th2ek`; PR #1214 | Current |
+| 2026-07-30 | Classifier v2: recall 0.559 -> 0.903 at unchanged precision 1.000; shipped as `hv-classify` v14 | Diagnosis and validation on live Supabase `zvxdgdkukjrrwamdpqrg`. Candidate first deployed as a SEPARATE function `hv-classify-v2` exposing eval mode only (structurally unable to write `signal_classifications` or mutate signal rows). Eval driven via `pg_net` over the identical 181-row cohort and hand labels as `v1-smoke`, graded by the same duplicate-folding methodology as `api.intel_eval_scoring`. Repo QA: `npx tsc --noEmit` 0 errors; `npm run test` 65/65; `tests/signals/quality.test.ts` 33/33. `npm run lint` still unrunnable repo-wide (`eslint-plugin-react@7.37.5` crashes on ESLint 10.8.0). | **Diagnosis:** stratifying the eval set by language for the first time showed English 71% vs Spanish 41% / Portuguese 43% / German 20% / Czech 14% -- the pooled 0.559 hid ~71% English and ~35% non-English, and 58 of 126 true signals (46%) were being discarded as spam/boilerplate. Two hypotheses tested and REJECTED: (a) translation running after classification -- all 112 non-English eval rows already had `title_en` at classify time; (b) site chrome in summaries -- summaries were clean. **Actual cause:** summaries were near-verbatim echoes of the headline, so `buildUser` emitted `HEADLINE: X\n\nBODY: X`; anchored by the word 'repeated' in the boilerplate definition the model read the headline echoed against itself as repetition and labelled genuine news boilerplate (its own reasons said 'generic repeated site content without new information'). Split by that shape: English recall 90% with a real body vs 44% without. Not a language deficiency -- an input-formatting bug non-English sources hit more often (63% empty-body vs 38%). **Fix:** (1) emit `BODY: (no body text extracted)` when the summary echoes the headline; (2) scope 'repeated' to recurring across pages and state a missing BODY is a scraper artifact. **Measured, same cohort:** v1 P1.000/R0.559 (81 TP, 0 FP, 64 FN) -> v2 P1.000/R0.903 (131 TP, 0 FP, 14 FN); stratified English 0.723->0.936, non-English 0.480->0.888. **Ship order (deliberate):** `classifier_validation` row inserted FIRST, then edge fn v14 deployed, then `hv_classify_corpus_harvest` stamped to `hv-classify/openai/v2-summary-fix` -- so no row was ever classified under a version lacking a `gate_passed=true` row. **Live confirmation:** v2-stamped rows judged `signal` 69.8% vs 55.4% under v1; `hv_quality_promote_tick()` returned `{deduped:71, promoted:12}` (gate accepted the new version, no stall). v1 validation row retained for rollback. Scratch table `_v2_eval_jobs` dropped. | Branch `claude/platform-optimization-review-2th2ek` (fresh from `origin/main` after #1214 merged) | Current |
+| 2026-07-30 | Entity extraction automated: infinite rescan stopped, promotion gate removed, stuck jobs reaped | Live Supabase MCP `apply_migration` x2 on `zvxdgdkukjrrwamdpqrg` + falsifiable live run. `npx tsc --noEmit` 0 errors (no app code touched). | **First, the direct answer to the ask:** there is NO human-review gate in entity extraction -- `signal_entities` and `ia_graph_entities` carry no approval column and nothing in that path ever waited on a person. The stall was three automation defects. **(1) Infinite rescan:** `hv_entities_harvest` wrote nothing to the signal when the model legitimately returned `{"entities":[]}`, and the dispatch guard was `not exists (... signal_entities)` -- which such a signal never satisfies. Measured: **22,520 jobs against 360 distinct signals = 62.6 attempts each**, only 148 ever yielding entities; ~22,000 wasted OpenAI calls, and today's entire 600-call entity budget consumed re-interrogating the same ~212 entity-less signals while thousands were never attempted. Fixed by `signals.entities_extracted_at`, which records the ATTEMPT not the outcome. **(2) Promotion gate:** dispatch required `reviewed_by='auto:v1'`, limiting extraction to 3,128 of 12,463 rows; re-keyed to `quality_label='signal'` (eligible set 3,128 -> 5,790) since enrichment need not wait on the feed. **(3) 80 stuck jobs** with no HTTP response, each blocking its signal permanently -- now reaped every dispatch. **Bug found and fixed by live testing, not assumed away:** the first applied version aliased `net._http_response` as `r`, colliding with the plpgsql loop record, raising `55000: record "r" is not assigned yet` on every call -- would have broken the entities cron outright; corrected in a second migration (alias -> `resp`). **Verified live:** `hv_entities_dispatch(40)` -> 40 dispatched; `hv_entities_harvest()` -> 13 links; attempted 360 -> 400; signals_with_entities 148 -> 157; entity_links 261 -> 274; entities 403 -> 411; pending jobs 80 -> **0**; rescan-eligible signals **0**; attempts per signal 62.6 -> **1**. Of the 40, nine yielded entities and 31 were correctly finished with none and will never be re-asked. Remaining eligible 5,750, clearing in ~10 days at the unchanged 600/day ceiling. Today's entities counter reset to 0 once, since the day's spend was entirely the now-fixed rescan; the ceiling itself is unchanged. | Branch `claude/platform-optimization-review-2th2ek`; PR #1218 | Current |
 
 ### Gate 4 Detailed Evidence — 2026-06-25
 
@@ -1843,6 +1845,98 @@ who owns that. We need to understand how everything works..." / "Keep going") ra
 upfront spec approval — consistent with Rule 2's exemption for diagnostic/exploratory work under an
 already-approved objective (the Market Routing investigation).
 
+---
+
+## 2026-07-30 — PR #1218: pipeline alerting, Stage D routing, classifier learning loop
+
+**Scope:** four applied-to-production migrations captured into files, one Stage D read-side fix in
+app code, and two defects found in this session's own work and corrected before merge.
+
+**Migrations captured (applied live via MCP before being written to files — the files reproduce the
+same end state on a fresh database):**
+- `20260730222221_hv_pipeline_alerts_outcome_assertions.sql` — nine assertions over pipeline
+  *outputs* rather than job exit codes. Consolidates applied migrations `20260730222127` and
+  `20260730222221`; the file carries only the corrected definitions, since the superseded
+  intermediate has no value on a fresh database. Two checks were rewritten because they could not
+  do their job: `extraction_rescan` measured a lifetime dispatch ratio (56.4x) that could never
+  clear once tripped, and `classifier_gate` checked only the newest signal's classifier_version
+  rather than every version in use.
+- `20260730222314_hv_alert_tick_record_and_notify.sql` — `hv_alert_log` incident history plus
+  email delivery, scheduled hourly at `47 * * * *`. Degrades to detection-only when the Vault
+  secrets are absent; detection deliberately does not depend on email being configured.
+- `20260730222508_stage_d_route_story_research_to_digest.sql` — bridges reviewed story/research
+  signals into `editorial_items` at stage `qualified`, deduped on `source_url`.
+- `20260730222849_add_signal_to_eval_set_learning_loop.sql` — `api.add_signal_to_eval_set`.
+  Consolidates applied `20260730222807` and `20260730222849`; the first seeded
+  `label_status = 'pending'`, which is not in `intel_eval_set_label_status_check`, so every call
+  raised 23514.
+
+**Why the learning loop was needed:** `intel_eval_set` had been frozen at 202 rows since
+2026-07-18 and structurally could not grow — `api.save_intel_eval_label` raises for any signal not
+in the original stratified sample, so a misclassification spotted in the live feed (the
+highest-value label there is) had nowhere to go. Rows now enter with
+`sample_stratum = 'live_correction'`; they are error-biased by construction and must be scored
+separately from the original sample.
+
+**Falsifiable verification of the learning loop (live, production):** called
+`api.add_signal_to_eval_set` on a `spam`-labelled signal absent from the eval set. Returned
+`added: true`, `label_status: 'corrected'`, `classifier_said: {quality_label: spam, content_type:
+noise, impact: low}`, `eval_set_size: 203` — proving the set can finally grow. **The probe row was
+then deleted**, because it applied a deliberately fabricated `signal`/`regulatory` label to a
+genuine spam row and would otherwise have poisoned the cohort that gates promotion. Eval set
+verified back at 202 clean rows.
+
+**Two defects found in this session's own work and fixed before merge:**
+
+1. *Unintended anon/PUBLIC EXECUTE on SECURITY DEFINER operator functions.* `hv_alert_tick()`,
+   `hv_pipeline_alerts()` and `hv_route_signals_to_digest(integer)` were created without overriding
+   Postgres' default `PUBLIC` EXECUTE grant. Because all three are SECURITY DEFINER, an
+   unauthenticated PostgREST caller could read `vault.decrypted_secrets` and send email via Resend
+   (`hv_alert_tick`), enumerate internal pipeline state, or insert up to 300 `editorial_items` rows.
+   Verified by repo grep that no application code calls any of them. Revoked from `public`, `anon`
+   and `authenticated`; granted to `service_role` only. pg_cron is unaffected — jobs execute as
+   their owner, confirmed by running `hv_alert_tick()` after the revoke (`ok: true, open: 0`).
+   Applied as `revoke_anon_execute_on_pipeline_operator_functions` and
+   `restrict_pipeline_operator_functions_to_service_role`; folded into the function files above.
+   `api.add_signal_to_eval_set` deliberately retains `authenticated` — it is the signed-in
+   labelling affordance.
+
+2. *Stage D server-side filter silently dropped NULL rows.* The first version appended
+   `content_type=not.in.(story,research,noise)`. SQL evaluates `NULL NOT IN (...)` to NULL rather
+   than TRUE, so it dropped all 40 reviewed rows with no `content_type` — the exact silent shrink
+   `belongsOnSignalsFeed` exists to prevent, and it made the query disagree with the mapper about
+   the same rows. The existing unit test passed against the broken filter because it only asserted
+   on the value list. Replaced with an explicit or-group,
+   `or=(content_type.is.null,content_type.not.in.(story,research,noise))`, and a new test added that
+   fails against the bare `not.in` form. Confirmed live: bare `not.in` returns 2812 reviewed rows,
+   the or-filter returns 2852 — exactly the 40 recovered.
+
+**Commands run (this session, this environment — `node_modules` is installed here, unlike the
+2026-07-18/21 entries):**
+- `npx tsc --noEmit` — clean, no output.
+- `npm run test` — 5 suites, all passing: 39 + 8 + 7 + 39 + 11 = 104 tests.
+- `npm run build` — succeeded, full route manifest emitted.
+- `npm run lint` — **still unrunnable**, unchanged and unrelated to this diff:
+  `eslint-plugin-react@7.37.5` crashes in `getReactVersionFromContext` under ESLint 10.8.0. Not
+  worked around, not silenced; recorded as a genuine gap.
+
+**Test wiring gap closed:** `tests/signals/quality.test.ts` existed but was not referenced by any
+npm script, so its 38 (now 39) assertions never ran in the gate. Added `test:signal-quality` and
+chained it into `npm run test`.
+
+**Human approval status:** built under Tyler's "Build all" instruction covering the four
+improvements identified in the preceding review. The two grant migrations were applied without a
+separate confirmation as corrections to defects introduced earlier in this same session, not as a
+discretionary security-posture change; both are reversible with a single GRANT and are flagged in
+the PR for review. No merge or deploy performed by this session; Tyler subsequently took PR #1218
+out of draft and enabled squash auto-merge himself, which is the Rule 3c sign-off.
+
+**Unrelated finding, not actioned:** the `hv-signal-analysis-every-30min` cron job stores a
+Supabase anon JWT inline in plaintext in its `cron.job.command`. Pre-existing, not introduced here,
+and not modified — flagged for a decision rather than changed unilaterally.
+
+---
+
 ## 2026-07-30 — Rebuild signal search on Pipeline B (PR #NNNN)
 
 **Context:** directed to wire the UI following the 2026-07-30 platform review. Four of the five
@@ -1911,3 +2005,63 @@ not by running this code.
 **Human approval status:** explicit go-ahead via the "Build it now (new RPC + retarget + UI box)"
 choice, after the paid-tier/dead-code tradeoff was surfaced and the alternative ("just document the
 gap") was offered.
+
+---
+
+## 2026-07-31 — PR #1218: merging `main` and reconciling Stage D with the new signal search
+
+**Trigger:** PR #1218 went `mergeable_state: dirty`. `main` had advanced by two commits —
+`bd5f4bb` (Rebuild signal search on Pipeline B, PR #1220) and `f170d37` (CI: URL-encode DB
+password).
+
+**Textual conflict:** `docs/control/EVIDENCE_LOG.md` only — both branches appended a new section at
+the end. Resolved by keeping both, in date order, with a separator. No content from either side was
+dropped.
+
+**Semantic conflict git could not see, found by reading the merged code:** PR #1220 added
+`app/api/signals/search/route.ts` and `api.search_public_signals`, whose own header states its
+filters "mirror `lib/signals/quality.ts` ... so search results obey the same surfacing rules as the
+rest of the site." PR #1218 then removed `story`/`research`/`noise` from the Signals feed. The two
+landed within hours of each other, so neither knew about the other, and merging them as-is would
+have shipped a search over `/dashboard/signals/search` returning rows that do not appear in the feed
+being searched — including `noise`, which `routeContentType` routes to no surface at all.
+
+Reconciled in both search paths (semantic RPC and keyword fallback), so the two modes cannot drift:
+- `noise` excluded unconditionally — there is no caller for whom returning it is correct. Verified:
+  an explicit `p_content_type = 'noise'` now returns 0 rows.
+- `story`/`research` excluded by default to match the feed, but still returned on an explicit
+  `p_content_type`, preserving deliberate cross-surface search.
+- NULL `content_type` retained, spelled out explicitly in both paths — the same `NULL NOT IN (...)`
+  trap documented in the previous entry.
+
+**Live verification of the new predicate** (`zvxdgdkukjrrwamdpqrg`, embedded+reviewed+surfaceable
+cohort): default returns **3089** rows, excluding **582** story/research and **1** noise; explicit
+`story` returns **208**; explicit `noise` returns **0**.
+
+**Migration:** `20260731013000_search_public_signals_stage_d_consistency.sql`, applied live.
+
+**Commands run after the merge:**
+- `npx tsc --noEmit` — clean.
+- `npm run test` — 104 passing across 5 suites.
+- `npm run build` — succeeded.
+- `npm run lint` — still unrunnable, same pre-existing `eslint-plugin-react` / ESLint 10 crash.
+
+**Pipeline health at this check-in** (baseline in parentheses, 12:20 UTC):
+- classify backlog **41** (2441) — 98% drained
+- `reviewed_total` **3725** (3147)
+- unharvested classify jobs returning 4xx/5xx: **none** — the 401 that broke this stage for eight
+  days has not recurred
+- classifier v2 now **2282 rows at 69.2% judged signal**, against v1's 10,142 at 55.4%. Holding in
+  the expected 65–70% band, so the shipped recall gain is real at scale and not a small-sample
+  artifact. No regression, no rollback needed.
+- `hv_pipeline_alerts()` — **zero breaching assertions**
+- cron failures in the last 2h: **0**
+
+**Observation, not actioned:** only 2 new signals were created in the preceding 24h. The pipeline is
+healthy and the backlog is nearly drained, so throughput is now bounded by *ingestion* volume rather
+than by classification. That is a different problem from the one this PR addressed and is left open
+rather than folded into it.
+
+**Human approval status:** Tyler took PR #1218 out of draft and enabled squash auto-merge himself —
+the Rule 3c sign-off. This merge-and-reconcile pass was performed to make that auto-merge able to
+proceed, which it could not while the PR was conflicted.
