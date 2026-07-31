@@ -272,8 +272,7 @@ const BRIEFING_ROLE_MODULES: Record<string, Array<{ page: CommandPage; icon: str
     { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Formulary, scheduling, and dispensing rule updates' },
   ],
   'Budtender':   [
-    { page: 'education',      icon: '⊞', label: 'Education',          why: 'Product knowledge, terpene profiles, and patient advisory' },
-    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Retail sales rules and age-verification requirements' },
+        { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Retail sales rules and age-verification requirements' },
     { page: 'marketplace',    icon: '◈', label: 'Marketplace',        why: 'Available SKUs, new listings, and product mix' },
   ],
   'Cultivator':  [
