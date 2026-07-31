@@ -1,5 +1,7 @@
 /**
  * Load soft ranking boosts from signal_relevance_feedback.
+ * Uses service role so aggregates include all operators — user-scoped
+ * RLS only returns the caller's own rows and would under-weight the loop.
  * Fails open (empty map) so a missing table never breaks the digest.
  */
 
@@ -7,13 +9,8 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-/**
- * Returns Map<signalId, score> using the same weights as
- * public.signal_feedback_score() — implemented client-side so we can
- * batch over many IDs without N RPCs.
- */
 export async function loadFeedbackScores(
-  supabase: SupabaseClient,
+  _userClient: SupabaseClient,
   signalIds: string[],
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>()
@@ -23,7 +20,15 @@ export async function loadFeedbackScores(
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString()
 
   try {
-    const { data, error } = await supabase
+    let client: SupabaseClient = _userClient
+    try {
+      const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
+      client = await createSupabaseServiceClient()
+    } catch {
+      /* fall back to caller client */
+    }
+
+    const { data, error } = await client
       .from('signal_relevance_feedback')
       .select('signal_id, verdict')
       .in('signal_id', unique)
@@ -31,7 +36,10 @@ export async function loadFeedbackScores(
 
     if (error || !data) return out
 
-    const tallies = new Map<string, { helpful: number; not_helpful: number; stale: number; wrong_country: number }>()
+    const tallies = new Map<
+      string,
+      { helpful: number; not_helpful: number; stale: number; wrong_country: number }
+    >()
     for (const row of data) {
       const id = typeof row.signal_id === 'string' ? row.signal_id : ''
       if (!id) continue
