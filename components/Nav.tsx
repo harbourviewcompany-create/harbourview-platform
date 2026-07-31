@@ -31,6 +31,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Exchange',
     items: [
+      { label: 'Supply Catalog', href: '/supply' },
       { label: 'Exchange Home', href: '/dashboard?page=marketplace' },
       { label: 'Reviewed Listings', href: '/dashboard?page=marketplace' },
       { label: 'Deal Rooms', href: '/marketplace/deals' },
@@ -64,6 +65,7 @@ const navLinks: NavItem[] = [
 ]
 
 const mobileNavLinks: NavItem[] = [
+  { label: 'Supply Catalog', href: '/supply' },
   { label: 'Marketplace', href: '/dashboard?page=marketplace' },
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Intelligence', href: '/dashboard?page=signals' },
