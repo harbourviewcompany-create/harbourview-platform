@@ -27,23 +27,29 @@ function withLegacyRuleContext(rule) {
   }
 }
 
+const compatiblePluginCache = new WeakMap()
+
+function withCompatiblePlugin(plugin) {
+  if (!plugin?.rules || typeof plugin !== 'object') return plugin
+  const cached = compatiblePluginCache.get(plugin)
+  if (cached) return cached
+
+  const compatiblePlugin = {
+    ...plugin,
+    rules: Object.fromEntries(
+      Object.entries(plugin.rules).map(([ruleName, rule]) => [ruleName, withLegacyRuleContext(rule)]),
+    ),
+  }
+  compatiblePluginCache.set(plugin, compatiblePlugin)
+  return compatiblePlugin
+}
+
 function withCompatiblePlugins(configs) {
   return configs.map((config) => {
     if (!config.plugins) return config
 
     const plugins = Object.fromEntries(
-      Object.entries(config.plugins).map(([pluginName, plugin]) => {
-        if (!plugin?.rules) return [pluginName, plugin]
-        return [
-          pluginName,
-          {
-            ...plugin,
-            rules: Object.fromEntries(
-              Object.entries(plugin.rules).map(([ruleName, rule]) => [ruleName, withLegacyRuleContext(rule)]),
-            ),
-          },
-        ]
-      }),
+      Object.entries(config.plugins).map(([pluginName, plugin]) => [pluginName, withCompatiblePlugin(plugin)]),
     )
 
     return { ...config, plugins }
