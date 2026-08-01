@@ -1,4 +1,4 @@
-name: PR 1230 Temporary Lint and Audit
+name: PR 1230 Temporary Lint Audit and E2E
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'lib/signals/feedbackScores.ts'
+      - 'scripts/audit-edge-functions.js'
       - '.github/workflows/pr1230-temporary-lint-audit.yml'
   workflow_dispatch:
 
@@ -42,7 +43,7 @@ jobs:
           retention-days: 14
 
   audit:
-    name: Dependency audit
+    name: Production dependency audit
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -55,11 +56,54 @@ jobs:
         run: npm audit --json > npm-audit.json || true
       - name: Production-only audit JSON
         run: npm audit --omit=dev --json > npm-audit-production.json || true
+      - name: Require zero production vulnerabilities
+        run: |
+          node - <<'NODE'
+          const report = require('./npm-audit-production.json')
+          const vulnerabilities = report.metadata?.vulnerabilities ?? {}
+          const total = Number(vulnerabilities.total ?? 0)
+          console.log(JSON.stringify(vulnerabilities, null, 2))
+          if (total !== 0) process.exit(1)
+          NODE
       - name: Upload audit reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: npm-audit-reports
           path: |
             npm-audit.json
             npm-audit-production.json
+          retention-days: 14
+
+  e2e:
+    name: Playwright Chromium local
+    runs-on: ubuntu-24.04
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install matching Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify Chromium installation
+        run: npx playwright install --list
+      - name: Run Playwright E2E
+        run: npm run test:e2e
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-local-e2e
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: warn
           retention-days: 14
