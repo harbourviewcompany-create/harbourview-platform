@@ -1,6 +1,6 @@
 name: PR 1230 Temporary Lint Audit and E2E
 
-# Verification-only workflow for the isolated repair branch after lock reconciliation.
+# Verification-only workflow for the isolated repair branch after final lock reconciliation.
 on:
   pull_request:
     branches: [main]
