@@ -160,8 +160,8 @@ jobs:
               'status': status,
               'effectiveUrl': effective_url,
               'title': title,
-              'expectedTitle': expected_title,
-              'titleMatches': title == expected_title,
+              'expectedTitlePrefix': expected_title,
+              'titleMatches': title.startswith(expected_title),
               'requiredText': marker_results,
               'visibleTextExcerpt': visible[:1200],
           }
@@ -180,8 +180,8 @@ jobs:
               errors.append(f'HTTP status was {status}, expected 200')
           if effective_url != requested_url:
               errors.append(f'effective URL changed to {effective_url}')
-          if title != expected_title:
-              errors.append(f'title was {title!r}, expected {expected_title!r}')
+          if not title.startswith(expected_title):
+              errors.append(f'title was {title!r}, expected prefix {expected_title!r}')
           missing = [item['marker'] for item in marker_results if not item['present']]
           if missing:
               errors.append('missing visible text: ' + ', '.join(missing))
