@@ -104,11 +104,128 @@ jobs:
           node scripts/capture-pr1222-supply.mjs
           rm scripts/capture-pr1222-supply.mjs
 
+      - name: Verify exact protected Vercel routes
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          VERCEL_IMMUTABLE_BASE_URL: https://harbourview-7gq72hysc-harbourview.vercel.app
+        run: |
+          mkdir -p verification-results/pr1222-vercel
+          cat > scripts/verify-pr1222-vercel-routes.mjs <<'EOF'
+          import fs from 'node:fs/promises'
+
+          const base = process.env.VERCEL_IMMUTABLE_BASE_URL
+          const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          if (!base) throw new Error('VERCEL_IMMUTABLE_BASE_URL is required')
+          if (!bypass) throw new Error('VERCEL_AUTOMATION_BYPASS_SECRET is required')
+
+          const routes = [
+            {
+              path: '/supply',
+              expectedTitle: 'Supply Catalog | Harbourview',
+              requiredText: ['Harbourview Supply', 'Browse the catalog', 'Request a Quote'],
+            },
+            {
+              path: '/supply/cr-mylar-pouch-3-5g-matte-black',
+              expectedTitle: 'Child-Resistant Mylar Pouch, 3.5g, Matte Black | Harbourview Supply',
+              requiredText: ['Harbourview Supply', 'Child-Resistant Mylar Pouch, 3.5g, Matte Black', 'Commercial review'],
+            },
+          ]
+
+          const decode = (value) => value
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+
+          const visibleText = (html) => decode(html
+            .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim())
+
+          const results = []
+          for (const route of routes) {
+            const requestedUrl = `${base}${route.path}`
+            const response = await fetch(requestedUrl, {
+              redirect: 'follow',
+              headers: {
+                'x-vercel-protection-bypass': bypass,
+                'x-vercel-set-bypass-cookie': 'true',
+                'user-agent': 'Harbourview-PR1222-Verification/1.0',
+              },
+            })
+            const html = await response.text()
+            const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+            const title = titleMatch ? decode(titleMatch[1].replace(/\s+/g, ' ').trim()) : ''
+            const text = visibleText(html)
+            const requiredText = route.requiredText.map((marker) => ({ marker, present: text.includes(marker) }))
+            const result = {
+              requestedUrl,
+              status: response.status,
+              finalUrl: response.url,
+              title,
+              expectedTitle: route.expectedTitle,
+              titleMatches: title === route.expectedTitle,
+              requiredText,
+              visibleTextExcerpt: text.slice(0, 1200),
+            }
+            results.push(result)
+
+            if (response.status !== 200) throw new Error(`${requestedUrl} returned ${response.status}; final URL ${response.url}`)
+            if (response.url.includes('vercel.com/sso-api')) throw new Error(`${requestedUrl} remained behind Vercel SSO`)
+            if (title !== route.expectedTitle) throw new Error(`${requestedUrl} title mismatch: ${JSON.stringify(title)}`)
+            const missing = requiredText.filter((item) => !item.present).map((item) => item.marker)
+            if (missing.length) throw new Error(`${requestedUrl} missing visible text: ${missing.join(', ')}`)
+          }
+
+          const output = {
+            verifiedAt: new Date().toISOString(),
+            deploymentBaseUrl: base,
+            githubSha: process.env.GITHUB_SHA,
+            routes: results,
+          }
+          await fs.writeFile('verification-results/pr1222-vercel/route-verification.json', JSON.stringify(output, null, 2))
+          await fs.writeFile(
+            'verification-results/pr1222-vercel/route-verification.md',
+            [
+              '# PR #1222 protected Vercel route verification',
+              '',
+              `- Verified at: ${output.verifiedAt}`,
+              `- Workflow SHA: ${output.githubSha}`,
+              `- Immutable deployment: ${base}`,
+              '',
+              ...results.flatMap((result) => [
+                `## ${new URL(result.requestedUrl).pathname}`,
+                '',
+                `- HTTP status: ${result.status}`,
+                `- Effective URL: ${result.finalUrl}`,
+                `- Page title: ${result.title}`,
+                `- Required visible text: ${result.requiredText.map((item) => `${item.marker}=${item.present ? 'present' : 'missing'}`).join('; ')}`,
+                '',
+              ]),
+            ].join('\n'),
+          )
+          console.log(JSON.stringify(output, null, 2))
+          EOF
+          node scripts/verify-pr1222-vercel-routes.mjs
+          rm scripts/verify-pr1222-vercel-routes.mjs
+
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pr1222-supply-responsive-screenshots
           path: verification-results/pr1222-supply/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload protected-route evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr1222-vercel-protected-route-verification
+          path: verification-results/pr1222-vercel/
           if-no-files-found: error
           retention-days: 30
